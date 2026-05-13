@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 from typing import Any
 from urllib.parse import urljoin
 
@@ -11,10 +12,13 @@ from logfire.version import VERSION
 
 from .auth import UserToken, UserTokenCollection
 from .server_response import ServerResponseCallback, install_logfire_response_hook
-from .telemetry_header import TELEMETRY_HEADER_NAME, build_telemetry_header
 from .utils import UnexpectedResponse
 
-UA_HEADER = f'logfire/{VERSION}'
+UA_HEADER = (
+    f'logfire-sdk-python/{VERSION} '
+    f'({platform.python_implementation()} {platform.python_version()}, '
+    f'os {platform.platform()}, arch {platform.machine()})'
+)
 
 
 class ProjectAlreadyExists(Exception):
@@ -49,7 +53,6 @@ class LogfireClient:
             {
                 'Authorization': self._token,
                 'User-Agent': UA_HEADER,
-                TELEMETRY_HEADER_NAME: build_telemetry_header(),
             }
         )
         install_logfire_response_hook(self._session, server_response_hook)

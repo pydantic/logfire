@@ -8,6 +8,7 @@ import requests
 import requests_mock
 
 import logfire
+from logfire._internal.client import UA_HEADER
 from logfire._internal.config import GLOBAL_CONFIG, LogfireCredentials
 from logfire._internal.telemetry_header import TELEMETRY_HEADER_NAME, build_telemetry_header
 from logfire.version import VERSION
@@ -17,18 +18,14 @@ def _parse_header(value: str) -> dict[str, Any]:
     return json.loads(value)
 
 
-def test_build_telemetry_header_without_config():
-    pairs = _parse_header(build_telemetry_header())
-    assert pairs['sdk_version'] == VERSION
-    assert pairs['sdk_language'] == 'python'
-    assert pairs['python_version']
-    assert pairs['implementation']
-    assert pairs['os']
+def test_build_telemetry_header_without_config_is_none():
+    assert build_telemetry_header() is None
 
 
 def test_build_telemetry_header_with_config():
-    pairs = _parse_header(build_telemetry_header(GLOBAL_CONFIG))
-    assert pairs['sdk_version'] == VERSION
+    header = build_telemetry_header(GLOBAL_CONFIG)
+    assert header is not None
+    pairs = _parse_header(header)
     for key in ('code_source_set', 'variables_set', 'token_count'):
         assert key in pairs
 
@@ -47,11 +44,18 @@ def test_telemetry_header_excludes_secrets():
         )
     try:
         header = build_telemetry_header(GLOBAL_CONFIG)
+        assert header is not None
         for secret in secrets:
             assert secret not in header
     finally:
         # Reset to the default test config.
         logfire.configure(send_to_logfire=False, console=False)
+
+
+def test_user_agent_carries_sdk_identity():
+    assert UA_HEADER.startswith(f'logfire-sdk-python/{VERSION} (')
+    assert 'os ' in UA_HEADER
+    assert 'arch ' in UA_HEADER
 
 
 def test_otlp_export_sends_telemetry_header():
@@ -81,9 +85,11 @@ def test_otlp_export_sends_telemetry_header():
     assert any(TELEMETRY_HEADER_NAME in headers for headers in captured)
     [headers] = [headers for headers in captured if TELEMETRY_HEADER_NAME in headers]
     pairs = _parse_header(headers[TELEMETRY_HEADER_NAME])
-    assert pairs['sdk_version'] == VERSION
     assert pairs['token_count'] == 1
     assert 'abc1' not in headers[TELEMETRY_HEADER_NAME]
+    # SDK identity travels on User-Agent, not the telemetry header.
+    assert 'sdk_version' not in pairs
+    assert headers['User-Agent'].startswith(f'logfire-sdk-python/{VERSION}')
     # The header must advertise the same `service.instance.id` carried by OTLP
     # resource attributes so the backend can correlate the two.
     resource = GLOBAL_CONFIG.get_tracer_provider().resource
@@ -98,7 +104,7 @@ def test_from_token_sends_telemetry_header():
         )
         session = requests.Session()
         LogfireCredentials.from_token(
-            'pylf_v1_us_xxx', session, 'https://logfire-us.pydantic.dev', telemetry_header='{"sdk_version":"1.2.3"}'
+            'pylf_v1_us_xxx', session, 'https://logfire-us.pydantic.dev', telemetry_header='{"token_count":1}'
         )
         [history] = m.request_history
-        assert history.headers[TELEMETRY_HEADER_NAME] == '{"sdk_version":"1.2.3"}'
+        assert history.headers[TELEMETRY_HEADER_NAME] == '{"token_count":1}'

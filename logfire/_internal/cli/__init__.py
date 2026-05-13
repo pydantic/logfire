@@ -22,11 +22,10 @@ from logfire.propagate import ContextCarrier, get_context
 
 from ...version import VERSION
 from ..auth import HOME_LOGFIRE
-from ..client import LogfireClient
+from ..client import UA_HEADER, LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..server_response import install_logfire_response_hook
-from ..telemetry_header import TELEMETRY_HEADER_NAME, build_telemetry_header
 from ..tracer import SDKTracerProvider
 from .auth import parse_auth, parse_logout
 from .prompt import parse_prompt
@@ -449,7 +448,7 @@ def _main(args: list[str] | None = None) -> None:
             context = get_context()
             session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
             session.headers.update(context)
-            session.headers[TELEMETRY_HEADER_NAME] = build_telemetry_header()
+            session.headers['User-Agent'] = UA_HEADER
             install_logfire_response_hook(session)
             namespace._session = session
             namespace.func(namespace)

@@ -71,7 +71,7 @@ from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
-from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
+from .client import UA_HEADER, InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     ATTRIBUTES_CONFIG,
@@ -132,7 +132,7 @@ if TYPE_CHECKING:
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
-COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
+COMMON_REQUEST_HEADERS = {'User-Agent': UA_HEADER}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 
@@ -1181,11 +1181,12 @@ class LogfireConfig(_LogfireConfigData):
                     telemetry_header_value = build_telemetry_header(self)
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
-                        headers = {
-                            'User-Agent': f'logfire/{VERSION}',
+                        headers: dict[str, str] = {
+                            'User-Agent': UA_HEADER,
                             'Authorization': token,
-                            TELEMETRY_HEADER_NAME: telemetry_header_value,
                         }
+                        if telemetry_header_value is not None:
+                            headers[TELEMETRY_HEADER_NAME] = telemetry_header_value
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(

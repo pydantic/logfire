@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
 from typing_extensions import Self
 
+from logfire._internal.client import UA_HEADER
 from logfire._internal.config import get_base_url_from_token
-from logfire._internal.telemetry_header import TELEMETRY_HEADER_NAME, build_telemetry_header
 
 try:
     from httpx import AsyncClient, Client, Response, Timeout
@@ -95,7 +95,7 @@ class _BaseLogfireQueryClient(Generic[T]):
         self.timeout = timeout
         headers = client_kwargs.pop('headers', {})
         headers['authorization'] = read_token
-        headers[TELEMETRY_HEADER_NAME] = build_telemetry_header()
+        headers['user-agent'] = UA_HEADER
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
     def _build_query_params(
