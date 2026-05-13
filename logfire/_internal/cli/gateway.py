@@ -334,7 +334,7 @@ async def _authorize_and_serve(
             config = deps.uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning', access_log=False)
             server = deps.uvicorn.Server(config)
             server_task = asyncio.create_task(server.serve())
-            for _ in range(100):
+            for _ in range(100):  # pragma: no branch
                 if server.started or server_task.done():  # pragma: no branch
                     break
                 await asyncio.sleep(0.05)
