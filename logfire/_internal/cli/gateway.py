@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import contextlib
 import html
-import importlib
 import json
 import os
 import secrets
@@ -33,48 +32,25 @@ from .ai_tools import (
 )
 from .gateway_auth import GATEWAY_CIMD_PATH, CimdOAuthClient, GatewayAuth, OAuthSession, discover_oauth_metadata
 
+try:
+    import httpx
+    import uvicorn
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse, Response, StreamingResponse
+    from starlette.routing import Route
+except ImportError as exc:
+    raise ImportError(
+        'The `logfire gateway` command requires extra dependencies. Install them with:\n'
+        '  pip install "logfire[gateway]"\n'
+        'or, if using uv:\n'
+        '  uv add "logfire[gateway]"'
+    ) from exc
+
 DEFAULT_PORT = 11465
 DEFAULT_SCOPE = 'project:gateway_proxy'
 OAUTH_CALLBACK_PATH = '/callback'
 
 console = Console(stderr=True)
-
-
-@dataclass(frozen=True)
-class GatewayDeps:
-    httpx: Any
-    uvicorn: Any
-    Starlette: Any
-    Route: Any
-    Response: Any
-    JSONResponse: Any
-    StreamingResponse: Any
-
-
-def load_gateway_deps() -> GatewayDeps:
-    """Load optional proxy dependencies, raising a user-facing error if absent."""
-    try:
-        httpx = importlib.import_module('httpx')
-        uvicorn = importlib.import_module('uvicorn')
-        starlette_applications = importlib.import_module('starlette.applications')
-        starlette_responses = importlib.import_module('starlette.responses')
-        starlette_routing = importlib.import_module('starlette.routing')
-    except ImportError as exc:
-        raise LogfireConfigError(
-            'The `logfire gateway` command requires extra dependencies. Install them with:\n'
-            '  pip install "logfire[gateway]"\n'
-            'or, if using uv:\n'
-            '  uv add "logfire[gateway]"'
-        ) from exc
-    return GatewayDeps(
-        httpx=httpx,
-        uvicorn=uvicorn,
-        Starlette=starlette_applications.Starlette,
-        Route=starlette_routing.Route,
-        Response=starlette_responses.Response,
-        JSONResponse=starlette_responses.JSONResponse,
-        StreamingResponse=starlette_responses.StreamingResponse,
-    )
 
 
 @dataclass(frozen=True)
@@ -142,9 +118,8 @@ def filter_headers(headers: dict[str, str], *, direction: str) -> list[tuple[str
 
 @dataclass
 class ProxyState:
-    deps: GatewayDeps
     auth: GatewayAuth
-    client: Any
+    client: httpx.AsyncClient
     gateway: str
     region: str
     local_token: str
@@ -207,12 +182,11 @@ async def _gateway_stream(
 
 async def _handle_proxy(request: Any) -> Any:
     state: ProxyState = request.app.state.logfire_gateway
-    deps = state.deps
     path = request.url.path
     if not path.startswith('/proxy/'):
-        return deps.JSONResponse({'error': 'no route', 'path': path}, status_code=404)
+        return JSONResponse({'error': 'no route', 'path': path}, status_code=404)
     if not _local_request_authorized(request.headers, state.local_token):
-        return deps.JSONResponse({'error': 'unauthorized'}, status_code=401)
+        return JSONResponse({'error': 'unauthorized'}, status_code=401)
     body = await request.body()
     upstream_url = f'{state.gateway.rstrip("/")}{path}'
     if request.url.query:
@@ -229,7 +203,7 @@ async def _handle_proxy(request: Any) -> Any:
             finally:
                 await upstream_response.aclose()
 
-        return deps.StreamingResponse(
+        return StreamingResponse(
             body_iter(),
             status_code=upstream_response.status_code,
             headers=dict(filter_headers(dict(upstream_response.headers), direction='response')),
@@ -239,7 +213,7 @@ async def _handle_proxy(request: Any) -> Any:
     status, response_headers, response_body, content_type = await _gateway_request(
         state, request.method, upstream_url, headers, body
     )
-    return deps.Response(
+    return Response(
         content=response_body,
         status_code=status,
         headers=dict(filter_headers(dict(response_headers), direction='response')),
@@ -263,7 +237,7 @@ async def _handle_oauth_callback(request: Any) -> Any:
         code=params.get('code'),
         state=params.get('state'),
     )
-    return state.deps.Response(
+    return Response(
         _oauth_done_html(result.title, result.body),
         status_code=result.status_code,
         media_type='text/html',
@@ -271,16 +245,16 @@ async def _handle_oauth_callback(request: Any) -> Any:
 
 
 async def _handle_favicon(request: Any) -> Any:
-    return request.app.state.logfire_gateway.deps.Response(status_code=204)
+    return Response(status_code=204)
 
 
-def build_app(deps: GatewayDeps, state: ProxyState) -> Any:
-    app = deps.Starlette(
+def build_app(state: ProxyState) -> Any:
+    app = Starlette(
         routes=[
-            deps.Route(OAUTH_CALLBACK_PATH, _handle_oauth_callback, methods=['GET']),
-            deps.Route('/_logfire_gateway/oauth/callback', _handle_oauth_callback, methods=['GET']),
-            deps.Route('/favicon.ico', _handle_favicon, methods=['GET']),
-            deps.Route('/{path:path}', _handle_proxy, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
+            Route(OAUTH_CALLBACK_PATH, _handle_oauth_callback, methods=['GET']),
+            Route('/_logfire_gateway/oauth/callback', _handle_oauth_callback, methods=['GET']),
+            Route('/favicon.ico', _handle_favicon, methods=['GET']),
+            Route('/{path:path}', _handle_proxy, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
         ]
     )
     app.state.logfire_gateway = state
@@ -312,27 +286,26 @@ def _gateway_cimd_client_id(base_url: str) -> str:
 
 @asynccontextmanager
 async def _authorize_and_serve(
-    *, deps: GatewayDeps, region: str, backend: str, gateway: str, client_id: str, scope: str, port: int, flow: str
+    *, region: str, backend: str, gateway: str, client_id: str, scope: str, port: int, flow: str
 ) -> AsyncGenerator[tuple[ProxyState, str], None]:
     redirect_uri = _oauth_redirect_uri(port)
     resource = f'{gateway.rstrip("/")}/proxy'
-    async with deps.httpx.AsyncClient(timeout=30.0) as control_client:
+    async with httpx.AsyncClient(timeout=30.0) as control_client:
         metadata = await discover_oauth_metadata(control_client, backend)
         client = CimdOAuthClient(control_client, metadata, client_id=client_id)
         session = OAuthSession(client, metadata, resource=resource, scope=scope)
         auth = GatewayAuth(session, redirect_uri=redirect_uri, flow=flow)
-        async with deps.httpx.AsyncClient(timeout=180.0) as upstream_client:
+        async with httpx.AsyncClient(timeout=180.0) as upstream_client:
             state = ProxyState(
-                deps=deps,
                 auth=auth,
                 client=upstream_client,
                 gateway=gateway.rstrip('/'),
                 region=region,
                 local_token=secrets.token_urlsafe(32),
             )
-            app = build_app(deps, state)
-            config = deps.uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning', access_log=False)
-            server = deps.uvicorn.Server(config)
+            app = build_app(state)
+            config = uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning', access_log=False)
+            server = uvicorn.Server(config)
             server_task = asyncio.create_task(server.serve())
             for _ in range(100):  # pragma: no branch
                 if server.started or server_task.done():  # pragma: no branch
@@ -454,12 +427,10 @@ def _run_launch(raw: list[str], context: GatewayCommandContext) -> int:
     if integration.binary_path() is None:
         console.print(f'[red]error:[/] {integration.display_name} binary {integration.binary!r} was not found on PATH.')
         return 127
-    deps = load_gateway_deps()
     region, backend, gateway, client_id = _gateway_urls(args)
     port = _pick_port(args.port)
     return asyncio.run(
         _launch_async(
-            deps=deps,
             integration=integration,
             extra=extra,
             region=region,
@@ -476,7 +447,6 @@ def _run_launch(raw: list[str], context: GatewayCommandContext) -> int:
 
 async def _launch_async(
     *,
-    deps: GatewayDeps,
     integration: AiToolIntegration,
     extra: list[str],
     region: str,
@@ -492,7 +462,6 @@ async def _launch_async(
     if binary is None:
         return 127
     async with _authorize_and_serve(
-        deps=deps,
         region=region,
         backend=backend,
         gateway=gateway,
@@ -518,11 +487,9 @@ async def _launch_async(
 
 
 async def _run_serve_async(args: argparse.Namespace) -> int:
-    deps = load_gateway_deps()
     region, backend, gateway, client_id = _gateway_urls(args)
     port = _pick_port(args.port)
     async with _authorize_and_serve(
-        deps=deps,
         region=region,
         backend=backend,
         gateway=gateway,

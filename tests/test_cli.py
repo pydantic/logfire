@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import gzip
+import importlib
 import io
 import json
 import os
@@ -22,6 +23,7 @@ from typing import Any, cast
 from unittest.mock import Mock, call, patch
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 import pytest
 import requests
 import requests_mock
@@ -1777,40 +1779,20 @@ def test_gateway_cli_adapter_exits_for_serve(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_gateway_optional_dependency_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def missing_dependency(name: str) -> types.ModuleType:
-        raise ImportError(name)
+    real_import = __import__
 
-    monkeypatch.setattr(gateway_cli.importlib, 'import_module', missing_dependency)
+    def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'httpx' or name.startswith('starlette') or name == 'uvicorn':
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
 
-    with pytest.raises(LogfireConfigError, match=r'pip install "logfire\[gateway\]"'):
-        gateway_cli.load_gateway_deps()
+    monkeypatch.setattr('builtins.__import__', fake_import)
+    sys.modules.pop('logfire._internal.cli.gateway', None)
 
+    with pytest.raises(ImportError, match=r'pip install "logfire\[gateway\]"'):
+        importlib.import_module('logfire._internal.cli.gateway')
 
-def test_gateway_optional_dependencies_load(monkeypatch: pytest.MonkeyPatch) -> None:
-    modules = {
-        'httpx': types.SimpleNamespace(),
-        'uvicorn': types.SimpleNamespace(),
-        'starlette.applications': types.SimpleNamespace(Starlette='Starlette'),
-        'starlette.responses': types.SimpleNamespace(
-            Response='Response', JSONResponse='JSONResponse', StreamingResponse='StreamingResponse'
-        ),
-        'starlette.routing': types.SimpleNamespace(Route='Route'),
-    }
-
-    def import_module(name: str) -> Any:
-        return modules[name]
-
-    monkeypatch.setattr(gateway_cli.importlib, 'import_module', import_module)
-
-    deps = gateway_cli.load_gateway_deps()
-
-    assert deps.httpx is modules['httpx']
-    assert deps.uvicorn is modules['uvicorn']
-    assert deps.Starlette == 'Starlette'
-    assert deps.Route == 'Route'
-    assert deps.Response == 'Response'
-    assert deps.JSONResponse == 'JSONResponse'
-    assert deps.StreamingResponse == 'StreamingResponse'
+    sys.modules.pop('logfire._internal.cli.gateway', None)
 
 
 def test_ai_tool_opencode_gateway_launch_config(tmp_path: Path) -> None:
@@ -2067,7 +2049,9 @@ def test_gateway_parse_serve_args() -> None:
     assert args.logfire_url == 'https://backend.example/'
 
 
-def test_gateway_handle_proxy_rejects_unknown_route_and_unauthorized_request() -> None:
+def test_gateway_handle_proxy_rejects_unknown_route_and_unauthorized_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     handle_proxy = cast(Callable[[Any], Coroutine[Any, Any, Any]], getattr(gateway_cli, '_handle_proxy'))
 
     class CapturedJSONResponse:
@@ -2075,18 +2059,9 @@ def test_gateway_handle_proxy_rejects_unknown_route_and_unauthorized_request() -
             self.content = content
             self.status_code = status_code
 
-    deps = gateway_cli.GatewayDeps(
-        httpx=Mock(),
-        uvicorn=Mock(),
-        Starlette=Mock(),
-        Route=Mock(),
-        Response=Mock(),
-        JSONResponse=CapturedJSONResponse,
-        StreamingResponse=Mock(),
-    )
+    monkeypatch.setattr(gateway_cli, 'JSONResponse', CapturedJSONResponse)
     state = gateway_cli.ProxyState(
-        deps=deps,
-        auth=cast(gateway_auth.GatewayAuth, Mock()),
+        auth=Mock(),
         client=Mock(),
         gateway='https://gateway.example.com',
         region='us',
@@ -2114,7 +2089,7 @@ def test_gateway_handle_proxy_rejects_unknown_route_and_unauthorized_request() -
     assert response.content == {'error': 'unauthorized'}
 
 
-def test_gateway_handle_proxy_forwards_non_streaming_request() -> None:
+def test_gateway_handle_proxy_forwards_non_streaming_request(monkeypatch: pytest.MonkeyPatch) -> None:
     handle_proxy = cast(Callable[[Any], Coroutine[Any, Any, Any]], getattr(gateway_cli, '_handle_proxy'))
 
     class CapturedResponse:
@@ -2126,18 +2101,9 @@ def test_gateway_handle_proxy_forwards_non_streaming_request() -> None:
             self.headers = headers
             self.media_type = media_type
 
-    deps = gateway_cli.GatewayDeps(
-        httpx=Mock(),
-        uvicorn=Mock(),
-        Starlette=Mock(),
-        Route=Mock(),
-        Response=CapturedResponse,
-        JSONResponse=Mock(),
-        StreamingResponse=Mock(),
-    )
+    monkeypatch.setattr(gateway_cli, 'Response', CapturedResponse)
     state = gateway_cli.ProxyState(
-        deps=deps,
-        auth=cast(gateway_auth.GatewayAuth, Mock()),
+        auth=Mock(),
         client=Mock(),
         gateway='https://gateway.example.com/',
         region='us',
@@ -2182,7 +2148,7 @@ def test_gateway_handle_proxy_forwards_non_streaming_request() -> None:
     assert response.media_type == 'application/json'
 
 
-def test_gateway_oauth_callback_and_favicon_handlers() -> None:
+def test_gateway_oauth_callback_and_favicon_handlers(monkeypatch: pytest.MonkeyPatch) -> None:
     handle_oauth_callback = cast(
         Callable[[Any], Coroutine[Any, Any, Any]], getattr(gateway_cli, '_handle_oauth_callback')
     )
@@ -2194,29 +2160,19 @@ def test_gateway_oauth_callback_and_favicon_handlers() -> None:
             self.status_code = status_code
             self.media_type = media_type
 
-    class CapturedAuth:
-        def __init__(self) -> None:
-            self.calls: list[dict[str, str | None]] = []
+    calls: list[dict[str, str | None]] = []
 
-        def complete_browser_callback(
-            self, *, error: str | None, error_description: str | None, code: str | None, state: str | None
-        ) -> gateway_auth.OAuthCallbackResult:
-            self.calls.append({'error': error, 'error_description': error_description, 'code': code, 'state': state})
-            return gateway_auth.OAuthCallbackResult('Authorization failed', '<bad>', status_code=400)
+    def complete_browser_callback(
+        *, error: str | None, error_description: str | None, code: str | None, state: str | None
+    ) -> gateway_auth.OAuthCallbackResult:
+        calls.append({'error': error, 'error_description': error_description, 'code': code, 'state': state})
+        return gateway_auth.OAuthCallbackResult('Authorization failed', '<bad>', status_code=400)
 
-    auth = CapturedAuth()
-    deps = gateway_cli.GatewayDeps(
-        httpx=Mock(),
-        uvicorn=Mock(),
-        Starlette=Mock(),
-        Route=Mock(),
-        Response=CapturedResponse,
-        JSONResponse=Mock(),
-        StreamingResponse=Mock(),
-    )
+    auth = Mock(spec=gateway_auth.GatewayAuth)
+    auth.complete_browser_callback = complete_browser_callback
+    monkeypatch.setattr(gateway_cli, 'Response', CapturedResponse)
     state = gateway_cli.ProxyState(
-        deps=deps,
-        auth=cast(gateway_auth.GatewayAuth, auth),
+        auth=auth,
         client=Mock(),
         gateway='https://gateway.example.com',
         region='us',
@@ -2230,14 +2186,14 @@ def test_gateway_oauth_callback_and_favicon_handlers() -> None:
     response = asyncio.run(handle_oauth_callback(request))
     favicon = asyncio.run(handle_favicon(request))
 
-    assert auth.calls == [{'error': 'access_denied', 'error_description': 'nope', 'code': 'code', 'state': 'state'}]
+    assert calls == [{'error': 'access_denied', 'error_description': 'nope', 'code': 'code', 'state': 'state'}]
     assert response.status_code == 400
     assert response.media_type == 'text/html'
     assert '&lt;bad&gt;' in response.content
     assert favicon.status_code == 204
 
 
-def test_gateway_build_app_registers_routes() -> None:
+def test_gateway_build_app_registers_routes(monkeypatch: pytest.MonkeyPatch) -> None:
     class CapturedApp:
         def __init__(self, *, routes: list[Any]) -> None:
             self.routes = routes
@@ -2246,25 +2202,17 @@ def test_gateway_build_app_registers_routes() -> None:
     def route(path: str, endpoint: Any, *, methods: list[str]) -> tuple[str, Any, list[str]]:
         return path, endpoint, methods
 
-    deps = gateway_cli.GatewayDeps(
-        httpx=Mock(),
-        uvicorn=Mock(),
-        Starlette=CapturedApp,
-        Route=route,
-        Response=Mock(),
-        JSONResponse=Mock(),
-        StreamingResponse=Mock(),
-    )
+    monkeypatch.setattr(gateway_cli, 'Starlette', CapturedApp)
+    monkeypatch.setattr(gateway_cli, 'Route', route)
     state = gateway_cli.ProxyState(
-        deps=deps,
-        auth=cast(gateway_auth.GatewayAuth, Mock()),
+        auth=Mock(),
         client=Mock(),
         gateway='https://gateway.example.com',
         region='us',
         local_token='local-token',
     )
 
-    app = gateway_cli.build_app(deps, state)
+    app = gateway_cli.build_app(state)
 
     assert app.state.logfire_gateway is state
     assert [(path, methods) for path, _endpoint, methods in app.routes] == [
@@ -3047,15 +2995,16 @@ class MockGatewayResponse:
         return b'{}'
 
 
-class MockGatewayClient:
-    def __init__(self, responses: list[MockGatewayResponse]) -> None:
-        self.responses = responses
-        self.requests: list[dict[str, str]] = []
+def make_mock_request_client(responses: list[MockGatewayResponse], captured: list[dict[str, str]]) -> httpx.AsyncClient:
+    client = Mock(spec=httpx.AsyncClient)
 
-    async def request(self, _method: str, _url: str, *, headers: dict[str, str], content: bytes) -> MockGatewayResponse:
+    async def request(_method: str, _url: str, *, headers: dict[str, str], content: bytes) -> MockGatewayResponse:
         assert content == b'{}'
-        self.requests.append(headers)
-        return self.responses.pop(0)
+        captured.append(headers)
+        return responses.pop(0)
+
+    client.request = request
+    return client
 
 
 class MockGatewayStreamResponse:
@@ -3071,38 +3020,40 @@ class MockGatewayStreamResponse:
         yield b'data: done\n\n'
 
 
-class MockGatewayStreamingClient:
-    def __init__(self, responses: list[MockGatewayStreamResponse]) -> None:
-        self.responses = responses
-        self.requests: list[dict[str, str]] = []
+def make_mock_stream_client(
+    responses: list[MockGatewayStreamResponse], captured: list[dict[str, str]]
+) -> httpx.AsyncClient:
+    client = Mock(spec=httpx.AsyncClient)
 
-    def build_request(self, _method: str, _url: str, *, headers: dict[str, str], content: bytes) -> dict[str, Any]:
+    def build_request(_method: str, _url: str, *, headers: dict[str, str], content: bytes) -> dict[str, Any]:
         assert content == b'{"stream": true}'
         return {'headers': headers}
 
-    async def send(self, request: dict[str, Any], *, stream: bool) -> MockGatewayStreamResponse:
+    async def send(request: dict[str, Any], *, stream: bool) -> MockGatewayStreamResponse:
         assert stream is True
-        self.requests.append(cast(dict[str, str], request['headers']))
-        return self.responses.pop(0)
+        captured.append(cast(dict[str, str], request['headers']))
+        return responses.pop(0)
+
+    client.build_request = build_request
+    client.send = send
+    return client
 
 
-class MockGatewayAuth:
-    def __init__(self) -> None:
-        self.tokens = ['token-1', 'token-2', 'token-3']
-        self.recoveries: list[bool] = []
-        self.recovery_result = True
+def make_mock_gateway_auth(
+    tokens: list[str], recoveries: list[bool], recovery_result: bool = True
+) -> gateway_auth.GatewayAuth:
+    auth = Mock(spec=gateway_auth.GatewayAuth)
 
-    async def current_access_token(self) -> str:
-        return self.tokens.pop(0)
+    async def current_access_token() -> str:
+        return tokens.pop(0)
 
-    async def recover_after_rejection(self, *, use_reauth: bool) -> bool:
-        self.recoveries.append(use_reauth)
-        return self.recovery_result
+    async def recover_after_rejection(*, use_reauth: bool) -> bool:
+        recoveries.append(use_reauth)
+        return recovery_result
 
-    def complete_browser_callback(
-        self, *, error: str | None, error_description: str | None, code: str | None, state: str | None
-    ) -> Any:
-        raise AssertionError('callback handling is not used by gateway forwarding')
+    auth.current_access_token = current_access_token
+    auth.recover_after_rejection = recover_after_rejection
+    return auth
 
 
 def test_gateway_request_recovers_auth_rejections() -> None:
@@ -3112,11 +3063,14 @@ def test_gateway_request_recovers_auth_rejections() -> None:
         ],
         getattr(gateway_cli, '_gateway_request'),
     )
-    auth = MockGatewayAuth()
-    client = MockGatewayClient([MockGatewayResponse(401), MockGatewayResponse(401), MockGatewayResponse(200)])
+    recoveries: list[bool] = []
+    auth = make_mock_gateway_auth(['token-1', 'token-2', 'token-3'], recoveries)
+    captured: list[dict[str, str]] = []
+    client = make_mock_request_client(
+        [MockGatewayResponse(401), MockGatewayResponse(401), MockGatewayResponse(200)], captured
+    )
     state = gateway_cli.ProxyState(
-        deps=Mock(),
-        auth=cast(gateway_auth.GatewayAuth, auth),
+        auth=auth,
         client=client,
         gateway='https://gateway.example.com',
         region='us',
@@ -3128,8 +3082,8 @@ def test_gateway_request_recovers_auth_rejections() -> None:
     )
 
     assert (status, body, content_type) == (200, b'{}', 'application/json')
-    assert auth.recoveries == [False, True]
-    assert [request['Authorization'] for request in client.requests] == [
+    assert recoveries == [False, True]
+    assert [request['Authorization'] for request in captured] == [
         'Bearer token-1',
         'Bearer token-2',
         'Bearer token-3',
@@ -3143,12 +3097,12 @@ def test_gateway_request_stops_when_auth_recovery_fails() -> None:
         ],
         getattr(gateway_cli, '_gateway_request'),
     )
-    auth = MockGatewayAuth()
-    auth.recovery_result = False
-    client = MockGatewayClient([MockGatewayResponse(401)])
+    recoveries: list[bool] = []
+    auth = make_mock_gateway_auth(['token-1'], recoveries, recovery_result=False)
+    captured: list[dict[str, str]] = []
+    client = make_mock_request_client([MockGatewayResponse(401)], captured)
     state = gateway_cli.ProxyState(
-        deps=Mock(),
-        auth=cast(gateway_auth.GatewayAuth, auth),
+        auth=auth,
         client=client,
         gateway='https://gateway.example.com',
         region='us',
@@ -3160,8 +3114,8 @@ def test_gateway_request_stops_when_auth_recovery_fails() -> None:
     )
 
     assert status == 401
-    assert auth.recoveries == [False]
-    assert len(client.requests) == 1
+    assert recoveries == [False]
+    assert len(captured) == 1
 
 
 def test_gateway_stream_recovers_auth_rejections_and_closes_rejected_streams() -> None:
@@ -3169,14 +3123,15 @@ def test_gateway_stream_recovers_auth_rejections_and_closes_rejected_streams() -
         Callable[[gateway_cli.ProxyState, str, str, dict[str, str], bytes], Coroutine[Any, Any, Any]],
         getattr(gateway_cli, '_gateway_stream'),
     )
-    auth = MockGatewayAuth()
+    recoveries: list[bool] = []
+    auth = make_mock_gateway_auth(['token-1', 'token-2', 'token-3'], recoveries)
     first_response = MockGatewayStreamResponse(401)
     second_response = MockGatewayStreamResponse(401)
     final_response = MockGatewayStreamResponse(200)
-    client = MockGatewayStreamingClient([first_response, second_response, final_response])
+    captured: list[dict[str, str]] = []
+    client = make_mock_stream_client([first_response, second_response, final_response], captured)
     state = gateway_cli.ProxyState(
-        deps=Mock(),
-        auth=cast(gateway_auth.GatewayAuth, auth),
+        auth=auth,
         client=client,
         gateway='https://gateway.example.com',
         region='us',
@@ -3191,8 +3146,8 @@ def test_gateway_stream_recovers_auth_rejections_and_closes_rejected_streams() -
     assert first_response.closed
     assert second_response.closed
     assert not final_response.closed
-    assert auth.recoveries == [False, True]
-    assert [request['Authorization'] for request in client.requests] == [
+    assert recoveries == [False, True]
+    assert [request['Authorization'] for request in captured] == [
         'Bearer token-1',
         'Bearer token-2',
         'Bearer token-3',
@@ -3204,13 +3159,13 @@ def test_gateway_stream_stops_when_auth_recovery_fails() -> None:
         Callable[[gateway_cli.ProxyState, str, str, dict[str, str], bytes], Coroutine[Any, Any, Any]],
         getattr(gateway_cli, '_gateway_stream'),
     )
-    auth = MockGatewayAuth()
-    auth.recovery_result = False
+    recoveries: list[bool] = []
+    auth = make_mock_gateway_auth(['token-1'], recoveries, recovery_result=False)
     response = MockGatewayStreamResponse(401)
-    client = MockGatewayStreamingClient([response])
+    captured: list[dict[str, str]] = []
+    client = make_mock_stream_client([response], captured)
     state = gateway_cli.ProxyState(
-        deps=Mock(),
-        auth=cast(gateway_auth.GatewayAuth, auth),
+        auth=auth,
         client=client,
         gateway='https://gateway.example.com',
         region='us',
@@ -3223,11 +3178,11 @@ def test_gateway_stream_stops_when_auth_recovery_fails() -> None:
 
     assert result is response
     assert not response.closed
-    assert auth.recoveries == [False]
-    assert len(client.requests) == 1
+    assert recoveries == [False]
+    assert len(captured) == 1
 
 
-def test_gateway_proxy_stream_decodes_compressed_upstream_chunks() -> None:
+def test_gateway_proxy_stream_decodes_compressed_upstream_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
     handle_proxy = cast(Callable[[Any], Coroutine[Any, Any, Any]], getattr(gateway_cli, '_handle_proxy'))
 
     class CapturedStreamingResponse:
@@ -3263,20 +3218,12 @@ def test_gateway_proxy_stream_decodes_compressed_upstream_chunks() -> None:
             self.bytes_iterated = True
             yield b'data: done\n\n'
 
+    monkeypatch.setattr(gateway_cli, 'StreamingResponse', CapturedStreamingResponse)
+
     async def run() -> tuple[CapturedStreamingResponse, CompressedStreamResponse, bytes]:
         upstream_response = CompressedStreamResponse()
-        deps = gateway_cli.GatewayDeps(
-            httpx=Mock(),
-            uvicorn=Mock(),
-            Starlette=Mock(),
-            Route=Mock(),
-            Response=Mock(),
-            JSONResponse=Mock(),
-            StreamingResponse=CapturedStreamingResponse,
-        )
         state = gateway_cli.ProxyState(
-            deps=deps,
-            auth=cast(gateway_auth.GatewayAuth, Mock()),
+            auth=Mock(),
             client=Mock(),
             gateway='https://gateway.example.com',
             region='us',
@@ -3388,21 +3335,15 @@ def test_gateway_authorize_and_serve_lifecycle(monkeypatch: pytest.MonkeyPatch) 
     def token_urlsafe(_length: int) -> str:
         return 'local-token'
 
-    deps = gateway_cli.GatewayDeps(
-        httpx=types.SimpleNamespace(AsyncClient=FakeAsyncClient),
-        uvicorn=FakeUvicorn,
-        Starlette=FakeStarlette,
-        Route=fake_route,
-        Response=Mock(),
-        JSONResponse=Mock(),
-        StreamingResponse=Mock(),
-    )
+    monkeypatch.setattr(gateway_cli, 'httpx', types.SimpleNamespace(AsyncClient=FakeAsyncClient))
+    monkeypatch.setattr(gateway_cli, 'uvicorn', FakeUvicorn)
+    monkeypatch.setattr(gateway_cli, 'Starlette', FakeStarlette)
+    monkeypatch.setattr(gateway_cli, 'Route', fake_route)
     monkeypatch.setattr(gateway_cli, 'GatewayAuth', FakeGatewayAuth)
     monkeypatch.setattr(gateway_cli.secrets, 'token_urlsafe', token_urlsafe)
 
     async def run() -> tuple[gateway_cli.ProxyState, str]:
         async with authorize_and_serve(
-            deps=deps,
             region='us',
             backend='https://backend.example',
             gateway='https://gateway.example/',
@@ -3423,7 +3364,7 @@ def test_gateway_authorize_and_serve_lifecycle(monkeypatch: pytest.MonkeyPatch) 
     assert proxy_base == 'http://127.0.0.1:9999'
 
 
-def test_gateway_authorize_and_serve_fails_when_server_does_not_start() -> None:
+def test_gateway_authorize_and_serve_fails_when_server_does_not_start(monkeypatch: pytest.MonkeyPatch) -> None:
     authorize_and_serve = getattr(gateway_cli, '_authorize_and_serve')
 
     class MetadataResponse:
@@ -3472,22 +3413,13 @@ def test_gateway_authorize_and_serve_fails_when_server_does_not_start() -> None:
     ) -> tuple[str, Callable[..., Any], list[str] | None]:
         return path, endpoint, methods
 
-    deps = gateway_cli.GatewayDeps(
-        httpx=types.SimpleNamespace(AsyncClient=FakeAsyncClient),
-        uvicorn=types.SimpleNamespace(
-            Config=fake_config,
-            Server=FakeServer,
-        ),
-        Starlette=FakeStarlette,
-        Route=fake_route,
-        Response=Mock(),
-        JSONResponse=Mock(),
-        StreamingResponse=Mock(),
-    )
+    monkeypatch.setattr(gateway_cli, 'httpx', types.SimpleNamespace(AsyncClient=FakeAsyncClient))
+    monkeypatch.setattr(gateway_cli, 'uvicorn', types.SimpleNamespace(Config=fake_config, Server=FakeServer))
+    monkeypatch.setattr(gateway_cli, 'Starlette', FakeStarlette)
+    monkeypatch.setattr(gateway_cli, 'Route', fake_route)
 
     async def run() -> None:
         async with authorize_and_serve(
-            deps=deps,
             region='us',
             backend='https://backend.example',
             gateway='https://gateway.example',
@@ -3605,7 +3537,6 @@ def test_gateway_run_launch_dispatches_parsed_options(monkeypatch: pytest.Monkey
         return port + 1
 
     monkeypatch.setattr(ai_tools.AiToolIntegration, 'binary_path', binary_path)
-    monkeypatch.setattr(gateway_cli, 'load_gateway_deps', lambda: 'deps')
     monkeypatch.setattr(gateway_cli, '_pick_port', pick_next_port)
     monkeypatch.setattr(gateway_cli, '_launch_async', launch_async)
 
@@ -3626,7 +3557,6 @@ def test_gateway_run_launch_dispatches_parsed_options(monkeypatch: pytest.Monkey
     )
 
     assert code == 17
-    assert captured['deps'] == 'deps'
     assert captured['integration'].name == 'codex'
     assert captured['extra'] == ['--flag']
     assert captured['region'] == 'eu'
@@ -3649,8 +3579,7 @@ def test_gateway_launch_async_runs_child_with_gateway_env(monkeypatch: pytest.Mo
     @asynccontextmanager
     async def authorize_and_serve(**_kwargs: Any) -> AsyncGenerator[tuple[gateway_cli.ProxyState, str], None]:
         state = gateway_cli.ProxyState(
-            deps=Mock(),
-            auth=cast(gateway_auth.GatewayAuth, Mock()),
+            auth=Mock(),
             client=Mock(),
             gateway='https://gateway.example.com',
             region='us',
@@ -3671,7 +3600,6 @@ def test_gateway_launch_async_runs_child_with_gateway_env(monkeypatch: pytest.Mo
 
     code = asyncio.run(
         launch_async(
-            deps=Mock(),
             integration=ai_tools.resolve_ai_tool('codex'),
             extra=['--flag'],
             region='us',
@@ -3710,7 +3638,6 @@ def test_gateway_launch_async_handles_missing_binary_and_notice(
     assert (
         asyncio.run(
             launch_async(
-                deps=Mock(),
                 integration=missing_integration,
                 extra=[],
                 region='us',
@@ -3733,8 +3660,7 @@ def test_gateway_launch_async_handles_missing_binary_and_notice(
     @asynccontextmanager
     async def authorize_and_serve(**_kwargs: Any) -> AsyncGenerator[tuple[gateway_cli.ProxyState, str], None]:
         state = gateway_cli.ProxyState(
-            deps=Mock(),
-            auth=cast(gateway_auth.GatewayAuth, Mock()),
+            auth=Mock(),
             client=Mock(),
             gateway='https://gateway.example.com',
             region='us',
@@ -3763,7 +3689,6 @@ def test_gateway_launch_async_handles_missing_binary_and_notice(
     assert (
         asyncio.run(
             launch_async(
-                deps=Mock(),
                 integration=noticed_integration,
                 extra=[],
                 region='us',
@@ -3787,8 +3712,7 @@ def test_gateway_run_serve_async_returns_130_on_interrupt(monkeypatch: pytest.Mo
     @asynccontextmanager
     async def authorize_and_serve(**_kwargs: Any) -> AsyncGenerator[tuple[gateway_cli.ProxyState, str], None]:
         state = gateway_cli.ProxyState(
-            deps=Mock(),
-            auth=cast(gateway_auth.GatewayAuth, Mock()),
+            auth=Mock(),
             client=Mock(),
             gateway='https://gateway.example.com',
             region='us',
@@ -3799,13 +3723,9 @@ def test_gateway_run_serve_async_returns_130_on_interrupt(monkeypatch: pytest.Mo
     async def sleep(_seconds: float) -> None:
         raise KeyboardInterrupt
 
-    def load_gateway_deps() -> Mock:
-        return Mock()
-
     def pick_same_port(port: int) -> int:
         return port
 
-    monkeypatch.setattr(gateway_cli, 'load_gateway_deps', load_gateway_deps)
     monkeypatch.setattr(gateway_cli, '_pick_port', pick_same_port)
     monkeypatch.setattr(gateway_cli, '_authorize_and_serve', authorize_and_serve)
     monkeypatch.setattr(gateway_cli.asyncio, 'sleep', sleep)
