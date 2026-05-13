@@ -283,6 +283,7 @@ def test_inspect(
 │  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
 │  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
 │                                                                                                                                                    │
+│                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
 │  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
