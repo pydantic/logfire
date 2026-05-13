@@ -4,7 +4,7 @@ description: "Step-by-step guide for creating a Logfire write token in the web U
 ---
 To send data to **Logfire**, you need to create a write token.
 A write token is a unique identifier that allows you to send data to a specific **Logfire** project.
-If you set up Logfire according to the [getting started guide](../index.md), you already have a write token locally tied to the project you created.
+If you set up Logfire according to the [getting started guide](../python-sdk/get-started.md), you already have a write token locally tied to the project you created.
 But if you want to configure other computers to write to that project, for example in a deployed application, you need to create a new write token.
 
 You can create a write token by following these steps:

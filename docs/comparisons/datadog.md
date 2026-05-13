@@ -57,7 +57,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 
 **Datadog** added LLM observability as a separate product. It works, but AI isn't central to the platform's design.
 
-**Logfire** was built for the AI era. [One function call](https://pydantic.dev/docs/logfire/integrations/?utm_source=datadog_comparison_docs) (`logfire.instrument_openai()`) gives you:
+**Logfire** was built for the AI era. [One function call](https://pydantic.dev/docs/logfire/python-sdk/integrations/?utm_source=datadog_comparison_docs) (`logfire.instrument_openai()`) gives you:
 
 - Token tracking and cost monitoring
 - LLM-specific panels for conversations
@@ -69,7 +69,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 
 **Datadog** uses proprietary agents. While they support OTel export, it's not the native path.
 
-**Logfire** is OpenTelemetry-native with [first-class integrations for most technologies](https://pydantic.dev/docs/logfire/integrations/?utm_source=datadog_comparison_docs). Any OTel instrumentation works automatically. Your instrumentation is portable: if you ever want to switch, your code doesn't change.
+**Logfire** is OpenTelemetry-native with [first-class integrations for most technologies](https://pydantic.dev/docs/logfire/python-sdk/integrations/?utm_source=datadog_comparison_docs). Any OTel instrumentation works automatically. Your instrumentation is portable: if you ever want to switch, your code doesn't change.
 
 ### Query Language — Essential for Agentic Coding
 

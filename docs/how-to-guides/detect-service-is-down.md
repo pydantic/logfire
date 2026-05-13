@@ -60,5 +60,5 @@ include rows from `"the last minute"`, and notify us if `"the query's results ch
 Then you need to set up a channel to send this notification, which can be a Slack channel or a webhook.
 See more about it on the [alerts documentation](../guides/web-ui/alerts.md).
 
-[FastAPI application]: ../integrations/web-frameworks/fastapi.md
+[FastAPI application]: ../python-sdk/integrations/web-frameworks/fastapi.md
 [let us know]: ../help.md

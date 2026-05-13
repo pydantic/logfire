@@ -50,7 +50,7 @@ In HTTP server request spans, this is usually the HTTP method and route, e.g. `'
 
 In database query spans, this is usually just the operation, e.g. `'SELECT'`, `'INSERT'`, or `'UPDATE'`.
 
-See the docs on [messages and span names](../guides/onboarding-checklist/add-manual-tracing.md#messages-and-span-names) and the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/otel/trace/api/#span) for more details.
+See the docs on [messages and span names](../python-sdk/instrumentation/manual-tracing.md#messages-and-span-names) and the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/otel/trace/api/#span) for more details.
 
 #### `message`
 
@@ -72,7 +72,7 @@ This is a JSON object containing arbitrary additional structured data about the 
 
 You can query it using the `->>` operator, e.g. above `attributes->>'thing' = 'bad'` (note the single quotes, `"thing"` or `"bad"` would look for SQL columns with those names and fail) would match our record because of the `thing='bad'` argument in the `logfire.warn()` call. For nested JSON, you can chain multiple `->>` operators, e.g. `attributes->>'nested'->>'key'`. You can also use `->` which is mostly interchangeable, but if you get weird errors about types, try using `->>` instead.
 
-See the [manual tracing docs on attributes](../guides/onboarding-checklist/add-manual-tracing.md#attributes) for more information about setting attributes in the **Logfire** SDK.
+See the [manual tracing docs on attributes](../python-sdk/instrumentation/manual-tracing.md#attributes) for more information about setting attributes in the **Logfire** SDK.
 
 Note that arguments passed directly to the **Logfire** SDK methods are shown under 'Arguments' in the Live view details panel, but they are still stored in the same `attributes` column.
 
@@ -94,7 +94,7 @@ This represents the severity level (aka the 'log level') of the record.
 
 It's stored in the database as a small integer so that it supports operators like `>=` and `<`, but we provide some SQL magic to allow you to use the string names in comparisons. For example, `level = 'warn'` will match the example record above, even though the actual stored value is `13`. A common useful query is `level > 'info'` to find all 'notable' records like warnings and errors.
 
-The level is most commonly set by using the appropriate method in the **Logfire** SDK, e.g. `logfire.warn(...)` or `logfire.error(...)`, but there are [several other ways](../guides/onboarding-checklist/add-manual-tracing.md#log-levels).
+The level is most commonly set by using the appropriate method in the **Logfire** SDK, e.g. `logfire.warn(...)` or `logfire.error(...)`, but there are [several other ways](../python-sdk/instrumentation/manual-tracing.md#log-levels).
 
 The default level for spans is `info`, but can be higher in some cases:
 
@@ -177,7 +177,7 @@ with logfire.span('parent'):
 
 with the above query will return a single row with `parent_message` set to `'parent'` and `child_message` set to `'child'`.
 
-If you find yourself needing to do this, consider using [Baggage](./advanced/baggage.md) instead.
+If you find yourself needing to do this, consider using [Baggage](../python-sdk/reference/advanced/baggage.md) instead.
 
 ### Timestamps
 
@@ -217,7 +217,7 @@ For logs, this is always `null`. Otherwise it's equivalent to `EXTRACT(EPOCH FRO
 
 This is a boolean column which is true when an exception is recorded on the span/log.
 
-This usually applies to spans that ended with an unhandled exception, or logs that were created with the method `logfire.exception(...)`. See the [manual tracing docs on exceptions](../guides/onboarding-checklist/add-manual-tracing.md#exceptions) for other possible ways that exceptions can be recorded.
+This usually applies to spans that ended with an unhandled exception, or logs that were created with the method `logfire.exception(...)`. See the [manual tracing docs on exceptions](../python-sdk/instrumentation/manual-tracing.md#exceptions) for other possible ways that exceptions can be recorded.
 
 Exceptions usually represent errors, but not always. To filter down to exceptions that are errors, use `WHERE is_exception AND level >= 'error'`. Also note that error logs are not always exceptions, e.g. `logfire.error(...)` does not set `is_exception` to true.
 

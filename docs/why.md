@@ -83,7 +83,7 @@ This might look similar to simple logging, but it's much more powerful — you g
 - **Custom-built platform** to view your data, with no configuration required
 - **Pretty display** of Python objects
 
-Ready to try Logfire? [Get Started](index.md)! 🚀
+Ready to try Logfire? [Get Started](./python-sdk/get-started.md)! 🚀
 
 ## Deep language integration :material-code-braces:
 
@@ -101,7 +101,7 @@ In this example, you can see the parameters passed to a FastAPI endpoint formatt
 
 ![Logfire Auto-tracing screenshot](images/logfire-screenshot-autotracing.png)
 
-In this simple app example, you can see every interaction the user makes with the web app automatically traced to the Live view using the [Auto-tracing method](guides/onboarding-checklist/add-auto-tracing.md).
+In this simple app example, you can see every interaction the user makes with the web app automatically traced to the Live view using the [Auto-tracing method](./python-sdk/instrumentation/auto-tracing.md).
 
 ## Pydantic integration
 
@@ -159,10 +159,10 @@ User(name='Ben', country_code='USA', dob='2000-02-02')
 User(name='Charlie', country_code='GBR', dob='1990-03-03')
 ```
 
-1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs](integrations/pydantic.md).
+1. This configuration means details about all Pydantic model validations will be recorded. You can also record details about validation failures only, or just metrics; see the [pydantic plugin docs](./python-sdk/integrations/pydantic.md).
 2. Since we've enabled the Pydantic Plugin, all Pydantic validations will be recorded in Logfire.
 
-Learn more about the [Pydantic Plugin here](integrations/pydantic.md).
+Learn more about the [Pydantic Plugin here](./python-sdk/integrations/pydantic.md).
 
 ![Logfire pydantic plugin screenshot](images/index/logfire-screenshot-pydantic-plugin.png)
 
@@ -201,10 +201,10 @@ async def add_user(user: User):
     return {'message': f'{user.name} added'}
 ```
 
-1. In addition to [configuring logfire](reference/configuration.md) this line is all you need to instrument a FastAPI app with Logfire. The same applies to most other popular Python web frameworks.
-2. The [integrations](integrations/index.md) page has more information on how to instrument other parts of your app. Run the [inspect](reference/cli.md#inspect-inspect) command for package suggestions.
+1. In addition to [configuring logfire](./python-sdk/reference/configuration.md) this line is all you need to instrument a FastAPI app with Logfire. The same applies to most other popular Python web frameworks.
+2. The [integrations](python-sdk/integrations/index.md) page has more information on how to instrument other parts of your app. Run the [inspect](./python-sdk/reference/cli.md#inspect-inspect) command for package suggestions.
 
-We'll need the [FastAPI contrib package](integrations/web-frameworks/fastapi.md), FastAPI itself and uvicorn installed to run this:
+We'll need the [FastAPI contrib package](./python-sdk/integrations/web-frameworks/fastapi.md), FastAPI itself and uvicorn installed to run this:
 
 ```bash
 pip install 'logfire[fastapi]' fastapi uvicorn  # (1)!
