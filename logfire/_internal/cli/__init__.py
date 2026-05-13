@@ -48,6 +48,13 @@ def version_callback() -> None:
     print(f'Running Logfire {VERSION} with {py_impl} {py_version} on {system}.')
 
 
+def _parse_gateway(args: argparse.Namespace) -> None:
+    """Run a local OAuth proxy for the Logfire AI Gateway."""
+    from .gateway import parse_gateway
+
+    parse_gateway(args)
+
+
 def parse_whoami(args: argparse.Namespace) -> None:
     """Show user authenticated username and the URL to your Logfire project."""
     data_dir = Path(args.data_dir)
@@ -338,6 +345,10 @@ def _main(args: list[str] | None = None) -> None:
     cmd_clean.set_defaults(func=parse_clean)
     cmd_clean.add_argument('--data-dir', default='.logfire')
     cmd_clean.add_argument('--logs', action='store_true', default=False, help='remove the Logfire logs')
+
+    cmd_gateway = subparsers.add_parser('gateway', help=_parse_gateway.__doc__)
+    cmd_gateway.add_argument('gateway_args', nargs=argparse.REMAINDER)
+    cmd_gateway.set_defaults(func=_parse_gateway)
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)

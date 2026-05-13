@@ -58,6 +58,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gateway = ["httpx>=0.27.0", "starlette>=0.37.0", "uvicorn>=0.30.0"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
 asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
