@@ -1,7 +1,7 @@
 import httpx
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from opentelemetry.trace import Span
-from typing import Any, Callable, NamedTuple
+from typing import Any, NamedTuple
 
 class RequestInfo(NamedTuple):
     """Information about an HTTP request.

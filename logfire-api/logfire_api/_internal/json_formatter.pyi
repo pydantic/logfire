@@ -1,6 +1,7 @@
 from .json_types import ArraySchema as ArraySchema, DataType as DataType, JSONSchema as JSONSchema
 from .utils import safe_repr as safe_repr
 from _typeshed import Incomplete
+from collections.abc import Callable as Callable
 from typing import Any
 
 class JsonArgsValueFormatter:
