@@ -3396,6 +3396,60 @@ def test_gateway_await_or_signal_returns_value_when_no_signal() -> None:
     assert asyncio.run(run()) == 'done'
 
 
+def test_gateway_no_capture_signals_is_a_noop_context_manager() -> None:
+    with gateway_cli._no_capture_signals() as value:  # type: ignore[attr-defined]
+        assert value is None
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='loop.add_signal_handler is not supported on Windows')
+def test_gateway_await_or_signal_ignores_repeat_signal() -> None:
+    import signal as _signal
+
+    await_or_signal = getattr(gateway_cli, '_await_or_signal')
+
+    async def run() -> str:
+        loop = asyncio.get_running_loop()
+        handlers: list[Any] = []
+        real_add_signal_handler = loop.add_signal_handler
+
+        def capture(sig: int, callback: Any, *args: Any) -> None:
+            if sig == _signal.SIGINT:
+                handlers.append(callback)
+            real_add_signal_handler(sig, callback, *args)
+
+        loop.add_signal_handler = capture  # type: ignore[method-assign]
+
+        async def fire_twice() -> None:
+            await asyncio.sleep(0)
+            handlers[0]()  # first SIGINT -> sets stop
+            handlers[0]()  # second SIGINT -> stop.done() is True, branch covered
+            await asyncio.sleep(60)
+
+        try:
+            return await await_or_signal(fire_twice())
+        except KeyboardInterrupt:
+            return 'interrupted'
+
+    assert asyncio.run(run()) == 'interrupted'
+
+
+def test_gateway_await_or_signal_handles_unsupported_add_signal_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await_or_signal = getattr(gateway_cli, '_await_or_signal')
+
+    async def run() -> str:
+        loop = asyncio.get_running_loop()
+
+        def _raise(*_args: Any, **_kwargs: Any) -> None:
+            raise NotImplementedError
+
+        monkeypatch.setattr(loop, 'add_signal_handler', _raise)
+        return await await_or_signal(asyncio.sleep(0, result='done'))
+
+    assert asyncio.run(run()) == 'done'
+
+
 def test_gateway_authorize_and_serve_fails_when_server_does_not_start(monkeypatch: pytest.MonkeyPatch) -> None:
     authorize_and_serve = getattr(gateway_cli, '_authorize_and_serve')
 
