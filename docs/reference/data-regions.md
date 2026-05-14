@@ -58,3 +58,10 @@ Migration between regions is not currently available but we hope to make it poss
 ## How does this impact Pricing?
 
 Pricing is the same between the US and EU instances.
+
+## Need more control?
+
+The US and EU regions cover most teams. If you need a specific GCP region, your own infrastructure, or stricter isolation:
+
+- **[Enterprise Single-Tenant](../enterprise-single-tenant.md)** — dedicated single-tenant Logfire managed by Pydantic, deployable to any GCP region.
+- **[Enterprise Self-Hosted](../enterprise.md#enterprise-self-hosted)** — run Logfire on your own infrastructure via our Helm chart.
