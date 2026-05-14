@@ -28,7 +28,7 @@ Logfire is hosted independently in each region at [logfire-us.pydantic.dev](http
 
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
-!!! info ""
+!!! info
     We don't detect your sessions across regions, each region is hosted independently. Bookmark and log in to your regional URL directly — [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
 
 Consider the following factors when selecting a region:
