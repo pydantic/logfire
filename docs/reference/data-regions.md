@@ -29,8 +29,8 @@ Logfire is hosted independently in each region at [logfire-us.pydantic.dev](http
 
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
-!!! info
-    We don't detect your sessions across regions, each region is hosted independently. Bookmark and log in to your regional URL directly — [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
+!!! tip "Signing in to Logfire"
+    We don't detect your sessions across regions, each region is hosted independently. Bookmark and sign in to your regional URL directly — [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
 
 Consider the following factors when selecting a region:
 
@@ -56,6 +56,6 @@ You can have accounts in both regions if needed for different projects or teams.
 
 Migration between regions is not currently available but we hope to make it possible in the future.
 
-## How does this Impact Pricing?
+## How does this impact Pricing?
 
 Pricing is the same between the US and EU instances.
