@@ -45,7 +45,6 @@ When you run `logfire auth` and create a project, the SDK picks up the right reg
 You only need your region's URL when talking to Logfire from outside the Python SDK:
 
 - [Alternative Clients](../how-to-guides/alternative-clients.md) — OTLP and non-Python SDKs
-- [Query API](../how-to-guides/query-api.md) — read your data over HTTP
 - [MCP Server](../how-to-guides/mcp-server.md) — connect an LLM client
 
 ## Multiple Regions
