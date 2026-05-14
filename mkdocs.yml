@@ -365,6 +365,8 @@ plugins:
         "guides/advanced/testing.md": "reference/advanced/testing.md"
         "guides/advanced/query_api.md": "how-to-guides/query-api.md"
         "guides/advanced/query-api.md": "how-to-guides/query-api.md"
+        "guides/query_api.md": "how-to-guides/query-api.md"
+        "guides/query-api.md": "how-to-guides/query-api.md"
         "guides/advanced/scrubbing.md": "how-to-guides/scrubbing.md"
         "guides/advanced/sampling.md": "how-to-guides/sampling.md"
         "guides/advanced/alternative-clients.md": "how-to-guides/alternative-clients.md"
