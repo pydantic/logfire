@@ -11,8 +11,8 @@ Logfire is hosted in two separate geographic regions to provide you with options
 
 |              | URL                                                        | Hosted           |
 | ------------ | ---------------------------------------------------------- | ---------------- |
-| 🇺🇸 US Region | [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) | GCP us-east4     |
-| 🇪🇺 EU Region | [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev) | GCP europe-west4 |
+| 🇺🇸 US Region | [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) | GCP `us-east4` (Virginia)        |
+| 🇪🇺 EU Region | [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev) | GCP `europe-west4` (Netherlands) |
 
 ## Region Separation
 
@@ -37,6 +37,16 @@ Consider the following factors when selecting a region:
 - **Geographic proximity**: Choose a region closer to your location or your users for optimal performance
 - **Data residency requirements**: Select the region that aligns with your regulatory compliance needs
 - **GDPR compliance**: Companies requiring GDPR compliance are advised to use the EU region
+
+## Connecting the SDK and API
+
+When you run `logfire auth` and create a project, the SDK picks up the right region automatically from your write token. You don't need to configure a base URL.
+
+You only need your region's URL when talking to Logfire from outside the Python SDK:
+
+- [Alternative Clients](../how-to-guides/alternative-clients.md) — OTLP and non-Python SDKs
+- [Query API](../how-to-guides/query-api.md) — read your data over HTTP
+- [MCP Server](../how-to-guides/mcp-server.md) — connect an LLM client
 
 ## Multiple Regions
 
