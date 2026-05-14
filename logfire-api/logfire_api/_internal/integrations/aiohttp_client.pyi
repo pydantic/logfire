@@ -1,6 +1,7 @@
 from _typeshed import Incomplete
 from aiohttp.client_reqrep import ClientResponse
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
+from collections.abc import Callable
 from email.headerregistry import ContentTypeHeader
 from logfire import Logfire as Logfire, LogfireSpan as LogfireSpan
 from logfire._internal.config import GLOBAL_CONFIG as GLOBAL_CONFIG
@@ -9,7 +10,7 @@ from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
 from logfire.integrations.aiohttp_client import AioHttpRequestHeaders as AioHttpRequestHeaders, AioHttpResponseHeaders as AioHttpResponseHeaders, RequestHook as RequestHook, ResponseHook as ResponseHook
 from opentelemetry.trace import Span
-from typing import Any, Callable, Literal, ParamSpec
+from typing import Any, Literal, ParamSpec
 from yarl import URL
 
 P = ParamSpec('P')

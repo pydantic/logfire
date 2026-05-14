@@ -34,6 +34,7 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
+from anthropic.lib.bedrock import AnthropicBedrock as _AnthropicBedrock, AsyncAnthropicBedrock as _AsyncAnthropicBedrock
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
@@ -250,7 +251,7 @@ class Logfire:
                 Attributes starting with an underscore are not allowed.
         """
     @overload
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False, level: LevelName | int | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -275,6 +276,8 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
     @overload
     def instrument(self, func: Callable[P, R]) -> Callable[P, R]:
@@ -591,7 +594,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -697,8 +700,14 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
     @overload
     def instrument_httpx(self, client: httpx.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
