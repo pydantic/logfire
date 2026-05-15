@@ -6,7 +6,7 @@ import zlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Literal
+from typing import Literal, Union
 
 import requests
 from opentelemetry.exporter.otlp.proto.http import Compression
@@ -30,7 +30,7 @@ from opentelemetry.sdk.environment_variables import (
 )
 
 SignalName = Literal['traces', 'metrics', 'logs']
-ClientCert = str | tuple[str, str] | None
+ClientCert = Union[str, tuple[str, str], None]
 
 DEFAULT_TIMEOUT = 10.0
 OTLP_HTTP_HEADERS: Mapping[str, str] = {'Content-Type': 'application/x-protobuf'}
