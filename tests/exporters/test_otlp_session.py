@@ -23,6 +23,7 @@ from logfire._internal.exporters.otlp import (
     OTLPExporterHttpSession,
     cleanup_disk_retryers,
 )
+from logfire._internal.exporters.otlp_proto_http.trace_exporter import LogfireOTLPSpanExporter
 from tests.exporters.test_retry_fewer_spans import TEST_SPANS
 
 
@@ -40,6 +41,7 @@ def test_max_body_size_bytes() -> None:
     session.mount('http://', SinkHTTPAdapter())
     exporter = BodySizeCheckingOTLPSpanExporter(session=session)
 
+    assert isinstance(exporter, LogfireOTLPSpanExporter)
     assert exporter.export(TEST_SPANS) == SpanExportResult.SUCCESS
 
     exporter.max_body_size = 10
@@ -139,6 +141,25 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # After that the number of failed exports is unpredictable because the main thread is adding to it
     # at the same time as the retryer thread removes from it.
     assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
+
+
+def test_session_close_closes_lazy_retryer() -> None:
+    session = OTLPExporterHttpSession()
+    retryer = session.retryer
+    retryer_dir = retryer.dir
+
+    session.close()
+
+    assert retryer.closed
+    assert not retryer_dir.exists()
+
+
+def test_session_close_without_retryer() -> None:
+    session = OTLPExporterHttpSession()
+
+    session.close()
+
+    assert 'retryer' not in session.__dict__
 
 
 def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
