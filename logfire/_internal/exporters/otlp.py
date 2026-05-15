@@ -15,7 +15,6 @@ from threading import Lock, Thread
 from typing import Any
 
 import requests.exceptions
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs._internal.export import LogRecordExportResult
 from opentelemetry.sdk.trace import ReadableSpan
@@ -25,6 +24,7 @@ from requests import Session
 import logfire
 
 from ..utils import logger, platform_is_emscripten
+from .otlp_proto_http.trace_exporter import LogfireOTLPSpanExporter
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
 _DISK_RETRYERS: list[weakref.ref[DiskRetryer]] = []
@@ -38,7 +38,7 @@ def cleanup_disk_retryers() -> None:
             retryer.close()
 
 
-class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
+class BodySizeCheckingOTLPSpanExporter(LogfireOTLPSpanExporter):
     # 5MB is significantly less than what our backend currently accepts,
     # but smaller requests are faster and more reliable.
     # This won't prevent bigger spans/payloads from being exported,
@@ -60,7 +60,7 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
             # Tell outer RetryFewerSpansSpanExporter to split in half
             raise BodyTooLargeError(len(serialized_data), self.max_body_size)
 
-        return super()._export(serialized_data, *args, **kwargs)
+        return super()._export(serialized_data)
 
 
 class OTLPExporterHttpSession(Session):

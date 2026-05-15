@@ -23,6 +23,7 @@ from logfire._internal.exporters.otlp import (
     OTLPExporterHttpSession,
     cleanup_disk_retryers,
 )
+from logfire._internal.exporters.otlp_proto_http.trace_exporter import LogfireOTLPSpanExporter
 from tests.exporters.test_retry_fewer_spans import TEST_SPANS
 
 
@@ -40,6 +41,7 @@ def test_max_body_size_bytes() -> None:
     session.mount('http://', SinkHTTPAdapter())
     exporter = BodySizeCheckingOTLPSpanExporter(session=session)
 
+    assert isinstance(exporter, LogfireOTLPSpanExporter)
     assert exporter.export(TEST_SPANS) == SpanExportResult.SUCCESS
 
     exporter.max_body_size = 10
