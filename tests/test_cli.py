@@ -278,10 +278,23 @@ def test_clean_default_dir_is_not_a_directory(
 
 
 def test_inspect(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    os.environ['COLUMNS'] = '150'
+    monkeypatch.setitem(os.environ, 'COLUMNS', '150')
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+
+    # Mock distributions so the test is environment-independent
+    class MockDist:
+        def __init__(self, metadata: dict[str, str]):
+            self.metadata = metadata
+
+    mock_pkgs = ['django', 'fastapi', 'flask', 'httpx', 'pymongo', 'redis', 'requests', 'sqlalchemy']
+    monkeypatch.setattr('importlib.metadata.distributions', lambda: [MockDist({'Name': p}) for p in mock_pkgs])
+    monkeypatch.setattr('logfire._internal.cli.run.is_uv_installed', lambda: True)
+
     with pytest.raises(SystemExit):
         main(['inspect'])
     assert capsys.readouterr().err == snapshot("""\
@@ -289,16 +302,23 @@ def test_inspect(
 
 ╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
 │                                                                                                                                                    │
-│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
-│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
-│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
-│  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
+│  ☐ django (need to install logfire[django])                                                                                                        │
+│  ☐ fastapi (need to install logfire[fastapi])                                                                                                      │
+│  ☐ flask (need to install logfire[flask])                                                                                                          │
+│  ☐ httpx (need to install logfire[httpx])                                                                                                          │
+│  ☐ pymongo (need to install logfire[pymongo])                                                                                                      │
+│  ☐ redis (need to install logfire[redis])                                                                                                          │
+│  ☐ requests (need to install logfire[requests])                                                                                                    │
+│  ☐ sqlalchemy (need to install logfire[sqlalchemy])                                                                                                │
+│  ☐ sqlite3 (need to install logfire[sqlite3])                                                                                                      │
+│  ☐ urllib (need to install logfire[urllib])                                                                                                        │
 │                                                                                                                                                    │
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
-│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
-│  opentelemetry-instrumentation-urllib                                                                                                              │
+│  uv add 'logfire[django,fastapi,flask,httpx,pymongo,redis,requests,sqlalchemy,sqlite3,urllib]'                                                     │
+│    # or                                                                                                                                            │
+│    pip install 'logfire[django,fastapi,flask,httpx,pymongo,redis,requests,sqlalchemy,sqlite3,urllib]'                                              │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │
@@ -1636,9 +1656,50 @@ def test_instrumented_packages_text_basic():
 def test_get_recommendation_texts():
     recs = {('opentelemetry-instrumentation-foo', 'foo'), ('opentelemetry-instrumentation-bar', 'bar')}
     recommended, install = get_recommendation_texts(recs)
-    assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
-    assert 'need to install opentelemetry-instrumentation-bar' in recommended
-    assert 'need to install opentelemetry-instrumentation-foo' in recommended
+    assert 'pip install opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in str(install)
+    assert 'need to install opentelemetry-instrumentation-bar' in str(recommended)
+    assert 'need to install opentelemetry-instrumentation-foo' in str(recommended)
+
+
+def test_get_recommendation_texts_with_extras():
+    recs = {
+        ('opentelemetry-instrumentation-requests', 'requests'),
+        ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+    }
+    recommended, install = get_recommendation_texts(recs)
+    assert "pip install 'logfire[requests,sqlite3]'" in str(install)
+    assert 'need to install logfire[requests]' in str(recommended)
+    assert 'need to install logfire[sqlite3]' in str(recommended)
+
+
+def test_get_recommendation_texts_uv(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr('logfire._internal.cli.run.is_uv_installed', lambda: True)
+    recs = {('opentelemetry-instrumentation-requests', 'requests')}
+    _, install = get_recommendation_texts(recs)
+    assert "uv add 'logfire[requests]'\n  # or\n  pip install 'logfire[requests]'" in str(install)
+
+
+def test_get_recommendation_texts_uv_run(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv('UV', '1')
+    monkeypatch.setattr('sys.executable', '/path/to/venv/bin/python')
+    recs = {
+        ('opentelemetry-instrumentation-requests', 'requests'),
+        ('opentelemetry-instrumentation-jinja2', 'jinja2'),
+    }
+    monkeypatch.setattr(sys, 'argv', ['logfire', 'run', 'myapp.py'])
+    _, install = get_recommendation_texts(recs)
+    assert "uv run --with 'logfire[requests]' --with opentelemetry-instrumentation-jinja2 logfire run myapp.py" in str(
+        install
+    )
+
+
+def test_get_recommendation_texts_uvx(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv('UV', '1')
+    monkeypatch.setattr('sys.executable', '/Users/user/.cache/uv/tools/logfire/bin/python')
+    recs = {('opentelemetry-instrumentation-requests', 'requests')}
+    monkeypatch.setattr(sys, 'argv', ['logfire', 'run', 'myapp.py'])
+    _, install = get_recommendation_texts(recs)
+    assert "uvx --from 'logfire[requests]' logfire run myapp.py" in str(install)
 
 
 def test_instrument_packages_openai() -> None:
