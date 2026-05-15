@@ -4319,6 +4319,95 @@ def test_convert_responses_inputs_no_inputs() -> None:
     assert (input_messages, system_instructions) == snapshot(([], [{'type': 'text', 'content': 'Be helpful'}]))
 
 
+def test_convert_responses_inputs_input_text() -> None:
+    """Responses API `input_text` content parts should map to TextPart."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    inputs: list[dict[str, Any]] = [{'role': 'user', 'content': [{'type': 'input_text', 'text': 'Hello there'}]}]
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, None)
+    assert (input_messages, system_instructions) == snapshot(
+        ([{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello there'}]}], [])
+    )
+
+
+def test_convert_responses_inputs_input_image() -> None:
+    """Responses API `input_image` content parts should map to UriPart with modality=image."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    inputs: list[dict[str, Any]] = [
+        {
+            'role': 'user',
+            'content': [
+                {'type': 'input_text', 'text': 'What is in this image?'},
+                {'type': 'input_image', 'image_url': 'https://example.com/cat.jpg'},
+            ],
+        }
+    ]
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, None)
+    assert (input_messages, system_instructions) == snapshot(
+        (
+            [
+                {
+                    'role': 'user',
+                    'parts': [
+                        {'type': 'text', 'content': 'What is in this image?'},
+                        {'type': 'uri', 'uri': 'https://example.com/cat.jpg', 'modality': 'image'},
+                    ],
+                }
+            ],
+            [],
+        )
+    )
+
+
+def test_convert_responses_inputs_input_file() -> None:
+    """Responses API `input_file` should map to UriPart for file_url / file_data, dict for file_id-only."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    inputs: list[dict[str, Any]] = [
+        {
+            'role': 'user',
+            'content': [
+                {'type': 'input_file', 'file_url': 'https://example.com/doc.pdf'},
+                {'type': 'input_file', 'file_data': 'data:application/pdf;base64,JVBERi0x'},
+                {'type': 'input_file', 'file_id': 'file-abc123'},
+            ],
+        }
+    ]
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, None)
+    assert (input_messages, system_instructions) == snapshot(
+        (
+            [
+                {
+                    'role': 'user',
+                    'parts': [
+                        {'type': 'uri', 'uri': 'https://example.com/doc.pdf', 'modality': 'document'},
+                        {
+                            'type': 'uri',
+                            'uri': 'data:application/pdf;base64,JVBERi0x',
+                            'modality': 'document',
+                        },
+                        {'type': 'input_file', 'file_id': 'file-abc123'},
+                    ],
+                }
+            ],
+            [],
+        )
+    )
+
+
+def test_input_to_events_input_text() -> None:
+    """input_to_events should recognize Responses API `input_text` (legacy semconv path)."""
+    from logfire._internal.integrations.llm_providers.openai import input_to_events
+
+    inp: dict[str, Any] = {
+        'role': 'user',
+        'content': [{'type': 'input_text', 'text': 'Hello there'}],
+    }
+    events = input_to_events(inp, {})
+    assert events == snapshot([{'event.name': 'gen_ai.user.message', 'content': 'Hello there', 'role': 'user'}])
+
+
 def test_convert_responses_inputs_function_call_non_string_args() -> None:
     """Test convert_responses_inputs_to_semconv with function_call with dict arguments."""
     from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
