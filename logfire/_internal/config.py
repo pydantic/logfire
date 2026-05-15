@@ -25,9 +25,11 @@ from opentelemetry import trace
 from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
 from opentelemetry.environment_variables import OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter as OpenTelemetryOTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+    OTLPMetricExporter as OpenTelemetryOTLPMetricExporter,
+)
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as OpenTelemetryOTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
 from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
@@ -102,6 +104,7 @@ from .exporters.otlp import (
     RetryFewerSpansSpanExporter,
     cleanup_disk_retryers,
 )
+from .exporters.otlp_proto_http import LogfireOTLPLogExporter, LogfireOTLPMetricExporter
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
@@ -1198,7 +1201,7 @@ class LogfireConfig(_LogfireConfigData):
                             metric_readers.append(
                                 PeriodicExportingMetricReader(
                                     QuietMetricExporter(
-                                        OTLPMetricExporter(
+                                        LogfireOTLPMetricExporter(
                                             endpoint=urljoin(base_url, '/v1/metrics'),
                                             headers=headers,
                                             session=session,
@@ -1213,7 +1216,7 @@ class LogfireConfig(_LogfireConfigData):
                                 )
                             )
 
-                        log_exporter = OTLPLogExporter(
+                        log_exporter = LogfireOTLPLogExporter(
                             endpoint=urljoin(base_url, '/v1/logs'),
                             session=session,
                             headers=headers,
@@ -1276,21 +1279,21 @@ class LogfireConfig(_LogfireConfigData):
             otlp_logs_exporter = os.getenv(OTEL_LOGS_EXPORTER, '').lower()
 
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
-                add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+                add_span_processor(BatchSpanProcessor(OpenTelemetryOTLPSpanExporter()))
 
             if (
                 (otlp_endpoint or otlp_metrics_endpoint)
                 and otlp_metrics_exporter in ('otlp', '')
                 and metric_readers is not None
             ):
-                metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
+                metric_readers += [PeriodicExportingMetricReader(OpenTelemetryOTLPMetricExporter())]
 
             if (otlp_endpoint or otlp_logs_endpoint) and otlp_logs_exporter in ('otlp', ''):
                 if emscripten:  # pragma: no cover
                     # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
-                    logfire_log_processor = SimpleLogRecordProcessor(OTLPLogExporter())
+                    logfire_log_processor = SimpleLogRecordProcessor(OpenTelemetryOTLPLogExporter())
                 else:
-                    logfire_log_processor = BatchLogRecordProcessor(OTLPLogExporter())
+                    logfire_log_processor = BatchLogRecordProcessor(OpenTelemetryOTLPLogExporter())
                 log_record_processors.append(logfire_log_processor)
 
             if metric_readers is not None:

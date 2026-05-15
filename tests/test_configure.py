@@ -66,7 +66,12 @@ from logfire._internal.exporters.console import (
 )
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
-from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
+from logfire._internal.exporters.otlp import BodySizeCheckingOTLPSpanExporter, QuietLogExporter, QuietSpanExporter
+from logfire._internal.exporters.otlp_proto_http import (
+    LogfireOTLPLogExporter,
+    LogfireOTLPMetricExporter,
+    LogfireOTLPSpanExporter,
+)
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
     MainSpanProcessorWrapper,
@@ -1702,6 +1707,11 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
 
     assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
     assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    span_exporter = send_to_logfire_processor.span_exporter
+    while hasattr(span_exporter, 'wrapped_exporter'):
+        span_exporter = span_exporter.wrapped_exporter  # type: ignore
+    assert isinstance(span_exporter, BodySizeCheckingOTLPSpanExporter)
+    assert isinstance(span_exporter, LogfireOTLPSpanExporter)
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
     assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)
@@ -1714,6 +1724,7 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     [logfire_metric_reader] = get_metric_readers()
     assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
     assert isinstance(logfire_metric_reader._exporter, QuietMetricExporter)  # type: ignore
+    assert isinstance(logfire_metric_reader._exporter.wrapped_exporter, LogfireOTLPMetricExporter)  # type: ignore
 
     [console_log_processor, logfire_log_processor] = get_log_record_processors()
 
@@ -1723,7 +1734,7 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
 
     exporter = get_batch_log_exporter(logfire_log_processor)
     assert isinstance(exporter, QuietLogExporter)
-    assert isinstance(exporter.exporter, OTLPLogExporter)
+    assert isinstance(exporter.exporter, LogfireOTLPLogExporter)
 
 
 def test_custom_exporters():
@@ -2482,6 +2493,8 @@ def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:
         token2_exporter = token2_exporter.wrapped_exporter  # type: ignore
     assert token1_exporter._session.headers['Authorization'] == 'pylf_v1_us_token1'  # type: ignore
     assert token2_exporter._session.headers['Authorization'] == 'pylf_v1_us_token2'  # type: ignore
+    assert isinstance(token1_exporter, LogfireOTLPSpanExporter)
+    assert isinstance(token2_exporter, LogfireOTLPSpanExporter)
 
     # Check that TWO metric readers are created (one per token)
     metric_readers = list(get_metric_readers())
@@ -2489,6 +2502,7 @@ def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:
     for reader in metric_readers:
         assert isinstance(reader, PeriodicExportingMetricReader)
         assert isinstance(reader._exporter, QuietMetricExporter)  # type: ignore
+        assert isinstance(reader._exporter.wrapped_exporter, LogfireOTLPMetricExporter)  # type: ignore
 
     # Check that TWO log processors are created (one per token)
     log_processors = list(get_log_record_processors())
@@ -2496,7 +2510,7 @@ def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:
     for processor in log_processors:
         exporter = get_batch_log_exporter(processor)
         assert isinstance(exporter, QuietLogExporter)
-        assert isinstance(exporter.exporter, OTLPLogExporter)
+        assert isinstance(exporter.exporter, LogfireOTLPLogExporter)
 
 
 def test_multiple_tokens_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
