@@ -39,7 +39,7 @@ from logfire.variables.config import (
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import LogfireRemoteVariableProvider
-from logfire.variables.variable import is_resolve_function
+from logfire.variables.variable import _record_exception, is_resolve_function
 
 # =============================================================================
 # Test Condition Classes
@@ -1653,6 +1653,8 @@ class TestVariable:
         assert details.value == 999
         assert details.exception is not None
         assert details._reason == 'validation_error'
+        assert details.label == 'default'
+        assert details.version == 1
 
     def test_get_uses_default_when_no_config(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
@@ -2197,7 +2199,7 @@ class TestLogfireVarIntegration:
         original = lf.config._variable_provider.get_serialized_value
 
         def failing_get(*args: Any, **kwargs: Any) -> ResolvedVariable[str | None]:
-            raise RuntimeError('Provider failed!')
+            raise IndexError('Provider failed!')
 
         lf.config._variable_provider.get_serialized_value = failing_get
 
@@ -2205,10 +2207,27 @@ class TestLogfireVarIntegration:
         details = var.get()
         assert details.value == 'fallback'
         assert details._reason == 'other_error'
-        assert isinstance(details.exception, RuntimeError)
+        assert isinstance(details.exception, IndexError)
 
         # Restore original
         lf.config._variable_provider.get_serialized_value = original
+
+    def test_record_exception_ignores_cpython_traceback_bug(self):
+        span = unittest.mock.Mock()
+        error = ValueError('Provider failed!')
+        span.record_exception.side_effect = RuntimeError('generator raised StopIteration')
+
+        _record_exception(error, span)
+
+        span.record_exception.assert_called_once_with(error)
+
+    def test_record_exception_reraises_other_runtime_errors(self):
+        span = unittest.mock.Mock()
+        error = ValueError('Provider failed!')
+        span.record_exception.side_effect = RuntimeError('unexpected recording failure')
+
+        with pytest.raises(RuntimeError, match='unexpected recording failure'):
+            _record_exception(error, span)
 
     def test_variables_build_config(self, config_kwargs: dict[str, Any]):
         """Test that variables_build_config on a Logfire instance delegates to VariablesConfig.from_variables."""
@@ -2480,6 +2499,41 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 request_body = post_adapter.last_request.json()
                 assert request_body['aliases'] == ['old_name', 'legacy_name']
                 assert request_body['example'] == '"example_value"'
+            finally:
+                provider.shutdown()
+
+    def test_create_variable_with_template_inputs_schema(self) -> None:
+        """Test creating a template variable sends the template inputs schema."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'template_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                template_inputs_schema = {
+                    'type': 'object',
+                    'properties': {'user_name': {'type': 'string'}},
+                    'required': ['user_name'],
+                }
+                config = VariableConfig(
+                    name='template_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"Hello {{user_name}}"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    description='Template variable',
+                    json_schema={'type': 'string'},
+                    template_inputs_schema=template_inputs_schema,
+                )
+                result = provider.create_variable(config)
+                assert result.name == 'template_var'
+
+                assert post_adapter.last_request is not None
+                request_body = post_adapter.last_request.json()
+                assert request_body['template_inputs_schema'] == template_inputs_schema
             finally:
                 provider.shutdown()
 

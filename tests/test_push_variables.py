@@ -3,18 +3,21 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
 import logfire
 from logfire.variables.abstract import (
+    DescriptionDifference,
     LabelCompatibility,
     LabelValidationError,
     ValidationReport,
     VariableChange,
     VariableDiff,
+    _apply_changes,
     _check_label_compatibility,
     _check_type_label_compatibility,
     _compute_diff,
@@ -23,6 +26,7 @@ from logfire.variables.abstract import (
     _get_json_schema,
 )
 from logfire.variables.config import LabeledValue, LabelRef, LatestVersion, Rollout, VariableConfig, VariablesConfig
+from logfire.variables.local import LocalVariableProvider
 from logfire.variables.variable import Variable
 
 
@@ -31,6 +35,7 @@ class MockLogfire:
     """Mock Logfire instance for testing."""
 
     config: Any = None
+    _variables: dict[str, object] = field(default_factory=dict[str, object])
 
     def with_settings(self, **kwargs: Any) -> MockLogfire:
         """Return self for chaining."""
@@ -220,6 +225,50 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
     assert diff.has_changes is True
 
 
+def test_compute_diff_template_inputs_schema_change(mock_logfire_instance: MockLogfire) -> None:
+    """A template inputs schema change is pushed even if the value schema is unchanged."""
+
+    class NewInputs(BaseModel):
+        user_name: str
+
+    var = Variable[str](
+        name='prompt',
+        default='Hello {{user_name}}',
+        type=str,
+        template_inputs=NewInputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'old_name': {'type': 'string'}}},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.changes) == 1
+    change = diff.changes[0]
+    assert change.change_type == 'update_schema'
+    assert change.template_inputs_schema is not None
+    assert 'user_name' in change.template_inputs_schema['properties']
+
+    provider = LocalVariableProvider(server_config)
+    _apply_changes(provider, diff, server_config)
+    updated_config = provider.get_variable_config('prompt')
+    assert updated_config is not None
+    updated_schema = updated_config.template_inputs_schema
+    assert updated_schema is not None
+    assert 'user_name' in updated_schema['properties']
+    assert 'old_name' not in updated_schema['properties']
+
+
 def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> None:
     """Test detection of orphaned server variables."""
     var = Variable[bool](
@@ -251,6 +300,104 @@ def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> 
 
     assert 'orphan_feature' in diff.orphaned_server_variables
     assert 'my_feature' not in diff.orphaned_server_variables
+
+
+def test_compute_diff_reference_warnings(mock_logfire_instance: MockLogfire) -> None:
+    """Reference warnings include missing references and cycles."""
+    var_a = Variable[str](
+        name='var_a',
+        default='@{missing}@ @{var_b}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    var_b = Variable[str](
+        name='var_b',
+        default='@{var_a}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'var_a': VariableConfig(
+                name='var_a',
+                json_schema={'type': 'string'},
+                labels={'production': LabeledValue(version=1, serialized_value='"@{server_missing}@"')},
+                latest_version=LatestVersion(version=1, serialized_value='"@{server_latest_missing}@"'),
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            ),
+            'var_b': VariableConfig(
+                name='var_b',
+                json_schema={'type': 'string'},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([var_a, var_b], server_config)
+
+    assert any("'var_a' references '@{missing}@'" in warning for warning in diff.reference_warnings)
+    assert any("'var_a' references '@{server_missing}@'" in warning for warning in diff.reference_warnings)
+    assert any("'var_a' references '@{server_latest_missing}@'" in warning for warning in diff.reference_warnings)
+    assert any('Reference cycle detected: var_a -> var_b -> var_a' in warning for warning in diff.reference_warnings)
+
+
+def test_compute_diff_reference_warning_scan_handles_unserializable_default(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """Reference scanning tolerates defaults that cannot be serialized."""
+    var = Variable[object](
+        name='opaque',
+        default=object(),
+        type=object,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'opaque': VariableConfig(
+                name='opaque',
+                json_schema={},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert diff.reference_warnings == []
+
+
+def test_compute_diff_reference_warning_scan_skips_already_visited_nodes(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """Cycle detection handles shared reference graph nodes without duplicate traversal."""
+    var_a = Variable[str](
+        name='var_a',
+        default='@{shared}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    var_b = Variable[str](
+        name='var_b',
+        default='@{shared}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    shared = Variable[str](
+        name='shared',
+        default='value',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(variables={})
+
+    diff = _compute_diff([var_a, var_b, shared], server_config)
+
+    assert diff.reference_warnings == []
 
 
 def test_format_diff_creates() -> None:
@@ -287,6 +434,69 @@ def test_format_diff_updates() -> None:
     output = _format_diff(diff)
     assert 'UPDATE' in output
     assert 'updated_feature' in output
+
+
+def test_format_diff_reference_warnings() -> None:
+    """Reference warnings are shown in the formatted diff."""
+    diff = VariableDiff(
+        changes=[],
+        orphaned_server_variables=[],
+        reference_warnings=["Variable 'a' references '@{missing}@' which does not exist."],
+    )
+
+    output = _format_diff(diff)
+
+    assert 'Reference warnings' in output
+    assert 'missing' in output
+
+
+def test_validation_report_format_reference_and_description_warnings() -> None:
+    """Validation reports include informational reference and description warnings."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=1,
+        variables_not_on_server=[],
+        description_differences=[
+            DescriptionDifference(variable_name='prompt', local_description='local', server_description=None)
+        ],
+        reference_warnings=["Variable 'prompt' references '@{missing}@' which does not exist."],
+    )
+
+    output = report.format(colors=False)
+
+    assert 'Validation failed' in output
+    assert 'Description differences' in output
+    assert 'Local:  local' in output
+    assert 'Server: (none)' in output
+    assert 'Reference warnings' in output
+
+
+def test_validation_report_reference_warnings_are_invalid() -> None:
+    """Reference warnings make validation invalid so strict push paths can fail on cycles."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=1,
+        variables_not_on_server=[],
+        description_differences=[],
+        reference_warnings=['Reference cycle detected: prompt -> prompt'],
+    )
+
+    assert report.is_valid is False
+    assert report.has_errors is True
+
+
+def test_push_variables_strict_fails_with_reference_warnings(mock_logfire_instance: MockLogfire) -> None:
+    """Strict push fails when reference warnings such as cycles are present."""
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+    var = Variable[str](
+        name='prompt',
+        default='@{prompt}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+
+    assert provider.push_variables([var], strict=True, yes=True) is False
+    assert provider.get_all_variables_config().variables == {}
 
 
 def test_variable_diff_has_changes_true() -> None:

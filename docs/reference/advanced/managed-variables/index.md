@@ -14,6 +14,7 @@ Managed variables are a way to externalize runtime configuration from your code.
 - **Observability-integrated**: Every variable resolution creates a span, and using the context manager automatically sets baggage so downstream operations are tagged with which label and version was used
 - **Versions and labels**: Create immutable version snapshots of your variable's value, and assign labels (like `production`, `staging`, `canary`) that point to specific versions
 - **Rollouts and targeting**: Control what percentage of requests receive each labeled version, and route specific users or segments based on attributes
+- **Templates and composition**: Use `{{placeholder}}` Handlebars syntax in values that get rendered with runtime inputs, and compose variables from reusable fragments via `@{other_variable}@` references (see [Templates and Composition](templates-and-composition.md))
 
 ### Versions and Labels
 
@@ -111,6 +112,43 @@ With managed variables, you can iterate safely in production:
 - **Gradual rollouts**: Point a `canary` label at a new version with 5% of traffic, watch the metrics, then move `production` to the same version
 - **Instant rollback**: If a version is causing problems, move the label back to the previous version in seconds, with no deploy required
 - **Full history**: Every version is immutable and preserved, so you can always see exactly what was served and when
+
+## Template Variables
+
+For AI applications, variables often contain prompt templates with placeholders that get filled in at runtime. **Template variables** support this natively with Handlebars `{{placeholder}}` syntax:
+
+!!! note "Install the variables extra for templates"
+    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra on Python 3.10 and later.
+
+    ```bash
+    pip install 'logfire[variables]'
+    ```
+
+```python skip="true"
+from pydantic import BaseModel
+
+import logfire
+
+
+class PromptInputs(BaseModel):
+    user_name: str
+    is_premium: bool = False
+
+
+prompt = logfire.template_var(
+    'system_prompt',
+    type=str,
+    default='Hello {{user_name}}!{{#if is_premium}} Welcome back, valued member.{{/if}}',
+    inputs_type=PromptInputs,
+)
+
+with prompt.get(PromptInputs(user_name='Alice', is_premium=True)) as resolved:
+    print(resolved.value)  # "Hello Alice! Welcome back, valued member."
+```
+
+Variables can also reference other variables using `@{variable_name}@` syntax, allowing you to compose values from reusable fragments that can be independently updated in the UI.
+
+For full details, see [Templates and Composition](templates-and-composition.md).
 
 ## How It Works
 
@@ -231,8 +269,10 @@ This bypasses the rollout weights and directly resolves the value from the speci
 
 ### Variable Parameters
 
-| Parameter | Description                                                             |
-|-----------|-------------------------------------------------------------------------|
-| `name` | Unique identifier for the variable                                      |
+| Parameter | Description |
+|-----------|-------------|
+| `name` | Unique identifier for the variable |
 | `type` | Expected type for validation; can be a primitive type or Pydantic model |
-| `default` | Default value when no configuration is found (can also be a function)   |
+| `default` | Default value when no configuration is found (can also be a function) |
+
+For variables with Handlebars template rendering, use `logfire.template_var()` instead, which adds an `inputs_type` parameter. See [Templates and Composition](templates-and-composition.md).

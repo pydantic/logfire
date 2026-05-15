@@ -430,6 +430,51 @@ def test_failed_test_records_exception(logfire_pytester: pytest.Pytester):
     assert 'exception.stacktrace' in exc_attrs
 
 
+def test_failed_test_ignores_record_exception_runtime_error() -> None:
+    """Failed test reporting should tolerate RuntimeError while recording exception details."""
+    span = mock.Mock()
+    span.record_exception.side_effect = RuntimeError('generator raised StopIteration')
+    item = mock.Mock()
+    item.stash.get.return_value = span
+    report = mock.Mock(when='call', failed=True, skipped=False, duration=0.1, outcome='failed')
+    call = mock.Mock()
+    call.excinfo.typename = 'ValueError'
+    call.excinfo.value = ValueError('bad value')
+    outcome = mock.Mock()
+    outcome.get_result.return_value = report
+
+    hook = pytest_plugin.pytest_runtest_makereport(item, call)
+    next(hook)
+
+    with pytest.raises(StopIteration):
+        hook.send(outcome)
+
+    span.set_status.assert_called_once()
+    span.record_exception.assert_called_once_with(call.excinfo.value)
+
+
+def test_failed_test_reraises_unexpected_record_exception_runtime_error() -> None:
+    """Failed test reporting should only suppress the known CPython traceback bug."""
+    span = mock.Mock()
+    span.record_exception.side_effect = RuntimeError('unexpected recording failure')
+    item = mock.Mock()
+    item.stash.get.return_value = span
+    report = mock.Mock(when='call', failed=True, skipped=False, duration=0.1, outcome='failed')
+    call = mock.Mock()
+    call.excinfo.typename = 'ValueError'
+    call.excinfo.value = ValueError('bad value')
+    outcome = mock.Mock()
+    outcome.get_result.return_value = report
+
+    hook = pytest_plugin.pytest_runtest_makereport(item, call)
+    next(hook)
+
+    with pytest.raises(RuntimeError, match='unexpected recording failure'):
+        hook.send(outcome)
+
+    span.record_exception.assert_called_once_with(call.excinfo.value)
+
+
 def test_skipped_test_with_reason(logfire_pytester: pytest.Pytester):
     """Skipped tests should create a span with basic test attributes.
 

@@ -1,7 +1,8 @@
 from __future__ import annotations as _annotations
 
 import inspect
-from collections.abc import Generator, Mapping, Sequence
+import json
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -12,7 +13,16 @@ from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
+from logfire.variables._handlebars import HandlebarsError
+from logfire.variables.composition import (
+    ComposedReference,
+    VariableCompositionError,
+    expand_references,
+    has_references,
+)
+
 if TYPE_CHECKING:
+    from logfire.variables.abstract import VariableProvider
     from logfire.variables.config import VariableConfig
 
 if find_spec('anyio') is not None:  # pragma: no branch
@@ -27,14 +37,26 @@ from logfire.variables.abstract import ResolvedVariable
 __all__ = (
     'ResolveFunction',
     'is_resolve_function',
+    '_BaseVariable',
     'Variable',
+    'TemplateVariable',
     'targeting_context',
 )
 
 T_co = TypeVar('T_co', covariant=True)
+InputsT = TypeVar('InputsT')
 
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
+
+
+def _record_exception(exception: BaseException, span: logfire.LogfireSpan) -> None:
+    """Record an exception on a span, ignoring a CPython traceback extraction bug."""
+    try:
+        span.record_exception(exception)
+    except RuntimeError as exc:
+        if 'generator raised StopIteration' not in str(exc):
+            raise
 
 
 @dataclass
@@ -115,8 +137,12 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
         return required_positional <= 2 and total_positional >= 2
 
 
-class Variable(Generic[T_co]):
-    """A managed variable that can be resolved dynamically based on configuration."""
+class _BaseVariable(Generic[T_co]):
+    """Base class for managed variables with shared resolution infrastructure.
+
+    Contains all shared logic: init, deserialization, override, refresh, config,
+    resolution pipeline. Subclasses (Variable, TemplateVariable) add their own get() method.
+    """
 
     name: str
     """Unique name identifying this variable."""
@@ -126,6 +152,8 @@ class Variable(Generic[T_co]):
     """Default value or function to compute the default."""
     description: str | None
     """Description of the variable."""
+    template_inputs_type: type[Any] | None
+    """The Pydantic model type for template inputs, if template rendering is enabled."""
 
     logfire_instance: logfire.Logfire
     """The Logfire instance this variable is associated with."""
@@ -137,6 +165,7 @@ class Variable(Generic[T_co]):
         type: type[T_co],
         default: T_co | ResolveFunction[T_co],
         description: str | None = None,
+        template_inputs: type[Any] | None = None,
         logfire_instance: logfire.Logfire,
     ):
         """Create a new managed variable.
@@ -147,21 +176,36 @@ class Variable(Generic[T_co]):
             default: Default value to use when no configuration is found, or a function
                 that computes the default based on targeting_key and attributes.
             description: Optional human-readable description of what this variable controls.
+            template_inputs: Optional Pydantic model type describing the expected template inputs
+                for Handlebars rendering. When set, values can contain ``{{placeholder}}`` syntax.
             logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
         """
         self.name = name
         self.value_type = type
         self.default = default
         self.description = description
+        self.template_inputs_type = template_inputs
 
+        self._variable_registry = logfire_instance._variables  # pyright: ignore[reportPrivateUsage]
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
 
-    def _deserialize(self, serialized_value: str) -> T_co | Exception:
+        if template_inputs is not None:
+            self._template_inputs_adapter: TypeAdapter[Any] | None = TypeAdapter(template_inputs)
+        else:
+            self._template_inputs_adapter = None
+
+    def get_template_inputs_schema(self) -> dict[str, Any] | None:
+        """Return the JSON schema for template inputs, or None if not configured."""
+        if self._template_inputs_adapter is not None:
+            return self._template_inputs_adapter.json_schema()
+        return None
+
+    def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
         try:
             return self.type_adapter.validate_json(serialized_value)
-        except Exception as e:
+        except (ValidationError, ValueError) as e:
             return e
 
     @contextmanager
@@ -187,82 +231,13 @@ class Variable(Generic[T_co]):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
-    def get(
-        self,
-        targeting_key: str | None = None,
-        attributes: Mapping[str, Any] | None = None,
-        *,
-        label: str | None = None,
-    ) -> ResolvedVariable[T_co]:
-        """Resolve the variable and return full details including label, version, and any errors.
-
-        Args:
-            targeting_key: Optional key for deterministic label selection (e.g., user ID).
-                If not provided, falls back to contextvar targeting key (set via targeting_context),
-                then to the current trace ID if there is an active trace.
-            attributes: Optional attributes for condition-based targeting rules.
-            label: Optional explicit label name to select. If provided, bypasses rollout
-                weights and targeting, directly selecting the specified label. If the label
-                doesn't exist in the configuration, falls back to default resolution.
-
-        Returns:
-            A ResolvedVariable object containing the resolved value, selected label,
-            version, and any errors that occurred.
-        """
-        merged_attributes = self._get_merged_attributes(attributes)
-
-        # Targeting key resolution: call-site > contextvar > trace_id
-        if targeting_key is None:
-            targeting_key = _get_contextvar_targeting_key(self.name)
-
-        if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
-            # If there is no active trace, the current_trace_id will be zero
-            targeting_key = f'trace_id:{current_trace_id:032x}'
-
-        # Include the variable name directly here to make the span name more useful,
-        # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
-        # Don't inline the f-string to avoid f-string magic.
-        span_name = f'Resolve variable {self.name}'
-        with ExitStack() as stack:
-            span: logfire.LogfireSpan | None = None
-            if _get_variables_instrument(self.logfire_instance.config.variables):
-                span = stack.enter_context(
-                    self.logfire_instance.span(
-                        span_name,
-                        name=self.name,
-                        targeting_key=targeting_key,
-                        attributes=merged_attributes,
-                    )
-                )
-            result = self._resolve(targeting_key, merged_attributes, span, label)
-            if span is not None:
-                # Serialize value safely for OTel span attributes, which only support primitives.
-                # Try to JSON serialize the value; if that fails, fall back to string representation.
-                try:
-                    serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
-                except Exception:
-                    serialized_value = repr(result.value)
-                span.set_attributes(
-                    {
-                        'name': result.name,
-                        'value': serialized_value,
-                        'label': result.label,
-                        'version': result.version,
-                        'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
-                    }
-                )
-                if result.exception:
-                    span.record_exception(
-                        result.exception,
-                    )
-            return result
-
     def _resolve(
         self,
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
         label: str | None = None,
+        render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
@@ -270,6 +245,10 @@ class Variable(Generic[T_co]):
                 context_value = context_overrides[self.name]
                 if is_resolve_function(context_value):
                     context_value = context_value(targeting_key, attributes)
+                # For TemplateVariable (render_fn set), the override is a template
+                # that still gets rendered with inputs.
+                if render_fn is not None:
+                    context_value = self._render_default(context_value, render_fn)
                 return ResolvedVariable(name=self.name, value=context_value, _reason='context_override')
 
             provider = self.logfire_instance.config.get_variable_provider()
@@ -278,46 +257,28 @@ class Variable(Generic[T_co]):
             if label is not None:
                 serialized_result = provider.get_serialized_value_for_label(self.name, label)
                 if serialized_result.value is not None:
-                    # Successfully got the explicit label
-                    value_or_exc = self._deserialize(serialized_result.value)
-                    if isinstance(value_or_exc, Exception):
-                        if span:  # pragma: no branch
-                            span.set_attribute('invalid_serialized_label', serialized_result.label)
-                            span.set_attribute('invalid_serialized_value', serialized_result.value)
-                        default = self._get_default(targeting_key, attributes)
-                        reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                        return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
-                    return ResolvedVariable(
-                        name=self.name,
-                        value=value_or_exc,
-                        label=serialized_result.label,
-                        version=serialized_result.version,
-                        _reason='resolved',
+                    return self._expand_and_deserialize(
+                        serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
                     )
                 # Label not found - fall through to default resolution
 
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
-                default = self._get_default(targeting_key, attributes)
-                return _with_value(serialized_result, default)
+                default_result = self._resolve_serialized_default(
+                    serialized_result,
+                    provider,
+                    targeting_key,
+                    attributes,
+                    span,
+                    render_fn=render_fn,
+                )
+                if default_result is not None:
+                    return default_result
+                return _with_value(serialized_result, self._get_default(targeting_key, attributes))
 
-            # Deserialize - returns T | Exception
-            value_or_exc = self._deserialize(serialized_result.value)
-            if isinstance(value_or_exc, Exception):
-                if span:  # pragma: no branch
-                    span.set_attribute('invalid_serialized_label', serialized_result.label)
-                    span.set_attribute('invalid_serialized_value', serialized_result.value)
-                default = self._get_default(targeting_key, attributes)
-                reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
-
-            return ResolvedVariable(
-                name=self.name,
-                value=value_or_exc,
-                label=serialized_result.label,
-                version=serialized_result.version,
-                _reason='resolved',
+            return self._expand_and_deserialize(
+                serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
             )
 
         except Exception as e:
@@ -327,6 +288,124 @@ class Variable(Generic[T_co]):
             default = self._get_default(targeting_key, attributes)
             return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
 
+    def _render_default(self, default: Any, render_fn: Callable[[str], str]) -> T_co:
+        """Serialize the default value, apply render_fn, then deserialize back."""
+        serialized = self.type_adapter.dump_json(default).decode('utf-8')
+        rendered = render_fn(serialized)
+        result = self._deserialize(rendered)
+        if isinstance(result, (ValidationError, ValueError)):
+            raise result
+        return result
+
+    def _expand_and_deserialize(
+        self,
+        serialized_result: ResolvedVariable[str | None],
+        provider: VariableProvider,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        render_fn: Callable[[str], str] | None = None,
+    ) -> ResolvedVariable[T_co]:
+        """Expand @{references}@ in a serialized value, optionally render templates, then deserialize.
+
+        Handles composition between the provider fetch and Pydantic deserialization.
+        When render_fn is provided, it is applied after composition and before deserialization.
+        """
+        assert serialized_result.value is not None
+
+        serialized_value = serialized_result.value
+        composed: list[ComposedReference] = []
+
+        # Expand @{references}@ if any are present
+        if has_references(serialized_value):
+
+            def resolve_ref(ref_name: str) -> tuple[str | None, str | None, int | None, str]:
+                ref_resolved = provider.get_serialized_value(ref_name, targeting_key, attributes)
+                if ref_resolved.value is None and (ref_variable := self._variable_registry.get(ref_name)) is not None:
+                    ref_default = ref_variable._get_serialized_default(targeting_key, attributes)
+                    if ref_default is not None:
+                        return (ref_default, None, None, 'code_default')
+                return (
+                    ref_resolved.value,
+                    ref_resolved.label,
+                    ref_resolved.version,
+                    ref_resolved._reason,  # pyright: ignore[reportPrivateUsage]
+                )
+
+            try:
+                serialized_value, composed = expand_references(
+                    serialized_value,
+                    self.name,
+                    resolve_ref,
+                )
+                if composition_error := _first_composition_error(composed):
+                    default = self._get_default(targeting_key, attributes)
+                    return ResolvedVariable(
+                        name=self.name,
+                        value=default,
+                        exception=VariableCompositionError(composition_error),
+                        _reason='other_error',
+                        label=serialized_result.label,
+                        version=serialized_result.version,
+                        composed_from=composed,
+                    )
+            except VariableCompositionError as e:
+                default = self._get_default(targeting_key, attributes)
+                return ResolvedVariable(
+                    name=self.name,
+                    value=default,
+                    exception=e,
+                    _reason='other_error',
+                    label=serialized_result.label,
+                    version=serialized_result.version,
+                    composed_from=composed,
+                )
+
+        # Apply render_fn (template rendering) if provided
+        if render_fn is not None:
+            try:
+                serialized_value = render_fn(serialized_value)
+            except (HandlebarsError, ValueError, TypeError) as e:
+                default = self._get_default(targeting_key, attributes)
+                return ResolvedVariable(
+                    name=self.name,
+                    value=default,
+                    exception=e,
+                    _reason='other_error',
+                    label=serialized_result.label,
+                    version=serialized_result.version,
+                    composed_from=composed,
+                )
+
+        # Deserialize the (possibly expanded/rendered) value
+        value_or_exc = self._deserialize(serialized_value)
+        if isinstance(value_or_exc, Exception):
+            if span:  # pragma: no branch
+                span.set_attribute('invalid_serialized_label', serialized_result.label)
+                span.set_attribute('invalid_serialized_value', serialized_value)
+            default = self._get_default(targeting_key, attributes)
+            reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+            return ResolvedVariable(
+                name=self.name,
+                value=default,
+                exception=value_or_exc,
+                _reason=reason,
+                label=serialized_result.label,
+                version=serialized_result.version,
+                composed_from=composed,
+            )
+
+        return ResolvedVariable(
+            name=self.name,
+            value=value_or_exc,
+            label=serialized_result.label,
+            version=serialized_result.version,
+            _reason='resolved',
+            composed_from=composed,
+            _serialized_value=serialized_value,
+            _deserializer=self._deserialize,
+        )
+
     def _get_default(
         self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
     ) -> T_co:
@@ -334,6 +413,44 @@ class Variable(Generic[T_co]):
             return self.default(targeting_key, merged_attributes)
         else:
             return self.default
+
+    def _get_serialized_default(
+        self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
+    ) -> str | None:
+        """Return the code default serialized as JSON, or None if serialization fails."""
+        try:
+            default = self._get_default(targeting_key, merged_attributes)
+            return self.type_adapter.dump_json(default).decode('utf-8')
+        except (ValueError, TypeError, RuntimeError):
+            return None
+
+    def _resolve_serialized_default(
+        self,
+        serialized_result: ResolvedVariable[str | None],
+        provider: VariableProvider,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        render_fn: Callable[[str], str] | None = None,
+    ) -> ResolvedVariable[T_co] | None:
+        """Resolve the code default through composition/rendering when needed."""
+        serialized_default = self._get_serialized_default(targeting_key, attributes)
+        if serialized_default is None:
+            return None
+        if render_fn is None and not has_references(serialized_default):
+            return None
+
+        result = self._expand_and_deserialize(
+            ResolvedVariable(name=self.name, value=serialized_default, _reason='missing_config'),
+            provider,
+            targeting_key,
+            attributes,
+            span,
+            render_fn=render_fn,
+        )
+        if result._reason == 'resolved':  # pyright: ignore[reportPrivateUsage]
+            result._reason = serialized_result._reason  # pyright: ignore[reportPrivateUsage]
+        return result
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         from logfire._internal.config import LocalVariablesOptions, VariablesOptions
@@ -374,6 +491,10 @@ class Variable(Generic[T_co]):
         if not is_resolve_function(self.default):
             example = self.type_adapter.dump_json(self.default).decode('utf-8')
 
+        template_inputs_schema: dict[str, Any] | None = None
+        if self._template_inputs_adapter is not None:
+            template_inputs_schema = self._template_inputs_adapter.json_schema()
+
         return VariableConfig(
             name=self.name,
             description=self.description,
@@ -382,7 +503,188 @@ class Variable(Generic[T_co]):
             overrides=[],
             json_schema=json_schema,
             example=example,
+            template_inputs_schema=template_inputs_schema,
         )
+
+    def _get_result_and_record_span(
+        self,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        label: str | None,
+        render_fn: Callable[[str], str] | None = None,
+    ) -> ResolvedVariable[T_co]:
+        """Common get() logic: resolve targeting key, open span, call _resolve, record attributes."""
+        merged_attributes = self._get_merged_attributes(attributes)
+
+        # Targeting key resolution: call-site > contextvar > trace_id
+        if targeting_key is None:
+            targeting_key = _get_contextvar_targeting_key(self.name)
+
+        if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
+            # If there is no active trace, the current_trace_id will be zero
+            targeting_key = f'trace_id:{current_trace_id:032x}'
+
+        # Include the variable name directly here to make the span name more useful,
+        # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
+        # Don't inline the f-string to avoid f-string magic.
+        span_name = f'Resolve variable {self.name}'
+        with ExitStack() as stack:
+            span: logfire.LogfireSpan | None = None
+            if _get_variables_instrument(self.logfire_instance.config.variables):
+                span = stack.enter_context(
+                    self.logfire_instance.span(
+                        span_name,
+                        name=self.name,
+                        targeting_key=targeting_key,
+                        attributes=merged_attributes,
+                    )
+                )
+            result = self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
+            # Ensure rendering support is always available
+            if result._deserializer is None:  # pyright: ignore[reportPrivateUsage]
+                result._deserializer = self._deserialize  # pyright: ignore[reportPrivateUsage]
+            if result._serialized_value is None and result.value is not None:  # pyright: ignore[reportPrivateUsage]
+                try:
+                    result._serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')  # pyright: ignore[reportPrivateUsage]
+                except (ValueError, TypeError, RuntimeError):
+                    pass
+            if span is not None:
+                # Serialize value safely for OTel span attributes, which only support primitives.
+                # Try to JSON serialize the value; if that fails, fall back to string representation.
+                try:
+                    serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
+                except (ValueError, TypeError, RuntimeError):
+                    serialized_value = repr(result.value)
+                attrs: dict[str, Any] = {
+                    'name': result.name,
+                    'value': serialized_value,
+                    'label': result.label,
+                    'version': result.version,
+                    'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
+                }
+                if result.composed_from:
+                    attrs['composed_from'] = json.dumps(
+                        [
+                            {
+                                'name': c.name,
+                                'version': c.version,
+                                'label': c.label,
+                                'reason': c.reason,
+                                'error': c.error,
+                            }
+                            for c in result.composed_from
+                        ]
+                    )
+                span.set_attributes(attrs)
+                if result.exception:
+                    _record_exception(result.exception, span)
+            return result
+
+
+class Variable(_BaseVariable[T_co]):
+    """A managed variable that can be resolved dynamically based on configuration."""
+
+    def get(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
+    ) -> ResolvedVariable[T_co]:
+        """Resolve the variable and return full details including label, version, and any errors.
+
+        Args:
+            targeting_key: Optional key for deterministic label selection (e.g., user ID).
+                If not provided, falls back to contextvar targeting key (set via targeting_context),
+                then to the current trace ID if there is an active trace.
+            attributes: Optional attributes for condition-based targeting rules.
+            label: Optional explicit label name to select. If provided, bypasses rollout
+                weights and targeting, directly selecting the specified label. If the label
+                doesn't exist in the configuration, falls back to default resolution.
+
+        Returns:
+            A ResolvedVariable object containing the resolved value, selected label,
+            version, and any errors that occurred.
+        """
+        return self._get_result_and_record_span(targeting_key, attributes, label)
+
+
+class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
+    """A managed variable with integrated template rendering.
+
+    Like ``Variable``, but ``get()`` requires ``inputs`` and automatically renders
+    Handlebars ``{{placeholder}}`` templates in the resolved value before returning.
+    The pipeline is: resolve → compose ``@{refs}@`` → render ``{{}}`` → deserialize.
+    """
+
+    inputs_type: type[InputsT]
+    """The type used for template inputs."""
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new template variable.
+
+        Args:
+            name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            inputs_type: The type (typically a Pydantic ``BaseModel``) describing the expected
+                template inputs. Used for type-safe ``get(inputs)`` calls and JSON schema generation.
+            description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with.
+        """
+        super().__init__(
+            name,
+            type=type,
+            default=default,
+            description=description,
+            template_inputs=inputs_type,
+            logfire_instance=logfire_instance,
+        )
+        self.inputs_type = inputs_type
+
+    def get(
+        self,
+        inputs: InputsT,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
+    ) -> ResolvedVariable[T_co]:
+        """Resolve the variable, render templates with the given inputs, and return the result.
+
+        The resolution pipeline is:
+        1. Fetch serialized value from provider (or use default)
+        2. Expand ``@{variable_name}@`` composition references
+        3. Render ``{{placeholder}}`` Handlebars templates using ``inputs``
+        4. Deserialize to the variable's type
+
+        Args:
+            inputs: Template context values. Typically a Pydantic ``BaseModel`` instance
+                matching ``inputs_type``. All ``{{placeholder}}`` expressions in the value
+                are rendered using this context.
+            targeting_key: Optional key for deterministic label selection (e.g., user ID).
+            attributes: Optional attributes for condition-based targeting rules.
+            label: Optional explicit label name to select.
+
+        Returns:
+            A ResolvedVariable with the fully rendered and deserialized value.
+        """
+        from logfire.variables.abstract import render_serialized_string
+
+        def _render_fn(serialized_json: str) -> str:
+            return render_serialized_string(serialized_json, inputs)
+
+        return self._get_result_and_record_span(targeting_key, attributes, label, render_fn=_render_fn)
 
 
 def _with_value(details: ResolvedVariable[Any], new_value: T_co) -> ResolvedVariable[T_co]:
@@ -398,10 +700,20 @@ def _with_value(details: ResolvedVariable[Any], new_value: T_co) -> ResolvedVari
     return replace(details, value=new_value)
 
 
+def _first_composition_error(composed: list[ComposedReference]) -> str | None:
+    """Return the first nested composition error, if any."""
+    for ref in composed:
+        if ref.error is not None:
+            return ref.error
+        if nested_error := _first_composition_error(ref.composed_from):
+            return nested_error
+    return None
+
+
 @contextmanager
 def targeting_context(
     targeting_key: str,
-    variables: Sequence[Variable[Any]] | None = None,
+    variables: Sequence[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
 ) -> Generator[None]:
     """Set the targeting key for variable resolution within this context.
 
