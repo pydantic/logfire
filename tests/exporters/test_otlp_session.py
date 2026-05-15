@@ -9,9 +9,8 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
-import requests
-import requests.exceptions
 from inline_snapshot import snapshot
+from opentelemetry.exporter.otlp.proto.http import Compression
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
@@ -20,6 +19,7 @@ from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     BodyTooLargeError,
     DiskRetryer,
+    ExportRetryInProgressError,
     OTLPExporterHttpSession,
     cleanup_disk_retryers,
 )
@@ -48,7 +48,7 @@ def test_max_body_size_bytes() -> None:
     assert str(e.value) == snapshot('Request body is too large (897045 bytes), must be less than 10 bytes.')
 
 
-def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_disk_retryer_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     sleep_mock = Mock(return_value=0)
     monkeypatch.setattr('time.sleep', sleep_mock)
     monkeypatch.setattr('time.monotonic', Mock(side_effect=range(0, 1000, 30)))
@@ -66,12 +66,8 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
             assert request.headers['Authorization'] == 'Bearer 123'
             return self.mock()
 
-    session = OTLPExporterHttpSession()
     headers = {'User-Agent': 'logfire', 'Authorization': 'Bearer 123'}
-    session.headers.update(headers)
-
-    # The main session always fails so that it defers to the retryer.
-    session.mount('http://', ConnectionErrorAdapter(Mock(side_effect=requests.exceptions.ConnectionError())))
+    retryer = DiskRetryer(headers)
 
     # The retryer sessions fails at first to simulate logfire being down, then succeeds.
     failure = Response()
@@ -79,31 +75,26 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     success = Response()
     success.status_code = 200
     num_exports = 10
-    session.retryer.session.mount(
+    retryer.session.mount(
         'http://',
         ConnectionErrorAdapter(Mock(side_effect=[failure] * num_exports + [success] * num_exports)),
     )
 
     # Create a bunch of failed exports.
     for _ in range(num_exports):
-        with pytest.raises(requests.exceptions.ConnectionError):
-            session.post('http://example.com/', data=b'123')
+        retryer.add_task(b'123', {'url': 'http://example.com/'})
 
     # Wait for the retryer to finish.
     # time.sleep has been mocked to return 0 so this shouldn't take long.
-    assert session.retryer.thread
-    session.retryer.thread.join()
+    assert retryer.thread
+    retryer.thread.join()
 
     # Check that everything is cleaned up after succeeding.
-    assert not session.retryer.tasks
-    assert not session.retryer.thread
-    assert not list(session.retryer.dir.iterdir())
+    assert not retryer.tasks
+    assert not retryer.thread
+    assert not list(retryer.dir.iterdir())
 
     sleep_times = [call.args[0] for call in sleep_mock.call_args_list]
-    # The initial sleep before the first retry is always 1 second.
-    assert sleep_times.count(1) == num_exports
-    # The initial sleeps are shuffled in randomly because of threads, so remove them before checking the rest.
-    sleep_times = [t for t in sleep_times if t != 1]
     # random.random is mocked to return 0.5 so that the retry delay is always 1.5 * 2 ** n.
     # This means these numbers show the average time slept for each call,
     # e.g. 6.0 means the actual sleep would be between 4 and 8 seconds.
@@ -139,6 +130,49 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # After that the number of failed exports is unpredictable because the main thread is adding to it
     # at the same time as the retryer thread removes from it.
     assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
+
+
+def test_session_queues_without_network_when_retryer_active() -> None:
+    class ActiveRetryer:
+        add_task = Mock()
+
+        @staticmethod
+        def is_active() -> bool:
+            return True
+
+    session = OTLPExporterHttpSession()
+    retryer = ActiveRetryer()
+    session.__dict__['retryer'] = retryer
+    session._post = Mock()  # type: ignore[method-assign]
+
+    with pytest.raises(ExportRetryInProgressError):
+        session.post('http://example.com/', data=b'123', timeout=5)
+
+    session._post.assert_not_called()  # type: ignore[attr-defined]
+    retryer.add_task.assert_called_once_with(b'123', {'url': 'http://example.com/', 'timeout': 5})
+
+
+def test_open_circuit_does_not_trigger_otel_connection_error_retry() -> None:
+    class ActiveRetryer:
+        add_task = Mock()
+
+        @staticmethod
+        def is_active() -> bool:
+            return True
+
+    session = OTLPExporterHttpSession()
+    retryer = ActiveRetryer()
+    session.__dict__['retryer'] = retryer
+    exporter = BodySizeCheckingOTLPSpanExporter(
+        endpoint='http://example.com/v1/traces',
+        session=session,
+        compression=Compression.Gzip,
+    )
+
+    with pytest.raises(ExportRetryInProgressError):
+        exporter.export(TEST_SPANS[:1])
+
+    retryer.add_task.assert_called_once()
 
 
 def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:

@@ -67,6 +67,12 @@ class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
+        retryer = self.__dict__.get('retryer')
+        if retryer is not None and retryer.is_active():
+            # Let the retryer be the only code path probing the backend until it catches up.
+            self._add_task(data, url, kwargs)
+            raise ExportRetryInProgressError()
+
         start_time = time.time()
         try:
             return self._post(url, data, **kwargs)
@@ -167,6 +173,10 @@ class DiskRetryer:
 
         self.session.close()
         self._cleanup_dir(self.dir)
+
+    def is_active(self) -> bool:
+        with self.lock:
+            return bool(self.tasks) or (self.thread is not None and self.thread.is_alive())
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
         try:
@@ -294,7 +304,7 @@ class QuietSpanExporter(WrapperSpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         try:
             return super().export(spans)
-        except requests.exceptions.RequestException:
+        except (requests.exceptions.RequestException, ExportRetryInProgressError):
             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
             return SpanExportResult.FAILURE
 
@@ -305,6 +315,10 @@ class QuietLogExporter(WrapperLogExporter):
     def export(self, batch: Sequence[ReadableLogRecord]):
         try:
             return super().export(batch)
-        except requests.exceptions.RequestException:
+        except (requests.exceptions.RequestException, ExportRetryInProgressError):
             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
             return LogRecordExportResult.FAILURE
+
+
+class ExportRetryInProgressError(Exception):
+    """Raised when an export is queued because the retryer is already probing the backend."""
