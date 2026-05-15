@@ -292,9 +292,9 @@ def test_inspect(
 │  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
 │  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
 │  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
-│  ☐ urllib* (need to install opentelemetry-instrumentation-urllib)                                                                                  │
+│  ☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)                                                                               │
 │                                                                                                                                                    │
-│  * `urllib` may be detected even when your app does not use it directly; ignore these recommendations if they are not used by your code.           │
+│  [*] `urllib` may not actually be used by your app, in which case you can ignore this recommendation                                               │
 │                                                                                                                                                    │
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
@@ -1653,12 +1653,12 @@ def test_get_recommendation_texts_marks_ambiguous_packages():
     recommended, _ = get_recommendation_texts(recs)
 
     assert '☐ foo (need to install opentelemetry-instrumentation-foo)' in recommended
-    assert '☐ requests* (need to install opentelemetry-instrumentation-requests)' in recommended
-    assert '☐ sqlite3* (need to install opentelemetry-instrumentation-sqlite3)' in recommended
-    assert '☐ urllib* (need to install opentelemetry-instrumentation-urllib)' in recommended
+    assert '☐ requests [*] (need to install opentelemetry-instrumentation-requests)' in recommended
+    assert '☐ sqlite3 [*] (need to install opentelemetry-instrumentation-sqlite3)' in recommended
+    assert '☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)' in recommended
     assert (
-        '* `requests`, `sqlite3`, and `urllib` may be detected even when your app does not use them directly; '
-        'ignore these recommendations if they are not used by your code.'
+        '[*] `requests`, `sqlite3`, and `urllib` may not actually be used by your app, '
+        'in which case you can ignore these recommendations'
     ) in recommended
 
 

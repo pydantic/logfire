@@ -241,15 +241,15 @@ def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Tex
     for pkg_name, instrumented_pkg in sorted_recommendations:
         marker = ''
         if instrumented_pkg in AMBIGUOUS_RECOMMENDATION_PACKAGES:
-            marker = '*'
+            marker = ' [*]'
             ambiguous_recommendations.append(instrumented_pkg)
         recommended_text.append(f'☐ {instrumented_pkg}{marker} (need to install {pkg_name})\n', style='grey50')
     if ambiguous_recommendations:
         special_cases = _format_package_list(ambiguous_recommendations)
-        pronoun = 'it' if len(ambiguous_recommendations) == 1 else 'them'
+        recommendation = 'this recommendation' if len(ambiguous_recommendations) == 1 else 'these recommendations'
         recommended_text.append(
-            f'\n* {special_cases} may be detected even when your app does not use {pronoun} directly; '
-            'ignore these recommendations if they are not used by your code.\n',
+            f'\n[*] {special_cases} may not actually be used by your app, '
+            f'in which case you can ignore {recommendation}\n',
             style='grey50',
         )
     recommended_text.append('\n')
