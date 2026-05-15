@@ -143,6 +143,17 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
 
 
+def test_session_close_closes_lazy_retryer() -> None:
+    session = OTLPExporterHttpSession()
+    retryer = session.retryer
+    retryer_dir = retryer.dir
+
+    session.close()
+
+    assert retryer.closed
+    assert not retryer_dir.exists()
+
+
 def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
     retryer_dir = tmp_path / 'retryer-dir'
     marker_file = tmp_path / 'retryer-marker.txt'
