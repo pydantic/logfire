@@ -41,6 +41,9 @@ class RecordingSession(requests.Session):
 
 
 class FailingSession(requests.Session):
+    def __init__(self) -> None:
+        super().__init__()
+
     def post(self, **kwargs: Any) -> Response:  # pyright: ignore[reportIncompatibleMethodOverride]
         raise requests.exceptions.ConnectionError('no connection')
 
