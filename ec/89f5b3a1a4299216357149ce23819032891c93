@@ -1,0 +1,29 @@
+logfire/_internal/exporters/otlp_proto_http/trace_exporter.py
+  s_32d23f0da37980::t_645b80b1086eec 1-90
+tests/exporters/otlp_proto_http/test_trace_exporter.py
+  s_32d23f0da37980::t_138d13971c3cbc 30-32
+  s_32d23f0da37980::t_11cbce8becf537 119
+  s_32d23f0da37980::t_d66fe5e8a951e3 132-135
+  s_32d23f0da37980::t_645b80b1086eec 1-29,33-118,120-131,136-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "ec89f5b3a1a4299216357149ce23819032891c93",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_32d23f0da37980": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2c89-78ca-71c0-b1aa-a77ea9275061",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
