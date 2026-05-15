@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 import requests_mock as requests_mock_module
+from inline_snapshot import snapshot
 from pydantic import BaseModel, ValidationError
 from requests import Session
 
@@ -725,11 +726,9 @@ class TestResolvedVariable:
             # be filtered/grouped by `(label, version)`.
             assert baggage['logfire.variables.cm_var.version'] == '1'
 
-    def test_context_manager_omits_version_for_code_default(self, config_kwargs: dict[str, Any]):
+    def test_context_manager_omits_version_for_code_default(self):
         """Code-default resolutions have version=None and should not emit a version baggage entry."""
-        lf = logfire.configure(**config_kwargs)
-
-        var = lf.var(name='no_version_var', default='default', type=str)
+        var = logfire.var(name='no_version_var', default='default', type=str)
         details = var.get()
 
         assert details.label is None
@@ -737,8 +736,7 @@ class TestResolvedVariable:
 
         with details:
             baggage = logfire.get_baggage()
-            assert baggage['logfire.variables.no_version_var'] == '<code_default>'
-            assert 'logfire.variables.no_version_var.version' not in baggage
+            assert baggage == snapshot({'logfire.variables.no_version_var': '<code_default>'})
 
     def test_context_manager_returns_self(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
