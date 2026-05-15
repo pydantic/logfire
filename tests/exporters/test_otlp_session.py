@@ -154,6 +154,14 @@ def test_session_close_closes_lazy_retryer() -> None:
     assert not retryer_dir.exists()
 
 
+def test_session_close_without_retryer() -> None:
+    session = OTLPExporterHttpSession()
+
+    session.close()
+
+    assert 'retryer' not in session.__dict__
+
+
 def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
     retryer_dir = tmp_path / 'retryer-dir'
     marker_file = tmp_path / 'retryer-marker.txt'
