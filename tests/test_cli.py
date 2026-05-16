@@ -292,7 +292,9 @@ def test_inspect(
 │  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
 │  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
 │  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
-│  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
+│  ☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)                                                                               │
+│                                                                                                                                                    │
+│  [*] `urllib` may not actually be used by your app, in which case you can ignore this recommendation                                               │
 │                                                                                                                                                    │
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
@@ -1639,6 +1641,25 @@ def test_get_recommendation_texts():
     assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
     assert 'need to install opentelemetry-instrumentation-bar' in recommended
     assert 'need to install opentelemetry-instrumentation-foo' in recommended
+
+
+def test_get_recommendation_texts_marks_ambiguous_packages():
+    recs = {
+        ('opentelemetry-instrumentation-foo', 'foo'),
+        ('opentelemetry-instrumentation-requests', 'requests'),
+        ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+        ('opentelemetry-instrumentation-urllib', 'urllib'),
+    }
+    recommended, _ = get_recommendation_texts(recs)
+
+    assert '☐ foo (need to install opentelemetry-instrumentation-foo)' in recommended
+    assert '☐ requests [*] (need to install opentelemetry-instrumentation-requests)' in recommended
+    assert '☐ sqlite3 [*] (need to install opentelemetry-instrumentation-sqlite3)' in recommended
+    assert '☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)' in recommended
+    assert (
+        '[*] `requests`, `sqlite3`, and `urllib` may not actually be used by your app, '
+        'in which case you can ignore these recommendations'
+    ) in recommended
 
 
 def test_instrument_packages_openai() -> None:
