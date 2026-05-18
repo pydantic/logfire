@@ -6,9 +6,12 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
 import logfire
+import logfire.experimental.forwarding as forwarding
 from logfire.experimental.forwarding import ForwardExportRequestResponse, forward_export_request, logfire_proxy
 from logfire.version import VERSION
 
@@ -85,6 +88,74 @@ def test_forward_export_request_queue_full_returns_partial_success(monkeypatch: 
     assert otlp_response.partial_success.error_message == (
         'Logfire proxy retry queue is full or unavailable; telemetry was dropped.'
     )
+
+
+@pytest.mark.parametrize(
+    ('path', 'response_type'),
+    [
+        ('/v1/logs', ExportLogsServiceResponse),
+        ('/v1/metrics', ExportMetricsServiceResponse),
+    ],
+)
+def test_forward_export_request_empty_body_returns_signal_success(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    response_type: type[ExportLogsServiceResponse] | type[ExportMetricsServiceResponse],
+) -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    retryer = FakeRetryer()
+    monkeypatch.setattr('logfire.experimental.forwarding._get_forwarding_retryer', lambda: retryer)
+
+    response = forward_export_request(path=path, headers={}, body=None)
+
+    assert response.status_code == 200
+    assert response.headers['Content-Type'] == 'application/x-protobuf'
+    assert response.content == response_type().SerializeToString()
+    assert not retryer.tasks
+
+
+@pytest.mark.parametrize(
+    ('path', 'response_type'),
+    [
+        ('/v1/logs', ExportLogsServiceResponse),
+        ('/v1/metrics', ExportMetricsServiceResponse),
+    ],
+)
+def test_forward_export_request_queue_full_returns_signal_partial_success(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    response_type: type[ExportLogsServiceResponse] | type[ExportMetricsServiceResponse],
+) -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    retryer = FakeRetryer(accepted=False)
+    monkeypatch.setattr('logfire.experimental.forwarding._get_forwarding_retryer', lambda: retryer)
+
+    response = forward_export_request(path=path, headers={}, body=b'data')
+
+    assert response.status_code == 200
+    assert response.headers['Content-Type'] == 'application/x-protobuf'
+    otlp_response = response_type.FromString(response.content)
+    assert otlp_response.partial_success.error_message == (
+        'Logfire proxy retry queue is full or unavailable; telemetry was dropped.'
+    )
+
+
+def test_get_forwarding_retryer_recreates_closed_retryer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(forwarding, '_forwarding_retryer', None)
+    get_forwarding_retryer = getattr(forwarding, '_get_forwarding_retryer')
+
+    retryer = get_forwarding_retryer()
+    assert retryer.initial_delay == 0
+    assert retryer.success_delay == 0
+
+    retryer.close()
+    new_retryer = get_forwarding_retryer()
+    assert new_retryer is not retryer
+    assert new_retryer.initial_delay == 0
+    assert new_retryer.success_delay == 0
+    new_retryer.close()
 
 
 def test_fastapi_proxy_handler(monkeypatch: pytest.MonkeyPatch) -> None:
