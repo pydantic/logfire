@@ -113,7 +113,7 @@ def forward_export_request(
 
     data = body or b''
     if not data:
-        return _otlp_success_response()
+        return _otlp_success_response(path)
 
     accepted = _get_forwarding_retryer().add_task(
         data,
@@ -130,7 +130,7 @@ def forward_export_request(
             'Logfire proxy retry queue is full or unavailable; telemetry was dropped.',
         )
 
-    return _otlp_success_response()
+    return _otlp_success_response(path)
 
 
 async def logfire_proxy(
@@ -210,11 +210,18 @@ def _get_forwarding_retryer() -> DiskRetryer:
     return _forwarding_retryer
 
 
-def _otlp_success_response() -> ForwardExportRequestResponse:
+def _otlp_success_response(path: str) -> ForwardExportRequestResponse:
+    if path == '/v1/traces':
+        content = ExportTraceServiceResponse().SerializeToString()
+    elif path == '/v1/logs':
+        content = ExportLogsServiceResponse().SerializeToString()
+    else:
+        content = ExportMetricsServiceResponse().SerializeToString()
+
     return ForwardExportRequestResponse(
         status_code=200,
         headers=OTLP_PROTOBUF_HEADERS,
-        content=b'',
+        content=content,
     )
 
 
