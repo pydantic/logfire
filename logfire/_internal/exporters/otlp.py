@@ -134,13 +134,21 @@ class DiskRetryer:
     # Log about problems at most once a minute.
     LOG_INTERVAL = 60
 
-    def __init__(self, headers: Mapping[str, str | bytes]):
+    def __init__(
+        self,
+        headers: Mapping[str, str | bytes],
+        *,
+        initial_delay: float = 1,
+        success_delay: float = 0.2,
+    ):
         # Reading/writing `thread`, `tasks`, and `total_size` should generally be protected by `lock`.
         self.lock = Lock()
         self.thread: Thread | None = None
         self.tasks: deque[tuple[Path, dict[str, Any]]] = deque()
         self.total_size = 0
         self.closed = False
+        self.initial_delay = initial_delay
+        self.success_delay = success_delay
 
         # Make a new session rather than using the OTLPExporterHttpSession directly
         # because thread safety of Session is questionable.
@@ -217,7 +225,7 @@ class DiskRetryer:
         return result
 
     def _run(self):
-        delay = 1
+        delay = self.initial_delay
         while True:
             with self.lock:
                 if not self.tasks:
@@ -238,7 +246,8 @@ class DiskRetryer:
                     # Exponential backoff with jitter.
                     # The jitter is proportional to the delay, in particular so that if we go down for a while
                     # and then come back up then retry requests will be spread out over a time of MAX_DELAY.
-                    time.sleep(delay * (1 + random.random()))
+                    if delay:
+                        time.sleep(delay * (1 + random.random()))
                     try:
                         with logfire.suppress_instrumentation():
                             response = self.session.post(**kwargs, data=data)
@@ -251,7 +260,7 @@ class DiskRetryer:
                     else:
                         # Success, set the delay to a small value (so that remaining tasks can be done quickly),
                         # remove the file, and move on to the next task.
-                        delay = 0.2
+                        delay = self.success_delay
                         path.unlink(missing_ok=True)
                         with self.lock:
                             self.total_size -= len(data)

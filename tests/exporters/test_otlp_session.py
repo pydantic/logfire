@@ -252,3 +252,22 @@ def test_disk_retryer_add_task_after_close_does_nothing() -> None:
     assert retryer.total_size == 0
     assert not retryer.tasks
     assert retryer.thread is None
+
+
+def test_disk_retryer_can_send_queued_tasks_without_sleeping(monkeypatch: pytest.MonkeyPatch) -> None:
+    sleep_mock = Mock()
+    monkeypatch.setattr('time.sleep', sleep_mock)
+
+    retryer = DiskRetryer({}, initial_delay=0, success_delay=0)
+    retryer.session.mount('http://', SinkHTTPAdapter())
+
+    assert retryer.add_task(b'123', {'url': 'http://example.com/'})
+    assert retryer.add_task(b'456', {'url': 'http://example.com/'})
+
+    assert retryer.thread
+    retryer.thread.join()
+
+    assert not retryer.tasks
+    assert not retryer.thread
+    assert not list(retryer.dir.iterdir())
+    sleep_mock.assert_not_called()
