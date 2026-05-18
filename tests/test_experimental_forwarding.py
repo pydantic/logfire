@@ -149,6 +149,7 @@ def test_get_forwarding_retryer_recreates_closed_retryer(monkeypatch: pytest.Mon
     retryer = get_forwarding_retryer()
     assert retryer.initial_delay == 0
     assert retryer.success_delay == 0
+    assert get_forwarding_retryer() is retryer
 
     retryer.close()
     new_retryer = get_forwarding_retryer()
