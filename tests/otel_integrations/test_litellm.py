@@ -204,6 +204,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'llm.token_count.completion_details.reasoning': 0,
                     'llm.token_count.completion_details.audio': 0,
                     'llm.token_count.total': 98,
+                    'llm.cost.total': 2.28e-05,
                     'openinference.span.kind': 'LLM',
                     'request_data': {
                         'messages': [{'role': 'user', 'content': "What's the weather like in San Francisco?"}]
@@ -343,6 +344,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'llm.token_count.completion_details.reasoning': 0,
                     'llm.token_count.completion_details.audio': 0,
                     'llm.token_count.total': 88,
+                    'llm.cost.total': 2.49e-05,
                     'openinference.span.kind': 'LLM',
                     'request_data': {
                         'messages': [

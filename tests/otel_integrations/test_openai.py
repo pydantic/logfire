@@ -4090,7 +4090,7 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-audio-preview-2025-06-03',
-                    'operation.cost': 1.5e-05,
+                    'operation.cost': 6.25e-05,
                     'gen_ai.response.id': 'chatcmpl-D5caSDR31gOd1Qpyucf0b5VvVy9zY',
                     'gen_ai.usage.input_tokens': 21,
                     'gen_ai.usage.output_tokens': 1,
