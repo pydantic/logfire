@@ -254,7 +254,11 @@ include = ["/README.md", "CHANGELOG.md", "/Makefile", "/logfire", "/tests"]
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
 line-length = 120
-extend-exclude = ["logfire-api/logfire_api/*", "tests/auto_trace_samples/param_spec.py"]
+extend-exclude = [
+    "logfire-api/logfire_api/*",
+    "tests/auto_trace_samples/param_spec.py",
+    "logfire/_internal/profiling/_proto/*", # vendored generated protobuf code
+]
 
 [tool.ruff.lint]
 # Ruff 0.16 greatly expanded the default rule set (59 -> 413 rules).
@@ -306,6 +310,7 @@ typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
 include = ["logfire", "tests"]
+exclude = ["logfire/_internal/profiling/_proto"] # vendored generated protobuf code
 venvPath = "."
 venv = ".venv"
 
