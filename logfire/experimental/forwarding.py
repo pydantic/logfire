@@ -206,6 +206,7 @@ def _get_forwarding_retryer() -> DiskRetryer:
     if _forwarding_retryer is None or _forwarding_retryer.closed:
         with _FORWARDING_RETRYER_LOCK:
             if _forwarding_retryer is None or _forwarding_retryer.closed:
+                # DiskRetryer instances are also closed by the shared atexit cleanup hook.
                 _forwarding_retryer = DiskRetryer({}, initial_delay=0, success_delay=0)
     return _forwarding_retryer
 
