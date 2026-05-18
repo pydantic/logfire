@@ -2259,7 +2259,7 @@ wheels = [
 
 [[package]]
 name = "google-genai"
-version = "2.0.1"
+version = "1.75.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -2291,9 +2291,9 @@ dependencies = [
     { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
     { name = "websockets", version = "16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/44/ae/8504f6fa44aae887909c3fda1d49c6ffe129225b68f6f63b8904c49e7e90/google_genai-2.0.1.tar.gz", hash = "sha256:32cec7c07157c0e65e4dfc740e3288ff8e8bfc2d506cde49f884d79ed8377867", size = 537456, upload-time = "2026-05-09T01:37:12.693Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/59/3ed61240ef20b3ae6ed54e82c6f8b6d1f194947bc6679679dd6cdb037594/google_genai-1.75.0.tar.gz", hash = "sha256:56bac3991b311c93f980c0a2abcd287b672146905df1fbd71c92ed633d5a07cf", size = 539039, upload-time = "2026-05-04T22:48:54.857Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a1/20/7f427041c3660fabd4c396e80b27dd40b7d89b121ba384d69005a764910d/google_genai-2.0.1-py3-none-any.whl", hash = "sha256:5cb61ff5b8d33129bb7f5df0b5384ed2e71e5dd06ccc012cdbad28b070f6ce99", size = 791449, upload-time = "2026-05-09T01:37:10.841Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/b6/552d40e96da22921eb1fead7c14b00b5b5473a20e45959488660fab35ee2/google_genai-1.75.0-py3-none-any.whl", hash = "sha256:8dc4c096e7d6288c3087f6893f582fe52468932464781edb8193bd92b9fefb2c", size = 793726, upload-time = "2026-05-04T22:48:53.033Z" },
 ]
 
 [[package]]
@@ -3783,7 +3783,7 @@ dev = [
     { name = "fastapi", version = "0.136.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "flask" },
     { name = "google-genai", version = "1.47.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "google-genai", version = "2.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "google-genai", version = "1.75.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "greenlet", version = "3.2.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "greenlet", version = "3.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "httpx" },
@@ -3966,7 +3966,7 @@ dev = [
     { name = "eval-type-backport", specifier = ">=0.2.0" },
     { name = "fastapi", specifier = "!=0.124.3,!=0.124.4" },
     { name = "flask", specifier = ">=3.0.3" },
-    { name = "google-genai", specifier = ">=0" },
+    { name = "google-genai", specifier = ">=0,<2" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "httpx", specifier = ">=0.27.2" },
     { name = "inline-snapshot", specifier = ">=0.32.5" },
@@ -9429,15 +9429,15 @@ wheels = [
 
 [[package]]
 name = "sse-starlette"
-version = "3.4.2"
+version = "3.4.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio", version = "4.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "starlette", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/82/10cdfab4ab663a6b6bd624d33f55b2cfa41af5105be033a6d5d135a92c5f/sse_starlette-3.4.2.tar.gz", hash = "sha256:2f9a7f51ed84395a0427fb9f66cb1ec11f7899d977a72cbc9070b962a2e14489", size = 35236, upload-time = "2026-05-06T19:42:13.727Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/13/3cafb96bceb02949f265bbdf1cbcea2810271ae709e4aa35e980f90c07fd/sse_starlette-3.4.3.tar.gz", hash = "sha256:a7f6d87cf482cf38b911c31075811c7f8b4efbada8ac9d5199a8e239fed513c9", size = 35247, upload-time = "2026-05-11T17:23:41.987Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/27/351c71e803c56090d8d3bf9520422debeb8ed938871fd4f7ef519805a6c5/sse_starlette-3.4.2-py3-none-any.whl", hash = "sha256:6ea5d35b7ce979a3de5a0db5f77fe886b1616e4b3e1ad93fba502bd9b5fb662f", size = 16516, upload-time = "2026-05-06T19:42:12.201Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/a4/c888212b19dd432110d4a78dbc5e6c1bc7476e5fff2f2df2ea9f298b0003/sse_starlette-3.4.3-py3-none-any.whl", hash = "sha256:bf8a90d76192062f01b55095593606bfc7edd0e3ad481339a6e16e7890bc9367", size = 16514, upload-time = "2026-05-11T17:23:40.352Z" },
 ]
 
 [[package]]
