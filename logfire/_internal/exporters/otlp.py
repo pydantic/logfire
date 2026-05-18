@@ -173,7 +173,7 @@ class DiskRetryer:
             with self.lock:
                 if self.closed:
                     return False
-                if self.total_size + len(data) > self.MAX_TASK_SIZE:  # pragma: no cover
+                if self.total_size >= self.MAX_TASK_SIZE:  # pragma: no cover
                     if self._should_log():
                         logger.error(
                             'Already retrying %s failed exports (%s bytes), dropping an export',
