@@ -30,6 +30,7 @@ from pathlib import PosixPath
 from types import GeneratorType
 from typing import Any, NewType, cast
 
+from .artifacts import Artifact
 from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
 from .stack_info import STACK_INFO_KEYS
@@ -61,6 +62,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         range: {'type': 'array', 'x-python-datatype': 'range'},
         PosixPath: {'type': 'string', 'format': 'path', 'x-python-datatype': 'PosixPath'},
         Exception: _exception_schema,
+        Artifact: {'type': 'object', 'x-python-datatype': 'logfire-artifact'},
     }
     with contextlib.suppress(ModuleNotFoundError):
         import pydantic

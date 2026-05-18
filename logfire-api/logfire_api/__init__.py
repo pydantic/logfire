@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import importlib
 import sys
+from collections.abc import Sequence
 from contextlib import contextmanager, nullcontext
-from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any, ContextManager, Literal
 from unittest.mock import MagicMock
-
 
 try:
     logfire_module = importlib.import_module('logfire')
@@ -85,7 +85,7 @@ except ImportError:
             def parent(self):
                 return None
 
-            def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
+            def set_attribute(self, key: str, value: Any) -> None: ...  # pragma: no cover
 
         class Logfire:
             def __getattr__(self, attr):
@@ -208,7 +208,6 @@ except ImportError:
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
-
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
         log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -293,7 +292,6 @@ except ImportError:
         class MetricsOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
-
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...
 
@@ -308,6 +306,19 @@ except ImportError:
 
         class LogfireLoggingHandler:
             def __init__(self, *args, **kwargs) -> None: ...
+
+        UploadMode = Literal['sync', 'background']
+
+        class Artifact:
+            def __init__(self, *args, **kwargs) -> None: ...
+
+            @classmethod
+            def from_file(cls, *args, **kwargs) -> Artifact:
+                return cls()
+
+            @classmethod
+            def from_file_handle(cls, *args, **kwargs) -> Artifact:
+                return cls()
 
         def logfire_info() -> str:
             """Show versions of logfire, OS and related packages."""

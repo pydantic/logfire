@@ -254,6 +254,7 @@ nav:
               - Datasets: reference/api/datasets.md
           - SDK CLI: reference/cli.md
           - Examples: reference/examples.md
+          - Artifacts: reference/advanced/artifacts.md
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
           - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
@@ -503,6 +504,7 @@ plugins:
           - reference/api/*.md
           - reference/cli.md
           - reference/examples.md
+          - reference/advanced/artifacts.md
           - reference/advanced/baggage.md
           - reference/advanced/generators.md
           - reference/advanced/metrics-in-spans.md

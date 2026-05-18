@@ -71,6 +71,7 @@ from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
+from .artifacts import Artifact
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
@@ -85,6 +86,7 @@ from .constants import (
     RESOURCE_ATTRIBUTES_VERSION,
     LevelName,
 )
+from .exporters.artifact_uploader import ArtifactUploader
 from .exporters.console import (
     ConsoleColorsValues,
     ConsoleLogExporter,
@@ -936,6 +938,8 @@ class LogfireConfig(_LogfireConfigData):
         self._has_set_providers = False
         self._initialized = False
         self._lock = RLock()
+        # Uploads artifact blobs out of band; created in `_initialize` once a token is known.
+        self._artifact_uploader: ArtifactUploader | None = None
 
     def configure(
         self,
@@ -1233,6 +1237,14 @@ class LogfireConfig(_LogfireConfigData):
                         # This line is just to make sure.
                         session.headers.update(headers)
 
+                    # Artifact blobs go to the backend REST API out of band from
+                    # telemetry, using the first token's project and region.
+                    first_token = token_list[0]
+                    self._artifact_uploader = ArtifactUploader(
+                        base_url=self.advanced.generate_base_url(first_token),
+                        token=first_token,
+                    )
+
             deferred_processors: list[SpanProcessor] = []
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
@@ -1411,7 +1423,18 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        if self._artifact_uploader is not None:
+            self._artifact_uploader.flush(timeout_millis / 1000)
         return self._tracer_provider.force_flush(timeout_millis)
+
+    def submit_artifact(self, artifact: Artifact) -> None:
+        """Upload an artifact's blob out of band — inline (`sync`) or queued (`background`).
+
+        No-op when there is no configured token (and hence no uploader): the artifact
+        reference is still recorded on the span, but the blob cannot be uploaded.
+        """
+        if self._artifact_uploader is not None:
+            self._artifact_uploader.submit(artifact)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.

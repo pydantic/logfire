@@ -325,6 +325,13 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.url_from_eval(MagicMock(trace_id='abc', span_id='def'))
     logfire__all__.remove('url_from_eval')
 
+    assert hasattr(logfire_api, 'Artifact')
+    logfire_api.Artifact(b'data', filename='x.bin', content_type='application/octet-stream')
+    logfire__all__.remove('Artifact')
+
+    assert hasattr(logfire_api, 'UploadMode')
+    logfire__all__.remove('UploadMode')
+
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
 
