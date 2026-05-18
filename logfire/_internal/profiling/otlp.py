@@ -10,10 +10,10 @@ attribute tables; every `Sample` references into it by index.
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 # common/resource are stable signals - the installed opentelemetry-proto is fine.
-from opentelemetry.proto.common.v1.common_pb2 import AnyValue, InstrumentationScope
+from opentelemetry.proto.common.v1.common_pb2 import AnyValue, InstrumentationScope, KeyValue
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 
 # profiles is an alpha signal; use the vendored (current) bindings, not the
@@ -159,4 +159,13 @@ def build_export_request(
                 ],
             )
         ],
+    )
+
+
+def resource_from_attributes(attributes: Mapping[str, object]) -> Resource:
+    """Build an OTLP `Resource` from a flat attribute mapping (values stringified)."""
+    return Resource(
+        attributes=[
+            KeyValue(key=str(key), value=AnyValue(string_value=str(value))) for key, value in attributes.items()
+        ]
     )
