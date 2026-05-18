@@ -6,6 +6,8 @@ Fixture `tachyon_demo.collapsed` is real output from the Python 3.15
 
 from __future__ import annotations
 
+import gzip
+import sys
 from pathlib import Path
 from typing import TypedDict
 
@@ -17,6 +19,7 @@ from logfire._internal.profiling._proto.profiles_service_pb2 import ExportProfil
 from logfire._internal.profiling.collapsed import parse_collapsed
 from logfire._internal.profiling.exporter import ProfilesExporter
 from logfire._internal.profiling.otlp import build_export_request
+from logfire._internal.profiling.supervisor import ProfilingSupervisor, profiler_available
 
 FIXTURE = Path(__file__).parent / 'profiling_fixtures' / 'tachyon_demo.collapsed'
 PROFILE_ID = b'\x11' * 16
@@ -142,8 +145,6 @@ def test_exporter_posts_gzipped_protobuf():
     [call] = session.calls
     assert call['headers'] == snapshot({'Content-Type': 'application/x-protobuf', 'Content-Encoding': 'gzip'})
     # The posted body is gzipped and decodes back to the same request.
-    import gzip
-
     reparsed = ExportProfilesServiceRequest()
     reparsed.ParseFromString(gzip.decompress(call['data']))
     assert reparsed == request
@@ -156,6 +157,68 @@ def test_exporter_fails_soft_on_rejection():
     )
     with pytest.warns(UserWarning, match='profile export rejected'):
         assert exporter.export(request) is False
+
+
+ENDPOINT = 'https://logfire.example/v1development/profiles'
+
+
+def test_profiler_available_matches_python_version():
+    # `profiling.sampling` is stdlib from Python 3.15.
+    assert profiler_available() is (sys.version_info >= (3, 15))
+
+
+def test_supervisor_disabled_without_profiler(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr('logfire._internal.profiling.supervisor.profiler_available', lambda: False)
+    supervisor = ProfilingSupervisor(ProfilesExporter(_FakeSession(_FakeResponse(200)), ENDPOINT))
+    with pytest.warns(UserWarning, match='Python 3.15'):
+        assert supervisor.start() is False
+    supervisor.shutdown()  # a no-op, but must be safe even when never started
+
+
+def test_supervisor_profiles_and_exports(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr('logfire._internal.profiling.supervisor.profiler_available', lambda: True)
+    session = _FakeSession(_FakeResponse(200))
+    supervisor = ProfilingSupervisor(
+        ProfilesExporter(session, ENDPOINT), sample_rate_hz=1000, chunk_duration_seconds=1.0
+    )
+
+    fixture_text = FIXTURE.read_text()
+    calls: list[int] = []
+
+    def fake_capture(pid: int, duration: float, rate: int) -> str | None:
+        calls.append(pid)
+        # One real chunk, then None to end the loop (None == permanent failure).
+        return fixture_text if len(calls) == 1 else None
+
+    monkeypatch.setattr(supervisor, '_capture_chunk', fake_capture)
+    assert supervisor.start() is True
+    supervisor.shutdown(timeout=5.0)  # joins the background thread
+
+    # The one chunk was converted and exported.
+    [call] = session.calls
+    reparsed = ExportProfilesServiceRequest()
+    reparsed.ParseFromString(gzip.decompress(call['data']))
+    profile = reparsed.resource_profiles[0].scope_profiles[0].profiles[0]
+    assert len(profile.samples) == 21
+    assert profile.period == 1_000_000  # 1e9 ns / 1000 Hz
+
+
+def test_supervisor_skips_empty_chunks(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr('logfire._internal.profiling.supervisor.profiler_available', lambda: True)
+    session = _FakeSession(_FakeResponse(200))
+    supervisor = ProfilingSupervisor(ProfilesExporter(session, ENDPOINT))
+
+    calls: list[int] = []
+
+    def fake_capture(pid: int, duration: float, rate: int) -> str | None:
+        calls.append(pid)
+        return '' if len(calls) == 1 else None  # an idle chunk, then stop
+
+    monkeypatch.setattr(supervisor, '_capture_chunk', fake_capture)
+    supervisor.start()
+    supervisor.shutdown(timeout=5.0)
+
+    assert session.calls == []  # an empty chunk is not exported
 
 
 def test_exporter_fails_soft_on_exception():
