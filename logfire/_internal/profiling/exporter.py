@@ -22,8 +22,12 @@ PROFILES_PATH = '/v1development/profiles'
 
 
 class _Response(Protocol):
-    status_code: int
-    text: str
+    # Read-only properties so a `requests.Response` (whose `text` is a property) satisfies this.
+    @property
+    def status_code(self) -> int: ...
+
+    @property
+    def text(self) -> str: ...
 
 
 class _PostSession(Protocol):

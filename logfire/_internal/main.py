@@ -2491,6 +2491,10 @@ class Logfire:
         if not remaining:  # pragma: no cover
             return False
 
+        profiling_supervisor = self.config._profiling_supervisor  # pyright: ignore[reportPrivateUsage]
+        if profiling_supervisor is not None:
+            profiling_supervisor.shutdown(timeout=remaining_ms() / 1000.0)
+
         if flush:  # pragma: no branch
             self._tracer_provider.force_flush(remaining)
             remaining = remaining_ms()
