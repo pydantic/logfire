@@ -64,6 +64,24 @@ Run the following command:
 claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp
 ```
 
+### Claude Desktop
+
+Add to your Claude settings:
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
+Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
+for more information.
+
 ### Codex
 
 Add to `~/.codex/config.toml`:
@@ -83,24 +101,6 @@ codex mcp login logfire
 !!! note
     `oauth_resource` is required so Codex sends the RFC 8707 `resource` parameter during the OAuth flow.
     Without it, the issued token's audience won't match the Logfire MCP server and every call is rejected.
-
-### Claude Desktop
-
-Add to your Claude settings:
-
-```json
-{
-  "mcpServers": {
-    "logfire": {
-      "type": "http",
-      "url": "https://logfire-us.pydantic.dev/mcp"
-    }
-  }
-}
-```
-
-Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
-for more information.
 
 ### Cline
 
