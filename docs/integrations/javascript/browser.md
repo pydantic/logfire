@@ -49,11 +49,14 @@ Note that if you're using an SSR/SSG framework, you should ensure that the code 
 
 ## Proxying Browser Telemetry
 
-If you use a Python backend, logfire provide experimental tools in the `logfire.experimental.forwarding` module to easily create this proxy.
+If you use a Python backend, logfire provides experimental tools in the `logfire.experimental.forwarding` module to easily create this proxy.
+The proxy stores accepted telemetry in a local disk-backed retry queue, returns an OTLP success response to the browser,
+and forwards to Logfire from a background thread with exponential backoff.
+This keeps temporary Logfire network failures out of your frontend and backend request paths.
 
 ### FastAPI
 
-For FastAPI, logfire provide a built-in `logfire_proxy` handler that limits request body size (default 50MB) by reading in chunks to avoid loading oversized payloads into memory.
+For FastAPI, logfire provides a built-in `logfire_proxy` handler that limits request body size (default 50MB) and queues accepted telemetry for background forwarding.
 
 ```py title="main.py" skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI, Request
@@ -72,7 +75,8 @@ async def proxy_browser_telemetry(request: Request):
     return await logfire_proxy(request)
 ```
 
-By default, this endpoint is unauthenticated and accepts payloads up to 50MB. In production, you should protect it using FastAPI dependencies to prevent abuse:
+By default, this endpoint is unauthenticated, accepts payloads up to 50MB, and uses a 5 second timeout for each background forwarding attempt.
+In production, you should protect it using FastAPI dependencies to prevent abuse:
 
 ```py skip-run="true" skip-reason="server-start"
 from fastapi import Depends, FastAPI, Request
@@ -123,6 +127,7 @@ app = Starlette(
 If you are using another web framework (such as Django, Flask, Litestar, or a custom HTTP server), you can use the underlying `forward_export_request` function directly.
 
 You simply extract the path, headers, and body from your framework's request object, pass them to `forward_export_request` as keyword arguments, and return the resulting status code, headers, and content.
+The function queues accepted telemetry locally and does not wait for Logfire to accept the payload.
 
 ```py title="main.py" skip-run="true" skip-reason="server-start"
 import logfire

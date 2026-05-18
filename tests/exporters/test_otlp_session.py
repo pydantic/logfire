@@ -247,7 +247,18 @@ def test_disk_retryer_add_task_after_close_does_nothing() -> None:
     retryer = DiskRetryer({})
     retryer.close()
 
-    retryer.add_task(b'123', {'url': 'http://example.com/'})
+    assert not retryer.add_task(b'123', {'url': 'http://example.com/'})
+
+    assert retryer.total_size == 0
+    assert not retryer.tasks
+    assert retryer.thread is None
+
+
+def test_disk_retryer_add_task_returns_false_when_full(monkeypatch: pytest.MonkeyPatch) -> None:
+    retryer = DiskRetryer({})
+    monkeypatch.setattr(retryer, 'MAX_TASK_SIZE', 2)
+
+    assert not retryer.add_task(b'123', {'url': 'http://example.com/'})
 
     assert retryer.total_size == 0
     assert not retryer.tasks

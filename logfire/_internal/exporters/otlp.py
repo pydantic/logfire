@@ -168,19 +168,19 @@ class DiskRetryer:
         self.session.close()
         self._cleanup_dir(self.dir)
 
-    def add_task(self, data: bytes, kwargs: dict[str, Any]):
+    def add_task(self, data: bytes, kwargs: dict[str, Any]) -> bool:
         try:
             with self.lock:
                 if self.closed:
-                    return
-                if self.total_size >= self.MAX_TASK_SIZE:  # pragma: no cover
+                    return False
+                if self.total_size + len(data) > self.MAX_TASK_SIZE:  # pragma: no cover
                     if self._should_log():
                         logger.error(
                             'Already retrying %s failed exports (%s bytes), dropping an export',
                             len(self.tasks),
                             self.total_size,
                         )
-                    return
+                    return False
                 self.total_size += len(data)
 
             # TODO consider keeping the first few tasks in memory to avoid disk I/O and possible errors.
@@ -204,9 +204,11 @@ class DiskRetryer:
 
             if self._should_log():
                 logger.warning('Currently retrying %s failed export(s) (%s bytes)', num_tasks, num_bytes)
+            return True
         except Exception as e:  # pragma: no cover
             if self._should_log():
                 logger.error('Export and retry failed: %s', e)
+            return False
 
     def _should_log(self) -> bool:
         result = time.monotonic() - self.last_log_time >= self.LOG_INTERVAL
