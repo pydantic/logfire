@@ -144,19 +144,45 @@ def test_forward_export_request_queue_full_returns_signal_partial_success(
 
 def test_get_forwarding_retryer_recreates_closed_retryer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(forwarding, '_forwarding_retryer', None)
+    monkeypatch.setattr(forwarding, '_forwarding_retryer_shutdown', False)
     get_forwarding_retryer = getattr(forwarding, '_get_forwarding_retryer')
 
     retryer = get_forwarding_retryer()
+    assert retryer is not None
     assert retryer.initial_delay == 0
     assert retryer.success_delay == 0
     assert get_forwarding_retryer() is retryer
 
     retryer.close()
     new_retryer = get_forwarding_retryer()
+    assert new_retryer is not None
     assert new_retryer is not retryer
     assert new_retryer.initial_delay == 0
     assert new_retryer.success_delay == 0
     new_retryer.close()
+
+
+def test_forwarding_retryer_does_not_recreate_after_shutdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+    monkeypatch.setattr(forwarding, '_forwarding_retryer', None)
+    monkeypatch.setattr(forwarding, '_forwarding_retryer_shutdown', False)
+    get_forwarding_retryer = getattr(forwarding, '_get_forwarding_retryer')
+    close_forwarding_retryer = getattr(forwarding, '_close_forwarding_retryer')
+
+    retryer = get_forwarding_retryer()
+    assert retryer is not None
+
+    close_forwarding_retryer()
+
+    assert retryer.closed
+    assert get_forwarding_retryer() is None
+
+    response = forward_export_request(path='/v1/traces', headers={}, body=b'data')
+    assert response.status_code == 200
+    otlp_response = ExportTraceServiceResponse.FromString(response.content)
+    assert otlp_response.partial_success.error_message == (
+        'Logfire proxy retry queue is full or unavailable; telemetry was dropped.'
+    )
 
 
 def test_fastapi_proxy_handler(monkeypatch: pytest.MonkeyPatch) -> None:

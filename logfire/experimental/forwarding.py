@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ DEFAULT_FORWARD_TIMEOUT = 5.0
 OTLP_PROTOBUF_HEADERS = {'Content-Type': 'application/x-protobuf'}
 
 _forwarding_retryer: DiskRetryer | None = None
+_forwarding_retryer_shutdown = False
 _FORWARDING_RETRYER_LOCK = Lock()
 
 
@@ -115,7 +117,8 @@ def forward_export_request(
     if not data:
         return _otlp_success_response(path)
 
-    accepted = _get_forwarding_retryer().add_task(
+    retryer = _get_forwarding_retryer()
+    accepted = retryer is not None and retryer.add_task(
         data,
         {
             'url': url,
@@ -201,13 +204,25 @@ async def logfire_proxy(
     return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
 
 
-def _get_forwarding_retryer() -> DiskRetryer:
+def _get_forwarding_retryer() -> DiskRetryer | None:
     global _forwarding_retryer
     with _FORWARDING_RETRYER_LOCK:
+        if _forwarding_retryer_shutdown:
+            return None
         if _forwarding_retryer is None or _forwarding_retryer.closed:
-            # DiskRetryer instances are also closed by the shared atexit cleanup hook.
             _forwarding_retryer = DiskRetryer({}, initial_delay=0, success_delay=0)
     return _forwarding_retryer
+
+
+def _close_forwarding_retryer() -> None:
+    global _forwarding_retryer_shutdown
+    with _FORWARDING_RETRYER_LOCK:
+        _forwarding_retryer_shutdown = True
+        if _forwarding_retryer is not None:
+            _forwarding_retryer.close()
+
+
+atexit.register(_close_forwarding_retryer)
 
 
 def _otlp_success_response(path: str) -> ForwardExportRequestResponse:
