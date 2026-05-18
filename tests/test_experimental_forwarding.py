@@ -185,6 +185,16 @@ def test_forwarding_retryer_does_not_recreate_after_shutdown(monkeypatch: pytest
     )
 
 
+def test_close_forwarding_retryer_without_retryer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(forwarding, '_forwarding_retryer', None)
+    monkeypatch.setattr(forwarding, '_forwarding_retryer_shutdown', False)
+    close_forwarding_retryer = getattr(forwarding, '_close_forwarding_retryer')
+
+    close_forwarding_retryer()
+
+    assert getattr(forwarding, '_forwarding_retryer_shutdown')
+
+
 def test_fastapi_proxy_handler(monkeypatch: pytest.MonkeyPatch) -> None:
     fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
     TestClient = pytest.importorskip('starlette.testclient').TestClient
