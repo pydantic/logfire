@@ -100,12 +100,19 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Open external links in a new tab.
-    const here = window.location.hostname;
+    // Hosts in this set are treated as "internal" regardless of which one is
+    // currently serving the page, so cross-links between the old and new docs
+    // subdomains stay in-tab during the migration.
+    const internalHosts = new Set([
+        window.location.hostname,
+        'logfire.pydantic.dev',
+        // TODO: add the new docs subdomain here once the migration host is finalised
+    ]);
     document.querySelectorAll('a[href]').forEach(function(a) {
         let url;
         try { url = new URL(a.href, window.location.href); } catch (e) { return; }
         if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-        if (url.hostname === here) return;
+        if (internalHosts.has(url.hostname)) return;
         if (a.hasAttribute('target')) return;
         a.setAttribute('target', '_blank');
         const existingRel = (a.getAttribute('rel') || '').split(/\s+/).filter(Boolean);
