@@ -188,7 +188,12 @@ dev = [
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
     "opentelemetry-instrumentation-google-genai >= 0.4b0",
-    "google-genai >= 0",
+    # The latest instrumentor (0.7b0) declares `google-genai>=1.0.0,<2` as
+    # `instrumentation_dependencies()`. With google-genai 2.x installed, the
+    # `BaseInstrumentor` skips patching with a `DependencyConflict` warning,
+    # so `instrument_google_genai()` silently produces zero spans. Pin to <2
+    # until a newer instrumentor adds support.
+    "google-genai >= 0, < 2",
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.80.9",
     "openinference-instrumentation-dspy >= 0; python_version >= '3.10'",

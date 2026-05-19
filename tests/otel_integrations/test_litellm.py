@@ -92,7 +92,13 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
         'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!'
     )
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    # openinference-litellm only emits `llm.cost.total` when litellm has been
+    # able to load a price map for the model — flaky across CI environments
+    # where the remote price-map fetch is blocked, so strip it.
+    exported = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    for span in exported:
+        span['attributes'].pop('llm.cost.total', None)
+    assert exported == snapshot(
         [
             {
                 'name': 'completion',
