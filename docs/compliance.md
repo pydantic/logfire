@@ -20,7 +20,7 @@ Logfire is SOC2 Type II certified. We did not receive any exceptions in our repo
 
 Logfire is [HIPAA](https://www.hhs.gov/hipaa/for-professionals/privacy/laws-regulations/index.html){ target="_blank" rel="noopener" } compliant.
 
-HIPAA requires a [Business Associate Agreement (BAA)](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/business-associates/index.html){ target="_blank" rel="noopener" } between you and us if your use of Logfire involves Protected Health Information (PHI). We offer a boilerplate BAA on our Growth plan and a custom BAA on our Enterprise plan (see [pricing](https://pydantic.dev/pricing){ target="_blank" rel="noopener" }). To put one in place, email [sales@pydantic.dev](mailto:sales@pydantic.dev).
+HIPAA requires a [Business Associate Agreement (BAA)](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/business-associates/index.html){ target="_blank" rel="noopener" } between you and us if your use of Logfire involves Protected Health Information (PHI). We offer a boilerplate BAA on our Growth plan and a custom BAA on any Enterprise plan (see [pricing](https://pydantic.dev/pricing){ target="_blank" rel="noopener" }). To put one in place, email [sales@pydantic.dev](mailto:sales@pydantic.dev).
 
 ## GDPR
 
