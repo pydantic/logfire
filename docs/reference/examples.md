@@ -24,7 +24,7 @@ automatically generated:
 
 ![Flask and SQLAlchemy example](../images/logfire-screenshot-examples-flask-sqlalchemy.png)
 
-[View on GitHub :material-open-in-new:](https://github.com/pydantic/logfire/tree/main/examples/python/flask-sqlalchemy/){:target="_blank"}
+<a href="https://github.com/pydantic/logfire/tree/main/examples/python/flask-sqlalchemy/" target="_blank" rel="noopener">View on GitHub :material-open-in-new:</a>
 
 ## JavaScript/TypeScript
 
