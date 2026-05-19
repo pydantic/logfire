@@ -22,6 +22,7 @@ from rich.text import Text
 import logfire
 
 STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
+AMBIGUOUS_RECOMMENDATION_PACKAGES = {'requests', 'sqlite3', 'urllib'}
 
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
@@ -236,8 +237,21 @@ def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Tex
     """Return (recommended_packages_text, install_all_text) as Text objects."""
     sorted_recommendations = sorted(recommendations)
     recommended_text = Text()
+    ambiguous_recommendations: list[str] = []
     for pkg_name, instrumented_pkg in sorted_recommendations:
-        recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
+        marker = ''
+        if instrumented_pkg in AMBIGUOUS_RECOMMENDATION_PACKAGES:
+            marker = ' [*]'
+            ambiguous_recommendations.append(instrumented_pkg)
+        recommended_text.append(f'☐ {instrumented_pkg}{marker} (need to install {pkg_name})\n', style='grey50')
+    if ambiguous_recommendations:
+        special_cases = _format_package_list(ambiguous_recommendations)
+        recommendation = 'this recommendation' if len(ambiguous_recommendations) == 1 else 'these recommendations'
+        recommended_text.append(
+            f'\n[*] {special_cases} may not actually be used by your app, '
+            f'in which case you can ignore {recommendation}\n',
+            style='grey50',
+        )
     recommended_text.append('\n')
 
     install_text = Text()
@@ -246,6 +260,13 @@ def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Tex
         install_text.append(_full_install_command(sorted_recommendations), style='bold')
         install_text.append('\n')
     return recommended_text, install_text
+
+
+def _format_package_list(package_names: list[str]) -> str:
+    quoted_names = [f'`{name}`' for name in package_names]
+    if len(quoted_names) == 1:
+        return quoted_names[0]
+    return f'{", ".join(quoted_names[:-1])}, and {quoted_names[-1]}'
 
 
 def print_otel_summary(
