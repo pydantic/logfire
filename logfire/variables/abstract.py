@@ -76,17 +76,19 @@ class ResolvedVariable(Generic[T_co]):
     """Details about a variable resolution including value, label, version, and any errors.
 
     This class can be used as a context manager. When used as a context manager, it
-    automatically sets baggage with the variable name and label, enabling downstream
-    spans and logs to be associated with the variable resolution that was active at the time.
+    automatically sets baggage with the variable name, label, and (when applicable)
+    version, enabling downstream spans and logs to be associated with the variable
+    resolution that was active at the time.
 
     Example:
         ```python skip="true"
         my_var = logfire.var(name='my_var', type=str, default='default')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
-            # logfire.variables.my_var = <label> (or '<code_default>' if no label)
+            #   logfire.variables.my_var          = <label> (or '<code_default>' if no label)
+            #   logfire.variables.my_var.version  = <version> (only when a versioned value was resolved)
             value = details.value
-            # Any spans/logs created here will have the baggage attached
+            # Any spans/logs created here will have the baggage attached.
         ```
     """
 
@@ -121,9 +123,16 @@ class ResolvedVariable(Generic[T_co]):
 
         import logfire
 
-        self._exit_stack.enter_context(
-            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.label or '<code_default>'})
-        )
+        baggage_entries: dict[str, str] = {
+            f'logfire.variables.{self.name}': self.label or '<code_default>',
+        }
+        # Propagate the version alongside the label so downstream spans can be
+        # filtered or grouped by `(label, version)` directly. Only set when a
+        # version actually resolved — code-default resolutions have version=None
+        # and shouldn't add a baggage entry whose value would be misleading.
+        if self.version is not None:
+            baggage_entries[f'logfire.variables.{self.name}.version'] = str(self.version)
+        self._exit_stack.enter_context(logfire.set_baggage(**baggage_entries))
 
         return self
 
