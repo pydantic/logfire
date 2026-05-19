@@ -4,9 +4,7 @@ description: "Overview of Logfire compliance standards. We are SOC2 Type II cert
 ---
 For more about our security posture, see the [Pydantic security page](https://pydantic.dev/security){ target="_blank" rel="noopener" } and our [trust page](https://trust.oneleet.com/pydantic){ target="_blank" rel="noopener" }.
 
-To request our SOC2 report or any other compliance documentation, use our [compliance request form](https://portal.usepylon.com/pydantic/forms/compliance-request){ target="_blank" rel="noopener" }.
-
-If you have any other questions about compliance, feel free to [get in touch](help.md).
+To request our SOC2 report or any other compliance documentation, use our [compliance request form](https://portal.usepylon.com/pydantic/forms/compliance-request){ target="_blank" rel="noopener" }. For anything else, feel free to [get in touch](help.md).
 
 ## SOC2 💡
 
@@ -22,7 +20,7 @@ Logfire is SOC2 Type II certified. We did not receive any exceptions in our repo
 
 Logfire is [HIPAA](https://www.hhs.gov/hipaa/for-professionals/privacy/laws-regulations/index.html){ target="_blank" rel="noopener" } compliant.
 
-HIPAA requires a [Business Associate Agreement (BAA)](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/business-associates/index.html){ target="_blank" rel="noopener" } between you and us if your use of Logfire involves Protected Health Information (PHI). We offer BAAs to customers on our enterprise plans. To put one in place, email [sales@pydantic.dev](mailto:sales@pydantic.dev).
+HIPAA requires a [Business Associate Agreement (BAA)](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/business-associates/index.html){ target="_blank" rel="noopener" } between you and us if your use of Logfire involves Protected Health Information (PHI). We offer a boilerplate BAA on our Growth plan and a custom BAA on our Enterprise plan (see [pricing](https://pydantic.dev/pricing){ target="_blank" rel="noopener" }). To put one in place, email [sales@pydantic.dev](mailto:sales@pydantic.dev).
 
 ## GDPR
 
