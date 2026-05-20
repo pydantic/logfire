@@ -633,7 +633,7 @@ class BlockingSendForwardingPipeline(OTLPForwardingPipeline):
     def __init__(self) -> None:
         super().__init__(
             base_url='https://example.com',
-            session=object(),  # type: ignore[arg-type]
+            session=SimpleNamespace(close=lambda: None),  # type: ignore[arg-type]
             max_queued_body_bytes=100,
         )
         self.started = Event()
@@ -833,65 +833,56 @@ def test_forwarding_pipeline_shutdown_timeout_drops_queued_work_after_active_sen
 
     shutdown_thread = Thread(target=lambda: shutdown_result.append(pipeline.shutdown(1)))
     shutdown_thread.start()
-    with pipeline.condition:
-        assert pipeline.condition.wait_for(lambda: pipeline.queued_body_bytes == 0, timeout=5)
-    assert shutdown_thread.is_alive()
-    pipeline.release.set()
     shutdown_thread.join(timeout=5)
 
     assert shutdown_result == [False]
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
-    assert pipeline.fake_session.close_count == 1
-    _wait_for_no_live_worker(pipeline)
-
-
-def test_forwarding_pipeline_shutdown_waits_for_active_send_after_timeout() -> None:
-    pipeline = BlockingShutdownForwardingPipeline()
-    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-    shutdown_result: list[bool] = []
-
-    shutdown_thread = Thread(target=lambda: shutdown_result.append(pipeline.shutdown(1)))
-    shutdown_thread.start()
-    with pipeline.condition:
-        assert pipeline.condition.wait_for(lambda: pipeline.closed, timeout=5)
-    shutdown_thread.join(timeout=0.05)
-
-    assert shutdown_thread.is_alive()
     assert pipeline.fake_session.close_count == 0
 
     pipeline.release.set()
-    shutdown_thread.join(timeout=5)
-
-    assert shutdown_result == [True]
-    assert pipeline.fake_session.close_count == 1
     _wait_for_no_live_worker(pipeline)
 
+    assert pipeline.fake_session.close_count == 1
+    assert pipeline.shutdown(1000) is True
+    assert list(pipeline.queue) == []
+    assert pipeline.queued_body_bytes == 0
+    assert pipeline.fake_session.close_count == 1
 
-def test_forwarding_pipeline_shutdown_without_drain_drops_queued_work_and_waits_for_active_send() -> None:
+
+def test_forwarding_pipeline_shutdown_timeout_leaves_active_send_open() -> None:
+    pipeline = BlockingShutdownForwardingPipeline()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+
+    assert pipeline.shutdown(1) is False
+    assert pipeline.fake_session.close_count == 0
+
+    pipeline.release.set()
+    _wait_for_no_live_worker(pipeline)
+
+    assert pipeline.fake_session.close_count == 1
+    assert pipeline.shutdown(1000) is True
+    assert pipeline.fake_session.close_count == 1
+
+
+def test_forwarding_pipeline_shutdown_without_drain_drops_queued_work_and_respects_active_send_timeout() -> None:
     pipeline = BlockingShutdownForwardingPipeline()
     assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
     assert pipeline.started.wait(timeout=5) is True
     assert pipeline.enqueue(_make_queued_forwarding_request(b'two')) is True
-    shutdown_result: list[bool] = []
 
-    shutdown_thread = Thread(target=lambda: shutdown_result.append(pipeline.shutdown(1, drain_queued=False)))
-    shutdown_thread.start()
-    with pipeline.condition:
-        assert pipeline.condition.wait_for(lambda: pipeline.queued_body_bytes == 0, timeout=5)
-
-    assert shutdown_thread.is_alive()
+    assert pipeline.shutdown(1, drain_queued=False) is False
     assert pipeline.fake_session.close_count == 0
 
     pipeline.release.set()
-    shutdown_thread.join(timeout=5)
+    _wait_for_no_live_worker(pipeline)
 
-    assert shutdown_result == [True]
+    assert pipeline.fake_session.close_count == 1
+    assert pipeline.shutdown(1000, drain_queued=False) is True
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
     assert pipeline.fake_session.close_count == 1
-    _wait_for_no_live_worker(pipeline)
 
 
 def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -948,7 +939,7 @@ class RecordingForwardingPipeline(OTLPForwardingPipeline):
     def __init__(self, *, fail_bodies: set[bytes] | None = None) -> None:
         super().__init__(
             base_url='https://example.com',
-            session=object(),  # type: ignore[arg-type]
+            session=SimpleNamespace(close=lambda: None),  # type: ignore[arg-type]
             max_queued_body_bytes=100,
         )
         self.fail_bodies = fail_bodies or set()
@@ -1252,6 +1243,16 @@ def test_forwarding_manager_force_flush_returns_false_for_pipeline_timeout() -> 
 
     assert len(pipeline_1.flush_timeouts) == 1
     assert len(pipeline_2.flush_timeouts) == 1
+
+
+def test_forwarding_manager_force_flush_zero_timeout_succeeds_when_pipelines_are_idle() -> None:
+    pipeline = FakeFlushPipeline()
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline}  # type: ignore[assignment]
+
+    assert manager.force_flush(0) is True
+
+    assert pipeline.flush_timeouts == [0]
 
 
 class FakeShutdownPipeline:

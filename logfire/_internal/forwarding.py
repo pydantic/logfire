@@ -171,7 +171,9 @@ class OTLPForwardingPipeline:
             with self.condition:
                 if self.worker is current_thread():
                     self.worker = None
-                    self.condition.notify_all()
+                if self.closed and not self.queue and self.active_send_count == 0:
+                    self._close_session_once()
+                self.condition.notify_all()
 
     def force_flush(self, timeout_millis: int) -> bool:
         deadline = monotonic() + timeout_millis / 1000
@@ -215,7 +217,10 @@ class OTLPForwardingPipeline:
                 self.condition.wait(timeout=remaining)
 
             while self.active_send_count or self._has_live_worker_locked():
-                self.condition.wait()
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    return False
+                self.condition.wait(timeout=remaining)
 
             self._close_session_once()
             return complete
@@ -284,8 +289,6 @@ class OTLPForwardingManager:
         complete = True
         for pipeline in pipelines:
             remaining_millis = max(0, int((deadline - monotonic()) * 1000))
-            if remaining_millis == 0:
-                complete = False
             if not pipeline.force_flush(remaining_millis):
                 complete = False
         return complete
@@ -302,8 +305,6 @@ class OTLPForwardingManager:
         complete = True
         for pipeline in pipelines:
             remaining_millis = max(0, int((deadline - monotonic()) * 1000))
-            if remaining_millis == 0:
-                complete = False
             if not pipeline.shutdown(remaining_millis, drain_queued=drain_queued):
                 complete = False
         return complete

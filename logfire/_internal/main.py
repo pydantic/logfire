@@ -2486,41 +2486,47 @@ class Logfire:
         def remaining_ms() -> int:
             return max(0, int(timeout_millis - (time() - start) * 1000))
 
+        complete = True
         self.config.get_variable_provider().shutdown(timeout_millis=remaining_ms())
         remaining = remaining_ms()
         if not remaining:  # pragma: no cover
-            return False
+            complete = False
 
         forwarding_shutdown_result = self.config._otlp_forwarding.shutdown(  # pyright: ignore[reportPrivateUsage]
             remaining, drain_queued=flush
         )
+        complete = complete and forwarding_shutdown_result
         remaining = remaining_ms()
         if not remaining:  # pragma: no cover
-            return False
+            complete = False
 
-        if flush:  # pragma: no branch
+        if flush and remaining:  # pragma: no branch
             self._tracer_provider.force_flush(remaining)
             remaining = remaining_ms()
             if not remaining:  # pragma: no cover
-                return False
+                complete = False
+        elif flush:  # pragma: no cover
+            complete = False
 
         self._tracer_provider.shutdown()
         remaining = remaining_ms()
         if not remaining:  # pragma: no cover
-            return False
+            complete = False
 
-        if flush:  # pragma: no branch
+        if flush and remaining:  # pragma: no branch
             self._meter_provider.force_flush(remaining)
             remaining = remaining_ms()
             if not remaining:  # pragma: no cover
-                return False
+                complete = False
+        elif flush:  # pragma: no cover
+            complete = False
 
         self._meter_provider.shutdown(remaining)
         remaining = remaining_ms()
         if not remaining:  # pragma: no cover
-            return False
+            complete = False
 
-        return remaining_ms() > 0 and forwarding_shutdown_result
+        return remaining_ms() > 0 and complete
 
     @overload
     def var(

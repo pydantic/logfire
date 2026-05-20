@@ -964,8 +964,6 @@ class LogfireConfig(_LogfireConfigData):
     ) -> None:
         with self._lock:
             self._initialized = False
-            self._otlp_forwarding.shutdown(0, drain_queued=False)
-            self._otlp_forwarding = OTLPForwardingManager(self)
             self._load_configuration(
                 send_to_logfire,
                 token,
@@ -1000,6 +998,7 @@ class LogfireConfig(_LogfireConfigData):
             return
 
         emscripten = platform_is_emscripten()
+        otlp_forwarding = OTLPForwardingManager(self)
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
@@ -1177,7 +1176,7 @@ class LogfireConfig(_LogfireConfigData):
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
-                        self._otlp_forwarding.add_destination(base_url=base_url, token=token)
+                        otlp_forwarding.add_destination(base_url=base_url, token=token)
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
@@ -1387,6 +1386,9 @@ class LogfireConfig(_LogfireConfigData):
             atexit.unregister(exit_open_spans)
             atexit.register(exit_open_spans)
 
+            previous_otlp_forwarding = self._otlp_forwarding
+            self._otlp_forwarding = otlp_forwarding
+            previous_otlp_forwarding.shutdown(0, drain_queued=False)
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
