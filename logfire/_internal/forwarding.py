@@ -287,6 +287,21 @@ class OTLPForwardingManager:
                 complete = False
         return complete
 
+    def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
+        deadline = monotonic() + timeout_millis / 1000
+        with self.lock:
+            self.closed = True
+            pipelines = tuple(self.pipelines.values())
+
+        complete = True
+        for pipeline in pipelines:
+            remaining_millis = max(0, int((deadline - monotonic()) * 1000))
+            if remaining_millis == 0:
+                complete = False
+            if not pipeline.shutdown(remaining_millis, drain_queued=drain_queued):
+                complete = False
+        return complete
+
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     for header_name, value in headers.items():

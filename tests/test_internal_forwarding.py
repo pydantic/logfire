@@ -1208,3 +1208,39 @@ def test_forwarding_manager_force_flush_returns_false_for_pipeline_timeout() -> 
 
     assert len(pipeline_1.flush_timeouts) == 1
     assert len(pipeline_2.flush_timeouts) == 1
+
+
+class FakeShutdownPipeline:
+    def __init__(self, result: bool = True) -> None:
+        self.result = result
+        self.shutdown_calls: list[tuple[int, bool]] = []
+
+    def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
+        self.shutdown_calls.append((timeout_millis, drain_queued))
+        return self.result
+
+
+def test_forwarding_manager_shutdown_basic() -> None:
+    pipeline_1 = FakeShutdownPipeline()
+    pipeline_2 = FakeShutdownPipeline()
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.shutdown(100) is True
+
+    assert manager.closed is True
+    assert 0 < pipeline_1.shutdown_calls[0][0] <= 100
+    assert pipeline_1.shutdown_calls[0][1] is True
+    assert pipeline_2.shutdown_calls[0][1] is True
+
+
+def test_forwarding_manager_shutdown_is_idempotent() -> None:
+    pipeline = FakeShutdownPipeline()
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline}  # type: ignore[assignment]
+
+    assert manager.shutdown(100) is True
+    assert manager.shutdown(100) is True
+
+    assert manager.closed is True
+    assert len(pipeline.shutdown_calls) == 2
