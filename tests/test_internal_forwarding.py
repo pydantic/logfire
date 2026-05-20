@@ -23,6 +23,7 @@ from logfire._internal.forwarding import (
     build_forwarding_request,
     build_partial_success_response,
     build_success_response,
+    forwarding_timeout_for_path,
     parse_forwarding_content_type,
     response_content_type,
     response_message_for_path,
@@ -447,3 +448,48 @@ def test_build_forwarding_headers_without_optional_content_encoding_or_user_agen
     }
     assert 'Cookie' not in headers
     assert 'Host' not in headers
+
+
+@pytest.mark.parametrize(
+    ('path', 'expected'),
+    [
+        ('/v1/traces', 10.0),
+        ('/v1/logs', 10.0),
+        ('/v1/metrics', 10.0),
+    ],
+)
+def test_forwarding_timeout_for_path_defaults(monkeypatch: pytest.MonkeyPatch, path: str, expected: float) -> None:
+    monkeypatch.delenv('OTEL_EXPORTER_OTLP_TIMEOUT', raising=False)
+    monkeypatch.delenv('OTEL_EXPORTER_OTLP_TRACES_TIMEOUT', raising=False)
+    monkeypatch.delenv('OTEL_EXPORTER_OTLP_LOGS_TIMEOUT', raising=False)
+    monkeypatch.delenv('OTEL_EXPORTER_OTLP_METRICS_TIMEOUT', raising=False)
+
+    assert forwarding_timeout_for_path(path) == expected  # type: ignore[arg-type]
+
+
+def test_forwarding_timeout_for_path_generic_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('OTEL_EXPORTER_OTLP_TRACES_TIMEOUT', raising=False)
+    monkeypatch.delenv('OTEL_EXPORTER_OTLP_LOGS_TIMEOUT', raising=False)
+    monkeypatch.delenv('OTEL_EXPORTER_OTLP_METRICS_TIMEOUT', raising=False)
+    monkeypatch.setenv('OTEL_EXPORTER_OTLP_TIMEOUT', '12.5')
+
+    assert forwarding_timeout_for_path('/v1/traces') == 12.5
+    assert forwarding_timeout_for_path('/v1/logs') == 12.5
+    assert forwarding_timeout_for_path('/v1/metrics') == 12.5
+
+
+@pytest.mark.parametrize(
+    ('path', 'env_var'),
+    [
+        ('/v1/traces', 'OTEL_EXPORTER_OTLP_TRACES_TIMEOUT'),
+        ('/v1/logs', 'OTEL_EXPORTER_OTLP_LOGS_TIMEOUT'),
+        ('/v1/metrics', 'OTEL_EXPORTER_OTLP_METRICS_TIMEOUT'),
+    ],
+)
+def test_forwarding_timeout_for_path_signal_specific_override(
+    monkeypatch: pytest.MonkeyPatch, path: str, env_var: str
+) -> None:
+    monkeypatch.setenv('OTEL_EXPORTER_OTLP_TIMEOUT', '12.5')
+    monkeypatch.setenv(env_var, '3.25')
+
+    assert forwarding_timeout_for_path(path) == 3.25  # type: ignore[arg-type]

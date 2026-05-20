@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import posixpath
 import re
 from collections.abc import Mapping
@@ -9,9 +10,24 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote
 
 from google.protobuf.json_format import MessageToJson
-from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
-from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
+from opentelemetry.exporter.otlp.proto.http._log_exporter import DEFAULT_TIMEOUT as DEFAULT_LOGS_TIMEOUT
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import DEFAULT_TIMEOUT as DEFAULT_METRICS_TIMEOUT
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import DEFAULT_TIMEOUT as DEFAULT_TRACES_TIMEOUT
+from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import (
+    ExportLogsServiceResponse,
+)
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import (
+    ExportMetricsServiceResponse,
+)
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+    ExportTraceServiceResponse,
+)
+from opentelemetry.sdk.environment_variables import (
+    OTEL_EXPORTER_OTLP_LOGS_TIMEOUT,
+    OTEL_EXPORTER_OTLP_METRICS_TIMEOUT,
+    OTEL_EXPORTER_OTLP_TIMEOUT,
+    OTEL_EXPORTER_OTLP_TRACES_TIMEOUT,
+)
 
 from logfire.version import VERSION
 
@@ -23,6 +39,16 @@ OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
 _MEDIA_TYPE_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+/[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 _PARAMETER_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+=")
 ForwardingPath = Literal['/v1/traces', '/v1/logs', '/v1/metrics']
+_SIGNAL_TIMEOUT_ENV: dict[ForwardingPath, str] = {
+    '/v1/traces': OTEL_EXPORTER_OTLP_TRACES_TIMEOUT,
+    '/v1/logs': OTEL_EXPORTER_OTLP_LOGS_TIMEOUT,
+    '/v1/metrics': OTEL_EXPORTER_OTLP_METRICS_TIMEOUT,
+}
+_DEFAULT_TIMEOUT: dict[ForwardingPath, float] = {
+    '/v1/traces': float(DEFAULT_TRACES_TIMEOUT),
+    '/v1/logs': float(DEFAULT_LOGS_TIMEOUT),
+    '/v1/metrics': float(DEFAULT_METRICS_TIMEOUT),
+}
 
 
 class ForwardingContentType(Enum):
@@ -239,3 +265,15 @@ def build_forwarding_headers(request: ForwardingRequest, *, token: str) -> dict[
     if request.content_encoding is not None:
         headers['Content-Encoding'] = request.content_encoding
     return headers
+
+
+def forwarding_timeout_for_path(path: ForwardingPath) -> float:
+    signal_timeout = os.environ.get(_SIGNAL_TIMEOUT_ENV[path])
+    if signal_timeout is not None:
+        return float(signal_timeout)
+
+    generic_timeout = os.environ.get(OTEL_EXPORTER_OTLP_TIMEOUT)
+    if generic_timeout is not None:
+        return float(generic_timeout)
+
+    return _DEFAULT_TIMEOUT[path]
