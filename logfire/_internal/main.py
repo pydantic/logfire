@@ -953,7 +953,7 @@ class Logfire:
     ) -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
