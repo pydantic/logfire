@@ -870,6 +870,119 @@ class TestCompositionIntegration:
             assert result.composed_from[0].name == 'greeting'
             assert result.composed_from[0].reason == 'context_override'
 
+    def test_resolve_function_override_propagates_through_composition(self, config_kwargs: dict[str, Any]):
+        """A ResolveFunction passed to `override(...)` is called when used via composition."""
+        variables_config = VariablesConfig(
+            variables={
+                'parent': VariableConfig(
+                    name='parent',
+                    json_schema={'type': 'string'},
+                    labels={'production': LabeledValue(version=1, serialized_value='"hello @{greeting}@"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                ),
+            },
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        greeting = lf.var(name='greeting', default='code_default_greeting', type=str)
+        parent = lf.var(name='parent', default='fallback', type=str)
+
+        def compute_greeting(targeting_key: Any, attributes: Any) -> str:
+            return 'DYNAMIC_GREETING'
+
+        with greeting.override(compute_greeting):
+            result = parent.get()
+            assert result.value == 'hello DYNAMIC_GREETING'
+            assert result.composed_from[0].reason == 'context_override'
+
+    def test_unserializable_override_falls_through_to_provider(self, config_kwargs: dict[str, Any]):
+        """An override that fails to serialize via the child's type adapter falls through."""
+        variables_config = VariablesConfig(
+            variables={
+                'parent': VariableConfig(
+                    name='parent',
+                    json_schema={'type': 'string'},
+                    labels={'production': LabeledValue(version=1, serialized_value='"hello @{opaque}@"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                ),
+            },
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        # `object` types can't be JSON-serialized via pydantic, so the override fails
+        # to serialize and the lookup falls through to the registered code default.
+        opaque = lf.var(name='opaque', default='code_default_opaque', type=object)
+        parent = lf.var(name='parent', default='fallback', type=str)
+
+        with opaque.override(object()):
+            result = parent.get()
+            # Override failed to serialize; falls through to provider (which has nothing)
+            # then to opaque's registered code default.
+            assert result.value == 'hello code_default_opaque'
+            assert result.composed_from[0].reason == 'code_default'
+
+    def test_unresolved_when_registered_code_default_also_fails(self, config_kwargs: dict[str, Any]):
+        """If both provider and the referenced variable's code default fail, ref is unresolved."""
+        variables_config = VariablesConfig(
+            variables={
+                'parent': VariableConfig(
+                    name='parent',
+                    json_schema={'type': 'string'},
+                    labels={'production': LabeledValue(version=1, serialized_value='"hello @{opaque}@"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                ),
+            },
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        # A registered variable whose code default can't be JSON-serialized.
+        lf.var(name='opaque', default=object(), type=object)
+        parent = lf.var(name='parent', default='fallback', type=str)
+
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            result = parent.get()
+        # The reference is treated as unresolved because no value source produced JSON.
+        assert result.value == 'fallback'
+        assert result.reason == 'other_error'
+        assert result.composed_from[0].name == 'opaque'
+        assert result.composed_from[0].error is not None
+
+
+class TestCodeDefaultSerializationFailures:
+    """Cover paths where a variable's own code default can't be serialized."""
+
+    def test_unserializable_default_skips_default_composition(self, config_kwargs: dict[str, Any]):
+        """A non-serializable code default falls through to the plain `_get_default` value."""
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        sentinel = object()
+        var = lf.var(name='opaque', default=sentinel, type=object)
+        result = var.get()
+        # `_get_serialized_default` returned None; `_resolve_serialized_default` short-circuited
+        # and the plain Python default flows through.
+        assert result.value is sentinel
+        assert result.reason == 'code_default'
+
+    def test_unserializable_default_with_references_falls_back(self, config_kwargs: dict[str, Any]):
+        """A code default that references missing variables still falls back to the plain default."""
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        # Reference an unknown variable in the code default — composition will fail, and the
+        # expand-and-deserialize result's reason will be 'other_error' rather than 'resolved'.
+        var = lf.var(name='main', default='hello @{nonexistent}@', type=str)
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            result = var.get()
+        assert result.value == 'hello @{nonexistent}@'  # the unmodified code default
+        assert result.reason == 'other_error'
+
 
 class TestCompositionExceptions:
     """Test the exception hierarchy."""

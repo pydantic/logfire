@@ -388,3 +388,95 @@ class TestTemplateVariable:
         assert config.template_inputs_schema['type'] == 'object'
         assert 'user_name' in config.template_inputs_schema['properties']
         assert 'count' in config.template_inputs_schema['properties']
+
+
+@requires_handlebars
+class TestRenderSerializedString:
+    """Cover the input-shape branches of `render_serialized_string`."""
+
+    def test_inputs_none_returns_empty_context(self):
+        """`inputs=None` is treated as an empty context."""
+        from logfire.variables.abstract import render_serialized_string
+
+        # No placeholders to render, but the call exercises `_inputs_to_context(None)`.
+        assert render_serialized_string('"hello"', None) == '"hello"'
+
+    def test_inputs_mapping(self):
+        """A plain dict input goes through the Mapping branch of `_inputs_to_context`."""
+        from logfire.variables.abstract import render_serialized_string
+
+        result = render_serialized_string('"Hello {{name}}!"', {'name': 'Alice'})
+        assert json.loads(result) == 'Hello Alice!'
+
+    def test_inputs_invalid_type_raises(self):
+        """A non-dict / non-Mapping / non-model input raises TypeError."""
+        from logfire.variables.abstract import render_serialized_string
+
+        with pytest.raises(TypeError, match='Expected a dict, Mapping, or Pydantic model'):
+            render_serialized_string('"x"', 42)
+
+    def test_nested_dict_input_is_walked(self):
+        """Nested dict values in inputs are walked by `_wrap_safe_value`."""
+        from logfire.variables.abstract import render_serialized_string
+
+        result = render_serialized_string(
+            json.dumps('Hi {{user.name}} from {{user.city}}'),
+            {'user': {'name': 'Alice', 'city': 'London'}},
+        )
+        assert json.loads(result) == 'Hi Alice from London'
+
+    def test_list_input_is_walked(self):
+        """List values in inputs are walked by `_wrap_safe_value`."""
+        from logfire.variables.abstract import render_serialized_string
+
+        result = render_serialized_string(
+            json.dumps('First: {{items.[0]}}, Second: {{items.[1]}}'),
+            {'items': ['apple', 'banana']},
+        )
+        assert json.loads(result) == 'First: apple, Second: banana'
+
+    def test_list_value_is_walked(self):
+        """List values inside the rendered value are walked by `_render_json_value`."""
+        from logfire.variables.abstract import render_serialized_string
+
+        result = render_serialized_string(
+            json.dumps({'tags': ['Hello {{name}}', 'static']}),
+            {'name': 'Alice'},
+        )
+        assert json.loads(result) == {'tags': ['Hello Alice', 'static']}
+
+
+@requires_handlebars
+class TestTemplateVariableOverrideRender:
+    """Cover the `_render_default` path that fires when overriding a `TemplateVariable`."""
+
+    def test_override_render_failure_falls_back(self, config_kwargs: dict[str, Any]):
+        """A TemplateVariable override that renders to an invalid value records the exception."""
+        from typing import Annotated
+
+        from pydantic import StringConstraints, ValidationError
+
+        class Config(BaseModel):
+            code: Annotated[str, StringConstraints(pattern=r'^[A-Z]+$')]
+
+        class Inputs(BaseModel):
+            code: str
+
+        lf = logfire.configure(**config_kwargs)
+        var = lf.template_var(
+            'config',
+            type=Config,
+            default=Config(code='OK'),
+            inputs_type=Inputs,
+        )
+
+        # `model_construct` bypasses the constructor's validation so the override can hold
+        # the unrendered template; rendering then produces 'abc123', which fails the
+        # pattern constraint and exercises the `raise result` branch in `_render_default`.
+        bad_override = Config.model_construct(code='{{code}}')
+        with var.override(bad_override):
+            resolved = var.get(Inputs(code='abc123'))
+
+        assert resolved.value == Config(code='OK')  # falls back to the code default
+        assert resolved.reason == 'other_error'
+        assert isinstance(resolved.exception, ValidationError)
