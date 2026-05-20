@@ -12,8 +12,14 @@ import logfire
 from logfire.experimental.forwarding import ForwardExportRequestResponse, forward_export_request, logfire_proxy
 
 
+def _add_active_forwarding_destination() -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    config._otlp_forwarding.tokens_by_base_url['https://logfire-us.pydantic.dev'] = ('test_token',)  # pyright: ignore[reportPrivateUsage]
+
+
 def test_forward_export_request_logic() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
+    _add_active_forwarding_destination()
 
     with mock.patch('requests.post') as mock_post:
         mock_post.return_value.status_code = 200
@@ -62,6 +68,7 @@ def test_forward_export_request_path_traversal() -> None:
 
 def test_forward_export_request_exception_handling() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
+    _add_active_forwarding_destination()
 
     with mock.patch('requests.post', side_effect=requests.RequestException('connection failure')):
         response = forward_export_request(
@@ -78,6 +85,7 @@ def test_fastapi_proxy_handler() -> None:
 
     app = FastAPI()
     logfire.configure(token='test_token', send_to_logfire=False)
+    _add_active_forwarding_destination()
 
     app.add_route('/logfire-proxy/{path:path}', logfire_proxy, methods=['POST'])
 
@@ -165,6 +173,7 @@ def test_forward_export_request_percent_encoded_traversal() -> None:
 
 def test_forward_export_request_multi_token() -> None:
     logfire.configure(token=['tok1', 'tok2'], send_to_logfire=False)
+    _add_active_forwarding_destination()
 
     with mock.patch('requests.post') as mock_post:
         mock_post.return_value.status_code = 200
@@ -178,6 +187,7 @@ def test_forward_export_request_multi_token() -> None:
 
 def test_forward_export_request_missing_token() -> None:
     logfire.configure(token='tok', send_to_logfire=False)
+    _add_active_forwarding_destination()
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
     with mock.patch.object(logfire_instance.config, 'token', None):
@@ -194,6 +204,7 @@ def test_forward_export_request_missing_token() -> None:
 def test_forward_export_request_explicit_instance() -> None:
     """Test that an explicit instance can be passed to forward_export_request."""
     logfire.configure(token='explicit_token', send_to_logfire=False)
+    _add_active_forwarding_destination()
 
     explicit_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
@@ -246,6 +257,27 @@ def test_forward_export_request_oversized_body() -> None:
 
     assert response.status_code == 413
     assert response.content == b'Payload too large'
+
+
+def test_forward_export_request_no_destination_forbidden() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    response = forward_export_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'',
+    )
+
+    assert response.status_code == 403
+    assert response.content == b'Logfire is not configured with an active forwarding destination'
+
+
+def test_forward_export_request_validation_before_no_destination() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    response = forward_export_request(path='/invalid', headers={}, body=b'')
+
+    assert response.status_code == 400
 
 
 def test_fastapi_proxy_invalid_method() -> None:
