@@ -19,6 +19,7 @@ from logfire._internal.forwarding import (
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
     _forwarding_user_agent,  # pyright: ignore[reportPrivateUsage]
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
+    build_forwarding_headers,
     build_forwarding_request,
     build_partial_success_response,
     build_success_response,
@@ -405,3 +406,44 @@ def test_forwarding_user_agent_without_inbound_user_agent() -> None:
 
 def test_forwarding_user_agent_with_inbound_user_agent() -> None:
     assert _forwarding_user_agent('browser-agent') == f'logfire-proxy/{VERSION} browser-agent'
+
+
+def test_build_forwarding_headers_preserves_representation_and_injects_token() -> None:
+    request = ForwardingRequest(
+        path='/v1/traces',
+        body=b'data',
+        content_type=ForwardingContentType.JSON,
+        content_type_header='application/json; charset=utf-8',
+        content_encoding='gzip',
+        user_agent='browser-agent',
+    )
+
+    headers = build_forwarding_headers(request, token='server-token')
+
+    assert headers == {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Encoding': 'gzip',
+        'User-Agent': f'logfire-proxy/{VERSION} browser-agent',
+        'Authorization': 'server-token',
+    }
+
+
+def test_build_forwarding_headers_without_optional_content_encoding_or_user_agent() -> None:
+    request = ForwardingRequest(
+        path='/v1/logs',
+        body=b'data',
+        content_type=ForwardingContentType.PROTOBUF,
+        content_type_header='application/x-protobuf',
+        content_encoding=None,
+        user_agent=None,
+    )
+
+    headers = build_forwarding_headers(request, token='other-token')
+
+    assert headers == {
+        'Content-Type': 'application/x-protobuf',
+        'User-Agent': f'logfire-proxy/{VERSION}',
+        'Authorization': 'other-token',
+    }
+    assert 'Cookie' not in headers
+    assert 'Host' not in headers

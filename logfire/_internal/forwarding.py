@@ -223,8 +223,19 @@ def build_partial_success_response(
     )
 
 
-def _forwarding_user_agent(user_agent: str | None) -> str:  # pyright: ignore[reportUnusedFunction]
+def _forwarding_user_agent(user_agent: str | None) -> str:
     forwarding_user_agent = f'logfire-proxy/{VERSION}'
     if user_agent:
         return f'{forwarding_user_agent} {user_agent}'
     return forwarding_user_agent
+
+
+def build_forwarding_headers(request: ForwardingRequest, *, token: str) -> dict[str, str]:
+    headers = {
+        'Content-Type': request.content_type_header,
+        'User-Agent': _forwarding_user_agent(request.user_agent),
+        'Authorization': token,
+    }
+    if request.content_encoding is not None:
+        headers['Content-Encoding'] = request.content_encoding
+    return headers
