@@ -149,6 +149,9 @@ class OTLPForwardingPipeline:
             while True:
                 with self.condition:
                     if not self.queue:
+                        if self.worker is current_thread():
+                            self.worker = None
+                        self.condition.notify_all()
                         return
 
                     queued_request = self.queue.popleft()

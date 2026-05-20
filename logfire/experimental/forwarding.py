@@ -35,8 +35,8 @@ def forward_export_request(
 ) -> ForwardExportRequestResponse:
     """Forward an export request to the Logfire API.
 
-    Note: If the provided logfire instance is configured with multiple tokens,
-    only the first token will be used for the proxy request.
+    Note: If the provided logfire instance is configured with multiple Logfire destinations,
+    the request is admitted for forwarding to all of them.
     """
     if logfire_instance is None:
         logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
@@ -80,8 +80,8 @@ async def logfire_proxy(
     This is useful for proxying requests from a browser to Logfire,
     to avoid exposing your write token in the browser.
 
-    Note: If the provided logfire instance is configured with multiple tokens,
-    only the first token will be used for the proxy request.
+    Note: If the provided logfire instance is configured with multiple Logfire destinations,
+    accepted requests are admitted for forwarding to all of them.
 
     **Security Note**: This endpoint is unauthenticated unless you protect it.
     Any client capable of reaching this endpoint can send telemetry data to your Logfire project.

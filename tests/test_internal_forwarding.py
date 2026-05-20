@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import FrozenInstanceError
-from threading import Event, Thread
+from threading import Condition, Event, Thread, current_thread, main_thread
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -965,6 +965,29 @@ class RecordingForwardingPipeline(OTLPForwardingPipeline):
         return None
 
 
+class EmptyQueueExitCondition(Condition):
+    def __init__(self, pipeline: OTLPForwardingPipeline) -> None:
+        super().__init__()
+        self.pipeline = pipeline
+        self.empty_queue_exit_released = Event()
+        self.allow_empty_queue_exit = Event()
+        self.triggered = False
+
+    def __exit__(self, *args: Any) -> None:
+        trigger = (
+            not self.triggered
+            and current_thread() is not main_thread()
+            and not self.pipeline.queue
+            and self.pipeline.active_send_count == 0
+        )
+        result = super().__exit__(*args)
+        if trigger:
+            self.triggered = True
+            self.empty_queue_exit_released.set()
+            assert self.allow_empty_queue_exit.wait(timeout=1)
+        return result
+
+
 def test_forwarding_pipeline_run_drains_queue_and_resets_state() -> None:
     pipeline = RecordingForwardingPipeline()
     pipeline.enqueue(_make_queued_forwarding_request(b'one'))
@@ -1003,6 +1026,24 @@ def test_forwarding_pipeline_run_drains_already_queued_work_when_closed() -> Non
     assert pipeline.queued_body_bytes == 0
     assert pipeline.active_send_count == 0
     assert pipeline.sent_bodies == [b'one']
+
+
+def test_forwarding_pipeline_enqueue_during_worker_empty_queue_exit_starts_new_worker() -> None:
+    pipeline = RecordingForwardingPipeline()
+    condition = EmptyQueueExitCondition(pipeline)
+    pipeline.condition = condition
+    pipeline._ensure_worker_locked = OTLPForwardingPipeline._ensure_worker_locked.__get__(pipeline)  # type: ignore[method-assign]
+
+    with pipeline.condition:
+        pipeline._ensure_worker_locked()  # pyright: ignore[reportPrivateUsage]
+
+    assert condition.empty_queue_exit_released.wait(timeout=1)
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'late')) is True
+    condition.allow_empty_queue_exit.set()
+
+    assert pipeline.force_flush(1000) is True
+    assert pipeline.sent_bodies == [b'late']
+    assert pipeline.worker is None
 
 
 def test_forwarding_manager_initial_state() -> None:
