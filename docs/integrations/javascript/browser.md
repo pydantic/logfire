@@ -53,6 +53,8 @@ If you use a Python backend, logfire provide experimental tools in the `logfire.
 
 These helpers validate incoming OTLP export requests, admit accepted payloads to the configured Logfire forwarding pipeline, and return an OTLP export response to the browser. An HTTP 200 OTLP success response means the Python process accepted the payload for local forwarding; it does not mean Logfire has already received, processed, or stored that telemetry.
 
+Forwarded OTLP request bodies are treated as opaque payloads. The Python helper does not parse, split, merge, rewrite, or apply Python-side scrubbing to browser telemetry before forwarding it, so scrub or filter sensitive browser/client attributes before they reach this endpoint.
+
 ### FastAPI
 
 For FastAPI, logfire provide a built-in `logfire_proxy` handler that limits request body size (default 50MB) by reading in chunks to avoid loading oversized payloads into memory.
