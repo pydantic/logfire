@@ -273,6 +273,20 @@ class OTLPForwardingManager:
             message=f'Forwarding request was locally dropped for {dropped_count} backend URL(s).',
         )
 
+    def force_flush(self, timeout_millis: int) -> bool:
+        deadline = monotonic() + timeout_millis / 1000
+        with self.lock:
+            pipelines = tuple(self.pipelines.values())
+
+        complete = True
+        for pipeline in pipelines:
+            remaining_millis = max(0, int((deadline - monotonic()) * 1000))
+            if remaining_millis == 0:
+                complete = False
+            if not pipeline.force_flush(remaining_millis):
+                complete = False
+        return complete
+
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     for header_name, value in headers.items():

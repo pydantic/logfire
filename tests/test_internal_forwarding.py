@@ -1172,3 +1172,39 @@ def test_forwarding_manager_submit_after_close_returns_partial_success_without_e
     )
     assert pipeline.enqueued == []
     assert manager.tokens_by_base_url == {'https://backend.example.com': ('token',)}
+
+
+class FakeFlushPipeline:
+    def __init__(self, result: bool = True) -> None:
+        self.result = result
+        self.flush_timeouts: list[int] = []
+
+    def force_flush(self, timeout_millis: int) -> bool:
+        self.flush_timeouts.append(timeout_millis)
+        return self.result
+
+
+def test_forwarding_manager_force_flush_uses_remaining_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    times = iter([0.0, 0.0, 0.025])
+    monkeypatch.setattr(forwarding_module, 'monotonic', lambda: next(times))
+    pipeline_1 = FakeFlushPipeline()
+    pipeline_2 = FakeFlushPipeline()
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.force_flush(100) is True
+
+    assert pipeline_1.flush_timeouts == [100]
+    assert pipeline_2.flush_timeouts == [75]
+
+
+def test_forwarding_manager_force_flush_returns_false_for_pipeline_timeout() -> None:
+    pipeline_1 = FakeFlushPipeline()
+    pipeline_2 = FakeFlushPipeline(result=False)
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.force_flush(100) is False
+
+    assert len(pipeline_1.flush_timeouts) == 1
+    assert len(pipeline_2.flush_timeouts) == 1
