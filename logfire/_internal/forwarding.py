@@ -34,3 +34,9 @@ class ForwardingErrorResponse:
 class ForwardingAdmissionResult:
     response: Literal['success', 'partial_success']
     message: str | None
+
+
+@dataclass(frozen=True)
+class QueuedForwardingRequest:
+    request: ForwardingRequest
+    tokens: tuple[str, ...]

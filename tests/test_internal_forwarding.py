@@ -11,6 +11,7 @@ from logfire._internal.forwarding import (
     ForwardingContentType,
     ForwardingErrorResponse,
     ForwardingRequest,
+    QueuedForwardingRequest,
 )
 
 
@@ -68,3 +69,20 @@ def test_forwarding_admission_result_record() -> None:
     assert partial_success.message == 'queue full'
     with pytest.raises(FrozenInstanceError):
         setattr(partial_success, 'message', 'closed')
+
+
+def test_queued_forwarding_request_record() -> None:
+    request = ForwardingRequest(
+        path='/v1/logs',
+        body=b'log-data',
+        content_type=ForwardingContentType.JSON,
+        content_type_header='application/json',
+        content_encoding=None,
+        user_agent=None,
+    )
+    queued_request = QueuedForwardingRequest(request=request, tokens=('token-1', 'token-2'))
+
+    assert queued_request.request is request
+    assert queued_request.tokens == ('token-1', 'token-2')
+    with pytest.raises(FrozenInstanceError):
+        setattr(queued_request, 'tokens', ('token-3',))
