@@ -402,6 +402,52 @@ def test_forward_export_request_backend_isolation(monkeypatch: pytest.MonkeyPatc
     ]
 
 
+def test_forward_export_request_header_sanitization(monkeypatch: pytest.MonkeyPatch) -> None:
+    sessions: list[RecordingForwardingSession] = []
+
+    def session_factory() -> RecordingForwardingSession:
+        session = RecordingForwardingSession()
+        sessions.append(session)
+        return session
+
+    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+        return None
+
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
+    monkeypatch.setattr('logfire._internal.forwarding.OTLPExporterHttpSession', session_factory)
+    logfire.configure(
+        token='pylf_v1_us_server_token',
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+
+    response = forward_export_request(
+        path='/v1/metrics',
+        headers={
+            'Content-Type': 'application/json; charset=utf-8',
+            'content-encoding': 'gzip',
+            'User-Agent': 'browser-otel/1.0',
+            'Authorization': 'client-token',
+            'Cookie': 'session=secret',
+            'Host': 'app.example.com',
+            'X-Api-Key': 'client-secret',
+        },
+        body=b'{}',
+    )
+    manager = logfire.DEFAULT_LOGFIRE_INSTANCE.config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert response.status_code == 200
+    assert manager.force_flush(1000) is True
+    assert len(sessions) == 1
+    assert sessions[0].calls[0]['headers'] == {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Encoding': 'gzip',
+        'User-Agent': f'logfire-proxy/{logfire.VERSION} browser-otel/1.0',
+        'Authorization': 'pylf_v1_us_server_token',
+    }
+
+
 @pytest.mark.parametrize(
     ('path', 'rejected_field'),
     [
