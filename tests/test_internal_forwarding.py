@@ -17,6 +17,7 @@ from logfire._internal.forwarding import (
     ForwardingContentType,
     ForwardingErrorResponse,
     ForwardingRequest,
+    OTLPForwardingManager,
     OTLPForwardingPipeline,
     QueuedForwardingRequest,
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
@@ -997,3 +998,14 @@ def test_forwarding_pipeline_run_drains_already_queued_work_when_closed() -> Non
     assert pipeline.queued_body_bytes == 0
     assert pipeline.active_send_count == 0
     assert pipeline.sent_bodies == [b'one']
+
+
+def test_forwarding_manager_initial_state() -> None:
+    config = object()
+    manager = OTLPForwardingManager(config)  # type: ignore[arg-type]
+
+    assert manager.config is config
+    assert manager.tokens_by_base_url == {}
+    assert manager.pipelines == {}
+    assert manager.closed is False
+    assert manager.lock is not None

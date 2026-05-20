@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from threading import Condition, Thread, current_thread
+from threading import Condition, RLock, Thread, current_thread
 from time import monotonic
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urljoin
@@ -36,6 +36,7 @@ from logfire._internal.exporters.otlp import OTLPExporterHttpSession
 from logfire.version import VERSION
 
 if TYPE_CHECKING:
+    from logfire._internal.config import LogfireConfig
     from logfire.experimental.forwarding import ForwardExportRequestResponse
 
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
@@ -214,6 +215,15 @@ class OTLPForwardingPipeline:
 
             self._close_session_once()
             return complete
+
+
+class OTLPForwardingManager:
+    def __init__(self, config: LogfireConfig) -> None:
+        self.config = config
+        self.tokens_by_base_url: dict[str, tuple[str, ...]] = {}
+        self.pipelines: dict[str, OTLPForwardingPipeline] = {}
+        self.closed = False
+        self.lock = RLock()
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
