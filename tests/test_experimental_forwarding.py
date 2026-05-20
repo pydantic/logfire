@@ -34,13 +34,16 @@ class FakeForwardingManager:
 
 
 class RecordingForwardingSession:
-    def __init__(self) -> None:
+    def __init__(self, *, fail_posts: bool = False) -> None:
         self.hooks: dict[str, list[Any]] = {}
         self.calls: list[dict[str, Any]] = []
+        self.fail_posts = fail_posts
         self.closed = False
 
     def post(self, url: str, data: bytes, **kwargs: Any) -> None:
         self.calls.append({'url': url, 'data': data, **kwargs})
+        if self.fail_posts:
+            raise RuntimeError('backend unavailable')
 
     def close(self) -> None:
         self.closed = True
@@ -338,6 +341,64 @@ def test_forward_export_request_configured_token_fanout(monkeypatch: pytest.Monk
             },
             'timeout': 10.0,
         },
+    ]
+
+
+def test_forward_export_request_backend_isolation(monkeypatch: pytest.MonkeyPatch) -> None:
+    sessions: list[RecordingForwardingSession] = []
+
+    def session_factory() -> RecordingForwardingSession:
+        session = RecordingForwardingSession(fail_posts=not sessions)
+        sessions.append(session)
+        return session
+
+    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+        return None
+
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
+    monkeypatch.setattr('logfire._internal.forwarding.OTLPExporterHttpSession', session_factory)
+    logfire.configure(
+        token=['pylf_v1_us_token', 'pylf_v1_eu_token'],
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+
+    response = forward_export_request(
+        path='/v1/logs',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'log-payload',
+    )
+    manager = logfire.DEFAULT_LOGFIRE_INSTANCE.config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert response.status_code == 200
+    assert manager.force_flush(1000) is True
+    assert len(sessions) == 2
+    assert [session.calls for session in sessions] == [
+        [
+            {
+                'url': 'https://logfire-us.pydantic.dev/v1/logs',
+                'data': b'log-payload',
+                'headers': {
+                    'Content-Type': 'application/x-protobuf',
+                    'User-Agent': f'logfire-proxy/{logfire.VERSION}',
+                    'Authorization': 'pylf_v1_us_token',
+                },
+                'timeout': 10.0,
+            }
+        ],
+        [
+            {
+                'url': 'https://logfire-eu.pydantic.dev/v1/logs',
+                'data': b'log-payload',
+                'headers': {
+                    'Content-Type': 'application/x-protobuf',
+                    'User-Agent': f'logfire-proxy/{logfire.VERSION}',
+                    'Authorization': 'pylf_v1_eu_token',
+                },
+                'timeout': 10.0,
+            }
+        ],
     ]
 
 
