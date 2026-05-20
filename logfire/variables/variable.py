@@ -325,15 +325,44 @@ class _BaseVariable(Generic[T_co]):
 
         # Expand @{references}@ if any are present
         if has_references(serialized_value):
+            context_overrides = _VARIABLE_OVERRIDES.get()
 
             def resolve_ref(
                 ref_name: str,
             ) -> tuple[str | None, str | None, int | None, ResolutionReason]:
+                # Lookup priority mirrors _BaseVariable._resolve so that composition
+                # respects overrides and registered code defaults rather than only
+                # consulting the provider.
+                ref_variable = self._variable_registry.get(ref_name)
+
+                # 1. Context override (only for variables we know the type of)
+                if context_overrides is not None and ref_name in context_overrides and ref_variable is not None:
+                    override_value = context_overrides[ref_name]
+                    if is_resolve_function(override_value):
+                        override_value = override_value(targeting_key, attributes)
+                    try:
+                        serialized = ref_variable.type_adapter.dump_json(override_value).decode('utf-8')
+                    except (ValueError, TypeError, RuntimeError):
+                        pass  # fall through to provider
+                    else:
+                        return (serialized, None, None, 'context_override')
+
+                # 2. Provider
                 ref_resolved = provider.get_serialized_value(ref_name, targeting_key, attributes)
-                if ref_resolved.value is None and (ref_variable := self._variable_registry.get(ref_name)) is not None:
+                if ref_resolved.value is not None:
+                    return (
+                        ref_resolved.value,
+                        ref_resolved.label,
+                        ref_resolved.version,
+                        ref_resolved.reason,
+                    )
+
+                # 3. Registered code default
+                if ref_variable is not None:
                     ref_default = ref_variable._get_serialized_default(targeting_key, attributes)
                     if ref_default is not None:
                         return (ref_default, None, None, 'code_default')
+
                 return (
                     ref_resolved.value,
                     ref_resolved.label,

@@ -822,6 +822,44 @@ class TestCompositionIntegration:
         assert result.composed_from[0].name == 'greeting'
         assert result.composed_from[0].reason == 'code_default'
 
+    def test_override_propagates_through_composition(self, config_kwargs: dict[str, Any]):
+        """``var.override(...)`` is honoured for ``@{var}@`` substitutions in a parent variable."""
+        variables_config = VariablesConfig(
+            variables={
+                'greeting': VariableConfig(
+                    name='greeting',
+                    json_schema={'type': 'string'},
+                    labels={'production': LabeledValue(version=1, serialized_value='"PROVIDER_GREETING"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                ),
+                'parent': VariableConfig(
+                    name='parent',
+                    json_schema={'type': 'string'},
+                    labels={'production': LabeledValue(version=1, serialized_value='"hello @{greeting}@"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                ),
+            },
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        greeting = lf.var(name='greeting', default='code_default_greeting', type=str)
+        parent = lf.var(name='parent', default='fallback', type=str)
+
+        # Without override: provider value used.
+        assert parent.get().value == 'hello PROVIDER_GREETING'
+
+        # With override on the referenced variable, composition sees the overridden value.
+        with greeting.override('OVERRIDDEN_GREETING'):
+            assert greeting.get().value == 'OVERRIDDEN_GREETING'
+            result = parent.get()
+            assert result.value == 'hello OVERRIDDEN_GREETING'
+            assert len(result.composed_from) == 1
+            assert result.composed_from[0].name == 'greeting'
+            assert result.composed_from[0].reason == 'context_override'
+
 
 class TestCompositionExceptions:
     """Test the exception hierarchy."""
