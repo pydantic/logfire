@@ -1,11 +1,13 @@
-import logfire
-from _typeshed import Incomplete
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from logfire.variables.config import VariableConfig, VariableTypeConfig, VariablesConfig
-from logfire.variables.variable import Variable
 from typing import Any, Generic, TypeVar
+
+from _typeshed import Incomplete
+
+import logfire
+from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
+from logfire.variables.variable import Variable
 
 __all__ = ['ResolvedVariable', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError']
 
@@ -22,22 +24,24 @@ class VariableAlreadyExistsError(VariableWriteError):
 
 @dataclass(kw_only=True)
 class ResolvedVariable(Generic[T_co]):
-    '''Details about a variable resolution including value, label, version, and any errors.
+    """Details about a variable resolution including value, label, version, and any errors.
 
     This class can be used as a context manager. When used as a context manager, it
-    automatically sets baggage with the variable name and label, enabling downstream
-    spans and logs to be associated with the variable resolution that was active at the time.
+    automatically sets baggage with the variable name, label, and (when applicable)
+    version, enabling downstream spans and logs to be associated with the variable
+    resolution that was active at the time.
 
     Example:
         ```python skip="true"
         my_var = logfire.var(name=\'my_var\', type=str, default=\'default\')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
-            # logfire.variables.my_var = <label> (or \'<code_default>\' if no label)
+            #   logfire.variables.my_var          = <label> (or \'<code_default>\' if no label)
+            #   logfire.variables.my_var.version  = <version> (only when a versioned value was resolved)
             value = details.value
-            # Any spans/logs created here will have the baggage attached
+            # Any spans/logs created here will have the baggage attached.
         ```
-    '''
+    """
     name: str
     value: T_co
     label: str | None = ...
@@ -94,7 +98,7 @@ class DescriptionDifference:
 
 @dataclass
 class ValidationReport:
-    '''Report of variable validation results.
+    """Report of variable validation results.
 
     This class contains the results of validating variable definitions against
     a provider\'s configuration. It can be used to check for errors programmatically
@@ -107,7 +111,7 @@ class ValidationReport:
             print(report.format())
             sys.exit(1)
         ```
-    '''
+    """
     errors: list[LabelValidationError]
     variables_checked: int
     variables_not_on_server: list[str]
@@ -315,7 +319,7 @@ class VariableProvider(ABC):
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
         """
     def validate_variables(self, variables: Sequence[Variable[object]]) -> ValidationReport:
-        '''Validate that provider-side variable label values match local type definitions.
+        """Validate that provider-side variable label values match local type definitions.
 
         This method fetches the current variable configuration from the provider and
         validates that all label values can be deserialized to the expected types
@@ -335,7 +339,7 @@ class VariableProvider(ABC):
                 print(report.format())
                 sys.exit(1)
             ```
-        '''
+        """
     def list_variable_types(self) -> dict[str, VariableTypeConfig]:
         """List all variable types from the provider.
 
@@ -364,7 +368,7 @@ class VariableProvider(ABC):
             The created or updated VariableTypeConfig.
         """
     def push_variable_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
-        '''Push variable type definitions to this provider.
+        """Push variable type definitions to this provider.
 
         This method syncs local type definitions with the provider:
         - Creates new types that don\'t exist in the provider
@@ -400,7 +404,7 @@ class VariableProvider(ABC):
             # Push with explicit name
             provider.push_variable_types([(FeatureConfig, \'my_feature_config\')])
             ```
-        '''
+        """
 
 @dataclass
 class NoOpVariableProvider(VariableProvider):

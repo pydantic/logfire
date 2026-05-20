@@ -16,6 +16,7 @@ from types import GeneratorType
 from typing import Any
 from uuid import UUID
 
+from .artifacts import Artifact
 from .utils import JsonValue, safe_repr
 
 NUMPY_DIMENSION_MAX_SIZE = 10
@@ -214,6 +215,8 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
         Pattern: lambda o, seen: to_json_value(o.pattern, seen),
         UUID: _to_str,
         Exception: _to_str,
+        # An artifact serialises to its reference object; the blob is uploaded separately.
+        Artifact: lambda o, _: o.reference(),
     }
     with contextlib.suppress(ModuleNotFoundError):
         import pydantic

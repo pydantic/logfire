@@ -1,3 +1,9 @@
+from collections.abc import Iterable, Mapping, Sequence
+from contextlib import AbstractContextManager
+from types import ModuleType
+from typing import Any, Callable, Literal, TypeVar, overload
+from wsgiref.types import WSGIApplication
+
 import anthropic
 import httpx
 import openai
@@ -5,38 +11,7 @@ import opentelemetry.trace as trace_api
 import pydantic_ai
 import pydantic_ai.models
 import requests
-from . import async_ as async_
-from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
-from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
-from ..integrations.httpx import AsyncRequestHook as HttpxAsyncRequestHook, AsyncResponseHook as HttpxAsyncResponseHook, RequestHook as HttpxRequestHook, ResponseHook as HttpxResponseHook
-from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
-from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
-from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
-from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
-from ..variables import ResolveFunction as ResolveFunction, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
-from ..version import VERSION as VERSION
-from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
-from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
-from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
-from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
-from .instrument import instrument as instrument
-from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
-from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
-from .integrations.llm_providers.semconv import SemconvVersion as SemconvVersion
-from .integrations.mysql import MySQLConnection as MySQLConnection
-from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
-from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
-from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
-from .json_encoder import logfire_json_dumps as logfire_json_dumps
-from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
-from .metrics import ProxyMeterProvider as ProxyMeterProvider
-from .stack_info import get_user_stack_info as get_user_stack_info
-from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
-from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from anthropic.lib.bedrock import AnthropicBedrock as _AnthropicBedrock, AsyncAnthropicBedrock as _AsyncAnthropicBedrock
-from collections.abc import Iterable, Mapping, Sequence
-from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
@@ -47,7 +22,11 @@ from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
-from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
+from pymongo.monitoring import (
+    CommandFailedEvent as CommandFailedEvent,
+    CommandStartedEvent as CommandStartedEvent,
+    CommandSucceededEvent as CommandSucceededEvent,
+)
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
@@ -55,10 +34,83 @@ from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
 from surrealdb.connections.async_template import AsyncTemplate
 from surrealdb.connections.sync_template import SyncTemplate
-from types import ModuleType
-from typing import Any, Callable, Literal, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
-from wsgiref.types import WSGIApplication
+
+from ..integrations.aiohttp_client import (
+    RequestHook as AiohttpClientRequestHook,
+    ResponseHook as AiohttpClientResponseHook,
+)
+from ..integrations.flask import (
+    CommenterOptions as FlaskCommenterOptions,
+    RequestHook as FlaskRequestHook,
+    ResponseHook as FlaskResponseHook,
+)
+from ..integrations.httpx import (
+    AsyncRequestHook as HttpxAsyncRequestHook,
+    AsyncResponseHook as HttpxAsyncResponseHook,
+    RequestHook as HttpxRequestHook,
+    ResponseHook as HttpxResponseHook,
+)
+from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
+from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
+from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
+from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
+from ..variables import (
+    ResolveFunction as ResolveFunction,
+    ValidationReport as ValidationReport,
+    Variable as Variable,
+    VariablesConfig as VariablesConfig,
+)
+from ..version import VERSION as VERSION
+from . import async_ as async_
+from .artifacts import Artifact as Artifact
+from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
+from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
+from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
+from .constants import (
+    ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY,
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY,
+    ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY,
+    ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY,
+    ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY,
+    DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY,
+    LEVEL_NUMBERS as LEVEL_NUMBERS,
+    OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE,
+    LevelName as LevelName,
+    log_level_attributes as log_level_attributes,
+)
+from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
+from .instrument import instrument as instrument
+from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
+from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
+from .integrations.llm_providers.semconv import SemconvVersion as SemconvVersion
+from .integrations.mysql import MySQLConnection as MySQLConnection
+from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
+from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
+from .integrations.system_metrics import Base as SystemMetricsBase, Config as SystemMetricsConfig
+from .json_encoder import logfire_json_dumps as logfire_json_dumps
+from .json_schema import (
+    JsonSchemaProperties as JsonSchemaProperties,
+    attributes_json_schema as attributes_json_schema,
+    attributes_json_schema_properties as attributes_json_schema_properties,
+    create_json_schema as create_json_schema,
+)
+from .metrics import ProxyMeterProvider as ProxyMeterProvider
+from .stack_info import get_user_stack_info as get_user_stack_info
+from .tracer import (
+    ProxyTracerProvider as ProxyTracerProvider,
+    _ProxyTracer,
+    set_exception_status as set_exception_status,
+)
+from .utils import (
+    SysExcInfo as SysExcInfo,
+    get_version as get_version,
+    handle_internal_errors as handle_internal_errors,
+    log_internal_error as log_internal_error,
+    uniquify_sequence as uniquify_sequence,
+)
 
 ExcInfo = SysExcInfo | BaseException | bool | None
 T = TypeVar('T')
@@ -525,7 +577,7 @@ class Logfire:
                 i.e. it's not necessary to use this as a context manager.
         """
     def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
-        '''Instrument an OpenAI client so that spans are automatically created for each request.
+        """Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
         of the OpenAI "agents" framework, see [`instrument_openai_agents()`][logfire.Logfire.instrument_openai_agents].
@@ -587,7 +639,7 @@ class Logfire:
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
-        '''
+        """
     def instrument_openai_agents(self) -> None:
         """Instrument the [`agents`](https://github.com/openai/openai-agents-python) framework from OpenAI.
 
@@ -595,7 +647,7 @@ class Logfire:
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
     def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
-        '''Instrument an Anthropic client so that spans are automatically created for each request.
+        """Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
 
@@ -652,7 +704,7 @@ class Logfire:
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
-        '''
+        """
     def instrument_google_genai(self, **kwargs: Any):
         """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
 
@@ -1346,7 +1398,7 @@ class Logfire:
             ```
         """
     def variables_push_config(self, config: VariablesConfig, *, mode: Literal['merge', 'replace'] = 'merge', dry_run: bool = False, yes: bool = False) -> bool:
-        '''Push a VariablesConfig to the configured provider.
+        """Push a VariablesConfig to the configured provider.
 
         This method pushes a complete VariablesConfig (including labels and rollouts)
         to the provider. It\'s useful for:
@@ -1375,9 +1427,9 @@ class Logfire:
             # Or merge just a subset of variables
             logfire.variables_push_config(config, mode=\'merge\')
             ```
-        '''
+        """
     def variables_pull_config(self) -> VariablesConfig:
-        '''Pull the current variable configuration from the provider.
+        """Pull the current variable configuration from the provider.
 
         This method fetches the complete configuration from the provider,
         useful for generating local copies of the config that can be modified.
@@ -1393,9 +1445,9 @@ class Logfire:
             config = logfire.variables_pull_config()
             print(config.model_dump_json(indent=2))
             ```
-        '''
+        """
     def variables_build_config(self, variables: list[Variable[Any]] | None = None) -> VariablesConfig:
-        '''Build a VariablesConfig from registered Variable instances.
+        """Build a VariablesConfig from registered Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.
         No labels or versions are created - use this to build a template config that can be edited.
@@ -1417,7 +1469,7 @@ class Logfire:
             config = logfire.variables_build_config()
             print(config.model_dump_json(indent=2))
             ```
-        '''
+        """
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""

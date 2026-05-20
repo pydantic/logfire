@@ -34,6 +34,7 @@ from typing_extensions import LiteralString, ParamSpec
 
 from ..version import VERSION
 from . import async_
+from .artifacts import Artifact
 from .auto_trace import AutoTraceModule, install_auto_tracing
 from .config import GLOBAL_CONFIG, LogfireConfig
 from .config_params import PydanticPluginRecordValues
@@ -3130,6 +3131,10 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
 def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
     """Convert a user attribute to an OpenTelemetry compatible type."""
+    if isinstance(value, Artifact):
+        # Upload the blob out of band; the span attribute only carries the reference.
+        GLOBAL_CONFIG.submit_artifact(value)
+        return logfire_json_dumps(value)
     if isinstance(value, Enum):
         return logfire_json_dumps(value)
     elif isinstance(value, int):

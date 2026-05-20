@@ -1,7 +1,10 @@
-from .utils import JsonValue as JsonValue, safe_repr as safe_repr
-from _typeshed import Incomplete
 from functools import cache, lru_cache
 from typing import Any
+
+from _typeshed import Incomplete
+
+from .artifacts import Artifact as Artifact
+from .utils import JsonValue as JsonValue, safe_repr as safe_repr
 
 NUMPY_DIMENSION_MAX_SIZE: int
 EncoderFunction: Incomplete

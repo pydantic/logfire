@@ -8,6 +8,7 @@ from logfire.propagate import attach_context, get_context
 from logfire.sampling import SamplingOptions
 
 from . import variables as variables
+from ._internal.artifacts import Artifact, UploadMode
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.baggage import get_baggage, set_baggage
@@ -213,4 +214,6 @@ __all__ = (
     'get_context',
     'attach_context',
     'url_from_eval',
+    'Artifact',
+    'UploadMode',
 )

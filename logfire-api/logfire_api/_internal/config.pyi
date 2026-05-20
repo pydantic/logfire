@@ -1,31 +1,19 @@
 import dataclasses
-import requests
-from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
-from ..types import ExceptionCallback as ExceptionCallback
-from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
-from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token
-from .constants import ATTRIBUTES_CONFIG as ATTRIBUTES_CONFIG, ATTRIBUTES_PACKAGE_VERSIONS as ATTRIBUTES_PACKAGE_VERSIONS, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL, RESOURCE_ATTRIBUTES_VERSION as RESOURCE_ATTRIBUTES_VERSION
-from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, ConsoleLogExporter as ConsoleLogExporter, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
-from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
-from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper as MainLogProcessorWrapper
-from .exporters.otlp import BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter, OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter, cleanup_disk_retryers as cleanup_disk_retryers
-from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
-from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
-from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
-from .exporters.test import TestExporter as TestExporter
-from .integrations.executors import instrument_executors as instrument_executors
-from .logs import ProxyLoggerProvider as ProxyLoggerProvider
-from .main import Logfire as Logfire
-from .metrics import ProxyMeterProvider as ProxyMeterProvider
-from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
-from .server_response import ServerResponseCallback as ServerResponseCallback, install_logfire_response_hook as install_logfire_response_hook
-from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
-from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
-from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, suppress_instrumentation as suppress_instrumentation
-from _typeshed import Incomplete
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
+from pathlib import Path
+from typing import Any, ClassVar, Literal, TextIO, TypedDict
+
+import requests
+from _typeshed import Incomplete
+from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
+from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
+from opentelemetry.sdk.metrics.view import View
+from opentelemetry.sdk.trace import SpanProcessor
+from opentelemetry.sdk.trace.id_generator import IdGenerator
+from typing_extensions import Self, Unpack
+
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN as PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS as REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info as collect_package_info
@@ -33,16 +21,95 @@ from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.variables import VariablesConfig as VariablesConfig
-from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
+from logfire.variables.abstract import (
+    NoOpVariableProvider as NoOpVariableProvider,
+    VariableProvider as VariableProvider,
+)
 from logfire.version import VERSION as VERSION
-from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
-from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
-from opentelemetry.sdk.metrics.view import View
-from opentelemetry.sdk.trace import SpanProcessor
-from opentelemetry.sdk.trace.id_generator import IdGenerator
-from pathlib import Path
-from typing import Any, ClassVar, Literal, TextIO, TypedDict
-from typing_extensions import Self, Unpack
+
+from ..propagate import (
+    NoExtractTraceContextPropagator as NoExtractTraceContextPropagator,
+    WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator,
+)
+from ..types import ExceptionCallback as ExceptionCallback
+from .artifacts import Artifact as Artifact
+from .client import (
+    InvalidProjectName as InvalidProjectName,
+    LogfireClient as LogfireClient,
+    ProjectAlreadyExists as ProjectAlreadyExists,
+)
+from .config_params import (
+    ParamManager as ParamManager,
+    PydanticPluginRecordValues as PydanticPluginRecordValues,
+    normalize_token as normalize_token,
+)
+from .constants import (
+    ATTRIBUTES_CONFIG as ATTRIBUTES_CONFIG,
+    ATTRIBUTES_PACKAGE_VERSIONS as ATTRIBUTES_PACKAGE_VERSIONS,
+    LEVEL_NUMBERS as LEVEL_NUMBERS,
+    RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
+    RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
+    RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
+    RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
+    RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
+    RESOURCE_ATTRIBUTES_VERSION as RESOURCE_ATTRIBUTES_VERSION,
+    LevelName as LevelName,
+)
+from .exporters.artifact_uploader import ArtifactUploader as ArtifactUploader
+from .exporters.console import (
+    ConsoleColorsValues as ConsoleColorsValues,
+    ConsoleLogExporter as ConsoleLogExporter,
+    IndentedConsoleSpanExporter as IndentedConsoleSpanExporter,
+    ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter,
+    SimpleConsoleSpanExporter as SimpleConsoleSpanExporter,
+)
+from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
+from .exporters.logs import (
+    CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper,
+    MainLogProcessorWrapper as MainLogProcessorWrapper,
+)
+from .exporters.otlp import (
+    BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter,
+    OTLPExporterHttpSession as OTLPExporterHttpSession,
+    QuietLogExporter as QuietLogExporter,
+    QuietSpanExporter as QuietSpanExporter,
+    RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter,
+    cleanup_disk_retryers as cleanup_disk_retryers,
+)
+from .exporters.processor_wrapper import (
+    CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper,
+    MainSpanProcessorWrapper as MainSpanProcessorWrapper,
+)
+from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
+from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
+from .exporters.test import TestExporter as TestExporter
+from .integrations.executors import instrument_executors as instrument_executors
+from .logs import ProxyLoggerProvider as ProxyLoggerProvider
+from .main import Logfire as Logfire
+from .metrics import ProxyMeterProvider as ProxyMeterProvider
+from .scrubbing import (
+    NOOP_SCRUBBER as NOOP_SCRUBBER,
+    BaseScrubber as BaseScrubber,
+    Scrubber as Scrubber,
+    ScrubbingOptions as ScrubbingOptions,
+)
+from .server_response import (
+    ServerResponseCallback as ServerResponseCallback,
+    install_logfire_response_hook as install_logfire_response_hook,
+)
+from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
+from .tracer import (
+    OPEN_SPANS as OPEN_SPANS,
+    PendingSpanProcessor as PendingSpanProcessor,
+    ProxyTracerProvider as ProxyTracerProvider,
+)
+from .utils import (
+    SeededRandomIdGenerator as SeededRandomIdGenerator,
+    ensure_data_dir_exists as ensure_data_dir_exists,
+    handle_internal_errors as handle_internal_errors,
+    platform_is_emscripten as platform_is_emscripten,
+    suppress_instrumentation as suppress_instrumentation,
+)
 
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
@@ -252,6 +319,12 @@ class LogfireConfig(_LogfireConfigData):
 
         Returns:
             Whether the flush of spans was successful.
+        """
+    def submit_artifact(self, artifact: Artifact) -> None:
+        """Upload an artifact's blob out of band — inline (`sync`) or queued (`background`).
+
+        No-op when there is no configured token (and hence no uploader): the artifact
+        reference is still recorded on the span, but the blob cannot be uploaded.
         """
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
