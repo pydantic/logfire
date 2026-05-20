@@ -3,9 +3,11 @@ from __future__ import annotations
 import os
 import posixpath
 import re
+from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from threading import Condition, Thread
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote
 
@@ -29,6 +31,7 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_TRACES_TIMEOUT,
 )
 
+from logfire._internal.exporters.otlp import OTLPExporterHttpSession
 from logfire.version import VERSION
 
 if TYPE_CHECKING:
@@ -83,6 +86,25 @@ class ForwardingAdmissionResult:
 class QueuedForwardingRequest:
     request: ForwardingRequest
     tokens: tuple[str, ...]
+
+
+class OTLPForwardingPipeline:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        session: OTLPExporterHttpSession,
+        max_queued_body_bytes: int,
+    ) -> None:
+        self.base_url = base_url
+        self.session = session
+        self.max_queued_body_bytes = max_queued_body_bytes
+        self.queue: deque[QueuedForwardingRequest] = deque()
+        self.queued_body_bytes = 0
+        self.active_send_count = 0
+        self.worker: Thread | None = None
+        self.closed = False
+        self.condition = Condition()
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:

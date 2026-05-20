@@ -15,6 +15,7 @@ from logfire._internal.forwarding import (
     ForwardingContentType,
     ForwardingErrorResponse,
     ForwardingRequest,
+    OTLPForwardingPipeline,
     QueuedForwardingRequest,
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
     _forwarding_user_agent,  # pyright: ignore[reportPrivateUsage]
@@ -493,3 +494,22 @@ def test_forwarding_timeout_for_path_signal_specific_override(
     monkeypatch.setenv(env_var, '3.25')
 
     assert forwarding_timeout_for_path(path) == 3.25  # type: ignore[arg-type]
+
+
+def test_forwarding_pipeline_initial_state() -> None:
+    session = object()
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=session,  # type: ignore[arg-type]
+        max_queued_body_bytes=123,
+    )
+
+    assert pipeline.base_url == 'https://example.com'
+    assert pipeline.session is session
+    assert pipeline.max_queued_body_bytes == 123
+    assert list(pipeline.queue) == []
+    assert pipeline.queued_body_bytes == 0
+    assert pipeline.active_send_count == 0
+    assert pipeline.worker is None
+    assert pipeline.closed is False
+    assert pipeline.condition is not None
