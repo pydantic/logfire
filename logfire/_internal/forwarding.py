@@ -188,20 +188,28 @@ class OTLPForwardingPipeline:
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         deadline = monotonic() + timeout_millis / 1000
+        complete = True
         with self.condition:
             self.closed = True
             self.condition.notify_all()
             if drain_queued and self.queue:
                 self._ensure_worker_locked()
 
-            while self.queue or self.active_send_count or self._has_live_worker_locked():
+            while self.queue:
                 remaining = deadline - monotonic()
                 if remaining <= 0:
-                    return False
+                    self.queue.clear()
+                    self.queued_body_bytes = 0
+                    complete = False
+                    self.condition.notify_all()
+                    break
                 self.condition.wait(timeout=remaining)
 
+            while self.active_send_count or self._has_live_worker_locked():
+                self.condition.wait()
+
             self._close_session_once()
-            return True
+            return complete
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
