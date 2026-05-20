@@ -5,12 +5,16 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote
 
+from google.protobuf.json_format import MessageToJson
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
+
+if TYPE_CHECKING:
+    from logfire.experimental.forwarding import ForwardExportRequestResponse
 
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
 OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
@@ -166,3 +170,19 @@ def response_message_for_path(path: ForwardingPath) -> type[Any]:
     if path == '/v1/logs':
         return ExportLogsServiceResponse
     return ExportMetricsServiceResponse
+
+
+def build_success_response(request: ForwardingRequest) -> ForwardExportRequestResponse:
+    from logfire.experimental.forwarding import ForwardExportRequestResponse
+
+    message = response_message_for_path(request.path)()
+    if request.content_type is ForwardingContentType.PROTOBUF:
+        content = message.SerializeToString()
+    else:
+        content = MessageToJson(message, indent=None).encode()
+
+    return ForwardExportRequestResponse(
+        status_code=200,
+        headers={'Content-Type': response_content_type(request.content_type)},
+        content=content,
+    )

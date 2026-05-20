@@ -18,6 +18,7 @@ from logfire._internal.forwarding import (
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
     build_forwarding_request,
+    build_success_response,
     parse_forwarding_content_type,
     response_content_type,
     response_message_for_path,
@@ -300,3 +301,37 @@ def test_response_content_type(content_type: ForwardingContentType, expected: st
 )
 def test_response_message_for_path(path: str, expected: type[object]) -> None:
     assert response_message_for_path(path) is expected  # type: ignore[arg-type]
+
+
+def test_build_success_response_protobuf() -> None:
+    request = ForwardingRequest(
+        path='/v1/traces',
+        body=b'trace-data',
+        content_type=ForwardingContentType.PROTOBUF,
+        content_type_header='application/x-protobuf',
+        content_encoding=None,
+        user_agent=None,
+    )
+
+    response = build_success_response(request)
+
+    assert response.status_code == 200
+    assert response.headers == {'Content-Type': 'application/x-protobuf'}
+    assert response.content == ExportTraceServiceResponse().SerializeToString()
+
+
+def test_build_success_response_json() -> None:
+    request = ForwardingRequest(
+        path='/v1/logs',
+        body=b'{}',
+        content_type=ForwardingContentType.JSON,
+        content_type_header='application/json; charset=utf-8',
+        content_encoding=None,
+        user_agent=None,
+    )
+
+    response = build_success_response(request)
+
+    assert response.status_code == 200
+    assert response.headers == {'Content-Type': 'application/json'}
+    assert response.content == b'{}'
