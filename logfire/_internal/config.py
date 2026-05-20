@@ -1389,6 +1389,7 @@ class LogfireConfig(_LogfireConfigData):
 
             previous_otlp_forwarding = self._otlp_forwarding
             self._otlp_forwarding = otlp_forwarding
+            self._prune_retired_otlp_forwarding()
             if previous_otlp_forwarding.retire():
                 self._retired_otlp_forwarding.append(previous_otlp_forwarding)
             self._initialized = True
@@ -1414,11 +1415,12 @@ class LogfireConfig(_LogfireConfigData):
             with suppress(ValueError):
                 self._retired_otlp_forwarding.remove(manager)
 
+    def _prune_retired_otlp_forwarding(self) -> None:
+        self._retired_otlp_forwarding = [manager for manager in self._retired_otlp_forwarding if not manager.is_idle()]
+
     def _otlp_forwarding_managers(self) -> tuple[OTLPForwardingManager, ...]:
         with self._lock:
-            self._retired_otlp_forwarding = [
-                manager for manager in self._retired_otlp_forwarding if not manager.is_idle()
-            ]
+            self._prune_retired_otlp_forwarding()
             return (self._otlp_forwarding, *self._retired_otlp_forwarding)
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
