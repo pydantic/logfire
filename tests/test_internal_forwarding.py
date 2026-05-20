@@ -14,6 +14,7 @@ from logfire._internal.forwarding import (
     QueuedForwardingRequest,
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
+    build_forwarding_request,
     parse_forwarding_content_type,
 )
 
@@ -168,3 +169,106 @@ def test_extract_forwarding_representation_headers_missing_optional_values() -> 
     assert content_type == 'application/x-protobuf'
     assert content_encoding is None
     assert user_agent is None
+
+
+def test_build_forwarding_request_valid_protobuf() -> None:
+    request = build_forwarding_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf', 'Content-Encoding': 'gzip', 'User-Agent': 'browser'},
+        body=b'trace-data',
+    )
+
+    assert isinstance(request, ForwardingRequest)
+    assert request.path == '/v1/traces'
+    assert request.body == b'trace-data'
+    assert request.content_type is ForwardingContentType.PROTOBUF
+    assert request.content_type_header == 'application/x-protobuf'
+    assert request.content_encoding == 'gzip'
+    assert request.user_agent == 'browser'
+
+
+def test_build_forwarding_request_valid_json_with_parameters() -> None:
+    request = build_forwarding_request(
+        path='/v1/logs',
+        headers={'Content-Type': 'application/json; charset=utf-8'},
+        body=b'{"resourceLogs":[]}',
+    )
+
+    assert isinstance(request, ForwardingRequest)
+    assert request.path == '/v1/logs'
+    assert request.body == b'{"resourceLogs":[]}'
+    assert request.content_type is ForwardingContentType.JSON
+    assert request.content_type_header == 'application/json; charset=utf-8'
+    assert request.content_encoding is None
+    assert request.user_agent is None
+
+
+def test_build_forwarding_request_none_body_normalizes_to_empty_bytes() -> None:
+    request = build_forwarding_request(
+        path='/v1/metrics',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=None,
+    )
+
+    assert isinstance(request, ForwardingRequest)
+    assert request.body == b''
+
+
+@pytest.mark.parametrize(
+    ('body', 'max_body_size'),
+    [
+        (b'12345', 4),
+        (b'12345', 3),
+    ],
+)
+def test_build_forwarding_request_oversized_body(body: bytes, max_body_size: int) -> None:
+    response = build_forwarding_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=body,
+        max_body_size=max_body_size,
+    )
+
+    assert isinstance(response, ForwardingErrorResponse)
+    assert response.status_code == 413
+    assert response.content_type == 'text/plain'
+    assert response.content == b'Payload too large'
+
+
+def test_build_forwarding_request_custom_max_body_size_allows_body_at_limit() -> None:
+    request = build_forwarding_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'12345',
+        max_body_size=5,
+    )
+
+    assert isinstance(request, ForwardingRequest)
+    assert request.body == b'12345'
+
+
+@pytest.mark.parametrize(
+    'headers',
+    [
+        {},
+        {'Content-Type': 'text/plain'},
+    ],
+)
+def test_build_forwarding_request_unsupported_content_type(headers: dict[str, str]) -> None:
+    response = build_forwarding_request(path='/v1/traces', headers=headers, body=b'')
+
+    assert isinstance(response, ForwardingErrorResponse)
+    assert response.status_code == 415
+    assert response.content_type == 'text/plain'
+    assert response.content == b'Unsupported content type'
+
+
+def test_build_forwarding_request_invalid_path() -> None:
+    response = build_forwarding_request(
+        path='/invalid',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'',
+    )
+
+    assert isinstance(response, ForwardingErrorResponse)
+    assert response.status_code == 400

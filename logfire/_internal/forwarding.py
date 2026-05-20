@@ -86,7 +86,7 @@ def _invalid_path_response() -> ForwardingErrorResponse:
     )
 
 
-def _normalize_forwarding_path(path: str) -> ForwardingPath | ForwardingErrorResponse:  # pyright: ignore[reportUnusedFunction]
+def _normalize_forwarding_path(path: str) -> ForwardingPath | ForwardingErrorResponse:
     if '://' in path or '?' in path or '#' in path:
         return _invalid_path_response()
 
@@ -103,11 +103,50 @@ def _normalize_forwarding_path(path: str) -> ForwardingPath | ForwardingErrorRes
     return _invalid_path_response()
 
 
-def _extract_forwarding_representation_headers(  # pyright: ignore[reportUnusedFunction]
+def _extract_forwarding_representation_headers(
     headers: Mapping[str, str],
 ) -> tuple[str | None, str | None, str | None]:
     return (
         _get_header(headers, 'content-type'),
         _get_header(headers, 'content-encoding'),
         _get_header(headers, 'user-agent'),
+    )
+
+
+def build_forwarding_request(
+    *,
+    path: str,
+    headers: Mapping[str, str],
+    body: bytes | None,
+    max_body_size: int = OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
+) -> ForwardingRequest | ForwardingErrorResponse:
+    normalized_path = _normalize_forwarding_path(path)
+    if isinstance(normalized_path, ForwardingErrorResponse):
+        return normalized_path
+
+    normalized_body = body or b''
+    if len(normalized_body) > max_body_size:
+        return ForwardingErrorResponse(
+            status_code=413,
+            content_type='text/plain',
+            content=b'Payload too large',
+        )
+
+    content_type = parse_forwarding_content_type(headers)
+    if content_type is None:
+        return ForwardingErrorResponse(
+            status_code=415,
+            content_type='text/plain',
+            content=b'Unsupported content type',
+        )
+
+    content_type_header, content_encoding, user_agent = _extract_forwarding_representation_headers(headers)
+    assert content_type_header is not None
+    return ForwardingRequest(
+        path=normalized_path,
+        body=normalized_body,
+        content_type=content_type,
+        content_type_header=content_type_header,
+        content_encoding=content_encoding,
+        user_agent=user_agent,
     )
