@@ -192,7 +192,11 @@ class OTLPForwardingPipeline:
         with self.condition:
             self.closed = True
             self.condition.notify_all()
-            if drain_queued and self.queue:
+            if not drain_queued:
+                self.queue.clear()
+                self.queued_body_bytes = 0
+                self.condition.notify_all()
+            elif self.queue:
                 self._ensure_worker_locked()
 
             while self.queue:
