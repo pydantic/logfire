@@ -12,6 +12,7 @@ from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportM
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
 import logfire
+from logfire._internal.config import LogfireConfig
 from logfire._internal.forwarding import ForwardingAdmissionResult, ForwardingRequest
 from logfire.experimental.forwarding import ForwardExportRequestResponse, forward_export_request, logfire_proxy
 
@@ -30,6 +31,19 @@ class FakeForwardingManager:
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         return True
+
+
+class RecordingForwardingSession:
+    def __init__(self) -> None:
+        self.hooks: dict[str, list[Any]] = {}
+        self.calls: list[dict[str, Any]] = []
+        self.closed = False
+
+    def post(self, url: str, data: bytes, **kwargs: Any) -> None:
+        self.calls.append({'url': url, 'data': data, **kwargs})
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def _set_successful_forwarding_manager(
@@ -271,6 +285,60 @@ def test_forward_export_request_validation_before_no_destination() -> None:
     response = forward_export_request(path='/invalid', headers={}, body=b'')
 
     assert response.status_code == 400
+
+
+def test_forward_export_request_configured_token_fanout(monkeypatch: pytest.MonkeyPatch) -> None:
+    sessions: list[RecordingForwardingSession] = []
+
+    def session_factory() -> RecordingForwardingSession:
+        session = RecordingForwardingSession()
+        sessions.append(session)
+        return session
+
+    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+        return None
+
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
+    monkeypatch.setattr('logfire._internal.forwarding.OTLPExporterHttpSession', session_factory)
+    logfire.configure(
+        token=['pylf_v1_us_token1', 'pylf_v1_us_token2'],
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+
+    response = forward_export_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'trace-payload',
+    )
+    manager = logfire.DEFAULT_LOGFIRE_INSTANCE.config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert response.status_code == 200
+    assert manager.force_flush(1000) is True
+    assert len(sessions) == 1
+    assert sessions[0].calls == [
+        {
+            'url': 'https://logfire-us.pydantic.dev/v1/traces',
+            'data': b'trace-payload',
+            'headers': {
+                'Content-Type': 'application/x-protobuf',
+                'User-Agent': f'logfire-proxy/{logfire.VERSION}',
+                'Authorization': 'pylf_v1_us_token1',
+            },
+            'timeout': 10.0,
+        },
+        {
+            'url': 'https://logfire-us.pydantic.dev/v1/traces',
+            'data': b'trace-payload',
+            'headers': {
+                'Content-Type': 'application/x-protobuf',
+                'User-Agent': f'logfire-proxy/{logfire.VERSION}',
+                'Authorization': 'pylf_v1_us_token2',
+            },
+            'timeout': 10.0,
+        },
+    ]
 
 
 @pytest.mark.parametrize(
