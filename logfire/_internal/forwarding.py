@@ -191,7 +191,10 @@ class OTLPForwardingPipeline:
         with self.condition:
             self.closed = True
             self.condition.notify_all()
-            while self.active_send_count or self._has_live_worker_locked():
+            if drain_queued and self.queue:
+                self._ensure_worker_locked()
+
+            while self.queue or self.active_send_count or self._has_live_worker_locked():
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     return False

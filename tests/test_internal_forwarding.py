@@ -783,6 +783,44 @@ class FakeForwardingSession:
         self.close_count += 1
 
 
+class BlockingShutdownForwardingPipeline(OTLPForwardingPipeline):
+    def __init__(self) -> None:
+        self.fake_session = FakeForwardingSession()
+        super().__init__(
+            base_url='https://example.com',
+            session=self.fake_session,  # type: ignore[arg-type]
+            max_queued_body_bytes=100,
+        )
+        self.started = Event()
+        self.release = Event()
+
+    def _send(self, queued_request: QueuedForwardingRequest) -> None:
+        self.started.set()
+        self.release.wait(timeout=5)
+
+
+def test_forwarding_pipeline_shutdown_drains_queued_work() -> None:
+    pipeline = BlockingShutdownForwardingPipeline()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    shutdown_result: list[bool] = []
+
+    shutdown_thread = Thread(target=lambda: shutdown_result.append(pipeline.shutdown(5000)))
+    shutdown_thread.start()
+    with pipeline.condition:
+        assert pipeline.condition.wait_for(lambda: pipeline.closed, timeout=5)
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'two')) is False
+    pipeline.release.set()
+    shutdown_thread.join(timeout=5)
+
+    assert shutdown_result == [True]
+    assert pipeline.closed is True
+    assert pipeline.queued_body_bytes == 0
+    assert list(pipeline.queue) == []
+    assert pipeline.fake_session.close_count == 1
+    _wait_for_no_live_worker(pipeline)
+
+
 def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('OTEL_EXPORTER_OTLP_TRACES_TIMEOUT', '7.5')
     session = FakeForwardingSession()
