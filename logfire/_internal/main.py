@@ -2492,9 +2492,7 @@ class Logfire:
         if not remaining:  # pragma: no cover
             complete = False
 
-        forwarding_shutdown_result = self.config._otlp_forwarding.shutdown(  # pyright: ignore[reportPrivateUsage]
-            remaining, drain_queued=flush
-        )
+        forwarding_shutdown_result = self.config.shutdown_otlp_forwarding(remaining, drain_queued=flush)
         complete = complete and forwarding_shutdown_result
         remaining = remaining_ms()
         if not remaining:  # pragma: no cover
