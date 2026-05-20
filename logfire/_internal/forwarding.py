@@ -106,6 +106,17 @@ class OTLPForwardingPipeline:
         self.closed = False
         self.condition = Condition()
 
+    def enqueue(self, queued_request: QueuedForwardingRequest) -> bool:
+        body_size = len(queued_request.request.body)
+        with self.condition:
+            if self.closed or self.queued_body_bytes + body_size > self.max_queued_body_bytes:
+                return False
+
+            self.queue.append(queued_request)
+            self.queued_body_bytes += body_size
+            self.condition.notify_all()
+            return True
+
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     for header_name, value in headers.items():

@@ -513,3 +513,70 @@ def test_forwarding_pipeline_initial_state() -> None:
     assert pipeline.worker is None
     assert pipeline.closed is False
     assert pipeline.condition is not None
+
+
+def _make_queued_forwarding_request(body: bytes, tokens: tuple[str, ...] = ('token',)) -> QueuedForwardingRequest:
+    return QueuedForwardingRequest(
+        request=ForwardingRequest(
+            path='/v1/traces',
+            body=body,
+            content_type=ForwardingContentType.PROTOBUF,
+            content_type_header='application/x-protobuf',
+            content_encoding=None,
+            user_agent=None,
+        ),
+        tokens=tokens,
+    )
+
+
+def test_forwarding_pipeline_enqueue_accepts_and_accounts_bytes() -> None:
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=object(),  # type: ignore[arg-type]
+        max_queued_body_bytes=10,
+    )
+    queued_request = _make_queued_forwarding_request(b'12345')
+
+    assert pipeline.enqueue(queued_request) is True
+    assert list(pipeline.queue) == [queued_request]
+    assert pipeline.queued_body_bytes == 5
+    assert pipeline.worker is None
+
+
+def test_forwarding_pipeline_enqueue_counts_multiple_tokens_once() -> None:
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=object(),  # type: ignore[arg-type]
+        max_queued_body_bytes=10,
+    )
+    queued_request = _make_queued_forwarding_request(b'12345', tokens=('token-1', 'token-2'))
+
+    assert pipeline.enqueue(queued_request) is True
+    assert pipeline.queued_body_bytes == 5
+
+
+def test_forwarding_pipeline_enqueue_rejects_when_queue_full() -> None:
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=object(),  # type: ignore[arg-type]
+        max_queued_body_bytes=4,
+    )
+    queued_request = _make_queued_forwarding_request(b'12345')
+
+    assert pipeline.enqueue(queued_request) is False
+    assert list(pipeline.queue) == []
+    assert pipeline.queued_body_bytes == 0
+
+
+def test_forwarding_pipeline_enqueue_rejects_when_closed() -> None:
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=object(),  # type: ignore[arg-type]
+        max_queued_body_bytes=10,
+    )
+    pipeline.closed = True
+    queued_request = _make_queued_forwarding_request(b'12345')
+
+    assert pipeline.enqueue(queued_request) is False
+    assert list(pipeline.queue) == []
+    assert pipeline.queued_body_bytes == 0
