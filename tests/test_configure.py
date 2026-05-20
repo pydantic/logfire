@@ -594,7 +594,15 @@ def test_logfire_config_has_empty_forwarding_manager() -> None:
 
 def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
     config = LogfireConfig(send_to_logfire=False)
+    previous_shutdown = threading.Event()
     previous_manager = mock.Mock()
+
+    def shutdown_previous(timeout_millis: int, *, drain_queued: bool = True) -> None:
+        assert timeout_millis == 30_000
+        assert drain_queued is True
+        previous_shutdown.set()
+
+    previous_manager.shutdown.side_effect = shutdown_previous
     config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
 
     config.configure(
@@ -620,7 +628,8 @@ def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
         advanced=None,
     )
 
-    previous_manager.shutdown.assert_called_once_with(0, drain_queued=False)
+    assert previous_shutdown.wait(timeout=5)
+    previous_manager.shutdown.assert_called_once_with(30_000, drain_queued=True)
     manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
     assert isinstance(manager, OTLPForwardingManager)
     assert manager is not previous_manager

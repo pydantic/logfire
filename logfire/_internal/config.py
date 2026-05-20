@@ -1388,7 +1388,12 @@ class LogfireConfig(_LogfireConfigData):
 
             previous_otlp_forwarding = self._otlp_forwarding
             self._otlp_forwarding = otlp_forwarding
-            previous_otlp_forwarding.shutdown(0, drain_queued=False)
+            Thread(
+                target=previous_otlp_forwarding.shutdown,
+                args=(30_000,),
+                kwargs={'drain_queued': True},
+                name='shutdown_logfire_otlp_forwarding',
+            ).start()
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
