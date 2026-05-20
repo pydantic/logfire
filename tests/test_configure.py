@@ -670,6 +670,41 @@ def test_logfire_config_reconfigure_keeps_forwarding_manager_when_configuration_
     assert config._otlp_forwarding is previous_manager  # pyright: ignore[reportPrivateUsage]
 
 
+def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_on_pyodide(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    previous_manager = mock.Mock()
+    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
+    monkeypatch.setattr('logfire._internal.config.platform_is_emscripten', lambda: True)
+
+    config.configure(
+        send_to_logfire=False,
+        token=None,
+        api_key=None,
+        service_name=None,
+        service_version=None,
+        environment=None,
+        console=False,
+        config_dir=None,
+        data_dir=None,
+        additional_span_processors=None,
+        metrics=False,
+        scrubbing=None,
+        inspect_arguments=None,
+        sampling=None,
+        min_level=None,
+        add_baggage_to_attributes=True,
+        code_source=None,
+        variables=None,
+        distributed_tracing=None,
+        advanced=None,
+    )
+
+    previous_manager.shutdown.assert_called_once_with(0, drain_queued=False)
+    assert config._otlp_forwarding is not previous_manager  # pyright: ignore[reportPrivateUsage]
+
+
 def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
 
