@@ -694,6 +694,46 @@ def test_forwarding_pipeline_worker_exit_notifies_waiters() -> None:
     _wait_for_no_live_worker(pipeline)
 
 
+def test_forwarding_pipeline_force_flush_success_waits_for_active_send() -> None:
+    pipeline = BlockingSendForwardingPipeline()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    flush_result: list[bool] = []
+
+    flush_thread = Thread(target=lambda: flush_result.append(pipeline.force_flush(5000)))
+    flush_thread.start()
+    pipeline.release.set()
+    flush_thread.join(timeout=5)
+
+    assert flush_result == [True]
+    _wait_for_no_live_worker(pipeline)
+
+
+def test_forwarding_pipeline_force_flush_times_out_with_queued_work() -> None:
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=object(),  # type: ignore[arg-type]
+        max_queued_body_bytes=100,
+    )
+    queued_request = _make_queued_forwarding_request(b'queued')
+    with pipeline.condition:
+        pipeline.queue.append(queued_request)
+        pipeline.queued_body_bytes = len(queued_request.request.body)
+
+    assert pipeline.force_flush(1) is False
+
+
+def test_forwarding_pipeline_force_flush_times_out_with_active_send() -> None:
+    pipeline = BlockingSendForwardingPipeline()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+
+    assert pipeline.force_flush(1) is False
+
+    pipeline.release.set()
+    _wait_for_no_live_worker(pipeline)
+
+
 class FakeForwardingSession:
     def __init__(self, *, fail_tokens: set[str] | None = None) -> None:
         self.fail_tokens = fail_tokens or set()

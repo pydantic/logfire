@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from threading import Condition, Thread, current_thread
+from time import monotonic
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urljoin
 
@@ -165,6 +166,16 @@ class OTLPForwardingPipeline:
                 if self.worker is current_thread():
                     self.worker = None
                     self.condition.notify_all()
+
+    def force_flush(self, timeout_millis: int) -> bool:
+        deadline = monotonic() + timeout_millis / 1000
+        with self.condition:
+            while self.queue or self.active_send_count:
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    return False
+                self.condition.wait(timeout=remaining)
+            return True
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
