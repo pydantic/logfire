@@ -961,6 +961,9 @@ class RecordingForwardingPipeline(OTLPForwardingPipeline):
         if queued_request.request.body in self.fail_bodies:
             raise RuntimeError('send failed')
 
+    def _ensure_worker_locked(self) -> None:
+        return None
+
 
 def test_forwarding_pipeline_run_drains_queue_and_resets_state() -> None:
     pipeline = RecordingForwardingPipeline()
