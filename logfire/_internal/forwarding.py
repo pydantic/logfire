@@ -28,3 +28,9 @@ class ForwardingErrorResponse:
     status_code: int
     content_type: str
     content: bytes
+
+
+@dataclass(frozen=True)
+class ForwardingAdmissionResult:
+    response: Literal['success', 'partial_success']
+    message: str | None

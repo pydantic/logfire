@@ -7,6 +7,7 @@ import pytest
 from logfire._internal.forwarding import (
     OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
     OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
+    ForwardingAdmissionResult,
     ForwardingContentType,
     ForwardingErrorResponse,
     ForwardingRequest,
@@ -55,3 +56,15 @@ def test_forwarding_error_response_record() -> None:
     assert response.content == b'Unsupported content type'
     with pytest.raises(FrozenInstanceError):
         setattr(response, 'status_code', 400)
+
+
+def test_forwarding_admission_result_record() -> None:
+    success = ForwardingAdmissionResult(response='success', message=None)
+    partial_success = ForwardingAdmissionResult(response='partial_success', message='queue full')
+
+    assert success.response == 'success'
+    assert success.message is None
+    assert partial_success.response == 'partial_success'
+    assert partial_success.message == 'queue full'
+    with pytest.raises(FrozenInstanceError):
+        setattr(partial_success, 'message', 'closed')
