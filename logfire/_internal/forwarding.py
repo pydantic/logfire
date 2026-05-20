@@ -21,3 +21,10 @@ class ForwardingRequest:
     content_type_header: str
     content_encoding: str | None
     user_agent: str | None
+
+
+@dataclass(frozen=True)
+class ForwardingErrorResponse:
+    status_code: int
+    content_type: str
+    content: bytes

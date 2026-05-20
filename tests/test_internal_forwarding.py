@@ -8,6 +8,7 @@ from logfire._internal.forwarding import (
     OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
     OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
     ForwardingContentType,
+    ForwardingErrorResponse,
     ForwardingRequest,
 )
 
@@ -40,3 +41,17 @@ def test_forwarding_request_record() -> None:
     assert request.user_agent == 'browser-agent'
     with pytest.raises(FrozenInstanceError):
         setattr(request, 'body', b'other')
+
+
+def test_forwarding_error_response_record() -> None:
+    response = ForwardingErrorResponse(
+        status_code=415,
+        content_type='text/plain',
+        content=b'Unsupported content type',
+    )
+
+    assert response.status_code == 415
+    assert response.content_type == 'text/plain'
+    assert response.content == b'Unsupported content type'
+    with pytest.raises(FrozenInstanceError):
+        setattr(response, 'status_code', 400)
