@@ -73,6 +73,7 @@ from logfire._internal.exporters.processor_wrapper import (
 )
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
+from logfire._internal.forwarding import OTLPForwardingManager
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
@@ -580,6 +581,15 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=True)
     with patch.dict(os.environ, {'LOGFIRE_CONSOLE_VERBOSE': 'false'}):
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
+
+
+def test_logfire_config_has_empty_forwarding_manager() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert isinstance(manager, OTLPForwardingManager)
+    assert manager.config is config
+    assert manager.has_destinations() is False
 
 
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
