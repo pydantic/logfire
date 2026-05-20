@@ -1244,3 +1244,29 @@ def test_forwarding_manager_shutdown_is_idempotent() -> None:
 
     assert manager.closed is True
     assert len(pipeline.shutdown_calls) == 2
+
+
+def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    times = iter([0.0, 0.0, 0.04])
+    monkeypatch.setattr(forwarding_module, 'monotonic', lambda: next(times))
+    pipeline_1 = FakeShutdownPipeline()
+    pipeline_2 = FakeShutdownPipeline()
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.shutdown(100) is True
+
+    assert pipeline_1.shutdown_calls == [(100, True)]
+    assert pipeline_2.shutdown_calls == [(60, True)]
+
+
+def test_forwarding_manager_shutdown_returns_false_for_pipeline_timeout() -> None:
+    pipeline_1 = FakeShutdownPipeline()
+    pipeline_2 = FakeShutdownPipeline(result=False)
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.shutdown(100) is False
+
+    assert len(pipeline_1.shutdown_calls) == 1
+    assert len(pipeline_2.shutdown_calls) == 1
