@@ -249,6 +249,21 @@ class OTLPForwardingManager:
                 max_queued_body_bytes=OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
             )
 
+    def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
+        with self.lock:
+            destinations = tuple(
+                (base_url, tokens, self.pipelines.get(base_url)) for base_url, tokens in self.tokens_by_base_url.items()
+            )
+
+        accepted = True
+        for _, tokens, pipeline in destinations:
+            if pipeline is None or not pipeline.enqueue(QueuedForwardingRequest(request=request, tokens=tokens)):
+                accepted = False
+
+        if accepted:
+            return ForwardingAdmissionResult(response='success', message=None)
+        return ForwardingAdmissionResult(response='partial_success', message='Forwarding queue unavailable')
+
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     for header_name, value in headers.items():

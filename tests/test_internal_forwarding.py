@@ -1077,3 +1077,41 @@ def test_forwarding_manager_add_destination_after_close_does_not_register(
     assert manager.tokens_by_base_url == {}
     assert manager.pipelines == {}
     assert created_sessions == []
+
+
+class FakeForwardingPipeline:
+    def __init__(self, *, accepted: bool = True) -> None:
+        self.accepted = accepted
+        self.enqueued: list[QueuedForwardingRequest] = []
+
+    def enqueue(self, queued_request: QueuedForwardingRequest) -> bool:
+        self.enqueued.append(queued_request)
+        return self.accepted
+
+
+def test_forwarding_manager_submit_success_enqueues_per_backend_url() -> None:
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    pipeline_1 = FakeForwardingPipeline()
+    pipeline_2 = FakeForwardingPipeline()
+    request = ForwardingRequest(
+        path='/v1/traces',
+        body=b'data',
+        content_type=ForwardingContentType.PROTOBUF,
+        content_type_header='application/x-protobuf',
+        content_encoding=None,
+        user_agent=None,
+    )
+    manager.tokens_by_base_url = {
+        'https://backend-1.example.com': ('token-1', 'token-2'),
+        'https://backend-2.example.com': ('token-3',),
+    }
+    manager.pipelines = {  # type: ignore[assignment]
+        'https://backend-1.example.com': pipeline_1,
+        'https://backend-2.example.com': pipeline_2,
+    }
+
+    result = manager.submit(request)
+
+    assert result == ForwardingAdmissionResult(response='success', message=None)
+    assert pipeline_1.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-1', 'token-2'))]
+    assert pipeline_2.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-3',))]
