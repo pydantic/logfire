@@ -964,6 +964,8 @@ class LogfireConfig(_LogfireConfigData):
     ) -> None:
         with self._lock:
             self._initialized = False
+            self._otlp_forwarding.shutdown(0, drain_queued=False)
+            self._otlp_forwarding = OTLPForwardingManager(self)
             self._load_configuration(
                 send_to_logfire,
                 token,

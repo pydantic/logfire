@@ -592,6 +592,41 @@ def test_logfire_config_has_empty_forwarding_manager() -> None:
     assert manager.has_destinations() is False
 
 
+def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    previous_manager = mock.Mock()
+    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
+
+    config.configure(
+        send_to_logfire=False,
+        token=None,
+        api_key=None,
+        service_name=None,
+        service_version=None,
+        environment=None,
+        console=False,
+        config_dir=None,
+        data_dir=None,
+        additional_span_processors=None,
+        metrics=False,
+        scrubbing=None,
+        inspect_arguments=None,
+        sampling=None,
+        min_level=None,
+        add_baggage_to_attributes=True,
+        code_source=None,
+        variables=None,
+        distributed_tracing=None,
+        advanced=None,
+    )
+
+    previous_manager.shutdown.assert_called_once_with(0, drain_queued=False)
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(manager, OTLPForwardingManager)
+    assert manager is not previous_manager
+    assert manager.has_destinations() is False
+
+
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     assert isinstance(processor, BatchSpanProcessor)
     try:
