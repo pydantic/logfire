@@ -74,7 +74,7 @@ async def proxy_browser_telemetry(request: Request):
     return await logfire_proxy(request)
 ```
 
-By default, this endpoint is unauthenticated and accepts payloads up to 50MB. In production, you should protect it using FastAPI dependencies to prevent abuse:
+By default, this endpoint is unauthenticated and accepts payloads up to 50MB. In production, treat browser telemetry ingress like any other externally reachable write endpoint: clients can be numerous, retry requests, duplicate payloads, or send malicious data. Protect it with your normal authentication, session, CORS, and rate-limiting controls:
 
 ```py skip-run="true" skip-reason="server-start"
 from fastapi import Depends, FastAPI, Request
@@ -87,7 +87,7 @@ app = FastAPI()
 
 
 async def verify_user_session():
-    # Implement your authentication/rate-limiting logic here
+    # Implement your authentication/session/rate-limiting logic here
     pass
 
 
@@ -118,7 +118,7 @@ app = Starlette(
 ```
 
 !!! warning "Security Note"
-    By default, this endpoint is unauthenticated. In production, ensure you wrap your route with appropriate authentication middleware or rate-limiting to prevent unauthorized clients from sending arbitrary telemetry to your Logfire project.
+    By default, this endpoint is unauthenticated. In production, wrap your route with appropriate authentication middleware or rate limiting so unauthorized clients cannot send arbitrary telemetry using your backend's Logfire write authority. Configure CORS for the app origin that should send telemetry; avoid `*` unless you intentionally operate a public telemetry ingestion endpoint.
 
 ### Generic Python Frameworks
 
