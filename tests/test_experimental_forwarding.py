@@ -395,18 +395,32 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
 
             import asyncio
 
-            response = asyncio.run(logfire_proxy(request))
+            response = asyncio.run(logfire_proxy(request, max_body_size=10))
 
             assert response.status_code == 200
             assert response.content == b'{"ok": true}'
             assert mock_concurrency.run_in_threadpool.called
+            assert mock_fwd.call_args.kwargs == {
+                'path': 'v1/traces',
+                'headers': {},
+                'body': b'1234567890',
+                'logfire_instance': None,
+                'max_body_size': 10,
+            }
 
             mock_concurrency.run_in_threadpool.reset_mock()
             mock_fwd.reset_mock()
 
             request.headers = {'content-length': '10'}
-            response2 = asyncio.run(logfire_proxy(request))
+            response2 = asyncio.run(logfire_proxy(request, max_body_size=10))
 
             assert response2.status_code == 200
             assert response2.content == b'{"ok": true}'
             assert mock_concurrency.run_in_threadpool.called
+            assert mock_fwd.call_args.kwargs == {
+                'path': 'v1/traces',
+                'headers': {'content-length': '10'},
+                'body': b'1234567890',
+                'logfire_instance': None,
+                'max_body_size': 10,
+            }
