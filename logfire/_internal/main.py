@@ -2567,8 +2567,12 @@ class Logfire:
                 ...
         ```
 
-        For variables with Handlebars ``{{placeholder}}`` templates that need runtime inputs,
-        use [`template_var()`][logfire.Logfire.template_var] instead.
+        For variables whose values contain Handlebars `{{placeholder}}` templates that
+        need runtime inputs, we recommend [`template_var()`][logfire.Logfire.template_var]:
+        it renders the templates as part of resolution and gives you a typed
+        `get(inputs)` API. Under the hood it uses `pydantic_handlebars.render`, which
+        you can also call yourself on the resolved value if you need to drive rendering
+        manually.
 
         Args:
             name: Unique identifier for the variable. Must match the name configured in the

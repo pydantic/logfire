@@ -154,8 +154,6 @@ class _BaseVariable(Generic[T_co]):
     """Default value or function to compute the default."""
     description: str | None
     """Description of the variable."""
-    template_inputs_type: type[Any] | None
-    """The Pydantic model type for template inputs, if template rendering is enabled."""
 
     logfire_instance: logfire.Logfire
     """The Logfire instance this variable is associated with."""
@@ -167,7 +165,6 @@ class _BaseVariable(Generic[T_co]):
         type: type[T_co],
         default: T_co | ResolveFunction[T_co],
         description: str | None = None,
-        template_inputs: type[Any] | None = None,
         logfire_instance: logfire.Logfire,
     ):
         """Create a new managed variable.
@@ -178,29 +175,23 @@ class _BaseVariable(Generic[T_co]):
             default: Default value to use when no configuration is found, or a function
                 that computes the default based on targeting_key and attributes.
             description: Optional human-readable description of what this variable controls.
-            template_inputs: Internal hook used by ``TemplateVariable`` to declare the expected
-                template inputs type. Not exposed via the public ``logfire.var()`` API.
             logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
         """
         self.name = name
         self.value_type = type
         self.default = default
         self.description = description
-        self.template_inputs_type = template_inputs
 
         self._variable_registry = logfire_instance._variables  # pyright: ignore[reportPrivateUsage]
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
 
-        if template_inputs is not None:
-            self._template_inputs_adapter: TypeAdapter[Any] | None = TypeAdapter(template_inputs)
-        else:
-            self._template_inputs_adapter = None
-
     def get_template_inputs_schema(self) -> dict[str, Any] | None:
-        """Return the JSON schema for template inputs, or None if not configured."""
-        if self._template_inputs_adapter is not None:
-            return self._template_inputs_adapter.json_schema()
+        """Return the JSON schema for template inputs.
+
+        Returns None on plain `Variable` instances. `TemplateVariable` overrides this
+        to return the schema derived from its `inputs_type`.
+        """
         return None
 
     def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError:
@@ -545,9 +536,7 @@ class _BaseVariable(Generic[T_co]):
         if not is_resolve_function(self.default):
             example = self.type_adapter.dump_json(self.default).decode('utf-8')
 
-        template_inputs_schema: dict[str, Any] | None = None
-        if self._template_inputs_adapter is not None:
-            template_inputs_schema = self._template_inputs_adapter.json_schema()
+        template_inputs_schema = self.get_template_inputs_schema()
 
         return VariableConfig(
             name=self.name,
@@ -683,8 +672,8 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
             type: The expected type of this variable's values, used for validation.
             default: Default value to use when no configuration is found, or a function
                 that computes the default based on targeting_key and attributes.
-            inputs_type: The type (typically a Pydantic ``BaseModel``) describing the expected
-                template inputs. Used for type-safe ``get(inputs)`` calls and JSON schema generation.
+            inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
+                template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
             description: Optional human-readable description of what this variable controls.
             logfire_instance: The Logfire instance this variable is associated with.
         """
@@ -693,10 +682,14 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
             type=type,
             default=default,
             description=description,
-            template_inputs=inputs_type,
             logfire_instance=logfire_instance,
         )
         self.inputs_type = inputs_type
+        self._inputs_type_adapter: TypeAdapter[InputsT] = TypeAdapter(inputs_type)
+
+    def get_template_inputs_schema(self) -> dict[str, Any]:
+        """Return the JSON schema derived from `inputs_type`."""
+        return self._inputs_type_adapter.json_schema()
 
     def get(
         self,
