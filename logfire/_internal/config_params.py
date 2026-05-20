@@ -2,11 +2,11 @@ from __future__ import annotations as _annotations
 
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Literal, TypeVar, Union
+from typing import Any, Literal, TypeVar, Union
 
 from opentelemetry.sdk.environment_variables import OTEL_SERVICE_NAME
 from typing_extensions import get_args, get_origin

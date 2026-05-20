@@ -65,7 +65,7 @@ async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
             async def client_streams(self):
                 yield client_streams
 
-        agent = Agent('openai:gpt-4o', toolsets=[MyMCPServer()])
+        agent = Agent('openai-chat:gpt-4o', toolsets=[MyMCPServer()])
         async with agent:
             agent.set_mcp_sampling_model()
             result = await agent.run('tell a joke about socks')
@@ -84,9 +84,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'test_pydantic_ai_mcp.py',
-                    'code.function': 'test_pydantic_ai_mcp_sampling',
-                    'code.lineno': 123,
                     'request': {
                         'method': 'initialize',
                         'params': IsPartialDict(),

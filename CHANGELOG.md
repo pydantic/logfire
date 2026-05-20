@@ -1,5 +1,35 @@
 # Release Notes
 
+## [v4.33.0] (2026-05-13)
+
+CLI:
+
+* feat: gateway cli command by @ddanielcruzz in [#1915](https://github.com/pydantic/logfire/pull/1915)
+* CLI: Use remote MCP server by @jirikuncar in [#1884](https://github.com/pydantic/logfire/pull/1884)
+* refactor: reuse AI tool MCP setup in prompt CLI by @ddanielcruzz in [#1921](https://github.com/pydantic/logfire/pull/1921)
+* Avoid raising error on `prompt` command without `--project` by @Kludex in [#1912](https://github.com/pydantic/logfire/pull/1912)
+
+Integrations:
+
+* Support new TaskSpanData and TurnSpanData from openai-agents 0.14 by @alexmojaki in [#1888](https://github.com/pydantic/logfire/pull/1888)
+* Update surrealdb integration for 2.x by @alexmojaki in [#1899](https://github.com/pydantic/logfire/pull/1899)
+* feat: support capture parameters for asyncpg by @thisisarko in [#1896](https://github.com/pydantic/logfire/pull/1896)
+* perf: avoid full response `model_dump` in usage cost path by @imp-joshi in [#1886](https://github.com/pydantic/logfire/pull/1886)
+
+Other:
+
+* Support OTel 1.41.0 by @alexmojaki in [#1874](https://github.com/pydantic/logfire/pull/1874)
+* Drop support for Python < 3.9.2 by @alexmojaki in [#1920](https://github.com/pydantic/logfire/pull/1920)
+* Add `logfire.version` to resource attributes by @alexmojaki in [#1911](https://github.com/pydantic/logfire/pull/1911)
+* Optionally emit configuration log after `logfire.configure()` by @Kludex in [#1904](https://github.com/pydantic/logfire/pull/1904)
+* Add `level` param to `@logfire.instrument()` by @imp-joshi in [#1871](https://github.com/pydantic/logfire/pull/1871)
+* Clean up DiskRetryer temp dirs on shutdown by @alexmojaki in [#1866](https://github.com/pydantic/logfire/pull/1866)
+* Datasets SDK: upload dataset-level + report-level evaluators by @dmontagu in [#1879](https://github.com/pydantic/logfire/pull/1879)
+* End open spans earlier in process shutdown to prevent dangling pending spans by @alexmojaki in [#1890](https://github.com/pydantic/logfire/pull/1890)
+* adding .agents for library-skills by @adtyavrdhn in [#1894](https://github.com/pydantic/logfire/pull/1894)
+* feat: surface X-Logfire-Warning header by @adriangb in [#1906](https://github.com/pydantic/logfire/pull/1906)
+* Add user agent to query client by @Viicos in [#1875](https://github.com/pydantic/logfire/pull/1875)
+
 ## [v4.32.1] (2026-04-15)
 
 * Support OpenTelemetry SDK 1.40.0 by @alexmojaki in [#1861](https://github.com/pydantic/logfire/pull/1861)
@@ -1117,3 +1147,4 @@ First release from new repo!
 [v4.31.2]: https://github.com/pydantic/logfire/compare/v4.31.1...v4.31.2
 [v4.32.0]: https://github.com/pydantic/logfire/compare/v4.31.2...v4.32.0
 [v4.32.1]: https://github.com/pydantic/logfire/compare/v4.32.0...v4.32.1
+[v4.33.0]: https://github.com/pydantic/logfire/compare/v4.32.1...v4.33.0

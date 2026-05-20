@@ -1,3 +1,4 @@
+import atexit
 import requests
 from ..utils import logger as logger, platform_is_emscripten as platform_is_emscripten
 from .wrapper import WrapperLogExporter as WrapperLogExporter, WrapperSpanExporter as WrapperSpanExporter
@@ -14,6 +15,9 @@ from requests import Session
 from threading import Thread
 from typing import Any
 
+@atexit.register
+def cleanup_disk_retryers() -> None: ...
+
 class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
     max_body_size: Incomplete
     def __init__(self, *args: Any, **kwargs: Any) -> None: ...
@@ -24,6 +28,7 @@ class OTLPExporterHttpSession(Session):
     def post(self, url: str, data: bytes, **kwargs: Any): ...
     @cached_property
     def retryer(self) -> DiskRetryer: ...
+    def close(self) -> None: ...
 
 def raise_for_retryable_status(response: requests.Response): ...
 
@@ -36,10 +41,12 @@ class DiskRetryer:
     thread: Thread | None
     tasks: deque[tuple[Path, dict[str, Any]]]
     total_size: int
+    closed: bool
     session: Incomplete
     dir: Incomplete
     last_log_time: Incomplete
     def __init__(self, headers: Mapping[str, str | bytes]) -> None: ...
+    def close(self) -> None: ...
     def add_task(self, data: bytes, kwargs: dict[str, Any]): ...
 
 class RetryFewerSpansSpanExporter(WrapperSpanExporter):

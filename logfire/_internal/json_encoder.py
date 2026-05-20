@@ -4,7 +4,7 @@ import contextlib
 import dataclasses
 import datetime
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache
@@ -13,7 +13,7 @@ from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
-from typing import Any, Callable
+from typing import Any
 from uuid import UUID
 
 from .utils import JsonValue, safe_repr

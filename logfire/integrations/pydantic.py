@@ -6,9 +6,10 @@ import functools
 import inspect
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar
 
 import pydantic
 from typing_extensions import ParamSpec

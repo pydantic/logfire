@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import opentelemetry.trace as trace_api

@@ -8,7 +8,7 @@ This is the reference for the **Evals: Datasets & Experiments** page in the Logf
 
 **Where to go next:**
 
-- To get started with creating and running evals in code, see the [Pydantic Evals docs](https://ai.pydantic.dev/evals/).
+- To get started with creating and running evals in code, see the [Pydantic Evals docs](https://pydantic.dev/docs/ai/evals/evals/).
 - To create or edit datasets through the Logfire UI, see the [Datasets Web UI Guide](../../evaluate/datasets/ui.md). This page covers what you see on the Evals page itself; the Web UI Guide covers dataset/case lifecycle tasks (create, edit, manage cases, export).
 - For programmatic dataset access, see the [SDK Guide](../../evaluate/datasets/sdk.md).
 

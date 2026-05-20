@@ -4,9 +4,9 @@ description: "View real-time online-evaluation activity for your agents and func
 ---
 # Live Evaluations
 
-The **Evals: Live Monitoring** page streams evaluator results from live application traffic (e.g., from a production deployment) into the Pydantic Logfire web UI. Every target that emits evaluation events appears here as a single row, with a sparkline for each attached evaluator and a summary of activity over the selected time window. This is the Logfire view of what Pydantic AI calls [online evaluation](https://ai.pydantic.dev/evals/online-evaluation/).
+The **Evals: Live Monitoring** page streams evaluator results from live application traffic (e.g., from a production deployment) into the Pydantic Logfire web UI. Every target that emits evaluation events appears here as a single row, with a sparkline for each attached evaluator and a summary of activity over the selected time window. This is the Logfire view of what Pydantic AI calls [online evaluation](https://pydantic.dev/docs/ai/evals/online-evaluation/).
 
-To wire up evaluators on the Python side, see the [Online Evaluation guide](https://ai.pydantic.dev/evals/online-evaluation/) in the Pydantic AI docs. The page renders any ingested `gen_ai.evaluation.result` OpenTelemetry events that follow the [GenAI evaluation semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/#event-gen_aievaluationresult) — the [`@evaluate`](https://ai.pydantic.dev/evals/online-evaluation/#quick-start) decorator and the [`OnlineEvaluation`](https://ai.pydantic.dev/evals/online-evaluation/#agent-integration) agent capability from `pydantic-evals` are the supported entry points today.
+To wire up evaluators on the Python side, see the [Online Evaluation guide](https://pydantic.dev/docs/ai/evals/online-evaluation/) in the Pydantic AI docs. The page renders any ingested `gen_ai.evaluation.result` OpenTelemetry events that follow the [GenAI evaluation semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/#event-gen_aievaluationresult) — the [`@evaluate`](https://pydantic.dev/docs/ai/evals/online-evaluation/#quick-start) decorator and the [`OnlineEvaluation`](https://pydantic.dev/docs/ai/evals/online-evaluation/#agent-integration) agent capability from `pydantic-evals` are the supported entry points today.
 
 ## The Directory
 
@@ -15,7 +15,7 @@ Click **Evals: Live Monitoring** in the sidebar to open the directory. Each row 
 Each row shows:
 
 - **Target** — the target name, with an agent or function icon
-- **Type** — `agent` or `function`. Evaluations dispatched by the [`OnlineEvaluation`](https://ai.pydantic.dev/evals/online-evaluation/#agent-integration) capability on a Pydantic AI agent appear as `agent`; `@evaluate`-decorated functions appear as `function`, even when the decorated function runs inside an agent
+- **Type** — `agent` or `function`. Evaluations dispatched by the [`OnlineEvaluation`](https://pydantic.dev/docs/ai/evals/online-evaluation/#agent-integration) capability on a Pydantic AI agent appear as `agent`; `@evaluate`-decorated functions appear as `function`, even when the decorated function runs inside an agent
 - **Evaluations** — one compact cell per evaluator with a pass rate, numeric average, or categorical label summary plus a sparkline
 - **Events** — total number of evaluation events in the window
 - **Last activity** — when the most recent event arrived
@@ -37,7 +37,7 @@ The **Evaluator** filter dropdown narrows the recent-events table to a single ev
 
 Each recent-events row includes an **Open trace in live view** link that jumps to the live trace view for the span the evaluation was attached to — useful for seeing the full context of a low-scoring call.
 
-Each evaluator row also shows the distinct `evaluator_version` values seen in the window as small version badges. During a deploy rollout where two versions of the same evaluator are live at once, both versions appear side-by-side. See [Evaluator Versioning](https://ai.pydantic.dev/evals/online-evaluation/#evaluator-versioning) in the Pydantic AI docs for how to set the version tag.
+Each evaluator row also shows the distinct `evaluator_version` values seen in the window as small version badges. During a deploy rollout where two versions of the same evaluator are live at once, both versions appear side-by-side. See [Evaluator Versioning](https://pydantic.dev/docs/ai/evals/online-evaluation/#evaluator-versioning) in the Pydantic AI docs for how to set the version tag.
 
 ## Evaluator Shapes
 

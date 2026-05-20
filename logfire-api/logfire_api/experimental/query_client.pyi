@@ -2,6 +2,7 @@ from _typeshed import Incomplete
 from datetime import datetime
 from httpx import AsyncClient, Client, Response, Timeout
 from httpx._client import BaseClient
+from logfire import VERSION as VERSION
 from logfire._internal.config import get_base_url_from_token as get_base_url_from_token
 from pyarrow import Table
 from types import TracebackType

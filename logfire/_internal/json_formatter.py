@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 from functools import partial
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from .json_types import ArraySchema, DataType, JSONSchema
 from .utils import safe_repr

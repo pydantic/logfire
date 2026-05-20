@@ -5,12 +5,13 @@ import os
 import re
 import sys
 import warnings
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import patch
 
 import cloudpickle

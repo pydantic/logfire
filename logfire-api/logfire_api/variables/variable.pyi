@@ -1,6 +1,6 @@
 import logfire
 from _typeshed import Incomplete
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from logfire.variables.abstract import ResolvedVariable
@@ -59,7 +59,7 @@ class Variable(Generic[T_co]):
             logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
         """
     @contextmanager
-    def override(self, value: T_co | ResolveFunction[T_co]) -> Iterator[None]:
+    def override(self, value: T_co | ResolveFunction[T_co]) -> Generator[None]:
         """Context manager to temporarily override this variable's value.
 
         Args:
@@ -97,7 +97,7 @@ class Variable(Generic[T_co]):
         """
 
 @contextmanager
-def targeting_context(targeting_key: str, variables: Sequence[Variable[Any]] | None = None) -> Iterator[None]:
+def targeting_context(targeting_key: str, variables: Sequence[Variable[Any]] | None = None) -> Generator[None]:
     '''Set the targeting key for variable resolution within this context.
 
     The targeting key is used for deterministic label selection - the same targeting key

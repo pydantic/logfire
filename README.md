@@ -19,7 +19,7 @@ What sets Logfire apart:
 - **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language. We offer full support for all OpenTelemetry signals (traces, metrics and logs).
 - **Pydantic Integration:** Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
 
-See the [documentation](https://logfire.pydantic.dev/docs/) for more information.
+See the [documentation](https://pydantic.dev/docs/logfire/) for more information.
 
 **Feel free to report issues and ask any questions about Logfire in this repository!**
 
@@ -27,7 +27,7 @@ This repo contains the Python SDK for `logfire` and documentation; the server ap
 
 ## Using Logfire
 
-This is a very brief overview of how to use Logfire, the [documentation](https://logfire.pydantic.dev/docs/) has much more detail.
+This is a very brief overview of how to use Logfire, the [documentation](https://pydantic.dev/docs/logfire/) has much more detail.
 
 ### Install
 
@@ -35,7 +35,7 @@ This is a very brief overview of how to use Logfire, the [documentation](https:/
 pip install logfire
 ```
 
-[_(learn more)_](https://logfire.pydantic.dev/docs/guides/first_steps/#install)
+[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/#sdk)
 
 ## Authenticate
 
@@ -43,7 +43,7 @@ pip install logfire
 logfire auth
 ```
 
-[_(learn more)_](https://logfire.pydantic.dev/docs/guides/first_steps/#authentication)
+[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/#instrument)
 
 ### Manual tracing
 
@@ -63,11 +63,11 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 
-[_(learn more)_](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/add-manual-tracing/)
 
 ### Integration
 
-Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://logfire.pydantic.dev/docs/integrations/), here's an example of integrating with FastAPI:
+Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://pydantic.dev/docs/logfire/integrations/), here's an example of integrating with FastAPI:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
 from fastapi import FastAPI
@@ -93,11 +93,11 @@ async def add_user(user: User):
     return {'message': f'{user.name} added'}
 ```
 
-[_(learn more)_](https://logfire.pydantic.dev/docs/integrations/fastapi/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/integrations/web-frameworks/fastapi/)
 
 Logfire gives you a view into how your code is running like this:
 
-![Logfire screenshot](https://logfire.pydantic.dev/docs/images/index/logfire-screenshot-fastapi-200.png)
+![Logfire screenshot](https://pydantic.dev/docs/logfire/images/index/logfire-screenshot-fastapi-200.png)
 
 ## Contributing
 
@@ -109,6 +109,6 @@ See our [security policy](https://github.com/pydantic/logfire/security).
 
 ## Logfire Open-Source and Closed-Source Boundaries
 
-The Logfire SDKs (we also have them for [TypeScript](https://github.com/pydantic/logfire-js) and [Rust](https://github.com/pydantic/logfire-rust)) are open source, and you can use them to export data to [any OTel-compatible backend](https://logfire.pydantic.dev/docs/how-to-guides/alternative-backends/).
+The Logfire SDKs (we also have them for [TypeScript](https://github.com/pydantic/logfire-js) and [Rust](https://github.com/pydantic/logfire-rust)) are open source, and you can use them to export data to [any OTel-compatible backend](https://pydantic.dev/docs/logfire/guides/alternative-backends/).
 
-The Logfire platform (the UI and backend) is closed source. You can self-host it by purchasing an [enterprise license](https://logfire.pydantic.dev/docs/enterprise/).
+The Logfire platform (the UI and backend) is closed source. You can self-host it by purchasing an [enterprise license](https://pydantic.dev/docs/logfire/deploy/enterprise/).

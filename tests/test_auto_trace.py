@@ -3,9 +3,10 @@ import asyncio
 import importlib.resources
 import runpy
 import sys
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from importlib.machinery import SourceFileLoader
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot

@@ -120,5 +120,5 @@ logfire.info('Hello, Logfire!')
 
 All the **Logfire** API methods are available in `logfire-api`.
 
-[slack]: https://logfire.pydantic.dev/docs/join-slack/
+[slack]: https://pydantic.dev/docs/logfire/join-slack/
 [opentelemetry]: https://opentelemetry.io/
