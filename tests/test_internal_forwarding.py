@@ -1147,3 +1147,28 @@ def test_forwarding_manager_submit_partial_success_for_mixed_backend_outcomes() 
     )
     assert accepting_pipeline.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-1',))]
     assert rejecting_pipeline.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-2',))]
+
+
+def test_forwarding_manager_submit_after_close_returns_partial_success_without_enqueue() -> None:
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    pipeline = FakeForwardingPipeline()
+    request = ForwardingRequest(
+        path='/v1/metrics',
+        body=b'data',
+        content_type=ForwardingContentType.PROTOBUF,
+        content_type_header='application/x-protobuf',
+        content_encoding=None,
+        user_agent=None,
+    )
+    manager.tokens_by_base_url = {'https://backend.example.com': ('token',)}
+    manager.pipelines = {'https://backend.example.com': pipeline}  # type: ignore[assignment]
+    manager.closed = True
+
+    result = manager.submit(request)
+
+    assert result == ForwardingAdmissionResult(
+        response='partial_success',
+        message='Forwarding manager is closed; request was locally dropped.',
+    )
+    assert pipeline.enqueued == []
+    assert manager.tokens_by_base_url == {'https://backend.example.com': ('token',)}

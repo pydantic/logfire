@@ -251,6 +251,12 @@ class OTLPForwardingManager:
 
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
         with self.lock:
+            if self.closed:
+                return ForwardingAdmissionResult(
+                    response='partial_success',
+                    message='Forwarding manager is closed; request was locally dropped.',
+                )
+
             destinations = tuple(
                 (base_url, tokens, self.pipelines.get(base_url)) for base_url, tokens in self.tokens_by_base_url.items()
             )
