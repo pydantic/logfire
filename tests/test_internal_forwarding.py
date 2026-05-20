@@ -1009,3 +1009,13 @@ def test_forwarding_manager_initial_state() -> None:
     assert manager.pipelines == {}
     assert manager.closed is False
     assert manager.lock is not None
+
+
+def test_forwarding_manager_has_destinations() -> None:
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+
+    assert manager.has_destinations() is False
+
+    manager.tokens_by_base_url['https://example.com'] = ('token',)
+
+    assert manager.has_destinations() is True

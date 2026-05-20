@@ -225,6 +225,10 @@ class OTLPForwardingManager:
         self.closed = False
         self.lock = RLock()
 
+    def has_destinations(self) -> bool:
+        with self.lock:
+            return bool(self.tokens_by_base_url)
+
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     for header_name, value in headers.items():
