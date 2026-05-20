@@ -10,7 +10,7 @@ The `@pydantic/logfire-browser` NPM package wraps [OpenTelemetry browser tracing
 !!! info "Securely Sending Traces"
     Logfire does not directly expose an endpoint suitable for sending traces from the browser, as this would make your write token publicly accessible.
 
-    To safely send traces, you must create a proxy in your app that **forwards requests from your browser instrumentation to Logfire** while attaching the `Authorization` header server-side.
+    To safely send traces, you must create an endpoint in your app that **accepts requests from your browser instrumentation and forwards them to Logfire** while attaching the `Authorization` header server-side.
     - **Python:** See [Proxying Browser Telemetry](#proxying-browser-telemetry) below for FastAPI, Starlette, and generic framework examples.
     - **Next.js:** Check out the [Next.js proxy example implementation](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/proxy.ts)
 
@@ -49,7 +49,9 @@ Note that if you're using an SSR/SSG framework, you should ensure that the code 
 
 ## Proxying Browser Telemetry
 
-If you use a Python backend, logfire provide experimental tools in the `logfire.experimental.forwarding` module to easily create this proxy.
+If you use a Python backend, logfire provide experimental tools in the `logfire.experimental.forwarding` module to create this telemetry ingress endpoint.
+
+These helpers validate incoming OTLP export requests, admit accepted payloads to the configured Logfire forwarding pipeline, and return an OTLP export response to the browser. An HTTP 200 OTLP success response means the Python process accepted the payload for local forwarding; it does not mean Logfire has already received, processed, or stored that telemetry.
 
 ### FastAPI
 
@@ -143,14 +145,14 @@ def my_custom_proxy_route(request):
     headers = request.headers
     body = request.read()
 
-    # 2. Forward the request to Logfire
+    # 2. Admit the request to the local Logfire forwarding pipeline
     response = forward_export_request(
         path=path,
         headers=headers,
         body=body
     )
 
-    # 3. Return the Logfire response to the browser
+    # 3. Return the local OTLP admission response to the browser
     return CustomFrameworkResponse(
         content=response.content,
         status_code=response.status_code,
