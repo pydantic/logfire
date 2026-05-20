@@ -200,7 +200,7 @@ class TestTemplateVariable:
 
         assert resolved.value == 'fallback'
         assert resolved.exception is not None
-        assert resolved._reason == 'other_error'
+        assert resolved.reason == 'other_error'
 
     def test_composition_then_render(self, config_kwargs: dict[str, Any]):
         """@{refs}@ expanded first, then {{}} rendered with inputs."""

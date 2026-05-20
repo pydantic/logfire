@@ -344,7 +344,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             self.refresh()
 
         if self._config is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='missing_config')
+            return ResolvedVariable(name=variable_name, value=None, reason='missing_config')
 
         return self._config.resolve_serialized_value(variable_name, targeting_key, attributes)
 

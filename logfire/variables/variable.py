@@ -5,7 +5,7 @@ import json
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
@@ -16,6 +16,7 @@ from typing_extensions import TypeIs
 from logfire.variables._handlebars import HandlebarsError
 from logfire.variables.composition import (
     ComposedReference,
+    ResolutionReason,
     VariableCompositionError,
     expand_references,
     has_references,
@@ -249,7 +250,7 @@ class _BaseVariable(Generic[T_co]):
                 # that still gets rendered with inputs.
                 if render_fn is not None:
                     context_value = self._render_default(context_value, render_fn)
-                return ResolvedVariable(name=self.name, value=context_value, _reason='context_override')
+                return ResolvedVariable(name=self.name, value=context_value, reason='context_override')
 
             provider = self.logfire_instance.config.get_variable_provider()
 
@@ -266,7 +267,6 @@ class _BaseVariable(Generic[T_co]):
 
             if serialized_result.value is None:
                 default_result = self._resolve_serialized_default(
-                    serialized_result,
                     provider,
                     targeting_key,
                     attributes,
@@ -275,7 +275,14 @@ class _BaseVariable(Generic[T_co]):
                 )
                 if default_result is not None:
                     return default_result
-                return _with_value(serialized_result, self._get_default(targeting_key, attributes))
+                # Provider had no value; surface that the code default was used.
+                return ResolvedVariable(
+                    name=self.name,
+                    value=self._get_default(targeting_key, attributes),
+                    label=serialized_result.label,
+                    version=serialized_result.version,
+                    reason='code_default',
+                )
 
             return self._expand_and_deserialize(
                 serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
@@ -286,7 +293,7 @@ class _BaseVariable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
-            return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
+            return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _render_default(self, default: Any, render_fn: Callable[[str], str]) -> T_co:
         """Serialize the default value, apply render_fn, then deserialize back."""
@@ -319,7 +326,9 @@ class _BaseVariable(Generic[T_co]):
         # Expand @{references}@ if any are present
         if has_references(serialized_value):
 
-            def resolve_ref(ref_name: str) -> tuple[str | None, str | None, int | None, str]:
+            def resolve_ref(
+                ref_name: str,
+            ) -> tuple[str | None, str | None, int | None, ResolutionReason]:
                 ref_resolved = provider.get_serialized_value(ref_name, targeting_key, attributes)
                 if ref_resolved.value is None and (ref_variable := self._variable_registry.get(ref_name)) is not None:
                     ref_default = ref_variable._get_serialized_default(targeting_key, attributes)
@@ -329,7 +338,7 @@ class _BaseVariable(Generic[T_co]):
                     ref_resolved.value,
                     ref_resolved.label,
                     ref_resolved.version,
-                    ref_resolved._reason,  # pyright: ignore[reportPrivateUsage]
+                    ref_resolved.reason,
                 )
 
             try:
@@ -344,7 +353,7 @@ class _BaseVariable(Generic[T_co]):
                         name=self.name,
                         value=default,
                         exception=VariableCompositionError(composition_error),
-                        _reason='other_error',
+                        reason='other_error',
                         label=serialized_result.label,
                         version=serialized_result.version,
                         composed_from=composed,
@@ -355,7 +364,7 @@ class _BaseVariable(Generic[T_co]):
                     name=self.name,
                     value=default,
                     exception=e,
-                    _reason='other_error',
+                    reason='other_error',
                     label=serialized_result.label,
                     version=serialized_result.version,
                     composed_from=composed,
@@ -371,7 +380,7 @@ class _BaseVariable(Generic[T_co]):
                     name=self.name,
                     value=default,
                     exception=e,
-                    _reason='other_error',
+                    reason='other_error',
                     label=serialized_result.label,
                     version=serialized_result.version,
                     composed_from=composed,
@@ -389,7 +398,7 @@ class _BaseVariable(Generic[T_co]):
                 name=self.name,
                 value=default,
                 exception=value_or_exc,
-                _reason=reason,
+                reason=reason,
                 label=serialized_result.label,
                 version=serialized_result.version,
                 composed_from=composed,
@@ -400,7 +409,7 @@ class _BaseVariable(Generic[T_co]):
             value=value_or_exc,
             label=serialized_result.label,
             version=serialized_result.version,
-            _reason='resolved',
+            reason='resolved',
             composed_from=composed,
         )
 
@@ -424,7 +433,6 @@ class _BaseVariable(Generic[T_co]):
 
     def _resolve_serialized_default(
         self,
-        serialized_result: ResolvedVariable[str | None],
         provider: VariableProvider,
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
@@ -439,15 +447,17 @@ class _BaseVariable(Generic[T_co]):
             return None
 
         result = self._expand_and_deserialize(
-            ResolvedVariable(name=self.name, value=serialized_default, _reason='missing_config'),
+            ResolvedVariable(name=self.name, value=serialized_default, reason='missing_config'),
             provider,
             targeting_key,
             attributes,
             span,
             render_fn=render_fn,
         )
-        if result._reason == 'resolved':  # pyright: ignore[reportPrivateUsage]
-            result._reason = serialized_result._reason  # pyright: ignore[reportPrivateUsage]
+        if result.reason == 'resolved':
+            # The expansion succeeded against the code default; flag the top-level
+            # reason as 'code_default' so callers can distinguish from a provider hit.
+            result.reason = 'code_default'
         return result
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
@@ -550,7 +560,7 @@ class _BaseVariable(Generic[T_co]):
                     'value': serialized_value,
                     'label': result.label,
                     'version': result.version,
-                    'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
+                    'reason': result.reason,
                 }
                 if result.composed_from:
                     attrs['composed_from'] = json.dumps(
@@ -675,19 +685,6 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
             return render_serialized_string(serialized_json, inputs)
 
         return self._get_result_and_record_span(targeting_key, attributes, label, render_fn=_render_fn)
-
-
-def _with_value(details: ResolvedVariable[Any], new_value: T_co) -> ResolvedVariable[T_co]:
-    """Return a copy of the provided resolution details, just with a different value.
-
-    Args:
-        details: Existing resolution details to modify.
-        new_value: The new value to use.
-
-    Returns:
-        A new ResolvedVariable with the given value.
-    """
-    return replace(details, value=new_value)
 
 
 def _first_composition_error(composed: list[ComposedReference]) -> str | None:

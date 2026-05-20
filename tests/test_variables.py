@@ -633,7 +633,7 @@ class TestNoOpVariableProvider:
         provider = NoOpVariableProvider()
         result = provider.get_serialized_value('any_variable')
         assert result.value is None
-        assert result._reason == 'no_provider'
+        assert result.reason == 'no_provider'
 
     def test_with_targeting_key_and_attributes(self):
         provider = NoOpVariableProvider()
@@ -661,19 +661,19 @@ class TestNoOpVariableProvider:
 
 class TestResolvedVariable:
     def test_basic_details(self):
-        details = ResolvedVariable(name='test_var', value='test', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', reason='resolved')
         assert details.name == 'test_var'
         assert details.value == 'test'
         assert details.label is None
         assert details.exception is None
 
     def test_with_label(self):
-        details = ResolvedVariable(name='test_var', value='test', label='v1', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', label='v1', reason='resolved')
         assert details.label == 'v1'
 
     def test_with_exception(self):
         error = ValueError('test error')
-        details = ResolvedVariable(name='test_var', value='default', exception=error, _reason='validation_error')
+        details = ResolvedVariable(name='test_var', value='default', exception=error, reason='validation_error')
         assert details.exception is error
 
     def test_context_manager_sets_baggage(self, config_kwargs: dict[str, Any]):
@@ -821,7 +821,7 @@ class TestLocalVariableProvider:
         result = provider.get_serialized_value('test_var')
         assert result.value == '"default_value"'
         assert result.label == 'default'
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_get_serialized_value_with_override(self, simple_config: VariablesConfig):
         provider = LocalVariableProvider(simple_config)
@@ -836,7 +836,7 @@ class TestLocalVariableProvider:
         provider = LocalVariableProvider(simple_config)
         result = provider.get_serialized_value('unknown_var')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
     def test_rollout_returns_none(self):
         config = VariablesConfig(
@@ -852,7 +852,7 @@ class TestLocalVariableProvider:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value('partial_var')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
 
 # =============================================================================
@@ -923,7 +923,7 @@ class TestLogfireRemoteVariableProvider:
                 # Without blocking, config might not be fetched yet
                 result = provider.get_serialized_value('test_var')
                 # Should return missing_config if not fetched
-                assert result._reason in ('missing_config', 'resolved', 'unrecognized_variable')
+                assert result.reason in ('missing_config', 'resolved', 'unrecognized_variable')
             finally:
                 provider.shutdown()
 
@@ -959,7 +959,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 result = provider.get_serialized_value('nonexistent_var')
                 assert result.value is None
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1027,7 +1027,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 provider.refresh(force=True)
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1065,7 +1065,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 result = provider.get_serialized_value('partial_var')
                 assert result.value is None
-                assert result._reason == 'resolved'
+                assert result.reason == 'resolved'
             finally:
                 provider.shutdown()
 
@@ -1144,7 +1144,7 @@ class TestLogfireRemoteVariableProvider:
                 # since no config has been fetched yet
                 result = provider.get_serialized_value_for_label('test_var', 'production')
                 assert result.value is None
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1286,7 +1286,7 @@ class TestLogfireRemoteVariableProviderErrors:
             try:
                 # The mock returns an error, so config should not be set
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'missing_config'
+                assert result.reason == 'missing_config'
             finally:
                 provider.shutdown()
 
@@ -1309,7 +1309,7 @@ class TestLogfireRemoteVariableProviderErrors:
             try:
                 # The mock returns invalid data, so validation error happens
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'missing_config'
+                assert result.reason == 'missing_config'
             finally:
                 provider.shutdown()
 
@@ -1636,7 +1636,7 @@ class TestVariable:
         # Falls back to default when validation fails
         assert details.value == 999
         assert details.exception is not None
-        assert details._reason == 'validation_error'
+        assert details.reason == 'validation_error'
         assert details.label == 'default'
         assert details.version == 1
 
@@ -2190,7 +2190,7 @@ class TestLogfireVarIntegration:
         var = lf.var(name='failing_var', default='fallback', type=str)
         details = var.get()
         assert details.value == 'fallback'
-        assert details._reason == 'other_error'
+        assert details.reason == 'other_error'
         assert isinstance(details.exception, IndexError)
 
         # Restore original
@@ -2887,7 +2887,7 @@ class TestVariablesConfigAliases:
         # Access via alias
         result = config.resolve_serialized_value('old_name')
         assert result.value == '"value"'
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_multiple_aliases(self):
         """Test that multiple aliases resolve correctly."""
@@ -2906,7 +2906,7 @@ class TestVariablesConfigAliases:
         for alias in ['alias1', 'alias2', 'alias3']:
             result = config.resolve_serialized_value(alias)
             assert result.value == '"value"'
-            assert result._reason == 'resolved'
+            assert result.reason == 'resolved'
 
     def test_nonexistent_variable_returns_unrecognized(self):
         """Test that nonexistent variable returns unrecognized."""
@@ -2922,7 +2922,7 @@ class TestVariablesConfigAliases:
         )
         result = config.resolve_serialized_value('nonexistent')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
     def test_direct_name_takes_precedence(self):
         """Test that direct variable name takes precedence over alias lookup."""
@@ -2960,7 +2960,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         result = provider.get_all_variables_config()
@@ -2973,7 +2973,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -2993,7 +2993,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -3013,7 +3013,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not persist variable writes'):
@@ -3032,7 +3032,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_variable_config(self, name: str) -> VariableConfig | None:
                 return self.configs.get(name)
@@ -3487,7 +3487,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -3514,7 +3514,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -3538,7 +3538,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 return VariablesConfig(variables={})
@@ -3563,7 +3563,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -3585,7 +3585,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -3891,7 +3891,7 @@ class TestGetSerializedValueForVariantUnknown:
         provider = NoOpVariableProvider()
         result = provider.get_serialized_value_for_label('nonexistent', 'v1')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
 
 class TestBaseVariableProviderTypesMethods:
@@ -3904,7 +3904,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not support variable types'):
@@ -3918,7 +3918,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not support variable types'):
@@ -3933,7 +3933,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableTypeConfig(name='test_type', json_schema={'type': 'string'})
@@ -4285,7 +4285,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, VariableTypeConfig]:
                 return dict(self._types)
@@ -4389,7 +4389,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -4413,7 +4413,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, Any]:
                 raise RuntimeError('List failed!')
@@ -4435,7 +4435,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, Any]:
                 return {}
@@ -4521,7 +4521,7 @@ class TestPushVariableTypesWithUnchangedTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, VariableTypeConfig]:
                 return dict(self._types)
@@ -4559,7 +4559,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 return self._variables_config
@@ -4655,7 +4655,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -4977,7 +4977,7 @@ class TestVariablesConfigResolveSerializedValueCodeDefault:
         )
         result = config.resolve_serialized_value('test_var')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
 
 class TestVariablesConfigValidationErrorsWithLatestVersion:
@@ -5062,7 +5062,7 @@ class TestGetSerializedValueForLabelCodeDefault:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'v1')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
 
 class TestGetSerializedValueForLabelNotFound:
@@ -5082,7 +5082,7 @@ class TestGetSerializedValueForLabelNotFound:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'nonexistent')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
 
 class TestVariableGetWithExplicitLabel:
@@ -5110,7 +5110,7 @@ class TestVariableGetWithExplicitLabel:
         assert result.value == 'experiment_value'
         assert result.label == 'experiment'
         assert result.version == 2
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_explicit_label_not_found_falls_through(self, config_kwargs: dict[str, Any]):
         variables_config = VariablesConfig(

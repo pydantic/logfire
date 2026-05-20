@@ -513,7 +513,7 @@ class VariablesConfig(BaseModel):
         """
         variable_config = self._get_variable_config(name)
         if variable_config is None:
-            return ResolvedVariable(name=name, value=None, _reason='unrecognized_variable')
+            return ResolvedVariable(name=name, value=None, reason='unrecognized_variable')
 
         serialized_value, selected_label, version = variable_config.resolve_value(
             targeting_key, attributes, label=label
@@ -523,7 +523,7 @@ class VariablesConfig(BaseModel):
             value=serialized_value,
             label=selected_label,
             version=version,
-            _reason='resolved',
+            reason='resolved',
         )
 
     def _get_variable_config(self, name: VariableName) -> VariableConfig | None:

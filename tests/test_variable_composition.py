@@ -568,7 +568,7 @@ class TestCompositionIntegration:
 
         assert result.value == 'fallback'
         assert result.exception is not None
-        assert result._reason == 'other_error'
+        assert result.reason == 'other_error'
 
     def test_nested_reference(self, config_kwargs: dict[str, Any]):
         """A→B→C chain resolves fully."""
@@ -600,7 +600,7 @@ class TestCompositionIntegration:
         result = var.get()
         assert result.value == 'fallback'
         assert isinstance(result.exception, VariableCompositionError)
-        assert result._reason == 'other_error'
+        assert result.reason == 'other_error'
         assert len(result.composed_from) == 1
         assert result.composed_from[0].composed_from[0].error == 'Circular reference detected: a -> b -> a'
 
@@ -698,7 +698,7 @@ class TestCompositionIntegration:
             result = var.get()
             assert result.value == 'override_value'
             assert result.composed_from == []
-            assert result._reason == 'context_override'
+            assert result.reason == 'context_override'
 
     def test_composition_with_explicit_label(self, config_kwargs: dict[str, Any]):
         """Composition works when using explicit label parameter."""
@@ -780,6 +780,16 @@ class TestCompositionIntegration:
         assert len(result.composed_from) == 1
         assert result.composed_from[0].name == 'greeting'
         assert result.composed_from[0].reason == 'code_default'
+
+    def test_top_level_reason_is_code_default_when_provider_has_no_value(self, config_kwargs: dict[str, Any]):
+        """When the provider has no value for the parent, the resolution reason is 'code_default'."""
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='parent', default='hello', type=str)
+        result = var.get()
+        assert result.value == 'hello'
+        assert result.reason == 'code_default'
 
     def test_reference_falls_back_to_registered_code_default(self, config_kwargs: dict[str, Any]):
         """A composed reference uses a registered variable's default when the provider has no selected value."""
