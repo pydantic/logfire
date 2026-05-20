@@ -734,10 +734,42 @@ def test_forwarding_pipeline_force_flush_times_out_with_active_send() -> None:
     _wait_for_no_live_worker(pipeline)
 
 
+def test_forwarding_pipeline_shutdown_closes_admission_and_idle_session() -> None:
+    session = FakeForwardingSession()
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=session,  # type: ignore[arg-type]
+        max_queued_body_bytes=100,
+    )
+
+    assert pipeline.shutdown(1000) is True
+
+    assert pipeline.closed is True
+    assert pipeline.worker is None
+    assert session.close_count == 1
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is False
+
+
+def test_forwarding_pipeline_shutdown_no_queued_work_is_idempotent() -> None:
+    session = FakeForwardingSession()
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=session,  # type: ignore[arg-type]
+        max_queued_body_bytes=100,
+    )
+
+    assert pipeline.shutdown(1000) is True
+    assert pipeline.shutdown(1000) is True
+
+    assert session.close_count == 1
+    assert pipeline.worker is None
+
+
 class FakeForwardingSession:
     def __init__(self, *, fail_tokens: set[str] | None = None) -> None:
         self.fail_tokens = fail_tokens or set()
         self.calls: list[dict[str, Any]] = []
+        self.close_count = 0
 
     def post(self, url: str, data: bytes, **kwargs: Any) -> object:
         self.calls.append({'url': url, 'data': data, **kwargs})
@@ -746,6 +778,9 @@ class FakeForwardingSession:
         if authorization in self.fail_tokens:
             raise RuntimeError('send failed')
         return object()
+
+    def close(self) -> None:
+        self.close_count += 1
 
 
 def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:

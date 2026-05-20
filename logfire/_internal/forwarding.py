@@ -105,6 +105,7 @@ class OTLPForwardingPipeline:
         self.active_send_count = 0
         self.worker: Thread | None = None
         self.closed = False
+        self.session_closed = False
         self.condition = Condition()
 
     def enqueue(self, queued_request: QueuedForwardingRequest) -> bool:
@@ -175,6 +176,28 @@ class OTLPForwardingPipeline:
                 if remaining <= 0:
                     return False
                 self.condition.wait(timeout=remaining)
+            return True
+
+    def _has_live_worker_locked(self) -> bool:
+        return self.worker is not None and self.worker.is_alive()
+
+    def _close_session_once(self) -> None:
+        if not self.session_closed:
+            self.session.close()
+            self.session_closed = True
+
+    def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
+        deadline = monotonic() + timeout_millis / 1000
+        with self.condition:
+            self.closed = True
+            self.condition.notify_all()
+            while self.active_send_count or self._has_live_worker_locked():
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    return False
+                self.condition.wait(timeout=remaining)
+
+            self._close_session_once()
             return True
 
 
