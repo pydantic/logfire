@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import FrozenInstanceError
 from threading import Event, Thread
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -10,6 +11,7 @@ from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsSer
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
+import logfire._internal.forwarding as forwarding_module
 from logfire._internal.forwarding import (
     OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
     OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
@@ -1019,3 +1021,59 @@ def test_forwarding_manager_has_destinations() -> None:
     manager.tokens_by_base_url['https://example.com'] = ('token',)
 
     assert manager.has_destinations() is True
+
+
+def test_forwarding_manager_add_destination_creates_pipeline_and_groups_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_sessions: list[Any] = []
+
+    class FakeSession(FakeForwardingSession):
+        def __init__(self) -> None:
+            super().__init__()
+            self.hooks: dict[str, list[object]] = {}
+            created_sessions.append(self)
+
+    hook = object()
+    config = SimpleNamespace(advanced=SimpleNamespace(server_response_hook=hook))
+    manager = OTLPForwardingManager(config)  # type: ignore[arg-type]
+    monkeypatch.setattr(forwarding_module, 'OTLPExporterHttpSession', FakeSession)
+
+    manager.add_destination(base_url='https://backend-1.example.com', token='token-1')
+    manager.add_destination(base_url='https://backend-1.example.com', token='token-2')
+    manager.add_destination(base_url='https://backend-2.example.com', token='token-3')
+
+    assert manager.tokens_by_base_url == {
+        'https://backend-1.example.com': ('token-1', 'token-2'),
+        'https://backend-2.example.com': ('token-3',),
+    }
+    assert set(manager.pipelines) == {'https://backend-1.example.com', 'https://backend-2.example.com'}
+    assert len(created_sessions) == 2
+    assert all(session.hooks['response'] for session in created_sessions)
+    assert manager.pipelines['https://backend-1.example.com'].session is created_sessions[0]
+    assert manager.pipelines['https://backend-1.example.com'].max_queued_body_bytes == (
+        OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES
+    )
+
+
+def test_forwarding_manager_add_destination_after_close_does_not_register(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_sessions: list[Any] = []
+
+    class FakeSession(FakeForwardingSession):
+        def __init__(self) -> None:
+            super().__init__()
+            self.hooks: dict[str, list[object]] = {}
+            created_sessions.append(self)
+
+    config = SimpleNamespace(advanced=SimpleNamespace(server_response_hook=None))
+    manager = OTLPForwardingManager(config)  # type: ignore[arg-type]
+    manager.closed = True
+    monkeypatch.setattr(forwarding_module, 'OTLPExporterHttpSession', FakeSession)
+
+    manager.add_destination(base_url='https://backend.example.com', token='token')
+
+    assert manager.tokens_by_base_url == {}
+    assert manager.pipelines == {}
+    assert created_sessions == []

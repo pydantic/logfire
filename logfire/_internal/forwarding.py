@@ -33,6 +33,7 @@ from opentelemetry.sdk.environment_variables import (
 )
 
 from logfire._internal.exporters.otlp import OTLPExporterHttpSession
+from logfire._internal.server_response import install_logfire_response_hook
 from logfire.version import VERSION
 
 if TYPE_CHECKING:
@@ -228,6 +229,25 @@ class OTLPForwardingManager:
     def has_destinations(self) -> bool:
         with self.lock:
             return bool(self.tokens_by_base_url)
+
+    def add_destination(self, *, base_url: str, token: str) -> None:
+        with self.lock:
+            if self.closed:
+                return
+
+            tokens = self.tokens_by_base_url.get(base_url)
+            if tokens is not None:
+                self.tokens_by_base_url[base_url] = (*tokens, token)
+                return
+
+            session = OTLPExporterHttpSession()
+            install_logfire_response_hook(session, self.config.advanced.server_response_hook)
+            self.tokens_by_base_url[base_url] = (token,)
+            self.pipelines[base_url] = OTLPForwardingPipeline(
+                base_url=base_url,
+                session=session,
+                max_queued_body_bytes=OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
+            )
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
