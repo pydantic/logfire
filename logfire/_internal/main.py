@@ -2653,18 +2653,6 @@ class Logfire:
 
         return variable
 
-    @overload
-    def template_var(
-        self,
-        name: str,
-        *,
-        type: type[T],
-        default: T | ResolveFunction[T],
-        inputs_type: type[dict[Any, Any]],
-        description: str | None = None,
-    ) -> TemplateVariable[T, dict[Any, Any]]: ...
-
-    @overload
     def template_var(
         self,
         name: str,
@@ -2673,17 +2661,7 @@ class Logfire:
         default: T | ResolveFunction[T],
         inputs_type: type[InputsT],
         description: str | None = None,
-    ) -> TemplateVariable[T, InputsT]: ...
-
-    def template_var(
-        self,
-        name: str,
-        *,
-        type: type[T],
-        default: T | ResolveFunction[T],
-        inputs_type: type[Any],
-        description: str | None = None,
-    ) -> TemplateVariable[T, Any]:
+    ) -> TemplateVariable[T, InputsT]:
         """Define a managed template variable with integrated rendering.
 
         Like ``var()``, but ``get(inputs)`` automatically renders Handlebars ``{{placeholder}}``
@@ -2743,7 +2721,7 @@ class Logfire:
 
         ensure_handlebars_available()
 
-        variable = TemplateVariable[T, Any](
+        variable = TemplateVariable[T, InputsT](
             name,
             type=type,
             default=default,

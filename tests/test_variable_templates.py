@@ -349,11 +349,15 @@ class TestRenderCodeDefault:
 
     def test_template_var_invalid_default_records_exception(self, config_kwargs: dict[str, Any]):
         """Rendering failures in code defaults are exposed on the resolution result."""
+
+        class Inputs(BaseModel):
+            name: str
+
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
-        var = lf.template_var('prompt', type=str, default='Hello {{#if name}}', inputs_type=dict)
+        var = lf.template_var('prompt', type=str, default='Hello {{#if name}}', inputs_type=Inputs)
 
-        resolved = var.get({'name': 'Alice'})
+        resolved = var.get(Inputs(name='Alice'))
 
         assert resolved.value == 'Hello {{#if name}}'
         assert resolved.exception is not None
@@ -755,10 +759,3 @@ class TestTemplateVariable:
         assert config.template_inputs_schema['type'] == 'object'
         assert 'user_name' in config.template_inputs_schema['properties']
         assert 'count' in config.template_inputs_schema['properties']
-
-    def test_dict_inputs(self, config_kwargs: dict[str, Any]):
-        """Passing a dict as inputs works (via Mapping path)."""
-        lf = _make_lf(_simple_config('greeting', json.dumps('Hello {{name}}!')), config_kwargs)
-        var = lf.template_var('greeting', type=str, default='default', inputs_type=dict)
-        resolved = var.get({'name': 'Alice'})
-        assert resolved.value == 'Hello Alice!'
