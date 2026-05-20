@@ -64,7 +64,9 @@ def test_forward_export_request_exception_handling() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
     with mock.patch('requests.post', side_effect=requests.RequestException('connection failure')):
-        response = forward_export_request(path='/v1/traces', headers={}, body=b'')
+        response = forward_export_request(
+            path='/v1/traces', headers={'Content-Type': 'application/x-protobuf'}, body=b''
+        )
         assert response.status_code == 502
         assert response.content == b'Upstream service error'
 
@@ -169,7 +171,7 @@ def test_forward_export_request_multi_token() -> None:
         mock_post.return_value.headers = {}
         mock_post.return_value.content = b''
 
-        forward_export_request(path='/v1/traces', headers={}, body=b'')
+        forward_export_request(path='/v1/traces', headers={'Content-Type': 'application/x-protobuf'}, body=b'')
         headers = mock_post.call_args[1]['headers']
         assert headers['Authorization'] == 'tok1'
 
@@ -179,7 +181,12 @@ def test_forward_export_request_missing_token() -> None:
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
     with mock.patch.object(logfire_instance.config, 'token', None):
-        response = forward_export_request(path='/v1/traces', headers={}, body=b'', logfire_instance=logfire_instance)
+        response = forward_export_request(
+            path='/v1/traces',
+            headers={'Content-Type': 'application/x-protobuf'},
+            body=b'',
+            logfire_instance=logfire_instance,
+        )
         assert response.status_code == 500
         assert b'not configured' in response.content
 
@@ -195,12 +202,50 @@ def test_forward_export_request_explicit_instance() -> None:
         mock_post.return_value.headers = {}
         mock_post.return_value.content = b'ok'
 
-        response = forward_export_request(path='/v1/traces', headers={}, body=b'', logfire_instance=explicit_instance)
+        response = forward_export_request(
+            path='/v1/traces',
+            headers={'Content-Type': 'application/x-protobuf'},
+            body=b'',
+            logfire_instance=explicit_instance,
+        )
 
         assert response.status_code == 200
 
         headers = mock_post.call_args[1]['headers']
         assert headers['Authorization'] == 'explicit_token'
+
+
+def test_forward_export_request_missing_content_type() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    response = forward_export_request(path='/v1/traces', headers={}, body=b'')
+
+    assert response.status_code == 415
+    assert response.headers == {'Content-Type': 'text/plain'}
+    assert response.content == b'Unsupported content type'
+
+
+def test_forward_export_request_unsupported_content_type() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    response = forward_export_request(path='/v1/traces', headers={'Content-Type': 'text/plain'}, body=b'')
+
+    assert response.status_code == 415
+    assert response.content == b'Unsupported content type'
+
+
+def test_forward_export_request_oversized_body() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    response = forward_export_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'12345',
+        max_body_size=4,
+    )
+
+    assert response.status_code == 413
+    assert response.content == b'Payload too large'
 
 
 def test_fastapi_proxy_invalid_method() -> None:

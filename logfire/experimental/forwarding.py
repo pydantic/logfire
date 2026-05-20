@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import unquote, urljoin
+from urllib.parse import urljoin
 
 import requests
 
 import logfire
+from logfire._internal.forwarding import (
+    OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
+    ForwardingErrorResponse,
+    build_forwarding_request,
+)
 from logfire.version import VERSION
 
 __all__ = ('ForwardExportRequestResponse', 'forward_export_request', 'logfire_proxy')
@@ -29,6 +33,7 @@ def forward_export_request(
     headers: Mapping[str, str],
     body: bytes | None,
     logfire_instance: logfire.Logfire | None = None,
+    max_body_size: int = OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
 ) -> ForwardExportRequestResponse:
     """Forward an export request to the Logfire API.
 
@@ -40,19 +45,21 @@ def forward_export_request(
 
     config = logfire_instance.config
 
-    if not path.startswith('/'):
-        path = '/' + path
-
-    # Security: Normalize path to prevent directory traversal attacks (e.g. /v1/traces/../secret)
-    # We unquote first to handle percent-encoded traversals (e.g. %2e%2e) that might bypass normalization
-    path = posixpath.normpath(unquote(path))
-
-    if path not in ('/v1/traces', '/v1/logs', '/v1/metrics'):
+    forwarding_request = build_forwarding_request(
+        path=path,
+        headers=headers,
+        body=body,
+        max_body_size=max_body_size,
+    )
+    if isinstance(forwarding_request, ForwardingErrorResponse):
         return ForwardExportRequestResponse(
-            status_code=400,
-            headers={'Content-Type': 'text/plain'},
-            content=b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics',
+            status_code=forwarding_request.status_code,
+            headers={'Content-Type': forwarding_request.content_type},
+            content=forwarding_request.content,
         )
+
+    path = forwarding_request.path
+    body = forwarding_request.body
 
     token = config.token
     if isinstance(token, list):
@@ -189,5 +196,6 @@ async def logfire_proxy(
         headers=request.headers,
         body=bytes(body),
         logfire_instance=logfire_instance,
+        max_body_size=max_body_size,
     )
     return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
