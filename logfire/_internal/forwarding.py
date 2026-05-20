@@ -101,3 +101,13 @@ def _normalize_forwarding_path(path: str) -> ForwardingPath | ForwardingErrorRes
     if normalized_path == '/v1/metrics':
         return '/v1/metrics'
     return _invalid_path_response()
+
+
+def _extract_forwarding_representation_headers(  # pyright: ignore[reportUnusedFunction]
+    headers: Mapping[str, str],
+) -> tuple[str | None, str | None, str | None]:
+    return (
+        _get_header(headers, 'content-type'),
+        _get_header(headers, 'content-encoding'),
+        _get_header(headers, 'user-agent'),
+    )

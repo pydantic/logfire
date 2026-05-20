@@ -12,6 +12,7 @@ from logfire._internal.forwarding import (
     ForwardingErrorResponse,
     ForwardingRequest,
     QueuedForwardingRequest,
+    _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
     parse_forwarding_content_type,
 )
@@ -139,3 +140,31 @@ def test_normalize_forwarding_path_rejections(path: str) -> None:
     assert response.status_code == 400
     assert response.content_type == 'text/plain'
     assert response.content == b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics'
+
+
+def test_extract_forwarding_representation_headers() -> None:
+    headers = {
+        'content-type': 'application/json; charset=utf-8',
+        'CONTENT-ENCODING': 'gzip',
+        'User-Agent': 'browser-agent',
+        'Authorization': 'client-token',
+        'Cookie': 'session=secret',
+        'Host': 'example.com',
+        'X-Api-Key': 'secret',
+    }
+
+    content_type, content_encoding, user_agent = _extract_forwarding_representation_headers(headers)
+
+    assert content_type == 'application/json; charset=utf-8'
+    assert content_encoding == 'gzip'
+    assert user_agent == 'browser-agent'
+
+
+def test_extract_forwarding_representation_headers_missing_optional_values() -> None:
+    content_type, content_encoding, user_agent = _extract_forwarding_representation_headers(
+        {'Content-Type': 'application/x-protobuf'}
+    )
+
+    assert content_type == 'application/x-protobuf'
+    assert content_encoding is None
+    assert user_agent is None
