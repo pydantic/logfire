@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError
 
 import pytest
+from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
 from logfire._internal.forwarding import (
     OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
@@ -17,6 +20,7 @@ from logfire._internal.forwarding import (
     build_forwarding_request,
     parse_forwarding_content_type,
     response_content_type,
+    response_message_for_path,
 )
 
 
@@ -284,3 +288,15 @@ def test_build_forwarding_request_invalid_path() -> None:
 )
 def test_response_content_type(content_type: ForwardingContentType, expected: str) -> None:
     assert response_content_type(content_type) == expected
+
+
+@pytest.mark.parametrize(
+    ('path', 'expected'),
+    [
+        ('/v1/traces', ExportTraceServiceResponse),
+        ('/v1/logs', ExportLogsServiceResponse),
+        ('/v1/metrics', ExportMetricsServiceResponse),
+    ],
+)
+def test_response_message_for_path(path: str, expected: type[object]) -> None:
+    assert response_message_for_path(path) is expected  # type: ignore[arg-type]

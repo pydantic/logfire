@@ -5,8 +5,12 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import unquote
+
+from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
 OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
@@ -154,3 +158,11 @@ def build_forwarding_request(
 
 def response_content_type(content_type: ForwardingContentType) -> str:
     return content_type.value
+
+
+def response_message_for_path(path: ForwardingPath) -> type[Any]:
+    if path == '/v1/traces':
+        return ExportTraceServiceResponse
+    if path == '/v1/logs':
+        return ExportLogsServiceResponse
+    return ExportMetricsServiceResponse
