@@ -1115,3 +1115,35 @@ def test_forwarding_manager_submit_success_enqueues_per_backend_url() -> None:
     assert result == ForwardingAdmissionResult(response='success', message=None)
     assert pipeline_1.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-1', 'token-2'))]
     assert pipeline_2.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-3',))]
+
+
+def test_forwarding_manager_submit_partial_success_for_mixed_backend_outcomes() -> None:
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    accepting_pipeline = FakeForwardingPipeline()
+    rejecting_pipeline = FakeForwardingPipeline(accepted=False)
+    request = ForwardingRequest(
+        path='/v1/logs',
+        body=b'data',
+        content_type=ForwardingContentType.PROTOBUF,
+        content_type_header='application/x-protobuf',
+        content_encoding=None,
+        user_agent=None,
+    )
+    manager.tokens_by_base_url = {
+        'https://backend-1.example.com': ('token-1',),
+        'https://backend-2.example.com': ('token-2',),
+        'https://backend-3.example.com': ('token-3',),
+    }
+    manager.pipelines = {  # type: ignore[assignment]
+        'https://backend-1.example.com': accepting_pipeline,
+        'https://backend-2.example.com': rejecting_pipeline,
+    }
+
+    result = manager.submit(request)
+
+    assert result == ForwardingAdmissionResult(
+        response='partial_success',
+        message='Forwarding request was locally dropped for 2 backend URL(s).',
+    )
+    assert accepting_pipeline.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-1',))]
+    assert rejecting_pipeline.enqueued == [QueuedForwardingRequest(request=request, tokens=('token-2',))]

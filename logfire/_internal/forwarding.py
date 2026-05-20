@@ -255,14 +255,17 @@ class OTLPForwardingManager:
                 (base_url, tokens, self.pipelines.get(base_url)) for base_url, tokens in self.tokens_by_base_url.items()
             )
 
-        accepted = True
+        dropped_count = 0
         for _, tokens, pipeline in destinations:
             if pipeline is None or not pipeline.enqueue(QueuedForwardingRequest(request=request, tokens=tokens)):
-                accepted = False
+                dropped_count += 1
 
-        if accepted:
+        if dropped_count == 0:
             return ForwardingAdmissionResult(response='success', message=None)
-        return ForwardingAdmissionResult(response='partial_success', message='Forwarding queue unavailable')
+        return ForwardingAdmissionResult(
+            response='partial_success',
+            message=f'Forwarding request was locally dropped for {dropped_count} backend URL(s).',
+        )
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
