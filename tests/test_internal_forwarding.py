@@ -12,6 +12,7 @@ from logfire._internal.forwarding import (
     ForwardingErrorResponse,
     ForwardingRequest,
     QueuedForwardingRequest,
+    parse_forwarding_content_type,
 )
 
 
@@ -86,3 +87,21 @@ def test_queued_forwarding_request_record() -> None:
     assert queued_request.tokens == ('token-1', 'token-2')
     with pytest.raises(FrozenInstanceError):
         setattr(queued_request, 'tokens', ('token-3',))
+
+
+@pytest.mark.parametrize(
+    ('headers', 'expected'),
+    [
+        ({'Content-Type': 'application/x-protobuf'}, ForwardingContentType.PROTOBUF),
+        ({'Content-Type': 'application/json'}, ForwardingContentType.JSON),
+        ({'Content-Type': 'application/json; charset=utf-8'}, ForwardingContentType.JSON),
+        ({'content-type': 'Application/JSON'}, ForwardingContentType.JSON),
+        ({}, None),
+        ({'Content-Type': ''}, None),
+        ({'Content-Type': 'not a media type'}, None),
+        ({'Content-Type': 'application/json; charset'}, None),
+        ({'Content-Type': 'text/plain'}, None),
+    ],
+)
+def test_parse_forwarding_content_type(headers: dict[str, str], expected: ForwardingContentType | None) -> None:
+    assert parse_forwarding_content_type(headers) is expected
