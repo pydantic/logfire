@@ -25,9 +25,18 @@ class FakeForwardingManager:
     def has_destinations(self) -> bool:
         return True
 
+    def is_idle(self) -> bool:
+        return True
+
+    def retire(self) -> bool:
+        return False
+
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
         self.submissions.append(request)
         return self.result
+
+    def force_flush(self, timeout_millis: int) -> bool:
+        return True
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         return True

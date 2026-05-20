@@ -1389,15 +1389,8 @@ class LogfireConfig(_LogfireConfigData):
 
             previous_otlp_forwarding = self._otlp_forwarding
             self._otlp_forwarding = otlp_forwarding
-            if emscripten:  # pragma: no cover
-                previous_otlp_forwarding.shutdown(0, drain_queued=False)
-            else:
+            if previous_otlp_forwarding.retire():
                 self._retired_otlp_forwarding.append(previous_otlp_forwarding)
-                Thread(
-                    target=self._drain_retired_otlp_forwarding,
-                    args=(previous_otlp_forwarding,),
-                    name='shutdown_logfire_otlp_forwarding',
-                ).start()
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
@@ -1416,12 +1409,6 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
-    def _drain_retired_otlp_forwarding(self, manager: OTLPForwardingManager) -> None:
-        try:
-            manager.shutdown(30_000, drain_queued=True)
-        finally:
-            self._forget_retired_otlp_forwarding(manager)
-
     def _forget_retired_otlp_forwarding(self, manager: OTLPForwardingManager) -> None:
         with self._lock:
             with suppress(ValueError):
@@ -1429,6 +1416,9 @@ class LogfireConfig(_LogfireConfigData):
 
     def _otlp_forwarding_managers(self) -> tuple[OTLPForwardingManager, ...]:
         with self._lock:
+            self._retired_otlp_forwarding = [
+                manager for manager in self._retired_otlp_forwarding if not manager.is_idle()
+            ]
             return (self._otlp_forwarding, *self._retired_otlp_forwarding)
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:

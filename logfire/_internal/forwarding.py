@@ -193,6 +193,19 @@ class OTLPForwardingPipeline:
             self.session.close()
             self.session_closed = True
 
+    def is_idle(self) -> bool:
+        with self.condition:
+            return not self.queue and self.active_send_count == 0 and not self._has_live_worker_locked()
+
+    def retire(self) -> bool:
+        with self.condition:
+            self.closed = True
+            pending = bool(self.queue or self.active_send_count or self._has_live_worker_locked())
+            if not pending:
+                self._close_session_once()
+            self.condition.notify_all()
+            return pending
+
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         deadline = monotonic() + timeout_millis / 1000
         complete = True
@@ -203,8 +216,6 @@ class OTLPForwardingPipeline:
                 self.queue.clear()
                 self.queued_body_bytes = 0
                 self.condition.notify_all()
-            elif self.queue:
-                self._ensure_worker_locked()
 
             while self.queue:
                 remaining = deadline - monotonic()
@@ -292,6 +303,23 @@ class OTLPForwardingManager:
             if not pipeline.force_flush(remaining_millis):
                 complete = False
         return complete
+
+    def is_idle(self) -> bool:
+        with self.lock:
+            pipelines = tuple(self.pipelines.values())
+
+        return all(pipeline.is_idle() for pipeline in pipelines)
+
+    def retire(self) -> bool:
+        with self.lock:
+            self.closed = True
+            pipelines = tuple(self.pipelines.values())
+
+        pending = False
+        for pipeline in pipelines:
+            if pipeline.retire():
+                pending = True
+        return pending
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         deadline = monotonic() + timeout_millis / 1000
