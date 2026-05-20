@@ -316,7 +316,7 @@ class VariableConfig(BaseModel):
     """JSON Schema describing the expected template inputs for Handlebars rendering.
 
     When set, the variable's values can contain {{placeholder}} Handlebars syntax.
-    The schema is derived from a Pydantic model passed as `template_inputs` to `logfire.var()`.
+    The schema is derived from the `inputs_type` model passed to `logfire.template_var()`.
     """
     # NOTE: Context-based targeting_key can be set via targeting_context() from logfire.variables.
     # TODO(DavidM): Consider adding remotely-managed targeting_key_attribute for automatic attribute-based targeting.

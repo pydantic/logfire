@@ -120,17 +120,6 @@ class ResolvedVariable(Generic[T_co]):
     Each entry is a ComposedReference for a referenced variable, including
     its label, version, reason, and any nested composed_from entries.
     """
-    _serialized_value: str | None = None
-    """Internal: the post-composition, pre-deserialization JSON string.
-
-    Used by render() to apply Handlebars template rendering on the serialized
-    form before deserializing to the variable's type.
-    """
-    _deserializer: Callable[[str], Any] | None = None
-    """Internal: function to deserialize a JSON string to the variable's type.
-
-    Returns the deserialized value or an Exception on failure.
-    """
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
@@ -148,59 +137,6 @@ class ResolvedVariable(Generic[T_co]):
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
-
-    def render(self, inputs: Any = None) -> T_co:
-        """Render Handlebars templates in this variable's value.
-
-        Operates on the serialized JSON (post-composition), renders all ``{{placeholder}}``
-        expressions using the provided inputs, then deserializes to the variable's type.
-
-        For ``str`` variables, this renders the template and returns a string.
-        For structured variables (e.g., Pydantic models), all string values containing
-        ``{{placeholders}}`` are rendered while non-string fields pass through unchanged.
-
-        Args:
-            inputs: Template context values. Can be a Pydantic ``BaseModel`` (uses ``model_dump()``),
-                a ``dict``, or any ``Mapping``. If ``None``, renders with an empty context.
-
-        Returns:
-            The rendered value, typed as the variable's type ``T_co``.
-
-        Raises:
-            ValueError: If no serialized value is available for rendering.
-            ImportError: If ``pydantic-handlebars`` is not installed.
-
-        Example:
-            ```python skip="true"
-            from pydantic import BaseModel
-
-
-            class Inputs(BaseModel):
-                user_name: str
-
-
-            prompt = logfire.var('prompt', type=str, default='Hello {{user_name}}')
-            with prompt.get() as resolved:
-                rendered = resolved.render(Inputs(user_name='Alice'))
-                # rendered == "Hello Alice"
-            ```
-        """
-        if self._serialized_value is None:
-            raise ValueError(
-                'Cannot render template: no serialized value available. '
-                'This can happen if the variable resolved to a context override '
-                'or if serialization of the default value failed.'
-            )
-        if self._deserializer is None:
-            raise ValueError('Cannot render template: no deserializer available.')
-
-        rendered_json = render_serialized_string(self._serialized_value, inputs)
-
-        # Deserialize the rendered JSON
-        result = self._deserializer(rendered_json)
-        if isinstance(result, Exception):
-            raise result
-        return result
 
 
 def _inputs_to_context(inputs: Any) -> dict[str, Any]:

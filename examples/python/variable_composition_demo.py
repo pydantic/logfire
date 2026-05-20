@@ -13,9 +13,8 @@ Key features shown:
   6. Handlebars conditionals: {{#if}}, {{else}}, {{/if}}
   7. Handlebars iteration: {{#each items}}...{{/each}}
   8. TemplateVariable: single-step get(inputs) with automatic rendering
-  9. Variable.get() + .render(inputs): two-step manual rendering
-  10. Rollout overrides with attribute-based conditions
-  11. Composition-time conditionals: @{#if flag}@...@{else}@...@{/if}@
+  9. Rollout overrides with attribute-based conditions
+  10. Composition-time conditionals: @{#if flag}@...@{else}@...@{/if}@
 """
 
 from __future__ import annotations
@@ -308,12 +307,12 @@ brand_var = logfire.var(
     default={'tagline': 'Default tagline', 'color': '#000', 'support_url': 'https://example.com'},
 )
 
-# A Variable with template_inputs — uses two-step get() + render()
-system_prompt_var = logfire.var(
+# A TemplateVariable — single-step get(inputs) with auto-rendering
+system_prompt_var = logfire.template_var(
     'system_prompt',
     type=str,
     default='Hello {{user.name}}, how can I help with {{topic}}?',
-    template_inputs=PromptInputs,
+    inputs_type=PromptInputs,
 )
 
 # TemplateVariables — single-step get(inputs) with automatic rendering
@@ -373,21 +372,20 @@ for ref in result.composed_from:
 
 section('2. Nested Composition: system_prompt -> support_footer -> support_email')
 
-# Get the raw (unrendered) system prompt to see composition in action
-raw_result = system_prompt_var.get()
-print('After composition (before template rendering):')
-print(f'  label={raw_result.label}, version={raw_result.version}')
+nested_inputs = PromptInputs(
+    user=UserProfile(name='Alice', email='alice@example.com', tier='premium'),
+    topic='billing',
+)
+nested_result = system_prompt_var.get(nested_inputs)
+print(f'label={nested_result.label}, version={nested_result.version}')
 print()
 
-# Show the composed value — @{refs}@ are expanded but {{fields}} remain
-composed_value = raw_result.value
-# Since templates haven't been rendered yet, {{...}} placeholders are literal
-print('Composed value ({{placeholders}} still present):')
-for line in composed_value.split('\n'):
+print('Resolved value (composition + template rendering applied):')
+for line in nested_result.value.split('\n'):
     print(f'  {line}')
 
-print(f'\nComposed from {len(raw_result.composed_from)} top-level reference(s):')
-for ref in raw_result.composed_from:
+print(f'\nComposed from {len(nested_result.composed_from)} top-level reference(s):')
+for ref in nested_result.composed_from:
     print(f'  - @{{{ref.name}}}@ -> "{ref.value}"')
     # Show nested references (e.g. support_footer -> support_email)
     for nested in ref.composed_from:
@@ -461,12 +459,10 @@ section('5. Template Rendering: Subfields of inputs ({{user.name}}, {{user.tier}
 user = UserProfile(name='Alice Johnson', email='alice@example.com', tier='premium')
 inputs = PromptInputs(user=user, topic='billing questions')
 
-# Two-step: get() then render()
-with system_prompt_var.get() as resolved:
-    rendered = resolved.render(inputs)
+rendered_result = system_prompt_var.get(inputs)
 
 print('Rendered system prompt:')
-for line in rendered.split('\n'):
+for line in rendered_result.value.split('\n'):
     print(f'  {line}')
 
 # ---------------------------------------------------------------------------
@@ -537,18 +533,13 @@ print(f'With env=staging:      "{staging_result.value}" (label={staging_result.l
 
 section('9. Explicit Label Selection: Choosing a specific label')
 
-verbose_result = system_prompt_var.get(label='production')
-concise_result = system_prompt_var.get(label='concise')
+verbose_result = system_prompt_var.get(inputs, label='production')
+concise_result = system_prompt_var.get(inputs, label='concise')
 
 print('Production prompt (first 80 chars):')
 print(f'  "{verbose_result.value[:80]}..."')
 print('\nConcise prompt:')
 print(f'  "{concise_result.value}"')
-
-# Now render the concise one with template inputs
-rendered_concise = concise_result.render(inputs)
-print('\nConcise prompt rendered:')
-print(f'  "{rendered_concise}"')
 
 # ---------------------------------------------------------------------------
 # 14. Demo: Composition-time conditionals (@{#if}@ at composition time)
@@ -578,7 +569,7 @@ for ref in banner_result.composed_from:
 
 section('11. Context Manager: Baggage propagation for observability')
 
-with system_prompt_var.get() as resolved:
+with system_prompt_var.get(inputs) as resolved:
     print('Inside context manager:')
     print(f'  Variable: {resolved.name}')
     print(f'  Label: {resolved.label}')
@@ -605,7 +596,6 @@ print('  - {{#each list}}...{{/each}} iteration (template-time)')
 print('  - @{#if flag}@...@{else}@...@{/if}@ conditionals (composition-time)')
 print('  - Structured variables: templates render inside dict string values')
 print('  - TemplateVariable: single-step get(inputs) with auto-rendering')
-print('  - Variable + render(): two-step manual rendering')
 print('  - Rollout overrides: attribute-based label selection')
 print('  - Explicit label selection: get(label="concise")')
 print('  - Context manager: baggage propagation for observability')

@@ -134,29 +134,6 @@ with agent_config.get(UserContext(user_name='Alice', tier='premium')) as resolve
     #> openai:gpt-4o-mini
 ```
 
-### Ad-hoc Rendering with `resolved.render()`
-
-For regular variables (created with `logfire.var()`) that happen to contain template syntax, you can render them after resolution using `resolved.render()`:
-
-```python skip="true"
-from pydantic import BaseModel
-
-import logfire
-
-
-class Inputs(BaseModel):
-    user_name: str
-
-
-prompt = logfire.var('prompt', type=str, default='Hello {{user_name}}')
-
-with prompt.get() as resolved:
-    rendered = resolved.render(Inputs(user_name='Alice'))
-    print(rendered)  # "Hello Alice"
-```
-
-This is useful when you want the flexibility to render templates on some code paths but not others.
-
 ### Template Validation
 
 When a template variable is pushed to Logfire (via `logfire.variables_push()`), the `template_inputs_schema` is synced alongside the variable's JSON schema. The system validates that all `{{field}}` references in variable values (including values reachable through composition) are compatible with the declared schema.

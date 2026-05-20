@@ -176,8 +176,8 @@ class _BaseVariable(Generic[T_co]):
             default: Default value to use when no configuration is found, or a function
                 that computes the default based on targeting_key and attributes.
             description: Optional human-readable description of what this variable controls.
-            template_inputs: Optional Pydantic model type describing the expected template inputs
-                for Handlebars rendering. When set, values can contain ``{{placeholder}}`` syntax.
+            template_inputs: Internal hook used by ``TemplateVariable`` to declare the expected
+                template inputs type. Not exposed via the public ``logfire.var()`` API.
             logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
         """
         self.name = name
@@ -402,8 +402,6 @@ class _BaseVariable(Generic[T_co]):
             version=serialized_result.version,
             _reason='resolved',
             composed_from=composed,
-            _serialized_value=serialized_value,
-            _deserializer=self._deserialize,
         )
 
     def _get_default(
@@ -540,14 +538,6 @@ class _BaseVariable(Generic[T_co]):
                     )
                 )
             result = self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
-            # Ensure rendering support is always available
-            if result._deserializer is None:  # pyright: ignore[reportPrivateUsage]
-                result._deserializer = self._deserialize  # pyright: ignore[reportPrivateUsage]
-            if result._serialized_value is None and result.value is not None:  # pyright: ignore[reportPrivateUsage]
-                try:
-                    result._serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')  # pyright: ignore[reportPrivateUsage]
-                except (ValueError, TypeError, RuntimeError):
-                    pass
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
                 # Try to JSON serialize the value; if that fails, fall back to string representation.

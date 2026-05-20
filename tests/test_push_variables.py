@@ -27,7 +27,7 @@ from logfire.variables.abstract import (
 )
 from logfire.variables.config import LabeledValue, LabelRef, LatestVersion, Rollout, VariableConfig, VariablesConfig
 from logfire.variables.local import LocalVariableProvider
-from logfire.variables.variable import Variable
+from logfire.variables.variable import TemplateVariable, Variable
 
 
 @dataclass
@@ -231,11 +231,11 @@ def test_compute_diff_template_inputs_schema_change(mock_logfire_instance: MockL
     class NewInputs(BaseModel):
         user_name: str
 
-    var = Variable[str](
+    var = TemplateVariable[str, NewInputs](
         name='prompt',
         default='Hello {{user_name}}',
         type=str,
-        template_inputs=NewInputs,
+        inputs_type=NewInputs,
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
     server_config = VariablesConfig(
