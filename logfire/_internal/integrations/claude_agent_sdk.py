@@ -117,8 +117,8 @@ def _extract_usage(usage: Any, *, partial: bool = False) -> dict[str, int]:
 
     Args:
         usage: A usage object or dict from the SDK.
-        partial: If True, prefix attribute names with ``gen_ai.usage.partial.``
-            instead of ``gen_ai.usage.``. Used for chat spans where per-message
+        partial: If True, prefix attribute names with `gen_ai.usage.partial.`
+            instead of `gen_ai.usage.`. Used for chat spans where per-message
             usage from the SDK is unreliable.
     """
     if not usage:

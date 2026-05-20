@@ -2634,9 +2634,9 @@ class Logfire:
     ) -> TemplateVariable[T, InputsT]:
         """Define a managed template variable with integrated rendering.
 
-        Like ``var()``, but ``get(inputs)`` automatically renders Handlebars ``{{placeholder}}``
+        Like `var()`, but `get(inputs)` automatically renders Handlebars `{{placeholder}}`
         templates in the resolved value before returning. The pipeline is:
-        resolve → compose ``@{refs}@`` → render ``{{}}`` → deserialize.
+        resolve → compose `@{refs}@` → render `{{}}` → deserialize.
 
         ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
         from pydantic import BaseModel
@@ -2666,9 +2666,9 @@ class Logfire:
             name: Unique identifier for the variable.
             type: Expected type for validation and JSON schema generation.
             default: Default value used when no remote configuration is found.
-                Can also be a callable with ``targeting_key`` and ``attributes`` parameters.
-            inputs_type: The type (typically a Pydantic ``BaseModel``) describing the expected
-                template inputs. Used for type-safe ``get(inputs)`` calls and JSON schema generation.
+                Can also be a callable with `targeting_key` and `attributes` parameters.
+            inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
+                template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
             description: Optional human-readable description of what the variable controls.
         """
         import re

@@ -1,8 +1,8 @@
-"""Template validation: check ``{{field}}`` references against ``template_inputs_schema``.
+"""Template validation: check `{{field}}` references against `template_inputs_schema`.
 
-This module validates that Handlebars ``{{field}}`` references in template variable
-values (including composed ``@{ref}@`` dependencies) match the declared
-``template_inputs_schema``. It uses ``pydantic_handlebars.check_template_compatibility``
+This module validates that Handlebars `{{field}}` references in template variable
+values (including composed `@{ref}@` dependencies) match the declared
+`template_inputs_schema`. It uses `pydantic_handlebars.check_template_compatibility`
 for full AST-based schema checking (nested paths, block scopes, helpers).
 
 It also provides cycle detection for composition graphs.
@@ -37,16 +37,16 @@ TEMPLATE_FIELD_PATTERN = re.compile(r'\{\{\s*([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s
 
 @dataclass
 class TemplateFieldIssue:
-    """A ``{{field}}`` reference that doesn't match the variable's ``template_inputs_schema``."""
+    """A `{{field}}` reference that doesn't match the variable's `template_inputs_schema`."""
 
     field_name: str
-    """The template field name (e.g., ``user_name`` from ``{{user_name}}``)."""
+    """The template field name (e.g., `user_name` from `{{user_name}}`)."""
     found_in_variable: str
     """Name of the variable whose value contains this field reference."""
     found_in_label: str | None
-    """Label of the value where the field was found, or ``None`` for the latest version."""
+    """Label of the value where the field was found, or `None` for the latest version."""
     reference_path: list[str]
-    """Composition path from the root variable to ``found_in_variable``."""
+    """Composition path from the root variable to `found_in_variable`."""
 
 
 @dataclass
@@ -57,7 +57,7 @@ class TemplateValidationResult:
 
 
 def find_template_fields(text: str) -> set[str]:
-    """Find all ``{{field}}`` or ``{{path.to.field}}`` references in a string.
+    """Find all `{{field}}` or `{{path.to.field}}` references in a string.
 
     Returns:
         Set of field names found in the text.
@@ -66,7 +66,7 @@ def find_template_fields(text: str) -> set[str]:
 
 
 def _extract_template_strings(serialized_json: str) -> list[str]:
-    """Extract all string values from serialized JSON that contain ``{{...}}`` templates."""
+    """Extract all string values from serialized JSON that contain `{{...}}` templates."""
     try:
         decoded = json.loads(serialized_json)
     except (json.JSONDecodeError, TypeError):
@@ -78,7 +78,7 @@ def _extract_template_strings(serialized_json: str) -> list[str]:
 
 
 def _collect_template_strings(value: Any) -> list[str]:
-    """Recursively collect strings containing ``{{...}}`` from a decoded JSON value."""
+    """Recursively collect strings containing `{{...}}` from a decoded JSON value."""
     if isinstance(value, str):
         return [value] if '{{' in value else []
     if isinstance(value, dict):
@@ -99,18 +99,18 @@ def validate_template_composition(
     template_inputs_schema: dict[str, Any],
     get_all_serialized_values: Callable[[str], dict[str | None, str]],
 ) -> TemplateValidationResult:
-    """Validate that ``{{field}}`` references in a template variable match its schema.
+    """Validate that `{{field}}` references in a template variable match its schema.
 
     Walks the composition graph starting from *variable_name*, collecting all
-    template strings from the variable's values and its ``@{ref}@`` dependencies,
-    then uses AST-based schema checking via ``check_template_compatibility`` to
+    template strings from the variable's values and its `@{ref}@` dependencies,
+    then uses AST-based schema checking via `check_template_compatibility` to
     find incompatible field references.
 
     Args:
         variable_name: Name of the template variable to validate.
         template_inputs_schema: JSON Schema describing the expected template inputs.
-        get_all_serialized_values: Function that returns ``{label_or_none: serialized_json}``
-            for any variable name.  ``None`` key represents the latest version.
+        get_all_serialized_values: Function that returns `{label_or_none: serialized_json}`
+            for any variable name.  `None` key represents the latest version.
 
     Returns:
         A :class:`TemplateValidationResult` with any issues found.
@@ -168,8 +168,8 @@ def detect_composition_cycles(
             any value of the given variable name.
 
     Returns:
-        The cycle path (e.g., ``['A', 'B', 'C', 'A']``) if a cycle is detected,
-        or ``None`` if no cycle exists.
+        The cycle path (e.g., `['A', 'B', 'C', 'A']`) if a cycle is detected,
+        or `None` if no cycle exists.
     """
     for ref in sorted(new_references):  # sort for deterministic results
         path = _find_cycle(variable_name, ref, get_all_references, frozenset())

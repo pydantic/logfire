@@ -1,13 +1,13 @@
-"""Reference-syntax Handlebars: low-level primitives for ``@{}@`` rendering.
+"""Reference-syntax Handlebars: low-level primitives for `@{}@` rendering.
 
-This module provides ``render_once`` which performs a single-pass render using
-``@{}@`` as the delimiter instead of ``{{}}``. It is the engine behind variable
-composition — it gives ``@{}@`` syntax a Handlebars-compatible subset while
-preserving any ``{{}}`` runtime placeholders untouched.
+This module provides `render_once` which performs a single-pass render using
+`@{}@` as the delimiter instead of `{{}}`. It is the engine behind variable
+composition — it gives `@{}@` syntax a Handlebars-compatible subset while
+preserving any `{{}}` runtime placeholders untouched.
 
 Algorithm:
-  a. Protect ``{{...}}`` runtime placeholders in the template
-  b. Convert ``@{...}@`` reference tags to standard Handlebars ``{{...}}`` tags
+  a. Protect `{{...}}` runtime placeholders in the template
+  b. Convert `@{...}@` reference tags to standard Handlebars `{{...}}` tags
   c. Run standard Handlebars
   d. Restore the protected runtime placeholders
   e. Unescape entities introduced to protect context values
@@ -46,7 +46,7 @@ def _protect_value(value: Any, safe_string_cls: type[str]) -> Any:
 
 
 def render_once(template: str, context: dict[str, Any]) -> str:
-    """Single-pass render: convert ``@{}@`` tags, run Handlebars, restore ``{{}}``."""
+    """Single-pass render: convert `@{}@` tags, run Handlebars, restore `{{}}`."""
     safe_string_cls, hbs_render = get_handlebars_renderer()
     left_runtime_placeholder = _sentinel('left-runtime-placeholder', template)
     right_runtime_placeholder = _sentinel('right-runtime-placeholder', template)

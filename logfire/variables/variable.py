@@ -647,9 +647,9 @@ class Variable(_BaseVariable[T_co]):
 class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
     """A managed variable with integrated template rendering.
 
-    Like ``Variable``, but ``get()`` requires ``inputs`` and automatically renders
-    Handlebars ``{{placeholder}}`` templates in the resolved value before returning.
-    The pipeline is: resolve → compose ``@{refs}@`` → render ``{{}}`` → deserialize.
+    Like `Variable`, but `get()` requires `inputs` and automatically renders
+    Handlebars `{{placeholder}}` templates in the resolved value before returning.
+    The pipeline is: resolve → compose `@{refs}@` → render `{{}}` → deserialize.
     """
 
     inputs_type: type[InputsT]
@@ -703,13 +703,13 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
 
         The resolution pipeline is:
         1. Fetch serialized value from provider (or use default)
-        2. Expand ``@{variable_name}@`` composition references
-        3. Render ``{{placeholder}}`` Handlebars templates using ``inputs``
+        2. Expand `@{variable_name}@` composition references
+        3. Render `{{placeholder}}` Handlebars templates using `inputs`
         4. Deserialize to the variable's type
 
         Args:
-            inputs: Template context values. Typically a Pydantic ``BaseModel`` instance
-                matching ``inputs_type``. All ``{{placeholder}}`` expressions in the value
+            inputs: Template context values. Typically a Pydantic `BaseModel` instance
+                matching `inputs_type`. All `{{placeholder}}` expressions in the value
                 are rendered using this context.
             targeting_key: Optional key for deterministic label selection (e.g., user ID).
             attributes: Optional attributes for condition-based targeting rules.

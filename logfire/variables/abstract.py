@@ -98,8 +98,8 @@ class ResolvedVariable(Generic[T_co]):
     value: T_co
     """The resolved value of the variable."""
     reason: ResolutionReason
-    """How the variable was resolved (see ``ResolutionReason`` for possible values)."""
-    # Note: ``reason`` is declared before fields with defaults because we don't use kw_only=True
+    """How the variable was resolved (see `ResolutionReason` for possible values)."""
+    # Note: `reason` is declared before fields with defaults because we don't use kw_only=True
     # on Python<3.10; move it to the end when 3.9 support is dropped.
     label: str | None = None
     """The name of the selected label, if any."""
@@ -136,8 +136,8 @@ def _inputs_to_context(inputs: Any) -> dict[str, Any]:
     """Convert inputs (Pydantic model, dict, or Mapping) to a template context dict.
 
     Args:
-        inputs: Template context values. Can be a Pydantic ``BaseModel`` (uses ``model_dump()``),
-            a ``dict``, or any ``Mapping``. If ``None``, returns an empty dict.
+        inputs: Template context values. Can be a Pydantic `BaseModel` (uses `model_dump()`),
+            a `dict`, or any `Mapping`. If `None`, returns an empty dict.
 
     Returns:
         A dict suitable for use as a Handlebars template context.
@@ -158,13 +158,13 @@ def _inputs_to_context(inputs: Any) -> dict[str, Any]:
 def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     """Render Handlebars templates in a serialized JSON string.
 
-    Decodes the JSON, renders all string values containing ``{{placeholders}}``
+    Decodes the JSON, renders all string values containing `{{placeholders}}`
     using the provided inputs, then re-encodes to JSON.
 
     Args:
         serialized_json: A JSON-encoded string potentially containing Handlebars templates.
-        inputs: Template context values. Can be a Pydantic ``BaseModel``, ``dict``,
-            ``Mapping``, or ``None``.
+        inputs: Template context values. Can be a Pydantic `BaseModel`, `dict`,
+            `Mapping`, or `None`.
 
     Returns:
         The rendered JSON string.
@@ -310,7 +310,7 @@ class ValidationReport:
     description_differences: list[DescriptionDifference]
     """List of variables where local and server descriptions differ."""
     reference_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    """Errors found while checking ``@{variable}@`` references (missing refs, cycles, etc.)."""
+    """Errors found while checking `@{variable}@` references (missing refs, cycles, etc.)."""
 
     @property
     def has_errors(self) -> bool:

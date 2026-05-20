@@ -1,11 +1,11 @@
-"""Variable composition: expand ``@{variable_name}@`` references in serialized values.
+"""Variable composition: expand `@{variable_name}@` references in serialized values.
 
 This module provides pure functions for expanding variable references in serialized
-JSON strings. References use the ``@{variable_name}@`` syntax and are expanded using
+JSON strings. References use the `@{variable_name}@` syntax and are expanded using
 a Handlebars-compatible subset: simple references, dotted field reads, and block
 helpers whose condition/iterable is a top-level referenced variable.
 
-Meanwhile, any ``{{runtime}}`` placeholders are preserved untouched for later
+Meanwhile, any `{{runtime}}` placeholders are preserved untouched for later
 template rendering.
 
 The composition logic is shared between the SDK (client-side expansion) and the
@@ -42,14 +42,14 @@ ResolutionReason = Literal[
 ]
 """Why a variable (or a composed reference) resolved to its final value.
 
-- ``resolved``: provider returned a value that was used as-is.
-- ``context_override``: a value set via ``Variable.override(...)`` was used.
-- ``missing_config``: the variable exists on the provider but the targeting/rollout produced no value.
-- ``unrecognized_variable``: the provider has no entry for the variable.
-- ``validation_error``: the serialized value failed deserialization.
-- ``other_error``: composition, rendering or other error during resolution.
-- ``no_provider``: no provider is configured.
-- ``code_default``: the variable's code-default was used because the provider had no value.
+- `resolved`: provider returned a value that was used as-is.
+- `context_override`: a value set via `Variable.override(...)` was used.
+- `missing_config`: the variable exists on the provider but the targeting/rollout produced no value.
+- `unrecognized_variable`: the provider has no entry for the variable.
+- `validation_error`: the serialized value failed deserialization.
+- `other_error`: composition, rendering or other error during resolution.
+- `no_provider`: no provider is configured.
+- `code_default`: the variable's code-default was used because the provider had no value.
 """
 
 # Matches unescaped @{ (not preceded by \).
@@ -79,7 +79,7 @@ class VariableCompositionCycleError(VariableCompositionError):
 
 @dataclass
 class ComposedReference:
-    """Metadata about a single ``@{reference}@`` that was encountered during expansion.
+    """Metadata about a single `@{reference}@` that was encountered during expansion.
 
     This is a lightweight dataclass used to track composition results without
     depending on ResolvedVariable, making it reusable from both the SDK and backend.
@@ -106,7 +106,7 @@ ResolveFn = Callable[[str], Tuple[Optional[str], Optional[str], Optional[int], R
 
 
 def has_references(serialized_value: str) -> bool:
-    """Quick check for any unescaped ``@{`` in a serialized value."""
+    """Quick check for any unescaped `@{` in a serialized value."""
     return _HAS_REFERENCE.search(serialized_value) is not None
 
 
@@ -118,11 +118,11 @@ def expand_references(
     _visited: tuple[str, ...] = (),
     _depth: int = 0,
 ) -> tuple[str, list[ComposedReference]]:
-    """Expand ``@{var}@`` references in a serialized variable value.
+    """Expand `@{var}@` references in a serialized variable value.
 
-    Uses the Handlebars engine so that ``@{}@`` supports simple references,
+    Uses the Handlebars engine so that `@{}@` supports simple references,
     dotted field reads, and block helpers whose condition/iterable is a
-    top-level referenced variable while preserving ``{{runtime}}`` placeholders
+    top-level referenced variable while preserving `{{runtime}}` placeholders
     untouched.
 
     Args:
@@ -262,10 +262,10 @@ def expand_references(
 
 
 def find_references(serialized_value: str) -> list[str]:
-    """Find all ``@{variable_name}@`` references in a serialized value.
+    """Find all `@{variable_name}@` references in a serialized value.
 
-    Detects both simple ``@{var}@`` and block ``@{#helper var}@`` patterns.
-    For dotted references like ``@{var.field}@``, only the base variable name
+    Detects both simple `@{var}@` and block `@{#helper var}@` patterns.
+    For dotted references like `@{var.field}@`, only the base variable name
     (first segment) is returned. This ensures correct cycle detection and
     reference graph building.
 
@@ -334,7 +334,7 @@ def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str
     """Recursively walk a decoded JSON value, rendering strings through Handlebars.
 
     Unresolved variable names should already be present in the context as their
-    literal ``@{name}@`` text so that Handlebars preserves them.
+    literal `@{name}@` text so that Handlebars preserves them.
     """
     if isinstance(value, str):
         if not has_references(value):
@@ -381,9 +381,9 @@ def _restore_unresolved_refs(value: str, protected_refs: dict[str, str]) -> str:
 
 
 def _unescape_serialized(serialized: str) -> str:
-    r"""Unescape ``\@{`` to ``@{`` in a JSON-serialized string.
+    r"""Unescape `\@{` to `@{` in a JSON-serialized string.
 
-    In JSON encoding, a literal backslash is ``\\``, so ``\@{`` in user content
-    appears as ``\\@{`` in the serialized JSON.
+    In JSON encoding, a literal backslash is `\\`, so `\@{` in user content
+    appears as `\\@{` in the serialized JSON.
     """
     return serialized.replace('\\\\@{', '@{')

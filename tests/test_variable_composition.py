@@ -833,7 +833,7 @@ class TestCompositionIntegration:
         assert result.composed_from[0].reason == 'code_default'
 
     def test_override_propagates_through_composition(self, config_kwargs: dict[str, Any]):
-        """``var.override(...)`` is honoured for ``@{var}@`` substitutions in a parent variable."""
+        """`var.override(...)` is honoured for `@{var}@` substitutions in a parent variable."""
         variables_config = VariablesConfig(
             variables={
                 'greeting': VariableConfig(
