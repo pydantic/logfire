@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from threading import Condition, Thread
+from threading import Condition, Thread, current_thread
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urljoin
 
@@ -119,11 +119,12 @@ class OTLPForwardingPipeline:
             return True
 
     def _ensure_worker_locked(self) -> None:
-        if self.worker is not None:
+        if self.worker is not None and self.worker.is_alive():
             return
 
         self.worker = Thread(target=self._run, daemon=False)
         self.worker.start()
+        self.condition.notify_all()
 
     def _send(self, queued_request: QueuedForwardingRequest) -> None:
         import logfire
@@ -140,23 +141,29 @@ class OTLPForwardingPipeline:
                 continue
 
     def _run(self) -> None:
-        while True:
-            with self.condition:
-                if not self.queue:
-                    return
-
-                queued_request = self.queue.popleft()
-                self.queued_body_bytes -= len(queued_request.request.body)
-                self.active_send_count += 1
-                self.condition.notify_all()
-
-            try:
-                self._send(queued_request)
-            except Exception:
-                pass
-            finally:
+        try:
+            while True:
                 with self.condition:
-                    self.active_send_count -= 1
+                    if not self.queue:
+                        return
+
+                    queued_request = self.queue.popleft()
+                    self.queued_body_bytes -= len(queued_request.request.body)
+                    self.active_send_count += 1
+                    self.condition.notify_all()
+
+                try:
+                    self._send(queued_request)
+                except Exception:
+                    pass
+                finally:
+                    with self.condition:
+                        self.active_send_count -= 1
+                        self.condition.notify_all()
+        finally:
+            with self.condition:
+                if self.worker is current_thread():
+                    self.worker = None
                     self.condition.notify_all()
 
 

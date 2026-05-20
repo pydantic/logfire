@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import FrozenInstanceError
-from threading import Event
+from threading import Event, Thread
 from typing import Any, cast
 
 import pytest
@@ -624,6 +624,74 @@ def test_forwarding_pipeline_rejected_enqueue_does_not_start_worker() -> None:
 
     assert full_pipeline.worker is None
     assert closed_pipeline.worker is None
+
+
+class BlockingSendForwardingPipeline(OTLPForwardingPipeline):
+    def __init__(self) -> None:
+        super().__init__(
+            base_url='https://example.com',
+            session=object(),  # type: ignore[arg-type]
+            max_queued_body_bytes=100,
+        )
+        self.started = Event()
+        self.release = Event()
+
+    def _send(self, queued_request: QueuedForwardingRequest) -> None:
+        self.started.set()
+        self.release.wait(timeout=5)
+
+
+def _wait_for_no_live_worker(pipeline: OTLPForwardingPipeline) -> None:
+    with pipeline.condition:
+        assert pipeline.condition.wait_for(
+            lambda: pipeline.worker is None or not pipeline.worker.is_alive(),
+            timeout=5,
+        )
+
+
+def test_forwarding_pipeline_worker_state_reusable_after_drain() -> None:
+    pipeline = BlockingSendForwardingPipeline()
+
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    first_worker = pipeline.worker
+    assert first_worker is not None
+    assert first_worker.daemon is False
+
+    pipeline.release.set()
+    _wait_for_no_live_worker(pipeline)
+    pipeline.started.clear()
+    pipeline.release.clear()
+
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'two')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    second_worker = pipeline.worker
+
+    assert second_worker is not None
+    assert second_worker is not first_worker
+    assert second_worker.daemon is False
+    pipeline.release.set()
+    _wait_for_no_live_worker(pipeline)
+
+
+def test_forwarding_pipeline_worker_exit_notifies_waiters() -> None:
+    pipeline = BlockingSendForwardingPipeline()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    waiter_returned = Event()
+
+    def wait_for_worker_exit() -> None:
+        with pipeline.condition:
+            if pipeline.condition.wait_for(lambda: pipeline.worker is None, timeout=5):
+                waiter_returned.set()
+
+    waiter = Thread(target=wait_for_worker_exit)
+    waiter.start()
+    pipeline.release.set()
+    waiter.join(timeout=1)
+
+    assert waiter_returned.is_set()
+    _wait_for_no_live_worker(pipeline)
 
 
 class FakeForwardingSession:
