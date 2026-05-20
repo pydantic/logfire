@@ -1,0 +1,27 @@
+logfire/_internal/forwarding.py
+  s_92cc90135ff4bf::t_24e37063e6bfbb 6,10,34,91-107
+tests/test_internal_forwarding.py
+  ai_agent 18
+  s_92cc90135ff4bf::t_24e37063e6bfbb 497-515
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "a6c802d8f144575c51f6af494d9f307847427193",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_92cc90135ff4bf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4628-f2d1-7c91-ad1e-5062fe882ab2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
