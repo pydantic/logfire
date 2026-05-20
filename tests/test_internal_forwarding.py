@@ -17,6 +17,7 @@ from logfire._internal.forwarding import (
     ForwardingRequest,
     QueuedForwardingRequest,
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
+    _forwarding_user_agent,  # pyright: ignore[reportPrivateUsage]
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
     build_forwarding_request,
     build_partial_success_response,
@@ -25,6 +26,7 @@ from logfire._internal.forwarding import (
     response_content_type,
     response_message_for_path,
 )
+from logfire.version import VERSION
 
 
 def test_forwarding_byte_limit_constants() -> None:
@@ -395,3 +397,11 @@ def test_build_partial_success_response_protobuf(path: str, message_cls: type[ob
     assert response.headers == {'Content-Type': 'application/x-protobuf'}
     assert message.partial_success.error_message == 'closed'  # type: ignore[attr-defined]
     assert getattr(message.partial_success, rejected_attr) == 0  # type: ignore[attr-defined]
+
+
+def test_forwarding_user_agent_without_inbound_user_agent() -> None:
+    assert _forwarding_user_agent(None) == f'logfire-proxy/{VERSION}'
+
+
+def test_forwarding_user_agent_with_inbound_user_agent() -> None:
+    assert _forwarding_user_agent('browser-agent') == f'logfire-proxy/{VERSION} browser-agent'

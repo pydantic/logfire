@@ -13,6 +13,8 @@ from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsSer
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
+from logfire.version import VERSION
+
 if TYPE_CHECKING:
     from logfire.experimental.forwarding import ForwardExportRequestResponse
 
@@ -219,3 +221,10 @@ def build_partial_success_response(
         headers={'Content-Type': response_content_type(request.content_type)},
         content=content,
     )
+
+
+def _forwarding_user_agent(user_agent: str | None) -> str:  # pyright: ignore[reportUnusedFunction]
+    forwarding_user_agent = f'logfire-proxy/{VERSION}'
+    if user_agent:
+        return f'{forwarding_user_agent} {user_agent}'
+    return forwarding_user_agent
