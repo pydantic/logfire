@@ -12,7 +12,7 @@ from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
 from time import sleep, time
-from typing import Any
+from typing import Any, Callable
 from unittest import mock
 from unittest.mock import call, patch
 
@@ -667,6 +667,70 @@ def test_logfire_config_force_flush_includes_forwarding_manager() -> None:
     config._logger_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
     config._otlp_forwarding.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
     config._tracer_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_logfire_shutdown_shuts_down_forwarding_before_provider_shutdown() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    events: list[str] = []
+    config._initialized = True  # pyright: ignore[reportPrivateUsage]
+    config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+
+    def append_event(name: str, result: bool | None = None) -> Callable[..., bool | None]:
+        def inner(*args: Any, **kwargs: Any) -> bool | None:
+            events.append(name)
+            return result
+
+        return inner
+
+    config._otlp_forwarding.shutdown.side_effect = append_event('forwarding', True)  # pyright: ignore[reportPrivateUsage]
+    config._tracer_provider.force_flush.side_effect = append_event('tracer_force_flush')  # pyright: ignore[reportPrivateUsage]
+    config._tracer_provider.shutdown.side_effect = append_event('tracer_shutdown')  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider.force_flush.side_effect = append_event('meter_force_flush')  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider.shutdown.side_effect = append_event('meter_shutdown')  # pyright: ignore[reportPrivateUsage]
+
+    assert logfire.Logfire(config=config).shutdown(timeout_millis=1000, flush=True) is True
+
+    forwarding_timeout = config._otlp_forwarding.shutdown.call_args.args[0]  # pyright: ignore[reportPrivateUsage]
+    assert 0 < forwarding_timeout <= 1000
+    config._otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=True)  # pyright: ignore[reportPrivateUsage]
+    assert events == ['forwarding', 'tracer_force_flush', 'tracer_shutdown', 'meter_force_flush', 'meter_shutdown']
+
+
+def test_logfire_shutdown_closes_forwarding_without_drain_when_flush_false() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    config._initialized = True  # pyright: ignore[reportPrivateUsage]
+    config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding.shutdown.return_value = True  # pyright: ignore[reportPrivateUsage]
+    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+
+    assert logfire.Logfire(config=config).shutdown(timeout_millis=1000, flush=False) is True
+
+    forwarding_timeout = config._otlp_forwarding.shutdown.call_args.args[0]  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=False)  # pyright: ignore[reportPrivateUsage]
+    config._tracer_provider.force_flush.assert_not_called()  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider.force_flush.assert_not_called()  # pyright: ignore[reportPrivateUsage]
+    config._tracer_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_logfire_shutdown_returns_false_when_forwarding_shutdown_incomplete() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    config._initialized = True  # pyright: ignore[reportPrivateUsage]
+    config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding.shutdown.return_value = False  # pyright: ignore[reportPrivateUsage]
+    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+
+    assert logfire.Logfire(config=config).shutdown(timeout_millis=1000, flush=True) is False
+
+    config._tracer_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
 
 
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
