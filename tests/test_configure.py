@@ -627,6 +627,32 @@ def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
     assert manager.has_destinations() is False
 
 
+def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    configure(
+        token=['pylf_v1_us_token1', 'pylf_v1_us_token2', 'pylf_v1_eu_token3'],
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+    wait_for_check_token_thread()
+    manager = GLOBAL_CONFIG._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert manager.tokens_by_base_url == {
+        'https://logfire-us.pydantic.dev': ('pylf_v1_us_token1', 'pylf_v1_us_token2'),
+        'https://logfire-eu.pydantic.dev': ('pylf_v1_eu_token3',),
+    }
+    assert set(manager.pipelines) == {'https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev'}
+
+
+def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> None:
+    config = LogfireConfig(send_to_logfire=False, token='pylf_v1_us_token')
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert manager.has_destinations() is False
+
+
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     assert isinstance(processor, BatchSpanProcessor)
     try:
