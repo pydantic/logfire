@@ -1089,6 +1089,7 @@ def test_forwarding_pipeline_enqueue_during_worker_empty_queue_exit_starts_new_w
 
     assert pipeline.force_flush(1000) is True
     assert pipeline.sent_bodies == [b'late']
+    _wait_for_no_live_worker(pipeline)
     assert pipeline.worker is None
 
 
