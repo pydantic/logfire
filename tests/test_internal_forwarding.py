@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import FrozenInstanceError
+from threading import Event
 from typing import Any, cast
 
 import pytest
@@ -531,37 +532,28 @@ def _make_queued_forwarding_request(body: bytes, tokens: tuple[str, ...] = ('tok
 
 
 def test_forwarding_pipeline_enqueue_accepts_and_accounts_bytes() -> None:
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=object(),  # type: ignore[arg-type]
-        max_queued_body_bytes=10,
-    )
+    pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=10)
     queued_request = _make_queued_forwarding_request(b'12345')
 
     assert pipeline.enqueue(queued_request) is True
+    pipeline.started.wait(timeout=5)
     assert list(pipeline.queue) == [queued_request]
     assert pipeline.queued_body_bytes == 5
-    assert pipeline.worker is None
+    assert pipeline.worker is not None
+    pipeline.stop()
 
 
 def test_forwarding_pipeline_enqueue_counts_multiple_tokens_once() -> None:
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=object(),  # type: ignore[arg-type]
-        max_queued_body_bytes=10,
-    )
+    pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=10)
     queued_request = _make_queued_forwarding_request(b'12345', tokens=('token-1', 'token-2'))
 
     assert pipeline.enqueue(queued_request) is True
     assert pipeline.queued_body_bytes == 5
+    pipeline.stop()
 
 
 def test_forwarding_pipeline_enqueue_rejects_when_queue_full() -> None:
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=object(),  # type: ignore[arg-type]
-        max_queued_body_bytes=4,
-    )
+    pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=4)
     queued_request = _make_queued_forwarding_request(b'12345')
 
     assert pipeline.enqueue(queued_request) is False
@@ -570,17 +562,68 @@ def test_forwarding_pipeline_enqueue_rejects_when_queue_full() -> None:
 
 
 def test_forwarding_pipeline_enqueue_rejects_when_closed() -> None:
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=object(),  # type: ignore[arg-type]
-        max_queued_body_bytes=10,
-    )
+    pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=10)
     pipeline.closed = True
     queued_request = _make_queued_forwarding_request(b'12345')
 
     assert pipeline.enqueue(queued_request) is False
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
+
+
+class BlockingRunForwardingPipeline(OTLPForwardingPipeline):
+    def __init__(self, *, max_queued_body_bytes: int = 100) -> None:
+        super().__init__(
+            base_url='https://example.com',
+            session=object(),  # type: ignore[arg-type]
+            max_queued_body_bytes=max_queued_body_bytes,
+        )
+        self.started = Event()
+        self.release = Event()
+
+    def _run(self) -> None:
+        self.started.set()
+        self.release.wait(timeout=5)
+
+    def stop(self) -> None:
+        self.release.set()
+        if self.worker is not None:
+            self.worker.join(timeout=5)
+
+
+def test_forwarding_pipeline_enqueue_starts_non_daemon_worker() -> None:
+    pipeline = BlockingRunForwardingPipeline()
+
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+
+    assert pipeline.worker is not None
+    assert pipeline.worker.daemon is False
+    pipeline.stop()
+
+
+def test_forwarding_pipeline_enqueue_does_not_start_duplicate_live_worker() -> None:
+    pipeline = BlockingRunForwardingPipeline()
+
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    first_worker = pipeline.worker
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'two')) is True
+
+    assert pipeline.worker is first_worker
+    pipeline.stop()
+
+
+def test_forwarding_pipeline_rejected_enqueue_does_not_start_worker() -> None:
+    full_pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=1)
+    closed_pipeline = BlockingRunForwardingPipeline()
+    closed_pipeline.closed = True
+
+    assert full_pipeline.enqueue(_make_queued_forwarding_request(b'too-large')) is False
+    assert closed_pipeline.enqueue(_make_queued_forwarding_request(b'one')) is False
+
+    assert full_pipeline.worker is None
+    assert closed_pipeline.worker is None
 
 
 class FakeForwardingSession:

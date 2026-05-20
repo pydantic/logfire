@@ -114,8 +114,16 @@ class OTLPForwardingPipeline:
 
             self.queue.append(queued_request)
             self.queued_body_bytes += body_size
+            self._ensure_worker_locked()
             self.condition.notify_all()
             return True
+
+    def _ensure_worker_locked(self) -> None:
+        if self.worker is not None:
+            return
+
+        self.worker = Thread(target=self._run, daemon=False)
+        self.worker.start()
 
     def _send(self, queued_request: QueuedForwardingRequest) -> None:
         import logfire
