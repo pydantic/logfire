@@ -810,6 +810,7 @@ def test_forwarding_pipeline_retire_closes_idle_session_without_worker() -> None
         max_queued_body_bytes=100,
     )
 
+    assert pipeline.is_idle() is True
     assert pipeline.retire() is False
 
     assert pipeline.closed is True
@@ -827,6 +828,7 @@ def test_forwarding_pipeline_retire_lets_existing_worker_drain() -> None:
     assert pipeline.retire() is True
 
     assert pipeline.closed is True
+    assert pipeline.is_idle() is False
     assert pipeline.worker is worker
     assert pipeline.enqueue(_make_queued_forwarding_request(b'two')) is False
     assert pipeline.fake_session.close_count == 0
@@ -834,7 +836,23 @@ def test_forwarding_pipeline_retire_lets_existing_worker_drain() -> None:
     pipeline.release.set()
     _wait_for_no_live_worker(pipeline)
 
+    assert pipeline.is_idle() is True
     assert pipeline.fake_session.close_count == 1
+
+
+def test_forwarding_pipeline_run_clears_current_worker_reference_after_unexpected_exit() -> None:
+    class FatalForwardingPipeline(RecordingForwardingPipeline):
+        def _send(self, queued_request: QueuedForwardingRequest) -> None:
+            raise SystemExit
+
+    pipeline = FatalForwardingPipeline()
+    pipeline.worker = current_thread()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+
+    with pytest.raises(SystemExit):
+        pipeline._run()  # pyright: ignore[reportPrivateUsage]
+
+    assert pipeline.worker is None
 
 
 def test_forwarding_pipeline_shutdown_drains_queued_work() -> None:

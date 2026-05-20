@@ -700,6 +700,38 @@ def test_logfire_config_reconfigure_prunes_idle_retired_forwarding_managers() ->
     assert config._retired_otlp_forwarding == [active_retired]  # pyright: ignore[reportPrivateUsage]
 
 
+def test_logfire_config_reconfigure_tracks_pending_forwarding_manager() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    previous_manager = mock.Mock()
+    previous_manager.retire.return_value = True
+    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
+
+    config.configure(
+        send_to_logfire=False,
+        token=None,
+        api_key=None,
+        service_name=None,
+        service_version=None,
+        environment=None,
+        console=False,
+        config_dir=None,
+        data_dir=None,
+        additional_span_processors=None,
+        metrics=False,
+        scrubbing=None,
+        inspect_arguments=None,
+        sampling=None,
+        min_level=None,
+        add_baggage_to_attributes=True,
+        code_source=None,
+        variables=None,
+        distributed_tracing=None,
+        advanced=None,
+    )
+
+    assert config._retired_otlp_forwarding == [previous_manager]  # pyright: ignore[reportPrivateUsage]
+
+
 def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_for_idle_manager() -> None:
     config = LogfireConfig(send_to_logfire=False)
     previous_manager = OTLPForwardingManager(config)
