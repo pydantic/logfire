@@ -16,6 +16,7 @@ from logfire._internal.forwarding import (
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
     build_forwarding_request,
     parse_forwarding_content_type,
+    response_content_type,
 )
 
 
@@ -272,3 +273,14 @@ def test_build_forwarding_request_invalid_path() -> None:
 
     assert isinstance(response, ForwardingErrorResponse)
     assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ('content_type', 'expected'),
+    [
+        (ForwardingContentType.PROTOBUF, 'application/x-protobuf'),
+        (ForwardingContentType.JSON, 'application/json'),
+    ],
+)
+def test_response_content_type(content_type: ForwardingContentType, expected: str) -> None:
+    assert response_content_type(content_type) == expected

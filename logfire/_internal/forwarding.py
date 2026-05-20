@@ -150,3 +150,7 @@ def build_forwarding_request(
         content_encoding=content_encoding,
         user_agent=user_agent,
     )
+
+
+def response_content_type(content_type: ForwardingContentType) -> str:
+    return content_type.value
