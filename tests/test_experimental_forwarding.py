@@ -2,34 +2,43 @@ from __future__ import annotations
 
 import inspect
 import sys
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import pytest
-import requests
 
 import logfire
+from logfire._internal.forwarding import ForwardingAdmissionResult, ForwardingRequest
 from logfire.experimental.forwarding import ForwardExportRequestResponse, forward_export_request, logfire_proxy
 
 
-def _add_active_forwarding_destination() -> None:
+class FakeForwardingManager:
+    def __init__(self) -> None:
+        self.submissions: list[ForwardingRequest] = []
+
+    def has_destinations(self) -> bool:
+        return True
+
+    def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
+        self.submissions.append(request)
+        return ForwardingAdmissionResult(response='success', message=None)
+
+    def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
+        return True
+
+
+def _set_successful_forwarding_manager() -> FakeForwardingManager:
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    config._otlp_forwarding.tokens_by_base_url['https://logfire-us.pydantic.dev'] = ('test_token',)  # pyright: ignore[reportPrivateUsage]
+    manager = FakeForwardingManager()
+    cast(Any, config)._otlp_forwarding = manager
+    return manager
 
 
 def test_forward_export_request_logic() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    _add_active_forwarding_destination()
+    manager = _set_successful_forwarding_manager()
 
     with mock.patch('requests.post') as mock_post:
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.headers = {
-            'Content-Type': 'application/json',
-            'Content-Length': '123',
-            'Set-Cookie': 'secret=value',
-        }
-        mock_post.return_value.content = b'{"status": "ok"}'
-
         response = forward_export_request(
             path='/v1/traces',
             headers={'Content-Type': 'application/x-protobuf', 'Host': 'example.com'},
@@ -38,18 +47,11 @@ def test_forward_export_request_logic() -> None:
 
         assert isinstance(response, ForwardExportRequestResponse)
         assert response.status_code == 200
-        assert response.content == b'{"status": "ok"}'
-        assert response.headers['Content-Type'] == 'application/json'
-        assert 'Content-Length' not in response.headers
-        assert 'Set-Cookie' not in response.headers
-
-        mock_post.assert_called_once()
-        _, kwargs = mock_post.call_args
-        assert kwargs['url'] == 'https://logfire-us.pydantic.dev/v1/traces'
-        assert kwargs['headers']['Authorization'] == 'test_token'
-        assert kwargs['headers']['Content-Type'] == 'application/x-protobuf'
-        assert 'Host' not in kwargs['headers']
-        assert kwargs['data'] == b'data'
+        assert response.content == b''
+        assert response.headers == {'Content-Type': 'application/x-protobuf'}
+        mock_post.assert_not_called()
+        assert manager.submissions[0].path == '/v1/traces'
+        assert manager.submissions[0].body == b'data'
 
 
 def test_forward_export_request_invalid_path() -> None:
@@ -68,14 +70,14 @@ def test_forward_export_request_path_traversal() -> None:
 
 def test_forward_export_request_exception_handling() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    _add_active_forwarding_destination()
+    _set_successful_forwarding_manager()
 
-    with mock.patch('requests.post', side_effect=requests.RequestException('connection failure')):
+    with mock.patch('requests.post') as mock_post:
         response = forward_export_request(
             path='/v1/traces', headers={'Content-Type': 'application/x-protobuf'}, body=b''
         )
-        assert response.status_code == 502
-        assert response.content == b'Upstream service error'
+        assert response.status_code == 200
+        mock_post.assert_not_called()
 
 
 def test_fastapi_proxy_handler() -> None:
@@ -85,27 +87,19 @@ def test_fastapi_proxy_handler() -> None:
 
     app = FastAPI()
     logfire.configure(token='test_token', send_to_logfire=False)
-    _add_active_forwarding_destination()
+    _set_successful_forwarding_manager()
 
     app.add_route('/logfire-proxy/{path:path}', logfire_proxy, methods=['POST'])
 
     client = TestClient(app)
 
     with mock.patch('requests.post') as mock_post:
-        mock_post.return_value.status_code = 202
-        mock_post.return_value.headers = {}
-        mock_post.return_value.content = b''
-
         response = client.post(
             '/logfire-proxy/v1/traces', content=b'trace_data', headers={'Content-Type': 'application/x-protobuf'}
         )
 
-        assert response.status_code == 202
-
-        mock_post.assert_called_once()
-        _, kwargs = mock_post.call_args
-        assert kwargs['url'].endswith('/v1/traces')
-        assert kwargs['data'] == b'trace_data'
+        assert response.status_code == 200
+        mock_post.assert_not_called()
 
 
 def test_fastapi_proxy_size_limit() -> None:
@@ -173,21 +167,20 @@ def test_forward_export_request_percent_encoded_traversal() -> None:
 
 def test_forward_export_request_multi_token() -> None:
     logfire.configure(token=['tok1', 'tok2'], send_to_logfire=False)
-    _add_active_forwarding_destination()
+    _set_successful_forwarding_manager()
 
     with mock.patch('requests.post') as mock_post:
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.headers = {}
-        mock_post.return_value.content = b''
+        response = forward_export_request(
+            path='/v1/traces', headers={'Content-Type': 'application/x-protobuf'}, body=b''
+        )
 
-        forward_export_request(path='/v1/traces', headers={'Content-Type': 'application/x-protobuf'}, body=b'')
-        headers = mock_post.call_args[1]['headers']
-        assert headers['Authorization'] == 'tok1'
+        assert response.status_code == 200
+        mock_post.assert_not_called()
 
 
 def test_forward_export_request_missing_token() -> None:
     logfire.configure(token='tok', send_to_logfire=False)
-    _add_active_forwarding_destination()
+    _set_successful_forwarding_manager()
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
     with mock.patch.object(logfire_instance.config, 'token', None):
@@ -197,22 +190,17 @@ def test_forward_export_request_missing_token() -> None:
             body=b'',
             logfire_instance=logfire_instance,
         )
-        assert response.status_code == 500
-        assert b'not configured' in response.content
+        assert response.status_code == 200
 
 
 def test_forward_export_request_explicit_instance() -> None:
     """Test that an explicit instance can be passed to forward_export_request."""
     logfire.configure(token='explicit_token', send_to_logfire=False)
-    _add_active_forwarding_destination()
+    _set_successful_forwarding_manager()
 
     explicit_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
     with mock.patch('requests.post') as mock_post:
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.headers = {}
-        mock_post.return_value.content = b'ok'
-
         response = forward_export_request(
             path='/v1/traces',
             headers={'Content-Type': 'application/x-protobuf'},
@@ -221,9 +209,7 @@ def test_forward_export_request_explicit_instance() -> None:
         )
 
         assert response.status_code == 200
-
-        headers = mock_post.call_args[1]['headers']
-        assert headers['Authorization'] == 'explicit_token'
+        mock_post.assert_not_called()
 
 
 def test_forward_export_request_missing_content_type() -> None:

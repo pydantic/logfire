@@ -3,17 +3,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urljoin
-
-import requests
 
 import logfire
 from logfire._internal.forwarding import (
     OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
     ForwardingErrorResponse,
     build_forwarding_request,
+    build_partial_success_response,
+    build_success_response,
 )
-from logfire.version import VERSION
 
 __all__ = ('ForwardExportRequestResponse', 'forward_export_request', 'logfire_proxy')
 
@@ -65,81 +63,10 @@ def forward_export_request(
             content=b'Logfire is not configured with an active forwarding destination',
         )
 
-    path = forwarding_request.path
-    body = forwarding_request.body
-
-    token = config.token
-    if isinstance(token, list):
-        # Proxying only supports the first configured project/token
-        token = token[0] if token else None
-
-    if not token:
-        return ForwardExportRequestResponse(
-            status_code=500,
-            headers={'Content-Type': 'text/plain'},
-            content=b'Logfire is not configured with a token',
-        )
-
-    base_url = config.advanced.generate_base_url(token)
-    url = urljoin(base_url, path)
-
-    headers_to_remove = {
-        'host',
-        'content-length',
-        'authorization',
-        'connection',
-        'transfer-encoding',
-        'keep-alive',
-        'proxy-authenticate',
-        'proxy-authorization',
-        'te',
-        'trailer',
-        'upgrade',
-        'cookie',
-        'cf-connecting-ip',
-    }
-
-    new_headers = {k: v for k, v in headers.items() if k.lower() not in headers_to_remove}
-
-    # Case-insensitive lookup to preserve original User-Agent
-    user_agent_key = next((k for k in new_headers if k.lower() == 'user-agent'), None)
-    if user_agent_key:
-        original_ua = new_headers.pop(user_agent_key)
-        new_headers['User-Agent'] = f'logfire-proxy/{VERSION} {original_ua}'
-    else:
-        new_headers['User-Agent'] = f'logfire-proxy/{VERSION}'
-
-    new_headers['Authorization'] = token
-
-    try:
-        # Wrap with suppress_instrumentation so we don't infinitely trace proxy telemetry
-        with logfire.suppress_instrumentation():
-            response = requests.post(
-                url=url,
-                headers=new_headers,
-                data=body,
-                stream=False,
-                timeout=30,
-            )
-    except requests.RequestException:
-        # Security: Return a generic error to avoid leaking internal URL/configuration details
-        return ForwardExportRequestResponse(
-            status_code=502,
-            headers={'Content-Type': 'text/plain'},
-            content=b'Upstream service error',
-        )
-
-    response_headers = {
-        k: v
-        for k, v in response.headers.items()
-        if k.lower() not in ('content-encoding', 'content-length', 'transfer-encoding', 'connection', 'set-cookie')
-    }
-
-    return ForwardExportRequestResponse(
-        status_code=response.status_code,
-        headers=response_headers,
-        content=response.content,
-    )
+    admission_result = config._otlp_forwarding.submit(forwarding_request)  # pyright: ignore[reportPrivateUsage]
+    if admission_result.response == 'success':
+        return build_success_response(forwarding_request)
+    return build_partial_success_response(forwarding_request, message=admission_result.message or '')
 
 
 async def logfire_proxy(
