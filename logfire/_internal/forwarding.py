@@ -131,6 +131,26 @@ class OTLPForwardingPipeline:
             except Exception:
                 continue
 
+    def _run(self) -> None:
+        while True:
+            with self.condition:
+                if not self.queue:
+                    return
+
+                queued_request = self.queue.popleft()
+                self.queued_body_bytes -= len(queued_request.request.body)
+                self.active_send_count += 1
+                self.condition.notify_all()
+
+            try:
+                self._send(queued_request)
+            except Exception:
+                pass
+            finally:
+                with self.condition:
+                    self.active_send_count -= 1
+                    self.condition.notify_all()
+
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     for header_name, value in headers.items():

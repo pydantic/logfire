@@ -645,3 +645,61 @@ def test_forwarding_pipeline_send_contains_token_failures() -> None:
     pipeline._send(queued_request)  # pyright: ignore[reportPrivateUsage]
 
     assert [call['headers']['Authorization'] for call in session.calls] == ['token-1', 'token-2']
+
+
+class RecordingForwardingPipeline(OTLPForwardingPipeline):
+    def __init__(self, *, fail_bodies: set[bytes] | None = None) -> None:
+        super().__init__(
+            base_url='https://example.com',
+            session=object(),  # type: ignore[arg-type]
+            max_queued_body_bytes=100,
+        )
+        self.fail_bodies = fail_bodies or set()
+        self.sent_bodies: list[bytes] = []
+        self.active_send_counts: list[int] = []
+
+    def _send(self, queued_request: QueuedForwardingRequest) -> None:
+        self.active_send_counts.append(self.active_send_count)
+        self.sent_bodies.append(queued_request.request.body)
+        if queued_request.request.body in self.fail_bodies:
+            raise RuntimeError('send failed')
+
+
+def test_forwarding_pipeline_run_drains_queue_and_resets_state() -> None:
+    pipeline = RecordingForwardingPipeline()
+    pipeline.enqueue(_make_queued_forwarding_request(b'one'))
+    pipeline.enqueue(_make_queued_forwarding_request(b'two'))
+
+    pipeline._run()  # pyright: ignore[reportPrivateUsage]
+
+    assert list(pipeline.queue) == []
+    assert pipeline.queued_body_bytes == 0
+    assert pipeline.active_send_count == 0
+    assert pipeline.sent_bodies == [b'one', b'two']
+    assert pipeline.active_send_counts == [1, 1]
+
+
+def test_forwarding_pipeline_run_continues_after_unexpected_send_failure() -> None:
+    pipeline = RecordingForwardingPipeline(fail_bodies={b'one'})
+    pipeline.enqueue(_make_queued_forwarding_request(b'one'))
+    pipeline.enqueue(_make_queued_forwarding_request(b'two'))
+
+    pipeline._run()  # pyright: ignore[reportPrivateUsage]
+
+    assert list(pipeline.queue) == []
+    assert pipeline.queued_body_bytes == 0
+    assert pipeline.active_send_count == 0
+    assert pipeline.sent_bodies == [b'one', b'two']
+
+
+def test_forwarding_pipeline_run_drains_already_queued_work_when_closed() -> None:
+    pipeline = RecordingForwardingPipeline()
+    pipeline.enqueue(_make_queued_forwarding_request(b'one'))
+    pipeline.closed = True
+
+    pipeline._run()  # pyright: ignore[reportPrivateUsage]
+
+    assert list(pipeline.queue) == []
+    assert pipeline.queued_body_bytes == 0
+    assert pipeline.active_send_count == 0
+    assert pipeline.sent_bodies == [b'one']
