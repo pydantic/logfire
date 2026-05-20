@@ -448,6 +448,61 @@ def test_forward_export_request_header_sanitization(monkeypatch: pytest.MonkeyPa
     }
 
 
+def test_forward_export_request_partial_success_when_backend_queue_full(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sessions: list[RecordingForwardingSession] = []
+
+    def session_factory() -> RecordingForwardingSession:
+        session = RecordingForwardingSession()
+        sessions.append(session)
+        return session
+
+    def initialize_credentials_from_token(self: LogfireConfig, token: str) -> None:
+        return None
+
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', initialize_credentials_from_token)
+    monkeypatch.setattr('logfire._internal.forwarding.OTLPExporterHttpSession', session_factory)
+    logfire.configure(
+        token=['pylf_v1_us_token', 'pylf_v1_eu_token'],
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+    manager = logfire.DEFAULT_LOGFIRE_INSTANCE.config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    manager.pipelines['https://logfire-us.pydantic.dev'].max_queued_body_bytes = 0
+
+    response = forward_export_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/json'},
+        body=b'{}',
+    )
+
+    assert response.status_code == 200
+    assert response.headers == {'Content-Type': 'application/json'}
+    assert json.loads(response.content) == {
+        'partialSuccess': {
+            'rejectedSpans': '0',
+            'errorMessage': 'Forwarding request was locally dropped for 1 backend URL(s).',
+        }
+    }
+    assert manager.force_flush(1000) is True
+    assert len(sessions) == 2
+    assert sessions[0].calls == []
+    assert sessions[1].calls == [
+        {
+            'url': 'https://logfire-eu.pydantic.dev/v1/traces',
+            'data': b'{}',
+            'headers': {
+                'Content-Type': 'application/json',
+                'User-Agent': f'logfire-proxy/{logfire.VERSION}',
+                'Authorization': 'pylf_v1_eu_token',
+            },
+            'timeout': 10.0,
+        }
+    ]
+
+
 @pytest.mark.parametrize(
     ('path', 'rejected_field'),
     [
