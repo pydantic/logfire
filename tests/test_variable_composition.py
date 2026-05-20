@@ -564,7 +564,8 @@ class TestCompositionIntegration:
         monkeypatch.setattr('logfire.variables.variable.expand_references', raise_composition_error)
 
         var = lf.var(name='main', default='fallback', type=str)
-        result = var.get()
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            result = var.get()
 
         assert result.value == 'fallback'
         assert result.exception is not None
@@ -588,7 +589,7 @@ class TestCompositionIntegration:
         assert result.composed_from[0].composed_from[0].name == 'c'
 
     def test_cycle_falls_back_gracefully(self, config_kwargs: dict[str, Any]):
-        """Cycles in references are surfaced on the top-level result."""
+        """Cycles in references are surfaced on the top-level result and a warning is emitted."""
         variables_config = _make_variables_config(
             a='"@{b}@"',
             b='"@{a}@"',
@@ -597,15 +598,16 @@ class TestCompositionIntegration:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='a', default='fallback', type=str)
-        result = var.get()
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            result = var.get()
         assert result.value == 'fallback'
         assert isinstance(result.exception, VariableCompositionError)
         assert result.reason == 'other_error'
         assert len(result.composed_from) == 1
         assert result.composed_from[0].composed_from[0].error == 'Circular reference detected: a -> b -> a'
 
-    def test_nonexistent_reference_left_unexpanded(self, config_kwargs: dict[str, Any]):
-        """References to non-existent variables are left as-is."""
+    def test_nonexistent_reference_falls_back_with_warning(self, config_kwargs: dict[str, Any]):
+        """References to non-existent variables surface as composition errors and fall back."""
         variables_config = _make_variables_config(
             main='"Hello @{nonexistent}@"',
         )
@@ -613,8 +615,16 @@ class TestCompositionIntegration:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='main', default='fallback', type=str)
-        result = var.get()
-        assert result.value == 'Hello @{nonexistent}@'
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            result = var.get()
+        assert result.value == 'fallback'
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, VariableCompositionError)
+        # The unresolved reference is recorded with an error message.
+        assert len(result.composed_from) == 1
+        assert result.composed_from[0].name == 'nonexistent'
+        assert result.composed_from[0].error is not None
+        assert 'nonexistent' in result.composed_from[0].error
 
     def test_non_string_reference_expanded(self, config_kwargs: dict[str, Any]):
         """Non-string variables are now expanded via Handlebars."""

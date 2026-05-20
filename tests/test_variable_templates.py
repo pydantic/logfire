@@ -188,7 +188,7 @@ class TestTemplateVariable:
             lf.template_var('not-valid', type=str, default='x', inputs_type=Inputs)
 
     def test_remote_render_error_records_exception(self, config_kwargs: dict[str, Any]):
-        """Invalid remote templates fall back and record the render exception."""
+        """Invalid remote templates fall back, warn, and record the render exception."""
 
         class Inputs(BaseModel):
             name: str
@@ -196,7 +196,8 @@ class TestTemplateVariable:
         lf = _make_lf(_simple_config('prompt', json.dumps('Hello {{#if name}}')), config_kwargs)
         var = lf.template_var('prompt', type=str, default='fallback', inputs_type=Inputs)
 
-        resolved = var.get(Inputs(name='Alice'))
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            resolved = var.get(Inputs(name='Alice'))
 
         assert resolved.value == 'fallback'
         assert resolved.exception is not None

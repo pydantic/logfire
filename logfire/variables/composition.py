@@ -180,6 +180,7 @@ def expand_references(
                     label=ref_label,
                     version=ref_version,
                     reason=ref_reason,
+                    error=f"Referenced variable '{ref_name}' could not be resolved.",
                 )
             )
             unresolved_names.add(ref_name)

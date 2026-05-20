@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import inspect
 import json
+import warnings
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
@@ -377,26 +378,20 @@ class _BaseVariable(Generic[T_co]):
                     resolve_ref,
                 )
                 if composition_error := _first_composition_error(composed):
-                    default = self._get_default(targeting_key, attributes)
-                    return ResolvedVariable(
-                        name=self.name,
-                        value=default,
+                    return self._composition_failure(
                         exception=VariableCompositionError(composition_error),
-                        reason='other_error',
-                        label=serialized_result.label,
-                        version=serialized_result.version,
-                        composed_from=composed,
+                        targeting_key=targeting_key,
+                        attributes=attributes,
+                        serialized_result=serialized_result,
+                        composed=composed,
                     )
             except VariableCompositionError as e:
-                default = self._get_default(targeting_key, attributes)
-                return ResolvedVariable(
-                    name=self.name,
-                    value=default,
+                return self._composition_failure(
                     exception=e,
-                    reason='other_error',
-                    label=serialized_result.label,
-                    version=serialized_result.version,
-                    composed_from=composed,
+                    targeting_key=targeting_key,
+                    attributes=attributes,
+                    serialized_result=serialized_result,
+                    composed=composed,
                 )
 
         # Apply render_fn (template rendering) if provided
@@ -404,15 +399,12 @@ class _BaseVariable(Generic[T_co]):
             try:
                 serialized_value = render_fn(serialized_value)
             except (HandlebarsError, ValueError, TypeError) as e:
-                default = self._get_default(targeting_key, attributes)
-                return ResolvedVariable(
-                    name=self.name,
-                    value=default,
+                return self._composition_failure(
                     exception=e,
-                    reason='other_error',
-                    label=serialized_result.label,
-                    version=serialized_result.version,
-                    composed_from=composed,
+                    targeting_key=targeting_key,
+                    attributes=attributes,
+                    serialized_result=serialized_result,
+                    composed=composed,
                 )
 
         # Deserialize the (possibly expanded/rendered) value
@@ -439,6 +431,31 @@ class _BaseVariable(Generic[T_co]):
             label=serialized_result.label,
             version=serialized_result.version,
             reason='resolved',
+            composed_from=composed,
+        )
+
+    def _composition_failure(
+        self,
+        *,
+        exception: Exception,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        serialized_result: ResolvedVariable[str | None],
+        composed: list[ComposedReference],
+    ) -> ResolvedVariable[T_co]:
+        """Fall back to the code default and warn after a composition/render failure."""
+        warnings.warn(
+            f"Variable '{self.name}' composition failed; falling back to code default: {exception}",
+            category=RuntimeWarning,
+            stacklevel=2,
+        )
+        return ResolvedVariable(
+            name=self.name,
+            value=self._get_default(targeting_key, attributes),
+            exception=exception,
+            reason='other_error',
+            label=serialized_result.label,
+            version=serialized_result.version,
             composed_from=composed,
         )
 
