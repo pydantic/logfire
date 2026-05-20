@@ -1416,6 +1416,7 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
