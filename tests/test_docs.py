@@ -2,12 +2,15 @@
 
 import gc
 import os
+from importlib.util import find_spec
 
 import pydantic
 import pytest
 from pytest_examples import CodeExample, EvalExample, find_examples
 
 from logfire._internal.utils import get_version
+
+HAS_PYDANTIC_HANDLEBARS = find_spec('pydantic_handlebars') is not None
 
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')
@@ -87,6 +90,9 @@ def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
     if 'from fastapi' in example.source and get_version(pydantic.__version__) < get_version('2.7.0'):
         pytest.skip('FastAPI requires pydantic>=2.7')
+
+    if not HAS_PYDANTIC_HANDLEBARS and 'logfire.template_var' in example.source:
+        pytest.skip('logfire.template_var requires pydantic-handlebars (Python 3.10+)')
 
     set_eval_config(eval_example)
 
