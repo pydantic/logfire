@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from threading import Condition, Thread
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import unquote
+from urllib.parse import unquote, urljoin
 
 from google.protobuf.json_format import MessageToJson
 from opentelemetry.exporter.otlp.proto.http._log_exporter import DEFAULT_TIMEOUT as DEFAULT_LOGS_TIMEOUT
@@ -116,6 +116,20 @@ class OTLPForwardingPipeline:
             self.queued_body_bytes += body_size
             self.condition.notify_all()
             return True
+
+    def _send(self, queued_request: QueuedForwardingRequest) -> None:
+        import logfire
+
+        request = queued_request.request
+        url = urljoin(self.base_url.rstrip('/') + '/', request.path.lstrip('/'))
+        timeout = forwarding_timeout_for_path(request.path)
+        for token in queued_request.tokens:
+            headers = build_forwarding_headers(request, token=token)
+            try:
+                with logfire.suppress_instrumentation():
+                    self.session.post(url, data=request.body, headers=headers, timeout=timeout)
+            except Exception:
+                continue
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:

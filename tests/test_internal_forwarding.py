@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import FrozenInstanceError
+from typing import Any, cast
 
 import pytest
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
@@ -580,3 +581,67 @@ def test_forwarding_pipeline_enqueue_rejects_when_closed() -> None:
     assert pipeline.enqueue(queued_request) is False
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
+
+
+class FakeForwardingSession:
+    def __init__(self, *, fail_tokens: set[str] | None = None) -> None:
+        self.fail_tokens = fail_tokens or set()
+        self.calls: list[dict[str, Any]] = []
+
+    def post(self, url: str, data: bytes, **kwargs: Any) -> object:
+        self.calls.append({'url': url, 'data': data, **kwargs})
+        headers = kwargs.get('headers')
+        authorization = cast(dict[str, str], headers).get('Authorization') if isinstance(headers, dict) else None
+        if authorization in self.fail_tokens:
+            raise RuntimeError('send failed')
+        return object()
+
+
+def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('OTEL_EXPORTER_OTLP_TRACES_TIMEOUT', '7.5')
+    session = FakeForwardingSession()
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com/base/',
+        session=session,  # type: ignore[arg-type]
+        max_queued_body_bytes=10,
+    )
+    queued_request = _make_queued_forwarding_request(b'payload', tokens=('token-1', 'token-2'))
+
+    pipeline._send(queued_request)  # pyright: ignore[reportPrivateUsage]
+
+    assert session.calls == [
+        {
+            'url': 'https://example.com/base/v1/traces',
+            'data': b'payload',
+            'headers': {
+                'Content-Type': 'application/x-protobuf',
+                'User-Agent': f'logfire-proxy/{VERSION}',
+                'Authorization': 'token-1',
+            },
+            'timeout': 7.5,
+        },
+        {
+            'url': 'https://example.com/base/v1/traces',
+            'data': b'payload',
+            'headers': {
+                'Content-Type': 'application/x-protobuf',
+                'User-Agent': f'logfire-proxy/{VERSION}',
+                'Authorization': 'token-2',
+            },
+            'timeout': 7.5,
+        },
+    ]
+
+
+def test_forwarding_pipeline_send_contains_token_failures() -> None:
+    session = FakeForwardingSession(fail_tokens={'token-1'})
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=session,  # type: ignore[arg-type]
+        max_queued_body_bytes=10,
+    )
+    queued_request = _make_queued_forwarding_request(b'payload', tokens=('token-1', 'token-2'))
+
+    pipeline._send(queued_request)  # pyright: ignore[reportPrivateUsage]
+
+    assert [call['headers']['Authorization'] for call in session.calls] == ['token-1', 'token-2']
