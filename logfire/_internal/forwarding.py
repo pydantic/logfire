@@ -186,3 +186,36 @@ def build_success_response(request: ForwardingRequest) -> ForwardExportRequestRe
         headers={'Content-Type': response_content_type(request.content_type)},
         content=content,
     )
+
+
+def build_partial_success_response(
+    request: ForwardingRequest,
+    *,
+    message: str,
+) -> ForwardExportRequestResponse:
+    from logfire.experimental.forwarding import ForwardExportRequestResponse
+
+    response_message = response_message_for_path(request.path)()
+    partial_success = response_message.partial_success
+    if request.path == '/v1/traces':
+        partial_success.rejected_spans = 0
+    elif request.path == '/v1/logs':
+        partial_success.rejected_log_records = 0
+    else:
+        partial_success.rejected_data_points = 0
+    partial_success.error_message = message
+
+    if request.content_type is ForwardingContentType.PROTOBUF:
+        content = response_message.SerializeToString()
+    else:
+        content = MessageToJson(
+            response_message,
+            indent=None,
+            always_print_fields_with_no_presence=True,
+        ).encode()
+
+    return ForwardExportRequestResponse(
+        status_code=200,
+        headers={'Content-Type': response_content_type(request.content_type)},
+        content=content,
+    )

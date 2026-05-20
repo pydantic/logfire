@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -18,6 +19,7 @@ from logfire._internal.forwarding import (
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
     build_forwarding_request,
+    build_partial_success_response,
     build_success_response,
     parse_forwarding_content_type,
     response_content_type,
@@ -335,3 +337,61 @@ def test_build_success_response_json() -> None:
     assert response.status_code == 200
     assert response.headers == {'Content-Type': 'application/json'}
     assert response.content == b'{}'
+
+
+@pytest.mark.parametrize(
+    ('path', 'rejected_field'),
+    [
+        ('/v1/traces', 'rejectedSpans'),
+        ('/v1/logs', 'rejectedLogRecords'),
+        ('/v1/metrics', 'rejectedDataPoints'),
+    ],
+)
+def test_build_partial_success_response_json(path: str, rejected_field: str) -> None:
+    request = ForwardingRequest(
+        path=path,  # type: ignore[arg-type]
+        body=b'{}',
+        content_type=ForwardingContentType.JSON,
+        content_type_header='application/json',
+        content_encoding=None,
+        user_agent=None,
+    )
+
+    response = build_partial_success_response(request, message='queue full')
+
+    assert response.status_code == 200
+    assert response.headers == {'Content-Type': 'application/json'}
+    assert json.loads(response.content) == {
+        'partialSuccess': {
+            'errorMessage': 'queue full',
+            rejected_field: '0',
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    ('path', 'message_cls', 'rejected_attr'),
+    [
+        ('/v1/traces', ExportTraceServiceResponse, 'rejected_spans'),
+        ('/v1/logs', ExportLogsServiceResponse, 'rejected_log_records'),
+        ('/v1/metrics', ExportMetricsServiceResponse, 'rejected_data_points'),
+    ],
+)
+def test_build_partial_success_response_protobuf(path: str, message_cls: type[object], rejected_attr: str) -> None:
+    request = ForwardingRequest(
+        path=path,  # type: ignore[arg-type]
+        body=b'data',
+        content_type=ForwardingContentType.PROTOBUF,
+        content_type_header='application/x-protobuf',
+        content_encoding=None,
+        user_agent=None,
+    )
+
+    response = build_partial_success_response(request, message='closed')
+    message = message_cls()
+    message.ParseFromString(response.content)  # type: ignore[attr-defined]
+
+    assert response.status_code == 200
+    assert response.headers == {'Content-Type': 'application/x-protobuf'}
+    assert message.partial_success.error_message == 'closed'  # type: ignore[attr-defined]
+    assert getattr(message.partial_success, rejected_attr) == 0  # type: ignore[attr-defined]
