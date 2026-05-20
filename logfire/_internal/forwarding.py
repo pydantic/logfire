@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import posixpath
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
+from urllib.parse import unquote
 
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
 OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
 _MEDIA_TYPE_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+/[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 _PARAMETER_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+=")
+ForwardingPath = Literal['/v1/traces', '/v1/logs', '/v1/metrics']
 
 
 class ForwardingContentType(Enum):
@@ -19,7 +22,7 @@ class ForwardingContentType(Enum):
 
 @dataclass(frozen=True)
 class ForwardingRequest:
-    path: Literal['/v1/traces', '/v1/logs', '/v1/metrics']
+    path: ForwardingPath
     body: bytes
     content_type: ForwardingContentType
     content_type_header: str
@@ -73,3 +76,28 @@ def parse_forwarding_content_type(headers: Mapping[str, str]) -> ForwardingConte
     if media_type == ForwardingContentType.JSON.value:
         return ForwardingContentType.JSON
     return None
+
+
+def _invalid_path_response() -> ForwardingErrorResponse:
+    return ForwardingErrorResponse(
+        status_code=400,
+        content_type='text/plain',
+        content=b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics',
+    )
+
+
+def _normalize_forwarding_path(path: str) -> ForwardingPath | ForwardingErrorResponse:  # pyright: ignore[reportUnusedFunction]
+    if '://' in path or '?' in path or '#' in path:
+        return _invalid_path_response()
+
+    if not path.startswith('/'):
+        path = '/' + path
+
+    normalized_path = posixpath.normpath(unquote(path))
+    if normalized_path == '/v1/traces':
+        return '/v1/traces'
+    if normalized_path == '/v1/logs':
+        return '/v1/logs'
+    if normalized_path == '/v1/metrics':
+        return '/v1/metrics'
+    return _invalid_path_response()

@@ -12,6 +12,7 @@ from logfire._internal.forwarding import (
     ForwardingErrorResponse,
     ForwardingRequest,
     QueuedForwardingRequest,
+    _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
     parse_forwarding_content_type,
 )
 
@@ -105,3 +106,36 @@ def test_queued_forwarding_request_record() -> None:
 )
 def test_parse_forwarding_content_type(headers: dict[str, str], expected: ForwardingContentType | None) -> None:
     assert parse_forwarding_content_type(headers) is expected
+
+
+@pytest.mark.parametrize(
+    ('path', 'expected'),
+    [
+        ('/v1/traces', '/v1/traces'),
+        ('/v1/logs', '/v1/logs'),
+        ('/v1/metrics', '/v1/metrics'),
+        ('v1/traces', '/v1/traces'),
+    ],
+)
+def test_normalize_forwarding_path_valid(path: str, expected: str) -> None:
+    assert _normalize_forwarding_path(path) == expected
+
+
+@pytest.mark.parametrize(
+    'path',
+    [
+        '/invalid',
+        '/v1/traces/../secret',
+        '/v1/traces/%2e%2e/secret',
+        'https://example.com/v1/traces',
+        '/v1/traces?foo=bar',
+        '/v1/traces#fragment',
+    ],
+)
+def test_normalize_forwarding_path_rejections(path: str) -> None:
+    response = _normalize_forwarding_path(path)
+
+    assert isinstance(response, ForwardingErrorResponse)
+    assert response.status_code == 400
+    assert response.content_type == 'text/plain'
+    assert response.content == b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics'
