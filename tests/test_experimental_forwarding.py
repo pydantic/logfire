@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import inspect
+import json
 import sys
 from typing import Any, cast
 from unittest import mock
 
 import pytest
+from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceResponse
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
 import logfire
 from logfire._internal.forwarding import ForwardingAdmissionResult, ForwardingRequest
@@ -13,7 +17,8 @@ from logfire.experimental.forwarding import ForwardExportRequestResponse, forwar
 
 
 class FakeForwardingManager:
-    def __init__(self) -> None:
+    def __init__(self, result: ForwardingAdmissionResult | None = None) -> None:
+        self.result = result or ForwardingAdmissionResult(response='success', message=None)
         self.submissions: list[ForwardingRequest] = []
 
     def has_destinations(self) -> bool:
@@ -21,15 +26,17 @@ class FakeForwardingManager:
 
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
         self.submissions.append(request)
-        return ForwardingAdmissionResult(response='success', message=None)
+        return self.result
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         return True
 
 
-def _set_successful_forwarding_manager() -> FakeForwardingManager:
+def _set_successful_forwarding_manager(
+    result: ForwardingAdmissionResult | None = None,
+) -> FakeForwardingManager:
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    manager = FakeForwardingManager()
+    manager = FakeForwardingManager(result)
     cast(Any, config)._otlp_forwarding = manager
     return manager
 
@@ -264,6 +271,57 @@ def test_forward_export_request_validation_before_no_destination() -> None:
     response = forward_export_request(path='/invalid', headers={}, body=b'')
 
     assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ('path', 'rejected_field'),
+    [
+        ('/v1/traces', 'rejectedSpans'),
+        ('/v1/logs', 'rejectedLogRecords'),
+        ('/v1/metrics', 'rejectedDataPoints'),
+    ],
+)
+def test_forward_export_request_partial_success_json(path: str, rejected_field: str) -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+    _set_successful_forwarding_manager(ForwardingAdmissionResult(response='partial_success', message='queue full'))
+
+    response = forward_export_request(
+        path=path,
+        headers={'Content-Type': 'application/json'},
+        body=b'{}',
+    )
+
+    assert response.status_code == 200
+    assert response.headers == {'Content-Type': 'application/json'}
+    assert json.loads(response.content) == {'partialSuccess': {'errorMessage': 'queue full', rejected_field: '0'}}
+
+
+@pytest.mark.parametrize(
+    ('path', 'message_cls', 'rejected_attr'),
+    [
+        ('/v1/traces', ExportTraceServiceResponse, 'rejected_spans'),
+        ('/v1/logs', ExportLogsServiceResponse, 'rejected_log_records'),
+        ('/v1/metrics', ExportMetricsServiceResponse, 'rejected_data_points'),
+    ],
+)
+def test_forward_export_request_partial_success_protobuf(
+    path: str, message_cls: type[object], rejected_attr: str
+) -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+    _set_successful_forwarding_manager(ForwardingAdmissionResult(response='partial_success', message='closed'))
+
+    response = forward_export_request(
+        path=path,
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'',
+    )
+    message = message_cls()
+    message.ParseFromString(response.content)  # type: ignore[attr-defined]
+
+    assert response.status_code == 200
+    assert response.headers == {'Content-Type': 'application/x-protobuf'}
+    assert message.partial_success.error_message == 'closed'  # type: ignore[attr-defined]
+    assert getattr(message.partial_success, rejected_attr) == 0  # type: ignore[attr-defined]
 
 
 def test_fastapi_proxy_invalid_method() -> None:
