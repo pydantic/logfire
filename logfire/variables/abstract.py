@@ -257,7 +257,7 @@ class VariableDiff:
 
     changes: list[VariableChange]
     orphaned_server_variables: list[str]  # Variables on server not in local code
-    reference_warnings: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    reference_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     """Warnings about variable references (non-existent refs, cycles, etc.)."""
 
     @property
@@ -309,8 +309,8 @@ class ValidationReport:
     """Names of variables that exist locally but not on the server."""
     description_differences: list[DescriptionDifference]
     """List of variables where local and server descriptions differ."""
-    reference_warnings: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    """Warnings about variable references (non-existent refs, cycles, etc.)."""
+    reference_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Errors found while checking ``@{variable}@`` references (missing refs, cycles, etc.)."""
 
     @property
     def has_errors(self) -> bool:
@@ -319,8 +319,8 @@ class ValidationReport:
 
     @property
     def is_valid(self) -> bool:
-        """Return False if there are validation errors, missing variables, or reference warnings."""
-        return len(self.errors) == 0 and len(self.variables_not_on_server) == 0 and len(self.reference_warnings) == 0
+        """Return False if there are validation errors, missing variables, or reference errors."""
+        return len(self.errors) == 0 and len(self.variables_not_on_server) == 0 and len(self.reference_errors) == 0
 
     def format(self, *, colors: bool = True) -> str:
         """Format the validation report for human-readable output.
@@ -374,15 +374,15 @@ class ValidationReport:
                 lines.append(f'    Local:  {local_desc}')
                 lines.append(f'    Server: {server_desc}')
 
-        # Show reference warnings
-        if self.reference_warnings:
-            lines.append(f'\n{yellow}=== Reference warnings ==={reset}')
-            for warning in self.reference_warnings:
-                lines.append(f'  {yellow}⚠ {warning}{reset}')
+        # Show reference errors
+        if self.reference_errors:
+            lines.append(f'\n{red}=== Reference errors ==={reset}')
+            for error in self.reference_errors:
+                lines.append(f'  {red}✗ {error}{reset}')
 
         # Summary line
         if not self.is_valid:
-            issue_count = variables_with_errors + len(self.variables_not_on_server) + len(self.reference_warnings)
+            issue_count = variables_with_errors + len(self.variables_not_on_server) + len(self.reference_errors)
             lines.append(f'\n{red}Validation failed: {issue_count} issue(s) found.{reset}')
         else:
             lines.append(f'\n{green}Validation passed: All {self.variables_checked} variable(s) are valid.{reset}')
@@ -512,11 +512,11 @@ def _check_type_label_compatibility(
     return incompatible
 
 
-def _check_reference_warnings(
+def _check_reference_errors(
     variables: Sequence[_BaseVariable[object]],
     server_config: VariablesConfig,
 ) -> list[str]:
-    """Check for reference warnings: non-existent refs and cycles.
+    """Check for reference errors: non-existent refs and cycles.
 
     Scans local variable defaults and server label values for @{references}@
     and validates that referenced variables exist and there are no cycles.
@@ -688,10 +688,10 @@ def _compute_diff(
     # Find orphaned server variables (on server but not in local code)
     orphaned = [name for name in server_config.variables.keys() if name not in local_names]
 
-    # Check for reference warnings (non-existent refs, cycles)
-    reference_warnings = _check_reference_warnings(variables, server_config)
+    # Check for reference errors (non-existent refs, cycles)
+    reference_errors = _check_reference_errors(variables, server_config)
 
-    return VariableDiff(changes=changes, orphaned_server_variables=orphaned, reference_warnings=reference_warnings)
+    return VariableDiff(changes=changes, orphaned_server_variables=orphaned, reference_errors=reference_errors)
 
 
 def _format_diff(diff: VariableDiff) -> str:
@@ -754,10 +754,10 @@ def _format_diff(diff: VariableDiff) -> str:
             lines.append(f'    Local:  {local_desc}')
             lines.append(f'    Server: {server_desc}')
 
-    # Show reference warnings
-    if diff.reference_warnings:
-        lines.append(f'\n{ANSI_YELLOW}=== Reference warnings ==={ANSI_RESET}')
-        for warning in diff.reference_warnings:
+    # Show reference errors
+    if diff.reference_errors:
+        lines.append(f'\n{ANSI_YELLOW}=== Reference errors ==={ANSI_RESET}')
+        for warning in diff.reference_errors:
             lines.append(f'  {ANSI_YELLOW}⚠ {warning}{ANSI_RESET}')
 
     return '\n'.join(lines)
@@ -1203,7 +1203,7 @@ class VariableProvider(ABC):
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, fail if any existing label values are incompatible with new schemas
-                or any reference warnings are found.
+                or any reference errors are found.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1231,9 +1231,9 @@ class VariableProvider(ABC):
         # Show diff
         print(_format_diff(diff))
 
-        if diff.reference_warnings and strict:
+        if diff.reference_errors and strict:
             print(
-                f'\n{ANSI_RED}Error: Reference warnings found.\n'
+                f'\n{ANSI_RED}Error: Reference errors found.\n'
                 f'Fix these references or set strict=False to proceed anyway.{ANSI_RESET}'
             )
             return False
@@ -1364,15 +1364,15 @@ class VariableProvider(ABC):
                         )
                     )
 
-        # Check for reference warnings
-        reference_warnings = _check_reference_warnings(variables, server_config)
+        # Check for reference errors
+        reference_errors = _check_reference_errors(variables, server_config)
 
         return ValidationReport(
             errors=errors,
             variables_checked=len(variables),
             variables_not_on_server=variables_not_on_server,
             description_differences=description_differences,
-            reference_warnings=reference_warnings,
+            reference_errors=reference_errors,
         )
 
     # --- Variable Types API ---

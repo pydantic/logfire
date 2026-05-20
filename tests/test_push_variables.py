@@ -302,8 +302,8 @@ def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> 
     assert 'my_feature' not in diff.orphaned_server_variables
 
 
-def test_compute_diff_reference_warnings(mock_logfire_instance: MockLogfire) -> None:
-    """Reference warnings include missing references and cycles."""
+def test_compute_diff_reference_errors(mock_logfire_instance: MockLogfire) -> None:
+    """Reference errors include missing references and cycles."""
     var_a = Variable[str](
         name='var_a',
         default='@{missing}@ @{var_b}@',
@@ -338,13 +338,13 @@ def test_compute_diff_reference_warnings(mock_logfire_instance: MockLogfire) -> 
 
     diff = _compute_diff([var_a, var_b], server_config)
 
-    assert any("'var_a' references '@{missing}@'" in warning for warning in diff.reference_warnings)
-    assert any("'var_a' references '@{server_missing}@'" in warning for warning in diff.reference_warnings)
-    assert any("'var_a' references '@{server_latest_missing}@'" in warning for warning in diff.reference_warnings)
-    assert any('Reference cycle detected: var_a -> var_b -> var_a' in warning for warning in diff.reference_warnings)
+    assert any("'var_a' references '@{missing}@'" in warning for warning in diff.reference_errors)
+    assert any("'var_a' references '@{server_missing}@'" in warning for warning in diff.reference_errors)
+    assert any("'var_a' references '@{server_latest_missing}@'" in warning for warning in diff.reference_errors)
+    assert any('Reference cycle detected: var_a -> var_b -> var_a' in warning for warning in diff.reference_errors)
 
 
-def test_compute_diff_reference_warning_scan_handles_unserializable_default(
+def test_compute_diff_reference_error_scan_handles_unserializable_default(
     mock_logfire_instance: MockLogfire,
 ) -> None:
     """Reference scanning tolerates defaults that cannot be serialized."""
@@ -368,10 +368,10 @@ def test_compute_diff_reference_warning_scan_handles_unserializable_default(
 
     diff = _compute_diff([var], server_config)
 
-    assert diff.reference_warnings == []
+    assert diff.reference_errors == []
 
 
-def test_compute_diff_reference_warning_scan_skips_already_visited_nodes(
+def test_compute_diff_reference_error_scan_skips_already_visited_nodes(
     mock_logfire_instance: MockLogfire,
 ) -> None:
     """Cycle detection handles shared reference graph nodes without duplicate traversal."""
@@ -397,7 +397,7 @@ def test_compute_diff_reference_warning_scan_skips_already_visited_nodes(
 
     diff = _compute_diff([var_a, var_b, shared], server_config)
 
-    assert diff.reference_warnings == []
+    assert diff.reference_errors == []
 
 
 def test_format_diff_creates() -> None:
@@ -436,17 +436,17 @@ def test_format_diff_updates() -> None:
     assert 'updated_feature' in output
 
 
-def test_format_diff_reference_warnings() -> None:
-    """Reference warnings are shown in the formatted diff."""
+def test_format_diff_reference_errors() -> None:
+    """Reference errors are shown in the formatted diff."""
     diff = VariableDiff(
         changes=[],
         orphaned_server_variables=[],
-        reference_warnings=["Variable 'a' references '@{missing}@' which does not exist."],
+        reference_errors=["Variable 'a' references '@{missing}@' which does not exist."],
     )
 
     output = _format_diff(diff)
 
-    assert 'Reference warnings' in output
+    assert 'Reference errors' in output
     assert 'missing' in output
 
 
@@ -459,7 +459,7 @@ def test_validation_report_format_reference_and_description_warnings() -> None:
         description_differences=[
             DescriptionDifference(variable_name='prompt', local_description='local', server_description=None)
         ],
-        reference_warnings=["Variable 'prompt' references '@{missing}@' which does not exist."],
+        reference_errors=["Variable 'prompt' references '@{missing}@' which does not exist."],
     )
 
     output = report.format(colors=False)
@@ -468,25 +468,25 @@ def test_validation_report_format_reference_and_description_warnings() -> None:
     assert 'Description differences' in output
     assert 'Local:  local' in output
     assert 'Server: (none)' in output
-    assert 'Reference warnings' in output
+    assert 'Reference errors' in output
 
 
-def test_validation_report_reference_warnings_are_invalid() -> None:
-    """Reference warnings make validation invalid so strict push paths can fail on cycles."""
+def test_validation_report_reference_errors_are_invalid() -> None:
+    """Reference errors make validation invalid so strict push paths can fail on cycles."""
     report = ValidationReport(
         errors=[],
         variables_checked=1,
         variables_not_on_server=[],
         description_differences=[],
-        reference_warnings=['Reference cycle detected: prompt -> prompt'],
+        reference_errors=['Reference cycle detected: prompt -> prompt'],
     )
 
     assert report.is_valid is False
     assert report.has_errors is True
 
 
-def test_push_variables_strict_fails_with_reference_warnings(mock_logfire_instance: MockLogfire) -> None:
-    """Strict push fails when reference warnings such as cycles are present."""
+def test_push_variables_strict_fails_with_reference_errors(mock_logfire_instance: MockLogfire) -> None:
+    """Strict push fails when reference errors such as cycles are present."""
     provider = LocalVariableProvider(VariablesConfig(variables={}))
     var = Variable[str](
         name='prompt',
