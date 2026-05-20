@@ -843,6 +843,29 @@ def test_forwarding_pipeline_shutdown_timeout_drops_queued_work_after_active_sen
     _wait_for_no_live_worker(pipeline)
 
 
+def test_forwarding_pipeline_shutdown_waits_for_active_send_after_timeout() -> None:
+    pipeline = BlockingShutdownForwardingPipeline()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    shutdown_result: list[bool] = []
+
+    shutdown_thread = Thread(target=lambda: shutdown_result.append(pipeline.shutdown(1)))
+    shutdown_thread.start()
+    with pipeline.condition:
+        assert pipeline.condition.wait_for(lambda: pipeline.closed, timeout=5)
+    shutdown_thread.join(timeout=0.05)
+
+    assert shutdown_thread.is_alive()
+    assert pipeline.fake_session.close_count == 0
+
+    pipeline.release.set()
+    shutdown_thread.join(timeout=5)
+
+    assert shutdown_result == [True]
+    assert pipeline.fake_session.close_count == 1
+    _wait_for_no_live_worker(pipeline)
+
+
 def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('OTEL_EXPORTER_OTLP_TRACES_TIMEOUT', '7.5')
     session = FakeForwardingSession()
