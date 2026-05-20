@@ -1270,3 +1270,19 @@ def test_forwarding_manager_shutdown_returns_false_for_pipeline_timeout() -> Non
 
     assert len(pipeline_1.shutdown_calls) == 1
     assert len(pipeline_2.shutdown_calls) == 1
+
+
+def test_forwarding_manager_shutdown_without_drain_calls_all_pipelines_without_budget_spend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(forwarding_module, 'monotonic', lambda: 999.0)
+    pipeline_1 = FakeShutdownPipeline()
+    pipeline_2 = FakeShutdownPipeline()
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.shutdown(100, drain_queued=False) is True
+
+    assert manager.closed is True
+    assert pipeline_1.shutdown_calls == [(0, False)]
+    assert pipeline_2.shutdown_calls == [(0, False)]

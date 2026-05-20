@@ -293,6 +293,9 @@ class OTLPForwardingManager:
             self.closed = True
             pipelines = tuple(self.pipelines.values())
 
+        if not drain_queued:
+            return all(pipeline.shutdown(0, drain_queued=False) for pipeline in pipelines)
+
         complete = True
         for pipeline in pipelines:
             remaining_millis = max(0, int((deadline - monotonic()) * 1000))
