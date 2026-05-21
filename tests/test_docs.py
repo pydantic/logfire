@@ -91,8 +91,8 @@ def test_runnable(example: CodeExample, eval_example: EvalExample):
     if 'from fastapi' in example.source and get_version(pydantic.__version__) < get_version('2.7.0'):
         pytest.skip('FastAPI requires pydantic>=2.7')
 
-    if not HAS_PYDANTIC_HANDLEBARS and 'logfire.template_var' in example.source:
-        pytest.skip('logfire.template_var requires pydantic-handlebars (Python 3.10+)')
+    if not HAS_PYDANTIC_HANDLEBARS and ('logfire.template_var' in example.source or '@{' in example.source):
+        pytest.skip('Variable templates and composition require pydantic-handlebars (Python 3.10+)')
 
     set_eval_config(eval_example)
 
