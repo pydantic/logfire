@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import functools
 import json
+import traceback
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -480,6 +482,20 @@ def record_exception(
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+
+
+original_format_exception = traceback.format_exception
+
+
+@functools.wraps(original_format_exception)
+def _patched_format_exception(*args: Any, **kwargs: Any):
+    try:
+        return original_format_exception(*args, **kwargs)
+    except Exception as exc:
+        return [f'Formatting stacktrace failed: {type(exc).__name__}: {exc}\n']
+
+
+traceback.format_exception = _patched_format_exception
 
 
 def set_exception_status(span: trace_api.Span, exception: BaseException):
