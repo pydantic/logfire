@@ -38,30 +38,6 @@ T_co = TypeVar('T_co', covariant=True)
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
 
 
-def _record_exception(exception: BaseException, span: logfire.LogfireSpan) -> None:
-    """Record an exception on a span, ignoring a CPython traceback extraction bug."""
-    try:
-        span.record_exception(exception)
-    except RuntimeError as exc:
-        if 'generator raised StopIteration' not in str(exc):
-            raise
-        module = type(exception).__module__
-        qualname = type(exception).__qualname__
-        exception_type = f'{module}.{qualname}' if module and module != 'builtins' else qualname
-        otel_span = span._span  # pyright: ignore[reportPrivateUsage]
-        assert otel_span is not None
-        otel_span.add_event(
-            'exception',
-            attributes={
-                'exception.type': exception_type,
-                'exception.message': str(exception),
-                'exception.stacktrace': (
-                    'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")'
-                ),
-            },
-        )
-
-
 @dataclass
 class _TargetingContextData:
     """Internal data structure for targeting context."""
@@ -141,7 +117,11 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
 
 
 class _BaseVariable(Generic[T_co]):
-    """Base class for managed variables with shared resolution infrastructure."""
+    """Base class for managed variables with shared resolution infrastructure.
+
+    Contains all shared logic: init, deserialization, override, refresh, config,
+    resolution pipeline. Subclasses (Variable, TemplateVariable) add their own get() method.
+    """
 
     name: str
     """Unique name identifying this variable."""
@@ -261,7 +241,9 @@ class _BaseVariable(Generic[T_co]):
                     }
                 )
                 if result.exception:
-                    _record_exception(result.exception, span)
+                    span.record_exception(
+                        result.exception,
+                    )
             return result
 
     def _resolve(
@@ -444,7 +426,7 @@ class Variable(_BaseVariable[T_co]):
 @contextmanager
 def targeting_context(
     targeting_key: str,
-    variables: Sequence[_BaseVariable[Any]] | None = None,
+    variables: Sequence[Variable[Any]] | None = None,
 ) -> Generator[None]:
     """Set the targeting key for variable resolution within this context.
 
