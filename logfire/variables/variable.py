@@ -13,6 +13,7 @@ from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
 if TYPE_CHECKING:
+    from logfire.variables.abstract import VariableProvider
     from logfire.variables.config import VariableConfig
 
 if find_spec('anyio') is not None:  # pragma: no branch
@@ -218,18 +219,36 @@ class _BaseVariable(Generic[T_co]):
             if label is not None:
                 serialized_result = provider.get_serialized_value_for_label(self.name, label)
                 if serialized_result.value is not None:
-                    # Successfully got the explicit label
-                    return self._deserialize_result(serialized_result, targeting_key, attributes, span)
+                    return self._expand_and_deserialize(
+                        serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
+                    )
                 # Label not found - fall through to default resolution
 
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
+                default_result = self._resolve_serialized_default(
+                    provider,
+                    targeting_key,
+                    attributes,
+                    span,
+                    render_fn=render_fn,
+                )
+                if default_result is not None:
+                    return default_result
                 # Provider had no value; surface that the code default was used.
-                return self._resolve_code_default(serialized_result, targeting_key, attributes)
+                return ResolvedVariable(
+                    name=self.name,
+                    value=self._get_default(targeting_key, attributes),
+                    exception=serialized_result.exception,
+                    label=serialized_result.label,
+                    version=serialized_result.version,
+                    reason='code_default',
+                )
 
-            # Deserialize - returns T | Exception
-            return self._deserialize_result(serialized_result, targeting_key, attributes, span)
+            return self._expand_and_deserialize(
+                serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
+            )
 
         except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
@@ -247,34 +266,26 @@ class _BaseVariable(Generic[T_co]):
             raise result
         return result
 
-    def _resolve_code_default(
+    def _expand_and_deserialize(
         self,
         serialized_result: ResolvedVariable[str | None],
-        targeting_key: str | None,
-        attributes: Mapping[str, Any] | None,
-    ) -> ResolvedVariable[T_co]:
-        return ResolvedVariable(
-            name=self.name,
-            value=self._get_default(targeting_key, attributes),
-            exception=serialized_result.exception,
-            label=serialized_result.label,
-            version=serialized_result.version,
-            reason='code_default',
-        )
-
-    def _deserialize_result(
-        self,
-        serialized_result: ResolvedVariable[str | None],
+        provider: VariableProvider,
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
+        render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co]:
         assert serialized_result.value is not None
-        value_or_exc = self._deserialize(serialized_result.value)
+
+        serialized_value = serialized_result.value
+        if render_fn is not None:
+            serialized_value = render_fn(serialized_value)
+
+        value_or_exc = self._deserialize(serialized_value)
         if isinstance(value_or_exc, Exception):
             if span:  # pragma: no branch
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
-                span.set_attribute('invalid_serialized_value', serialized_result.value)
+                span.set_attribute('invalid_serialized_value', serialized_value)
             default = self._get_default(targeting_key, attributes)
             reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
             return ResolvedVariable(
@@ -301,6 +312,45 @@ class _BaseVariable(Generic[T_co]):
             return self.default(targeting_key, merged_attributes)
         else:
             return self.default
+
+    def _get_serialized_default(
+        self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
+    ) -> str | None:
+        """Return the code default serialized as JSON, or None if serialization fails."""
+        try:
+            default = self._get_default(targeting_key, merged_attributes)
+            return self.type_adapter.dump_json(default).decode('utf-8')
+        except (ValueError, TypeError, RuntimeError):
+            return None
+
+    def _resolve_serialized_default(
+        self,
+        provider: VariableProvider,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        render_fn: Callable[[str], str] | None = None,
+    ) -> ResolvedVariable[T_co] | None:
+        """Resolve the code default through composition/rendering when needed."""
+        serialized_default = self._get_serialized_default(targeting_key, attributes)
+        if serialized_default is None:
+            return None
+        if render_fn is None:
+            return None
+
+        result = self._expand_and_deserialize(
+            ResolvedVariable(name=self.name, value=serialized_default, reason='missing_config'),
+            provider,
+            targeting_key,
+            attributes,
+            span,
+            render_fn=render_fn,
+        )
+        if result.reason == 'resolved':
+            # The expansion succeeded against the code default; flag the top-level
+            # reason as 'code_default' so callers can distinguish from a provider hit.
+            result.reason = 'code_default'
+        return result
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         from logfire._internal.config import LocalVariablesOptions, VariablesOptions
