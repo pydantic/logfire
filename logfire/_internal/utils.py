@@ -457,12 +457,10 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
             visited: set[str] = set()
             for frame, lineno in traceback.walk_tb(exc.__traceback__):
                 filename = frame.f_code.co_filename
-                line_number = cast(int | None, lineno)
-                source_line = (
-                    linecache.getline(filename, line_number, frame.f_globals).strip()
-                    if line_number is not None
-                    else '<line unavailable>'
-                )
+                try:
+                    source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                except Exception:
+                    source_line = '<error getting source line>'
                 module = frame.f_globals.get('__name__', filename)
                 frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
                 if frame_summary in visited:

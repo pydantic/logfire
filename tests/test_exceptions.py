@@ -1,5 +1,4 @@
 import sys
-import traceback
 import types
 from typing import Any
 
@@ -358,53 +357,14 @@ def test_record_exception_directly(exporter: TestExporter, config_kwargs: dict[s
 def test_span_records_exception_when_traceback_formatting_fails(exporter: TestExporter) -> None:
     """Regression test for CPython traceback failures from malformed bytecode position metadata."""
 
-    def clear_exception_context(exc: BaseException) -> None:
-        exc.__traceback__ = None
-        exc.__context__ = None
-        exc.__cause__ = None
-
     def raise_from_code_with_truncated_positions() -> None:
-        detail = 'bytecode position metadata is deliberately truncated'
-        raise ValueError(detail)
+        raise ValueError('test error')
 
     bad_code = raise_from_code_with_truncated_positions.__code__.replace(co_linetable=b'')
     bad_function = types.FunctionType(bad_code, globals())
 
-    traceback_error_message = None
-    traceback_error_cause_type = None
-    try:
+    with pytest.raises(ValueError, match='test error'), logfire.span('span with malformed exception traceback'):
         bad_function()
-    except ValueError as exc:
-        try:
-            traceback.format_exception(type(exc), value=exc, tb=exc.__traceback__)
-        except RuntimeError as traceback_error:
-            traceback_error_message = str(traceback_error)
-            traceback_error_cause_type = type(traceback_error.__cause__)
-            clear_exception_context(traceback_error)
-        finally:
-            clear_exception_context(exc)
-    else:  # pragma: no cover
-        raise AssertionError('Expected bad_function to raise ValueError')
-
-    if traceback_error_message is None:  # pragma: no cover
-        pytest.skip('Malformed bytecode position metadata no longer breaks traceback formatting')
-    assert traceback_error_message == 'generator raised StopIteration'
-    assert traceback_error_cause_type is StopIteration
-
-    span_exception_type = None
-    span_exception_message = None
-    try:
-        with logfire.span('span with malformed exception traceback'):
-            bad_function()
-    except BaseException as exc:
-        span_exception_type = type(exc)
-        span_exception_message = str(exc)
-        clear_exception_context(exc)
-    else:  # pragma: no cover
-        raise AssertionError('Expected bad_function to raise ValueError')
-
-    assert span_exception_type is ValueError, span_exception_message
-    assert span_exception_message == 'bytecode position metadata is deliberately truncated'
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -430,7 +390,7 @@ def test_span_records_exception_when_traceback_formatting_fails(exporter: TestEx
                         'timestamp': 2000000000,
                         'attributes': {
                             'exception.type': 'ValueError',
-                            'exception.message': 'bytecode position metadata is deliberately truncated',
+                            'exception.message': 'test error',
                             'exception.stacktrace': (
                                 'Formatting stacktrace failed: RuntimeError: generator raised StopIteration'
                             ),
