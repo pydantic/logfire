@@ -216,28 +216,25 @@ class _BaseVariable(Generic[T_co]):
     ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
-            if (context_overrides := _VARIABLE_OVERRIDES.get()) is not None and self.name in context_overrides:
-                context_value = context_overrides[self.name]
-                if is_resolve_function(context_value):
-                    context_value = context_value(targeting_key, attributes)
-                # For TemplateVariable (render_fn set), the override is a template
-                # that still gets rendered with inputs.
-                if render_fn is not None:
-                    context_value = self._render_default(context_value, render_fn)
-                return ResolvedVariable(name=self.name, value=context_value, reason='context_override')
-
             provider = self.logfire_instance.config.get_variable_provider()
 
-            # If explicit label is requested, try to get that specific label
-            if label is not None:
-                serialized_result = provider.get_serialized_value_for_label(self.name, label)
-                if serialized_result.value is not None:
-                    return self._expand_and_deserialize(
-                        serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
-                    )
-                # Label not found - fall through to default resolution
+            serialized_result = self._lookup_serialized(
+                self.name,
+                provider=provider,
+                targeting_key=targeting_key,
+                attributes=attributes,
+                label=label,
+            )
 
-            serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
+            # Context overrides skip composition expansion: the override is the
+            # user's literal choice, so we only optionally render (for
+            # TemplateVariable) and then deserialize.
+            if serialized_result.reason == 'context_override' and serialized_result.value is not None:
+                serialized = serialized_result.value
+                if render_fn is not None:
+                    serialized = render_fn(serialized)
+                value = self.type_adapter.validate_json(serialized)
+                return ResolvedVariable(name=self.name, value=value, reason='context_override')
 
             if serialized_result.value is None:
                 return self._resolve_code_default(
@@ -249,9 +246,18 @@ class _BaseVariable(Generic[T_co]):
                     serialized_result=serialized_result,
                 )
 
-            return self._expand_and_deserialize(
+            result = self._expand_and_deserialize(
                 serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
             )
+            # Preserve the lookup-tier signal: if the value came from the code
+            # default (via `_lookup_serialized`) rather than the provider, we
+            # promote the success reason from 'resolved' to 'code_default' and
+            # carry the provider's exception through so callers can surface it.
+            if serialized_result.reason == 'code_default' and result.reason == 'resolved':
+                result.reason = 'code_default'
+            if result.exception is None and serialized_result.exception is not None:
+                result.exception = serialized_result.exception
+            return result
 
         except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
@@ -262,6 +268,65 @@ class _BaseVariable(Generic[T_co]):
             except Exception:
                 default = cast('T_co', None)
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
+
+    def _lookup_serialized(
+        self,
+        name: str,
+        *,
+        provider: VariableProvider,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        label: str | None = None,
+    ) -> ResolvedVariable[str | None]:
+        """Resolve a variable name to its serialized value using the standard priority chain.
+
+        Priority: context override -> provider (label-specific then default) -> registered code default.
+
+        Used by both `_resolve` (for `self.name`) and the composition expander
+        (for child `@{ref}@` lookups) so the two paths can't drift.
+        """
+        variable = self._variable_registry.get(name)
+        context_overrides = _VARIABLE_OVERRIDES.get()
+
+        # 1. Context override (only for variables whose type we know)
+        if context_overrides is not None and name in context_overrides and variable is not None:
+            override_value = context_overrides[name]
+            if is_resolve_function(override_value):
+                override_value = override_value(targeting_key, attributes)
+            try:
+                serialized = variable.type_adapter.dump_json(override_value).decode('utf-8')
+            except (ValueError, TypeError, RuntimeError):
+                pass  # Fall through to provider/code default
+            else:
+                return ResolvedVariable(name=name, value=serialized, reason='context_override')
+
+        # 2. Provider (label-specific first, falling back to default targeting)
+        if label is not None:
+            provider_result = provider.get_serialized_value_for_label(name, label)
+            if provider_result.value is None:
+                provider_result = provider.get_serialized_value(name, targeting_key, attributes)
+        else:
+            provider_result = provider.get_serialized_value(name, targeting_key, attributes)
+
+        if provider_result.value is not None:
+            return provider_result
+
+        # 3. Registered code default
+        if variable is not None:
+            serialized_default = variable._get_serialized_default(targeting_key, attributes)
+            if serialized_default is not None:
+                return ResolvedVariable(
+                    name=name,
+                    value=serialized_default,
+                    label=provider_result.label,
+                    version=provider_result.version,
+                    reason='code_default',
+                    exception=provider_result.exception,
+                )
+
+        # No value at any tier; propagate the provider's metadata so callers
+        # can surface the original exception/reason.
+        return provider_result
 
     def _render_default(self, default: Any, render_fn: Callable[[str], str]) -> T_co:
         """Serialize the default value, apply render_fn, then deserialize back."""
@@ -293,50 +358,20 @@ class _BaseVariable(Generic[T_co]):
 
         # Expand @{references}@ if any are present
         if has_references(serialized_value):
-            context_overrides = _VARIABLE_OVERRIDES.get()
 
             def resolve_ref(
                 ref_name: str,
             ) -> tuple[str | None, str | None, int | None, ResolutionReason]:
-                # Lookup priority mirrors _BaseVariable._resolve so that composition
-                # respects overrides and registered code defaults rather than only
-                # consulting the provider.
-                ref_variable = self._variable_registry.get(ref_name)
-
-                # 1. Context override (only for variables we know the type of)
-                if context_overrides is not None and ref_name in context_overrides and ref_variable is not None:
-                    override_value = context_overrides[ref_name]
-                    if is_resolve_function(override_value):
-                        override_value = override_value(targeting_key, attributes)
-                    try:
-                        serialized = ref_variable.type_adapter.dump_json(override_value).decode('utf-8')
-                    except (ValueError, TypeError, RuntimeError):
-                        pass  # fall through to provider
-                    else:
-                        return (serialized, None, None, 'context_override')
-
-                # 2. Provider
-                ref_resolved = provider.get_serialized_value(ref_name, targeting_key, attributes)
-                if ref_resolved.value is not None:
-                    return (
-                        ref_resolved.value,
-                        ref_resolved.label,
-                        ref_resolved.version,
-                        ref_resolved.reason,
-                    )
-
-                # 3. Registered code default
-                if ref_variable is not None:
-                    ref_default = ref_variable._get_serialized_default(targeting_key, attributes)
-                    if ref_default is not None:
-                        return (ref_default, None, None, 'code_default')
-
-                return (
-                    ref_resolved.value,
-                    ref_resolved.label,
-                    ref_resolved.version,
-                    ref_resolved.reason,
+                # Shares the lookup priority with `_resolve` so that composition
+                # respects overrides and registered code defaults rather than
+                # only consulting the provider.
+                ref_result = self._lookup_serialized(
+                    ref_name,
+                    provider=provider,
+                    targeting_key=targeting_key,
+                    attributes=attributes,
                 )
+                return (ref_result.value, ref_result.label, ref_result.version, ref_result.reason)
 
             try:
                 serialized_value, composed = expand_references(
