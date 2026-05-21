@@ -8,7 +8,7 @@ from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from importlib.util import find_spec
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast
 
 from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
@@ -176,14 +176,6 @@ class _BaseVariable(Generic[T_co]):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
 
-    def get_template_inputs_schema(self) -> dict[str, Any] | None:
-        """Return the JSON schema for template inputs.
-
-        Returns None on plain `Variable` instances. `TemplateVariable` overrides this
-        to return the schema derived from its `inputs_type`.
-        """
-        return None
-
     def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError | TypeError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
         try:
@@ -248,24 +240,13 @@ class _BaseVariable(Generic[T_co]):
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
-                default_result = self._resolve_serialized_default(
+                return self._resolve_code_default(
                     provider,
                     targeting_key,
                     attributes,
                     span,
                     render_fn=render_fn,
-                    provider_exception=serialized_result.exception,
-                )
-                if default_result is not None:
-                    return default_result
-                # Provider had no value; surface that the code default was used.
-                return ResolvedVariable(
-                    name=self.name,
-                    value=self._get_default(targeting_key, attributes),
-                    exception=serialized_result.exception,
-                    label=serialized_result.label,
-                    version=serialized_result.version,
-                    reason='code_default',
+                    serialized_result=serialized_result,
                 )
 
             return self._expand_and_deserialize(
@@ -276,7 +257,10 @@ class _BaseVariable(Generic[T_co]):
             if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
-            default = self._get_default(targeting_key, attributes)
+            try:
+                default = self._get_default(targeting_key, attributes)
+            except Exception:
+                default = cast('T_co', None)
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _render_default(self, default: Any, render_fn: Callable[[str], str]) -> T_co:
@@ -460,37 +444,55 @@ class _BaseVariable(Generic[T_co]):
         except (ValueError, TypeError, RuntimeError):
             return None
 
-    def _resolve_serialized_default(
+    def _resolve_code_default(
         self,
         provider: VariableProvider,
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
-        render_fn: Callable[[str], str] | None = None,
-        provider_exception: Exception | None = None,
-    ) -> ResolvedVariable[T_co] | None:
-        """Resolve the code default through composition/rendering when needed."""
-        serialized_default = self._get_serialized_default(targeting_key, attributes)
-        if serialized_default is None:
-            return None
-        if render_fn is None and not has_references(serialized_default):
-            return None
+        render_fn: Callable[[str], str] | None,
+        serialized_result: ResolvedVariable[str | None],
+    ) -> ResolvedVariable[T_co]:
+        """Build a ResolvedVariable for the registered code default.
 
-        result = self._expand_and_deserialize(
-            ResolvedVariable(name=self.name, value=serialized_default, reason='missing_config'),
-            provider,
-            targeting_key,
-            attributes,
-            span,
-            render_fn=render_fn,
+        Routes through composition/rendering only when needed, and otherwise returns
+        the deserialized default directly. The user's default-resolution function
+        (when `default` is callable) is invoked at most once.
+        """
+        default_value = self._get_default(targeting_key, attributes)
+        try:
+            serialized_default = self.type_adapter.dump_json(default_value).decode('utf-8')
+        except (ValueError, TypeError, RuntimeError):
+            serialized_default = None
+
+        needs_processing = serialized_default is not None and (
+            render_fn is not None or has_references(serialized_default)
         )
-        if result.reason == 'resolved':
-            # The expansion succeeded against the code default; flag the top-level
-            # reason as 'code_default' so callers can distinguish from a provider hit.
-            result.reason = 'code_default'
-        if result.exception is None:
-            result.exception = provider_exception
-        return result
+        if needs_processing:
+            result = self._expand_and_deserialize(
+                ResolvedVariable(name=self.name, value=serialized_default, reason='missing_config'),
+                provider,
+                targeting_key,
+                attributes,
+                span,
+                render_fn=render_fn,
+            )
+            if result.reason == 'resolved':
+                # Flag the top-level reason as 'code_default' so callers can
+                # distinguish from a provider hit.
+                result.reason = 'code_default'
+            if result.exception is None:
+                result.exception = serialized_result.exception
+            return result
+
+        return ResolvedVariable(
+            name=self.name,
+            value=default_value,
+            exception=serialized_result.exception,
+            label=serialized_result.label,
+            version=serialized_result.version,
+            reason='code_default',
+        )
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         from logfire._internal.config import LocalVariablesOptions, VariablesOptions
@@ -531,8 +533,6 @@ class _BaseVariable(Generic[T_co]):
         if not is_resolve_function(self.default):
             example = self.type_adapter.dump_json(self.default).decode('utf-8')
 
-        template_inputs_schema = self.get_template_inputs_schema()
-
         return VariableConfig(
             name=self.name,
             description=self.description,
@@ -541,7 +541,6 @@ class _BaseVariable(Generic[T_co]):
             overrides=[],
             json_schema=json_schema,
             example=example,
-            template_inputs_schema=template_inputs_schema,
         )
 
     def _get_result_and_record_span(
@@ -686,6 +685,12 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
         """Return the JSON schema derived from `inputs_type`."""
         return self._inputs_type_adapter.json_schema()
 
+    def to_config(self) -> VariableConfig:
+        """Create a VariableConfig, including `template_inputs_schema`."""
+        config = super().to_config()
+        config.template_inputs_schema = self.get_template_inputs_schema()
+        return config
+
     def get(
         self,
         inputs: InputsT,
@@ -719,6 +724,13 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
             return render_serialized_string(serialized_json, inputs)
 
         return self._get_result_and_record_span(targeting_key, attributes, label, render_fn=_render_fn)
+
+
+def get_template_inputs_schema(variable: _BaseVariable[Any]) -> dict[str, Any] | None:
+    """Return the template inputs JSON schema, or None for non-template variables."""
+    if isinstance(variable, TemplateVariable):
+        return variable.get_template_inputs_schema()
+    return None
 
 
 def _first_composition_error(composed: list[ComposedReference]) -> str | None:

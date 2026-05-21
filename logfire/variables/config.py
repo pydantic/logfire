@@ -583,7 +583,7 @@ class VariablesConfig(BaseModel):
         Returns:
             A VariablesConfig with minimal configs for each variable.
         """
-        from logfire.variables.variable import is_resolve_function
+        from logfire.variables.variable import get_template_inputs_schema, is_resolve_function
 
         variable_configs: dict[VariableName, VariableConfig] = {}
         for variable in variables:
@@ -595,8 +595,7 @@ class VariablesConfig(BaseModel):
             if not is_resolve_function(variable.default):
                 example = variable.type_adapter.dump_json(variable.default).decode('utf-8')
 
-            # Get template inputs schema if available
-            template_inputs_schema = variable.get_template_inputs_schema()
+            template_inputs_schema = get_template_inputs_schema(variable)
 
             config = VariableConfig(
                 name=variable.name,

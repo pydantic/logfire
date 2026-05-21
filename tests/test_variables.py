@@ -1715,11 +1715,14 @@ class TestVariable:
         assert result.version == 1
 
     def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.variable import get_template_inputs_schema
+
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='plain_var', default='default', type=str)
 
-        assert var.get_template_inputs_schema() is None
+        assert not hasattr(var, 'get_template_inputs_schema')
+        assert get_template_inputs_schema(var) is None
 
     def test_render_fn_applies_to_provider_value(
         self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
@@ -1816,24 +1819,21 @@ class TestVariable:
         assert result.reason == 'code_default'
         assert result.exception is provider_error
 
-    def test_render_fn_skips_code_default_when_default_cannot_be_serialized(self, config_kwargs: dict[str, Any]):
+    def test_render_fn_reports_default_function_failure(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
+        default_error = RuntimeError('default failed')
+
         def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
-            raise RuntimeError('default failed')
+            raise default_error
 
         var = lf.var(name='unconfigured', default=bad_default, type=str)
 
-        result = var._resolve_serialized_default(
-            lf.config.get_variable_provider(),
-            None,
-            None,
-            None,
-            render_fn=lambda value: value,
-        )
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
 
-        assert result is None
+        assert result.reason == 'other_error'
+        assert result.exception is default_error
 
     def test_get_preserves_provider_exception_when_using_code_default(
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch

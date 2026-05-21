@@ -648,8 +648,9 @@ def _compute_diff(
         local_description = variable.description
         server_var = server_config.variables.get(variable.name)
 
-        # Get template_inputs_schema if available
-        template_inputs_schema = variable.get_template_inputs_schema()
+        from logfire.variables.variable import get_template_inputs_schema
+
+        template_inputs_schema = get_template_inputs_schema(variable)
 
         if server_var is None:
             # New variable - needs to be created
