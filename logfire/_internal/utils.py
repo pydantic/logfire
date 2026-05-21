@@ -294,12 +294,15 @@ def log_internal_error():
         raise
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception(
-            'Caught an internal error in Logfire. '
-            'Your code should still be running fine, just with less telemetry. '
-            'This is just logging the internal error.',
-            exc_info=_internal_error_exc_info(),
-        )
+        try:
+            logger.exception(
+                'Caught an internal error in Logfire. '
+                'Your code should still be running fine, just with less telemetry. '
+                'This is just logging the internal error.',
+                exc_info=_internal_error_exc_info(),
+            )
+        except Exception:
+            pass
 
 
 def _internal_error_exc_info() -> SysExcInfo:
@@ -454,7 +457,12 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
             visited: set[str] = set()
             for frame, lineno in traceback.walk_tb(exc.__traceback__):
                 filename = frame.f_code.co_filename
-                source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                line_number = cast(int | None, lineno)
+                source_line = (
+                    linecache.getline(filename, line_number, frame.f_globals).strip()
+                    if line_number is not None
+                    else '<line unavailable>'
+                )
                 module = frame.f_globals.get('__name__', filename)
                 frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
                 if frame_summary in visited:

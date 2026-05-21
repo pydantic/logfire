@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import traceback
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -479,7 +480,44 @@ def record_exception(
         else:
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
-    span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+    try:
+        span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+    except Exception:
+        _otel_record_exception_patch(span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+
+
+def _otel_record_exception_patch(
+    span: trace_api.Span,
+    exception: BaseException,
+    attributes: otel_types.Attributes = None,
+    timestamp: int | None = None,
+    escaped: bool = False,
+) -> None:
+    """A copy of the OTel SDK's record_exception that handles errors in traceback.format_exception."""
+    from opentelemetry.semconv.attributes.exception_attributes import (
+        EXCEPTION_ESCAPED,
+        EXCEPTION_MESSAGE,
+        EXCEPTION_STACKTRACE,
+        EXCEPTION_TYPE,
+    )
+
+    try:
+        stacktrace = ''.join(traceback.format_exception(type(exception), value=exception, tb=exception.__traceback__))
+    except Exception as tb_exc:
+        stacktrace = f'Formatting stacktrace failed: {type(tb_exc).__name__}: {tb_exc}'
+
+    module = type(exception).__module__
+    qualname = type(exception).__qualname__
+    exception_type = f'{module}.{qualname}' if module and module != 'builtins' else qualname
+    _attributes: dict[str, otel_types.AttributeValue] = {
+        EXCEPTION_TYPE: exception_type,
+        EXCEPTION_MESSAGE: str(exception),
+        EXCEPTION_STACKTRACE: stacktrace,
+        EXCEPTION_ESCAPED: str(escaped),
+    }
+    if attributes:
+        _attributes.update(attributes)
+    span.add_event(name='exception', attributes=_attributes, timestamp=timestamp)
 
 
 def set_exception_status(span: trace_api.Span, exception: BaseException):
