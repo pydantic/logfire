@@ -340,10 +340,10 @@ class _BaseVariable(Generic[T_co]):
         render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co] | None:
         """Resolve the code default through composition/rendering when needed."""
+        if render_fn is None:
+            return None
         serialized_default = self._get_serialized_default(targeting_key, attributes)
         if serialized_default is None:
-            return None
-        if render_fn is None:
             return None
 
         result = self._expand_and_deserialize(
