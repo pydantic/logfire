@@ -39,6 +39,21 @@ class LogfirePluginConfig:
         self.trace_phases = trace_phases
 
 
+def _record_exception_with_placeholder_stacktrace(span: Any, exception: BaseException) -> None:
+    """Record exception details when traceback formatting fails."""
+    module = type(exception).__module__
+    qualname = type(exception).__qualname__
+    exception_type = f'{module}.{qualname}' if module and module != 'builtins' else qualname
+    span.add_event(
+        'exception',
+        attributes={
+            'exception.type': exception_type,
+            'exception.message': str(exception),
+            'exception.stacktrace': 'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")',
+        },
+    )
+
+
 def _is_enabled(config: pytest.Config) -> bool:
     """Check if the Logfire plugin is enabled."""
     # Explicit --no-logfire always disables
@@ -264,14 +279,14 @@ def _inject_traceparent_env() -> None:
 def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cover
     """Inject TRACEPARENT into env before xdist spawns workers.
 
-    Called in the controller before any ``makegateway()`` call, so all workers
-    inherit the session-level trace context via ``os.environ``.
+    Called in the controller before any `makegateway()` call, so all workers
+    inherit the session-level trace context via `os.environ`.
 
-    NOTE: This relies on ``pytest_sessionstart`` (which creates the session span)
-    running at default priority, *before* xdist's ``DSession.pytest_sessionstart``
-    which uses ``trylast=True`` and calls ``setup_nodes()`` →
-    ``pytest_xdist_setupnodes``.  Do not add ``trylast=True`` to our
-    ``pytest_sessionstart`` or this ordering guarantee breaks.
+    NOTE: This relies on `pytest_sessionstart` (which creates the session span)
+    running at default priority, *before* xdist's `DSession.pytest_sessionstart`
+    which uses `trylast=True` and calls `setup_nodes()` →
+    `pytest_xdist_setupnodes`.  Do not add `trylast=True` to our
+    `pytest_sessionstart` or this ordering guarantee breaks.
     """
     del specs  # unused
     if not _is_enabled(config):
@@ -287,10 +302,10 @@ def _get_xdist_worker_id() -> str | None:
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Create a session span when the test session starts.
 
-    IMPORTANT: This hook must run at default priority (no ``trylast=True``).
-    ``pytest_xdist_setupnodes`` depends on the session span being active when
-    it injects TRACEPARENT into ``os.environ`` for worker processes.  xdist's
-    ``DSession.pytest_sessionstart`` uses ``trylast=True``, so our default-priority
+    IMPORTANT: This hook must run at default priority (no `trylast=True`).
+    `pytest_xdist_setupnodes` depends on the session span being active when
+    it injects TRACEPARENT into `os.environ` for worker processes.  xdist's
+    `DSession.pytest_sessionstart` uses `trylast=True`, so our default-priority
     hook is guaranteed to run first.
     """
     if not _is_enabled(session.config):
@@ -455,7 +470,14 @@ def pytest_runtest_makereport(
         # Record exception details
         if call.excinfo and call.excinfo.value:  # pragma: no branch
             # Branch coverage: excinfo.value is always present for failed tests in normal pytest execution
-            span.record_exception(call.excinfo.value)
+            try:
+                span.record_exception(call.excinfo.value)
+            except RuntimeError as e:
+                # CPython 3.11+ can raise "generator raised StopIteration" from
+                # traceback.extract_tb when processing certain bytecode positions.
+                if str(e) != 'generator raised StopIteration':
+                    raise
+                _record_exception_with_placeholder_stacktrace(span, call.excinfo.value)
     elif report.skipped:  # pragma: no cover
         # TODO: this needs improvement in processing skip reasons
         skip_reason = ''
@@ -605,18 +627,18 @@ def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
 def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None]:
     """Re-attach the per-test span context for async test functions.
 
-    The ``pytest_runtest_protocol`` hook creates a span per test and attaches it
-    to the OTel context via ``context_api.attach()`` in the **synchronous** hook
+    The `pytest_runtest_protocol` hook creates a span per test and attaches it
+    to the OTel context via `context_api.attach()` in the **synchronous** hook
     thread.  However, when tests are async (e.g. with anyio/pytest-asyncio), they
-    may run inside an event-loop task whose ``contextvars`` snapshot was taken
-    before the per-test span was attached (e.g. when ``asyncio.Runner`` reuses a
-    saved context on Python 3.11+).  As a result, ``logfire.get_context()`` inside
+    may run inside an event-loop task whose `contextvars` snapshot was taken
+    before the per-test span was attached (e.g. when `asyncio.Runner` reuses a
+    saved context on Python 3.11+).  As a result, `logfire.get_context()` inside
     an async test can return a stale traceparent from a previous test (or no
     context at all).
 
-    This hook wraps async test functions so that ``context_api.attach()`` is called
+    This hook wraps async test functions so that `context_api.attach()` is called
     *inside* the coroutine body, making the span visible to the test and any
-    callbacks (e.g. httpx event hooks) that call ``logfire.get_context()``.
+    callbacks (e.g. httpx event hooks) that call `logfire.get_context()`.
     """
     import inspect
 
