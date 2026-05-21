@@ -11,7 +11,7 @@ from logfire.variables import TemplateVariable, Variable
 # detect whether you got a variable-provider-provided value.
 # Anyway, the _main_ reason it works this way is not because we prefer it, but because we can't see a way to make it a
 # type error, so the above argument is just a way of turning lemons into lemonade.
-my_variable_2 = logfire.Logfire().var(name='my_variable_2', default=None, type=int)
+my_variable_2 = logfire.var(name='my_variable_2', default=None, type=int)
 assert_type(my_variable_2, Variable[int | None])
 
 
@@ -19,7 +19,7 @@ class PromptInputs(BaseModel):
     name: str
 
 
-my_template_variable = logfire.Logfire().template_var(
+my_template_variable = logfire.template_var(
     name='my_template_variable',
     default='Hello {{name}}',
     type=str,
