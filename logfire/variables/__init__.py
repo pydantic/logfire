@@ -15,6 +15,7 @@ from logfire.variables.abstract import (
 )
 from logfire.variables.composition import (
     ComposedReference,
+    ResolutionReason,
     VariableCompositionCycleError,
     VariableCompositionError,
 )
@@ -78,10 +79,14 @@ __all__ = [
     # Context managers and utilities
     'targeting_context',
     # Types
+    'ComposedReference',
+    'ResolutionReason',
     'SyncMode',
     'ValidationReport',
     # Exceptions
     'VariableAlreadyExistsError',
+    'VariableCompositionCycleError',
+    'VariableCompositionError',
     'VariableNotFoundError',
     'VariableWriteError',
 ]
