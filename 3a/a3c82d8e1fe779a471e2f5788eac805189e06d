@@ -1,0 +1,19 @@
+tests/test_variables.py
+  s_b23e84b46a829d::t_5ede057818bf63 1668,1675,1687,1701,1703-1704,1706-1708,1710,1720-1721,1723-1725,1727
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "3aa3c82d8e1fe779a471e2f5788eac805189e06d",
+  "prompts": {},
+  "sessions": {
+    "s_b23e84b46a829d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4a0f-6720-7aa2-a6f8-f1affcb35dde",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
