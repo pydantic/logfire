@@ -485,7 +485,10 @@ def test_failed_test_tolerates_traceback_runtime_error_from_truncated_positions(
     exc_attrs = exception_events[0]['attributes']
     assert exc_attrs['exception.type'] == 'ValueError'
     assert exc_attrs['exception.message'] == 'failure with truncated bytecode positions'
-    assert 'exception.stacktrace' not in exc_attrs
+    assert exc_attrs['exception.stacktrace'] == (
+        'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")'
+    )
+    assert 'exception.escaped' not in exc_attrs
 
 
 def test_skipped_test_with_reason(logfire_pytester: pytest.Pytester):

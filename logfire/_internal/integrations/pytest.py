@@ -39,7 +39,7 @@ class LogfirePluginConfig:
         self.trace_phases = trace_phases
 
 
-def _record_exception_without_stacktrace(span: Any, exception: BaseException) -> None:
+def _record_exception_with_placeholder_stacktrace(span: Any, exception: BaseException) -> None:
     """Record exception details when traceback formatting fails."""
     module = type(exception).__module__
     qualname = type(exception).__qualname__
@@ -49,7 +49,7 @@ def _record_exception_without_stacktrace(span: Any, exception: BaseException) ->
         attributes={
             'exception.type': exception_type,
             'exception.message': str(exception),
-            'exception.escaped': 'False',
+            'exception.stacktrace': 'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")',
         },
     )
 
@@ -477,7 +477,7 @@ def pytest_runtest_makereport(
                 # traceback.extract_tb when processing certain bytecode positions.
                 if str(e) != 'generator raised StopIteration':
                     raise
-                _record_exception_without_stacktrace(span, call.excinfo.value)
+                _record_exception_with_placeholder_stacktrace(span, call.excinfo.value)
     elif report.skipped:  # pragma: no cover
         # TODO: this needs improvement in processing skip reasons
         skip_reason = ''
