@@ -39,6 +39,21 @@ class LogfirePluginConfig:
         self.trace_phases = trace_phases
 
 
+def _record_exception_with_placeholder_stacktrace(span: Any, exception: BaseException) -> None:
+    """Record exception details when traceback formatting fails."""
+    module = type(exception).__module__
+    qualname = type(exception).__qualname__
+    exception_type = f'{module}.{qualname}' if module and module != 'builtins' else qualname
+    span.add_event(
+        'exception',
+        attributes={
+            'exception.type': exception_type,
+            'exception.message': str(exception),
+            'exception.stacktrace': 'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")',
+        },
+    )
+
+
 def _is_enabled(config: pytest.Config) -> bool:
     """Check if the Logfire plugin is enabled."""
     # Explicit --no-logfire always disables
@@ -462,6 +477,7 @@ def pytest_runtest_makereport(
                 # traceback.extract_tb when processing certain bytecode positions.
                 if str(e) != 'generator raised StopIteration':
                     raise
+                _record_exception_with_placeholder_stacktrace(span, call.excinfo.value)
     elif report.skipped:  # pragma: no cover
         # TODO: this needs improvement in processing skip reasons
         skip_reason = ''
