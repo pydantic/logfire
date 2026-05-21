@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import inspect
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -198,6 +198,7 @@ class _BaseVariable(Generic[T_co]):
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
         label: str | None = None,
+        render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
@@ -342,6 +343,7 @@ class _BaseVariable(Generic[T_co]):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
         label: str | None = None,
+        render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co]:
         merged_attributes = self._get_merged_attributes(attributes)
 
@@ -368,7 +370,7 @@ class _BaseVariable(Generic[T_co]):
                         attributes=merged_attributes,
                     )
                 )
-            result = self._resolve(targeting_key, merged_attributes, span, label)
+            result = self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
                 # Try to JSON serialize the value; if that fails, fall back to string representation.
