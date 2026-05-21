@@ -22,7 +22,7 @@ the same belief as our open source library — that the most powerful tools can 
 
 ## Overview
 
-This page walks through setting up a Python app. For other languages, see the [JavaScript/TypeScript](integrations/javascript/index.md) integration or our [language support](languages.md) page.
+This page walks through setting up a Python app. For other languages, see the [TypeScript SDK](integrations/javascript/index.md) or our [language support](languages.md) page.
 
 1. [Set up Logfire](#logfire)
 2. [Install the SDK](#sdk)
