@@ -403,11 +403,12 @@ class _BaseVariable(Generic[T_co]):
 
     def _get_result_and_record_span(
         self,
-        targeting_key: str | None = None,
-        attributes: Mapping[str, Any] | None = None,
-        label: str | None = None,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        label: str | None,
         render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co]:
+        """Common get() logic: resolve targeting key, open span, call _resolve, record attributes."""
         merged_attributes = self._get_merged_attributes(attributes)
 
         # Targeting key resolution: call-site > contextvar > trace_id
