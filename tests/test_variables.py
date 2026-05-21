@@ -1665,6 +1665,96 @@ class TestVariable:
         assert result.value == 'my_default'
         assert result.reason == 'code_default'
 
+    def test_get_template_inputs_schema_defaults_to_none(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='plain_var', default='default', type=str)
+
+        assert var.get_template_inputs_schema() is None
+
+    def test_get_result_applies_render_fn_to_provider_value(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'resolved'
+
+    def test_get_result_applies_render_fn_to_context_override(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+
+        with var.override('overridden'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'context_override'
+
+    def test_get_result_returns_render_error_for_context_override(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='int_var', default=0, type=int)
+
+        with var.override(1):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert result.value == 0
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, ValidationError)
+
+    def test_get_result_applies_render_fn_to_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+
+    def test_get_result_returns_render_validation_error_for_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='unconfigured', default=0, type=int)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert result.value == 0
+        assert result.reason == 'validation_error'
+        assert isinstance(result.exception, ValidationError)
+
+    def test_resolve_serialized_default_returns_none_when_default_cannot_be_serialized(
+        self, config_kwargs: dict[str, Any]
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+
+        result = var._resolve_serialized_default(
+            lf.config.get_variable_provider(),
+            None,
+            None,
+            None,
+            render_fn=lambda value: value,
+        )
+
+        assert result is None
+
     def test_get_preserves_provider_exception_when_using_code_default(
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ):
