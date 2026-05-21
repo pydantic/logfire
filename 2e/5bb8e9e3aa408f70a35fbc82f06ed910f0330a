@@ -1,0 +1,20 @@
+logfire/_internal/integrations/pytest.py
+  h_d9dd17644dded9 267-268,270-274,290-293,609,612-613
+tests/otel_integrations/test_pytest_plugin.py
+  h_d9dd17644dded9 1259,1310
+tests/otel_integrations/django_test_project/django_test_site/wsgi.py
+  h_d9dd17644dded9 4
+logfire/_internal/integrations/claude_agent_sdk.py
+  h_d9dd17644dded9 119-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "2e5bb8e9e3aa408f70a35fbc82f06ed910f0330a",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
