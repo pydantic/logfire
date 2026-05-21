@@ -48,7 +48,6 @@ from logfire._internal.utils import handle_internal_errors
 if TYPE_CHECKING:
     from logfire._internal.main import Logfire, LogfireSpan
 
-
 # ---------------------------------------------------------------------------
 # Thread-local storage for per-conversation state.
 #
