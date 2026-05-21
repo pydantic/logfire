@@ -301,7 +301,7 @@ def log_internal_error():
                 'This is just logging the internal error.',
                 exc_info=_internal_error_exc_info(),
             )
-        except Exception:
+        except Exception:  # pragma: no cover
             pass
 
 
