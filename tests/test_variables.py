@@ -2237,12 +2237,24 @@ class TestLogfireVarIntegration:
 
     def test_record_exception_ignores_cpython_traceback_bug(self):
         span = unittest.mock.Mock()
+        otel_span = unittest.mock.Mock()
+        span._span = otel_span
         error = ValueError('Provider failed!')
         span.record_exception.side_effect = RuntimeError('generator raised StopIteration')
 
         _record_exception(error, span)
 
         span.record_exception.assert_called_once_with(error)
+        otel_span.add_event.assert_called_once_with(
+            'exception',
+            attributes={
+                'exception.type': 'ValueError',
+                'exception.message': 'Provider failed!',
+                'exception.stacktrace': (
+                    'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")'
+                ),
+            },
+        )
 
     def test_record_exception_reraises_other_runtime_errors(self):
         span = unittest.mock.Mock()

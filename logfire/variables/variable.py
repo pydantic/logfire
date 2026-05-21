@@ -45,6 +45,21 @@ def _record_exception(exception: BaseException, span: logfire.LogfireSpan) -> No
     except RuntimeError as exc:
         if 'generator raised StopIteration' not in str(exc):
             raise
+        module = type(exception).__module__
+        qualname = type(exception).__qualname__
+        exception_type = f'{module}.{qualname}' if module and module != 'builtins' else qualname
+        otel_span = span._span  # pyright: ignore[reportPrivateUsage]
+        assert otel_span is not None
+        otel_span.add_event(
+            'exception',
+            attributes={
+                'exception.type': exception_type,
+                'exception.message': str(exception),
+                'exception.stacktrace': (
+                    'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")'
+                ),
+            },
+        )
 
 
 @dataclass
