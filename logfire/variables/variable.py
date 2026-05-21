@@ -429,7 +429,7 @@ class Variable(_BaseVariable[T_co]):
 @contextmanager
 def targeting_context(
     targeting_key: str,
-    variables: Sequence[Variable[Any]] | None = None,
+    variables: Sequence[_BaseVariable[Any]] | None = None,
 ) -> Generator[None]:
     """Set the targeting key for variable resolution within this context.
 
