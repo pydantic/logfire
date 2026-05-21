@@ -6,6 +6,7 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 from logfire.variables.abstract import (
+    ResolutionReason,
     ResolvedVariable,
     SyncMode,
     ValidationReport,
@@ -15,7 +16,6 @@ from logfire.variables.abstract import (
 )
 from logfire.variables.composition import (
     ComposedReference,
-    ResolutionReason,
     VariableCompositionCycleError,
     VariableCompositionError,
 )

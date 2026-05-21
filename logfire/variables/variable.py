@@ -17,7 +17,6 @@ from typing_extensions import TypeIs
 from logfire.variables._handlebars import HandlebarsError
 from logfire.variables.composition import (
     ComposedReference,
-    ResolutionReason,
     VariableCompositionError,
     expand_references,
     has_references,
@@ -34,7 +33,7 @@ else:
     from asyncio import to_thread  # pragma: no cover
 
 import logfire
-from logfire.variables.abstract import ResolvedVariable
+from logfire.variables.abstract import ResolutionReason, ResolvedVariable
 
 __all__ = (
     'ResolveFunction',

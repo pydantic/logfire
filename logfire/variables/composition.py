@@ -17,11 +17,12 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Optional, Tuple  # noqa: UP035
+from typing import Any, Callable, Optional, Tuple  # noqa: UP035
+
+from logfire.variables.abstract import ResolutionReason
 
 __all__ = (
     'MAX_COMPOSITION_DEPTH',
-    'ResolutionReason',
     'VariableCompositionError',
     'VariableCompositionCycleError',
     'ComposedReference',
@@ -29,28 +30,6 @@ __all__ = (
     'find_references',
     'has_references',
 )
-
-ResolutionReason = Literal[
-    'resolved',
-    'context_override',
-    'missing_config',
-    'unrecognized_variable',
-    'validation_error',
-    'other_error',
-    'no_provider',
-    'code_default',
-]
-"""Why a variable (or a composed reference) resolved to its final value.
-
-- `resolved`: provider returned a value that was used as-is.
-- `context_override`: a value set via `Variable.override(...)` was used.
-- `missing_config`: the variable exists on the provider but the targeting/rollout produced no value.
-- `unrecognized_variable`: the provider has no entry for the variable.
-- `validation_error`: the serialized value failed deserialization.
-- `other_error`: composition, rendering or other error during resolution.
-- `no_provider`: no provider is configured.
-- `code_default`: the variable's code-default was used because the provider had no value.
-"""
 
 # Matches unescaped @{ (not preceded by \).
 # In JSON-serialized strings, a real backslash is \\, so \\@{ is an escaped ref.

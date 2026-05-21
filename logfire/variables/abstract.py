@@ -9,14 +9,13 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, TypeVar
 
-from logfire.variables.composition import ComposedReference, ResolutionReason
-
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
     from pydantic import TypeAdapter
 
     import logfire
+    from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
     from logfire.variables.variable import _BaseVariable
 
@@ -32,6 +31,7 @@ ANSI_GRAY = '\033[90m'
 
 __all__ = (
     'ResolvedVariable',
+    'ResolutionReason',
     'SyncMode',
     'ValidationReport',
     'VariableProvider',
@@ -44,6 +44,28 @@ __all__ = (
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
+
+ResolutionReason = Literal[
+    'resolved',
+    'context_override',
+    'missing_config',
+    'unrecognized_variable',
+    'validation_error',
+    'other_error',
+    'no_provider',
+    'code_default',
+]
+"""Why a variable (or a composed reference) resolved to its final value.
+
+- `resolved`: provider returned a value that was used as-is.
+- `context_override`: a value set via `Variable.override(...)` was used.
+- `missing_config`: the variable exists on the provider but the targeting/rollout produced no value.
+- `unrecognized_variable`: the provider has no entry for the variable.
+- `validation_error`: the serialized value failed deserialization.
+- `other_error`: composition, rendering or other error during resolution.
+- `no_provider`: no provider is configured.
+- `code_default`: the variable's code-default was used because the provider had no value.
+"""
 
 if not TYPE_CHECKING:  # pragma: no branch
     if sys.version_info < (3, 10):  # pragma: no cover
