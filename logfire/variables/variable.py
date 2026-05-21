@@ -163,11 +163,11 @@ class _BaseVariable(Generic[T_co]):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
 
-    def _deserialize(self, serialized_value: str) -> T_co | Exception:
+    def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
         try:
             return self.type_adapter.validate_json(serialized_value)
-        except Exception as e:
+        except (ValidationError, ValueError) as e:
             return e
 
     @contextmanager
@@ -262,7 +262,7 @@ class _BaseVariable(Generic[T_co]):
         serialized = self.type_adapter.dump_json(default).decode('utf-8')
         rendered = render_fn(serialized)
         result = self._deserialize(rendered)
-        if isinstance(result, Exception):
+        if isinstance(result, (ValidationError, ValueError)):
             raise result
         return result
 
