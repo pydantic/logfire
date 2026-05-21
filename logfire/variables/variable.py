@@ -268,67 +268,17 @@ class _BaseVariable(Generic[T_co]):
                 serialized_result = provider.get_serialized_value_for_label(self.name, label)
                 if serialized_result.value is not None:
                     # Successfully got the explicit label
-                    value_or_exc = self._deserialize(serialized_result.value)
-                    if isinstance(value_or_exc, Exception):
-                        if span:  # pragma: no branch
-                            span.set_attribute('invalid_serialized_label', serialized_result.label)
-                            span.set_attribute('invalid_serialized_value', serialized_result.value)
-                        default = self._get_default(targeting_key, attributes)
-                        reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                        return ResolvedVariable(
-                            name=self.name,
-                            value=default,
-                            exception=value_or_exc,
-                            reason=reason,
-                            label=serialized_result.label,
-                            version=serialized_result.version,
-                        )
-                    return ResolvedVariable(
-                        name=self.name,
-                        value=value_or_exc,
-                        label=serialized_result.label,
-                        version=serialized_result.version,
-                        reason='resolved',
-                    )
+                    return self._deserialize_result(serialized_result, targeting_key, attributes, span)
                 # Label not found - fall through to default resolution
 
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
                 # Provider had no value; surface that the code default was used.
-                return ResolvedVariable(
-                    name=self.name,
-                    value=self._get_default(targeting_key, attributes),
-                    exception=serialized_result.exception,
-                    label=serialized_result.label,
-                    version=serialized_result.version,
-                    reason='code_default',
-                )
+                return self._resolve_code_default(serialized_result, targeting_key, attributes)
 
             # Deserialize - returns T | Exception
-            value_or_exc = self._deserialize(serialized_result.value)
-            if isinstance(value_or_exc, Exception):
-                if span:  # pragma: no branch
-                    span.set_attribute('invalid_serialized_label', serialized_result.label)
-                    span.set_attribute('invalid_serialized_value', serialized_result.value)
-                default = self._get_default(targeting_key, attributes)
-                reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                return ResolvedVariable(
-                    name=self.name,
-                    value=default,
-                    exception=value_or_exc,
-                    reason=reason,
-                    label=serialized_result.label,
-                    version=serialized_result.version,
-                )
-
-            return ResolvedVariable(
-                name=self.name,
-                value=value_or_exc,
-                label=serialized_result.label,
-                version=serialized_result.version,
-                reason='resolved',
-            )
+            return self._deserialize_result(serialized_result, targeting_key, attributes, span)
 
         except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
@@ -336,6 +286,53 @@ class _BaseVariable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
+
+    def _resolve_code_default(
+        self,
+        serialized_result: ResolvedVariable[str | None],
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+    ) -> ResolvedVariable[T_co]:
+        return ResolvedVariable(
+            name=self.name,
+            value=self._get_default(targeting_key, attributes),
+            exception=serialized_result.exception,
+            label=serialized_result.label,
+            version=serialized_result.version,
+            reason='code_default',
+        )
+
+    def _deserialize_result(
+        self,
+        serialized_result: ResolvedVariable[str | None],
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+    ) -> ResolvedVariable[T_co]:
+        assert serialized_result.value is not None
+        value_or_exc = self._deserialize(serialized_result.value)
+        if isinstance(value_or_exc, Exception):
+            if span:  # pragma: no branch
+                span.set_attribute('invalid_serialized_label', serialized_result.label)
+                span.set_attribute('invalid_serialized_value', serialized_result.value)
+            default = self._get_default(targeting_key, attributes)
+            reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+            return ResolvedVariable(
+                name=self.name,
+                value=default,
+                exception=value_or_exc,
+                reason=reason,
+                label=serialized_result.label,
+                version=serialized_result.version,
+            )
+
+        return ResolvedVariable(
+            name=self.name,
+            value=value_or_exc,
+            label=serialized_result.label,
+            version=serialized_result.version,
+            reason='resolved',
+        )
 
     def _get_default(
         self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
