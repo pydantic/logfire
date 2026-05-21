@@ -1,0 +1,27 @@
+logfire/_internal/utils.py
+  h_d9dd17644dded9 460-463
+tests/test_exceptions.py
+  h_d9dd17644dded9 361,366
+  s_e7dbdfc760d323::t_614d14ec1a6970 393
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "1985c126cff8f10d96de977dee75069daad5cc6a",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_e7dbdfc760d323": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1779128148525",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
