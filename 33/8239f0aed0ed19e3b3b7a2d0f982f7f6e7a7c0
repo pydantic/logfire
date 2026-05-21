@@ -1,0 +1,25 @@
+logfire/variables/variable.py
+  h_d9dd17644dded9 402
+  s_b23e84b46a829d::t_50eeec1302b22b 25,251,273,288-291,297,314-317,324,332
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "338239f0aed0ed19e3b3b7a2d0f982f7f6e7a7c0",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_b23e84b46a829d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4a0f-6720-7aa2-a6f8-f1affcb35dde",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
