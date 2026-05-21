@@ -51,15 +51,6 @@ InputsT = TypeVar('InputsT')
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
 
 
-def _record_exception(exception: BaseException, span: logfire.LogfireSpan) -> None:
-    """Record an exception on a span, ignoring a CPython traceback extraction bug."""
-    try:
-        span.record_exception(exception)
-    except RuntimeError as exc:
-        if 'generator raised StopIteration' not in str(exc):
-            raise
-
-
 @dataclass
 class _TargetingContextData:
     """Internal data structure for targeting context."""
@@ -612,7 +603,7 @@ class _BaseVariable(Generic[T_co]):
                     )
                 span.set_attributes(attrs)
                 if result.exception:
-                    _record_exception(result.exception, span)
+                    span.record_exception(result.exception)
             return result
 
 
