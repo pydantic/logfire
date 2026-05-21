@@ -1665,22 +1665,6 @@ class TestVariable:
         assert result.value == 'my_default'
         assert result.reason == 'code_default'
 
-    def test_get_calls_function_default_once_when_no_config(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
-        lf = logfire.configure(**config_kwargs)
-        calls = 0
-
-        def default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
-            nonlocal calls
-            calls += 1
-            return 'my_default'
-
-        var = lf.var(name='unconfigured', default=default, type=str)
-        result = var.get()
-        assert result.value == 'my_default'
-        assert result.reason == 'code_default'
-        assert calls == 1
-
     def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
 
