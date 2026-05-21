@@ -120,6 +120,7 @@ if TYPE_CHECKING:
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from ..variables import (
         ResolveFunction,
+        TemplateVariable,
         ValidationReport,
         Variable,
         VariablesConfig,
@@ -142,6 +143,7 @@ if TYPE_CHECKING:
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
 
 T = TypeVar('T')
+InputsT = TypeVar('InputsT')
 
 
 class Logfire:
@@ -161,7 +163,7 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
-        self._variables: dict[str, Variable[Any]] = {}
+        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
 
     @property
     def config(self) -> LogfireConfig:
@@ -2565,6 +2567,13 @@ class Logfire:
                 ...
         ```
 
+        For variables whose values contain Handlebars `{{placeholder}}` templates that
+        need runtime inputs, we recommend [`template_var()`][logfire.Logfire.template_var]:
+        it renders the templates as part of resolution and gives you a typed
+        `get(inputs)` API. Under the hood it uses `pydantic_handlebars.render`, which
+        you can also call yourself on the resolved value if you need to drive rendering
+        manually.
+
         Args:
             name: Unique identifier for the variable. Must match the name configured in the
                 Logfire UI when using remote variables.
@@ -2603,7 +2612,93 @@ class Logfire:
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
             )
 
-        variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
+        variable = Variable[T](
+            name,
+            default=default,
+            type=tp,
+            logfire_instance=self,
+            description=description,
+        )
+        self._variables[name] = variable
+
+        return variable
+
+    def template_var(
+        self,
+        name: str,
+        *,
+        type: type[T],
+        default: T | ResolveFunction[T],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+    ) -> TemplateVariable[T, InputsT]:
+        """Define a managed template variable with integrated rendering.
+
+        Like `var()`, but `get(inputs)` automatically renders Handlebars `{{placeholder}}`
+        templates in the resolved value before returning. The pipeline is:
+        resolve → compose `@{refs}@` → render `{{}}` → deserialize.
+
+        ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
+        from pydantic import BaseModel
+
+        import logfire
+
+        logfire.configure()
+
+
+        class PromptInputs(BaseModel):
+            user_name: str
+            is_premium: bool = False
+
+
+        prompt = logfire.template_var(
+            'system_prompt',
+            type=str,
+            default='Hello {{user_name}}',
+            inputs_type=PromptInputs,
+        )
+
+        with prompt.get(PromptInputs(user_name='Alice')) as resolved:
+            assert resolved.value == 'Hello Alice'
+        ```
+
+        Args:
+            name: Unique identifier for the variable.
+            type: Expected type for validation and JSON schema generation.
+            default: Default value used when no remote configuration is found.
+                Can also be a callable with `targeting_key` and `attributes` parameters.
+            inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
+                template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
+            description: Optional human-readable description of what the variable controls.
+        """
+        import re
+
+        from logfire.variables.variable import TemplateVariable
+
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+            raise ValueError(
+                f"Invalid variable name '{name}'. "
+                'Variable names must be valid Python identifiers (letters, digits, and underscores, '
+                'not starting with a digit).'
+            )
+
+        if name in self._variables:
+            raise ValueError(
+                f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
+            )
+
+        from logfire.variables._handlebars import ensure_handlebars_available
+
+        ensure_handlebars_available()
+
+        variable = TemplateVariable[T, InputsT](
+            name,
+            type=type,
+            default=default,
+            inputs_type=inputs_type,
+            description=description,
+            logfire_instance=self,
+        )
         self._variables[name] = variable
 
         return variable
@@ -2611,19 +2706,20 @@ class Logfire:
     def variables_clear(self) -> None:
         """Clear all registered variables from this Logfire instance.
 
-        This removes all variables previously registered via [`var()`][logfire.Logfire.var],
+        This removes all variables previously registered via [`var()`][logfire.Logfire.var]
+        or [`template_var()`][logfire.Logfire.template_var],
         allowing them to be re-registered. This is primarily intended for use in tests
         to ensure a clean state between test cases.
         """
         self._variables.clear()
 
-    def variables_get(self) -> list[Variable[Any]]:
+    def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
         """Get all variables registered with this Logfire instance."""
         return list(self._variables.values())
 
     def variables_push(
         self,
-        variables: list[Variable[Any]] | None = None,
+        variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -2644,7 +2740,8 @@ class Logfire:
                 registered with this Logfire instance will be pushed.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas
+                or any reference errors are found.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -2739,7 +2836,7 @@ class Logfire:
 
     def variables_validate(
         self,
-        variables: list[Variable[Any]] | None = None,
+        variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
     ) -> ValidationReport:
         """Validate that provider-side variable label values match local type definitions.
 
@@ -2841,7 +2938,7 @@ class Logfire:
 
     def variables_build_config(
         self,
-        variables: list[Variable[Any]] | None = None,
+        variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
     ) -> VariablesConfig:
         """Build a VariablesConfig from registered Variable instances.
 
