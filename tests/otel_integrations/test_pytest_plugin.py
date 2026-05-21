@@ -480,6 +480,13 @@ def test_failed_test_tolerates_traceback_runtime_error_from_truncated_positions(
     assert test_span is not None, 'Test span not found'
     assert test_span['attributes']['test.outcome'] == 'failed'
 
+    exception_events = [e for e in test_span.get('events', []) if e.get('name') == 'exception']
+    assert len(exception_events) == 1
+    exc_attrs = exception_events[0]['attributes']
+    assert exc_attrs['exception.type'] == 'ValueError'
+    assert exc_attrs['exception.message'] == 'failure with truncated bytecode positions'
+    assert 'exception.stacktrace' not in exc_attrs
+
 
 def test_skipped_test_with_reason(logfire_pytester: pytest.Pytester):
     """Skipped tests should create a span with basic test attributes.
