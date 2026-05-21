@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 import requests_mock as requests_mock_module
 from inline_snapshot import snapshot
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 from requests import Session
 
 import logfire
@@ -1665,6 +1665,55 @@ class TestVariable:
         assert result.value == 'my_default'
         assert result.reason == 'code_default'
 
+    def test_get_calls_function_default_once_when_no_config(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        calls = 0
+
+        def default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            nonlocal calls
+            calls += 1
+            return 'my_default'
+
+        var = lf.var(name='unconfigured', default=default, type=str)
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+        assert calls == 1
+
+    def test_get_preserves_metadata_with_deserialization_type_error(self, config_kwargs: dict[str, Any]):
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'type_error_var': VariableConfig(
+                        name='type_error_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='{"value": 1}')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+        result = var.get()
+        assert result.value == TypeErrorModel(value=0)
+        assert isinstance(result.exception, TypeError)
+        assert result.reason == 'other_error'
+        assert result.label == 'default'
+        assert result.version == 1
+
     def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
 
@@ -1707,6 +1756,27 @@ class TestVariable:
         assert invalid.reason == 'other_error'
         assert isinstance(invalid.exception, ValidationError)
 
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        type_error_var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+
+        with type_error_var.override(TypeErrorModel(value=0)):
+            type_error_result = type_error_var._get_result_and_record_span(
+                None, None, None, render_fn=lambda _: '{"value": 1}'
+            )
+
+        assert type_error_result.value == TypeErrorModel(value=0)
+        assert type_error_result.reason == 'other_error'
+        assert isinstance(type_error_result.exception, TypeError)
+
     def test_render_fn_applies_to_code_default(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
@@ -1723,6 +1793,28 @@ class TestVariable:
         assert invalid.value == 0
         assert invalid.reason == 'validation_error'
         assert isinstance(invalid.exception, ValidationError)
+
+    def test_render_fn_preserves_provider_exception_when_using_code_default(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def missing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            return ResolvedVariable(
+                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+            )
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+        assert result.exception is provider_error
 
     def test_render_fn_skips_code_default_when_default_cannot_be_serialized(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))

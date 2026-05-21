@@ -184,11 +184,11 @@ class _BaseVariable(Generic[T_co]):
         """
         return None
 
-    def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError:
+    def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError | TypeError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
         try:
             return self.type_adapter.validate_json(serialized_value)
-        except (ValidationError, ValueError) as e:
+        except (ValidationError, ValueError, TypeError) as e:
             return e
 
     @contextmanager
@@ -254,6 +254,7 @@ class _BaseVariable(Generic[T_co]):
                     attributes,
                     span,
                     render_fn=render_fn,
+                    provider_exception=serialized_result.exception,
                 )
                 if default_result is not None:
                     return default_result
@@ -283,7 +284,7 @@ class _BaseVariable(Generic[T_co]):
         serialized = self.type_adapter.dump_json(default).decode('utf-8')
         rendered = render_fn(serialized)
         result = self._deserialize(rendered)
-        if isinstance(result, (ValidationError, ValueError)):
+        if isinstance(result, (ValidationError, ValueError, TypeError)):
             raise result
         return result
 
@@ -466,6 +467,7 @@ class _BaseVariable(Generic[T_co]):
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
         render_fn: Callable[[str], str] | None = None,
+        provider_exception: Exception | None = None,
     ) -> ResolvedVariable[T_co] | None:
         """Resolve the code default through composition/rendering when needed."""
         serialized_default = self._get_serialized_default(targeting_key, attributes)
@@ -486,6 +488,8 @@ class _BaseVariable(Generic[T_co]):
             # The expansion succeeded against the code default; flag the top-level
             # reason as 'code_default' so callers can distinguish from a provider hit.
             result.reason = 'code_default'
+        if result.exception is None:
+            result.exception = provider_exception
         return result
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
