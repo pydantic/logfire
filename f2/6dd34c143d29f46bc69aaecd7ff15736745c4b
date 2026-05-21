@@ -1,0 +1,33 @@
+logfire/_internal/tracer.py
+  h_d9dd17644dded9 4,483-486,489-520
+tests/test_exceptions.py
+  s_7942cfb96c6bb5::t_d08767f008a960 1-3,357-360,366-372,375,386,390,393,397-398,408-437
+  s_7942cfb96c6bb5::t_3cad98386e8c1d 361-365,373-374,376-385,387-389,391-392,394-396,399-405,407
+  s_7942cfb96c6bb5::t_c05068854d222e 406
+logfire/_internal/utils.py
+  s_7942cfb96c6bb5::t_643e1addbe41d9 461,464-465
+  s_7942cfb96c6bb5::t_55580dcf14209d 460,462-463
+logfire/_internal/integrations/pytest.py
+  h_d9dd17644dded9 458
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "f26dd34c143d29f46bc69aaecd7ff15736745c4b",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_7942cfb96c6bb5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4a0d-4a0a-79e2-8758-878b621018e0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
