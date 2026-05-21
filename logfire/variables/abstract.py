@@ -30,6 +30,7 @@ ANSI_GRAY = '\033[90m'
 
 __all__ = (
     'ResolvedVariable',
+    'ResolutionReason',
     'SyncMode',
     'ValidationReport',
     'VariableProvider',
@@ -41,6 +42,28 @@ __all__ = (
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
+
+ResolutionReason = Literal[
+    'resolved',
+    'context_override',
+    'missing_config',
+    'unrecognized_variable',
+    'validation_error',
+    'other_error',
+    'no_provider',
+    'code_default',
+]
+"""Why a variable (or a composed reference) resolved to its final value.
+
+- `resolved`: provider returned a value that was used as-is.
+- `context_override`: a value set via `Variable.override(...)` was used.
+- `missing_config`: the variable exists on the provider but the targeting/rollout produced no value.
+- `unrecognized_variable`: the provider has no entry for the variable.
+- `validation_error`: the serialized value failed deserialization.
+- `other_error`: composition, rendering or other error during resolution.
+- `no_provider`: no provider is configured.
+- `code_default`: the variable's code-default was used because the provider had no value.
+"""
 
 if not TYPE_CHECKING:  # pragma: no branch
     if sys.version_info < (3, 10):  # pragma: no cover
@@ -96,18 +119,10 @@ class ResolvedVariable(Generic[T_co]):
     """The name of the variable."""
     value: T_co
     """The resolved value of the variable."""
-    _reason: Literal[
-        'resolved',
-        'context_override',
-        'missing_config',
-        'unrecognized_variable',
-        'validation_error',
-        'other_error',
-        'no_provider',
-    ]  # we might eventually make this public, but I didn't want to yet
-    """Internal field indicating how the value was resolved."""
-    # Note: I had to put _reason before fields with defaults due to lack of kw_only
-    # Note: When we drop support for python 3.9, move _reason to the end
+    reason: ResolutionReason
+    """How the variable was resolved (see `ResolutionReason` for possible values)."""
+    # Note: `reason` is declared before fields with defaults because we don't use kw_only=True
+    # on Python<3.10; move it to the end when 3.9 support is dropped.
     label: str | None = None
     """The name of the selected label, if any."""
     version: int | None = None
@@ -680,11 +695,11 @@ class VariableProvider(ABC):
         """
         config = self.get_variable_config(variable_name)
         if config is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='unrecognized_variable')
+            return ResolvedVariable(name=variable_name, value=None, reason='unrecognized_variable')
 
         labeled_value = config.labels.get(label)
         if labeled_value is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='resolved')
+            return ResolvedVariable(name=variable_name, value=None, reason='resolved')
 
         serialized, version = config.follow_ref(labeled_value)
         return ResolvedVariable(
@@ -692,7 +707,7 @@ class VariableProvider(ABC):
             value=serialized,
             label=label,
             version=version,
-            _reason='resolved',
+            reason='resolved',
         )
 
     def refresh(self, force: bool = False):
@@ -1422,7 +1437,7 @@ class NoOpVariableProvider(VariableProvider):
         Returns:
             A ResolvedVariable with value=None.
         """
-        return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+        return ResolvedVariable(name=variable_name, value=None, reason='no_provider')
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Return None for all variable lookups.
