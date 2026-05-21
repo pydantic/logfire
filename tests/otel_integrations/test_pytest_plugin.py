@@ -491,6 +491,25 @@ def test_failed_test_tolerates_traceback_runtime_error_from_truncated_positions(
     assert 'exception.escaped' not in exc_attrs
 
 
+def test_failed_test_reraises_unexpected_record_exception_runtime_error(logfire_pytester: pytest.Pytester) -> None:
+    """Failed test reporting should only suppress the known CPython traceback bug."""
+    logfire_pytester.makepyfile("""
+        from opentelemetry.sdk.trace import Span
+
+
+        def _unexpected_record_exception_failure(self, exception, *args, **kwargs):
+            raise RuntimeError("unexpected recording failure")
+
+
+        def test_failure(monkeypatch):
+            monkeypatch.setattr(Span, "record_exception", _unexpected_record_exception_failure)
+            raise ValueError("bad value")
+    """)
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--tb=no', '--logfire')
+    assert result.ret != 0
+    result.stdout.fnmatch_lines(['*RuntimeError: unexpected recording failure*'])
+
+
 def test_skipped_test_with_reason(logfire_pytester: pytest.Pytester):
     """Skipped tests should create a span with basic test attributes.
 
