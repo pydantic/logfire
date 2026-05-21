@@ -28,7 +28,7 @@ automatically generated:
 
 ## JavaScript/TypeScript
 
-Logfire provides a [JavaScript SDK](https://github.com/pydantic/logfire-js) that
+Logfire provides a [TypeScript SDK](../integrations/javascript/index.md) that
 enables instrumentation of JavaScript/TypeScript applications. For
 implementation details and examples, please refer to the
 [package README](https://github.com/pydantic/logfire-js?tab=readme-ov-file#usage).
