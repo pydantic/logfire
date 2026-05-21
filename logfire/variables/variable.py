@@ -192,60 +192,6 @@ class _BaseVariable(Generic[T_co]):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
-    def _get_result_and_record_span(
-        self,
-        targeting_key: str | None = None,
-        attributes: Mapping[str, Any] | None = None,
-        label: str | None = None,
-    ) -> ResolvedVariable[T_co]:
-        merged_attributes = self._get_merged_attributes(attributes)
-
-        # Targeting key resolution: call-site > contextvar > trace_id
-        if targeting_key is None:
-            targeting_key = _get_contextvar_targeting_key(self.name)
-
-        if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
-            # If there is no active trace, the current_trace_id will be zero
-            targeting_key = f'trace_id:{current_trace_id:032x}'
-
-        # Include the variable name directly here to make the span name more useful,
-        # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
-        # Don't inline the f-string to avoid f-string magic.
-        span_name = f'Resolve variable {self.name}'
-        with ExitStack() as stack:
-            span: logfire.LogfireSpan | None = None
-            if _get_variables_instrument(self.logfire_instance.config.variables):
-                span = stack.enter_context(
-                    self.logfire_instance.span(
-                        span_name,
-                        name=self.name,
-                        targeting_key=targeting_key,
-                        attributes=merged_attributes,
-                    )
-                )
-            result = self._resolve(targeting_key, merged_attributes, span, label)
-            if span is not None:
-                # Serialize value safely for OTel span attributes, which only support primitives.
-                # Try to JSON serialize the value; if that fails, fall back to string representation.
-                try:
-                    serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
-                except Exception:
-                    serialized_value = repr(result.value)
-                span.set_attributes(
-                    {
-                        'name': result.name,
-                        'value': serialized_value,
-                        'label': result.label,
-                        'version': result.version,
-                        'reason': result.reason,
-                    }
-                )
-                if result.exception:
-                    span.record_exception(
-                        result.exception,
-                    )
-            return result
-
     def _resolve(
         self,
         targeting_key: str | None,
@@ -390,6 +336,60 @@ class _BaseVariable(Generic[T_co]):
             json_schema=json_schema,
             example=example,
         )
+
+    def _get_result_and_record_span(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        label: str | None = None,
+    ) -> ResolvedVariable[T_co]:
+        merged_attributes = self._get_merged_attributes(attributes)
+
+        # Targeting key resolution: call-site > contextvar > trace_id
+        if targeting_key is None:
+            targeting_key = _get_contextvar_targeting_key(self.name)
+
+        if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
+            # If there is no active trace, the current_trace_id will be zero
+            targeting_key = f'trace_id:{current_trace_id:032x}'
+
+        # Include the variable name directly here to make the span name more useful,
+        # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
+        # Don't inline the f-string to avoid f-string magic.
+        span_name = f'Resolve variable {self.name}'
+        with ExitStack() as stack:
+            span: logfire.LogfireSpan | None = None
+            if _get_variables_instrument(self.logfire_instance.config.variables):
+                span = stack.enter_context(
+                    self.logfire_instance.span(
+                        span_name,
+                        name=self.name,
+                        targeting_key=targeting_key,
+                        attributes=merged_attributes,
+                    )
+                )
+            result = self._resolve(targeting_key, merged_attributes, span, label)
+            if span is not None:
+                # Serialize value safely for OTel span attributes, which only support primitives.
+                # Try to JSON serialize the value; if that fails, fall back to string representation.
+                try:
+                    serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
+                except Exception:
+                    serialized_value = repr(result.value)
+                span.set_attributes(
+                    {
+                        'name': result.name,
+                        'value': serialized_value,
+                        'label': result.label,
+                        'version': result.version,
+                        'reason': result.reason,
+                    }
+                )
+                if result.exception:
+                    span.record_exception(
+                        result.exception,
+                    )
+            return result
 
 
 class Variable(_BaseVariable[T_co]):
