@@ -27,6 +27,7 @@ from logfire.variables.abstract import ResolvedVariable
 __all__ = (
     'ResolveFunction',
     'is_resolve_function',
+    '_BaseVariable',
     'Variable',
     'targeting_context',
 )
@@ -35,6 +36,15 @@ T_co = TypeVar('T_co', covariant=True)
 
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
+
+
+def _record_exception(exception: BaseException, span: logfire.LogfireSpan) -> None:
+    """Record an exception on a span, ignoring a CPython traceback extraction bug."""
+    try:
+        span.record_exception(exception)
+    except RuntimeError as exc:
+        if 'generator raised StopIteration' not in str(exc):
+            raise
 
 
 @dataclass
@@ -115,8 +125,8 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
         return required_positional <= 2 and total_positional >= 2
 
 
-class Variable(Generic[T_co]):
-    """A managed variable that can be resolved dynamically based on configuration."""
+class _BaseVariable(Generic[T_co]):
+    """Base class for managed variables with shared resolution infrastructure."""
 
     name: str
     """Unique name identifying this variable."""
@@ -187,28 +197,12 @@ class Variable(Generic[T_co]):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
-    def get(
+    def _get_result_and_record_span(
         self,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-        *,
         label: str | None = None,
     ) -> ResolvedVariable[T_co]:
-        """Resolve the variable and return full details including label, version, and any errors.
-
-        Args:
-            targeting_key: Optional key for deterministic label selection (e.g., user ID).
-                If not provided, falls back to contextvar targeting key (set via targeting_context),
-                then to the current trace ID if there is an active trace.
-            attributes: Optional attributes for condition-based targeting rules.
-            label: Optional explicit label name to select. If provided, bypasses rollout
-                weights and targeting, directly selecting the specified label. If the label
-                doesn't exist in the configuration, falls back to default resolution.
-
-        Returns:
-            A ResolvedVariable object containing the resolved value, selected label,
-            version, and any errors that occurred.
-        """
         merged_attributes = self._get_merged_attributes(attributes)
 
         # Targeting key resolution: call-site > contextvar > trace_id
@@ -252,9 +246,7 @@ class Variable(Generic[T_co]):
                     }
                 )
                 if result.exception:
-                    span.record_exception(
-                        result.exception,
-                    )
+                    _record_exception(result.exception, span)
             return result
 
     def _resolve(
@@ -404,6 +396,34 @@ class Variable(Generic[T_co]):
             json_schema=json_schema,
             example=example,
         )
+
+
+class Variable(_BaseVariable[T_co]):
+    """A managed variable that can be resolved dynamically based on configuration."""
+
+    def get(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
+    ) -> ResolvedVariable[T_co]:
+        """Resolve the variable and return full details including label, version, and any errors.
+
+        Args:
+            targeting_key: Optional key for deterministic label selection (e.g., user ID).
+                If not provided, falls back to contextvar targeting key (set via targeting_context),
+                then to the current trace ID if there is an active trace.
+            attributes: Optional attributes for condition-based targeting rules.
+            label: Optional explicit label name to select. If provided, bypasses rollout
+                weights and targeting, directly selecting the specified label. If the label
+                doesn't exist in the configuration, falls back to default resolution.
+
+        Returns:
+            A ResolvedVariable object containing the resolved value, selected label,
+            version, and any errors that occurred.
+        """
+        return self._get_result_and_record_span(targeting_key, attributes, label)
 
 
 @contextmanager
