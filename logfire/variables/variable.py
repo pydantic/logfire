@@ -206,6 +206,10 @@ class _BaseVariable(Generic[T_co]):
                 context_value = context_overrides[self.name]
                 if is_resolve_function(context_value):
                     context_value = context_value(targeting_key, attributes)
+                # For TemplateVariable (render_fn set), the override is a template
+                # that still gets rendered with inputs.
+                if render_fn is not None:
+                    context_value = self._render_default(context_value, render_fn)
                 return ResolvedVariable(name=self.name, value=context_value, reason='context_override')
 
             provider = self.logfire_instance.config.get_variable_provider()
@@ -233,6 +237,15 @@ class _BaseVariable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
+
+    def _render_default(self, default: Any, render_fn: Callable[[str], str]) -> T_co:
+        """Serialize the default value, apply render_fn, then deserialize back."""
+        serialized = self.type_adapter.dump_json(default).decode('utf-8')
+        rendered = render_fn(serialized)
+        result = self._deserialize(rendered)
+        if isinstance(result, Exception):
+            raise result
+        return result
 
     def _resolve_code_default(
         self,
