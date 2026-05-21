@@ -107,81 +107,106 @@ nav:
               - vs Sentry: comparisons/sentry.md
               - vs SigNoz: comparisons/signoz.md
               - vs Grafana: comparisons/grafana.md
-      - Instrument Your App:
-          - Onboarding Checklist: guides/onboarding-checklist/index.md
-          - Integrate Logfire: guides/onboarding-checklist/integrate.md
-          - Manual Tracing: guides/onboarding-checklist/add-manual-tracing.md
-          - Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
-          - Metrics: guides/onboarding-checklist/add-metrics.md
-          - Distributed Tracing: how-to-guides/distributed-tracing.md
-          - Sampling Strategies: how-to-guides/sampling.md
-          - Scrub Sensitive Data: how-to-guides/scrubbing.md
-          - Suppress Spans and Metrics: how-to-guides/suppress.md
-          - OpenTelemetry Collector:
-              - Overview: how-to-guides/otel-collector/otel-collector-overview.md
-              - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
-      - Integrations:
-          - Integrations: integrations/index.md
-          - AI & LLM Frameworks:
-              - Pydantic AI: integrations/llms/pydanticai.md
-              - OpenAI: integrations/llms/openai.md
-              - Google Gen AI: integrations/llms/google-genai.md
-              - Anthropic: integrations/llms/anthropic.md
-              - LangChain: integrations/llms/langchain.md
-              - LiteLLM: integrations/llms/litellm.md
-              - DSPy: integrations/llms/dspy.md
-              - MCP: integrations/llms/mcp.md
-              - Claude Agent SDK: integrations/llms/claude-agent-sdk.md
-              - LLamaIndex: integrations/llms/llamaindex.md
-              - Mirascope: integrations/llms/mirascope.md
-              - Magentic: integrations/llms/magentic.md
-          - Web Frameworks:
-              - Web Frameworks: integrations/web-frameworks/index.md
-              - FastAPI: integrations/web-frameworks/fastapi.md
-              - Django: integrations/web-frameworks/django.md
-              - Flask: integrations/web-frameworks/flask.md
-              - Starlette: integrations/web-frameworks/starlette.md
-              - AIOHTTP: integrations/web-frameworks/aiohttp.md
-              - ASGI: integrations/web-frameworks/asgi.md
-              - WSGI: integrations/web-frameworks/wsgi.md
-              - Gunicorn: integrations/web-frameworks/gunicorn.md
-          - JavaScript:
-              - JavaScript: integrations/javascript/index.md
-              - Browser: integrations/javascript/browser.md
-              - Next.js: integrations/javascript/nextjs.md
-              - Cloudflare: integrations/javascript/cloudflare.md
-              - Express: integrations/javascript/express.md
-              - Node.js: integrations/javascript/node.md
-              - Deno: integrations/javascript/deno.md
-              - Vercel AI SDK: integrations/javascript/vercel-ai.md
-          - Databases:
-              - Psycopg: integrations/databases/psycopg.md
-              - SQLAlchemy: integrations/databases/sqlalchemy.md
-              - Asyncpg: integrations/databases/asyncpg.md
-              - PyMongo: integrations/databases/pymongo.md
-              - MySQL: integrations/databases/mysql.md
-              - SQLite3: integrations/databases/sqlite3.md
-              - Redis: integrations/databases/redis.md
-              - BigQuery: integrations/databases/bigquery.md
-          - HTTP Clients:
-              - HTTPX: integrations/http-clients/httpx.md
-              - Requests: integrations/http-clients/requests.md
-              - AIOHTTP: integrations/http-clients/aiohttp.md
-          - Task Queues & Pipelines:
-              - Airflow: integrations/event-streams/airflow.md
-              - FastStream: integrations/event-streams/faststream.md
-              - Celery: integrations/event-streams/celery.md
-          - Logging:
-              - Logging: integrations/logging.md
-              - Print: integrations/print.md
-              - Structlog: integrations/structlog.md
-              - Loguru: integrations/loguru.md
-          - Testing:
-              - Pytest: integrations/pytest.md
-          - Pydantic: integrations/pydantic.md
-          - System Metrics: integrations/system-metrics.md
-          - Stripe: integrations/stripe.md
-          - AWS Lambda: integrations/aws-lambda.md
+      - Python SDK:
+          - Instrumentation:
+              - Onboarding Checklist: guides/onboarding-checklist/index.md
+              - Integrate Logfire: guides/onboarding-checklist/integrate.md
+              - Manual Tracing: guides/onboarding-checklist/add-manual-tracing.md
+              - Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
+              - Metrics: guides/onboarding-checklist/add-metrics.md
+              - Distributed Tracing: how-to-guides/distributed-tracing.md
+              - Sampling Strategies: how-to-guides/sampling.md
+              - Scrub Sensitive Data: how-to-guides/scrubbing.md
+              - Suppress Spans and Metrics: how-to-guides/suppress.md
+              - OpenTelemetry Collector:
+                  - Overview: how-to-guides/otel-collector/otel-collector-overview.md
+                  - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
+          - Integrations:
+              - Integrations: integrations/index.md
+              - AI & LLM Frameworks:
+                  - Pydantic AI: integrations/llms/pydanticai.md
+                  - OpenAI: integrations/llms/openai.md
+                  - Google Gen AI: integrations/llms/google-genai.md
+                  - Anthropic: integrations/llms/anthropic.md
+                  - LangChain: integrations/llms/langchain.md
+                  - LiteLLM: integrations/llms/litellm.md
+                  - DSPy: integrations/llms/dspy.md
+                  - MCP: integrations/llms/mcp.md
+                  - Claude Agent SDK: integrations/llms/claude-agent-sdk.md
+                  - LLamaIndex: integrations/llms/llamaindex.md
+                  - Mirascope: integrations/llms/mirascope.md
+                  - Magentic: integrations/llms/magentic.md
+              - Web Frameworks:
+                  - Web Frameworks: integrations/web-frameworks/index.md
+                  - FastAPI: integrations/web-frameworks/fastapi.md
+                  - Django: integrations/web-frameworks/django.md
+                  - Flask: integrations/web-frameworks/flask.md
+                  - Starlette: integrations/web-frameworks/starlette.md
+                  - AIOHTTP: integrations/web-frameworks/aiohttp.md
+                  - ASGI: integrations/web-frameworks/asgi.md
+                  - WSGI: integrations/web-frameworks/wsgi.md
+                  - Gunicorn: integrations/web-frameworks/gunicorn.md
+              - Databases:
+                  - Psycopg: integrations/databases/psycopg.md
+                  - SQLAlchemy: integrations/databases/sqlalchemy.md
+                  - Asyncpg: integrations/databases/asyncpg.md
+                  - PyMongo: integrations/databases/pymongo.md
+                  - MySQL: integrations/databases/mysql.md
+                  - SQLite3: integrations/databases/sqlite3.md
+                  - Redis: integrations/databases/redis.md
+                  - BigQuery: integrations/databases/bigquery.md
+              - HTTP Clients:
+                  - HTTPX: integrations/http-clients/httpx.md
+                  - Requests: integrations/http-clients/requests.md
+                  - AIOHTTP: integrations/http-clients/aiohttp.md
+              - Task Queues & Pipelines:
+                  - Airflow: integrations/event-streams/airflow.md
+                  - FastStream: integrations/event-streams/faststream.md
+                  - Celery: integrations/event-streams/celery.md
+              - Logging:
+                  - Logging: integrations/logging.md
+                  - Print: integrations/print.md
+                  - Structlog: integrations/structlog.md
+                  - Loguru: integrations/loguru.md
+              - Testing:
+                  - Pytest: integrations/pytest.md
+              - Pydantic: integrations/pydantic.md
+              - System Metrics: integrations/system-metrics.md
+              - Stripe: integrations/stripe.md
+              - AWS Lambda: integrations/aws-lambda.md
+          - Evaluate:
+              - Datasets SDK Guide: evaluate/datasets/sdk.md
+          - Reference:
+              - Configuration: reference/configuration.md
+              - API:
+                  - Logfire: reference/api/logfire.md
+                  - Testing: reference/api/testing.md
+                  - Sampling: reference/api/sampling.md
+                  - Propagate: reference/api/propagate.md
+                  - Exceptions: reference/api/exceptions.md
+                  - Pydantic: reference/api/pydantic.md
+                  - Types: reference/api/types.md
+                  - Datasets: reference/api/datasets.md
+              - CLI: reference/cli.md
+              - Examples: reference/examples.md
+              - Advanced:
+                  - Baggage: reference/advanced/baggage.md
+                  - Generators: reference/advanced/generators.md
+                  - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
+                  - Testing Logfire Instrumentation: reference/advanced/testing.md
+                  - Migrating Projects: reference/advanced/migrate-to-new-project.md
+                  - Link to Code Source: how-to-guides/link-to-code-source.md
+                  - Use Alternative Backends: how-to-guides/alternative-backends.md
+                  - Multiple Configurations: how-to-guides/different-configurations.md
+      - TypeScript SDK:
+          - Overview: integrations/javascript/index.md
+          - Browser: integrations/javascript/browser.md
+          - Next.js: integrations/javascript/nextjs.md
+          - Cloudflare: integrations/javascript/cloudflare.md
+          - Express: integrations/javascript/express.md
+          - Node.js: integrations/javascript/node.md
+          - Deno: integrations/javascript/deno.md
+          - Vercel AI SDK: integrations/javascript/vercel-ai.md
       - Observe & Investigate:
           - Live View: guides/web-ui/live.md
           - LLM Panels: guides/web-ui/llm-panels.md
@@ -201,11 +226,9 @@ nav:
           - Datasets:
               - Datasets: evaluate/datasets/index.md
               - Web UI Guide: evaluate/datasets/ui.md
-              - SDK Guide: evaluate/datasets/sdk.md
               - Running Evaluations: evaluate/datasets/evaluations.md
       - Manage & Configure:
           - Organizations & Projects: guides/web-ui/organizations-and-projects.md
-          - Configuration: reference/configuration.md
           - Managed Variables:
               - Overview: reference/advanced/managed-variables/index.md
               - UI Guide: reference/advanced/managed-variables/ui.md
@@ -228,7 +251,6 @@ nav:
           - Write Tokens: how-to-guides/create-write-tokens.md
           - API Keys: reference/advanced/use-api-keys.md
           - Infrastructure as Code: how-to-guides/infrastructure-as-code.md
-          - Multiple Configurations: how-to-guides/different-configurations.md
           - Cost & Usage: logfire-costs.md
           - Data Regions: reference/data-regions.md
           - Export Data: how-to-guides/query-api.md
@@ -236,30 +258,12 @@ nav:
           - Convert to Organization: how-to-guides/convert-to-organization.md
           - Gateway Migration: gateway-migration.md
       - Guides:
-          - Link to Code Source: how-to-guides/link-to-code-source.md
           - Use Alternative Clients: how-to-guides/alternative-clients.md
-          - Use Alternative Backends: how-to-guides/alternative-backends.md
           - Collect Cloud Provider Metrics: how-to-guides/cloud-metrics.md
           - Connect to MCP Server: how-to-guides/mcp-server.md
           - Coding Agent Skills: how-to-guides/skills.md
       - Reference:
           - SQL: reference/sql.md
-          - SDK API:
-              - Logfire: reference/api/logfire.md
-              - Testing: reference/api/testing.md
-              - Sampling: reference/api/sampling.md
-              - Propagate: reference/api/propagate.md
-              - Exceptions: reference/api/exceptions.md
-              - Pydantic: reference/api/pydantic.md
-              - Types: reference/api/types.md
-              - Datasets: reference/api/datasets.md
-          - SDK CLI: reference/cli.md
-          - Examples: reference/examples.md
-          - Baggage: reference/advanced/baggage.md
-          - Generators: reference/advanced/generators.md
-          - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
-          - Testing Logfire Instrumentation: reference/advanced/testing.md
-          - Migrating Projects: reference/advanced/migrate-to-new-project.md
       - Deploy & Scale:
           - Enterprise: enterprise.md
           - Single Tenant: enterprise-single-tenant.md
@@ -451,16 +455,35 @@ plugins:
           - concepts.md
           - ai-observability.md
           - faq.md
-        Instrument Your App:
+        Python SDK:
+          - index.md
           - guides/onboarding-checklist/*.md
           - how-to-guides/distributed-tracing.md
           - how-to-guides/sampling.md
           - how-to-guides/scrubbing.md
           - how-to-guides/suppress.md
           - how-to-guides/otel-collector/*.md
-        Integrations:
           - integrations/*.md
-          - integrations/*/*.md
+          - integrations/llms/*.md
+          - integrations/web-frameworks/*.md
+          - integrations/databases/*.md
+          - integrations/http-clients/*.md
+          - integrations/event-streams/*.md
+          - evaluate/datasets/sdk.md
+          - reference/configuration.md
+          - reference/cli.md
+          - reference/examples.md
+          - reference/api/*.md
+          - reference/advanced/baggage.md
+          - reference/advanced/generators.md
+          - reference/advanced/metrics-in-spans.md
+          - reference/advanced/migrate-to-new-project.md
+          - reference/advanced/testing.md
+          - how-to-guides/link-to-code-source.md
+          - how-to-guides/alternative-backends.md
+          - how-to-guides/different-configurations.md
+        TypeScript SDK:
+          - integrations/javascript/*.md
         Observe & Investigate:
           - guides/web-ui/live.md
           - guides/web-ui/llm-panels.md
@@ -480,7 +503,6 @@ plugins:
           - evaluate/datasets/*.md
         Manage & Configure:
           - guides/web-ui/organizations-and-projects.md
-          - reference/configuration.md
           - reference/advanced/managed-variables/*.md
           - reference/advanced/prompt-management/*.md
           - reference/advanced/use-api-keys.md
@@ -488,27 +510,16 @@ plugins:
           - logfire-costs.md
           - how-to-guides/environments.md
           - how-to-guides/create-write-tokens.md
-          - how-to-guides/different-configurations.md
           - how-to-guides/query-api.md
           - how-to-guides/client-side-feature-flags.md
           - how-to-guides/convert-to-organization.md
           - gateway-migration.md
         Guides:
-          - how-to-guides/link-to-code-source.md
           - how-to-guides/alternative-clients.md
-          - how-to-guides/alternative-backends.md
           - how-to-guides/cloud-metrics.md
           - how-to-guides/mcp-server.md
         Reference:
           - reference/sql.md
-          - reference/api/*.md
-          - reference/cli.md
-          - reference/examples.md
-          - reference/advanced/baggage.md
-          - reference/advanced/generators.md
-          - reference/advanced/metrics-in-spans.md
-          - reference/advanced/testing.md
-          - reference/advanced/migrate-to-new-project.md
         Deploy & Scale:
           - enterprise.md
           - enterprise-single-tenant.md

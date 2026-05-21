@@ -1661,8 +1661,109 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='unconfigured', default='my_default', type=str)
-        value = var.get().value
-        assert value == 'my_default'
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+
+    def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='plain_var', default='default', type=str)
+
+        assert var.get_template_inputs_schema() is None
+
+    def test_render_fn_applies_to_provider_value(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'resolved'
+
+    def test_render_fn_applies_to_context_override(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+
+        with var.override('overridden'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'context_override'
+
+        int_var = lf.var(name='int_var', default=0, type=int)
+
+        with int_var.override(1):
+            invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'other_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+    def test_render_fn_applies_to_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+
+        invalid_var = lf.var(name='unconfigured_int', default=0, type=int)
+        invalid = invalid_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'validation_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+    def test_render_fn_skips_code_default_when_default_cannot_be_serialized(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+
+        result = var._resolve_serialized_default(
+            lf.config.get_variable_provider(),
+            None,
+            None,
+            None,
+            render_fn=lambda value: value,
+        )
+
+        assert result is None
+
+    def test_get_preserves_provider_exception_when_using_code_default(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def missing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            return ResolvedVariable(
+                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+            )
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+        assert result.exception is provider_error
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)

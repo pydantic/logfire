@@ -270,6 +270,7 @@ class _BaseVariable(Generic[T_co]):
                 return ResolvedVariable(
                     name=self.name,
                     value=self._get_default(targeting_key, attributes),
+                    exception=serialized_result.exception,
                     label=serialized_result.label,
                     version=serialized_result.version,
                     reason='code_default',

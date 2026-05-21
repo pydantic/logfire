@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 from unittest import mock
 
@@ -430,49 +431,83 @@ def test_failed_test_records_exception(logfire_pytester: pytest.Pytester):
     assert 'exception.stacktrace' in exc_attrs
 
 
-def test_failed_test_ignores_record_exception_runtime_error() -> None:
-    """Failed test reporting should tolerate RuntimeError while recording exception details."""
-    span = mock.Mock()
-    span.record_exception.side_effect = RuntimeError('generator raised StopIteration')
-    item = mock.Mock()
-    item.stash.get.return_value = span
-    report = mock.Mock(when='call', failed=True, skipped=False, duration=0.1, outcome='failed')
-    call = mock.Mock()
-    call.excinfo.typename = 'ValueError'
-    call.excinfo.value = ValueError('bad value')
-    outcome = mock.Mock()
-    outcome.get_result.return_value = report
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='co_positions traceback formatting was added in Python 3.11')
+def test_failed_test_tolerates_traceback_runtime_error_from_truncated_positions(
+    logfire_pytester: pytest.Pytester,
+) -> None:
+    """Failed test reporting tolerates CPython traceback failures from bad code position metadata."""
+    logfire_pytester.makepyfile("""
+        import traceback
+        import types
 
-    hook = pytest_plugin.pytest_runtest_makereport(item, call)
-    next(hook)
-
-    with pytest.raises(StopIteration):
-        hook.send(outcome)
-
-    span.set_status.assert_called_once()
-    span.record_exception.assert_called_once_with(call.excinfo.value)
+        import pytest
 
 
-def test_failed_test_reraises_unexpected_record_exception_runtime_error() -> None:
+        def _raise_from_code_with_truncated_positions():
+            detail = "bytecode position metadata is deliberately truncated"
+            raise ValueError(detail)
+
+
+        _code = _raise_from_code_with_truncated_positions.__code__.replace(co_linetable=b"")
+        _bad_function = types.FunctionType(_code, globals())
+
+
+        def test_failure_with_truncated_positions():
+            try:
+                _bad_function()
+            except ValueError as exc:
+                bad_frame_tb = exc.__traceback__.tb_next
+                synthetic_tb = types.TracebackType(
+                    None,
+                    bad_frame_tb.tb_frame,
+                    bad_frame_tb.tb_lasti,
+                    bad_frame_tb.tb_frame.f_code.co_firstlineno,
+                )
+                synthetic_exc = ValueError("failure with truncated bytecode positions").with_traceback(synthetic_tb)
+                with pytest.raises(RuntimeError, match="^generator raised StopIteration$") as traceback_error:
+                    traceback.extract_tb(synthetic_exc.__traceback__)
+                assert isinstance(traceback_error.value.__cause__, StopIteration)
+                raise synthetic_exc from None
+
+            raise AssertionError("Expected _bad_function to raise ValueError")
+    """)
+    # Pytest also calls traceback.extract_tb() while rendering failures, so keep its traceback output disabled.
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--tb=no', '--logfire')
+    result.assert_outcomes(failed=1)
+
+    spans = load_spans(logfire_pytester)
+    test_span = find_span_by_pattern(spans, 'test_failure_with_truncated_positions')
+    assert test_span is not None, 'Test span not found'
+    assert test_span['attributes']['test.outcome'] == 'failed'
+
+    exception_events = [e for e in test_span.get('events', []) if e.get('name') == 'exception']
+    assert len(exception_events) == 1
+    exc_attrs = exception_events[0]['attributes']
+    assert exc_attrs['exception.type'] == 'ValueError'
+    assert exc_attrs['exception.message'] == 'failure with truncated bytecode positions'
+    assert exc_attrs['exception.stacktrace'] == (
+        'Traceback unavailable: traceback formatting raised RuntimeError("generator raised StopIteration")'
+    )
+    assert 'exception.escaped' not in exc_attrs
+
+
+def test_failed_test_reraises_unexpected_record_exception_runtime_error(logfire_pytester: pytest.Pytester) -> None:
     """Failed test reporting should only suppress the known CPython traceback bug."""
-    span = mock.Mock()
-    span.record_exception.side_effect = RuntimeError('unexpected recording failure')
-    item = mock.Mock()
-    item.stash.get.return_value = span
-    report = mock.Mock(when='call', failed=True, skipped=False, duration=0.1, outcome='failed')
-    call = mock.Mock()
-    call.excinfo.typename = 'ValueError'
-    call.excinfo.value = ValueError('bad value')
-    outcome = mock.Mock()
-    outcome.get_result.return_value = report
+    logfire_pytester.makepyfile("""
+        from opentelemetry.sdk.trace import Span
 
-    hook = pytest_plugin.pytest_runtest_makereport(item, call)
-    next(hook)
 
-    with pytest.raises(RuntimeError, match='unexpected recording failure'):
-        hook.send(outcome)
+        def _unexpected_record_exception_failure(self, exception, *args, **kwargs):
+            raise RuntimeError("unexpected recording failure")
 
-    span.record_exception.assert_called_once_with(call.excinfo.value)
+
+        def test_failure(monkeypatch):
+            monkeypatch.setattr(Span, "record_exception", _unexpected_record_exception_failure)
+            raise ValueError("bad value")
+    """)
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--tb=no', '--logfire')
+    assert result.ret != 0
+    result.stdout.fnmatch_lines(['*RuntimeError: unexpected recording failure*'])
 
 
 def test_skipped_test_with_reason(logfire_pytester: pytest.Pytester):
