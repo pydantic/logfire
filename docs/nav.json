@@ -30,20 +30,20 @@
       {
         "label": "Instrumentation",
         "items": [
-          { "label": "Onboarding Checklist", "slug": "guides/onboarding-checklist/index" },
-          { "label": "Integrate Logfire", "slug": "guides/onboarding-checklist/integrate" },
-          { "label": "Manual Tracing", "slug": "guides/onboarding-checklist/add-manual-tracing" },
-          { "label": "Auto-Tracing", "slug": "guides/onboarding-checklist/add-auto-tracing" },
-          { "label": "Metrics", "slug": "guides/onboarding-checklist/add-metrics" },
-          { "label": "Distributed Tracing", "slug": "how-to-guides/distributed-tracing" },
-          { "label": "Sampling Strategies", "slug": "how-to-guides/sampling" },
-          { "label": "Scrub Sensitive Data", "slug": "how-to-guides/scrubbing" },
-          { "label": "Suppress Spans and Metrics", "slug": "how-to-guides/suppress" },
+          { "label": "Onboarding Checklist", "link": "/logfire/instrument/onboarding-checklist/" },
+          { "label": "Integrate Logfire", "link": "/logfire/instrument/integrate/" },
+          { "label": "Manual Tracing", "link": "/logfire/instrument/add-manual-tracing/" },
+          { "label": "Auto-Tracing", "link": "/logfire/instrument/add-auto-tracing/" },
+          { "label": "Metrics", "link": "/logfire/instrument/add-metrics/" },
+          { "label": "Distributed Tracing", "link": "/logfire/instrument/distributed-tracing/" },
+          { "label": "Sampling Strategies", "link": "/logfire/instrument/sampling/" },
+          { "label": "Scrub Sensitive Data", "link": "/logfire/instrument/scrubbing/" },
+          { "label": "Suppress Spans and Metrics", "link": "/logfire/instrument/suppress/" },
           {
             "label": "OpenTelemetry Collector",
             "items": [
-              { "label": "Overview", "slug": "how-to-guides/otel-collector/otel-collector-overview" },
-              { "label": "Advanced Scrubbing", "slug": "how-to-guides/otel-collector/otel-collector-scrubbing" }
+              { "label": "Overview", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-overview/" },
+              { "label": "Advanced Scrubbing", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-scrubbing/" }
             ]
           }
         ]
@@ -51,119 +51,119 @@
       {
         "label": "Integrations",
         "items": [
-          { "label": "Integrations", "slug": "integrations/index" },
+          { "label": "Integrations", "link": "/logfire/integrations/" },
           {
             "label": "AI & LLM Frameworks",
             "items": [
-              { "label": "Pydantic AI", "slug": "integrations/llms/pydanticai" },
-              { "label": "OpenAI", "slug": "integrations/llms/openai" },
-              { "label": "Google Gen AI", "slug": "integrations/llms/google-genai" },
-              { "label": "Anthropic", "slug": "integrations/llms/anthropic" },
-              { "label": "LangChain", "slug": "integrations/llms/langchain" },
-              { "label": "LiteLLM", "slug": "integrations/llms/litellm" },
-              { "label": "DSPy", "slug": "integrations/llms/dspy" },
-              { "label": "MCP", "slug": "integrations/llms/mcp" },
-              { "label": "Claude Agent SDK", "slug": "integrations/llms/claude-agent-sdk" },
-              { "label": "LLamaIndex", "slug": "integrations/llms/llamaindex" },
-              { "label": "Mirascope", "slug": "integrations/llms/mirascope" },
-              { "label": "Magentic", "slug": "integrations/llms/magentic" }
+              { "label": "Pydantic AI", "link": "/logfire/integrations/llms/pydanticai/" },
+              { "label": "OpenAI", "link": "/logfire/integrations/llms/openai/" },
+              { "label": "Google Gen AI", "link": "/logfire/integrations/llms/google-genai/" },
+              { "label": "Anthropic", "link": "/logfire/integrations/llms/anthropic/" },
+              { "label": "LangChain", "link": "/logfire/integrations/llms/langchain/" },
+              { "label": "LiteLLM", "link": "/logfire/integrations/llms/litellm/" },
+              { "label": "DSPy", "link": "/logfire/integrations/llms/dspy/" },
+              { "label": "MCP", "link": "/logfire/integrations/llms/mcp/" },
+              { "label": "Claude Agent SDK", "link": "/logfire/integrations/llms/claude-agent-sdk/" },
+              { "label": "LLamaIndex", "link": "/logfire/integrations/llms/llamaindex/" },
+              { "label": "Mirascope", "link": "/logfire/integrations/llms/mirascope/" },
+              { "label": "Magentic", "link": "/logfire/integrations/llms/magentic/" }
             ]
           },
           {
             "label": "Web Frameworks",
             "items": [
-              { "label": "Web Frameworks", "slug": "integrations/web-frameworks/index" },
-              { "label": "FastAPI", "slug": "integrations/web-frameworks/fastapi" },
-              { "label": "Django", "slug": "integrations/web-frameworks/django" },
-              { "label": "Flask", "slug": "integrations/web-frameworks/flask" },
-              { "label": "Starlette", "slug": "integrations/web-frameworks/starlette" },
-              { "label": "AIOHTTP", "slug": "integrations/web-frameworks/aiohttp" },
-              { "label": "ASGI", "slug": "integrations/web-frameworks/asgi" },
-              { "label": "WSGI", "slug": "integrations/web-frameworks/wsgi" },
-              { "label": "Gunicorn", "slug": "integrations/web-frameworks/gunicorn" }
+              { "label": "Web Frameworks", "link": "/logfire/integrations/web-frameworks/" },
+              { "label": "FastAPI", "link": "/logfire/integrations/web-frameworks/fastapi/" },
+              { "label": "Django", "link": "/logfire/integrations/web-frameworks/django/" },
+              { "label": "Flask", "link": "/logfire/integrations/web-frameworks/flask/" },
+              { "label": "Starlette", "link": "/logfire/integrations/web-frameworks/starlette/" },
+              { "label": "AIOHTTP", "link": "/logfire/integrations/web-frameworks/aiohttp/" },
+              { "label": "ASGI", "link": "/logfire/integrations/web-frameworks/asgi/" },
+              { "label": "WSGI", "link": "/logfire/integrations/web-frameworks/wsgi/" },
+              { "label": "Gunicorn", "link": "/logfire/integrations/web-frameworks/gunicorn/" }
             ]
           },
           {
             "label": "Databases",
             "items": [
-              { "label": "Psycopg", "slug": "integrations/databases/psycopg" },
-              { "label": "SQLAlchemy", "slug": "integrations/databases/sqlalchemy" },
-              { "label": "Asyncpg", "slug": "integrations/databases/asyncpg" },
-              { "label": "PyMongo", "slug": "integrations/databases/pymongo" },
-              { "label": "MySQL", "slug": "integrations/databases/mysql" },
-              { "label": "SQLite3", "slug": "integrations/databases/sqlite3" },
-              { "label": "Redis", "slug": "integrations/databases/redis" },
-              { "label": "BigQuery", "slug": "integrations/databases/bigquery" }
+              { "label": "Psycopg", "link": "/logfire/integrations/databases/psycopg/" },
+              { "label": "SQLAlchemy", "link": "/logfire/integrations/databases/sqlalchemy/" },
+              { "label": "Asyncpg", "link": "/logfire/integrations/databases/asyncpg/" },
+              { "label": "PyMongo", "link": "/logfire/integrations/databases/pymongo/" },
+              { "label": "MySQL", "link": "/logfire/integrations/databases/mysql/" },
+              { "label": "SQLite3", "link": "/logfire/integrations/databases/sqlite3/" },
+              { "label": "Redis", "link": "/logfire/integrations/databases/redis/" },
+              { "label": "BigQuery", "link": "/logfire/integrations/databases/bigquery/" }
             ]
           },
           {
             "label": "HTTP Clients",
             "items": [
-              { "label": "HTTPX", "slug": "integrations/http-clients/httpx" },
-              { "label": "Requests", "slug": "integrations/http-clients/requests" },
-              { "label": "AIOHTTP", "slug": "integrations/http-clients/aiohttp" }
+              { "label": "HTTPX", "link": "/logfire/integrations/http-clients/httpx/" },
+              { "label": "Requests", "link": "/logfire/integrations/http-clients/requests/" },
+              { "label": "AIOHTTP", "link": "/logfire/integrations/http-clients/aiohttp/" }
             ]
           },
           {
             "label": "Task Queues & Pipelines",
             "items": [
-              { "label": "Airflow", "slug": "integrations/event-streams/airflow" },
-              { "label": "FastStream", "slug": "integrations/event-streams/faststream" },
-              { "label": "Celery", "slug": "integrations/event-streams/celery" }
+              { "label": "Airflow", "link": "/logfire/integrations/event-streams/airflow/" },
+              { "label": "FastStream", "link": "/logfire/integrations/event-streams/faststream/" },
+              { "label": "Celery", "link": "/logfire/integrations/event-streams/celery/" }
             ]
           },
           {
             "label": "Logging",
             "items": [
-              { "label": "Logging", "slug": "integrations/logging" },
-              { "label": "Print", "slug": "integrations/print" },
-              { "label": "Structlog", "slug": "integrations/structlog" },
-              { "label": "Loguru", "slug": "integrations/loguru" }
+              { "label": "Logging", "link": "/logfire/integrations/logging/logging/" },
+              { "label": "Print", "link": "/logfire/integrations/logging/print/" },
+              { "label": "Structlog", "link": "/logfire/integrations/logging/structlog/" },
+              { "label": "Loguru", "link": "/logfire/integrations/logging/loguru/" }
             ]
           },
-          { "label": "Pytest", "slug": "integrations/pytest" },
-          { "label": "Pydantic", "slug": "integrations/pydantic" },
-          { "label": "System Metrics", "slug": "integrations/system-metrics" },
-          { "label": "Stripe", "slug": "integrations/stripe" },
-          { "label": "AWS Lambda", "slug": "integrations/aws-lambda" }
+          { "label": "Pytest", "link": "/logfire/integrations/pytest/" },
+          { "label": "Pydantic", "link": "/logfire/integrations/pydantic/" },
+          { "label": "System Metrics", "link": "/logfire/integrations/system-metrics/" },
+          { "label": "Stripe", "link": "/logfire/integrations/stripe/" },
+          { "label": "AWS Lambda", "link": "/logfire/integrations/aws-lambda/" }
         ]
       },
       {
         "label": "Evaluate",
         "items": [
-          { "label": "Datasets SDK Guide", "slug": "evaluate/datasets/sdk" }
+          { "label": "Datasets SDK Guide", "link": "/logfire/evaluate/datasets/sdk/" }
         ]
       },
       {
         "label": "Reference",
         "items": [
-          { "label": "Configuration", "slug": "reference/configuration" },
+          { "label": "Configuration", "link": "/logfire/manage/configuration/" },
           {
             "label": "API",
             "items": [
-              { "label": "Logfire", "slug": "reference/api/logfire" },
-              { "label": "Testing", "slug": "reference/api/testing" },
-              { "label": "Sampling", "slug": "reference/api/sampling" },
-              { "label": "Propagate", "slug": "reference/api/propagate" },
-              { "label": "Exceptions", "slug": "reference/api/exceptions" },
-              { "label": "Pydantic", "slug": "reference/api/pydantic" },
-              { "label": "Types", "slug": "reference/api/types" },
-              { "label": "Datasets", "slug": "reference/api/datasets" }
+              { "label": "Logfire", "link": "/logfire/api/logfire/" },
+              { "label": "Testing", "link": "/logfire/api/testing/" },
+              { "label": "Sampling", "link": "/logfire/api/sampling/" },
+              { "label": "Propagate", "link": "/logfire/api/propagate/" },
+              { "label": "Exceptions", "link": "/logfire/api/exceptions/" },
+              { "label": "Pydantic", "link": "/logfire/api/pydantic/" },
+              { "label": "Types", "link": "/logfire/api/types/" },
+              { "label": "Datasets", "link": "/logfire/api/datasets/" }
             ]
           },
-          { "label": "CLI", "slug": "reference/cli" },
-          { "label": "Examples", "slug": "reference/examples" },
+          { "label": "CLI", "link": "/logfire/reference/cli/" },
+          { "label": "Examples", "link": "/logfire/reference/examples/" },
           {
             "label": "Advanced",
             "items": [
-              { "label": "Baggage", "slug": "reference/advanced/baggage" },
-              { "label": "Generators", "slug": "reference/advanced/generators" },
-              { "label": "Aggregating Metrics in Spans", "slug": "reference/advanced/metrics-in-spans" },
-              { "label": "Testing Logfire Instrumentation", "slug": "reference/advanced/testing" },
-              { "label": "Migrating Projects", "slug": "reference/advanced/migrate-to-new-project" },
-              { "label": "Link to Code Source", "slug": "how-to-guides/link-to-code-source" },
-              { "label": "Use Alternative Backends", "slug": "how-to-guides/alternative-backends" },
-              { "label": "Multiple Configurations", "slug": "how-to-guides/different-configurations" }
+              { "label": "Baggage", "link": "/logfire/reference/baggage/" },
+              { "label": "Generators", "link": "/logfire/reference/generators/" },
+              { "label": "Aggregating Metrics in Spans", "link": "/logfire/reference/metrics-in-spans/" },
+              { "label": "Testing Logfire Instrumentation", "link": "/logfire/reference/testing/" },
+              { "label": "Migrating Projects", "link": "/logfire/reference/migrate-to-new-project/" },
+              { "label": "Link to Code Source", "link": "/logfire/guides/link-to-code-source/" },
+              { "label": "Use Alternative Backends", "link": "/logfire/guides/alternative-backends/" },
+              { "label": "Multiple Configurations", "link": "/logfire/manage/different-configurations/" }
             ]
           }
         ]
