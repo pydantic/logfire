@@ -450,15 +450,14 @@ class _BaseVariable(Generic[T_co]):
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
                 except (ValueError, TypeError, RuntimeError):
                     serialized_value = repr(result.value)
-                span.set_attributes(
-                    {
-                        'name': result.name,
-                        'value': serialized_value,
-                        'label': result.label,
-                        'version': result.version,
-                        'reason': result.reason,
-                    }
-                )
+                attrs: dict[str, Any] = {
+                    'name': result.name,
+                    'value': serialized_value,
+                    'label': result.label,
+                    'version': result.version,
+                    'reason': result.reason,
+                }
+                span.set_attributes(attrs)
                 if result.exception:
                     span.record_exception(
                         result.exception,
