@@ -970,6 +970,7 @@ class TestCodeDefaultSerializationFailures:
         assert result.value is sentinel
         assert result.reason == 'code_default'
 
+    @requires_handlebars
     def test_unserializable_default_with_references_falls_back(self, config_kwargs: dict[str, Any]):
         """A code default that references missing variables still falls back to the plain default."""
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
