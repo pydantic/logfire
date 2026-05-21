@@ -65,7 +65,7 @@ The variables panel sits alongside the editor. Each variable has a name and a va
 The editor lists the variables the template and scenario messages reference — a quick visual sanity check that your names match.
 
 !!! tip "Use scenarios, not hard-coded strings"
-    It is tempting to write a scenario like *"What's the weather in Amsterdam today?"* with the city hard-coded. Prefer *"What's the weather in {{city}} today?"* with `city = Amsterdam` in the variables panel. When you later link the scenario to a dataset for a [batch run](#batch-runs), the variable column becomes the axis of evaluation — the hard-coded version cannot be swept over a dataset.
+    It is tempting to write a scenario like *"What's the weather in Amsterdam today?"* with the city hard-coded. Prefer *"What's the weather in {{city}} today?"* with `city = Amsterdam` in the variables panel. When you later link the scenario to a dataset for a [batch run](#datasets-and-batch-runs), the variable column becomes the axis of evaluation — the hard-coded version cannot be swept over a dataset.
 
 ## Tool-calling conversations
 
