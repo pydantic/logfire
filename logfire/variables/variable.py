@@ -163,6 +163,14 @@ class _BaseVariable(Generic[T_co]):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
 
+    def get_template_inputs_schema(self) -> dict[str, Any] | None:
+        """Return the JSON schema for template inputs.
+
+        Returns None on plain `Variable` instances. `TemplateVariable` overrides this
+        to return the schema derived from its `inputs_type`.
+        """
+        return None
+
     def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
         try:
@@ -440,7 +448,7 @@ class _BaseVariable(Generic[T_co]):
                 # Try to JSON serialize the value; if that fails, fall back to string representation.
                 try:
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
-                except Exception:
+                except (ValueError, TypeError, RuntimeError):
                     serialized_value = repr(result.value)
                 span.set_attributes(
                     {
