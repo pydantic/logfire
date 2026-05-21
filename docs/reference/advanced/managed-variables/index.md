@@ -124,10 +124,12 @@ For AI applications, variables often contain prompt templates with placeholders 
     pip install 'logfire[variables]'
     ```
 
-```python skip="true"
+```python
 from pydantic import BaseModel
 
 import logfire
+
+logfire.configure()
 
 
 class PromptInputs(BaseModel):
@@ -143,7 +145,8 @@ prompt = logfire.template_var(
 )
 
 with prompt.get(PromptInputs(user_name='Alice', is_premium=True)) as resolved:
-    print(resolved.value)  # "Hello Alice! Welcome back, valued member."
+    print(resolved.value)
+    #> Hello Alice! Welcome back, valued member.
 ```
 
 Variables can also reference other variables using `@{variable_name}@` syntax, allowing you to compose values from reusable fragments that can be independently updated in the UI.

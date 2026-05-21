@@ -15,7 +15,7 @@ This is especially useful for AI applications where prompts are built from reusa
 
 ## Template Variables
 
-A **template variable** is a variable whose value contains `{{placeholder}}` expressions that are rendered with typed inputs at resolution time. Define one with `logfire.template_var()`:
+A **template variable** is a variable whose value contains `{{placeholder}}` expressions that are rendered with typed inputs at resolution time. Define one with `logfire.template_var()` and call `.get(inputs)` to resolve and render in one step:
 
 ```python
 from pydantic import BaseModel
@@ -33,16 +33,17 @@ class PromptInputs(BaseModel):
 prompt = logfire.template_var(
     'system_prompt',
     type=str,
-    default='Hello {{user_name}}! Welcome to our service.',
+    default='Hello {{user_name}}!{{#if is_premium}} Thank you for being a premium member.{{/if}}',
     inputs_type=PromptInputs,
 )
-```
 
-When you call `.get()`, you pass an instance of the inputs type. The SDK renders all `{{placeholder}}` expressions in the resolved value before returning:
+with prompt.get(PromptInputs(user_name='Alice', is_premium=True)) as resolved:
+    print(resolved.value)
+    #> Hello Alice! Thank you for being a premium member.
 
-```python skip="true"
-with prompt.get(PromptInputs(user_name='Alice')) as resolved:
-    print(resolved.value)  # "Hello Alice! Welcome to our service."
+with prompt.get(PromptInputs(user_name='Bob')) as resolved:
+    print(resolved.value)
+    #> Hello Bob!
 ```
 
 The full resolution pipeline is:
@@ -52,13 +53,7 @@ The full resolution pipeline is:
 3. **Render** — render `{{placeholder}}` Handlebars templates using the provided inputs
 4. **Deserialize** — validate and deserialize to the variable's type
 
-### Template Variables Parameters
-
-`logfire.template_var()` accepts the same parameters as `logfire.var()` plus:
-
-| Parameter | Description |
-|-----------|-------------|
-| `inputs_type` | A Pydantic `BaseModel` (or any type supported by `TypeAdapter`) describing the expected template inputs. This is used for type-safe `.get(inputs)` calls and generates a `template_inputs_schema` for validation. |
+`logfire.template_var()` accepts the same parameters as `logfire.var()` plus an `inputs_type` parameter — a Pydantic `BaseModel` (or any type supported by `TypeAdapter`) describing the expected template inputs. It is used for type-safe `.get(inputs)` calls and generates a `template_inputs_schema` for validation.
 
 ### Handlebars Syntax
 
@@ -73,25 +68,6 @@ Template variables use [Handlebars](https://handlebarsjs.com/) syntax, powered b
 | `{{#each items}}...{{/each}}` | Iterate over a list |
 | `{{#with obj}}...{{/with}}` | Change context |
 | `{{! comment }}` | Comment (not rendered) |
-
-**Example with conditionals:**
-
-```python skip="true"
-prompt = logfire.template_var(
-    'greeting',
-    type=str,
-    default='Hello {{user_name}}!{{#if is_premium}} Thank you for being a premium member.{{/if}}',
-    inputs_type=PromptInputs,
-)
-
-with prompt.get(PromptInputs(user_name='Alice', is_premium=True)) as resolved:
-    print(resolved.value)
-    # "Hello Alice! Thank you for being a premium member."
-
-with prompt.get(PromptInputs(user_name='Bob', is_premium=False)) as resolved:
-    print(resolved.value)
-    # "Hello Bob!"
-```
 
 ### Structured Template Variables
 
@@ -146,7 +122,7 @@ For example, if your `inputs_type` declares `user_name: str` and `is_premium: bo
 
 This is useful for building values from reusable fragments:
 
-```python skip="true"
+```python
 import logfire
 
 logfire.configure()
@@ -167,7 +143,7 @@ agent_prompt = logfire.var(
 
 with agent_prompt.get() as resolved:
     print(resolved.value)
-    # "You are a helpful assistant. Never share personal data. Always be respectful."
+    #> You are a helpful assistant. Never share personal data. Always be respectful.
 ```
 
 When `safety_rules` is updated in the Logfire UI, all variables that reference `@{safety_rules}@` automatically pick up the new value — no code changes or redeployment required.
