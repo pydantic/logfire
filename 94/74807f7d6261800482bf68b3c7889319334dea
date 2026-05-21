@@ -1,0 +1,39 @@
+docs/reference/advanced/prompt-management/scenarios.md
+  s_7942cfb96c6bb5::t_fb6c85f4d5352a 68
+docs/reference/examples.md
+  s_7942cfb96c6bb5::t_fb6c85f4d5352a 31
+docs/index.md
+  s_7942cfb96c6bb5::t_fb6c85f4d5352a 25
+mkdocs.yml
+  s_7942cfb96c6bb5::t_fb6c85f4d5352a 110-209,458-459,467-486
+logfire/variables/variable.py
+  ai_agent 273
+tests/test_variables.py
+  ai_agent 1664-1766
+docs/nav.json
+  s_7942cfb96c6bb5::t_fb6c85f4d5352a 28,31,33-48,52,54-128,132,134,138,140-168,170-183,271
+.github/workflows/main.yml
+  s_7942cfb96c6bb5::t_fb6c85f4d5352a 174
+logfire/_internal/integrations/pytest.py
+  ai_agent 42-56,480
+tests/otel_integrations/test_pytest_plugin.py
+  ai_agent 9,434-449,451-452,455-491,494,496-510
+docs/comparisons/sentry.md
+  s_7942cfb96c6bb5::t_fb6c85f4d5352a 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "9474807f7d6261800482bf68b3c7889319334dea",
+  "prompts": {},
+  "sessions": {
+    "s_7942cfb96c6bb5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4a0d-4a0a-79e2-8758-878b621018e0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
