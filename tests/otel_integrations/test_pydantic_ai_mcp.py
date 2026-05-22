@@ -63,7 +63,7 @@ async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
             async def client_streams(self):
                 yield client_streams
 
-        agent = Agent('openai:gpt-4o', toolsets=[MyMCPServer()])
+        agent = Agent('openai-chat:gpt-4o', toolsets=[MyMCPServer()])
         async with agent:
             agent.set_mcp_sampling_model()
             result = await agent.run('tell a joke about socks')

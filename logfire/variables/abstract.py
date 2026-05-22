@@ -29,6 +29,7 @@ ANSI_GRAY = '\033[90m'
 
 __all__ = (
     'ResolvedVariable',
+    'ResolutionReason',
     'SyncMode',
     'ValidationReport',
     'VariableProvider',
@@ -40,6 +41,28 @@ __all__ = (
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
+
+ResolutionReason = Literal[
+    'resolved',
+    'context_override',
+    'missing_config',
+    'unrecognized_variable',
+    'validation_error',
+    'other_error',
+    'no_provider',
+    'code_default',
+]
+"""Why a variable (or a composed reference) resolved to its final value.
+
+- `resolved`: provider returned a value that was used as-is.
+- `context_override`: a value set via `Variable.override(...)` was used.
+- `missing_config`: the variable exists on the provider but the targeting/rollout produced no value.
+- `unrecognized_variable`: the provider has no entry for the variable.
+- `validation_error`: the serialized value failed deserialization.
+- `other_error`: composition, rendering or other error during resolution.
+- `no_provider`: no provider is configured.
+- `code_default`: the variable's code-default was used because the provider had no value.
+"""
 
 
 class VariableWriteError(Exception):
@@ -65,17 +88,19 @@ class ResolvedVariable(Generic[T_co]):
     """Details about a variable resolution including value, label, version, and any errors.
 
     This class can be used as a context manager. When used as a context manager, it
-    automatically sets baggage with the variable name and label, enabling downstream
-    spans and logs to be associated with the variable resolution that was active at the time.
+    automatically sets baggage with the variable name, label, and (when applicable)
+    version, enabling downstream spans and logs to be associated with the variable
+    resolution that was active at the time.
 
     Example:
         ```python skip="true"
         my_var = logfire.var(name='my_var', type=str, default='default')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
-            # logfire.variables.my_var = <label> (or '<code_default>' if no label)
+            #   logfire.variables.my_var          = <label> (or '<code_default>' if no label)
+            #   logfire.variables.my_var.version  = <version> (only when a versioned value was resolved)
             value = details.value
-            # Any spans/logs created here will have the baggage attached
+            # Any spans/logs created here will have the baggage attached.
         ```
     """
 
@@ -89,16 +114,8 @@ class ResolvedVariable(Generic[T_co]):
     """The version number of the resolved value, if any."""
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
-    _reason: Literal[
-        'resolved',
-        'context_override',
-        'missing_config',
-        'unrecognized_variable',
-        'validation_error',
-        'other_error',
-        'no_provider',
-    ]  # we might eventually make this public, but I didn't want to yet
-    """Internal field indicating how the value was resolved."""
+    reason: ResolutionReason
+    """How the variable was resolved (see `ResolutionReason` for possible values)."""
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
@@ -108,9 +125,16 @@ class ResolvedVariable(Generic[T_co]):
 
         import logfire
 
-        self._exit_stack.enter_context(
-            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.label or '<code_default>'})
-        )
+        baggage_entries: dict[str, str] = {
+            f'logfire.variables.{self.name}': self.label or '<code_default>',
+        }
+        # Propagate the version alongside the label so downstream spans can be
+        # filtered or grouped by `(label, version)` directly. Only set when a
+        # version actually resolved — code-default resolutions have version=None
+        # and shouldn't add a baggage entry whose value would be misleading.
+        if self.version is not None:
+            baggage_entries[f'logfire.variables.{self.name}.version'] = str(self.version)
+        self._exit_stack.enter_context(logfire.set_baggage(**baggage_entries))
 
         return self
 
@@ -658,11 +682,11 @@ class VariableProvider(ABC):
         """
         config = self.get_variable_config(variable_name)
         if config is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='unrecognized_variable')
+            return ResolvedVariable(name=variable_name, value=None, reason='unrecognized_variable')
 
         labeled_value = config.labels.get(label)
         if labeled_value is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='resolved')
+            return ResolvedVariable(name=variable_name, value=None, reason='resolved')
 
         serialized, version = config.follow_ref(labeled_value)
         return ResolvedVariable(
@@ -670,7 +694,7 @@ class VariableProvider(ABC):
             value=serialized,
             label=label,
             version=version,
-            _reason='resolved',
+            reason='resolved',
         )
 
     def refresh(self, force: bool = False):
@@ -1400,7 +1424,7 @@ class NoOpVariableProvider(VariableProvider):
         Returns:
             A ResolvedVariable with value=None.
         """
-        return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+        return ResolvedVariable(name=variable_name, value=None, reason='no_provider')
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Return None for all variable lookups.

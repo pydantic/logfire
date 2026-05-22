@@ -36,45 +36,45 @@ async def test_instrument_pydantic_ai():
     agent1 = Agent()
     agent2 = Agent()
 
-    def get_model(a: Agent):
-        return a._get_model(model)  # type: ignore
+    # In pydantic-ai >= 1.97, `_get_model` always returns the plain model and
+    # instrumentation is resolved separately via `_resolve_instrumentation_settings`
+    # and applied later in the run.
+    def resolve(a: Agent):
+        return a._resolve_instrumentation_settings()  # type: ignore
 
     # This is the default.
     Agent.instrument_all(False)
-    assert get_model(agent1) is model
+    assert resolve(agent1) is None
 
     # Instrument a single agent.
     logfire_inst.instrument_pydantic_ai(agent1)
-    m = get_model(agent1)
-    assert isinstance(m, InstrumentedModel)
-    assert m.wrapped is model
-    assert m.instrumentation_settings.version == InstrumentationSettings().version
-    assert isinstance(m.instrumentation_settings.tracer, _ProxyTracer)
-    assert m.instrumentation_settings.tracer.provider is logfire_inst.config.get_tracer_provider()
+    s = resolve(agent1)
+    assert isinstance(s, InstrumentationSettings)
+    assert s.version == InstrumentationSettings().version
+    assert isinstance(s.tracer, _ProxyTracer)
+    assert s.tracer.provider is logfire_inst.config.get_tracer_provider()
 
     # Other agents are unaffected.
-    m2 = get_model(agent2)
-    assert m2 is model
+    assert resolve(agent2) is None
 
     # Now instrument all agents. Also use the (currently not default) version
     logfire_inst.instrument_pydantic_ai(version=1, include_binary_content=False)
-    m = get_model(agent1)
-    assert isinstance(m, InstrumentedModel)
+    s = resolve(agent1)
+    assert isinstance(s, InstrumentationSettings)
     # agent1 still has its own instrumentation settings which override the global ones.
-    assert m.instrumentation_settings.version == InstrumentationSettings().version
-    assert m.instrumentation_settings.include_binary_content == InstrumentationSettings().include_binary_content
+    assert s.version == InstrumentationSettings().version
+    assert s.include_binary_content == InstrumentationSettings().include_binary_content
     # agent2 uses the global settings.
-    m2 = get_model(agent2)
-    assert isinstance(m2, InstrumentedModel)
-    assert m2.instrumentation_settings.version == 1
-    assert not m2.instrumentation_settings.include_binary_content
+    s2 = resolve(agent2)
+    assert isinstance(s2, InstrumentationSettings)
+    assert s2.version == 1
+    assert not s2.include_binary_content
 
     # Remove the global instrumentation. agent1 remains instrumented.
     Agent.instrument_all(False)
-    m = get_model(agent1)
-    assert isinstance(m, InstrumentedModel)
-    m2 = get_model(agent2)
-    assert m2 is model
+    s = resolve(agent1)
+    assert isinstance(s, InstrumentationSettings)
+    assert resolve(agent2) is None
 
     # Test all known parameters
     logfire_inst.instrument_pydantic_ai(
@@ -83,12 +83,12 @@ async def test_instrument_pydantic_ai():
         version=1,
         event_mode='logs',
     )
-    m = get_model(agent2)
-    assert isinstance(m, InstrumentedModel)
-    assert m.instrumentation_settings.version == 1
-    assert not m.instrumentation_settings.include_binary_content
-    assert not m.instrumentation_settings.include_content
-    assert m.instrumentation_settings.event_mode == 'logs'
+    s = resolve(agent2)
+    assert isinstance(s, InstrumentationSettings)
+    assert s.version == 1
+    assert not s.include_binary_content
+    assert not s.include_content
+    assert s.event_mode == 'logs'
     Agent.instrument_all(False)
 
 

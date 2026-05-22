@@ -25,6 +25,7 @@ from ..auth import HOME_LOGFIRE
 from ..client import LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
+from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
 from .auth import parse_auth, parse_logout
 from .prompt import parse_prompt
@@ -45,6 +46,13 @@ def version_callback() -> None:
     py_version = platform.python_version()
     system = platform.system()
     print(f'Running Logfire {VERSION} with {py_impl} {py_version} on {system}.')
+
+
+def _parse_gateway(args: argparse.Namespace) -> None:
+    """Run a local OAuth proxy for the Logfire AI Gateway."""
+    from .gateway import parse_gateway
+
+    parse_gateway(args)
 
 
 def parse_whoami(args: argparse.Namespace) -> None:
@@ -338,6 +346,10 @@ def _main(args: list[str] | None = None) -> None:
     cmd_clean.add_argument('--data-dir', default='.logfire')
     cmd_clean.add_argument('--logs', action='store_true', default=False, help='remove the Logfire logs')
 
+    cmd_gateway = subparsers.add_parser('gateway', help=_parse_gateway.__doc__)
+    cmd_gateway.add_argument('gateway_args', nargs=argparse.REMAINDER)
+    cmd_gateway.set_defaults(func=_parse_gateway)
+
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
     cmd_inspect.add_argument('--ignore', action=SplitArgs, default=(), help='ignore a package')
@@ -434,8 +446,9 @@ def _main(args: list[str] | None = None) -> None:
     else:
         with tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
             context = get_context()
-            session.hooks = {'response': functools.partial(log_trace_id, context=context)}
+            session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
             session.headers.update(context)
+            install_logfire_response_hook(session)
             namespace._session = session
             namespace.func(namespace)
 

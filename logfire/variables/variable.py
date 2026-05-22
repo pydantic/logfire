@@ -4,7 +4,7 @@ import inspect
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
@@ -248,7 +248,7 @@ class Variable(Generic[T_co]):
                         'value': serialized_value,
                         'label': result.label,
                         'version': result.version,
-                        'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
+                        'reason': result.reason,
                     }
                 )
                 if result.exception:
@@ -270,7 +270,7 @@ class Variable(Generic[T_co]):
                 context_value = context_overrides[self.name]
                 if is_resolve_function(context_value):
                     context_value = context_value(targeting_key, attributes)
-                return ResolvedVariable(name=self.name, value=context_value, _reason='context_override')
+                return ResolvedVariable(name=self.name, value=context_value, reason='context_override')
 
             provider = self.logfire_instance.config.get_variable_provider()
 
@@ -286,21 +286,35 @@ class Variable(Generic[T_co]):
                             span.set_attribute('invalid_serialized_value', serialized_result.value)
                         default = self._get_default(targeting_key, attributes)
                         reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                        return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
+                        return ResolvedVariable(
+                            name=self.name,
+                            value=default,
+                            exception=value_or_exc,
+                            reason=reason,
+                            label=serialized_result.label,
+                            version=serialized_result.version,
+                        )
                     return ResolvedVariable(
                         name=self.name,
                         value=value_or_exc,
                         label=serialized_result.label,
                         version=serialized_result.version,
-                        _reason='resolved',
+                        reason='resolved',
                     )
                 # Label not found - fall through to default resolution
 
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
-                default = self._get_default(targeting_key, attributes)
-                return _with_value(serialized_result, default)
+                # Provider had no value; surface that the code default was used.
+                return ResolvedVariable(
+                    name=self.name,
+                    value=self._get_default(targeting_key, attributes),
+                    exception=serialized_result.exception,
+                    label=serialized_result.label,
+                    version=serialized_result.version,
+                    reason='code_default',
+                )
 
             # Deserialize - returns T | Exception
             value_or_exc = self._deserialize(serialized_result.value)
@@ -310,14 +324,21 @@ class Variable(Generic[T_co]):
                     span.set_attribute('invalid_serialized_value', serialized_result.value)
                 default = self._get_default(targeting_key, attributes)
                 reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
+                return ResolvedVariable(
+                    name=self.name,
+                    value=default,
+                    exception=value_or_exc,
+                    reason=reason,
+                    label=serialized_result.label,
+                    version=serialized_result.version,
+                )
 
             return ResolvedVariable(
                 name=self.name,
                 value=value_or_exc,
                 label=serialized_result.label,
                 version=serialized_result.version,
-                _reason='resolved',
+                reason='resolved',
             )
 
         except Exception as e:
@@ -325,7 +346,7 @@ class Variable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
-            return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
+            return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _get_default(
         self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
@@ -383,19 +404,6 @@ class Variable(Generic[T_co]):
             json_schema=json_schema,
             example=example,
         )
-
-
-def _with_value(details: ResolvedVariable[Any], new_value: T_co) -> ResolvedVariable[T_co]:
-    """Return a copy of the provided resolution details, just with a different value.
-
-    Args:
-        details: Existing resolution details to modify.
-        new_value: The new value to use.
-
-    Returns:
-        A new ResolvedVariable with the given value.
-    """
-    return replace(details, value=new_value)
 
 
 @contextmanager

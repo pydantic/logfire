@@ -1,4 +1,5 @@
 from _typeshed import Incomplete
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 from logfire._internal.constants import LevelName as LevelName, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
@@ -8,7 +9,7 @@ from logfire.types import SpanLevel as SpanLevel
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.sampling import Sampler
-from typing import Callable, Literal
+from typing import Literal
 from typing_extensions import Self
 
 @dataclass

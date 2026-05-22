@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.32.1"
+version = "4.33.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -57,6 +57,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gateway = ["httpx>=0.27.0", "starlette>=0.37.0", "uvicorn>=0.30.0"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
 asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
@@ -185,7 +186,12 @@ dev = [
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
     "opentelemetry-instrumentation-google-genai >= 0.4b0",
-    "google-genai >= 0",
+    # The latest instrumentor (0.7b0) declares `google-genai>=1.0.0,<2` as
+    # `instrumentation_dependencies()`. With google-genai 2.x installed, the
+    # `BaseInstrumentor` skips patching with a `DependencyConflict` warning,
+    # so `instrument_google_genai()` silently produces zero spans. Pin to <2
+    # until a newer instrumentor adds support.
+    "google-genai >= 0, < 2",
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.80.9",
     "openinference-instrumentation-dspy >= 0",
