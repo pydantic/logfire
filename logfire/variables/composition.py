@@ -131,7 +131,7 @@ def expand_references(
 
     # JSON-decode the serialized value so we can work with actual strings.
     decoded = _safe_json_load(serialized_value)
-    if decoded is None and not serialized_value.lower().startswith('null'):
+    if decoded is None and serialized_value.strip() != 'null':
         # The string isn't valid JSON at all — bail out rather than try to
         # render an invalid value.
         return serialized_value, composed

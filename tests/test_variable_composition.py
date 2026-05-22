@@ -237,6 +237,13 @@ class TestExpandReferences:
         assert len(composed) == 1
         assert composed[0].name == 'missing'
 
+    def test_resolved_dotted_ref_alongside_unresolved_simple_ref(self):
+        """A dotted ref whose base resolves is rendered even when another ref is unresolved."""
+        resolve_fn = _make_resolve_fn({'known': '{"field": "v"}'})
+        expanded, composed = expand_references('"@{known.field}@ @{missing}@"', 'my_var', resolve_fn)
+        assert expanded == '"v @{missing}@"'
+        assert {ref.name for ref in composed} == {'known', 'missing'}
+
     def test_none_value_reference(self):
         """References to variables with None value are left unexpanded."""
         resolve_fn = _make_resolve_fn({'missing': None})
