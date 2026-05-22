@@ -118,7 +118,7 @@ With managed variables, you can iterate safely in production:
 For AI applications, variables often contain prompt templates with placeholders that get filled in at runtime. **Template variables** support this natively with Handlebars `{{placeholder}}` syntax:
 
 !!! note "Install the variables extra for templates"
-    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra on Python 3.10 and later.
+    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra.
 
     ```bash
     pip install 'logfire[variables]'
