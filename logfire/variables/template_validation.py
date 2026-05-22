@@ -26,6 +26,7 @@ __all__ = (
     'TemplateValidationResult',
     'validate_template_composition',
     'detect_composition_cycles',
+    'extract_template_strings',
     'find_template_fields',
 )
 
@@ -65,7 +66,7 @@ def find_template_fields(text: str) -> set[str]:
     return set(TEMPLATE_FIELD_PATTERN.findall(text))
 
 
-def _extract_template_strings(serialized_json: str) -> list[str]:
+def extract_template_strings(serialized_json: str) -> list[str]:
     """Extract all string values from serialized JSON that contain `{{...}}` templates."""
     try:
         decoded = json.loads(serialized_json)
@@ -124,7 +125,7 @@ def validate_template_composition(
         visited = visited | {name}
 
         for label, serialized_value in get_all_serialized_values(name).items():
-            templates = _extract_template_strings(serialized_value)
+            templates = extract_template_strings(serialized_value)
             if not templates:
                 for ref in find_references(serialized_value):
                     _collect(ref, path + [ref], visited)

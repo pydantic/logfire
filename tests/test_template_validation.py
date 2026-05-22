@@ -11,8 +11,8 @@ import pytest
 from logfire.variables.template_validation import (
     TemplateFieldIssue,
     TemplateValidationResult,
-    _extract_template_strings,
     detect_composition_cycles,
+    extract_template_strings,
     find_template_fields,
     validate_template_composition,
 )
@@ -113,86 +113,86 @@ class TestFindTemplateFields:
 
 
 # =============================================================================
-# _extract_template_strings
+# extract_template_strings
 # =============================================================================
 
 
 class TestExtractTemplateStrings:
     def test_json_string(self):
         """JSON string value like '"Hello {{name}}"'."""
-        result = _extract_template_strings('"Hello {{name}}"')
+        result = extract_template_strings('"Hello {{name}}"')
         assert result == ['Hello {{name}}']
 
     def test_json_object(self):
         """JSON object with multiple string values containing fields."""
-        result = _extract_template_strings('{"key": "Hello {{name}}", "other": "{{age}}"}')
+        result = extract_template_strings('{"key": "Hello {{name}}", "other": "{{age}}"}')
         assert result == ['Hello {{name}}', '{{age}}']
 
     def test_json_array(self):
         """JSON array with string values containing fields."""
-        result = _extract_template_strings('["{{a}}", "{{b}}"]')
+        result = extract_template_strings('["{{a}}", "{{b}}"]')
         assert result == ['{{a}}', '{{b}}']
 
     def test_invalid_json_falls_back_to_plain_text(self):
         """Invalid JSON with templates falls back to the raw string."""
-        result = _extract_template_strings('not valid json {{field}}')
+        result = extract_template_strings('not valid json {{field}}')
         assert result == ['not valid json {{field}}']
 
     def test_invalid_json_no_templates(self):
         """Invalid JSON without templates returns empty list."""
-        result = _extract_template_strings('not valid json no templates')
+        result = extract_template_strings('not valid json no templates')
         assert result == []
 
     def test_json_number_no_fields(self):
         """JSON number value has no template strings."""
-        result = _extract_template_strings('42')
+        result = extract_template_strings('42')
         assert result == []
 
     def test_json_boolean_no_fields(self):
         """JSON boolean value has no template strings."""
-        result = _extract_template_strings('true')
+        result = extract_template_strings('true')
         assert result == []
 
     def test_json_null_no_fields(self):
         """JSON null value has no template strings."""
-        result = _extract_template_strings('null')
+        result = extract_template_strings('null')
         assert result == []
 
     def test_nested_json_object(self):
         """Nested JSON objects have their string values collected."""
-        result = _extract_template_strings('{"outer": {"inner": "{{deep}}"}}')
+        result = extract_template_strings('{"outer": {"inner": "{{deep}}"}}')
         assert result == ['{{deep}}']
 
     def test_mixed_types_in_object(self):
         """Object with mixed types: only strings with templates are collected."""
-        result = _extract_template_strings('{"text": "{{name}}", "count": 42, "active": true, "nothing": null}')
+        result = extract_template_strings('{"text": "{{name}}", "count": 42, "active": true, "nothing": null}')
         assert result == ['{{name}}']
 
     def test_array_with_mixed_types(self):
         """Array with mixed types: only template strings collected."""
-        result = _extract_template_strings('["{{a}}", 42, true, null, "{{b}}"]')
+        result = extract_template_strings('["{{a}}", 42, true, null, "{{b}}"]')
         assert result == ['{{a}}', '{{b}}']
 
     def test_empty_json_string(self):
-        result = _extract_template_strings('""')
+        result = extract_template_strings('""')
         assert result == []
 
     def test_empty_json_object(self):
-        result = _extract_template_strings('{}')
+        result = extract_template_strings('{}')
         assert result == []
 
     def test_empty_json_array(self):
-        result = _extract_template_strings('[]')
+        result = extract_template_strings('[]')
         assert result == []
 
     def test_deeply_nested_structure(self):
         """Deeply nested JSON structure with template strings at various levels."""
-        result = _extract_template_strings('{"a": [{"b": "{{x}}"}, {"c": ["{{y}}", {"d": "{{z}}"}]}]}')
+        result = extract_template_strings('{"a": [{"b": "{{x}}"}, {"c": ["{{y}}", {"d": "{{z}}"}]}]}')
         assert result == ['{{x}}', '{{y}}', '{{z}}']
 
     def test_string_without_templates_excluded(self):
         """Strings without {{}} are not collected."""
-        result = _extract_template_strings('{"a": "no templates", "b": "has {{one}}"}')
+        result = extract_template_strings('{"a": "no templates", "b": "has {{one}}"}')
         assert result == ['has {{one}}']
 
 

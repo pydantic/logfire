@@ -124,6 +124,7 @@ if TYPE_CHECKING:
         Variable,
         VariablesConfig,
     )
+    from .config import TemplateMismatchPolicy
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.llm_providers.semconv import SemconvVersion
@@ -2630,6 +2631,7 @@ class Logfire:
         default: T | ResolveFunction[T],
         inputs_type: type[InputsT],
         description: str | None = None,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
     ) -> TemplateVariable[T, InputsT]:
         """Define a managed template variable with integrated rendering.
 
@@ -2669,6 +2671,13 @@ class Logfire:
             inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
                 template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
             description: Optional human-readable description of what the variable controls.
+            template_mismatch_policy: How to react when `get(inputs)` is called with inputs that
+                don't satisfy a `{{field}}` reference in the resolved template. `'warn'` emits a
+                `RuntimeWarning` and renders the missing field as the empty string;
+                `'error'` raises `HandlebarsRuntimeError`; `'ignore'` renders silently.
+                Defaults to inheriting from `VariablesOptions` / `LocalVariablesOptions`
+                (which default to `'warn'`). Pass an explicit value to override the
+                instance-level policy for this variable only — even to relax it.
         """
         import re
 
@@ -2697,6 +2706,7 @@ class Logfire:
             inputs_type=inputs_type,
             description=description,
             logfire_instance=self,
+            template_mismatch_policy=template_mismatch_policy,
         )
         self._variables[name] = variable
 
