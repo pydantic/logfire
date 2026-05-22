@@ -10,7 +10,6 @@ import os
 import subprocess
 import sys
 import textwrap
-from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -25,12 +24,6 @@ from logfire.variables.config import (
     Rollout,
     VariableConfig,
     VariablesConfig,
-)
-
-HAS_PYDANTIC_HANDLEBARS = find_spec('pydantic_handlebars') is not None
-requires_handlebars = pytest.mark.skipif(
-    not HAS_PYDANTIC_HANDLEBARS,
-    reason='pydantic-handlebars requires Python 3.10+',
 )
 
 
@@ -104,7 +97,6 @@ def test_import_logfire_without_pydantic_handlebars():
     assert result.returncode == 0, result.stderr
 
 
-@requires_handlebars
 def test_handlebars_import_helpers_are_memoized(monkeypatch: pytest.MonkeyPatch):
     """Successful pydantic-handlebars imports are cached after the first lookup."""
     renderer = _handlebars.get_handlebars_renderer()
@@ -162,7 +154,6 @@ class TestVariableConfigTemplateInputs:
 # =============================================================================
 
 
-@requires_handlebars
 class TestTemplateVariable:
     """Test TemplateVariable[T, InputsT] — single-step get(inputs) rendering."""
 
@@ -390,7 +381,6 @@ class TestTemplateVariable:
         assert 'count' in config.template_inputs_schema['properties']
 
 
-@requires_handlebars
 class TestRenderSerializedString:
     """Cover the input-shape branches of `render_serialized_string`."""
 
@@ -446,7 +436,6 @@ class TestRenderSerializedString:
         assert json.loads(result) == {'tags': ['Hello Alice', 'static']}
 
 
-@requires_handlebars
 class TestTemplateVariableOverrideRender:
     """Cover render failures on `TemplateVariable.override(...)`."""
 
