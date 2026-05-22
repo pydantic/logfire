@@ -27,6 +27,7 @@ from logfire.variables.abstract import (
 )
 from logfire.variables.config import LabeledValue, LabelRef, LatestVersion, Rollout, VariableConfig, VariablesConfig
 from logfire.variables.local import LocalVariableProvider
+from logfire.variables.template_validation import TemplateFieldIssue
 from logfire.variables.variable import TemplateVariable, Variable
 
 
@@ -607,6 +608,216 @@ def test_push_variables_strict_fails_with_reference_errors(mock_logfire_instance
 
     assert provider.push_variables([var], strict=True, yes=True) is False
     assert provider.get_all_variables_config().variables == {}
+
+
+def test_format_diff_template_field_issues() -> None:
+    """Template field issues are shown in the formatted diff, with label and composition path when present."""
+    diff = VariableDiff(
+        changes=[],
+        orphaned_server_variables=[],
+        template_field_issues=[
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='prompt',
+                found_in_label=None,
+                reference_path=[],
+            ),
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='fragment',
+                found_in_label='production',
+                reference_path=['fragment'],
+            ),
+        ],
+    )
+
+    output = _format_diff(diff)
+
+    assert 'Template field issues' in output
+    assert '{{nickname}} in prompt' in output
+    assert '{{nickname}} in fragment (label: production) via @{fragment}@' in output
+
+
+def test_validation_report_format_template_field_issues() -> None:
+    """ValidationReport.format() includes a section for template_field_issues with label and composition path."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=1,
+        variables_not_on_server=[],
+        description_differences=[],
+        template_field_issues=[
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='prompt',
+                found_in_label=None,
+                reference_path=[],
+            ),
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='fragment',
+                found_in_label='production',
+                reference_path=['fragment'],
+            ),
+        ],
+    )
+
+    output = report.format(colors=False)
+
+    assert 'Template field issues' in output
+    assert '{{nickname}} in prompt' in output
+    assert '{{nickname}} in fragment (label: production) via @{fragment}@' in output
+    assert 'Validation failed' in output
+    assert report.is_valid is False
+
+
+@pytest.mark.skipif(
+    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
+    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
+)
+def test_push_variables_strict_fails_with_template_field_issues(mock_logfire_instance: MockLogfire) -> None:
+    """Strict push fails when template field issues are present, leaving the provider unchanged."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{nickname}}!',  # nickname is not in Inputs
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+
+    assert provider.push_variables([var], strict=True, yes=True) is False
+    assert provider.get_all_variables_config().variables == {}
+
+
+@pytest.mark.skipif(
+    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
+    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
+)
+def test_compute_diff_template_field_issues_skips_label_refs(mock_logfire_instance: MockLogfire) -> None:
+    """LabelRef entries in server labels are skipped when collecting serialized values for validation."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}}!',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    # `staging` is a LabelRef pointing at `production` — only the LabeledValue should be
+    # walked when checking template fields.
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                labels={
+                    'production': LabeledValue(version=1, serialized_value='"Hi {{user_name}}!"'),
+                    'staging': LabelRef(version=1, ref='production'),
+                },
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert diff.template_field_issues == []
+
+
+@pytest.mark.skipif(
+    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
+    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
+)
+def test_compute_diff_template_field_issues_tolerates_unserializable_composed_ref(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """A composed-in variable with an unserializable default doesn't crash template-field validation."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    prompt = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='@{fragment}@ {{user_name}}',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    # `fragment.default = object()` is not JSON-serializable; the walker should swallow
+    # the dump_json error and continue.
+    fragment = Variable[object](
+        name='fragment',
+        default=object(),
+        type=object,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    # Fragment lives on the server so `_compute_diff` skips its serialize-default path;
+    # we want `_collect_template_field_issues` to be the one that exercises dump_json.
+    server_config = VariablesConfig(
+        variables={
+            'fragment': VariableConfig(
+                name='fragment',
+                json_schema={},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([prompt, fragment], server_config)
+
+    # No crash — the fragment's default is silently skipped, no template issues surface
+    # from it.
+    assert all(issue.found_in_variable != 'fragment' for issue in diff.template_field_issues)
+
+
+@pytest.mark.skipif(
+    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
+    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
+)
+def test_compute_diff_template_field_issues_from_latest_version(mock_logfire_instance: MockLogfire) -> None:
+    """A server `latest_version` value (without label coverage) is validated against the local inputs_type."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}}!',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+                latest_version=LatestVersion(version=1, serialized_value='"Hi {{nickname}}!"'),
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    field_names = {issue.field_name for issue in diff.template_field_issues}
+    labels = {issue.found_in_label for issue in diff.template_field_issues}
+    assert 'nickname' in field_names
+    assert None in labels  # latest_version is keyed under None
 
 
 def test_variable_diff_has_changes_true() -> None:
