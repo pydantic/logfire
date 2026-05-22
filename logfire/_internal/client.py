@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 from typing import Any
 from urllib.parse import urljoin
 
@@ -13,7 +14,11 @@ from .auth import UserToken, UserTokenCollection
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .utils import UnexpectedResponse
 
-UA_HEADER = f'logfire/{VERSION}'
+UA_HEADER = (
+    f'logfire-sdk-python/{VERSION} '
+    f'({platform.python_implementation()} {platform.python_version()}, '
+    f'os {platform.platform()}, arch {platform.machine()})'
+)
 
 
 class ProjectAlreadyExists(Exception):
@@ -44,7 +49,12 @@ class LogfireClient:
         self.base_url = user_token.base_url
         self._token = user_token.token
         self._session = Session()
-        self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
+        self._session.headers.update(
+            {
+                'Authorization': self._token,
+                'User-Agent': UA_HEADER,
+            }
+        )
         install_logfire_response_hook(self._session, server_response_hook)
 
     @classmethod
