@@ -5,7 +5,7 @@ Managed variables can contain **Handlebars templates** (`{{placeholder}}`) and *
 This is especially useful for AI applications where prompts are built from reusable fragments and personalized with request-specific data.
 
 !!! note "Install the variables extra"
-    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra on Python 3.10 and later:
+    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra:
 
     ```bash
     pip install 'logfire[variables]'
@@ -214,7 +214,3 @@ with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolv
 ### Cycle Detection
 
 The system detects circular references during validation. If variable A references `@{B}@` and variable B references `@{A}@`, `logfire.variables_validate()` reports the cycle, and `logfire.variables_push(strict=True)` fails instead of applying the invalid configuration. This prevents infinite loops during resolution.
-
-## Requirements
-
-`pydantic-handlebars` requires Python 3.10 or later. On Python 3.9, basic variable features (`logfire.var()` without templates or composition) still work, but template rendering is not available.
