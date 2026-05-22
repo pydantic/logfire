@@ -1,0 +1,23 @@
+docs/reference/advanced/managed-variables/index.md
+  s_30437b3d0655e9::t_29b4a3fa955b9e 121
+docs/reference/advanced/managed-variables/templates-and-composition.md
+  s_30437b3d0655e9::t_22c3b8d92d283c 8
+logfire/variables/_handlebars.py
+  s_30437b3d0655e9::t_8a977623812072 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "09619fc6d4aa0a00ccb04622751e5d03efe88ce5",
+  "prompts": {},
+  "sessions": {
+    "s_30437b3d0655e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4f2d-c7c6-7031-8254-b37334b66fd1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
