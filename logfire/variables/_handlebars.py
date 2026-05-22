@@ -44,20 +44,6 @@ def ensure_handlebars_available() -> None:
     get_environment()
 
 
-def is_handlebars_available() -> bool:
-    """Return True if pydantic-handlebars can be imported.
-
-    Used by push/validate paths to skip template-field validation when the
-    optional dependency is missing (e.g. Python 3.9, where the `[variables]`
-    extra omits `pydantic-handlebars`).
-    """
-    try:
-        ensure_handlebars_available()
-    except HandlebarsDependencyError:
-        return False
-    return True
-
-
 @cache
 def get_environment() -> HandlebarsEnvironment:
     """Return a cached `HandlebarsEnvironment` configured for `@{...}@` composition.

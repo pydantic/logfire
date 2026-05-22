@@ -226,10 +226,6 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
     assert diff.has_changes is True
 
 
-@pytest.mark.skipif(
-    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
-    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
-)
 def test_compute_diff_template_field_issues_local_default(mock_logfire_instance: MockLogfire) -> None:
     """A local code default that references an undeclared input field surfaces as a template_field_issue."""
 
@@ -256,10 +252,6 @@ def test_compute_diff_template_field_issues_local_default(mock_logfire_instance:
     assert issue.found_in_label is None
 
 
-@pytest.mark.skipif(
-    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
-    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
-)
 def test_compute_diff_template_field_issues_server_label(mock_logfire_instance: MockLogfire) -> None:
     """Server-stored label values are validated against the local inputs_type schema."""
 
@@ -300,10 +292,6 @@ def test_compute_diff_template_field_issues_server_label(mock_logfire_instance: 
     assert 'production' in labels
 
 
-@pytest.mark.skipif(
-    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
-    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
-)
 def test_compute_diff_template_field_issues_follow_composition(mock_logfire_instance: MockLogfire) -> None:
     """A `{{field}}` reference inside a composed-in fragment is reported with the composition path."""
 
@@ -670,10 +658,6 @@ def test_validation_report_format_template_field_issues() -> None:
     assert report.is_valid is False
 
 
-@pytest.mark.skipif(
-    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
-    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
-)
 def test_push_variables_strict_fails_with_template_field_issues(mock_logfire_instance: MockLogfire) -> None:
     """Strict push fails when template field issues are present, leaving the provider unchanged."""
 
@@ -693,10 +677,6 @@ def test_push_variables_strict_fails_with_template_field_issues(mock_logfire_ins
     assert provider.get_all_variables_config().variables == {}
 
 
-@pytest.mark.skipif(
-    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
-    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
-)
 def test_compute_diff_template_field_issues_skips_label_refs(mock_logfire_instance: MockLogfire) -> None:
     """LabelRef entries in server labels are skipped when collecting serialized values for validation."""
 
@@ -733,10 +713,6 @@ def test_compute_diff_template_field_issues_skips_label_refs(mock_logfire_instan
     assert diff.template_field_issues == []
 
 
-@pytest.mark.skipif(
-    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
-    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
-)
 def test_compute_diff_template_field_issues_tolerates_unserializable_composed_ref(
     mock_logfire_instance: MockLogfire,
 ) -> None:
@@ -781,10 +757,6 @@ def test_compute_diff_template_field_issues_tolerates_unserializable_composed_re
     assert all(issue.found_in_variable != 'fragment' for issue in diff.template_field_issues)
 
 
-@pytest.mark.skipif(
-    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
-    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
-)
 def test_compute_diff_template_field_issues_from_latest_version(mock_logfire_instance: MockLogfire) -> None:
     """A server `latest_version` value (without label coverage) is validated against the local inputs_type."""
 
