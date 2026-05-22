@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Tuple  # noqa: UP035
+from typing import Any
 
 from logfire.variables.abstract import ResolutionReason
 
@@ -81,7 +82,7 @@ class ComposedReference:
 
 
 # resolve_fn signature: (ref_name) -> (serialized_value, label, version, reason)
-ResolveFn = Callable[[str], Tuple[Optional[str], Optional[str], Optional[int], ResolutionReason]]  # noqa: UP006
+ResolveFn = Callable[[str], tuple[str | None, str | None, int | None, ResolutionReason]]
 
 
 def has_references(serialized_value: str) -> bool:
@@ -113,7 +114,7 @@ def expand_references(
         _depth: Internal - current recursion depth.
 
     Returns:
-        Tuple of (expanded_serialized_value, list_of_composed_references).
+        tuple of (expanded_serialized_value, list_of_composed_references).
 
     Raises:
         VariableCompositionError: If max depth is exceeded.
