@@ -503,6 +503,79 @@ class TestBlockHelpers:
         assert json.loads(expanded) == r'\@{not_a_ref}@'
 
 
+@requires_handlebars
+class TestExpandReferencesNativeHandlebarsSyntax:
+    """Coverage for `@{}@` syntax that the previous regex-based renderer could not handle.
+
+    These are now real Handlebars constructs against the configured
+    `@{`/`}@` delimiter pair (see `pydantic_handlebars.HandlebarsEnvironment`),
+    so the full set of helpers, dotted paths, and subexpressions works.
+    """
+
+    def test_dotted_path_in_block_helper_header(self):
+        resolve_fn = _make_resolve_fn({'user': json.dumps({'active': True})})
+        expanded, _ = expand_references('"@{#if user.active}@premium@{else}@free@{/if}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'premium'
+
+    def test_each_iterates_top_level_list(self):
+        resolve_fn = _make_resolve_fn({'tags': json.dumps(['a', 'b', 'c'])})
+        expanded, _ = expand_references('"@{#each tags}@@{this}@;@{/each}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'a;b;c;'
+
+    def test_each_with_parent_ref_reaches_top_context(self):
+        resolve_fn = _make_resolve_fn(
+            {
+                'tags': json.dumps(['a', 'b']),
+                'sep': json.dumps('-'),
+            }
+        )
+        expanded, _ = expand_references('"@{#each tags}@@{this}@@{../sep}@@{/each}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'a-b-'
+
+    def test_lookup_helper_with_two_args(self):
+        resolve_fn = _make_resolve_fn(
+            {
+                'obj': json.dumps({'greeting': 'Hi'}),
+                'key': json.dumps('greeting'),
+            }
+        )
+        expanded, _ = expand_references('"@{lookup obj key}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'Hi'
+
+
+@requires_handlebars
+class TestFindReferencesNativeHandlebarsSyntax:
+    """`find_references` picks up the same set of refs the renderer would expand."""
+
+    def test_dotted_path_in_block_helper_header_contributes_top_level(self):
+        # `@{#if user.active}@` only references `user` at the top level.
+        refs = find_references('"@{#if user.active}@x@{/if}@"')
+        assert refs == ['user']
+
+    def test_each_block_helper_contributes_iterable_name(self):
+        refs = find_references('"@{#each tags}@@{this}@@{/each}@"')
+        assert refs == ['tags']
+
+    def test_lookup_helper_arguments_are_refs(self):
+        refs = find_references('"@{lookup obj key}@"')
+        assert sorted(refs) == ['key', 'obj']
+
+    def test_known_helpers_are_not_treated_as_context_refs(self):
+        # `if` / `each` / `lookup` are registered helpers; their names must
+        # not appear in the dependency list. The `obj` / `key` arguments to
+        # `lookup` here are scoped *inside* the `each items` block, so they
+        # resolve against each iteration item rather than the top-level
+        # context and are not top-level dependencies.
+        refs = find_references('"@{#if cond}@@{#each items}@@{lookup obj key}@@{/each}@@{/if}@"')
+        assert sorted(refs) == ['cond', 'items']
+
+    def test_lookup_args_at_top_level_are_refs(self):
+        # When the helper call is at the top level (no enclosing context-
+        # shifting block), its arguments are top-level deps.
+        refs = find_references('"@{lookup obj key}@"')
+        assert sorted(refs) == ['key', 'obj']
+
+
 # =============================================================================
 # Integration tests using LocalVariableProvider
 # =============================================================================

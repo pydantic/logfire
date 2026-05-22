@@ -31,19 +31,17 @@ __all__ = (
     'has_references',
 )
 
-# Matches unescaped @{ (not preceded by \).
-# In JSON-serialized strings, a real backslash is \\, so \\@{ is an escaped ref.
+# Matches unescaped @{ (not preceded by \). Used as a cheap gate so we only
+# parse strings that actually contain composition syntax. Real reference
+# extraction goes through `pydantic_handlebars.extract_dependencies` so block
+# helpers, dotted paths, and subexpressions are all handled AST-correctly.
 _HAS_REFERENCE = re.compile(r'(?<!\\)@\{')
 
-# Simple references: @{identifier}@ or @{identifier.field.subfield}@
-_SIMPLE_REF = re.compile(r'(?<!\\)@\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\}@')
+# Dotted-reference matcher used by the unresolved-reference protection
+# helpers — those need a textual hook so the literal `@{name.field}@` source
+# substring can be replaced with a sentinel and restored after rendering.
+_DOTTED_REF_TEXT = re.compile(r'(?<!\\)@\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+)\}@')
 
-# Block helper references: @{#helper identifier ...}@ — extracts the first identifier after the helper name.
-_BLOCK_REF = re.compile(r'(?<!\\)@\{#\w+\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s|\}@)')
-
-# Handlebars keywords that should never be treated as variable references.
-# These are valid in @{keyword}@ syntax but are Handlebars built-ins.
-_HBS_KEYWORDS = frozenset({'else', 'this'})
 
 MAX_COMPOSITION_DEPTH = 20
 
@@ -132,9 +130,10 @@ def expand_references(
     composed: list[ComposedReference] = []
 
     # JSON-decode the serialized value so we can work with actual strings.
-    try:
-        decoded = json.loads(serialized_value)
-    except (json.JSONDecodeError, TypeError):
+    decoded = _safe_json_load(serialized_value)
+    if decoded is None and not serialized_value.lower().startswith('null'):
+        # The string isn't valid JSON at all — bail out rather than try to
+        # render an invalid value.
         return serialized_value, composed
 
     # Collect all unique base variable names referenced anywhere in the decoded value.
@@ -241,38 +240,21 @@ def expand_references(
 
 
 def find_references(serialized_value: str) -> list[str]:
-    """Find all `@{variable_name}@` references in a serialized value.
+    """Find all top-level `@{variable_name}@` references in a serialized value.
 
-    Detects both simple `@{var}@` and block `@{#helper var}@` patterns.
-    For dotted references like `@{var.field}@`, only the base variable name
-    (first segment) is returned. This ensures correct cycle detection and
-    reference graph building.
+    Walks the decoded JSON value and runs each string containing composition
+    syntax through `pydantic_handlebars.extract_dependencies`, so block
+    helpers (`@{#if var}@`), dotted paths (`@{var.field}@`), and
+    subexpressions (`@{lookup obj key}@`) are all picked up correctly.
 
     Args:
         serialized_value: The raw JSON-serialized variable value to scan.
 
     Returns:
-        List of unique variable names referenced, in order of first occurrence.
+        List of unique top-level variable names referenced, in order of
+        first occurrence.
     """
-    seen: set[str] = set()
-    result: list[str] = []
-
-    # Simple references: @{var}@ or @{var.field}@
-    for match in _SIMPLE_REF.finditer(serialized_value):
-        full_ref = match.group(1)
-        var_name = full_ref.split('.')[0]
-        if var_name not in seen and var_name not in _HBS_KEYWORDS:
-            seen.add(var_name)
-            result.append(var_name)
-
-    # Block helper references: @{#if var}@, @{#each var}@, etc.
-    for match in _BLOCK_REF.finditer(serialized_value):
-        var_name = match.group(1)
-        if var_name not in seen and var_name not in _HBS_KEYWORDS:
-            seen.add(var_name)
-            result.append(var_name)
-
-    return result
+    return _collect_ref_names(_safe_json_load(serialized_value))
 
 
 # ---------------------------------------------------------------------------
@@ -280,22 +262,39 @@ def find_references(serialized_value: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def _safe_json_load(serialized_value: str) -> Any:
+    """JSON-decode *serialized_value*, returning ``None`` on failure."""
+    try:
+        return json.loads(serialized_value)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
 def _collect_ref_names(value: Any) -> list[str]:
-    """Recursively walk a decoded JSON value and collect all unique base variable names."""
+    """Recursively walk a decoded JSON value and collect unique top-level reference names.
+
+    For each string the AST-aware
+    ``pydantic_handlebars.extract_dependencies`` picks the authoritative set
+    of real references (so block helpers, dotted paths, subexpressions are
+    handled correctly and Handlebars helper names are excluded). Names from
+    that set are added to the result list ordered by their first textual
+    occurrence in the source string, giving deterministic output across
+    `dict` iteration orders.
+    """
+    from logfire.variables._handlebars import extract_composition_dependencies
+
     seen: set[str] = set()
     result: list[str] = []
 
     def _walk(v: Any) -> None:
         if isinstance(v, str):
-            for match in _SIMPLE_REF.finditer(v):
-                full_ref = match.group(1)
-                name = full_ref.split('.')[0]
-                if name not in seen and name not in _HBS_KEYWORDS:
-                    seen.add(name)
-                    result.append(name)
-            for match in _BLOCK_REF.finditer(v):
-                name = match.group(1)
-                if name not in seen and name not in _HBS_KEYWORDS:
+            if not has_references(v):
+                return
+            valid = extract_composition_dependencies(v)
+            if not valid:
+                return
+            for name in _order_by_first_position(valid, v):
+                if name not in seen:
                     seen.add(name)
                     result.append(name)
         elif isinstance(v, dict):
@@ -309,11 +308,31 @@ def _collect_ref_names(value: Any) -> list[str]:
     return result
 
 
+def _order_by_first_position(names: set[str], source: str) -> list[str]:
+    """Order *names* by their first whole-word occurrence in *source*.
+
+    Used to give `find_references` deterministic, source-order output for a
+    set produced by `extract_composition_dependencies`. Names that don't
+    appear textually in the source — which shouldn't happen for refs
+    returned by the AST walker, but is defensive — sort to the end of the
+    list in alphabetical order so output remains stable.
+    """
+    positions: dict[str, int] = {}
+    for name in names:
+        # Use a word-boundary search so e.g. `key` doesn't match inside `keyword`.
+        pattern = re.compile(rf'\b{re.escape(name)}\b')
+        match = pattern.search(source)
+        positions[name] = match.start() if match is not None else len(source) + sum(map(ord, name))
+    return sorted(names, key=lambda n: positions[n])
+
+
 def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str]) -> Any:
     """Recursively walk a decoded JSON value, rendering strings through Handlebars.
 
-    Unresolved variable names should already be present in the context as their
-    literal `@{name}@` text so that Handlebars preserves them.
+    Unresolved variable names are present in *context* as their literal
+    ``@{name}@`` text so the renderer preserves them in the output. Dotted
+    accesses against unresolved names are pre-protected so they retain the
+    full ``@{name.field}@`` source rather than rendering as empty.
     """
     if isinstance(value, str):
         if not has_references(value):
@@ -335,7 +354,14 @@ def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str
 
 
 def _protect_unresolved_dotted_refs(value: str, unresolved_names: set[str]) -> tuple[str, dict[str, str]]:
-    """Replace unresolved dotted reference tags with sentinels before Handlebars rendering."""
+    """Replace unresolved dotted reference tags with sentinels before Handlebars rendering.
+
+    With native ``@{...}@`` rendering, an unresolved name's literal text
+    placeholder in the context only retains the bare ``@{name}@`` form —
+    dotted accesses like ``@{name.field}@`` would resolve against the
+    string and produce empty output. To keep the original dotted source
+    visible we substitute a sentinel pre-render and restore it after.
+    """
     if not unresolved_names:
         return value, {}
 
@@ -343,13 +369,13 @@ def _protect_unresolved_dotted_refs(value: str, unresolved_names: set[str]) -> t
 
     def replace(match: re.Match[str]) -> str:
         full_ref = match.group(1)
-        if '.' not in full_ref or full_ref.split('.')[0] not in unresolved_names:
+        if full_ref.split('.')[0] not in unresolved_names:
             return match.group(0)
         sentinel = f'\x00logfire-unresolved-ref-{len(protected_refs)}-{id(value)}\x00'
         protected_refs[sentinel] = match.group(0)
         return sentinel
 
-    return _SIMPLE_REF.sub(replace, value), protected_refs
+    return _DOTTED_REF_TEXT.sub(replace, value), protected_refs
 
 
 def _restore_unresolved_refs(value: str, protected_refs: dict[str, str]) -> str:
