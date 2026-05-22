@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 
     from packaging.version import Version
 
-    SysExcInfo = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
+    SysExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
     """
     The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
     """
