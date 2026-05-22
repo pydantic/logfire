@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
+from inline_snapshot import snapshot
 from pydantic import BaseModel
 
 import logfire
@@ -730,18 +731,9 @@ def test_compute_diff_template_field_issues_skips_label_refs() -> None:
     __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
     reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
 )
-def test_compute_diff_template_field_issues_tolerates_unserializable_composed_ref() -> None:
+def test_compute_diff_template_field_issues_tolerates_unserializable_composed_ref():
     """A composed-in variable with an unserializable default doesn't crash template-field validation."""
 
-    class Inputs(BaseModel):
-        user_name: str
-
-    prompt = logfire.template_var(
-        name='prompt',
-        default='@{fragment}@ {{user_name}}',
-        type=str,
-        inputs_type=Inputs,
-    )
     # `fragment.default = object()` is not JSON-serializable; the walker should swallow
     # the dump_json error and continue.
     fragment = logfire.var(
@@ -763,11 +755,15 @@ def test_compute_diff_template_field_issues_tolerates_unserializable_composed_re
         }
     )
 
-    diff = _compute_diff([prompt, fragment], server_config)
+    diff = _compute_diff([fragment], server_config)
 
-    # No crash — the fragment's default is silently skipped, no template issues surface
-    # from it.
-    assert all(issue.found_in_variable != 'fragment' for issue in diff.template_field_issues)
+    # No crash — the fragment's default is silently skipped, no template issues surface from it.
+    assert diff == snapshot(
+        VariableDiff(
+            changes=[VariableChange(name='fragment', change_type='no_change')],
+            orphaned_server_variables=[],
+        )
+    )
 
 
 @pytest.mark.skipif(
