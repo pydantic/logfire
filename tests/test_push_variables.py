@@ -225,6 +225,116 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
     assert diff.has_changes is True
 
 
+@pytest.mark.skipif(
+    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
+    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
+)
+def test_compute_diff_template_field_issues_local_default(mock_logfire_instance: MockLogfire) -> None:
+    """A local code default that references an undeclared input field surfaces as a template_field_issue."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{nickname}}!',  # nickname is not in Inputs
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(variables={})
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.template_field_issues) == 1
+    issue = diff.template_field_issues[0]
+    assert issue.field_name == 'nickname'
+    assert issue.found_in_variable == 'prompt'
+    # `None` label key represents the code default in
+    # `validate_template_composition`'s contract.
+    assert issue.found_in_label is None
+
+
+@pytest.mark.skipif(
+    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
+    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
+)
+def test_compute_diff_template_field_issues_server_label(mock_logfire_instance: MockLogfire) -> None:
+    """Server-stored label values are validated against the local inputs_type schema."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}}!',  # local default is fine
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    # Server has a label value authored against an older schema that included
+    # `nickname` — now incompatible with the local Inputs declaration.
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={
+                    'type': 'object',
+                    'properties': {'user_name': {'type': 'string'}, 'nickname': {'type': 'string'}},
+                    'required': ['user_name'],
+                },
+                labels={'production': LabeledValue(version=1, serialized_value='"Hi {{nickname}}!"')},
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    field_names = {issue.field_name for issue in diff.template_field_issues}
+    labels = {issue.found_in_label for issue in diff.template_field_issues}
+    assert 'nickname' in field_names
+    assert 'production' in labels
+
+
+@pytest.mark.skipif(
+    __import__('importlib.util').util.find_spec('pydantic_handlebars') is None,
+    reason='Template field validation requires pydantic-handlebars (Python 3.10+)',
+)
+def test_compute_diff_template_field_issues_follow_composition(mock_logfire_instance: MockLogfire) -> None:
+    """A `{{field}}` reference inside a composed-in fragment is reported with the composition path."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    # `prompt` composes in `fragment`, which references {{nickname}} (not declared).
+    prompt = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Greeting: @{fragment}@',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    fragment = Variable[str](
+        name='fragment',
+        default='Hi {{nickname}}!',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(variables={})
+
+    diff = _compute_diff([prompt, fragment], server_config)
+
+    assert any(
+        issue.field_name == 'nickname'
+        and issue.found_in_variable == 'fragment'
+        and issue.reference_path == ['fragment']
+        for issue in diff.template_field_issues
+    )
+
+
 def test_compute_diff_template_inputs_schema_change(mock_logfire_instance: MockLogfire) -> None:
     """A template inputs schema change is pushed even if the value schema is unchanged."""
 
