@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import json
-from importlib.util import find_spec
 from typing import Any
 
 import pytest
@@ -29,12 +28,6 @@ from logfire.variables.config import (
     VariablesConfig,
 )
 
-HAS_PYDANTIC_HANDLEBARS = find_spec('pydantic_handlebars') is not None
-requires_handlebars = pytest.mark.skipif(
-    not HAS_PYDANTIC_HANDLEBARS,
-    reason='pydantic-handlebars requires Python 3.10+',
-)
-
 # =============================================================================
 # Tests for the pure composition functions (expand_references, find_references)
 # =============================================================================
@@ -56,7 +49,6 @@ def _make_resolve_fn(
     return resolve_fn
 
 
-@requires_handlebars
 class TestExpandReferences:
     def test_invalid_serialized_value_is_returned_unchanged(self):
         """Non-JSON values cannot be composed and are returned as-is."""
@@ -422,7 +414,6 @@ class TestFindReferences:
 # =============================================================================
 
 
-@requires_handlebars
 class TestBlockHelpers:
     def test_block_if_true(self):
         """@{#if flag}@yes@{else}@no@{/if}@ with truthy flag."""
@@ -611,7 +602,6 @@ def _make_variables_config(**variables: str | None) -> VariablesConfig:
     return VariablesConfig(variables=configs)
 
 
-@requires_handlebars
 class TestCompositionIntegration:
     def test_simple_reference(self, config_kwargs: dict[str, Any]):
         """End-to-end: variable with @{ref}@ is resolved with composition."""
@@ -1050,7 +1040,6 @@ class TestCodeDefaultSerializationFailures:
         assert result.value is sentinel
         assert result.reason == 'code_default'
 
-    @requires_handlebars
     def test_unserializable_default_with_references_falls_back(self, config_kwargs: dict[str, Any]):
         """A code default that references missing variables still falls back to the plain default."""
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))

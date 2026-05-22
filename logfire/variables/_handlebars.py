@@ -35,7 +35,7 @@ class HandlebarsDependencyError(ImportError):
 def _dependency_error() -> HandlebarsDependencyError:
     return HandlebarsDependencyError(
         'Handlebars template rendering requires the `pydantic-handlebars` package, '
-        'which is only installed by the `logfire[variables]` extra on Python 3.10 and later.'
+        'which is installed by the `logfire[variables]` extra.'
     )
 
 
