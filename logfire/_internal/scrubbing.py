@@ -140,6 +140,7 @@ class BaseScrubber(ABC):
         'http.target',
         'http.route',
         'db.statement',
+        'db.query.text',
         'db.plan',
         'fastapi.route.name',
         'fastapi.route.operation_id',
