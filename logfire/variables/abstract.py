@@ -596,17 +596,10 @@ def _collect_template_field_issues(
     where a server-stored template was authored against an older schema
     that's incompatible with the current local `inputs_type`.
 
-    On Python 3.9 (where `pydantic-handlebars` is not installable), returns
-    an empty list — the AST-based schema check can't run, so push/validate
-    skip this step rather than crashing.
     """
-    from logfire.variables._handlebars import is_handlebars_available
     from logfire.variables.config import LabeledValue
     from logfire.variables.template_validation import validate_template_composition
     from logfire.variables.variable import TemplateVariable, is_resolve_function
-
-    if not is_handlebars_available():
-        return []
 
     issues: list[TemplateFieldIssue] = []
     locals_by_name = {v.name: v for v in variables}
