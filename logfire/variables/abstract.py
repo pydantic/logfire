@@ -1,7 +1,6 @@
 from __future__ import annotations as _annotations
 
 import json
-import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
@@ -65,16 +64,6 @@ ResolutionReason = Literal[
 - `code_default`: the variable's code-default was used because the provider had no value.
 """
 
-if not TYPE_CHECKING:  # pragma: no branch
-    if sys.version_info < (3, 10):  # pragma: no cover
-        _dataclass = dataclass
-
-        # Prevent errors when using kw_only with dataclasses in Python<3.10
-        # Note: When we drop support for python 3.9, drop this
-        def dataclass(*args, **kwargs):
-            kwargs.pop('kw_only', None)
-            return _dataclass(*args, **kwargs)
-
 
 class VariableWriteError(Exception):
     """Base exception for variable write operation failures."""
@@ -119,16 +108,14 @@ class ResolvedVariable(Generic[T_co]):
     """The name of the variable."""
     value: T_co
     """The resolved value of the variable."""
-    reason: ResolutionReason
-    """How the variable was resolved (see `ResolutionReason` for possible values)."""
-    # Note: `reason` is declared before fields with defaults because we don't use kw_only=True
-    # on Python<3.10; move it to the end when 3.9 support is dropped.
     label: str | None = None
     """The name of the selected label, if any."""
     version: int | None = None
     """The version number of the resolved value, if any."""
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
+    reason: ResolutionReason
+    """How the variable was resolved (see `ResolutionReason` for possible values)."""
 
     def __post_init__(self):
         self._exit_stack = ExitStack()

@@ -147,7 +147,7 @@ logfire.info(f'Hello {name}')
 
 Contrary to the previous section, this _will_ work well in Python 3.11+ because Logfire will use special magic to both set the `span_name` to `'Hello {name}'` and set the `name` attribute to the value of the `name` variable, so it's equivalent to the previous snippet. Here's what you need to know about this:
 
-- The feature is enabled by default in Python 3.11+. You can disable it with [`logfire.configure(inspect_arguments=False)`][logfire.configure(inspect_arguments)]. You can also enable it in Python 3.9 and 3.10, but it's more likely to not work correctly.
+- The feature is enabled by default in Python 3.11+. You can disable it with [`logfire.configure(inspect_arguments=False)`][logfire.configure(inspect_arguments)]. You can also enable it in Python 3.10, but it's more likely to not work correctly.
 - Inspecting arguments is expected to always work under normal circumstances. The main caveat is that the source code must be available, so e.g. deploying only `.pyc` files will cause it to fail.
 - If inspecting arguments fails, you will get a warning, and the f-string argument will be used as a formatting template. This means you will get high-cardinality span names such as `'Hello Alice'` and no `name` attribute, but the information won't be completely lost.
 - If inspecting arguments is enabled, then arguments will be inspected regardless of whether f-strings are being used. So if you write `logfire.info('Hello {name}', name=name)` and inspecting arguments fails, then you will still get a warning.
