@@ -501,7 +501,6 @@ class TestBlockHelpers:
         assert json.loads(expanded) == r'\@{not_a_ref}@'
 
 
-@requires_handlebars
 class TestExpandReferencesNativeHandlebarsSyntax:
     """Coverage for `@{}@` syntax that the previous regex-based renderer could not handle.
 
@@ -541,7 +540,6 @@ class TestExpandReferencesNativeHandlebarsSyntax:
         assert json.loads(expanded) == 'Hi'
 
 
-@requires_handlebars
 class TestFindReferencesNativeHandlebarsSyntax:
     """`find_references` picks up the same set of refs the renderer would expand."""
 

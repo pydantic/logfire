@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from functools import cache
 from typing import TYPE_CHECKING, Any
@@ -78,42 +77,15 @@ def extract_composition_dependencies(template: str) -> set[str]:
 
     Delegates to `pydantic_handlebars.extract_dependencies` configured for
     the composition delimiters, so block helpers / dotted paths / etc. are
-    handled AST-correctly. When `pydantic-handlebars` is unavailable (i.e.
-    Python 3.9, where the `[variables]` extra omits the dependency), falls
-    back to a regex-based approximation that recognises simple
-    `@{name}@` / `@{name.field}@` / `@{#helper name}@` forms — sufficient
-    for the cycle/reference checks the SDK runs at sync time, but not for
-    actual composition rendering (which raises on Python 3.9).
+    handled AST-correctly.
     """
     try:
         from pydantic_handlebars import extract_dependencies
-    except ModuleNotFoundError as exc:
+    except ModuleNotFoundError as exc:  # pragma: no cover
         if exc.name == 'pydantic_handlebars':
-            return _fallback_extract_dependencies(template)
-        raise  # pragma: no cover
+            raise _dependency_error() from exc
+        raise
     return extract_dependencies(template, open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM)
-
-
-# Conservative fallback regexes used only when `pydantic-handlebars` is not
-# installed (Python 3.9): match simple identifiers / dotted-paths and the
-# first identifier inside `@{#helper x ...}@` headers.
-_FALLBACK_SIMPLE_REF = re.compile(r'(?<!\\)@\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\}@')
-_FALLBACK_BLOCK_REF = re.compile(r'(?<!\\)@\{[#~]\s*\w+\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:[.\s}/])')
-# Names that look like context references but are Handlebars built-ins.
-_FALLBACK_RESERVED = frozenset({'this', 'else', 'if', 'unless', 'each', 'with', 'lookup', 'log'})
-
-
-def _fallback_extract_dependencies(template: str) -> set[str]:
-    refs: set[str] = set()
-    for match in _FALLBACK_SIMPLE_REF.finditer(template):
-        head = match.group(1).split('.', 1)[0]
-        if head not in _FALLBACK_RESERVED:
-            refs.add(head)
-    for match in _FALLBACK_BLOCK_REF.finditer(template):
-        name = match.group(1)
-        if name not in _FALLBACK_RESERVED:
-            refs.add(name)
-    return refs
 
 
 @cache
