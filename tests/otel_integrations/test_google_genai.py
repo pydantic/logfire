@@ -406,6 +406,39 @@ def test_instrument_google_genai_no_cache_metadata(
     assert attrs['gen_ai.usage.output_tokens'] == 9
 
 
+def test_instrument_google_genai_no_usage_metadata(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, reset_google_genai_instrumentation: None
+) -> None:
+    """Response missing `usage_metadata` entirely: no extra attrs and no cost computation."""
+    from google.genai import Client
+    from google.genai.models import Models
+    from google.genai.types import Candidate, Content, FinishReason, GenerateContentResponse, Part
+
+    fake_response = GenerateContentResponse(
+        model_version='gemini-2.5-flash',
+        usage_metadata=None,
+        candidates=[
+            Candidate(
+                content=Content(parts=[Part.from_text(text='hi')], role='model'),
+                finish_reason=FinishReason.STOP,
+            )
+        ],
+    )
+    monkeypatch.setattr(Models, 'generate_content', _stub_generate_content(fake_response))
+
+    logfire.instrument_google_genai()
+
+    client = Client(api_key='fake')
+    client.models.generate_content(model='gemini-2.5-flash', contents='hi')  # type: ignore
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = span['attributes']
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attrs
+    assert 'gen_ai.usage.details.thoughts_tokens' not in attrs
+    assert 'gen_ai.usage.details.tool_use_prompt_tokens' not in attrs
+    assert 'operation.cost' not in attrs
+
+
 def test_instrument_google_genai_cost_silent_failure(
     exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, reset_google_genai_instrumentation: None
 ) -> None:

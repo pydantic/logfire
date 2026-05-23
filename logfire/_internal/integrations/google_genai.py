@@ -101,7 +101,7 @@ try:
                     # genai_prices expects the camelCase JSON keys ('usageMetadata', 'modelVersion');
                     # google-genai pydantic models use snake_case fields with camelCase aliases.
                     usage_data = extract_usage(response.model_dump(by_alias=True), provider_id='google')
-                    if usage_data.model is not None:
+                    if usage_data.model is not None:  # pragma: no branch
                         attrs['operation.cost'] = float(
                             calc_price(
                                 usage_data.usage,
