@@ -1725,6 +1725,18 @@ def test_update_genai_prices_graceful_when_not_installed(
     assert GLOBAL_CONFIG._genai_prices_updater is None  # pyright: ignore[reportPrivateUsage]
 
 
+def test_update_genai_prices_skipped_under_emscripten(
+    config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _require_genai_prices_update_prices()
+    monkeypatch.setattr('logfire._internal.config.platform_is_emscripten', lambda: True)
+    with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
+        configure(**config_kwargs, update_genai_prices=True)
+        MockUpdater.assert_not_called()
+    assert GLOBAL_CONFIG.update_genai_prices is True
+    assert GLOBAL_CONFIG._genai_prices_updater is None  # pyright: ignore[reportPrivateUsage]
+
+
 def test_update_genai_prices_reconfigure_resets_thread(config_kwargs: dict[str, Any]) -> None:
     _require_genai_prices_update_prices()
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
