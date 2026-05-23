@@ -1,5 +1,11 @@
 # Release Notes
 
+## [unreleased]
+
+Integrations:
+
+* Capture Gemini `cache_read`, `thoughts` and `tool_use_prompt` tokens in `instrument_google_genai`; compute `operation.cost` via `genai-prices` when available.
+
 ## [v4.33.0] (2026-05-13)
 
 CLI:
