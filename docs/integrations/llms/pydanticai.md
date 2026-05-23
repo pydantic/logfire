@@ -61,8 +61,11 @@ reference or the [Pydantic AI docs on instrumenting](https://pydantic.dev/docs/a
 
 Pydantic AI uses [`genai-prices`](https://github.com/pydantic/genai-prices) to populate the
 `operation.cost` span attribute. The model price catalogue is shipped as a snapshot inside the
-package, so newly released models (e.g. `gemini-3.5-flash`, `claude-4`, …) only get a cost
-calculation once a new version of `genai-prices` is released and pulled in.
+package, mirroring the official provider pricing pages (e.g.
+[Google Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) and
+[OpenAI API pricing](https://openai.com/api/pricing/)), so newly released models
+(e.g. `gemini-3.5-flash`, `gpt-5.1`, …) only get a cost calculation once a new version of
+`genai-prices` is released and pulled in.
 
 To always pick up new prices without waiting for a release, pass `update_genai_prices=True`
 to `logfire.configure()`. A daemon thread will refresh the catalogue from upstream every hour
