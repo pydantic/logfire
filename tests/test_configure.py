@@ -1667,8 +1667,24 @@ def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch)
     assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
 
 
+def _require_genai_prices_update_prices() -> None:
+    """Skip the current test when `genai_prices.update_prices` cannot be imported.
+
+    `pytest.importorskip` only catches `ImportError`. In some CI matrix entries
+    (e.g. pydantic 2.4), importing `genai_prices.update_prices` succeeds at the
+    top level but a transitive import raises `AttributeError` because it depends
+    on `pydantic.Tag` (added in pydantic 2.5). Skip in those cases too.
+    """
+    import importlib
+
+    try:
+        importlib.import_module('genai_prices.update_prices')
+    except Exception as exc:  # pragma: no cover
+        pytest.skip(f'genai_prices.update_prices not importable in this environment: {exc!r}')
+
+
 def test_update_genai_prices_default_off(config_kwargs: dict[str, Any]) -> None:
-    pytest.importorskip('genai_prices.update_prices')
+    _require_genai_prices_update_prices()
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         configure(**config_kwargs)
         MockUpdater.assert_not_called()
@@ -1677,7 +1693,7 @@ def test_update_genai_prices_default_off(config_kwargs: dict[str, Any]) -> None:
 
 
 def test_update_genai_prices_enabled_starts_updater(config_kwargs: dict[str, Any]) -> None:
-    pytest.importorskip('genai_prices.update_prices')
+    _require_genai_prices_update_prices()
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         configure(**config_kwargs, update_genai_prices=True)
         MockUpdater.assert_called_once_with()
@@ -1688,7 +1704,7 @@ def test_update_genai_prices_enabled_starts_updater(config_kwargs: dict[str, Any
 
 
 def test_update_genai_prices_env_var(monkeypatch: pytest.MonkeyPatch, config_kwargs: dict[str, Any]) -> None:
-    pytest.importorskip('genai_prices.update_prices')
+    _require_genai_prices_update_prices()
     monkeypatch.setenv('LOGFIRE_UPDATE_GENAI_PRICES', '1')
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         configure(**config_kwargs)
@@ -1710,7 +1726,7 @@ def test_update_genai_prices_graceful_when_not_installed(
 
 
 def test_update_genai_prices_reconfigure_resets_thread(config_kwargs: dict[str, Any]) -> None:
-    pytest.importorskip('genai_prices.update_prices')
+    _require_genai_prices_update_prices()
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         first_instance = mock.MagicMock(name='first_updater')
         second_instance = mock.MagicMock(name='second_updater')
