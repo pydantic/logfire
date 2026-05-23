@@ -272,8 +272,8 @@ nav:
           - Self-Hosted Deployment:
               - Overview: reference/self-hosted/overview.md
               - Local Quickstart: reference/self-hosted/local-quickstart.md
-              - Installation: reference/self-hosted/installation.md
-              - Scaling: reference/self-hosted/scaling.md
+              - Architecture: reference/self-hosted/architecture.md
+              - Production Requirements: reference/self-hosted/installation.md
               - Troubleshooting: reference/self-hosted/troubleshooting.md
               - Bucket Migration: reference/self-hosted/bucket-migration.md
               - Examples: reference/self-hosted/examples.md
@@ -441,6 +441,7 @@ plugins:
         "get-started/traces.md": "concepts.md"
         "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
         "reference/organization-structure.md": "guides/web-ui/organizations-and-projects.md"
+        "reference/self-hosted/scaling.md": "reference/self-hosted/installation.md#sizing-and-storage"
   - llmstxt:
       enabled: !ENV [CI, false]
       full_output: llms-full.txt
