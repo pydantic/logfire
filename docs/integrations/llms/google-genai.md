@@ -53,10 +53,13 @@ following attributes may appear depending on the response:
 
 - `gen_ai.usage.input_tokens` — total prompt tokens (already includes cached, see below)
 - `gen_ai.usage.output_tokens` — completion tokens
-- `gen_ai.usage.cache_read.input_tokens` — tokens served from context cache (cache hit)
-- `gen_ai.usage.details.thoughts_tokens` — reasoning tokens (Gemini 2.5 / 3.x)
-- `gen_ai.usage.details.tool_use_prompt_tokens` — tokens used for tool definitions
-- `operation.cost` — calculated price in USD (requires [`genai-prices`](https://pypi.org/project/genai-prices/))
+- `gen_ai.usage.cache_read.input_tokens` — tokens served from [context cache](https://ai.google.dev/gemini-api/docs/caching) (cache hit)
+- `gen_ai.usage.details.thoughts_tokens` — [reasoning tokens](https://ai.google.dev/gemini-api/docs/thinking) (Gemini 2.5 / 3.x)
+- `gen_ai.usage.details.tool_use_prompt_tokens` — tokens used for [tool definitions](https://ai.google.dev/gemini-api/docs/function-calling)
+- `operation.cost` — calculated price in USD using the [official Gemini pricing tables](https://ai.google.dev/gemini-api/docs/pricing) via [`genai-prices`](https://pypi.org/project/genai-prices/)
 
 Note that, unlike Anthropic, the Gemini API's `prompt_token_count` already includes
-the cached tokens; Logfire does not sum them again.
+the cached tokens; Logfire does not sum them again. This is documented in the
+[`GenerateContentResponseUsageMetadata.prompt_token_count`](https://googleapis.github.io/python-genai/genai.html#genai.types.GenerateContentResponseUsageMetadata.prompt_token_count)
+field description: *"When `cached_content` is set, this also includes the number
+of tokens in the cached content."*
