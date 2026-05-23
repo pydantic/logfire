@@ -437,6 +437,7 @@ def configure(
     code_source: CodeSource | None = None,
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
+    update_genai_prices: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
@@ -512,6 +513,16 @@ def configure(
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
+        update_genai_prices: If `True`, start a background daemon thread that periodically refreshes
+            the `genai-prices` model pricing snapshot from the upstream repository. This keeps
+            `operation.cost` attributes correct for newly released LLM models (e.g. `gemini-3.5-flash`)
+            without requiring a package upgrade. Defaults to `False`.
+
+            Requires `genai-prices` to be installed (usually transitive via `pydantic-ai`); if it is
+            missing, a one-shot warning is emitted and the flag is silently ignored. The thread is
+            stopped via `atexit` on shutdown.
+
+            Defaults to the `LOGFIRE_UPDATE_GENAI_PRICES` environment variable, or `False`.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -645,6 +656,7 @@ def configure(
         code_source=code_source,
         variables=variables,
         distributed_tracing=distributed_tracing,
+        update_genai_prices=update_genai_prices,
         advanced=advanced,
     )
 
@@ -728,6 +740,9 @@ class _LogfireConfigData:
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
+    update_genai_prices: bool
+    """Whether to refresh `genai-prices` model pricing snapshot in the background."""
+
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -755,6 +770,7 @@ class _LogfireConfigData:
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        update_genai_prices: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -770,6 +786,7 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
+        self.update_genai_prices = param_manager.load_param('update_genai_prices', update_genai_prices)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
         if min_level is None:
@@ -892,6 +909,7 @@ class LogfireConfig(_LogfireConfigData):
         variables: VariablesOptions | None = None,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
+        update_genai_prices: bool | None = None,
         advanced: AdvancedOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
@@ -922,6 +940,7 @@ class LogfireConfig(_LogfireConfigData):
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
+            update_genai_prices=update_genai_prices,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -936,6 +955,8 @@ class LogfireConfig(_LogfireConfigData):
         self._has_set_providers = False
         self._initialized = False
         self._lock = RLock()
+        # Background updater for genai-prices snapshot; created on demand in _initialize.
+        self._genai_prices_updater: Any = None
 
     def configure(
         self,
@@ -958,6 +979,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        update_genai_prices: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -982,6 +1004,7 @@ class LogfireConfig(_LogfireConfigData):
                 code_source,
                 variables,
                 distributed_tracing,
+                update_genai_prices,
                 advanced,
             )
             self.initialize()
@@ -994,6 +1017,10 @@ class LogfireConfig(_LogfireConfigData):
     def _initialize(self) -> None:
         if self._initialized:  # pragma: no cover
             return
+
+        # If we are reconfiguring (e.g. configure called a second time), stop the previous
+        # genai-prices updater thread cleanly before any new one is created below.
+        self._stop_genai_prices_updater()
 
         emscripten = platform_is_emscripten()
 
@@ -1400,6 +1427,48 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
+            if not emscripten:
+                self._maybe_start_genai_prices_updater()
+
+    def _maybe_start_genai_prices_updater(self) -> None:
+        """Start a background daemon to refresh the `genai-prices` snapshot.
+
+        Only runs when `update_genai_prices=True`. Silently no-ops if `genai-prices` is not
+        installed (it is a transitive dep, typically via `pydantic-ai`).
+        """
+        if not self.update_genai_prices:
+            return
+        if self._genai_prices_updater is not None:  # pragma: no cover
+            return
+        try:
+            from genai_prices.update_prices import UpdatePrices
+        except ImportError:
+            warnings.warn(
+                'logfire.configure(update_genai_prices=True) requires the `genai-prices` package '
+                'to be installed. Install it directly or pull it in transitively via `pydantic-ai`. '
+                'Auto-update is disabled for this session.',
+                stacklevel=2,
+            )
+            return
+        try:
+            updater = UpdatePrices()
+            updater.start()
+        except Exception:  # pragma: no cover
+            return
+        self._genai_prices_updater = updater
+        atexit.register(self._stop_genai_prices_updater)
+
+    def _stop_genai_prices_updater(self) -> None:
+        """Stop the `genai-prices` background updater if it is running."""
+        updater = self._genai_prices_updater
+        if updater is None:
+            return
+        self._genai_prices_updater = None
+        try:
+            updater.stop()
+        except Exception:  # pragma: no cover
+            pass
+
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.
 
@@ -1594,6 +1663,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
                 'min_level': config.min_level,
                 'add_baggage_to_attributes': config.add_baggage_to_attributes,
                 'distributed_tracing': config.distributed_tracing,
+                'update_genai_prices': config.update_genai_prices,
                 'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
                 'tail_sampling_enabled': sampling.tail is not None,
                 'code_source_set': config.code_source is not None,

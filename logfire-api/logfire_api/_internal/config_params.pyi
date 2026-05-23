@@ -11,10 +11,9 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 T = TypeVar('T')
-slots_true: Incomplete
 PydanticPluginRecordValues: Incomplete
 
-@dataclass(**slots_true)
+@dataclass(slots=True)
 class ConfigParam:
     """A parameter that can be configured for a Logfire instance."""
     env_vars: list[str]
@@ -55,6 +54,7 @@ IGNORE_NO_CONFIG: Incomplete
 BASE_URL: Incomplete
 DISTRIBUTED_TRACING: Incomplete
 EMIT_CONFIGURATION_SPAN: Incomplete
+UPDATE_GENAI_PRICES: Incomplete
 HTTPX_CAPTURE_ALL: Incomplete
 AIOHTTP_CLIENT_CAPTURE_ALL: Incomplete
 CONFIG_PARAMS: Incomplete

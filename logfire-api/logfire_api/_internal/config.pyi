@@ -127,7 +127,7 @@ class LocalVariablesOptions:
 
 class DeprecatedKwargs(TypedDict): ...
 
-def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
+def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, update_genai_prices: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
     """Configure the logfire SDK.
 
     Args:
@@ -200,6 +200,16 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
+        update_genai_prices: If `True`, start a background daemon thread that periodically refreshes
+            the `genai-prices` model pricing snapshot from the upstream repository. This keeps
+            `operation.cost` attributes correct for newly released LLM models (e.g. `gemini-3.5-flash`)
+            without requiring a package upgrade. Defaults to `False`.
+
+            Requires `genai-prices` to be installed (usually transitive via `pydantic-ai`); if it is
+            missing, a one-shot warning is emitted and the flag is silently ignored. The thread is
+            stopped via `atexit` on shutdown.
+
+            Defaults to the `LOGFIRE_UPDATE_GENAI_PRICES` environment variable, or `False`.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
 
@@ -231,17 +241,18 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     variables: VariablesOptions | LocalVariablesOptions | None
     distributed_tracing: bool | None
+    update_genai_prices: bool
     advanced: AdvancedOptions
 
 class LogfireConfig(_LogfireConfigData):
-    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, variables: VariablesOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
+    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, variables: VariablesOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, update_genai_prices: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
         """Create a new LogfireConfig.
 
         Users should never need to call this directly, instead use `logfire.configure`.
 
         See `_LogfireConfigData` for parameter documentation.
         """
-    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | list[str] | None, api_key: str | None, service_name: str | None, service_version: str | None, environment: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, variables: VariablesOptions | LocalVariablesOptions | None, distributed_tracing: bool | None, advanced: AdvancedOptions | None) -> None: ...
+    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | list[str] | None, api_key: str | None, service_name: str | None, service_version: str | None, environment: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, variables: VariablesOptions | LocalVariablesOptions | None, distributed_tracing: bool | None, update_genai_prices: bool | None, advanced: AdvancedOptions | None) -> None: ...
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:

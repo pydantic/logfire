@@ -56,3 +56,26 @@ You can also instrument a specific agent with `logfire.instrument_pydantic_ai(ag
 
 For more information, see the [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai]
 reference or the [Pydantic AI docs on instrumenting](https://pydantic.dev/docs/ai/integrations/logfire/) with **Logfire**.
+
+## Keep model pricing up to date
+
+Pydantic AI uses [`genai-prices`](https://github.com/pydantic/genai-prices) to populate the
+`operation.cost` span attribute. The model price catalogue is shipped as a snapshot inside the
+package, so newly released models (e.g. `gemini-3.5-flash`, `claude-4`, …) only get a cost
+calculation once a new version of `genai-prices` is released and pulled in.
+
+To always pick up new prices without waiting for a release, pass `update_genai_prices=True`
+to `logfire.configure()`. A daemon thread will refresh the catalogue from upstream every hour
+in the background:
+
+```python
+import logfire
+
+logfire.configure(update_genai_prices=True)
+logfire.instrument_pydantic_ai()
+```
+
+The same can be enabled via the `LOGFIRE_UPDATE_GENAI_PRICES=1` environment variable.
+
+The thread needs outbound HTTP access to `raw.githubusercontent.com` and is a no-op (with a
+one-shot warning) when `genai-prices` is not installed in the environment.
