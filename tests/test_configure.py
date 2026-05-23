@@ -1668,6 +1668,7 @@ def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_update_genai_prices_default_off(config_kwargs: dict[str, Any]) -> None:
+    pytest.importorskip('genai_prices.update_prices')
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         configure(**config_kwargs)
         MockUpdater.assert_not_called()
@@ -1676,6 +1677,7 @@ def test_update_genai_prices_default_off(config_kwargs: dict[str, Any]) -> None:
 
 
 def test_update_genai_prices_enabled_starts_updater(config_kwargs: dict[str, Any]) -> None:
+    pytest.importorskip('genai_prices.update_prices')
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         configure(**config_kwargs, update_genai_prices=True)
         MockUpdater.assert_called_once_with()
@@ -1686,6 +1688,7 @@ def test_update_genai_prices_enabled_starts_updater(config_kwargs: dict[str, Any
 
 
 def test_update_genai_prices_env_var(monkeypatch: pytest.MonkeyPatch, config_kwargs: dict[str, Any]) -> None:
+    pytest.importorskip('genai_prices.update_prices')
     monkeypatch.setenv('LOGFIRE_UPDATE_GENAI_PRICES', '1')
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         configure(**config_kwargs)
@@ -1707,6 +1710,7 @@ def test_update_genai_prices_graceful_when_not_installed(
 
 
 def test_update_genai_prices_reconfigure_resets_thread(config_kwargs: dict[str, Any]) -> None:
+    pytest.importorskip('genai_prices.update_prices')
     with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
         first_instance = mock.MagicMock(name='first_updater')
         second_instance = mock.MagicMock(name='second_updater')

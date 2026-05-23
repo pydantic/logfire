@@ -68,7 +68,7 @@ To always pick up new prices without waiting for a release, pass `update_genai_p
 to `logfire.configure()`. A daemon thread will refresh the catalogue from upstream every hour
 in the background:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import logfire
 
 logfire.configure(update_genai_prices=True)

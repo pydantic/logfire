@@ -1450,6 +1450,16 @@ class LogfireConfig(_LogfireConfigData):
                 stacklevel=2,
             )
             return
+        except Exception as exc:  # pragma: no cover
+            # genai-prices is installed but failed to import (e.g. due to an incompatible
+            # transitive dependency such as pydantic < 2.5 missing `Tag`). Don't crash
+            # `logfire.configure()` over a non-critical feature — degrade gracefully.
+            warnings.warn(
+                f'Failed to import `genai_prices.update_prices` ({exc!r}); '
+                'auto-update of model pricing is disabled for this session.',
+                stacklevel=2,
+            )
+            return
         try:
             updater = UpdatePrices()
             updater.start()
