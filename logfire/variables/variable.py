@@ -19,7 +19,6 @@ from logfire.variables.composition import (
     ComposedReference,
     VariableCompositionError,
     expand_references,
-    has_references,
 )
 
 if TYPE_CHECKING:
@@ -211,6 +210,21 @@ class Variable(Generic[T_co]):
     ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
+            # Top-level context-override fast path: handled here, before
+            # `_lookup_serialized` even sees the name. Overrides do not
+            # participate in `@{ref}@` composition (their value is the user's
+            # literal choice), and the round-trip through dump_json /
+            # validate_json that `_lookup_serialized` would otherwise perform
+            # silently drops any value that isn't JSON-serializable. Restore
+            # the pre-#1951 behaviour: if the override serializes, take the
+            # render path; if it doesn't, return the typed Python value
+            # verbatim.
+            context_overrides = _VARIABLE_OVERRIDES.get()
+            if context_overrides is not None and self.name in context_overrides:
+                return self._resolve_context_override(
+                    context_overrides[self.name], targeting_key, attributes, render_fn
+                )
+
             provider = self.logfire_instance.config.get_variable_provider()
 
             serialized_result = self._lookup_serialized(
@@ -220,16 +234,6 @@ class Variable(Generic[T_co]):
                 attributes=attributes,
                 label=label,
             )
-
-            # Context overrides skip composition expansion: the override is the
-            # user's literal choice, so we only optionally render (for
-            # TemplateVariable) and then deserialize.
-            if serialized_result.reason == 'context_override' and serialized_result.value is not None:
-                serialized = serialized_result.value
-                if render_fn is not None:
-                    serialized = render_fn(serialized)
-                value = self.type_adapter.validate_json(serialized)
-                return ResolvedVariable(name=self.name, value=value, reason='context_override')
 
             if serialized_result.value is None:
                 return self._resolve_code_default(
@@ -260,6 +264,38 @@ class Variable(Generic[T_co]):
             except Exception:
                 default = cast('T_co', None)
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
+
+    def _resolve_context_override(
+        self,
+        override_value: T_co | ResolveFunction[T_co],
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        render_fn: Callable[[str], str] | None,
+    ) -> ResolvedVariable[T_co]:
+        """Return a resolution for the top-level context override.
+
+        Overrides do not participate in composition. When the override value
+        serializes cleanly, run any provided `render_fn` (template rendering)
+        against the JSON form and revalidate so the user gets the same shape
+        a provider value would yield. When it doesn't serialize — common for
+        custom Python types, arbitrary objects, etc. — return the user's
+        value verbatim under `reason='context_override'`. Returning verbatim
+        is the legacy behaviour Devin / Alex flagged on #1951; the previous
+        implementation silently dropped these values back to the provider /
+        code default.
+        """
+        if is_resolve_function(override_value):
+            resolved_value = cast('T_co', override_value(targeting_key, attributes))
+        else:
+            resolved_value = cast('T_co', override_value)
+        try:
+            serialized = self.type_adapter.dump_json(resolved_value).decode('utf-8')
+        except (ValueError, TypeError, RuntimeError):
+            return ResolvedVariable(name=self.name, value=resolved_value, reason='context_override')
+        if render_fn is not None:
+            serialized = render_fn(serialized)
+        validated = self.type_adapter.validate_json(serialized)
+        return ResolvedVariable(name=self.name, value=validated, reason='context_override')
 
     def _lookup_serialized(
         self,
@@ -339,45 +375,48 @@ class Variable(Generic[T_co]):
         serialized_value = serialized_result.value
         composed: list[ComposedReference] = []
 
-        # Expand @{references}@ if any are present
-        if has_references(serialized_value):
+        # Always run through `expand_references`, even when no `@{ref}@` tags
+        # are present: it's also responsible for unescaping `\@{...}@` →
+        # `@{...}@`. Gating on `has_references` produced inconsistent
+        # observable behaviour where an escaped-only value (e.g.
+        # `r'\@{baz}@'`) kept its backslash, but the same escape combined
+        # with a real reference correctly produced the literal `@{baz}@`.
+        def resolve_ref(
+            ref_name: str,
+        ) -> tuple[str | None, str | None, int | None, ResolutionReason]:
+            # Shares the lookup priority with `_resolve` so that composition
+            # respects overrides and registered code defaults rather than
+            # only consulting the provider.
+            ref_result = self._lookup_serialized(
+                ref_name,
+                provider=provider,
+                targeting_key=targeting_key,
+                attributes=attributes,
+            )
+            return (ref_result.value, ref_result.label, ref_result.version, ref_result.reason)
 
-            def resolve_ref(
-                ref_name: str,
-            ) -> tuple[str | None, str | None, int | None, ResolutionReason]:
-                # Shares the lookup priority with `_resolve` so that composition
-                # respects overrides and registered code defaults rather than
-                # only consulting the provider.
-                ref_result = self._lookup_serialized(
-                    ref_name,
-                    provider=provider,
-                    targeting_key=targeting_key,
-                    attributes=attributes,
-                )
-                return (ref_result.value, ref_result.label, ref_result.version, ref_result.reason)
-
-            try:
-                serialized_value, composed = expand_references(
-                    serialized_value,
-                    self.name,
-                    resolve_ref,
-                )
-                if composition_error := _first_composition_error(composed):
-                    return self._composition_failure(
-                        exception=VariableCompositionError(composition_error),
-                        targeting_key=targeting_key,
-                        attributes=attributes,
-                        serialized_result=serialized_result,
-                        composed=composed,
-                    )
-            except VariableCompositionError as e:
+        try:
+            serialized_value, composed = expand_references(
+                serialized_value,
+                self.name,
+                resolve_ref,
+            )
+            if composition_error := _first_composition_error(composed):
                 return self._composition_failure(
-                    exception=e,
+                    exception=VariableCompositionError(composition_error),
                     targeting_key=targeting_key,
                     attributes=attributes,
                     serialized_result=serialized_result,
                     composed=composed,
                 )
+        except VariableCompositionError as e:
+            return self._composition_failure(
+                exception=e,
+                targeting_key=targeting_key,
+                attributes=attributes,
+                serialized_result=serialized_result,
+                composed=composed,
+            )
 
         # Apply render_fn (template rendering) if provided
         if render_fn is not None:

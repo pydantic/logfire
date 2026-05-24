@@ -536,8 +536,16 @@ def _check_reference_errors(
 ) -> list[str]:
     """Check for reference errors: non-existent refs and cycles.
 
-    Scans local variable defaults and server label values for @{references}@
-    and validates that referenced variables exist and there are no cycles.
+    Walks the full composition graph starting from each locally-registered
+    variable, transitively following `@{ref}@` edges into server-only
+    variables — so a missing reference reachable only through a chain that
+    passes through a server-only node still surfaces, as does a cycle whose
+    midpoints are server-only.
+
+    `VariablesConfig` is treated as self-contained for substitution: any
+    `@{name}@` whose `name` isn't in either the local registration set or
+    `server_config` is reported as a non-existent reference, the same way
+    a registration miss is.
     """
     from logfire.variables.composition import find_references
     from logfire.variables.config import LabeledValue
@@ -545,40 +553,65 @@ def _check_reference_errors(
 
     warnings_list: list[str] = []
 
-    # Collect all known variable names (local + server)
     all_names: set[str] = {v.name for v in variables} | set(server_config.variables.keys())
+    locals_by_name = {v.name: v for v in variables}
 
-    # Build a reference graph: variable_name -> set of referenced names
-    ref_graph: dict[str, set[str]] = {}
+    def _refs_of(name: str) -> set[str]:
+        """Collect refs from every serialized value reachable for *name*.
 
-    # Scan local variable defaults for references
-    for variable in variables:
+        That's the local code default (if registered locally) plus every
+        labeled server value plus the `latest_version`. Failures to
+        serialize the local default are tolerated — we want the walker to
+        keep going.
+        """
         refs: set[str] = set()
-        if not is_resolve_function(variable.default):
+        local = locals_by_name.get(name)
+        if local is not None and not is_resolve_function(local.default):
             try:
-                serialized_default = variable.type_adapter.dump_json(variable.default).decode('utf-8')
+                serialized_default = local.type_adapter.dump_json(local.default).decode('utf-8')
                 refs.update(find_references(serialized_default))
             except Exception:
                 pass
-
-        # Also scan server label values for this variable
-        server_var = server_config.variables.get(variable.name)
+        server_var = server_config.variables.get(name)
         if server_var is not None:
-            for _, labeled_value in server_var.labels.items():
-                if isinstance(labeled_value, LabeledValue):
-                    refs.update(find_references(labeled_value.serialized_value))
+            for labeled in server_var.labels.values():
+                if isinstance(labeled, LabeledValue):
+                    refs.update(find_references(labeled.serialized_value))
             if server_var.latest_version is not None:
                 refs.update(find_references(server_var.latest_version.serialized_value))
+        return refs
 
+    # BFS the composition graph from every local variable in declaration
+    # order. Each node we visit contributes its outgoing edges to
+    # `ref_graph` and, if any point at an unknown name, a
+    # non-existent-reference warning. Visited names are gated on `seen` so
+    # a shared sub-tree is walked once.
+    from collections import deque
+
+    ref_graph: dict[str, set[str]] = {}
+    seen: set[str] = set()
+    missing_reported: set[tuple[str, str]] = set()
+    frontier: deque[str] = deque(v.name for v in variables)
+    while frontier:
+        current = frontier.popleft()
+        if current in seen:
+            continue
+        seen.add(current)
+        refs = _refs_of(current)
         if refs:
-            ref_graph[variable.name] = refs
+            ref_graph[current] = refs
+        for ref in refs:
+            if ref not in all_names:
+                key = (current, ref)
+                if key not in missing_reported:
+                    missing_reported.add(key)
+                    warnings_list.append(f"Variable '{current}' references '@{{{ref}}}@' which does not exist.")
+            elif ref not in seen:
+                frontier.append(ref)
 
-        # Check for non-existent references
-        for ref_name in refs:
-            if ref_name not in all_names:
-                warnings_list.append(f"Variable '{variable.name}' references '@{{{ref_name}}}@' which does not exist.")
-
-    # Check for cycles using DFS
+    # Cycle detection on the assembled graph. Because the graph includes
+    # nodes reached transitively through server-only variables, cycles
+    # whose midpoints are server-only are now caught too.
     def _detect_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
         cycles: list[list[str]] = []
         visited: set[str] = set()
@@ -587,7 +620,6 @@ def _check_reference_errors(
 
         def dfs(node: str) -> None:
             if node in in_stack:
-                # Found a cycle - extract it
                 cycle_start = path.index(node)
                 cycles.append(path[cycle_start:] + [node])
                 return

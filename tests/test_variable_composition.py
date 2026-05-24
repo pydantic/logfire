@@ -617,6 +617,31 @@ class TestCompositionIntegration:
         assert result.composed_from[0].name == 'greeting'
         assert result.composed_from[0].value == 'Hello'
 
+    def test_escape_only_value_is_unescaped_consistently(self, config_kwargs: dict[str, Any]):
+        r"""Escape behaviour matches whether or not another real `@{ref}@` is present.
+
+        Regression for #1951 r3288986490 — a value containing only an escaped
+        `\@{baz}@` used to keep its backslash, while the same escape combined
+        with a real reference produced literal `@{baz}@`. After dropping the
+        `has_references` short-circuit both go through the unescape path.
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        # No real refs — must still unescape.
+        bar2 = lf.var(name='bar2', default=r'\@{baz}@', type=str)
+        assert bar2.get().value == '@{baz}@'
+
+        # Escape + real ref — both unescape (existing behaviour, asserted as a
+        # consistency anchor with the previous case).
+        baz = lf.var(name='baz', default='BAZ', type=str)
+        bar3 = lf.var(name='bar3', default=r'@{baz}@ and \@{baz}@', type=str)
+        assert bar3.get().value == 'BAZ and @{baz}@'
+
+        # Used in the test_simple_reference style: silence unused-var warning
+        # by referencing `baz` once.
+        assert baz.get().value == 'BAZ'
+
     def test_composition_exception_falls_back(self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch):
         """Composition engine failures fall back to the code default."""
         variables_config = _make_variables_config(
