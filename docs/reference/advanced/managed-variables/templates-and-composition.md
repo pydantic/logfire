@@ -150,16 +150,16 @@ When `safety_rules` is updated in the Logfire UI, all variables that reference `
 
 ### Composition Control Flow
 
-The `@{}@` syntax supports a small Handlebars-compatible subset for composing variables. It supports simple references, dotted field reads, and block helpers that branch or iterate over a top-level referenced variable:
+The `@{}@` syntax runs through the full Handlebars engine (just with `@{` / `}@` as the delimiter pair instead of the default `{{` / `}}`), so any expression form that works in Handlebars also works here — simple references, dotted field reads, block helpers, and helper sub-expressions:
 
 | Syntax | Description |
 |--------|-------------|
 | `@{variable_name}@` | Insert a variable's value |
 | `@{variable.field}@` | Access a nested field |
 | `@{#if variable}@...@{else}@...@{/if}@` | Conditional on whether a variable is set |
+| `@{#if user.active}@...@{/if}@` | Conditional on a dotted field |
 | `@{#each items}@...@{/each}@` | Iterate over a list variable |
-
-Block helper conditions and iterables must be top-level variable names. Use `@{#if user}@...@{user.active}@...@{/if}@` rather than `@{#if user.active}@`.
+| `@{#each items}@@{../top}@@{/each}@` | Access an outer-scope value from inside a block |
 
 ### Composition Tracking
 

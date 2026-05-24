@@ -402,16 +402,18 @@ class Variable(Generic[T_co]):
                 resolve_ref,
             )
             if composition_error := _first_composition_error(composed):
-                return self._composition_failure(
+                return self._fallback_to_default(
                     exception=VariableCompositionError(composition_error),
+                    failure_stage='composition',
                     targeting_key=targeting_key,
                     attributes=attributes,
                     serialized_result=serialized_result,
                     composed=composed,
                 )
         except VariableCompositionError as e:
-            return self._composition_failure(
+            return self._fallback_to_default(
                 exception=e,
+                failure_stage='composition',
                 targeting_key=targeting_key,
                 attributes=attributes,
                 serialized_result=serialized_result,
@@ -423,8 +425,9 @@ class Variable(Generic[T_co]):
             try:
                 serialized_value = render_fn(serialized_value)
             except (HandlebarsError, ValueError, TypeError) as e:
-                return self._composition_failure(
+                return self._fallback_to_default(
                     exception=e,
+                    failure_stage='template rendering',
                     targeting_key=targeting_key,
                     attributes=attributes,
                     serialized_result=serialized_result,
@@ -457,18 +460,26 @@ class Variable(Generic[T_co]):
             composed_from=composed,
         )
 
-    def _composition_failure(
+    def _fallback_to_default(
         self,
         *,
         exception: Exception,
+        failure_stage: str,
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         serialized_result: ResolvedVariable[str | None],
         composed: list[ComposedReference],
     ) -> ResolvedVariable[T_co]:
-        """Fall back to the code default and warn after a composition/render failure."""
+        """Fall back to the code default and warn after a composition or render failure.
+
+        *failure_stage* identifies which step in the pipeline failed so the
+        warning text is accurate: composition (`@{ref}@` expansion) and
+        template rendering (`{{...}}` against `inputs`) reach this fallback
+        through different branches and shouldn't all surface as
+        "composition failed".
+        """
         warnings.warn(
-            f"Variable '{self.name}' composition failed; falling back to code default: {exception}",
+            f"Variable '{self.name}' {failure_stage} failed; falling back to code default: {exception}",
             category=RuntimeWarning,
             stacklevel=2,
         )

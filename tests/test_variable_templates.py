@@ -212,7 +212,7 @@ class TestTemplateVariable:
         lf = _make_lf(_simple_config('prompt', json.dumps('Hello {{#if name}}')), config_kwargs)
         var = lf.template_var('prompt', type=str, default='fallback', inputs_type=Inputs)
 
-        with pytest.warns(RuntimeWarning, match='composition failed'):
+        with pytest.warns(RuntimeWarning, match='template rendering failed'):
             resolved = var.get(Inputs(name='Alice'))
 
         assert resolved.value == 'fallback'
@@ -485,11 +485,14 @@ class TestTemplateVariableOverrideRender:
         )
 
         # `model_construct` bypasses the constructor's validation so the override can hold
-        # the unrendered template; rendering then produces 'abc123', which fails the
-        # pattern constraint and exercises the outer error handler's code-default fallback.
-        bad_override = Config.model_construct(code='{{code}}')
-        with var.override(bad_override):
-            resolved = var.get(Inputs(code='abc123'))
+        # the unrendered template — `templated_config` is itself a *valid* template; it's
+        # only the rendered result (`abc123`) that violates the pattern constraint.
+        # Exercises the outer error handler's code-default fallback for inputs that
+        # produce a constraint-violating render.
+        templated_config = Config.model_construct(code='{{code}}')
+        invalid_inputs = Inputs(code='abc123')
+        with var.override(templated_config):
+            resolved = var.get(invalid_inputs)
 
         assert resolved.value == Config(code='OK')  # falls back to the code default
         assert resolved.reason == 'other_error'

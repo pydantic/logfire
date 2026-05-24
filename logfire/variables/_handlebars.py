@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from functools import cache
+from functools import cache, lru_cache
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from pydantic_handlebars import HandlebarsEnvironment
+    from pydantic_handlebars import CompiledTemplate, HandlebarsEnvironment
 
 
 # The reference-syntax composition pass consumes ``@{...}@`` placeholders and
@@ -72,6 +72,33 @@ def get_handlebars_renderer() -> tuple[type[str], Callable[..., str]]:
     return SafeString, render
 
 
+@lru_cache(maxsize=1024)
+def compile_composition_template(source: str) -> CompiledTemplate:
+    """Return a cached `CompiledTemplate` for *source* compiled with composition delimiters.
+
+    Managed-variable values are typically stable across many resolutions —
+    the same `@{...}@` template is rendered once per `get()` call. Caching
+    the parsed program avoids reparsing each time
+    `HandlebarsEnvironment.render(source, context)` is called (which by
+    itself does the parse on every call). 1024 is large enough for any
+    realistic number of distinct templates in a single process while
+    staying bounded for long-running workers.
+    """
+    return get_environment().compile(source)
+
+
+@cache
+def _extract_dependencies_fn() -> Callable[..., set[str]]:
+    """Cached lookup of `pydantic_handlebars.extract_dependencies`."""
+    try:
+        from pydantic_handlebars import extract_dependencies
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        if exc.name == 'pydantic_handlebars':
+            raise _dependency_error() from exc
+        raise
+    return extract_dependencies
+
+
 def extract_composition_dependencies(template: str) -> set[str]:
     """Return the top-level `@{name}@` references in *template*.
 
@@ -79,13 +106,7 @@ def extract_composition_dependencies(template: str) -> set[str]:
     the composition delimiters, so block helpers / dotted paths / etc. are
     handled AST-correctly.
     """
-    try:
-        from pydantic_handlebars import extract_dependencies
-    except ModuleNotFoundError as exc:  # pragma: no cover
-        if exc.name == 'pydantic_handlebars':
-            raise _dependency_error() from exc
-        raise
-    return extract_dependencies(template, open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM)
+    return _extract_dependencies_fn()(template, open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM)
 
 
 @cache

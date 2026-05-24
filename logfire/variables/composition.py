@@ -1,9 +1,11 @@
 """Variable composition: expand `@{variable_name}@` references in serialized values.
 
 This module provides pure functions for expanding variable references in serialized
-JSON strings. References use the `@{variable_name}@` syntax and are expanded using
-a Handlebars-compatible subset: simple references, dotted field reads, and block
-helpers whose condition/iterable is a top-level referenced variable.
+JSON strings. References use the `@{variable_name}@` syntax and are expanded by
+running the value through `pydantic_handlebars` with the composition delimiter
+pair, so the full Handlebars syntax is available: simple references, dotted
+field reads, block helpers (including with dotted or sub-expression headers like
+`@{#if user.active}@`), and helper sub-expressions.
 
 Meanwhile, any `{{runtime}}` placeholders are preserved untouched for later
 template rendering.
@@ -36,6 +38,12 @@ __all__ = (
 # parse strings that actually contain composition syntax. Real reference
 # extraction goes through `pydantic_handlebars.extract_dependencies` so block
 # helpers, dotted paths, and subexpressions are all handled AST-correctly.
+#
+# NOTE: this lookbehind encodes pydantic-handlebars' current escape semantics
+# (any `\` immediately before `@{` escapes it). Handlebars.js distinguishes
+# odd vs even backslash runs (e.g. `\\@{x}@` should render as `\X`). If
+# pydantic-handlebars adopts the spec behaviour, this regex needs to count
+# preceding backslashes rather than just check for one.
 _HAS_REFERENCE = re.compile(r'(?<!\\)@\{')
 
 # Dotted-reference matcher used by the unresolved-reference protection
@@ -98,9 +106,10 @@ def expand_references(
 ) -> tuple[str, list[ComposedReference]]:
     """Expand `@{var}@` references in a serialized variable value.
 
-    Uses the Handlebars engine so that `@{}@` supports simple references,
-    dotted field reads, and block helpers whose condition/iterable is a
-    top-level referenced variable while preserving `{{runtime}}` placeholders
+    Uses the Handlebars engine so `@{}@` supports the full Handlebars
+    syntax — simple references, dotted field reads, block helpers (including
+    with dotted or sub-expression headers like `@{#if user.active}@`), and
+    helper sub-expressions — while preserving `{{runtime}}` placeholders
     untouched.
 
     Args:
