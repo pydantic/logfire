@@ -361,14 +361,15 @@ the runtime `inputs` does not satisfy.
 - `'warn'` (default): emit a `RuntimeWarning` and render the template anyway
   (missing fields substitute as the empty string, matching default Handlebars
   behaviour).
-- `'error'`: raise `HandlebarsRuntimeError` instead of rendering.
+- `'error'`: raise `TemplateInputsMismatchError` instead of rendering.
 - `'ignore'`: render silently, no warning.
 
 Configurable at three levels, with the variable-level value winning when set
 (`None` means "inherit from the surrounding options"):
 
-1. Per-variable via `var()` / `template_var()`'s `template_mismatch_policy`
-   argument — variable-level wins, even when relaxing.
+1. Per-variable via `template_var()`'s `template_mismatch_policy` argument —
+   variable-level wins, even when relaxing. Plain `var()` doesn't render
+   `{{...}}` templates and so doesn't accept the policy.
 2. Per-Logfire-instance via `VariablesOptions.template_mismatch_policy` or
    `LocalVariablesOptions.template_mismatch_policy`.
 3. Falls back to `'warn'` when nothing is set.
@@ -403,7 +404,7 @@ class VariablesOptions:
     """How to react when a `TemplateVariable`'s `{{field}}` references something its
     `inputs_type` doesn't declare. See `TemplateMismatchPolicy` for the full semantics.
 
-    Overridden per-variable by the matching argument on `var()` / `template_var()`.
+    Overridden per-variable by the matching argument on `template_var()`.
     """
 
     def __post_init__(self):
@@ -439,7 +440,7 @@ class LocalVariablesOptions:
     """How to react when a `TemplateVariable`'s `{{field}}` references something its
     `inputs_type` doesn't declare. See `TemplateMismatchPolicy` for the full semantics.
 
-    Overridden per-variable by the matching argument on `var()` / `template_var()`.
+    Overridden per-variable by the matching argument on `template_var()`.
     """
 
 

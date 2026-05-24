@@ -2674,7 +2674,7 @@ class Logfire:
             template_mismatch_policy: How to react when `get(inputs)` is called with inputs that
                 don't satisfy a `{{field}}` reference in the resolved template. `'warn'` emits a
                 `RuntimeWarning` and renders the missing field as the empty string;
-                `'error'` raises `HandlebarsRuntimeError`; `'ignore'` renders silently.
+                `'error'` raises `TemplateInputsMismatchError`; `'ignore'` renders silently.
                 Defaults to inheriting from `VariablesOptions` / `LocalVariablesOptions`
                 (which default to `'warn'`). Pass an explicit value to override the
                 instance-level policy for this variable only — even to relax it.

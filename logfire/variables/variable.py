@@ -739,8 +739,8 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
             A ResolvedVariable with the fully rendered and deserialized value.
 
         Raises:
-            HandlebarsRuntimeError: When `template_mismatch_policy` resolves to
-                `'error'` and the post-composition template references a
+            TemplateInputsMismatchError: When `template_mismatch_policy` resolves
+                to `'error'` and the post-composition template references a
                 `{{field}}` not declared in `inputs_type`.
         """
         from logfire.variables.abstract import render_serialized_string
