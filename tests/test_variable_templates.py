@@ -178,6 +178,31 @@ class TestTemplateVariable:
         with pytest.raises(ValueError, match='Invalid variable name'):
             lf.template_var('not-valid', type=str, default='x', inputs_type=Inputs)
 
+    def test_type_inferred_from_default(self, config_kwargs: dict[str, Any]):
+        """template_var() infers `type` from a non-callable default, mirroring `var()`."""
+
+        class Inputs(BaseModel):
+            name: str
+
+        lf = _make_lf(_simple_config('greeting', json.dumps('Hi {{name}}!')), config_kwargs)
+        var = lf.template_var('greeting', default='Hi {{name}}!', inputs_type=Inputs)
+        assert var.value_type is str
+        assert var.get(Inputs(name='Alice')).value == 'Hi Alice!'
+
+    def test_type_required_for_resolve_function_default(self, config_kwargs: dict[str, Any]):
+        """template_var() with a callable default still requires an explicit `type=`."""
+
+        class Inputs(BaseModel):
+            name: str
+
+        lf = logfire.configure(**config_kwargs)
+
+        def make_default(targeting_key: str | None, attributes: Any) -> str:
+            return 'Hi {{name}}!'
+
+        with pytest.raises(TypeError, match='resolve function'):
+            lf.template_var('greeting', default=make_default, inputs_type=Inputs)
+
     def test_remote_render_error_records_exception(self, config_kwargs: dict[str, Any]):
         """Invalid remote templates fall back, warn, and record the render exception."""
 

@@ -590,7 +590,6 @@ def _check_reference_errors(
 
     ref_graph: dict[str, set[str]] = {}
     seen: set[str] = set()
-    missing_reported: set[tuple[str, str]] = set()
     frontier: deque[str] = deque(v.name for v in variables)
     while frontier:
         current = frontier.popleft()
@@ -602,10 +601,7 @@ def _check_reference_errors(
             ref_graph[current] = refs
         for ref in refs:
             if ref not in all_names:
-                key = (current, ref)
-                if key not in missing_reported:
-                    missing_reported.add(key)
-                    warnings_list.append(f"Variable '{current}' references '@{{{ref}}}@' which does not exist.")
+                warnings_list.append(f"Variable '{current}' references '@{{{ref}}}@' which does not exist.")
             elif ref not in seen:
                 frontier.append(ref)
 
