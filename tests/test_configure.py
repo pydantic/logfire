@@ -707,11 +707,12 @@ def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypat
     wait_for_check_token_thread()
     manager = GLOBAL_CONFIG._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
 
-    assert manager.tokens_by_base_url == {
-        'https://logfire-us.pydantic.dev': ('pylf_v1_us_token1', 'pylf_v1_us_token2'),
-        'https://logfire-eu.pydantic.dev': ('pylf_v1_eu_token3',),
-    }
     assert set(manager.pipelines) == {'https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev'}
+    assert manager.pipelines['https://logfire-us.pydantic.dev'].tokens == [
+        'pylf_v1_us_token1',
+        'pylf_v1_us_token2',
+    ]
+    assert manager.pipelines['https://logfire-eu.pydantic.dev'].tokens == ['pylf_v1_eu_token3']
 
 
 def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> None:

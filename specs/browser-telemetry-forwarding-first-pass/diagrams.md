@@ -10,8 +10,10 @@ flowchart LR
     Proxy["logfire_proxy"] -->|"read ASGI body and path"| Helper["forward_export_request"]
     Helper --> Config["LogfireConfig._otlp_forwarding"]
     Config --> Manager["OTLPForwardingManager"]
-    Manager -->|"tokens_by_base_url entry"| PipelineA["OTLPForwardingPipeline: backend URL A"]
-    Manager -->|"tokens_by_base_url entry"| PipelineB["OTLPForwardingPipeline: backend URL B"]
+    Manager -->|"pipeline by backend URL"| PipelineA["OTLPForwardingPipeline: backend URL A"]
+    Manager -->|"pipeline by backend URL"| PipelineB["OTLPForwardingPipeline: backend URL B"]
+    PipelineA --> TokensA["tokens for backend URL A"]
+    PipelineB --> TokensB["tokens for backend URL B"]
     PipelineA --> QueueA["memory queue: 64 MiB"]
     PipelineB --> QueueB["memory queue: 64 MiB"]
     PipelineA --> ActiveA["active immediate send count"]
@@ -48,7 +50,7 @@ sequenceDiagram
         Helper-->>Client: 400 / 403 / 413 / 415
     else request is valid
         Helper->>Manager: submit(ForwardingRequest)
-        Manager->>Pipeline: enqueue(QueuedForwardingRequest)
+        Manager->>Pipeline: enqueue(ForwardingRequest)
         alt all backend-url queues accept
             Manager-->>Helper: ForwardingAdmissionResult: success
             Helper-->>Client: 200 empty OTLP success
@@ -73,7 +75,6 @@ classDiagram
 
     class OTLPForwardingManager {
         config: LogfireConfig
-        tokens_by_base_url: dict
         pipelines: dict
         closed: bool
         lock: RLock
@@ -94,12 +95,13 @@ classDiagram
         worker: Thread optional
         closed: bool
         condition: Condition
-        enqueue(queued_request) bool
+        tokens: list
+        enqueue(request) bool
         force_flush(timeout_millis) bool
         shutdown(timeout_millis, drain_queued) bool
         _ensure_worker_locked()
         _run()
-        _send(queued_request)
+        _send(request)
     }
 
     class ForwardingRequest {
@@ -115,11 +117,6 @@ classDiagram
         <<enumeration>>
         PROTOBUF
         JSON
-    }
-
-    class QueuedForwardingRequest {
-        request: ForwardingRequest
-        tokens
     }
 
     class ForwardingAdmissionResult {
@@ -169,7 +166,7 @@ classDiagram
     LogfireConfig *-- OTLPForwardingManager : owns
     OTLPForwardingManager --> RLock : protects manager state
     OTLPForwardingManager *-- OTLPForwardingPipeline : pipelines by base_url
-    OTLPForwardingManager ..> QueuedForwardingRequest : creates queued work
+    OTLPForwardingManager ..> ForwardingRequest : enqueues shared request
     OTLPForwardingManager ..> ForwardingAdmissionResult : returns
     OTLPForwardingPipeline --> OTLPExporterHttpSession : sends through
     OTLPForwardingPipeline ..> FORWARDING_CONFIGS : timeout per signal path
@@ -179,8 +176,7 @@ classDiagram
     OTLPForwardingPipeline --> Thread : worker
     OTLPForwardingPipeline --> deque : queue storage
     OTLPForwardingPipeline --> OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES : default limit
-    OTLPForwardingPipeline *-- QueuedForwardingRequest : queues
-    QueuedForwardingRequest --> ForwardingRequest : request
+    OTLPForwardingPipeline *-- ForwardingRequest : queues
     ForwardingRequest --> ForwardingContentType : representation
     ForwardingRequest ..> OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES : default admission limit
 ```
@@ -231,15 +227,15 @@ flowchart TD
     ManagerShutdown -->|"false"| ManagerShutdownDrop["OTLPForwardingManager.shutdown(timeout_millis, drain_queued=False)"]
 
     HasDestinations["OTLPForwardingManager.has_destinations()"] --> Submit["OTLPForwardingManager.submit(request)"]
-    Submit --> Group["tokens_by_base_url"]
+    Submit --> Group["pipelines by backend URL"]
     Submit --> Pipeline["OTLPForwardingPipeline"]
-    Pipeline --> Enqueue["OTLPForwardingPipeline.enqueue(queued_request)"]
+    Pipeline --> Enqueue["OTLPForwardingPipeline.enqueue(request)"]
     Enqueue --> Limit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
     Enqueue --> Condition["Condition protects queue bytes, active_send_count, worker, closed"]
     Enqueue --> EnsureWorker["OTLPForwardingPipeline._ensure_worker_locked()"]
     EnsureWorker --> Worker["Thread target: OTLPForwardingPipeline._run()"]
     Worker --> ActiveSend["increment active_send_count"]
-    ActiveSend --> Send["OTLPForwardingPipeline._send(queued_request)"]
+    ActiveSend --> Send["OTLPForwardingPipeline._send(request)"]
     Send --> Headers["build_forwarding_headers(request, token)"]
     Send --> Timeout["FORWARDING_CONFIGS[request.path].timeout()"]
     Timeout --> SessionPost["OTLPExporterHttpSession.post(..., timeout=timeout)"]
