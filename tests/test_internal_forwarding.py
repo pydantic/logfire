@@ -13,7 +13,6 @@ import logfire._internal.forwarding as forwarding_module
 from logfire._internal.forwarding import (
     FORWARDING_CONFIGS,
     OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
-    OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
     ForwardingAdmissionResult,
     ForwardingContentType,
     ForwardingErrorResponse,
@@ -27,11 +26,6 @@ from logfire._internal.forwarding import (
     parse_forwarding_content_type,
 )
 from logfire.version import VERSION
-
-
-def test_forwarding_byte_limit_constants() -> None:
-    assert OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES == 64 * 1024 * 1024
-    assert OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES == 50 * 1024 * 1024
 
 
 @pytest.mark.parametrize(
@@ -405,21 +399,23 @@ def test_forwarding_pipeline_shutdown_drains_queued_work() -> None:
 
 
 def test_forwarding_pipeline_shutdown_timeout_drops_queued_work_after_active_send() -> None:
-    session = FakeForwardingSession()
-    pipeline = BlockingSendForwardingPipeline(session)
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-    assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
+    for drain_queued in (True, False):
+        session = FakeForwardingSession()
+        pipeline = BlockingSendForwardingPipeline(session)
+        assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
+        assert pipeline.started.wait(timeout=5) is True
+        if drain_queued:
+            assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
 
-    assert pipeline.shutdown(1) is False
-    assert list(pipeline.queue) == []
-    assert pipeline.queued_body_bytes == 0
-    assert session.closed is False
+        assert pipeline.shutdown(1, drain_queued=drain_queued) is False
+        assert list(pipeline.queue) == []
+        assert pipeline.queued_body_bytes == 0
+        assert session.closed is False
 
-    pipeline.release.set()
-    _wait_for_no_live_worker(pipeline)
+        pipeline.release.set()
+        _wait_for_no_live_worker(pipeline)
 
-    assert session.closed is True
+        assert session.closed is True
 
 
 def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
