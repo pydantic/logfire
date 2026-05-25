@@ -336,9 +336,13 @@ def test_forwarding_pipeline_force_flush_success_waits_for_active_send() -> None
     assert pipeline.force_flush(1) is False
     pipeline.release.set()
     assert pipeline.force_flush(5000) is True
-    assert pipeline.worker is worker
-    assert worker is not None and worker.is_alive()
-    assert pipeline.shutdown(5000) is True
+    _wait_for_no_live_worker(pipeline)
+
+    pipeline.started.clear()
+    assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    assert pipeline.worker is not worker
+    assert pipeline.force_flush(5000) is True
     _wait_for_no_live_worker(pipeline)
 
 
@@ -482,12 +486,12 @@ def test_forwarding_pipeline_worker_continues_after_unexpected_send_failure() ->
 
     pipeline.release_first_send.set()
     assert pipeline.force_flush(5000) is True
+    _wait_for_no_live_worker(pipeline)
 
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
     assert pipeline.sent_bodies == [b'one', b'two']
     assert pipeline.shutdown(5000) is True
-    _wait_for_no_live_worker(pipeline)
 
 
 def test_forwarding_manager_destinations_create_pipeline_and_group_tokens(

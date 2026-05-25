@@ -170,31 +170,25 @@ class OTLPForwardingPipeline:
                 continue
 
     def _run(self) -> None:
-        try:
-            while True:
-                with self.condition:
-                    while not self.queue and not self.closed:
-                        self.condition.wait()
-
-                    if not self.queue:
-                        return
-
-                    queued_request = self.queue[0]
-
-                try:
-                    self._send(queued_request)
-                except Exception:
-                    pass
-                finally:
-                    with self.condition:
-                        if self.queue:
-                            self.queue.popleft()
-                        self.condition.notify_all()
-        finally:
+        while True:
             with self.condition:
-                self.worker = None
-                self._close_session_if_idle_locked()
-                self.condition.notify_all()
+                if not self.queue:
+                    self.worker = None
+                    self._close_session_if_idle_locked()
+                    self.condition.notify_all()
+                    return
+
+                queued_request = self.queue[0]
+
+            try:
+                self._send(queued_request)
+            except Exception:
+                pass
+            finally:
+                with self.condition:
+                    if self.queue:
+                        self.queue.popleft()
+                    self.condition.notify_all()
 
     def force_flush(self, timeout_millis: int) -> bool:
         deadline = monotonic() + timeout_millis / 1000

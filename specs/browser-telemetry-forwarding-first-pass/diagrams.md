@@ -224,8 +224,7 @@ flowchart TD
     Enqueue --> Limit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
     Enqueue --> Condition["Condition protects queue, worker, closed"]
     Enqueue --> Worker["Thread target: OTLPForwardingPipeline._run()"]
-    Worker --> IdleWait["wait for queue work or closed"]
-    IdleWait --> Send["peek first queued request"]
+    Worker --> Send["peek first queued request"]
     Send --> PipelineSend["OTLPForwardingPipeline._send(request)"]
     Send --> Headers["copy request headers and inject token authorization"]
     Send --> Timeout["request.path_config.timeout()"]
@@ -237,6 +236,8 @@ flowchart TD
     SessionPost --> RemoveQueued
     PipelineSend -->|"unexpected exception"| ContainItem["log or suppress and continue later queued items"]
     ContainItem --> RemoveQueued
+    RemoveQueued --> EmptyQueue["queue empty"]
+    EmptyQueue --> ClearWorker["clear worker and exit"]
 
     ManagerFlush --> PipelineFlush["OTLPForwardingPipeline.force_flush(timeout_millis)"]
     PipelineFlush --> Condition
