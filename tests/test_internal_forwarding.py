@@ -13,12 +13,12 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 
 import logfire._internal.forwarding as forwarding_module
 from logfire._internal.forwarding import (
+    FORWARDING_CONFIGS,
     OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
     OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
     ForwardingAdmissionResult,
     ForwardingContentType,
     ForwardingErrorResponse,
-    ForwardingPathConfig,
     ForwardingRequest,
     OTLPForwardingManager,
     OTLPForwardingPipeline,
@@ -457,40 +457,25 @@ def test_build_forwarding_headers_without_optional_content_encoding_or_user_agen
 
 
 def test_forwarding_path_config_timeout_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = ForwardingPathConfig(
-        timeout_env='OTEL_EXPORTER_OTLP_TEST_TIMEOUT',
-        default_timeout=10.0,
-        partial_success_rejected_attribute='rejected_spans',
-        response_message_type=ExportTraceServiceResponse,
-    )
+    config = FORWARDING_CONFIGS['/v1/traces']
     monkeypatch.delenv('OTEL_EXPORTER_OTLP_TIMEOUT', raising=False)
-    monkeypatch.delenv('OTEL_EXPORTER_OTLP_TEST_TIMEOUT', raising=False)
+    monkeypatch.delenv(config.timeout_env, raising=False)
 
     assert config.timeout() == 10.0
 
 
 def test_forwarding_path_config_timeout_generic_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = ForwardingPathConfig(
-        timeout_env='OTEL_EXPORTER_OTLP_TEST_TIMEOUT',
-        default_timeout=10.0,
-        partial_success_rejected_attribute='rejected_spans',
-        response_message_type=ExportTraceServiceResponse,
-    )
-    monkeypatch.delenv('OTEL_EXPORTER_OTLP_TEST_TIMEOUT', raising=False)
+    config = FORWARDING_CONFIGS['/v1/traces']
+    monkeypatch.delenv(config.timeout_env, raising=False)
     monkeypatch.setenv('OTEL_EXPORTER_OTLP_TIMEOUT', '12.5')
 
     assert config.timeout() == 12.5
 
 
 def test_forwarding_path_config_timeout_signal_specific_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = ForwardingPathConfig(
-        timeout_env='OTEL_EXPORTER_OTLP_TEST_TIMEOUT',
-        default_timeout=10.0,
-        partial_success_rejected_attribute='rejected_spans',
-        response_message_type=ExportTraceServiceResponse,
-    )
+    config = FORWARDING_CONFIGS['/v1/traces']
     monkeypatch.setenv('OTEL_EXPORTER_OTLP_TIMEOUT', '12.5')
-    monkeypatch.setenv('OTEL_EXPORTER_OTLP_TEST_TIMEOUT', '3.25')
+    monkeypatch.setenv(config.timeout_env, '3.25')
 
     assert config.timeout() == 3.25
 
