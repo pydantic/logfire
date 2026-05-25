@@ -56,14 +56,15 @@ def forward_export_request(
             content=forwarding_request.content,
         )
 
-    if not config._otlp_forwarding.has_destinations():  # pyright: ignore[reportPrivateUsage]
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    if not manager.has_destinations():
         return ForwardExportRequestResponse(
             status_code=403,
             headers={'Content-Type': 'text/plain'},
             content=b'Logfire is not configured with an active forwarding destination',
         )
 
-    admission_result = config._otlp_forwarding.submit(forwarding_request)  # pyright: ignore[reportPrivateUsage]
+    admission_result = manager.submit(forwarding_request)
     if admission_result.response == 'success':
         return build_success_response(forwarding_request)
     return build_partial_success_response(forwarding_request, message=admission_result.message or '')

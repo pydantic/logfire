@@ -285,6 +285,30 @@ def test_forward_export_request_no_destination_forbidden() -> None:
     assert response.content == b'Logfire is not configured with an active forwarding destination'
 
 
+def test_forward_export_request_submits_to_checked_forwarding_manager() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    replacement_manager = FakeForwardingManager()
+
+    class SwappingForwardingManager(FakeForwardingManager):
+        def has_destinations(self) -> bool:
+            cast(Any, config)._otlp_forwarding = replacement_manager
+            return True
+
+    manager = SwappingForwardingManager()
+    cast(Any, config)._otlp_forwarding = manager
+
+    response = forward_export_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'data',
+    )
+
+    assert response.status_code == 200
+    assert [request.body for request in manager.submissions] == [b'data']
+    assert replacement_manager.submissions == []
+
+
 def test_forward_export_request_validation_before_no_destination() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
