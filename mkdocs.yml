@@ -198,15 +198,6 @@ nav:
                   - Link to Code Source: how-to-guides/link-to-code-source.md
                   - Use Alternative Backends: how-to-guides/alternative-backends.md
                   - Multiple Configurations: how-to-guides/different-configurations.md
-      - TypeScript SDK:
-          - Overview: integrations/javascript/index.md
-          - Browser: integrations/javascript/browser.md
-          - Next.js: integrations/javascript/nextjs.md
-          - Cloudflare: integrations/javascript/cloudflare.md
-          - Express: integrations/javascript/express.md
-          - Node.js: integrations/javascript/node.md
-          - Deno: integrations/javascript/deno.md
-          - Vercel AI SDK: integrations/javascript/vercel-ai.md
       - Observe & Investigate:
           - Live View: guides/web-ui/live.md
           - LLM Panels: guides/web-ui/llm-panels.md
@@ -482,8 +473,6 @@ plugins:
           - how-to-guides/link-to-code-source.md
           - how-to-guides/alternative-backends.md
           - how-to-guides/different-configurations.md
-        TypeScript SDK:
-          - integrations/javascript/*.md
         Observe & Investigate:
           - guides/web-ui/live.md
           - guides/web-ui/llm-panels.md
