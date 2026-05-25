@@ -277,17 +277,11 @@ def test_forwarding_pipeline_enqueue_accepts_and_accounts_bytes() -> None:
     assert worker.daemon is False
     assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
     assert pipeline.worker is worker
+    assert pipeline.enqueue(_make_forwarding_request(b'three')) is False
+    assert list(pipeline.queue) == [request, _make_forwarding_request(b'two')]
+    assert pipeline.queued_body_bytes == 8
+    assert pipeline.worker is worker
     pipeline.stop()
-
-
-def test_forwarding_pipeline_enqueue_rejects_when_queue_full() -> None:
-    pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=4)
-    request = _make_forwarding_request(b'12345')
-
-    assert pipeline.enqueue(request) is False
-    assert list(pipeline.queue) == []
-    assert pipeline.queued_body_bytes == 0
-    assert pipeline.worker is None
 
 
 class BlockingRunForwardingPipeline(OTLPForwardingPipeline):
@@ -339,6 +333,7 @@ def test_forwarding_pipeline_force_flush_success_waits_for_active_send() -> None
     assert pipeline.started.wait(timeout=5) is True
     flush_result: list[bool] = []
 
+    assert pipeline.force_flush(1) is False
     flush_thread = Thread(target=lambda: flush_result.append(pipeline.force_flush(5000)))
     flush_thread.start()
     pipeline.release.set()
@@ -346,20 +341,6 @@ def test_forwarding_pipeline_force_flush_success_waits_for_active_send() -> None
 
     assert flush_result == [True]
     _wait_for_no_live_worker(pipeline)
-
-
-def test_forwarding_pipeline_force_flush_times_out_with_queued_work() -> None:
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=object(),  # type: ignore[arg-type]
-        max_queued_body_bytes=100,
-    )
-    queued_request = _make_forwarding_request(b'queued')
-    with pipeline.condition:
-        pipeline.queue.append(queued_request)
-        pipeline.queued_body_bytes = len(queued_request.body)
-
-    assert pipeline.force_flush(1) is False
 
 
 def test_forwarding_pipeline_shutdown_closes_admission_and_idle_session() -> None:
@@ -445,7 +426,7 @@ def test_forwarding_pipeline_shutdown_timeout_drops_queued_work_after_active_sen
 
 def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('OTEL_EXPORTER_OTLP_TRACES_TIMEOUT', '7.5')
-    session = FakeForwardingSession()
+    session = FakeForwardingSession(fail_tokens={'token-1'})
     pipeline = OTLPForwardingPipeline(
         base_url='https://example.com/base/',
         session=session,  # type: ignore[arg-type]
@@ -478,21 +459,6 @@ def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyP
             'timeout': 7.5,
         },
     ]
-
-
-def test_forwarding_pipeline_send_contains_token_failures() -> None:
-    session = FakeForwardingSession(fail_tokens={'token-1'})
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=session,  # type: ignore[arg-type]
-        max_queued_body_bytes=10,
-    )
-    pipeline.tokens = ['token-1', 'token-2']
-    request = _make_forwarding_request(b'payload')
-
-    pipeline._send(request)  # pyright: ignore[reportPrivateUsage]
-
-    assert [call['headers']['Authorization'] for call in session.calls] == ['token-1', 'token-2']
 
 
 class RecordingForwardingPipeline(OTLPForwardingPipeline):
