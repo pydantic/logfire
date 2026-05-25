@@ -588,7 +588,6 @@ def test_logfire_config_has_empty_forwarding_manager() -> None:
     manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
 
     assert isinstance(manager, OTLPForwardingManager)
-    assert manager.config is config
     assert manager.has_destinations() is False
 
 
@@ -663,7 +662,7 @@ def test_logfire_config_reconfigure_keeps_forwarding_manager_when_configuration_
 
 def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_for_idle_manager() -> None:
     config = LogfireConfig(send_to_logfire=False)
-    previous_manager = OTLPForwardingManager(config, [])
+    previous_manager = OTLPForwardingManager([])
     config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
 
     with mock.patch('logfire._internal.config.Thread') as thread:

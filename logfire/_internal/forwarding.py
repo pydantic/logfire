@@ -39,8 +39,8 @@ from logfire._internal.utils import suppress_instrumentation
 from logfire.version import VERSION
 
 if TYPE_CHECKING:
-    from logfire._internal.config import LogfireConfig
     from logfire.experimental.forwarding import ForwardExportRequestResponse
+    from logfire.types import ServerResponseCallback
 
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
 OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
@@ -242,15 +242,19 @@ class OTLPForwardingPipeline:
 
 
 class OTLPForwardingManager:
-    def __init__(self, config: LogfireConfig, destinations: Sequence[tuple[str, str]]) -> None:
-        self.config = config
+    def __init__(
+        self,
+        destinations: Sequence[tuple[str, str]],
+        *,
+        server_response_hook: ServerResponseCallback | None = None,
+    ) -> None:
         self.pipelines: dict[str, OTLPForwardingPipeline] = {}
         self.closed = False
         for base_url, token in destinations:
             pipeline = self.pipelines.get(base_url)
             if pipeline is None:
                 session = OTLPExporterHttpSession()
-                install_logfire_response_hook(session, self.config.advanced.server_response_hook)
+                install_logfire_response_hook(session, server_response_hook)
                 pipeline = self.pipelines[base_url] = OTLPForwardingPipeline(
                     base_url=base_url,
                     session=session,

@@ -72,7 +72,6 @@ classDiagram
     }
 
     class OTLPForwardingManager {
-        config: LogfireConfig
         pipelines: dict
         closed: bool
         submit(request) ForwardingAdmissionResult

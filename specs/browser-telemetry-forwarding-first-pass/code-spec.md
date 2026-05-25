@@ -152,11 +152,15 @@ The manager has no public experimental import path. It accepts destinations from
 class OTLPForwardingManager:
     """Configuration-owned OTLP forwarding lifecycle."""
 
-    config: LogfireConfig
     pipelines: dict[str, OTLPForwardingPipeline]
     closed: bool
 
-    def __init__(self, config: LogfireConfig, destinations: Sequence[tuple[str, str]]) -> None:
+    def __init__(
+        self,
+        destinations: Sequence[tuple[str, str]],
+        *,
+        server_response_hook: ServerResponseCallback | None = None,
+    ) -> None:
         """Create backend pipelines for the resolved forwarding destinations."""
 
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
@@ -172,9 +176,9 @@ class OTLPForwardingManager:
         """Close admission, optionally drop memory work, wait workers, then close idle transport resources."""
 ```
 
-`config` is the source of advanced response hooks used when creating pipeline sessions. `pipelines` maps resolved backend URL to the single pipeline that owns that backend's memory queue, token list, and session. `closed` marks manager-level shutdown and makes future submissions return partial success without creating pipelines. The manager does not need its own lock because destination pipelines are fixed during construction and each pipeline owns its queue, closed state, worker state, and session-close synchronization.
+`pipelines` maps resolved backend URL to the single pipeline that owns that backend's memory queue, token list, and session. `closed` marks manager-level shutdown and makes future submissions return partial success without creating pipelines. The manager does not need its own lock because destination pipelines are fixed during construction and each pipeline owns its queue, closed state, worker state, and session-close synchronization.
 
-The constructor receives the destination pairs collected while configuring normal Logfire export, from the same token loop that creates trace, metric, and log exporters. It creates the backend-url pipeline immediately on the first token for that URL and records additional tokens for the same URL without creating another pipeline. New pipeline creation constructs a fresh `OTLPExporterHttpSession` and installs `config.advanced.server_response_hook` on it before the session is used for sends.
+The constructor receives the destination pairs collected while configuring normal Logfire export, from the same token loop that creates trace, metric, and log exporters, plus the resolved advanced response hook for the configuration that owns the manager. It creates the backend-url pipeline immediately on the first token for that URL and records additional tokens for the same URL without creating another pipeline. New pipeline creation constructs a fresh `OTLPExporterHttpSession` and installs the resolved `server_response_hook` on it before the session is used for sends.
 
 `has_destinations()` is called by `forward_export_request()` before queue admission to decide whether the selected configuration has any active forwarding destination.
 

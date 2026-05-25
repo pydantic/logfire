@@ -933,7 +933,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
-        self._otlp_forwarding = OTLPForwardingManager(self, [])
+        self._otlp_forwarding = OTLPForwardingManager([])
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -1387,7 +1387,10 @@ class LogfireConfig(_LogfireConfigData):
             atexit.register(exit_open_spans)
 
             previous_otlp_forwarding = self._otlp_forwarding
-            self._otlp_forwarding = OTLPForwardingManager(self, otlp_forwarding_destinations)
+            self._otlp_forwarding = OTLPForwardingManager(
+                otlp_forwarding_destinations,
+                server_response_hook=self.advanced.server_response_hook,
+            )
             previous_otlp_forwarding.shutdown(0, drain_queued=False)
             self._initialized = True
 
