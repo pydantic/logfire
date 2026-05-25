@@ -481,7 +481,6 @@ def test_forwarding_pipeline_worker_continues_after_unexpected_send_failure() ->
 
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
-    assert pipeline.active_send is False
     assert pipeline.sent_bodies == [b'one', b'two']
 
 

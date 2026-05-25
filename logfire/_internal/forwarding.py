@@ -131,12 +131,14 @@ class OTLPForwardingPipeline:
         self.session = session
         self.max_queued_body_bytes = max_queued_body_bytes
         self.queue: deque[ForwardingRequest] = deque()
-        self.queued_body_bytes = 0
-        self.active_send = False
         self.worker: Thread | None = None
         self.closed = False
         self.condition = Condition()
         self.tokens: list[str] = []
+
+    @property
+    def queued_body_bytes(self) -> int:
+        return sum(len(request.body) for request in self.queue)
 
     def enqueue(self, queued_request: ForwardingRequest) -> bool:
         body_size = len(queued_request.body)
@@ -145,7 +147,6 @@ class OTLPForwardingPipeline:
                 return False
 
             self.queue.append(queued_request)
-            self.queued_body_bytes += body_size
 
             if self.worker is None or not self.worker.is_alive():
                 self.worker = Thread(target=self._run, daemon=False)
@@ -175,10 +176,7 @@ class OTLPForwardingPipeline:
                     if not self.queue:
                         return
 
-                    queued_request = self.queue.popleft()
-                    self.queued_body_bytes -= len(queued_request.body)
-                    self.active_send = True
-                    self.condition.notify_all()
+                    queued_request = self.queue[0]
 
                 try:
                     self._send(queued_request)
@@ -186,7 +184,8 @@ class OTLPForwardingPipeline:
                     pass
                 finally:
                     with self.condition:
-                        self.active_send = False
+                        if self.queue:
+                            self.queue.popleft()
                         self.condition.notify_all()
         finally:
             with self.condition:
@@ -198,7 +197,7 @@ class OTLPForwardingPipeline:
     def force_flush(self, timeout_millis: int) -> bool:
         deadline = monotonic() + timeout_millis / 1000
         with self.condition:
-            while self.queue or self.active_send:
+            while self.queue or self._has_live_worker_locked():
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     return False
@@ -210,11 +209,10 @@ class OTLPForwardingPipeline:
 
     def _drop_queue_locked(self) -> None:
         self.queue.clear()
-        self.queued_body_bytes = 0
         self.condition.notify_all()
 
     def _close_session_if_idle_locked(self) -> None:
-        if self.closed and not self.queue and not self.active_send and not self._has_live_worker_locked():
+        if self.closed and not self.queue and not self._has_live_worker_locked():
             self.session.close()
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
@@ -234,7 +232,7 @@ class OTLPForwardingPipeline:
                     break
                 self.condition.wait(timeout=remaining)
 
-            while self.active_send or self._has_live_worker_locked():
+            while self._has_live_worker_locked():
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     return False

@@ -16,8 +16,6 @@ flowchart LR
     PipelineB --> TokensB["tokens for backend URL B"]
     PipelineA --> QueueA["memory queue: 64 MiB"]
     PipelineB --> QueueB["memory queue: 64 MiB"]
-    PipelineA --> ActiveA["active immediate send flag"]
-    PipelineB --> ActiveB["active immediate send flag"]
     PipelineA --> WorkerA["non-daemon worker"]
     PipelineB --> WorkerB["non-daemon worker"]
     WorkerA --> SessionA["OTLPExporterHttpSession"]
@@ -87,8 +85,7 @@ classDiagram
         base_url: str
         session: OTLPExporterHttpSession
         queue: deque
-        queued_body_bytes: int
-        active_send: bool
+        queued_body_bytes() int
         max_queued_body_bytes: int
         worker: Thread optional
         closed: bool
@@ -225,24 +222,24 @@ flowchart TD
     Submit --> Pipeline["OTLPForwardingPipeline"]
     Pipeline --> Enqueue["OTLPForwardingPipeline.enqueue(request)"]
     Enqueue --> Limit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
-    Enqueue --> Condition["Condition protects queue bytes, active_send, worker, closed"]
+    Enqueue --> Condition["Condition protects queue, worker, closed"]
     Enqueue --> Worker["Thread target: OTLPForwardingPipeline._run()"]
-    Worker --> ActiveSend["set active_send true"]
-    ActiveSend --> Send["OTLPForwardingPipeline._send(request)"]
+    Worker --> Send["peek first queued request"]
+    Send --> PipelineSend["OTLPForwardingPipeline._send(request)"]
     Send --> Headers["copy request headers and inject token authorization"]
     Send --> Timeout["request.path_config.timeout()"]
     Timeout --> SessionPost["OTLPExporterHttpSession.post(..., timeout=timeout)"]
-    Send --> SessionPost
+    PipelineSend --> SessionPost
     SessionPost -->|"retryable failure"| Retryer["DiskRetryer"]
     SessionPost -->|"exception re-raised"| ContainToken["log or suppress and continue remaining tokens"]
-    ContainToken --> ClearActive["set active_send false and notify"]
-    SessionPost --> ClearActive
-    Send -->|"unexpected exception"| ContainItem["log or suppress and continue later queued items"]
-    ContainItem --> ClearActive
+    ContainToken --> RemoveQueued["remove request from queue and notify"]
+    SessionPost --> RemoveQueued
+    PipelineSend -->|"unexpected exception"| ContainItem["log or suppress and continue later queued items"]
+    ContainItem --> RemoveQueued
 
     ManagerFlush --> PipelineFlush["OTLPForwardingPipeline.force_flush(timeout_millis)"]
     PipelineFlush --> Condition
-    PipelineFlush --> FlushWaitEmpty["wait for queue empty and active_send false"]
+    PipelineFlush --> FlushWaitEmpty["wait for queue empty and no live worker"]
 
     ManagerShutdownDrain --> PipelineShutdown["OTLPForwardingPipeline.shutdown(timeout_millis, drain_queued=True)"]
     ManagerShutdownDrop --> PipelineShutdownNoDrain["OTLPForwardingPipeline.shutdown(timeout_millis, drain_queued=False)"]
@@ -250,10 +247,10 @@ flowchart TD
     PipelineShutdown --> Condition
     PipelineShutdown --> ShutdownDrain["drain queued memory until empty or timeout"]
     ShutdownDrain -->|"timeout with queued work"| DropQueued["drop unsent queued memory work"]
-    ShutdownDrain --> WaitActive["wait for active_send false"]
-    DropQueued --> WaitActive
+    ShutdownDrain --> WaitWorker["wait for no live worker"]
+    DropQueued --> WaitWorker
     PipelineShutdownNoDrain --> DropQueuedNoDrain["drop unsent queued memory work without drain attempt"]
-    DropQueuedNoDrain --> WaitActive
-    WaitActive --> SessionClose["OTLPExporterHttpSession.close()"]
+    DropQueuedNoDrain --> WaitWorker
+    WaitWorker --> SessionClose["OTLPExporterHttpSession.close()"]
     Retryer -.->|"not awaited by flush/shutdown"| SessionClose
 ```
