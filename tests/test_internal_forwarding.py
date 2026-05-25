@@ -460,10 +460,10 @@ class RecordingForwardingPipeline(OTLPForwardingPipeline):
         )
         self.fail_bodies = fail_bodies or set()
         self.sent_bodies: list[bytes] = []
-        self.active_send_counts: list[int] = []
+        self.active_send_states: list[bool] = []
 
     def _send(self, request: ForwardingRequest) -> None:
-        self.active_send_counts.append(self.active_send_count)
+        self.active_send_states.append(self.active_send)
         self.sent_bodies.append(request.body)
         if request.body in self.fail_bodies:
             raise RuntimeError('send failed')
@@ -484,9 +484,9 @@ def test_forwarding_pipeline_run_continues_after_unexpected_send_failure() -> No
 
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
-    assert pipeline.active_send_count == 0
+    assert pipeline.active_send is False
     assert pipeline.sent_bodies == [b'one', b'two']
-    assert pipeline.active_send_counts == [1, 1]
+    assert pipeline.active_send_states == [True, True]
 
 
 def test_forwarding_manager_destinations_create_pipeline_and_group_tokens(

@@ -132,7 +132,7 @@ class OTLPForwardingPipeline:
         self.max_queued_body_bytes = max_queued_body_bytes
         self.queue: deque[ForwardingRequest] = deque()
         self.queued_body_bytes = 0
-        self.active_send_count = 0
+        self.active_send = False
         self.worker: Thread | None = None
         self.closed = False
         self.session_closed = False
@@ -178,7 +178,7 @@ class OTLPForwardingPipeline:
 
                     queued_request = self.queue.popleft()
                     self.queued_body_bytes -= len(queued_request.body)
-                    self.active_send_count += 1
+                    self.active_send = True
                     self.condition.notify_all()
 
                 try:
@@ -187,20 +187,20 @@ class OTLPForwardingPipeline:
                     pass
                 finally:
                     with self.condition:
-                        self.active_send_count -= 1
+                        self.active_send = False
                         self.condition.notify_all()
         finally:
             with self.condition:
                 if self.worker is current_thread():
                     self.worker = None
-                if self.closed and not self.queue and self.active_send_count == 0:
+                if self.closed and not self.queue and not self.active_send:
                     self._close_session_once()
                 self.condition.notify_all()
 
     def force_flush(self, timeout_millis: int) -> bool:
         deadline = monotonic() + timeout_millis / 1000
         with self.condition:
-            while self.queue or self.active_send_count:
+            while self.queue or self.active_send:
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     return False
@@ -236,7 +236,7 @@ class OTLPForwardingPipeline:
                     break
                 self.condition.wait(timeout=remaining)
 
-            while self.active_send_count or self._has_live_worker_locked():
+            while self.active_send or self._has_live_worker_locked():
                 remaining = deadline - monotonic()
                 if remaining <= 0:
                     return False
