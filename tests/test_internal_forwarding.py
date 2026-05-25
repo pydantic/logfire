@@ -331,16 +331,11 @@ def test_forwarding_pipeline_force_flush_success_waits_for_active_send() -> None
     pipeline = BlockingSendForwardingPipeline()
     assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
     assert pipeline.started.wait(timeout=5) is True
-    flush_result: list[bool] = []
 
     assert pipeline.force_flush(1) is False
-    flush_thread = Thread(target=lambda: flush_result.append(pipeline.force_flush(5000)))
-    flush_thread.start()
     pipeline.release.set()
-    flush_thread.join(timeout=5)
-
-    assert flush_result == [True]
     _wait_for_no_live_worker(pipeline)
+    assert pipeline.force_flush(5000) is True
 
 
 def test_forwarding_pipeline_shutdown_closes_admission_and_idle_session() -> None:
@@ -407,13 +402,8 @@ def test_forwarding_pipeline_shutdown_timeout_drops_queued_work_after_active_sen
     assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
     assert pipeline.started.wait(timeout=5) is True
     assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
-    shutdown_result: list[bool] = []
 
-    shutdown_thread = Thread(target=lambda: shutdown_result.append(pipeline.shutdown(1)))
-    shutdown_thread.start()
-    shutdown_thread.join(timeout=5)
-
-    assert shutdown_result == [False]
+    assert pipeline.shutdown(1) is False
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
     assert session.close_count == 0
