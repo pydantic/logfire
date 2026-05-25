@@ -43,9 +43,9 @@ def test_forwarding_byte_limit_constants() -> None:
         ('application/json', ForwardingContentType.JSON),
         ('application/json; charset=utf-8', ForwardingContentType.JSON),
         ('Application/JSON', ForwardingContentType.JSON),
+        ('text/plain; note=application/json', ForwardingContentType.JSON),
         ('', None),
         ('not a media type', None),
-        ('application/json; charset', None),
         ('text/plain', None),
     ],
 )
@@ -82,7 +82,6 @@ def test_normalize_forwarding_path_rejections(path: str) -> None:
 
     assert isinstance(response, ForwardingErrorResponse)
     assert response.status_code == 400
-    assert response.content_type == 'text/plain'
     assert response.content == b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics'
 
 
@@ -146,7 +145,6 @@ def test_build_forwarding_request_oversized_body(body: bytes, max_body_size: int
 
     assert isinstance(response, ForwardingErrorResponse)
     assert response.status_code == 413
-    assert response.content_type == 'text/plain'
     assert response.content == b'Payload too large'
 
 
@@ -163,19 +161,21 @@ def test_build_forwarding_request_custom_max_body_size_allows_body_at_limit() ->
 
 
 @pytest.mark.parametrize(
-    'headers',
+    ('headers', 'content'),
     [
-        {},
-        {'Content-Type': 'text/plain'},
+        ({}, b'Missing content type header'),
+        (
+            {'Content-Type': 'text/plain'},
+            b'Unsupported content type, must be application/json or application/x-protobuf',
+        ),
     ],
 )
-def test_build_forwarding_request_unsupported_content_type(headers: dict[str, str]) -> None:
+def test_build_forwarding_request_unsupported_content_type(headers: dict[str, str], content: bytes) -> None:
     response = build_forwarding_request(path='/v1/traces', headers=headers, body=b'')
 
     assert isinstance(response, ForwardingErrorResponse)
     assert response.status_code == 415
-    assert response.content_type == 'text/plain'
-    assert response.content == b'Unsupported content type'
+    assert response.content == content
 
 
 def test_build_forwarding_request_invalid_path() -> None:

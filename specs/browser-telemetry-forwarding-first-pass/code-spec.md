@@ -62,11 +62,11 @@ class ForwardingContentType(Enum):
 
 `ForwardingRequest` is created once for a valid inbound request and is shared by reference across backend-url queues.
 
-`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `path_config` returns the centralized forwarding metadata for that path. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the accepted OTLP representation and drives the response representation. `content_type_header` stores the accepted inbound `Content-Type` field value used for the Logfire-bound request, including any media type parameters, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional inbound `Content-Encoding` header value, found by case-insensitive lookup as part of the closed forwarded-header whitelist and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
+`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `path_config` returns the centralized forwarding metadata for that path. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the inferred OTLP representation and drives the local response representation. `content_type_header` stores the original inbound `Content-Type` field value used for the Logfire-bound request, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional inbound `Content-Encoding` header value, found by case-insensitive lookup as part of the closed forwarded-header whitelist and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
 
 `ForwardingContentType.PROTOBUF` represents `application/x-protobuf` requests and responses. `ForwardingContentType.JSON` represents `application/json` requests and responses.
 
-**Path-specific forwarding metadata is centralized.** *(implements "Forwarding send timeout follows OTLP HTTP exporter timeout configuration", "Response encoding matches accepted request content type", "Partial success has zero rejected records and an explanatory message")*
+**Path-specific forwarding metadata is centralized.** *(implements "Forwarding send timeout follows OTLP HTTP exporter timeout configuration", "Response encoding matches the inferred request representation", "Partial success has zero rejected records and an explanatory message")*
 The internal module keeps path-specific timeout and response metadata in one table keyed by forwarding path.
 
 ```python
@@ -186,7 +186,7 @@ These helpers live beside the manager so header and response representation deci
 
 ```python
 def parse_forwarding_content_type(content_type: str) -> ForwardingContentType | None:
-    """Return the supported OTLP request representation, or None for unsupported media."""
+    """Return the inferred OTLP response representation, or None for unsupported input."""
 
 
 def build_forwarding_request(
@@ -199,11 +199,11 @@ def build_forwarding_request(
     """Build an opaque forwarding request or a local validation error response."""
 ```
 
-`parse_forwarding_content_type()` is used during admission before constructing `ForwardingRequest`. It parses an already-extracted `Content-Type` header value as a media type, ignores media type parameters for representation selection, and compares the media type case-insensitively against `application/x-protobuf` and `application/json`. Empty, syntactically invalid, or unsupported media maps to `None`, and `None` maps to the local 415 response. Missing `Content-Type` is handled by `build_forwarding_request()` before calling this parser.
+`parse_forwarding_content_type()` is used during admission before constructing `ForwardingRequest`. It inspects an already-extracted `Content-Type` header value for the supported representation markers `application/x-protobuf` and `application/json` case-insensitively. It does not validate the header as a media type; backend validation owns actual header semantics for the forwarded request. Empty values or values without a supported representation marker map to `None`, and `None` maps to the local 415 response. Missing `Content-Type` is handled by `build_forwarding_request()` before calling this parser.
 
-`build_forwarding_request()` is the shared request-level adapter for path, representation header, body size, body normalization, and whitelisted header extraction. It normalizes `None` to empty bytes, rejects bodies larger than `max_body_size` with the local 413 response, and otherwise keeps the payload opaque. Header extraction uses case-insensitive lookups for `Content-Type`, `Content-Encoding`, and `User-Agent`. A successful request stores both the parsed `ForwardingContentType` and the accepted inbound `Content-Type` field value; successful output proceeds to manager submission. `ForwardingErrorResponse` remains an internal validation shape and must be adapted into `ForwardExportRequestResponse` at the public adapter boundary.
+`build_forwarding_request()` is the shared request-level adapter for path, representation header, body size, body normalization, and whitelisted header extraction. It normalizes `None` to empty bytes, rejects bodies larger than `max_body_size` with the local 413 response, and otherwise keeps the payload opaque. Header extraction uses case-insensitive lookups for `Content-Type`, `Content-Encoding`, and `User-Agent`. A successful request stores both the inferred `ForwardingContentType` and the original inbound `Content-Type` field value; successful output proceeds to manager submission. `ForwardingErrorResponse` remains an internal validation shape and must be adapted into `ForwardExportRequestResponse` at the public adapter boundary.
 
-**Response builders encode local success and partial success.** *(implements "Response encoding matches accepted request content type", "Accepted queued payloads return local OTLP success", "Locally dropped valid payloads return OTLP partial success")*
+**Response builders encode local success and partial success.** *(implements "Response encoding matches the inferred request representation", "Accepted queued payloads return local OTLP success", "Locally dropped valid payloads return OTLP partial success")*
 The response builder creates empty OTLP success for complete local acceptance and partial success with rejected count `0` plus an explanatory message for local queue drops.
 
 ```python
@@ -223,7 +223,7 @@ def build_partial_success_response(
 
 `build_partial_success_response()` is used when `ForwardingAdmissionResult.response` is `partial_success`. It uses the same path and content-type selection as success, and stores `message` as the OTLP partial-success explanatory text. The returned `ForwardExportRequestResponse.headers` must include `Content-Type` set from `request.content_type.value`.
 
-The response `Content-Type` header uses `request.content_type.value`, so it is `application/x-protobuf` for `ForwardingContentType.PROTOBUF` and `application/json` for `ForwardingContentType.JSON`. Unlike the Logfire-bound request `Content-Type`, response `Content-Type` is the canonical accepted media type and does not preserve inbound request media type parameters.
+The response `Content-Type` header uses `request.content_type.value`, so it is `application/x-protobuf` for `ForwardingContentType.PROTOBUF` and `application/json` for `ForwardingContentType.JSON`. Unlike the Logfire-bound request `Content-Type`, response `Content-Type` is the canonical inferred representation and does not preserve inbound request header parameters or other text.
 
 **Validation errors remain response objects.** *(implements "The forwarding endpoint is an ingress adapter, not a transparent HTTP proxy")*
 Internal validation failure shapes preserve the public response dataclass boundary instead of raising framework-specific exceptions.
@@ -234,17 +234,16 @@ class ForwardingErrorResponse:
     """Local validation failure response before queue admission."""
 
     status_code: int
-    content_type: str
     content: bytes
 ```
 
-`status_code` is the local HTTP response code for validation failures such as missing token or unsupported content type. `content_type` is the response media type for the local error body. `content` is the local error body returned without touching the forwarding manager.
+`status_code` is the local HTTP response code for validation failures such as missing token or unsupported content type. `content` is the local error body returned without touching the forwarding manager. Public adapters wrap these internal failures with their own response headers.
 
 **No active forwarding destination maps to forbidden.** *(implements "Requests with no active forwarding destination are rejected with 403")*
 The forwarding adapter returns a local `403` response when the resolved Logfire configuration has no registered forwarding destinations, including `send_to_logfire=False`, before touching queue state.
 
-**Unsupported content type validation maps to unsupported media type.** *(implements "`Content-Type` supports protobuf and JSON OTLP")*
-The forwarding adapter returns a local `415` response when request headers omit `Content-Type`, provide an empty or syntactically invalid `Content-Type`, or do not identify a supported OTLP protobuf or JSON representation after media type parsing.
+**Missing or unsupported representation maps to unsupported media type.** *(implements "`Content-Type` supports protobuf and JSON OTLP")*
+The forwarding adapter returns a local `415` response when request headers omit `Content-Type` or the header value does not identify a supported OTLP protobuf or JSON representation marker.
 
 **`OTLPForwardingPipeline` owns queue admission and sending.** *(implements "Accepted OTLP payloads are queued locally before any Logfire network I/O", "A full backend-URL queue does not block other backend URLs", "Forwarding sends use the existing OTLP session retry ownership")*
 The pipeline accepts work if its memory byte budget allows it, starts a non-daemon worker when needed, and sends queued payloads with its long-lived `OTLPExporterHttpSession`.
@@ -283,7 +282,7 @@ def build_forwarding_headers(
     """Build Logfire-bound headers for one active Logfire export write token."""
 ```
 
-`build_forwarding_headers()` is called by `_send()` for each token in the pipeline's token list. It uses `request.content_type_header`, optional `request.content_encoding`, optional `request.user_agent`, and the token to construct the complete Logfire-bound header set. The emitted `Content-Type` header preserves the accepted inbound field value, including media type parameters.
+`build_forwarding_headers()` is called by `_send()` for each token in the pipeline's token list. It uses `request.content_type_header`, optional `request.content_encoding`, optional `request.user_agent`, and the token to construct the complete Logfire-bound header set. The emitted `Content-Type` header preserves the original inbound field value.
 
 **Worker send exceptions are contained at token and queued-item boundaries.** *(implements "Forwarding worker send failures are contained")*
 `OTLPExporterHttpSession.post()` may raise after performing its immediate retry or after adding a failed request to `DiskRetryer`. `_send()` catches exceptions around each per-token `post()` call, logs or suppresses the exception locally, and continues with the remaining tokens in the pipeline token list. A failed token send must not skip later token sends for the same backend URL.
@@ -336,12 +335,12 @@ Shutdown calls the config-owned manager with the remaining deadline. With `flush
 
 **Part 5: Response Representations**
 
-**Protobuf responses use OTLP export response messages.** *(implements "Response encoding matches accepted request content type", "Accepted queued payloads return local OTLP success", "Locally dropped valid payloads return OTLP partial success")*
+**Protobuf responses use OTLP export response messages.** *(implements "Response encoding matches the inferred request representation", "Accepted queued payloads return local OTLP success", "Locally dropped valid payloads return OTLP partial success")*
 The implementation uses the generated OTLP trace/logs/metrics export response classes corresponding to the request path to serialize empty success and partial success bytes.
 
 Both response builders instantiate `request.path_config.response_message_type`. The path determines whether the response is a trace, log, or metric export response message; the caller's `ForwardingRequest.content_type` determines whether that message is serialized as protobuf bytes or protobuf JSON.
 
-**JSON responses use OTLP protobuf JSON mapping.** *(implements "Response encoding matches accepted request content type")*
+**JSON responses use OTLP protobuf JSON mapping.** *(implements "Response encoding matches the inferred request representation")*
 JSON success serializes as `{}`. JSON partial success serializes the same OTLP response message shape as protobuf partial success, using lower camel case protobuf JSON field names.
 
 Both protobuf and JSON responses include explicit `Content-Type` headers matching the serialized representation.

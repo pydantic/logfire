@@ -52,7 +52,7 @@ def forward_export_request(
     if isinstance(forwarding_request, ForwardingErrorResponse):
         return ForwardExportRequestResponse(
             status_code=forwarding_request.status_code,
-            headers={'Content-Type': forwarding_request.content_type},
+            headers={'Content-Type': 'text/plain'},
             content=forwarding_request.content,
         )
 

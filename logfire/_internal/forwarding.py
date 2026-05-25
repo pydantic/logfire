@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import posixpath
-import re
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -44,8 +43,6 @@ if TYPE_CHECKING:
 
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
 OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
-_MEDIA_TYPE_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+/[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
-_PARAMETER_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+=")
 ForwardingPath = Literal['/v1/traces', '/v1/logs', '/v1/metrics']
 
 
@@ -114,7 +111,6 @@ class ForwardingRequest:
 @dataclass(frozen=True)
 class ForwardingErrorResponse:
     status_code: int
-    content_type: str
     content: bytes
 
 
@@ -337,20 +333,10 @@ def _get_header(headers: Mapping[str, str], name: str) -> str | None:
 
 
 def parse_forwarding_content_type(content_type: str) -> ForwardingContentType | None:
-    parts = [part.strip() for part in content_type.split(';')]
-    media_type = parts[0]
-    if not media_type or not _MEDIA_TYPE_RE.fullmatch(media_type):
-        return None
-
-    for parameter in parts[1:]:
-        if parameter and not _PARAMETER_RE.match(parameter):
-            return None
-
-    media_type = media_type.lower()
-    if media_type == ForwardingContentType.PROTOBUF.value:
-        return ForwardingContentType.PROTOBUF
-    if media_type == ForwardingContentType.JSON.value:
-        return ForwardingContentType.JSON
+    normalized_content_type = content_type.lower()
+    for forwarding_content_type in ForwardingContentType:
+        if forwarding_content_type.value in normalized_content_type:
+            return forwarding_content_type
     return None
 
 
@@ -358,7 +344,6 @@ def _invalid_path_response() -> ForwardingErrorResponse:
     paths = tuple(FORWARDING_CONFIGS)
     return ForwardingErrorResponse(
         status_code=400,
-        content_type='text/plain',
         content=f'Invalid path: must be {", ".join(paths[:-1])}, or {paths[-1]}'.encode(),
     )
 
@@ -391,7 +376,6 @@ def build_forwarding_request(
     if len(normalized_body) > max_body_size:
         return ForwardingErrorResponse(
             status_code=413,
-            content_type='text/plain',
             content=b'Payload too large',
         )
 
@@ -399,16 +383,14 @@ def build_forwarding_request(
     if content_type_header is None:
         return ForwardingErrorResponse(
             status_code=415,
-            content_type='text/plain',
-            content=b'Unsupported content type',
+            content=b'Missing content type header',
         )
 
     content_type = parse_forwarding_content_type(content_type_header)
     if content_type is None:
         return ForwardingErrorResponse(
             status_code=415,
-            content_type='text/plain',
-            content=b'Unsupported content type',
+            content=b'Unsupported content type, must be application/json or application/x-protobuf',
         )
 
     return ForwardingRequest(

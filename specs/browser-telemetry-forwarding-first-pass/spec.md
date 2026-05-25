@@ -95,19 +95,19 @@ Client-supplied `Authorization`, `Cookie`, `Host`, hop-by-hop headers, proxy hea
 Forwarding accepts the two OTLP HTTP payload representations needed for client exporters in this pass: protobuf and JSON.
 
 **`Content-Type` supports protobuf and JSON OTLP.** *(from "The helper forwards only whitelisted representation headers", "The first pass supports protobuf and JSON OTLP payload representations")*
-The helper accepts `application/x-protobuf` and `application/json` after parsing the `Content-Type` header as a media type. Header lookup and media type comparison are case-insensitive. Media type parameters are allowed and ignored for representation selection, so values such as `application/json; charset=utf-8` are accepted as JSON. Missing, empty, syntactically invalid, or unsupported content types are rejected with 415 rather than blindly forwarded.
+The helper infers the local OTLP response representation by looking for `application/x-protobuf` or `application/json` in the `Content-Type` header value case-insensitively. It does not validate the header as a media type; the Logfire backend remains responsible for accepting or rejecting the forwarded header semantics. Missing `Content-Type` or a value that contains neither supported representation marker is rejected with 415 rather than blindly forwarded.
 
-Because forwarded payloads are opaque, the Logfire-bound `Content-Type` header preserves the accepted inbound `Content-Type` field value, including media type parameters. The parsed media type controls validation and response representation; it does not rewrite the body or its representation metadata.
+Because forwarded payloads are opaque, the Logfire-bound `Content-Type` header preserves the original inbound `Content-Type` field value. The inferred representation controls only the local success or partial-success response encoding; it does not rewrite the body or its representation metadata.
 
-**Response encoding matches accepted request content type.** *(from "`Content-Type` supports protobuf and JSON OTLP", "The forwarding endpoint is an ingress adapter")*
+**Response encoding matches the inferred request representation.** *(from "`Content-Type` supports protobuf and JSON OTLP", "The forwarding endpoint is an ingress adapter")*
 Protobuf requests receive protobuf OTLP success or partial-success responses. JSON requests receive JSON OTLP success or partial-success responses. The helper must not accept JSON and return protobuf.
 
 Context: an empty successful OTLP JSON response is `{}`. A partial-success JSON response uses the OTLP protobuf JSON mapping, for example `{"partialSuccess": {"errorMessage": "..."}}`.
 
-**Accepted queued payloads return local OTLP success.** *(from "Accepted OTLP payloads are queued locally before any Logfire network I/O", "Response encoding matches accepted request content type")*
+**Accepted queued payloads return local OTLP success.** *(from "Accepted OTLP payloads are queued locally before any Logfire network I/O", "Response encoding matches the inferred request representation")*
 If a valid payload is accepted into the local memory queue for every configured backend URL, the helper returns HTTP 200 with an empty OTLP export response in the request representation. This response means local admission succeeded, not that Logfire has received the payload.
 
-**Locally dropped valid payloads return OTLP partial success.** *(from "The forwarding endpoint is an ingress adapter", "Response encoding matches accepted request content type", "A full backend-URL queue does not block other backend URLs")*
+**Locally dropped valid payloads return OTLP partial success.** *(from "The forwarding endpoint is an ingress adapter", "Response encoding matches the inferred request representation", "A full backend-URL queue does not block other backend URLs")*
 If a payload passes request validation but cannot be accepted for one or more configured backend URLs, the helper returns HTTP 200 with an OTLP partial-success response in the request representation. This includes post-shutdown admission closure, one or more backend-URL queues exceeding the 64 MiB limit, and other local queue-unavailable cases.
 
 **Documentation of externally driven ingress is deferred to the docs source repo.** *(from "The forwarding endpoint is an ingress adapter")*

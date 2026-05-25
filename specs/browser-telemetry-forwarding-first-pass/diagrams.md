@@ -181,14 +181,14 @@ classDiagram
     ForwardingRequest ..> OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES : default admission limit
 ```
 
-**Admission functions convert inbound HTTP into a local response.** *(supports "The forwarding endpoint is an ingress adapter, not a transparent HTTP proxy", "Response encoding matches accepted request content type")*
+**Admission functions convert inbound HTTP into a local response.** *(supports "The forwarding endpoint is an ingress adapter, not a transparent HTTP proxy", "Response encoding matches the inferred request representation")*
 This call graph covers the public helpers, validation helpers, response builders, and response/result data types. It shows where `ForwardingErrorResponse` stops the path before queue admission and where `ForwardExportRequestResponse` is produced for the caller.
 
 ```mermaid
 flowchart TD
     Proxy["logfire_proxy(request)"] -->|"body limit and path extraction"| Forward["forward_export_request(path, headers, body, logfire_instance, max_body_size)"]
     Forward --> BuildRequest["build_forwarding_request(path, headers, body, max_body_size)"]
-    BuildRequest --> ParseContentType["parse Content-Type media type case-insensitively"]
+    BuildRequest --> ParseContentType["infer response representation from Content-Type marker"]
     ParseContentType --> ContentType["ForwardingContentType"]
     ParseContentType -->|"missing / empty / unsupported"| Error["ForwardingErrorResponse"]
     BuildRequest -->|"validation failure"| Error

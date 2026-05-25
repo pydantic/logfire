@@ -246,7 +246,7 @@ def test_forward_export_request_missing_content_type() -> None:
 
     assert response.status_code == 415
     assert response.headers == {'Content-Type': 'text/plain'}
-    assert response.content == b'Unsupported content type'
+    assert response.content == b'Missing content type header'
 
 
 def test_forward_export_request_unsupported_content_type() -> None:
@@ -255,7 +255,7 @@ def test_forward_export_request_unsupported_content_type() -> None:
     response = forward_export_request(path='/v1/traces', headers={'Content-Type': 'text/plain'}, body=b'')
 
     assert response.status_code == 415
-    assert response.content == b'Unsupported content type'
+    assert response.content == b'Unsupported content type, must be application/json or application/x-protobuf'
 
 
 def test_forward_export_request_oversized_body() -> None:
