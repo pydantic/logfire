@@ -663,7 +663,7 @@ def test_logfire_config_reconfigure_keeps_forwarding_manager_when_configuration_
 
 def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_for_idle_manager() -> None:
     config = LogfireConfig(send_to_logfire=False)
-    previous_manager = OTLPForwardingManager(config)
+    previous_manager = OTLPForwardingManager(config, [])
     config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
 
     with mock.patch('logfire._internal.config.Thread') as thread:

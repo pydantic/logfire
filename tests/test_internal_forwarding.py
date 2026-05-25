@@ -674,7 +674,7 @@ def test_forwarding_pipeline_run_continues_after_unexpected_send_failure() -> No
     assert pipeline.sent_bodies == [b'one', b'two']
 
 
-def test_forwarding_manager_add_destination_creates_pipeline_and_groups_tokens(
+def test_forwarding_manager_destinations_create_pipeline_and_group_tokens(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     created_sessions: list[Any] = []
@@ -687,12 +687,16 @@ def test_forwarding_manager_add_destination_creates_pipeline_and_groups_tokens(
 
     hook = object()
     config = SimpleNamespace(advanced=SimpleNamespace(server_response_hook=hook))
-    manager = OTLPForwardingManager(config)  # type: ignore[arg-type]
     monkeypatch.setattr(forwarding_module, 'OTLPExporterHttpSession', FakeSession)
 
-    manager.add_destination(base_url='https://backend-1.example.com', token='token-1')
-    manager.add_destination(base_url='https://backend-1.example.com', token='token-2')
-    manager.add_destination(base_url='https://backend-2.example.com', token='token-3')
+    manager = OTLPForwardingManager(
+        config,  # type: ignore[arg-type]
+        [
+            ('https://backend-1.example.com', 'token-1'),
+            ('https://backend-1.example.com', 'token-2'),
+            ('https://backend-2.example.com', 'token-3'),
+        ],
+    )
 
     assert set(manager.pipelines) == {'https://backend-1.example.com', 'https://backend-2.example.com'}
     assert len(created_sessions) == 2
@@ -706,28 +710,6 @@ def test_forwarding_manager_add_destination_creates_pipeline_and_groups_tokens(
     assert all(pipeline.worker is None for pipeline in manager.pipelines.values())
 
 
-def test_forwarding_manager_add_destination_after_close_does_not_register(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    created_sessions: list[Any] = []
-
-    class FakeSession(FakeForwardingSession):
-        def __init__(self) -> None:
-            super().__init__()
-            self.hooks: dict[str, list[object]] = {}
-            created_sessions.append(self)
-
-    config = SimpleNamespace(advanced=SimpleNamespace(server_response_hook=None))
-    manager = OTLPForwardingManager(config)  # type: ignore[arg-type]
-    manager.closed = True
-    monkeypatch.setattr(forwarding_module, 'OTLPExporterHttpSession', FakeSession)
-
-    manager.add_destination(base_url='https://backend.example.com', token='token')
-
-    assert manager.pipelines == {}
-    assert created_sessions == []
-
-
 class FakeForwardingPipeline:
     def __init__(self, *, accepted: bool = True) -> None:
         self.accepted = accepted
@@ -739,7 +721,7 @@ class FakeForwardingPipeline:
 
 
 def test_forwarding_manager_submit_success_enqueues_per_backend_url() -> None:
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     pipeline_1 = FakeForwardingPipeline()
     pipeline_2 = FakeForwardingPipeline()
     request = ForwardingRequest(
@@ -761,7 +743,7 @@ def test_forwarding_manager_submit_success_enqueues_per_backend_url() -> None:
 
 
 def test_forwarding_manager_submit_partial_success_for_mixed_backend_outcomes() -> None:
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     accepting_pipeline = FakeForwardingPipeline()
     rejecting_pipeline = FakeForwardingPipeline(accepted=False)
     request = ForwardingRequest(
@@ -786,7 +768,7 @@ def test_forwarding_manager_submit_partial_success_for_mixed_backend_outcomes() 
 
 
 def test_forwarding_manager_submit_after_close_returns_partial_success_without_enqueue() -> None:
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     pipeline = FakeForwardingPipeline()
     request = ForwardingRequest(
         path='/v1/metrics',
@@ -822,7 +804,7 @@ def test_forwarding_manager_force_flush_uses_remaining_budget(monkeypatch: pytes
     monkeypatch.setattr(forwarding_module, 'monotonic', lambda: next(times))
     pipeline_1 = FakeFlushPipeline()
     pipeline_2 = FakeFlushPipeline()
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
     assert manager.force_flush(100) is True
@@ -834,7 +816,7 @@ def test_forwarding_manager_force_flush_uses_remaining_budget(monkeypatch: pytes
 def test_forwarding_manager_force_flush_returns_false_for_pipeline_timeout() -> None:
     pipeline_1 = FakeFlushPipeline()
     pipeline_2 = FakeFlushPipeline(result=False)
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
     assert manager.force_flush(100) is False
@@ -856,7 +838,7 @@ class FakeShutdownPipeline:
 def test_forwarding_manager_shutdown_basic() -> None:
     pipeline_1 = FakeShutdownPipeline()
     pipeline_2 = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
     assert manager.shutdown(100) is True
@@ -872,7 +854,7 @@ def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.M
     monkeypatch.setattr(forwarding_module, 'monotonic', lambda: next(times))
     pipeline_1 = FakeShutdownPipeline()
     pipeline_2 = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
     assert manager.shutdown(100) is True
@@ -884,7 +866,7 @@ def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.M
 def test_forwarding_manager_shutdown_returns_false_for_pipeline_timeout() -> None:
     pipeline_1 = FakeShutdownPipeline()
     pipeline_2 = FakeShutdownPipeline(result=False)
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
     assert manager.shutdown(100) is False
@@ -899,7 +881,7 @@ def test_forwarding_manager_shutdown_without_drain_calls_all_pipelines_without_b
     monkeypatch.setattr(forwarding_module, 'monotonic', lambda: 999.0)
     pipeline_1 = FakeShutdownPipeline()
     pipeline_2 = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
     assert manager.shutdown(100, drain_queued=False) is True
@@ -912,7 +894,7 @@ def test_forwarding_manager_shutdown_without_drain_calls_all_pipelines_without_b
 def test_forwarding_manager_shutdown_without_drain_does_not_short_circuit() -> None:
     pipeline_1 = FakeShutdownPipeline(result=False)
     pipeline_2 = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
     assert manager.shutdown(100, drain_queued=False) is False

@@ -933,7 +933,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
-        self._otlp_forwarding = OTLPForwardingManager(self)
+        self._otlp_forwarding = OTLPForwardingManager(self, [])
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -998,7 +998,7 @@ class LogfireConfig(_LogfireConfigData):
             return
 
         emscripten = platform_is_emscripten()
-        otlp_forwarding = OTLPForwardingManager(self)
+        otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
@@ -1176,7 +1176,7 @@ class LogfireConfig(_LogfireConfigData):
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
-                        otlp_forwarding.add_destination(base_url=base_url, token=token)
+                        otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
@@ -1387,7 +1387,7 @@ class LogfireConfig(_LogfireConfigData):
             atexit.register(exit_open_spans)
 
             previous_otlp_forwarding = self._otlp_forwarding
-            self._otlp_forwarding = otlp_forwarding
+            self._otlp_forwarding = OTLPForwardingManager(self, otlp_forwarding_destinations)
             previous_otlp_forwarding.shutdown(0, drain_queued=False)
             self._initialized = True
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import posixpath
 from collections import deque
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from threading import Condition, RLock, Thread, current_thread
@@ -247,21 +247,12 @@ class OTLPForwardingPipeline:
 
 
 class OTLPForwardingManager:
-    def __init__(self, config: LogfireConfig) -> None:
+    def __init__(self, config: LogfireConfig, destinations: Sequence[tuple[str, str]]) -> None:
         self.config = config
         self.pipelines: dict[str, OTLPForwardingPipeline] = {}
         self.closed = False
         self.lock = RLock()
-
-    def has_destinations(self) -> bool:
-        with self.lock:
-            return bool(self.pipelines)
-
-    def add_destination(self, *, base_url: str, token: str) -> None:
-        with self.lock:
-            if self.closed:
-                return
-
+        for base_url, token in destinations:
             pipeline = self.pipelines.get(base_url)
             if pipeline is None:
                 session = OTLPExporterHttpSession()
@@ -273,6 +264,10 @@ class OTLPForwardingManager:
                 )
 
             pipeline.tokens.append(token)
+
+    def has_destinations(self) -> bool:
+        with self.lock:
+            return bool(self.pipelines)
 
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
         with self.lock:

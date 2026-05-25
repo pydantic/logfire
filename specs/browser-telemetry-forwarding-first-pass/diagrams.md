@@ -80,7 +80,6 @@ classDiagram
         lock: RLock
         submit(request) ForwardingAdmissionResult
         has_destinations() bool
-        add_destination(base_url, token)
         force_flush(timeout_millis) bool
         shutdown(timeout_millis, drain_queued) bool
     }
@@ -209,14 +208,15 @@ This lifecycle graph covers each manager and pipeline method. It also shows how 
 ```mermaid
 flowchart TD
     Configure["LogfireConfig.configure(...)"] -->|"replace lifecycle"| ManagerShutdownOld["OTLPForwardingManager.shutdown(timeout_millis)"]
-    Configure --> NewManager["new empty OTLPForwardingManager"]
-    NewManager --> SendToLogfire{"send_to_logfire?"}
+    Configure --> SendToLogfire{"send_to_logfire?"}
     SendToLogfire -->|"false"| EmptyManager["no forwarding destinations"]
     SendToLogfire -->|"true"| TokenLoop["normal Logfire exporter token loop"]
     TokenLoop --> ResolveDestination["resolve base_url for token"]
     ResolveDestination --> BuildExporters["construct normal OTLP exporters"]
-    ResolveDestination --> AddDestination["OTLPForwardingManager.add_destination(base_url, token)"]
-    AddDestination --> PipelineForDestination["create or reuse pipeline for backend URL"]
+    ResolveDestination --> DestinationList["collect (base_url, token)"]
+    DestinationList --> NewManager["new OTLPForwardingManager(destinations)"]
+    EmptyManager --> NewManager
+    NewManager -->|"non-empty destinations"| PipelineForDestination["create or reuse pipeline for backend URL"]
 
     ConfigFlush["LogfireConfig.force_flush(timeout_millis)"] --> ManagerFlush["OTLPForwardingManager.force_flush(timeout_millis)"]
     LogfireShutdown["Logfire.shutdown(timeout_millis, flush)"] --> ManagerShutdown{"flush?"}

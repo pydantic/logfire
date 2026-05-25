@@ -15,7 +15,7 @@ The module keeps exporting `ForwardExportRequestResponse`, `forward_export_reque
 The module owns all queue, worker, response-encoding, and forwarding destination structures. It is internal to Logfire configuration and is not exported from `logfire.experimental`.
 
 **`logfire/_internal/config.py` owns the forwarding manager.** *(implements "Forwarding transport lifecycle is owned by Logfire configuration, not by each forwarding call", "Forwarding participates in Logfire flush and shutdown")*
-`LogfireConfig` gains a private forwarding manager that follows the existing Logfire export lifecycle. The manager starts empty for each configuration initialization, and forwarding destinations are registered only inside the existing `if self.send_to_logfire:` token/exporter construction path. If `send_to_logfire=False`, no forwarding pipelines are created, even when `config.token` is set. The manager is reset only as part of configuration lifecycle changes. `LogfireConfig.force_flush()` includes forwarding manager flushing of memory queues and active immediate sends while preserving the existing full-timeout-per-component flush pattern.
+`LogfireConfig` gains a private forwarding manager that follows the existing Logfire export lifecycle. Configuration collects forwarding destinations only inside the existing `if self.send_to_logfire:` token/exporter construction path, then builds the new forwarding manager from that destination list. If `send_to_logfire=False`, no forwarding pipelines are created, even when `config.token` is set. The manager is reset only as part of configuration lifecycle changes. `LogfireConfig.force_flush()` includes forwarding manager flushing of memory queues and active immediate sends while preserving the existing full-timeout-per-component flush pattern.
 
 ```python
 class LogfireConfig(_LogfireConfigData):
@@ -85,7 +85,7 @@ FORWARDING_CONFIGS: dict[ForwardingPath, ForwardingPathConfig]
 `timeout_env` stores the signal-specific OpenTelemetry timeout environment variable for the path. `default_timeout` stores the matching OTLP HTTP exporter default timeout. `partial_success_rejected_attribute` identifies the OTLP response field that must be set to `0` for local partial-success responses. `response_message_type` stores the generated OTLP export response message class for the path. This avoids parallel path maps for timeout resolution, path validation, response message selection, and partial-success field selection.
 
 **Destination resolution follows the normal Logfire exporter token loop.** *(implements "Destination pipelines are separated by resolved backend URL", "Forwarding uses every active Logfire export write token grouped by backend URL")*
-The forwarding manager starts with an empty `pipelines` map. Inside the same `for token in token_list:` loop that constructs normal Logfire OTLP exporters, after the code resolves `base_url = self.advanced.generate_base_url(token)`, the configuration registers that `(base_url, token)` pair with the forwarding manager. If a pipeline for the resolved backend URL does not already exist, registration constructs it immediately. Registration then appends the token to that pipeline's token list. This means forwarding uses exactly the write tokens and backend URLs used by normal Logfire export.
+Inside the same `for token in token_list:` loop that constructs normal Logfire OTLP exporters, after the code resolves `base_url = self.advanced.generate_base_url(token)`, the configuration records that `(base_url, token)` pair for the forwarding manager. The new manager is constructed from the complete destination list after exporter construction. If a pipeline for the resolved backend URL does not already exist, manager construction creates it immediately. It then appends each token to that pipeline's token list. This means forwarding uses exactly the write tokens and backend URLs used by normal Logfire export.
 
 When `send_to_logfire=False`, the exporter-construction loop does not run and the manager remains empty. Forwarding requests against an empty manager return the local forbidden response before queue admission.
 
@@ -155,14 +155,14 @@ class OTLPForwardingManager:
     closed: bool
     lock: RLock
 
+    def __init__(self, config: LogfireConfig, destinations: Sequence[tuple[str, str]]) -> None:
+        """Create backend pipelines for the resolved forwarding destinations."""
+
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
         """Admit one validated OTLP request into destination pipelines."""
 
     def has_destinations(self) -> bool:
-        """Return whether forwarding has any registered Logfire export destinations."""
-
-    def add_destination(self, *, base_url: str, token: str) -> None:
-        """Register one normal Logfire export destination for forwarding."""
+        """Return whether forwarding has any Logfire export destinations."""
 
     def force_flush(self, timeout_millis: int) -> bool:
         """Wait for memory queued forwarding work and active immediate sends."""
@@ -171,9 +171,11 @@ class OTLPForwardingManager:
         """Close admission, drain or drop memory work, wait active sends, then close idle transport resources."""
 ```
 
-`config` is the source of advanced response hooks used when creating pipeline sessions. `pipelines` maps resolved backend URL to the single pipeline that owns that backend's memory queue, token list, and session. `closed` marks manager-level shutdown and makes future submissions return partial success without creating pipelines. `lock` protects pipeline registration and lifecycle snapshots while destination registration, reconfiguration, flush, and shutdown coordinate.
+`config` is the source of advanced response hooks used when creating pipeline sessions. `pipelines` maps resolved backend URL to the single pipeline that owns that backend's memory queue, token list, and session. `closed` marks manager-level shutdown and makes future submissions return partial success without creating pipelines. `lock` protects lifecycle snapshots while submit, flush, and shutdown coordinate.
 
-`has_destinations()` is called by `forward_export_request()` before queue admission to decide whether the selected configuration has any active forwarding destination. `add_destination()` is called only while configuring normal Logfire export, from the same token loop that creates trace, metric, and log exporters. It creates the backend-url pipeline immediately on the first token for that URL and records additional tokens for the same URL without creating another pipeline. New pipeline creation constructs a fresh `OTLPExporterHttpSession` and installs `config.advanced.server_response_hook` on it before the session is used for sends.
+The constructor receives the destination pairs collected while configuring normal Logfire export, from the same token loop that creates trace, metric, and log exporters. It creates the backend-url pipeline immediately on the first token for that URL and records additional tokens for the same URL without creating another pipeline. New pipeline creation constructs a fresh `OTLPExporterHttpSession` and installs `config.advanced.server_response_hook` on it before the session is used for sends.
+
+`has_destinations()` is called by `forward_export_request()` before queue admission to decide whether the selected configuration has any active forwarding destination.
 
 `submit()` is called by `forward_export_request()` after request validation. It reads the existing pipelines and enqueues the same `ForwardingRequest` independently into each backend URL pipeline. If no destinations were registered, submit is not called; the adapter returns the local forbidden response. `force_flush()` waits for manager-owned memory queues and active immediate forwarding sends within the flush timeout. `shutdown(drain_queued=True)` closes admission, drains memory queues within the caller timeout, waits for active immediate sends to complete even if the caller timeout has expired, and then closes pipeline sessions after they have no active send. `shutdown(drain_queued=False)` is used by `Logfire.shutdown(flush=False)`; it closes admission, drops memory-queued work that has not started sending, waits for active immediate sends, closes sessions, and does not report incomplete merely because queued work was deliberately dropped.
 
@@ -306,7 +308,7 @@ def forward_export_request(
 Existing direct call sites remain valid because `max_body_size` is keyword-only and defaults to the preserved 50 MiB request limit. `logfire_proxy()` passes its existing configured `max_body_size` through to preserve ASGI helper configurability.
 
 **`OTLPForwardingManager.submit()` uses manager-lifetime backend-url pipelines.** *(implements "Forwarding uses every active Logfire export write token grouped by backend URL", "Destination pipelines are separated by resolved backend URL")*
-The manager reads the current pipeline values and enqueues into each backend pipeline independently. Submit does not create pipelines; pipelines are created only by `add_destination()` during normal Logfire exporter construction, and each pipeline carries the token list for its backend URL.
+The manager reads the current pipeline values and enqueues into each backend pipeline independently. Submit does not create pipelines; pipelines are created only by manager construction from the normal Logfire exporter destination list, and each pipeline carries the token list for its backend URL.
 
 **`OTLPForwardingPipeline._send()` delegates retry ownership to `OTLPExporterHttpSession.post()`.** *(implements "Forwarding sends use the existing OTLP session retry ownership")*
 The worker performs one immediate send attempt per pipeline token through the pipeline session, passing `timeout=request.path_config.timeout()`. Retryable transport failures are handled by `OTLPExporterHttpSession` and its `DiskRetryer`, not by queue-level retry logic. Any exception re-raised by the session after that retry handling is contained by `_send()`/`_run()` so the forwarding worker continues draining.
@@ -315,7 +317,7 @@ The worker performs one immediate send attempt per pipeline token through the pi
 The config-level flush method preserves the existing `force_flush()` structure: meter, logger, forwarding, and tracer flush calls each receive the original `timeout_millis` value rather than sharing one aggregate deadline. The forwarding manager is called before the final tracer flush return, and its boolean result is not combined into the return value, matching the current behavior where meter and logger flush results do not change the returned tracer result.
 
 **`LogfireConfig.configure()` replaces forwarding lifecycle with configuration lifecycle.** *(implements "Forwarding transport lifecycle is owned by Logfire configuration, not by each forwarding call")*
-Reconfiguration closes the previous config-owned forwarding manager and installs a fresh empty manager before the new configuration builds normal Logfire exporters. The existing `send_to_logfire` branch resolves tokens and backend URLs, including credentials-derived values, and populates forwarding destinations from the same loop that constructs those exporters.
+Reconfiguration collects forwarding destinations while the existing `send_to_logfire` branch resolves tokens and backend URLs, including credentials-derived values, from the same loop that constructs normal exporters. After exporter construction succeeds, configuration installs a fresh manager built from that destination list and closes the previous config-owned forwarding manager.
 
 **`Logfire.shutdown()` closes forwarding admission before provider shutdown completes.** *(implements "Forwarding participates in Logfire flush and shutdown", "Post-shutdown forwarding calls are locally dropped")*
 Shutdown calls the config-owned manager with the remaining deadline. With `flush=True`, the manager drains memory work within that deadline, drops any queued memory work that did not start sending if the deadline expires, waits for active immediate sends to complete, and then closes forwarding-owned sessions that are no longer in use by a send. With `flush=False`, shutdown still calls the manager, but passes `drain_queued=False` so queued memory work is dropped rather than flushed while active immediate sends are still allowed to finish before sessions close. After this point, otherwise valid forwarding calls map to partial success and do not recreate pipelines.
