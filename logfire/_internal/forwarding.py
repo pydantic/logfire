@@ -336,11 +336,7 @@ def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     return None
 
 
-def parse_forwarding_content_type(headers: Mapping[str, str]) -> ForwardingContentType | None:
-    content_type = _get_header(headers, 'content-type')
-    if content_type is None:
-        return None
-
+def parse_forwarding_content_type(content_type: str) -> ForwardingContentType | None:
     parts = [part.strip() for part in content_type.split(';')]
     media_type = parts[0]
     if not media_type or not _MEDIA_TYPE_RE.fullmatch(media_type):
@@ -380,16 +376,6 @@ def _normalize_forwarding_path(path: str) -> ForwardingPath | ForwardingErrorRes
     return _invalid_path_response()
 
 
-def _extract_forwarding_representation_headers(
-    headers: Mapping[str, str],
-) -> tuple[str | None, str | None, str | None]:
-    return (
-        _get_header(headers, 'content-type'),
-        _get_header(headers, 'content-encoding'),
-        _get_header(headers, 'user-agent'),
-    )
-
-
 def build_forwarding_request(
     *,
     path: str,
@@ -409,7 +395,15 @@ def build_forwarding_request(
             content=b'Payload too large',
         )
 
-    content_type = parse_forwarding_content_type(headers)
+    content_type_header = _get_header(headers, 'content-type')
+    if content_type_header is None:
+        return ForwardingErrorResponse(
+            status_code=415,
+            content_type='text/plain',
+            content=b'Unsupported content type',
+        )
+
+    content_type = parse_forwarding_content_type(content_type_header)
     if content_type is None:
         return ForwardingErrorResponse(
             status_code=415,
@@ -417,15 +411,13 @@ def build_forwarding_request(
             content=b'Unsupported content type',
         )
 
-    content_type_header, content_encoding, user_agent = _extract_forwarding_representation_headers(headers)
-    assert content_type_header is not None
     return ForwardingRequest(
         path=normalized_path,
         body=normalized_body,
         content_type=content_type,
         content_type_header=content_type_header,
-        content_encoding=content_encoding,
-        user_agent=user_agent,
+        content_encoding=_get_header(headers, 'content-encoding'),
+        user_agent=_get_header(headers, 'user-agent'),
     )
 
 

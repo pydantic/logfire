@@ -185,7 +185,7 @@ The manager applies one remaining-time budget across all pipeline flush calls an
 These helpers live beside the manager so header and response representation decisions are shared by forwarding adapters without introducing public API.
 
 ```python
-def parse_forwarding_content_type(headers: Mapping[str, str]) -> ForwardingContentType | None:
+def parse_forwarding_content_type(content_type: str) -> ForwardingContentType | None:
     """Return the supported OTLP request representation, or None for unsupported media."""
 
 
@@ -199,7 +199,7 @@ def build_forwarding_request(
     """Build an opaque forwarding request or a local validation error response."""
 ```
 
-`parse_forwarding_content_type()` is used during admission before constructing `ForwardingRequest`. It looks up `Content-Type` case-insensitively, parses the header value as a media type, ignores media type parameters for representation selection, and compares the media type case-insensitively against `application/x-protobuf` and `application/json`. Missing, empty, syntactically invalid, or unsupported media maps to `None`, and `None` maps to the local 415 response.
+`parse_forwarding_content_type()` is used during admission before constructing `ForwardingRequest`. It parses an already-extracted `Content-Type` header value as a media type, ignores media type parameters for representation selection, and compares the media type case-insensitively against `application/x-protobuf` and `application/json`. Empty, syntactically invalid, or unsupported media maps to `None`, and `None` maps to the local 415 response. Missing `Content-Type` is handled by `build_forwarding_request()` before calling this parser.
 
 `build_forwarding_request()` is the shared request-level adapter for path, representation header, body size, body normalization, and whitelisted header extraction. It normalizes `None` to empty bytes, rejects bodies larger than `max_body_size` with the local 413 response, and otherwise keeps the payload opaque. Header extraction uses case-insensitive lookups for `Content-Type`, `Content-Encoding`, and `User-Agent`. A successful request stores both the parsed `ForwardingContentType` and the accepted inbound `Content-Type` field value; successful output proceeds to manager submission. `ForwardingErrorResponse` remains an internal validation shape and must be adapted into `ForwardExportRequestResponse` at the public adapter boundary.
 
