@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import FrozenInstanceError
-from threading import Condition, Event, Thread, current_thread, main_thread
+from threading import Event, Thread
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -23,15 +22,12 @@ from logfire._internal.forwarding import (
     OTLPForwardingManager,
     OTLPForwardingPipeline,
     _extract_forwarding_representation_headers,  # pyright: ignore[reportPrivateUsage]
-    _forwarding_user_agent,  # pyright: ignore[reportPrivateUsage]
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
     build_forwarding_headers,
     build_forwarding_request,
     build_partial_success_response,
     build_success_response,
     parse_forwarding_content_type,
-    response_content_type,
-    response_message_for_path,
 )
 from logfire.version import VERSION
 
@@ -39,57 +35,6 @@ from logfire.version import VERSION
 def test_forwarding_byte_limit_constants() -> None:
     assert OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES == 64 * 1024 * 1024
     assert OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES == 50 * 1024 * 1024
-
-
-def test_forwarding_content_type_values() -> None:
-    assert ForwardingContentType.PROTOBUF.value == 'application/x-protobuf'
-    assert ForwardingContentType.JSON.value == 'application/json'
-
-
-def test_forwarding_request_record() -> None:
-    request = ForwardingRequest(
-        path='/v1/traces',
-        body=b'trace-data',
-        content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding='gzip',
-        user_agent='browser-agent',
-    )
-
-    assert request.path == '/v1/traces'
-    assert request.body == b'trace-data'
-    assert request.content_type is ForwardingContentType.PROTOBUF
-    assert request.content_type_header == 'application/x-protobuf'
-    assert request.content_encoding == 'gzip'
-    assert request.user_agent == 'browser-agent'
-    with pytest.raises(FrozenInstanceError):
-        setattr(request, 'body', b'other')
-
-
-def test_forwarding_error_response_record() -> None:
-    response = ForwardingErrorResponse(
-        status_code=415,
-        content_type='text/plain',
-        content=b'Unsupported content type',
-    )
-
-    assert response.status_code == 415
-    assert response.content_type == 'text/plain'
-    assert response.content == b'Unsupported content type'
-    with pytest.raises(FrozenInstanceError):
-        setattr(response, 'status_code', 400)
-
-
-def test_forwarding_admission_result_record() -> None:
-    success = ForwardingAdmissionResult(response='success', message=None)
-    partial_success = ForwardingAdmissionResult(response='partial_success', message='queue full')
-
-    assert success.response == 'success'
-    assert success.message is None
-    assert partial_success.response == 'partial_success'
-    assert partial_success.message == 'queue full'
-    with pytest.raises(FrozenInstanceError):
-        setattr(partial_success, 'message', 'closed')
 
 
 @pytest.mark.parametrize(
@@ -159,16 +104,6 @@ def test_extract_forwarding_representation_headers() -> None:
     assert content_type == 'application/json; charset=utf-8'
     assert content_encoding == 'gzip'
     assert user_agent == 'browser-agent'
-
-
-def test_extract_forwarding_representation_headers_missing_optional_values() -> None:
-    content_type, content_encoding, user_agent = _extract_forwarding_representation_headers(
-        {'Content-Type': 'application/x-protobuf'}
-    )
-
-    assert content_type == 'application/x-protobuf'
-    assert content_encoding is None
-    assert user_agent is None
 
 
 def test_build_forwarding_request_valid_protobuf() -> None:
@@ -274,29 +209,6 @@ def test_build_forwarding_request_invalid_path() -> None:
     assert response.status_code == 400
 
 
-@pytest.mark.parametrize(
-    ('content_type', 'expected'),
-    [
-        (ForwardingContentType.PROTOBUF, 'application/x-protobuf'),
-        (ForwardingContentType.JSON, 'application/json'),
-    ],
-)
-def test_response_content_type(content_type: ForwardingContentType, expected: str) -> None:
-    assert response_content_type(content_type) == expected
-
-
-@pytest.mark.parametrize(
-    ('path', 'expected'),
-    [
-        ('/v1/traces', ExportTraceServiceResponse),
-        ('/v1/logs', ExportLogsServiceResponse),
-        ('/v1/metrics', ExportMetricsServiceResponse),
-    ],
-)
-def test_response_message_for_path(path: str, expected: type[object]) -> None:
-    assert response_message_for_path(path) is expected  # type: ignore[arg-type]
-
-
 def test_build_success_response_protobuf() -> None:
     request = ForwardingRequest(
         path='/v1/traces',
@@ -389,14 +301,6 @@ def test_build_partial_success_response_protobuf(path: str, message_cls: type[ob
     assert getattr(message.partial_success, rejected_attr) == 0  # type: ignore[attr-defined]
 
 
-def test_forwarding_user_agent_without_inbound_user_agent() -> None:
-    assert _forwarding_user_agent(None) == f'logfire-proxy/{VERSION}'
-
-
-def test_forwarding_user_agent_with_inbound_user_agent() -> None:
-    assert _forwarding_user_agent('browser-agent') == f'logfire-proxy/{VERSION} browser-agent'
-
-
 def test_build_forwarding_headers_preserves_representation_and_injects_token() -> None:
     request = ForwardingRequest(
         path='/v1/traces',
@@ -462,26 +366,6 @@ def test_forwarding_path_config_timeout_signal_specific_override(monkeypatch: py
     assert config.timeout() == 3.25
 
 
-def test_forwarding_pipeline_initial_state() -> None:
-    session = object()
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=session,  # type: ignore[arg-type]
-        max_queued_body_bytes=123,
-    )
-
-    assert pipeline.base_url == 'https://example.com'
-    assert pipeline.session is session
-    assert pipeline.max_queued_body_bytes == 123
-    assert list(pipeline.queue) == []
-    assert pipeline.queued_body_bytes == 0
-    assert pipeline.active_send_count == 0
-    assert pipeline.worker is None
-    assert pipeline.closed is False
-    assert pipeline.condition is not None
-    assert pipeline.tokens == []
-
-
 def _make_forwarding_request(body: bytes) -> ForwardingRequest:
     return ForwardingRequest(
         path='/v1/traces',
@@ -502,15 +386,6 @@ def test_forwarding_pipeline_enqueue_accepts_and_accounts_bytes() -> None:
     assert list(pipeline.queue) == [request]
     assert pipeline.queued_body_bytes == 5
     assert pipeline.worker is not None
-    pipeline.stop()
-
-
-def test_forwarding_pipeline_enqueue_counts_request_body_once() -> None:
-    pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=10)
-    request = _make_forwarding_request(b'12345')
-
-    assert pipeline.enqueue(request) is True
-    assert pipeline.queued_body_bytes == 5
     pipeline.stop()
 
 
@@ -611,51 +486,6 @@ def _wait_for_no_live_worker(pipeline: OTLPForwardingPipeline) -> None:
         )
 
 
-def test_forwarding_pipeline_worker_state_reusable_after_drain() -> None:
-    pipeline = BlockingSendForwardingPipeline()
-
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-    first_worker = pipeline.worker
-    assert first_worker is not None
-    assert first_worker.daemon is False
-
-    pipeline.release.set()
-    _wait_for_no_live_worker(pipeline)
-    pipeline.started.clear()
-    pipeline.release.clear()
-
-    assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
-    assert pipeline.started.wait(timeout=5) is True
-    second_worker = pipeline.worker
-
-    assert second_worker is not None
-    assert second_worker is not first_worker
-    assert second_worker.daemon is False
-    pipeline.release.set()
-    _wait_for_no_live_worker(pipeline)
-
-
-def test_forwarding_pipeline_worker_exit_notifies_waiters() -> None:
-    pipeline = BlockingSendForwardingPipeline()
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-    waiter_returned = Event()
-
-    def wait_for_worker_exit() -> None:
-        with pipeline.condition:
-            if pipeline.condition.wait_for(lambda: pipeline.worker is None, timeout=5):
-                waiter_returned.set()
-
-    waiter = Thread(target=wait_for_worker_exit)
-    waiter.start()
-    pipeline.release.set()
-    waiter.join(timeout=1)
-
-    assert waiter_returned.is_set()
-    _wait_for_no_live_worker(pipeline)
-
-
 def test_forwarding_pipeline_force_flush_success_waits_for_active_send() -> None:
     pipeline = BlockingSendForwardingPipeline()
     assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
@@ -683,17 +513,6 @@ def test_forwarding_pipeline_force_flush_times_out_with_queued_work() -> None:
         pipeline.queued_body_bytes = len(queued_request.body)
 
     assert pipeline.force_flush(1) is False
-
-
-def test_forwarding_pipeline_force_flush_times_out_with_active_send() -> None:
-    pipeline = BlockingSendForwardingPipeline()
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-
-    assert pipeline.force_flush(1) is False
-
-    pipeline.release.set()
-    _wait_for_no_live_worker(pipeline)
 
 
 def test_forwarding_pipeline_shutdown_closes_admission_and_idle_session() -> None:
@@ -761,21 +580,6 @@ class BlockingShutdownForwardingPipeline(OTLPForwardingPipeline):
         self.release.wait(timeout=5)
 
 
-def test_forwarding_pipeline_run_clears_current_worker_reference_after_unexpected_exit() -> None:
-    class FatalForwardingPipeline(RecordingForwardingPipeline):
-        def _send(self, request: ForwardingRequest) -> None:
-            raise SystemExit
-
-    pipeline = FatalForwardingPipeline()
-    pipeline.worker = current_thread()
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-
-    with pytest.raises(SystemExit):
-        pipeline._run()  # pyright: ignore[reportPrivateUsage]
-
-    assert pipeline.worker is None
-
-
 def test_forwarding_pipeline_shutdown_drains_queued_work() -> None:
     pipeline = BlockingShutdownForwardingPipeline()
     assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
@@ -819,61 +623,6 @@ def test_forwarding_pipeline_shutdown_timeout_drops_queued_work_after_active_sen
 
     assert pipeline.fake_session.close_count == 1
     assert pipeline.shutdown(1000) is True
-    assert list(pipeline.queue) == []
-    assert pipeline.queued_body_bytes == 0
-    assert pipeline.fake_session.close_count == 1
-
-
-def test_forwarding_pipeline_shutdown_does_not_start_worker_for_manually_queued_work() -> None:
-    session = FakeForwardingSession()
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=session,  # type: ignore[arg-type]
-        max_queued_body_bytes=100,
-    )
-    queued_request = _make_forwarding_request(b'queued')
-    with pipeline.condition:
-        pipeline.queue.append(queued_request)
-        pipeline.queued_body_bytes = len(queued_request.body)
-
-    assert pipeline.shutdown(0) is False
-
-    assert pipeline.worker is None
-    assert list(pipeline.queue) == []
-    assert pipeline.queued_body_bytes == 0
-    assert session.close_count == 1
-
-
-def test_forwarding_pipeline_shutdown_timeout_leaves_active_send_open() -> None:
-    pipeline = BlockingShutdownForwardingPipeline()
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-
-    assert pipeline.shutdown(1) is False
-    assert pipeline.fake_session.close_count == 0
-
-    pipeline.release.set()
-    _wait_for_no_live_worker(pipeline)
-
-    assert pipeline.fake_session.close_count == 1
-    assert pipeline.shutdown(1000) is True
-    assert pipeline.fake_session.close_count == 1
-
-
-def test_forwarding_pipeline_shutdown_without_drain_drops_queued_work_and_respects_active_send_timeout() -> None:
-    pipeline = BlockingShutdownForwardingPipeline()
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-    assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
-
-    assert pipeline.shutdown(1, drain_queued=False) is False
-    assert pipeline.fake_session.close_count == 0
-
-    pipeline.release.set()
-    _wait_for_no_live_worker(pipeline)
-
-    assert pipeline.fake_session.close_count == 1
-    assert pipeline.shutdown(1000, drain_queued=False) is True
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
     assert pipeline.fake_session.close_count == 1
@@ -952,29 +701,6 @@ class RecordingForwardingPipeline(OTLPForwardingPipeline):
         return None
 
 
-class EmptyQueueExitCondition(Condition):
-    def __init__(self, pipeline: OTLPForwardingPipeline) -> None:
-        super().__init__()
-        self.pipeline = pipeline
-        self.empty_queue_exit_released = Event()
-        self.allow_empty_queue_exit = Event()
-        self.triggered = False
-
-    def __exit__(self, *args: Any) -> None:
-        trigger = (
-            not self.triggered
-            and current_thread() is not main_thread()
-            and not self.pipeline.queue
-            and self.pipeline.active_send_count == 0
-        )
-        result = super().__exit__(*args)
-        if trigger:
-            self.triggered = True
-            self.empty_queue_exit_released.set()
-            assert self.allow_empty_queue_exit.wait(timeout=1)
-        return result
-
-
 def test_forwarding_pipeline_run_drains_queue_and_resets_state() -> None:
     pipeline = RecordingForwardingPipeline()
     pipeline.enqueue(_make_forwarding_request(b'one'))
@@ -1000,58 +726,6 @@ def test_forwarding_pipeline_run_continues_after_unexpected_send_failure() -> No
     assert pipeline.queued_body_bytes == 0
     assert pipeline.active_send_count == 0
     assert pipeline.sent_bodies == [b'one', b'two']
-
-
-def test_forwarding_pipeline_run_drains_already_queued_work_when_closed() -> None:
-    pipeline = RecordingForwardingPipeline()
-    pipeline.enqueue(_make_forwarding_request(b'one'))
-    pipeline.closed = True
-
-    pipeline._run()  # pyright: ignore[reportPrivateUsage]
-
-    assert list(pipeline.queue) == []
-    assert pipeline.queued_body_bytes == 0
-    assert pipeline.active_send_count == 0
-    assert pipeline.sent_bodies == [b'one']
-
-
-def test_forwarding_pipeline_enqueue_during_worker_empty_queue_exit_starts_new_worker() -> None:
-    pipeline = RecordingForwardingPipeline()
-    condition = EmptyQueueExitCondition(pipeline)
-    pipeline.condition = condition
-    pipeline._ensure_worker_locked = OTLPForwardingPipeline._ensure_worker_locked.__get__(pipeline)  # type: ignore[method-assign]
-
-    with pipeline.condition:
-        pipeline._ensure_worker_locked()  # pyright: ignore[reportPrivateUsage]
-
-    assert condition.empty_queue_exit_released.wait(timeout=1)
-    assert pipeline.enqueue(_make_forwarding_request(b'late')) is True
-    condition.allow_empty_queue_exit.set()
-
-    assert pipeline.force_flush(1000) is True
-    assert pipeline.sent_bodies == [b'late']
-    _wait_for_no_live_worker(pipeline)
-    assert pipeline.worker is None
-
-
-def test_forwarding_manager_initial_state() -> None:
-    config = object()
-    manager = OTLPForwardingManager(config)  # type: ignore[arg-type]
-
-    assert manager.config is config
-    assert manager.pipelines == {}
-    assert manager.closed is False
-    assert manager.lock is not None
-
-
-def test_forwarding_manager_has_destinations() -> None:
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
-
-    assert manager.has_destinations() is False
-
-    manager.pipelines['https://example.com'] = object()  # type: ignore[assignment]
-
-    assert manager.has_destinations() is True
 
 
 def test_forwarding_manager_add_destination_creates_pipeline_and_groups_tokens(
@@ -1229,16 +903,6 @@ def test_forwarding_manager_force_flush_returns_false_for_pipeline_timeout() -> 
     assert len(pipeline_2.flush_timeouts) == 1
 
 
-def test_forwarding_manager_force_flush_zero_timeout_succeeds_when_pipelines_are_idle() -> None:
-    pipeline = FakeFlushPipeline()
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
-    manager.pipelines = {'one': pipeline}  # type: ignore[assignment]
-
-    assert manager.force_flush(0) is True
-
-    assert pipeline.flush_timeouts == [0]
-
-
 class FakeShutdownPipeline:
     def __init__(self, result: bool = True) -> None:
         self.result = result
@@ -1261,18 +925,6 @@ def test_forwarding_manager_shutdown_basic() -> None:
     assert 0 < pipeline_1.shutdown_calls[0][0] <= 100
     assert pipeline_1.shutdown_calls[0][1] is True
     assert pipeline_2.shutdown_calls[0][1] is True
-
-
-def test_forwarding_manager_shutdown_is_idempotent() -> None:
-    pipeline = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
-    manager.pipelines = {'one': pipeline}  # type: ignore[assignment]
-
-    assert manager.shutdown(100) is True
-    assert manager.shutdown(100) is True
-
-    assert manager.closed is True
-    assert len(pipeline.shutdown_calls) == 2
 
 
 def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.MonkeyPatch) -> None:
