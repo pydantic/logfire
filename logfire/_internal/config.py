@@ -106,6 +106,7 @@ from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWr
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
+from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
@@ -932,6 +933,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        self._otlp_forwarding = OTLPForwardingManager(self)
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -996,6 +998,7 @@ class LogfireConfig(_LogfireConfigData):
             return
 
         emscripten = platform_is_emscripten()
+        otlp_forwarding = OTLPForwardingManager(self)
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
@@ -1173,6 +1176,7 @@ class LogfireConfig(_LogfireConfigData):
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
+                        otlp_forwarding.add_destination(base_url=base_url, token=token)
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
@@ -1382,6 +1386,9 @@ class LogfireConfig(_LogfireConfigData):
             atexit.unregister(exit_open_spans)
             atexit.register(exit_open_spans)
 
+            previous_otlp_forwarding = self._otlp_forwarding
+            self._otlp_forwarding = otlp_forwarding
+            previous_otlp_forwarding.shutdown(0, drain_queued=False)
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
@@ -1411,6 +1418,7 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
