@@ -34,6 +34,7 @@ from opentelemetry.sdk.environment_variables import (
 
 from logfire._internal.exporters.otlp import OTLPExporterHttpSession
 from logfire._internal.server_response import install_logfire_response_hook
+from logfire._internal.utils import suppress_instrumentation
 from logfire.version import VERSION
 
 if TYPE_CHECKING:
@@ -144,27 +145,21 @@ class OTLPForwardingPipeline:
 
             self.queue.append(queued_request)
             self.queued_body_bytes += body_size
-            self._ensure_worker_locked()
+
+            if self.worker is None or not self.worker.is_alive():
+                self.worker = Thread(target=self._run, daemon=False)
+                self.worker.start()
+
             self.condition.notify_all()
             return True
 
-    def _ensure_worker_locked(self) -> None:
-        if self.worker is not None and self.worker.is_alive():
-            return
-
-        self.worker = Thread(target=self._run, daemon=False)
-        self.worker.start()
-        self.condition.notify_all()
-
     def _send(self, request: ForwardingRequest) -> None:
-        import logfire
-
         url = urljoin(self.base_url.rstrip('/') + '/', request.path.lstrip('/'))
         timeout = FORWARDING_CONFIGS[request.path].timeout()
         for token in self.tokens:
             headers = build_forwarding_headers(request, token=token)
             try:
-                with logfire.suppress_instrumentation():
+                with suppress_instrumentation():
                     self.session.post(url, data=request.body, headers=headers, timeout=timeout)
             except Exception:
                 continue
@@ -430,10 +425,6 @@ def build_forwarding_request(
     )
 
 
-def response_content_type(content_type: ForwardingContentType) -> str:
-    return content_type.value
-
-
 def response_message_for_path(path: ForwardingPath) -> type[Any]:
     return FORWARDING_CONFIGS[path].response_message_type
 
@@ -449,7 +440,7 @@ def build_success_response(request: ForwardingRequest) -> ForwardExportRequestRe
 
     return ForwardExportRequestResponse(
         status_code=200,
-        headers={'Content-Type': response_content_type(request.content_type)},
+        headers={'Content-Type': request.content_type.value},
         content=content,
     )
 
@@ -477,7 +468,7 @@ def build_partial_success_response(
 
     return ForwardExportRequestResponse(
         status_code=200,
-        headers={'Content-Type': response_content_type(request.content_type)},
+        headers={'Content-Type': request.content_type.value},
         content=content,
     )
 
