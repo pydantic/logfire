@@ -374,28 +374,30 @@ class TestExpandReferences:
 
 class TestFindReferences:
     def test_no_references(self):
-        assert find_references('"hello world"') == set()
+        assert find_references('"hello world"') == []
 
     def test_single_reference(self):
-        assert find_references('"@{greeting}@"') == {'greeting'}
+        assert find_references('"@{greeting}@"') == ['greeting']
 
     def test_multiple_unique_references(self):
-        assert find_references('"@{a}@ @{b}@ @{c}@"') == {'a', 'b', 'c'}
+        # Sorted alphabetically — the parser doesn't surface source order, and
+        # callers shouldn't depend on iteration-order-dependent behaviour.
+        assert find_references('"@{c}@ @{a}@ @{b}@"') == ['a', 'b', 'c']
 
     def test_duplicate_references(self):
         """The same name appearing in multiple `@{ref}@` slots is deduplicated."""
-        assert find_references('"@{a}@ @{b}@ @{a}@"') == {'a', 'b'}
+        assert find_references('"@{b}@ @{a}@ @{b}@"') == ['a', 'b']
 
     def test_escaped_not_matched(self):
-        assert find_references(r'"\\@{escaped}@"') == set()
+        assert find_references(r'"\\@{escaped}@"') == []
 
     def test_mixed_escaped_and_real(self):
         result = find_references(r'"\\@{escaped}@ @{real}@"')
-        assert result == {'real'}
+        assert result == ['real']
 
     def test_in_structured_json(self):
         serialized = json.dumps({'prompt': '@{safety}@', 'other': '@{format}@'})
-        assert find_references(serialized) == {'safety', 'format'}
+        assert find_references(serialized) == ['format', 'safety']
 
     def test_find_references_block_helpers(self):
         """find_references detects variable names from block helper syntax."""
@@ -412,7 +414,7 @@ class TestFindReferences:
 
     def test_find_references_ignores_handlebars_keywords(self):
         serialized = json.dumps('@{this}@ @{#if this}@yes@{else}@no@{/if}@')
-        assert find_references(serialized) == set()
+        assert find_references(serialized) == []
 
 
 # =============================================================================
@@ -558,13 +560,13 @@ class TestFindReferencesNativeHandlebarsSyntax:
 
     def test_dotted_path_in_block_helper_header_contributes_top_level(self):
         # `@{#if user.active}@` only references `user` at the top level.
-        assert find_references('"@{#if user.active}@x@{/if}@"') == {'user'}
+        assert find_references('"@{#if user.active}@x@{/if}@"') == ['user']
 
     def test_each_block_helper_contributes_iterable_name(self):
-        assert find_references('"@{#each tags}@@{this}@@{/each}@"') == {'tags'}
+        assert find_references('"@{#each tags}@@{this}@@{/each}@"') == ['tags']
 
     def test_lookup_helper_arguments_are_refs(self):
-        assert find_references('"@{lookup obj key}@"') == {'key', 'obj'}
+        assert find_references('"@{lookup obj key}@"') == ['key', 'obj']
 
     def test_known_helpers_are_not_treated_as_context_refs(self):
         # `if` / `each` / `lookup` are registered helpers; their names must
@@ -573,12 +575,12 @@ class TestFindReferencesNativeHandlebarsSyntax:
         # resolve against each iteration item rather than the top-level
         # context and are not top-level dependencies.
         refs = find_references('"@{#if cond}@@{#each items}@@{lookup obj key}@@{/each}@@{/if}@"')
-        assert refs == {'cond', 'items'}
+        assert refs == ['cond', 'items']
 
     def test_lookup_args_at_top_level_are_refs(self):
         # When the helper call is at the top level (no enclosing context-
         # shifting block), its arguments are top-level deps.
-        assert find_references('"@{lookup obj key}@"') == {'key', 'obj'}
+        assert find_references('"@{lookup obj key}@"') == ['key', 'obj']
 
 
 # =============================================================================

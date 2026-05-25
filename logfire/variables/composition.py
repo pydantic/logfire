@@ -154,10 +154,13 @@ def expand_references(
         return serialized_value, composed
 
     # Collect all unique base variable names referenced anywhere in the decoded
-    # value. If there are none we still walk the structure through `_render_value`
-    # — the value may contain only escape sequences (`\@{x}@` etc.) that need
-    # to be processed through the renderer to produce the literal output.
-    all_ref_names = _collect_ref_names(decoded)
+    # value. Sorted so composition resolution order is deterministic — which
+    # `composed_from` entry surfaces first, which error gets reported when
+    # several refs fail, etc. shouldn't depend on set-iteration order. If there
+    # are none we still walk the structure through `_render_value` — the value
+    # may contain only escape sequences (`\@{x}@` etc.) that need to be
+    # processed through the renderer to produce the literal output.
+    all_ref_names = sorted(_collect_ref_names(decoded))
 
     # Resolve each unique variable name and recursively expand nested references.
     context: dict[str, Any] = {}
@@ -255,7 +258,7 @@ def expand_references(
     return result_serialized, composed
 
 
-def find_references(serialized_value: str) -> set[str]:
+def find_references(serialized_value: str) -> list[str]:
     """Find all top-level `@{variable_name}@` references in a serialized value.
 
     Walks the decoded JSON value and runs each string containing composition
@@ -263,13 +266,20 @@ def find_references(serialized_value: str) -> set[str]:
     helpers (`@{#if var}@`), dotted paths (`@{var.field}@`), and
     subexpressions (`@{lookup obj key}@`) are all picked up correctly.
 
+    The returned list is **sorted alphabetically** — not in source order
+    (the parser is the only thing that could give an accurate source order
+    and `extract_dependencies` doesn't surface that today). Sorted output
+    gives composition resolution and `composed_from` chains a deterministic
+    order, which matters for reproducible error messages and stable span
+    attributes.
+
     Args:
         serialized_value: The raw JSON-serialized variable value to scan.
 
     Returns:
-        Set of top-level variable names referenced.
+        Sorted list of unique top-level variable names referenced.
     """
-    return _collect_ref_names(_safe_json_load(serialized_value))
+    return sorted(_collect_ref_names(_safe_json_load(serialized_value)))
 
 
 # ---------------------------------------------------------------------------
