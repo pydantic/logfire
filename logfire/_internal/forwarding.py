@@ -278,14 +278,16 @@ class OTLPForwardingManager:
             pipeline.tokens.append(token)
 
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
-        if self.closed:
-            return ForwardingAdmissionResult(
-                response='partial_success',
-                message='Forwarding manager is closed; request was locally dropped.',
-            )
+        with self.lock:
+            if self.closed:
+                return ForwardingAdmissionResult(
+                    response='partial_success',
+                    message='Forwarding manager is closed; request was locally dropped.',
+                )
+            pipelines = tuple(self.pipelines.values())
 
         dropped_count = 0
-        for pipeline in list(self.pipelines.values()):
+        for pipeline in pipelines:
             if not pipeline.enqueue(request):
                 dropped_count += 1
 
