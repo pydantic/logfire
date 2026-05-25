@@ -40,8 +40,8 @@ The first pass uses an in-memory queue as the primary healthy path, so healthy f
 
 Context: normal healthy Logfire telemetry is buffered in memory by OpenTelemetry processors before export. Writing every healthy forwarded payload to disk would make forwarded telemetry worse than normal telemetry during healthy operation.
 
-**Each backend-URL memory queue has a hardcoded 64 MiB byte limit.** *(from "OTLP telemetry forwarding must not make application request handling depend on Logfire availability", "Local queueing uses memory first")*
-The first pass caps each destination memory queue at 64 MiB, defined as `64 * 1024 * 1024` queued body bytes. The limit is hardcoded rather than user-configurable, so queue capacity remains lifecycle configuration owned by Logfire internals rather than a per-request knob.
+**Each backend-URL memory queue has hardcoded byte and item limits.** *(from "OTLP telemetry forwarding must not make application request handling depend on Logfire availability", "Local queueing uses memory first")*
+The first pass caps each destination memory queue at 64 MiB, defined as `64 * 1024 * 1024` queued body bytes, and 1000 queued items. Both limits are hardcoded rather than user-configurable, so queue capacity remains lifecycle configuration owned by Logfire internals rather than a per-request knob.
 
 **Destination pipelines are separated by resolved backend URL.** *(from "OTLP telemetry forwarding must not make application request handling depend on Logfire availability")*
 Each resolved Logfire backend URL that is active for normal Logfire export gets its own forwarding pipeline. The pipeline owns the memory queue, worker, OTLP session, and disk retry state for that backend URL. Tokens that resolve to the same backend URL are delivery targets inside the same pipeline, not separate queue or retry lifecycles.
@@ -51,7 +51,7 @@ Context: a single Logfire configuration can contain multiple tokens, and tokens 
 **Forwarding uses every active Logfire export write token grouped by backend URL.** *(from "Destination pipelines are separated by resolved backend URL")*
 The first pass fans out accepted OTLP payloads to every write token that the selected configuration uses for normal Logfire export, matching the intent of a multi-token Logfire configuration. Tokens that resolve to the same backend URL share that URL's destination pipeline. The helper must not silently use only the first token.
 
-**A full backend-URL queue does not block other backend URLs.** *(from "Destination pipelines are separated by resolved backend URL", "Each backend-URL memory queue has a hardcoded 64 MiB byte limit")*
+**A full backend-URL queue does not block other backend URLs.** *(from "Destination pipelines are separated by resolved backend URL", "Each backend-URL memory queue has hardcoded byte and item limits")*
 If one backend-URL memory queue is full, forwarding still enqueues the payload to any other active backend-URL queues with capacity. The full backend URL is treated as a local drop for every active Logfire export write token that resolves to that URL.
 
 **Forwarding sends use the existing OTLP session retry ownership.** *(from "Local queueing uses memory first")*
@@ -118,9 +118,6 @@ The deferred docs update should say CORS should match the app origin, not `*`, u
 
 **Part 3: Scope Exclusions**
 These are explicit non-goals for this pass.
-
-**The first pass has no separate memory-queue item limit.**
-The memory queue is capped by queued body bytes only. Request body size limits still apply before enqueueing.
 
 **The first pass does not parse, split, merge, or rewrite OTLP payloads.**
 The helper treats traces, logs, and metrics payloads as opaque bytes after validating route, content type, and size. It does not merge small requests, split large requests, rewrite resources, or apply span/log/metric processors.

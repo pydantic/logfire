@@ -86,6 +86,7 @@ classDiagram
         queue: deque
         queued_body_bytes() int
         max_queued_body_bytes: int
+        max_queued_items: int
         worker: Thread optional
         closed: bool
         condition: Condition
@@ -143,6 +144,10 @@ classDiagram
         <<constant>>
     }
 
+    class OTLP_FORWARDING_MAX_QUEUED_ITEMS {
+        <<constant>>
+    }
+
     class OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES {
         <<constant>>
     }
@@ -164,7 +169,8 @@ classDiagram
     OTLPForwardingPipeline --> Condition : protects queue state
     OTLPForwardingPipeline --> Thread : worker
     OTLPForwardingPipeline --> deque : queue storage
-    OTLPForwardingPipeline --> OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES : default limit
+    OTLPForwardingPipeline --> OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES : default byte limit
+    OTLPForwardingPipeline --> OTLP_FORWARDING_MAX_QUEUED_ITEMS : default item limit
     OTLPForwardingPipeline *-- ForwardingRequest : queues
     ForwardingRequest --> ForwardingContentType : representation
     ForwardingRequest ..> OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES : default admission limit
@@ -220,7 +226,8 @@ flowchart TD
     Submit --> Group["pipelines by backend URL"]
     Submit --> Pipeline["OTLPForwardingPipeline"]
     Pipeline --> Enqueue["OTLPForwardingPipeline.enqueue(request)"]
-    Enqueue --> Limit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
+    Enqueue --> ByteLimit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
+    Enqueue --> ItemLimit["OTLP_FORWARDING_MAX_QUEUED_ITEMS"]
     Enqueue --> Condition["Condition protects queue, worker, closed"]
     Enqueue --> Worker["Thread target: OTLPForwardingPipeline._run()"]
     Worker --> Send["peek first queued request"]

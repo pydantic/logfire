@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from logfire.types import ServerResponseCallback
 
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
+OTLP_FORWARDING_MAX_QUEUED_ITEMS = 1000
 OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
 ForwardingPath = Literal['/v1/traces', '/v1/logs', '/v1/metrics']
 
@@ -126,10 +127,12 @@ class OTLPForwardingPipeline:
         base_url: str,
         session: OTLPExporterHttpSession,
         max_queued_body_bytes: int,
+        max_queued_items: int = OTLP_FORWARDING_MAX_QUEUED_ITEMS,
     ) -> None:
         self.base_url = base_url
         self.session = session
         self.max_queued_body_bytes = max_queued_body_bytes
+        self.max_queued_items = max_queued_items
         self.queue: deque[ForwardingRequest] = deque()
         self.worker: Thread | None = None
         self.closed = False
@@ -143,7 +146,11 @@ class OTLPForwardingPipeline:
     def enqueue(self, queued_request: ForwardingRequest) -> bool:
         body_size = len(queued_request.body)
         with self.condition:
-            if self.closed or self.queued_body_bytes + body_size > self.max_queued_body_bytes:
+            if (
+                self.closed
+                or len(self.queue) >= self.max_queued_items
+                or self.queued_body_bytes + body_size > self.max_queued_body_bytes
+            ):
                 return False
 
             self.queue.append(queued_request)
@@ -259,6 +266,7 @@ class OTLPForwardingManager:
                     base_url=base_url,
                     session=session,
                     max_queued_body_bytes=OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
+                    max_queued_items=OTLP_FORWARDING_MAX_QUEUED_ITEMS,
                 )
 
             pipeline.tokens.append(token)

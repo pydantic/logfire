@@ -105,7 +105,7 @@ class ForwardingAdmissionResult:
 
 `response` is consumed by `forward_export_request()` to choose either the empty OTLP success response or the OTLP partial-success response. `message` is used only for partial success; the manager may include local drop context such as queue-full or shutdown state.
 
-**Each backend URL has one mutable memory pipeline state object.** *(implements "Destination pipelines are separated by resolved backend URL", "Local queueing uses memory first", "Each backend-URL memory queue has a hardcoded 64 MiB byte limit", "The forwarding worker is non-daemon and lifecycle-managed")*
+**Each backend URL has one mutable memory pipeline state object.** *(implements "Destination pipelines are separated by resolved backend URL", "Local queueing uses memory first", "Each backend-URL memory queue has hardcoded byte and item limits", "The forwarding worker is non-daemon and lifecycle-managed")*
 The pipeline owns memory queue bytes, worker state, and one long-lived `OTLPExporterHttpSession` for the backend URL.
 
 ```python
@@ -116,6 +116,7 @@ class OTLPForwardingPipeline:
     session: OTLPExporterHttpSession
     queue: deque[ForwardingRequest]
     max_queued_body_bytes: int
+    max_queued_items: int
     worker: Thread | None
     closed: bool
     condition: Condition
@@ -128,18 +129,19 @@ class OTLPForwardingPipeline:
 
 `base_url` identifies the backend URL this pipeline owns and is used to construct trace, log, and metric export URLs. `session` is the long-lived `OTLPExporterHttpSession` shared by sends for all tokens targeting this backend URL, so retry ownership stays with the existing OTLP session and `DiskRetryer`. `tokens` is the active Logfire export write token list for the pipeline's backend URL; `_send()` iterates those tokens to fan out the same payload with per-token authorization.
 
-`queue` holds memory-admitted `ForwardingRequest` objects until their immediate send attempt completes. The worker peeks at the first item, sends it once per token, and removes it in a `finally` block after any send outcome. `queued_body_bytes` is a computed property over `queue`, so one payload counts once for the backend URL regardless of how many tokens the pipeline fans out to during send. `max_queued_body_bytes` is the admission ceiling for `queued_body_bytes`.
+`queue` holds memory-admitted `ForwardingRequest` objects until their immediate send attempt completes. The worker peeks at the first item, sends it once per token, and removes it in a `finally` block after any send outcome. `queued_body_bytes` is a computed property over `queue`, so one payload counts once for the backend URL regardless of how many tokens the pipeline fans out to during send. `max_queued_body_bytes` is the admission ceiling for `queued_body_bytes`, and `max_queued_items` is the admission ceiling for `len(queue)`.
 
 `worker` is the non-daemon sender thread for this pipeline, or `None` while no worker is active. A worker exits after draining current memory work, and later accepted enqueue calls may create a new worker while the pipeline remains open. `enqueue()` owns this lazy worker creation inline after admitting work. `closed` blocks new enqueue attempts and marks the pipeline as shutting down; it is an admission flag, not a worker stop flag. When `drain_queued=True`, already-queued memory work may still drain after `closed` becomes true. When `drain_queued=False`, shutdown explicitly drops queued work before waiting for any currently live worker. `condition` protects `queue`, `worker`, and `closed`, and is the synchronization point used by enqueue, worker wakeups, flush waits, and shutdown waits.
 
-**The hardcoded queue limit is named once in the internal module.** *(implements "Each backend-URL memory queue has a hardcoded 64 MiB byte limit")*
+**The hardcoded queue limits are named once in the internal module.** *(implements "Each backend-URL memory queue has hardcoded byte and item limits")*
 
 ```python
 OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES = 64 * 1024 * 1024
+OTLP_FORWARDING_MAX_QUEUED_ITEMS = 1000
 OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
 ```
 
-`OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES` is passed into each new `OTLPForwardingPipeline` as `max_queued_body_bytes`. It is not exposed as a public or per-request option.
+`OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES` is passed into each new `OTLPForwardingPipeline` as `max_queued_body_bytes`, and `OTLP_FORWARDING_MAX_QUEUED_ITEMS` is passed as `max_queued_items`. Neither queue limit is exposed as a public or per-request option.
 
 `OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES` is the default direct-request admission limit and the default ASGI helper `max_body_size`. The ASGI helper can still receive an explicit `max_body_size`; that value is passed to request validation for the delegated request so the existing ASGI configurability remains honored.
 
@@ -251,7 +253,7 @@ The forwarding adapter returns a local `403` response when the resolved Logfire 
 The forwarding adapter returns a local `415` response when request headers omit `Content-Type` or the header value does not identify a supported OTLP protobuf or JSON representation marker.
 
 **`OTLPForwardingPipeline` owns queue admission and sending.** *(implements "Accepted OTLP payloads are queued locally before any Logfire network I/O", "A full backend-URL queue does not block other backend URLs", "Forwarding sends use the existing OTLP session retry ownership")*
-The pipeline accepts work if its memory byte budget allows it, starts a non-daemon worker when needed, and sends queued payloads with its long-lived `OTLPExporterHttpSession`.
+The pipeline accepts work if its memory byte and item budgets allow it, starts a non-daemon worker when needed, and sends queued payloads with its long-lived `OTLPExporterHttpSession`.
 
 ```python
 class OTLPForwardingPipeline:

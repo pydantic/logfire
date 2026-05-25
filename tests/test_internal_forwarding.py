@@ -13,6 +13,7 @@ import logfire._internal.forwarding as forwarding_module
 from logfire._internal.forwarding import (
     FORWARDING_CONFIGS,
     OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES,
+    OTLP_FORWARDING_MAX_QUEUED_ITEMS,
     ForwardingAdmissionResult,
     ForwardingContentType,
     ForwardingErrorResponse,
@@ -280,11 +281,17 @@ def test_forwarding_pipeline_enqueue_accepts_and_accounts_bytes() -> None:
 
 
 class BlockingRunForwardingPipeline(OTLPForwardingPipeline):
-    def __init__(self, *, max_queued_body_bytes: int = 100) -> None:
+    def __init__(
+        self,
+        *,
+        max_queued_body_bytes: int = 100,
+        max_queued_items: int = OTLP_FORWARDING_MAX_QUEUED_ITEMS,
+    ) -> None:
         super().__init__(
             base_url='https://example.com',
             session=object(),  # type: ignore[arg-type]
             max_queued_body_bytes=max_queued_body_bytes,
+            max_queued_items=max_queued_items,
         )
         self.started = Event()
         self.release = Event()
@@ -297,6 +304,20 @@ class BlockingRunForwardingPipeline(OTLPForwardingPipeline):
         self.release.set()
         if self.worker is not None:
             self.worker.join(timeout=5)
+
+
+def test_forwarding_pipeline_enqueue_rejects_at_item_limit() -> None:
+    pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=1, max_queued_items=2)
+    request = _make_forwarding_request(b'')
+
+    try:
+        assert pipeline.enqueue(request) is True
+        assert pipeline.enqueue(request) is True
+        assert pipeline.enqueue(request) is False
+        assert list(pipeline.queue) == [request, request]
+        assert pipeline.queued_body_bytes == 0
+    finally:
+        pipeline.stop()
 
 
 class BlockingSendForwardingPipeline(OTLPForwardingPipeline):
@@ -524,6 +545,7 @@ def test_forwarding_manager_destinations_create_pipeline_and_group_tokens(
     assert manager.pipelines['https://backend-1.example.com'].max_queued_body_bytes == (
         OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES
     )
+    assert manager.pipelines['https://backend-1.example.com'].max_queued_items == OTLP_FORWARDING_MAX_QUEUED_ITEMS
     assert all(pipeline.worker is None for pipeline in manager.pipelines.values())
 
 
