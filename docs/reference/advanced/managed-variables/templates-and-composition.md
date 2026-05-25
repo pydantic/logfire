@@ -165,10 +165,18 @@ The `@{}@` syntax runs through the full Handlebars engine (just with `@{` / `}@`
 
 Every `@{ref}@` expansion is recorded in the resolution result. You can inspect which variables were composed and their values:
 
-```python skip="true"
-with agent_prompt.get() as resolved:
+```python
+import logfire
+
+logfire.configure()
+
+logfire.var('city', type=str, default='Paris')
+report = logfire.var('report', type=str, default='Weather in @{city}@: sunny.')
+
+with report.get() as resolved:
     for ref in resolved.composed_from:
-        print(f"  {ref.name}: version={ref.version}, label={ref.label}")
+        print(f'{ref.name}={ref.value!r} reason={ref.reason}')
+        #> city='Paris' reason=code_default
 ```
 
 These composition details are also recorded as span attributes, so you can see the full composition chain in your Logfire traces.
@@ -177,7 +185,7 @@ These composition details are also recorded as span attributes, so you can see t
 
 Template variables and composition work together. A common pattern is to compose reusable fragments via `@{ref}@` and render runtime inputs via `{{}}`:
 
-```python skip="true"
+```python
 from pydantic import BaseModel
 
 import logfire
@@ -191,11 +199,7 @@ class ChatInputs(BaseModel):
 
 
 # Reusable fragment (no template inputs)
-tone_instructions = logfire.var(
-    'tone_instructions',
-    type=str,
-    default='Be friendly and concise.',
-)
+logfire.var('tone_instructions', type=str, default='Be friendly and concise.')
 
 # Template variable that composes the fragment and renders inputs
 chat_prompt = logfire.template_var(
@@ -208,7 +212,7 @@ chat_prompt = logfire.template_var(
 # Resolution: compose @{tone_instructions}@ first, then render {{user_name}} and {{language}}
 with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolved:
     print(resolved.value)
-    # "You are helping Alice. Respond in French. Be friendly and concise."
+    #> You are helping Alice. Respond in French. Be friendly and concise.
 ```
 
 ### Recursive Resolution
@@ -216,33 +220,34 @@ with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolv
 !!! warning "Different from plain Handlebars"
     Standard Handlebars expressions like `{{greeting}}` perform a **one-shot string substitution**: whatever string `greeting` resolves to appears verbatim in the output. If that string happens to contain `{{name}}`, the inner `{{name}}` is *not* re-evaluated — it ends up in the output as the literal text `{{name}}`.
 
-    `@{...}@` composition does the opposite: when the SDK substitutes a referenced variable, it first **fully resolves** that variable — including expanding any `@{...}@` references *inside* it — before splicing the result in. This is the main semantic difference between composition and plain Handlebars, and it trips up people coming from "normal" Handlebars where the assumption is that values are inert strings.
+    `@{...}@` composition does the opposite: when the SDK substitutes a referenced variable, it first **fully resolves** that variable — including expanding any `@{...}@` references *inside* it — before splicing the result in.
 
 Concretely, composition walks the reference graph at resolution time. A tree like `parent → @{middle}@ → @{leaf}@` resolves leaf-first, builds `middle`, then substitutes the result into `parent`:
 
-```python skip="true"
+```python
 import logfire
 
 logfire.configure()
 
-leaf = logfire.var('leaf', type=str, default='LEAF')
-middle = logfire.var('middle', type=str, default='middle wraps @{leaf}@')
+logfire.var('leaf', type=str, default='LEAF')
+logfire.var('middle', type=str, default='middle wraps @{leaf}@')
 parent = logfire.var('parent', type=str, default='top: @{middle}@')
 
 with parent.get() as resolved:
     print(resolved.value)
     #> top: middle wraps LEAF
     # composed_from mirrors the tree:
-    #   middle (composed_from: [leaf])
+    print(f'{resolved.composed_from[0].name} -> {resolved.composed_from[0].composed_from[0].name}')
+    #> middle -> leaf
 ```
 
 Contrast with plain Handlebars rendering, where `{{...}}` only substitutes — no graph walk, no re-rendering of values that happen to look template-like:
 
-```python skip="true"
+```python
 from pydantic_handlebars import render
 
-render('{{greeting}}', {'greeting': 'Hello, {{name}}!', 'name': 'Alice'})
-#> 'Hello, {{name}}!'   ← the inner {{name}} is NOT re-rendered
+print(render('{{greeting}}', {'greeting': 'Hello, {{name}}!', 'name': 'Alice'}))
+#> Hello, {{name}}!
 ```
 
 ### Cycle and depth guards
@@ -252,15 +257,28 @@ Because resolution walks an arbitrary graph, two failure modes need explicit han
 - **Push / sync time** — `logfire.variables_validate()` reports reference errors and cycles; `logfire.variables_push(strict=True)` fails instead of applying an invalid configuration. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a cycle whose midpoint is a server-only variable is still detected. This is the loud-by-default path.
 - **Runtime** — if an invalid composition slips through (e.g. a server value changed between validation and the next resolve), `Variable.get()` catches the cycle (via a visited-set) or depth overflow (`MAX_COMPOSITION_DEPTH = 20`) and falls back to the variable's *code default* with a `RuntimeWarning`. The exception is recorded on `ResolvedVariable.exception` and the resolution reason becomes `'other_error'` so callers can detect and react. The same fallback applies when a `@{ref}@` points at a variable that doesn't exist at runtime — this differs from a missing `{{field}}` (Handlebars' empty-string substitution); composition treats unresolvable references as a real failure.
 
-```python skip="true"
+```python
 import warnings
 
-# Suppose the server config has parent.latest = "@{missing_at_runtime}@"
+import logfire
+from logfire.variables import VariableCompositionError
+
+logfire.configure()
+
+# A pair of variables that reference each other — push-time validation
+# would catch this; we register them here just to show what the runtime
+# guard does when it does have to step in.
+left = logfire.var('cycle_left', type=str, default='@{cycle_right}@')
+logfire.var('cycle_right', type=str, default='@{cycle_left}@')
+
 with warnings.catch_warnings(record=True) as caught:
     warnings.simplefilter('always')
-    with parent.get() as resolved:
-        assert resolved.value == 'code default for parent'
-        assert resolved.reason == 'other_error'
-        assert isinstance(resolved.exception, logfire.variables.VariableCompositionError)
-    assert any('composition failed' in str(w.message) for w in caught)
+    with left.get() as resolved:
+        # `resolved.reason` is `'other_error'` because composition failed.
+        # `resolved.value` is the variable's raw code default — composition
+        # didn't get to substitute anything.
+        print(resolved.reason, type(resolved.exception).__name__)
+        #> other_error VariableCompositionError
+    print(any('composition failed' in str(w.message) for w in caught))
+    #> True
 ```
