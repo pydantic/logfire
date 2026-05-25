@@ -135,7 +135,6 @@ class OTLPForwardingPipeline:
         self.active_send = False
         self.worker: Thread | None = None
         self.closed = False
-        self.session_closed = False
         self.condition = Condition()
         self.tokens: list[str] = []
 
@@ -194,7 +193,7 @@ class OTLPForwardingPipeline:
                 if self.worker is current_thread():
                     self.worker = None
                 if self.closed and not self.queue and not self.active_send:
-                    self._close_session_once()
+                    self.session.close()
                 self.condition.notify_all()
 
     def force_flush(self, timeout_millis: int) -> bool:
@@ -209,11 +208,6 @@ class OTLPForwardingPipeline:
 
     def _has_live_worker_locked(self) -> bool:
         return self.worker is not None and self.worker.is_alive()
-
-    def _close_session_once(self) -> None:
-        if not self.session_closed:
-            self.session.close()
-            self.session_closed = True
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         deadline = monotonic() + timeout_millis / 1000
@@ -242,7 +236,7 @@ class OTLPForwardingPipeline:
                     return False
                 self.condition.wait(timeout=remaining)
 
-            self._close_session_once()
+            self.session.close()
             return complete
 
 

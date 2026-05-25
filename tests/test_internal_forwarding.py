@@ -351,7 +351,7 @@ def test_forwarding_pipeline_shutdown_closes_admission_and_idle_session() -> Non
 
     assert pipeline.closed is True
     assert pipeline.worker is None
-    assert session.close_count == 1
+    assert session.closed is True
     assert pipeline.enqueue(_make_forwarding_request(b'one')) is False
 
 
@@ -359,7 +359,7 @@ class FakeForwardingSession:
     def __init__(self, *, fail_tokens: set[str] | None = None) -> None:
         self.fail_tokens = fail_tokens or set()
         self.calls: list[dict[str, Any]] = []
-        self.close_count = 0
+        self.closed = False
 
     def post(self, url: str, data: bytes, **kwargs: Any) -> object:
         self.calls.append({'url': url, 'data': data, **kwargs})
@@ -370,7 +370,7 @@ class FakeForwardingSession:
         return object()
 
     def close(self) -> None:
-        self.close_count += 1
+        self.closed = True
 
 
 def test_forwarding_pipeline_shutdown_drains_queued_work() -> None:
@@ -392,7 +392,7 @@ def test_forwarding_pipeline_shutdown_drains_queued_work() -> None:
     assert pipeline.closed is True
     assert pipeline.queued_body_bytes == 0
     assert list(pipeline.queue) == []
-    assert session.close_count == 1
+    assert session.closed is True
     _wait_for_no_live_worker(pipeline)
 
 
@@ -406,12 +406,12 @@ def test_forwarding_pipeline_shutdown_timeout_drops_queued_work_after_active_sen
     assert pipeline.shutdown(1) is False
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
-    assert session.close_count == 0
+    assert session.closed is False
 
     pipeline.release.set()
     _wait_for_no_live_worker(pipeline)
 
-    assert session.close_count == 1
+    assert session.closed is True
 
 
 def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
