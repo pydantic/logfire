@@ -9,13 +9,17 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
-from pydantic import TypeAdapter, ValidationError
-
 from logfire.variables._handlebars import compile_runtime_template, get_safe_string_cls
 
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
+    # Pydantic is pulled in by the `[variables]` extra, not base logfire —
+    # so its imports stay TYPE_CHECKING + function-local. `import logfire`
+    # itself must work without pydantic installed (Pyodide regression
+    # guard, exercised by `pyodide_test/test.mjs`).
+    from pydantic import TypeAdapter
+
     import logfire
     from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
@@ -439,6 +443,8 @@ def _check_label_compatibility(
     serialized_value: str,
 ) -> LabelCompatibility:
     """Check if a label's value is compatible with the variable's type."""
+    from pydantic import ValidationError
+
     try:
         variable.type_adapter.validate_json(serialized_value)
         return LabelCompatibility(
@@ -498,6 +504,8 @@ def _check_type_label_compatibility(
 
     Returns a list of incompatible labels (empty if all are compatible).
     """
+    from pydantic import ValidationError
+
     from logfire.variables.config import LabeledValue
 
     incompatible: list[LabelCompatibility] = []
@@ -1508,6 +1516,8 @@ class VariableProvider(ABC):
             provider.push_variable_types([(FeatureConfig, 'my_feature_config')])
             ```
         """
+        from pydantic import TypeAdapter
+
         from logfire.variables.config import VariableTypeConfig, get_default_type_name, get_source_hint
 
         if not types:
