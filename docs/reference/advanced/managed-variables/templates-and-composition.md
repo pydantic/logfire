@@ -211,6 +211,44 @@ with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolv
     # "You are helping Alice. Respond in French. Be friendly and concise."
 ```
 
-### Cycle Detection
+### Recursive Resolution
 
-The system detects circular references during validation. If variable A references `@{B}@` and variable B references `@{A}@`, `logfire.variables_validate()` reports the cycle, and `logfire.variables_push(strict=True)` fails instead of applying the invalid configuration. This prevents infinite loops during resolution.
+Composition is **recursive**, not a one-shot substitution. When a `@{ref}@` is expanded the referenced variable goes through its own full resolution — including expanding any `@{...}@` it contains — before its value is substituted in. So a tree like `parent → @{middle}@ → @{leaf}@` resolves leaf-first, builds middle, then substitutes the result into parent.
+
+```python skip="true"
+import logfire
+
+logfire.configure()
+
+leaf = logfire.var('leaf', type=str, default='LEAF')
+middle = logfire.var('middle', type=str, default='middle wraps @{leaf}@')
+parent = logfire.var('parent', type=str, default='top: @{middle}@')
+
+with parent.get() as resolved:
+    print(resolved.value)
+    #> top: middle wraps LEAF
+    # composed_from mirrors the tree:
+    #   middle (composed_from: [leaf])
+```
+
+This is the main semantic difference from "plain" Handlebars: a value isn't just a template, it's a node in a graph that the SDK walks at resolution time.
+
+### Cycle and depth guards
+
+Because resolution walks an arbitrary graph, two failure modes need explicit handling: cycles (`A → @{B}@`, `B → @{A}@`) and deep chains. Both are caught at two layers:
+
+- **Push / sync time** — `logfire.variables_validate()` reports reference errors and cycles; `logfire.variables_push(strict=True)` fails instead of applying an invalid configuration. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a cycle whose midpoint is a server-only variable is still detected. This is the loud-by-default path.
+- **Runtime** — if an invalid composition slips through (e.g. a server value changed between validation and the next resolve), `Variable.get()` catches the cycle (via a visited-set) or depth overflow (`MAX_COMPOSITION_DEPTH = 20`) and falls back to the variable's *code default* with a `RuntimeWarning`. The exception is recorded on `ResolvedVariable.exception` and the resolution reason becomes `'other_error'` so callers can detect and react. The same fallback applies when a `@{ref}@` points at a variable that doesn't exist at runtime — this differs from a missing `{{field}}` (Handlebars' empty-string substitution); composition treats unresolvable references as a real failure.
+
+```python skip="true"
+import warnings
+
+# Suppose the server config has parent.latest = "@{missing_at_runtime}@"
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter('always')
+    with parent.get() as resolved:
+        assert resolved.value == 'code default for parent'
+        assert resolved.reason == 'other_error'
+        assert isinstance(resolved.exception, logfire.variables.VariableCompositionError)
+    assert any('composition failed' in str(w.message) for w in caught)
+```
