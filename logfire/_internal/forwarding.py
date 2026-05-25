@@ -52,6 +52,7 @@ class ForwardingPathConfig:
     timeout_env: str
     default_timeout: float
     partial_success_rejected_attribute: str
+    response_message_type: type[Any]
 
 
 FORWARDING_CONFIGS: dict[ForwardingPath, ForwardingPathConfig] = {
@@ -59,16 +60,19 @@ FORWARDING_CONFIGS: dict[ForwardingPath, ForwardingPathConfig] = {
         timeout_env=OTEL_EXPORTER_OTLP_TRACES_TIMEOUT,
         default_timeout=float(DEFAULT_TRACES_TIMEOUT),
         partial_success_rejected_attribute='rejected_spans',
+        response_message_type=ExportTraceServiceResponse,
     ),
     '/v1/logs': ForwardingPathConfig(
         timeout_env=OTEL_EXPORTER_OTLP_LOGS_TIMEOUT,
         default_timeout=float(DEFAULT_LOGS_TIMEOUT),
         partial_success_rejected_attribute='rejected_log_records',
+        response_message_type=ExportLogsServiceResponse,
     ),
     '/v1/metrics': ForwardingPathConfig(
         timeout_env=OTEL_EXPORTER_OTLP_METRICS_TIMEOUT,
         default_timeout=float(DEFAULT_METRICS_TIMEOUT),
         partial_success_rejected_attribute='rejected_data_points',
+        response_message_type=ExportMetricsServiceResponse,
     ),
 }
 
@@ -357,10 +361,11 @@ def parse_forwarding_content_type(headers: Mapping[str, str]) -> ForwardingConte
 
 
 def _invalid_path_response() -> ForwardingErrorResponse:
+    paths = tuple(FORWARDING_CONFIGS)
     return ForwardingErrorResponse(
         status_code=400,
         content_type='text/plain',
-        content=b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics',
+        content=f'Invalid path: must be {", ".join(paths[:-1])}, or {paths[-1]}'.encode(),
     )
 
 
@@ -372,12 +377,8 @@ def _normalize_forwarding_path(path: str) -> ForwardingPath | ForwardingErrorRes
         path = '/' + path
 
     normalized_path = posixpath.normpath(unquote(path))
-    if normalized_path == '/v1/traces':
-        return '/v1/traces'
-    if normalized_path == '/v1/logs':
-        return '/v1/logs'
-    if normalized_path == '/v1/metrics':
-        return '/v1/metrics'
+    if normalized_path in FORWARDING_CONFIGS:
+        return normalized_path
     return _invalid_path_response()
 
 
@@ -435,11 +436,7 @@ def response_content_type(content_type: ForwardingContentType) -> str:
 
 
 def response_message_for_path(path: ForwardingPath) -> type[Any]:
-    if path == '/v1/traces':
-        return ExportTraceServiceResponse
-    if path == '/v1/logs':
-        return ExportLogsServiceResponse
-    return ExportMetricsServiceResponse
+    return FORWARDING_CONFIGS[path].response_message_type
 
 
 def build_success_response(request: ForwardingRequest) -> ForwardExportRequestResponse:
