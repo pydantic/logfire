@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from threading import Condition, Thread, current_thread
+from threading import Condition, Thread
 from time import monotonic
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
@@ -173,6 +173,9 @@ class OTLPForwardingPipeline:
         try:
             while True:
                 with self.condition:
+                    while not self.queue and not self.closed:
+                        self.condition.wait()
+
                     if not self.queue:
                         return
 
@@ -189,18 +192,25 @@ class OTLPForwardingPipeline:
                         self.condition.notify_all()
         finally:
             with self.condition:
-                if self.worker is current_thread():
-                    self.worker = None
+                self.worker = None
                 self._close_session_if_idle_locked()
                 self.condition.notify_all()
 
     def force_flush(self, timeout_millis: int) -> bool:
         deadline = monotonic() + timeout_millis / 1000
         with self.condition:
-            return self._wait_for_worker_locked(deadline)
+            return self._wait_for_queue_empty_locked(deadline)
 
     def _has_live_worker_locked(self) -> bool:
         return self.worker is not None and self.worker.is_alive()
+
+    def _wait_for_queue_empty_locked(self, deadline: float) -> bool:
+        while self.queue:
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                return False
+            self.condition.wait(timeout=remaining)
+        return True
 
     def _wait_for_worker_locked(self, deadline: float) -> bool:
         while self._has_live_worker_locked():
@@ -225,6 +235,9 @@ class OTLPForwardingPipeline:
             self.condition.notify_all()
             if not drain_queued:
                 self._drop_queue_locked()
+            elif not self._wait_for_queue_empty_locked(deadline):
+                self._drop_queue_locked()
+                return False
 
             if not self._wait_for_worker_locked(deadline):
                 self._drop_queue_locked()
@@ -289,12 +302,6 @@ class OTLPForwardingManager:
         self.closed = True
 
         complete = True
-        if not drain_queued:
-            for pipeline in self.pipelines.values():
-                if not pipeline.shutdown(0, drain_queued=False):
-                    complete = False
-            return complete
-
         for pipeline in self.pipelines.values():
             remaining_millis = max(0, int((deadline - monotonic()) * 1000))
             if not pipeline.shutdown(remaining_millis, drain_queued=drain_queued):

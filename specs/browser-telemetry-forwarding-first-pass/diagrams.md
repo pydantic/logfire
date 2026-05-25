@@ -224,7 +224,8 @@ flowchart TD
     Enqueue --> Limit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
     Enqueue --> Condition["Condition protects queue, worker, closed"]
     Enqueue --> Worker["Thread target: OTLPForwardingPipeline._run()"]
-    Worker --> Send["peek first queued request"]
+    Worker --> IdleWait["wait for queue work or closed"]
+    IdleWait --> Send["peek first queued request"]
     Send --> PipelineSend["OTLPForwardingPipeline._send(request)"]
     Send --> Headers["copy request headers and inject token authorization"]
     Send --> Timeout["request.path_config.timeout()"]
@@ -239,16 +240,18 @@ flowchart TD
 
     ManagerFlush --> PipelineFlush["OTLPForwardingPipeline.force_flush(timeout_millis)"]
     PipelineFlush --> Condition
-    PipelineFlush --> FlushWaitEmpty["wait for no live worker"]
+    PipelineFlush --> FlushWaitEmpty["wait for queue empty"]
 
     ManagerShutdownDrain --> PipelineShutdown["OTLPForwardingPipeline.shutdown(timeout_millis, drain_queued=True)"]
     ManagerShutdownDrop --> PipelineShutdownNoDrain["OTLPForwardingPipeline.shutdown(timeout_millis, drain_queued=False)"]
     ManagerShutdownOld --> PipelineShutdown
     PipelineShutdown --> Condition
-    PipelineShutdown --> WaitWorker["wait for no live worker"]
-    WaitWorker -->|"timeout"| DropQueued["drop queued memory work"]
+    PipelineShutdown --> ShutdownDrain["wait for queue empty"]
+    ShutdownDrain -->|"timeout"| DropQueued["drop queued memory work"]
+    ShutdownDrain -->|"queue empty"| WaitWorker["wait for no live worker"]
     PipelineShutdownNoDrain --> DropQueuedNoDrain["drop queued memory work without drain attempt"]
     DropQueuedNoDrain --> WaitWorker
     WaitWorker --> SessionClose["OTLPExporterHttpSession.close()"]
+    DropQueued -.->|"worker cleanup later"| SessionClose
     Retryer -.->|"not awaited by flush/shutdown"| SessionClose
 ```

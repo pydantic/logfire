@@ -331,11 +331,15 @@ def test_forwarding_pipeline_force_flush_success_waits_for_active_send() -> None
     pipeline = BlockingSendForwardingPipeline()
     assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
     assert pipeline.started.wait(timeout=5) is True
+    worker = pipeline.worker
 
     assert pipeline.force_flush(1) is False
     pipeline.release.set()
-    _wait_for_no_live_worker(pipeline)
     assert pipeline.force_flush(5000) is True
+    assert pipeline.worker is worker
+    assert worker is not None and worker.is_alive()
+    assert pipeline.shutdown(5000) is True
+    _wait_for_no_live_worker(pipeline)
 
 
 def test_forwarding_pipeline_shutdown_closes_admission_and_idle_session() -> None:
@@ -477,11 +481,13 @@ def test_forwarding_pipeline_worker_continues_after_unexpected_send_failure() ->
     assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
 
     pipeline.release_first_send.set()
-    _wait_for_no_live_worker(pipeline)
+    assert pipeline.force_flush(5000) is True
 
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
     assert pipeline.sent_bodies == [b'one', b'two']
+    assert pipeline.shutdown(5000) is True
+    _wait_for_no_live_worker(pipeline)
 
 
 def test_forwarding_manager_destinations_create_pipeline_and_group_tokens(
@@ -645,7 +651,11 @@ class FakeShutdownPipeline:
         return self.result
 
 
-def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('drain_queued', [True, False])
+def test_forwarding_manager_shutdown_uses_remaining_budget(
+    monkeypatch: pytest.MonkeyPatch,
+    drain_queued: bool,
+) -> None:
     times = iter([0.0, 0.0, 0.04])
     monkeypatch.setattr(forwarding_module, 'monotonic', lambda: next(times))
     pipeline_1 = FakeShutdownPipeline()
@@ -653,11 +663,11 @@ def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.M
     manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
     manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
 
-    assert manager.shutdown(100) is True
+    assert manager.shutdown(100, drain_queued=drain_queued) is True
 
     assert manager.closed is True
-    assert pipeline_1.shutdown_calls == [(100, True)]
-    assert pipeline_2.shutdown_calls == [(60, True)]
+    assert pipeline_1.shutdown_calls == [(100, drain_queued)]
+    assert pipeline_2.shutdown_calls == [(60, drain_queued)]
 
 
 def test_forwarding_manager_shutdown_returns_false_for_pipeline_timeout() -> None:
@@ -670,19 +680,3 @@ def test_forwarding_manager_shutdown_returns_false_for_pipeline_timeout() -> Non
 
     assert len(pipeline_1.shutdown_calls) == 1
     assert len(pipeline_2.shutdown_calls) == 1
-
-
-def test_forwarding_manager_shutdown_without_drain_calls_all_pipelines_without_budget_spend(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(forwarding_module, 'monotonic', lambda: 999.0)
-    pipeline_1 = FakeShutdownPipeline(result=False)
-    pipeline_2 = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
-    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
-
-    assert manager.shutdown(100, drain_queued=False) is False
-
-    assert manager.closed is True
-    assert pipeline_1.shutdown_calls == [(0, False)]
-    assert pipeline_2.shutdown_calls == [(0, False)]
