@@ -99,7 +99,7 @@ def test_import_logfire_without_pydantic_handlebars():
 
 def test_handlebars_import_helpers_are_memoized(monkeypatch: pytest.MonkeyPatch):
     """Successful pydantic-handlebars imports are cached after the first lookup."""
-    renderer = _handlebars.get_handlebars_renderer()
+    module = _handlebars._pydantic_handlebars()
     schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}}
     _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
 
@@ -112,8 +112,37 @@ def test_handlebars_import_helpers_are_memoized(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(builtins, '__import__', blocked_import)
 
-    assert _handlebars.get_handlebars_renderer() == renderer
+    # Re-entering the cached accessors should not re-trigger the import.
+    assert _handlebars._pydantic_handlebars() is module
     _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
+
+
+def test_missing_handlebars_raises_helpful_error(monkeypatch: pytest.MonkeyPatch):
+    """When `pydantic_handlebars` can't be imported, the SDK raises a guided error.
+
+    Run in-process — same `__import__` blocking trick as
+    `test_import_logfire_without_pydantic_handlebars`, but here we wipe the
+    `_pydantic_handlebars` cache first so the import re-runs and hits the
+    dep-error branch. The subprocess version exercises the user-facing
+    `template_var` / `render_serialized_string` flows; this one gives the
+    coverage harness an in-process witness of the failure path.
+    """
+    real_import = builtins.__import__
+
+    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
+            raise ModuleNotFoundError(f'No module named {name!r}', name=name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', blocked_import)
+    _handlebars._pydantic_handlebars.cache_clear()
+    try:
+        with pytest.raises(_handlebars.HandlebarsDependencyError, match='pydantic-handlebars'):
+            _handlebars._pydantic_handlebars()
+    finally:
+        # Restore the real import so subsequent tests in the session see a
+        # populated cache.
+        _handlebars._pydantic_handlebars.cache_clear()
 
 
 # =============================================================================

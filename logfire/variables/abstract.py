@@ -187,10 +187,9 @@ def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     Returns:
         The rendered JSON string.
     """
-    from logfire.variables._handlebars import get_handlebars_renderer
+    from logfire.variables._handlebars import compile_runtime_template, get_safe_string_cls
 
-    safe_string_cls, render_fn = get_handlebars_renderer()
-
+    safe_string_cls = get_safe_string_cls()
     context = _inputs_to_context(inputs)
 
     # Wrap all string values in SafeString to disable HTML escaping.
@@ -202,7 +201,7 @@ def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     # might contain JSON-special characters (e.g., double quotes) that
     # would make the resulting JSON invalid.
     decoded = json.loads(serialized_json)
-    rendered_value = _render_json_value(decoded, render_fn, context)
+    rendered_value = _render_json_value(decoded, compile_runtime_template, context)
     return json.dumps(rendered_value)
 
 
@@ -222,19 +221,23 @@ def _wrap_safe_value(value: Any, safe_string_cls: type[str]) -> Any:
     return value
 
 
-def _render_json_value(value: Any, hbs_render: Callable[..., str], context: dict[str, Any]) -> Any:
+def _render_json_value(value: Any, compile_template: Callable[[str], Any], context: dict[str, Any]) -> Any:
     """Recursively render Handlebars templates in a decoded JSON value.
 
     Only string values are rendered; dicts and lists are walked recursively.
+    *compile_template* is the LRU-cached compile helper from
+    `_handlebars.compile_runtime_template` — passing it in (rather than
+    importing here) keeps the recursion cheap and makes the cache hit on
+    repeated identical sources.
     """
     if isinstance(value, str):
         if '{{' not in value:
             return value
-        return hbs_render(value, context)
+        return compile_template(value).render(context)
     if isinstance(value, dict):
-        return {k: _render_json_value(v, hbs_render, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+        return {k: _render_json_value(v, compile_template, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, list):
-        return [_render_json_value(item, hbs_render, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
+        return [_render_json_value(item, compile_template, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
     # Numbers, booleans, None pass through unchanged
     return value
 

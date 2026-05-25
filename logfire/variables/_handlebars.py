@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from functools import cache, lru_cache
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from pydantic_handlebars import CompiledTemplate, HandlebarsEnvironment
 
 
@@ -21,7 +22,7 @@ class _FallbackHandlebarsError(Exception):
 
 try:
     from pydantic_handlebars import HandlebarsError as _ImportedHandlebarsError
-except ImportError:  # pragma: no cover
+except ImportError:
     _ImportedHandlebarsError = _FallbackHandlebarsError
 
 HandlebarsError: type[Exception] = _ImportedHandlebarsError
@@ -31,16 +32,29 @@ class HandlebarsDependencyError(ImportError):
     """Raised when a Handlebars feature is used without pydantic-handlebars installed."""
 
 
-def _dependency_error() -> HandlebarsDependencyError:
-    return HandlebarsDependencyError(
-        'Handlebars template rendering requires the `pydantic-handlebars` package, '
-        'which is installed by the `logfire[variables]` extra.'
-    )
+@cache
+def _pydantic_handlebars() -> ModuleType:
+    """Return the cached `pydantic_handlebars` module, or raise a helpful error.
+
+    The import is cached so every accessor below — `get_environment`,
+    `compile_composition_template`, `extract_composition_dependencies`,
+    etc. — can grab attributes off the returned module without each one
+    repeating its own try/except dance. Failure surfaces once, here, with
+    the install hint.
+    """
+    try:
+        import pydantic_handlebars
+    except ModuleNotFoundError as exc:
+        raise HandlebarsDependencyError(
+            'Handlebars template rendering requires the `pydantic-handlebars` package, '
+            'which is installed by the `logfire[variables]` extra.'
+        ) from exc
+    return pydantic_handlebars
 
 
 def ensure_handlebars_available() -> None:
     """Raise a helpful error if pydantic-handlebars is unavailable."""
-    get_environment()
+    _pydantic_handlebars()
 
 
 @cache
@@ -51,76 +65,65 @@ def get_environment() -> HandlebarsEnvironment:
     `{{...}}` runtime placeholders in the template as plain content; a
     subsequent render pass with the default delimiters consumes those.
     """
-    try:
-        from pydantic_handlebars import HandlebarsEnvironment
-    except ModuleNotFoundError as exc:  # pragma: no cover
-        if exc.name == 'pydantic_handlebars':
-            raise _dependency_error() from exc
-        raise
-    return HandlebarsEnvironment(open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM)
+    return _pydantic_handlebars().HandlebarsEnvironment(
+        open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM
+    )
 
 
 @cache
-def get_handlebars_renderer() -> tuple[type[str], Callable[..., str]]:
-    """Return pydantic-handlebars SafeString and module-level render function."""
-    try:
-        from pydantic_handlebars import SafeString, render
-    except ModuleNotFoundError as exc:  # pragma: no cover
-        if exc.name == 'pydantic_handlebars':
-            raise _dependency_error() from exc
-        raise
-    return SafeString, render
+def get_runtime_environment() -> HandlebarsEnvironment:
+    """Return a cached default-delimiter `HandlebarsEnvironment` for `{{...}}` rendering.
+
+    Used by `TemplateVariable.get(inputs)` to render the post-composition
+    serialized value against the provided inputs.
+    """
+    return _pydantic_handlebars().HandlebarsEnvironment()
+
+
+@cache
+def get_safe_string_cls() -> type[str]:
+    """Return `pydantic_handlebars.SafeString`.
+
+    Context values are wrapped in it so HTML auto-escaping (off by default
+    but enableable) doesn't munge them.
+    """
+    return _pydantic_handlebars().SafeString
 
 
 @lru_cache(maxsize=1024)
 def compile_composition_template(source: str) -> CompiledTemplate:
-    """Return a cached `CompiledTemplate` for *source* compiled with composition delimiters.
+    """Return a cached `CompiledTemplate` for *source* under composition delimiters.
 
-    Managed-variable values are typically stable across many resolutions —
-    the same `@{...}@` template is rendered once per `get()` call. Caching
-    the parsed program avoids reparsing each time
-    `HandlebarsEnvironment.render(source, context)` is called (which by
-    itself does the parse on every call). 1024 is large enough for any
-    realistic number of distinct templates in a single process while
-    staying bounded for long-running workers.
+    Managed-variable values are typically stable across many resolutions, so
+    caching the parsed program lets `Variable._resolve` skip the parse on
+    every `get()` call. 1024 is large enough for any realistic number of
+    distinct templates in a single process while staying bounded for
+    long-running workers. Same rationale for `compile_runtime_template`.
     """
     return get_environment().compile(source)
 
 
-@cache
-def _extract_dependencies_fn() -> Callable[..., set[str]]:
-    """Cached lookup of `pydantic_handlebars.extract_dependencies`."""
-    try:
-        from pydantic_handlebars import extract_dependencies
-    except ModuleNotFoundError as exc:  # pragma: no cover
-        if exc.name == 'pydantic_handlebars':
-            raise _dependency_error() from exc
-        raise
-    return extract_dependencies
+@lru_cache(maxsize=1024)
+def compile_runtime_template(source: str) -> CompiledTemplate:
+    """Return a cached `CompiledTemplate` for *source* under default `{{...}}` delimiters."""
+    return get_runtime_environment().compile(source)
 
 
+@lru_cache(maxsize=1024)
 def extract_composition_dependencies(template: str) -> set[str]:
     """Return the top-level `@{name}@` references in *template*.
 
-    Delegates to `pydantic_handlebars.extract_dependencies` configured for
-    the composition delimiters, so block helpers / dotted paths / etc. are
-    handled AST-correctly.
+    Cached because cycle / reference validation runs over the same template
+    strings multiple times per push or sync. The underlying delegation goes
+    to `pydantic_handlebars.extract_dependencies` configured for the
+    composition delimiters, so block helpers, dotted paths, and helper
+    sub-expressions are handled AST-correctly.
     """
-    return _extract_dependencies_fn()(template, open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM)
-
-
-@cache
-def _get_template_compatibility_checker() -> Callable[[list[str], dict[str, Any]], Any]:
-    """Return pydantic-handlebars schema compatibility checker, or raise a helpful error."""
-    try:
-        from pydantic_handlebars import check_template_compatibility as _check_template_compatibility
-    except ModuleNotFoundError as exc:  # pragma: no cover
-        if exc.name == 'pydantic_handlebars':
-            raise _dependency_error() from exc
-        raise
-    return _check_template_compatibility
+    return _pydantic_handlebars().extract_dependencies(
+        template, open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM
+    )
 
 
 def check_template_compatibility(templates: list[str], schema: dict[str, Any]) -> Any:
     """Run pydantic-handlebars schema compatibility checking."""
-    return _get_template_compatibility_checker()(templates, schema)
+    return _pydantic_handlebars().check_template_compatibility(templates, schema)
