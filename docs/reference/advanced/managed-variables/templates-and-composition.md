@@ -274,11 +274,11 @@ logfire.var('cycle_right', type=str, default='@{cycle_left}@')
 with warnings.catch_warnings(record=True) as caught:
     warnings.simplefilter('always')
     with left.get() as resolved:
-        # `resolved.reason` is `'other_error'` because composition failed.
-        # `resolved.value` is the variable's raw code default — composition
-        # didn't get to substitute anything.
-        print(resolved.reason, type(resolved.exception).__name__)
-        #> other_error VariableCompositionError
+        # `resolved.reason` is `'other_error'` because composition failed,
+        # and `resolved.exception` is a `VariableCompositionError` (or a
+        # subclass like `VariableCompositionCycleError` for cycles).
+        print(resolved.reason, isinstance(resolved.exception, VariableCompositionError))
+        #> other_error True
     print(any('composition failed' in str(w.message) for w in caught))
     #> True
 ```
