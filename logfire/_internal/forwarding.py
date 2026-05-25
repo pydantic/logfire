@@ -45,15 +45,31 @@ OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
 _MEDIA_TYPE_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+/[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 _PARAMETER_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+=")
 ForwardingPath = Literal['/v1/traces', '/v1/logs', '/v1/metrics']
-_SIGNAL_TIMEOUT_ENV: dict[ForwardingPath, str] = {
-    '/v1/traces': OTEL_EXPORTER_OTLP_TRACES_TIMEOUT,
-    '/v1/logs': OTEL_EXPORTER_OTLP_LOGS_TIMEOUT,
-    '/v1/metrics': OTEL_EXPORTER_OTLP_METRICS_TIMEOUT,
-}
-_DEFAULT_TIMEOUT: dict[ForwardingPath, float] = {
-    '/v1/traces': float(DEFAULT_TRACES_TIMEOUT),
-    '/v1/logs': float(DEFAULT_LOGS_TIMEOUT),
-    '/v1/metrics': float(DEFAULT_METRICS_TIMEOUT),
+
+
+@dataclass(frozen=True)
+class ForwardingPathConfig:
+    timeout_env: str
+    default_timeout: float
+    partial_success_rejected_attribute: str
+
+
+FORWARDING_CONFIGS: dict[ForwardingPath, ForwardingPathConfig] = {
+    '/v1/traces': ForwardingPathConfig(
+        timeout_env=OTEL_EXPORTER_OTLP_TRACES_TIMEOUT,
+        default_timeout=float(DEFAULT_TRACES_TIMEOUT),
+        partial_success_rejected_attribute='rejected_spans',
+    ),
+    '/v1/logs': ForwardingPathConfig(
+        timeout_env=OTEL_EXPORTER_OTLP_LOGS_TIMEOUT,
+        default_timeout=float(DEFAULT_LOGS_TIMEOUT),
+        partial_success_rejected_attribute='rejected_log_records',
+    ),
+    '/v1/metrics': ForwardingPathConfig(
+        timeout_env=OTEL_EXPORTER_OTLP_METRICS_TIMEOUT,
+        default_timeout=float(DEFAULT_METRICS_TIMEOUT),
+        partial_success_rejected_attribute='rejected_data_points',
+    ),
 }
 
 
@@ -451,12 +467,7 @@ def build_partial_success_response(
 
     response_message = response_message_for_path(request.path)()
     partial_success = response_message.partial_success
-    if request.path == '/v1/traces':
-        partial_success.rejected_spans = 0
-    elif request.path == '/v1/logs':
-        partial_success.rejected_log_records = 0
-    else:
-        partial_success.rejected_data_points = 0
+    setattr(partial_success, FORWARDING_CONFIGS[request.path].partial_success_rejected_attribute, 0)
     partial_success.error_message = message
 
     if request.content_type is ForwardingContentType.PROTOBUF:
@@ -494,7 +505,7 @@ def build_forwarding_headers(request: ForwardingRequest, *, token: str) -> dict[
 
 
 def forwarding_timeout_for_path(path: ForwardingPath) -> float:
-    signal_timeout = os.environ.get(_SIGNAL_TIMEOUT_ENV[path])
+    signal_timeout = os.environ.get(FORWARDING_CONFIGS[path].timeout_env)
     if signal_timeout is not None:
         return float(signal_timeout)
 
@@ -502,4 +513,4 @@ def forwarding_timeout_for_path(path: ForwardingPath) -> float:
     if generic_timeout is not None:
         return float(generic_timeout)
 
-    return _DEFAULT_TIMEOUT[path]
+    return FORWARDING_CONFIGS[path].default_timeout
