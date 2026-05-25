@@ -45,6 +45,13 @@ def _pydantic_handlebars() -> ModuleType:
     try:
         import pydantic_handlebars
     except ModuleNotFoundError as exc:
+        # Only reframe the error if it's *pydantic_handlebars itself* that's
+        # missing. A future version pulling in a new transitive dep that
+        # isn't installed would raise `ModuleNotFoundError` with a different
+        # `exc.name`, and the user wants to see *that* name in the message
+        # rather than a misleading "install pydantic-handlebars" hint.
+        if exc.name != 'pydantic_handlebars':
+            raise
         raise HandlebarsDependencyError(
             'Handlebars template rendering requires the `pydantic-handlebars` package, '
             'which is installed by the `logfire[variables]` extra.'

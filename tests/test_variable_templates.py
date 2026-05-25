@@ -145,6 +145,31 @@ def test_missing_handlebars_raises_helpful_error(monkeypatch: pytest.MonkeyPatch
         _handlebars._pydantic_handlebars.cache_clear()
 
 
+def test_unrelated_module_not_found_propagates(monkeypatch: pytest.MonkeyPatch):
+    """A `ModuleNotFoundError` for a *different* module isn't reframed.
+
+    Simulates the case where a future `pydantic_handlebars` version pulls in
+    a new transitive dependency that the user hasn't installed. We want the
+    real error to surface so the user sees which package they actually need
+    — reframing it as "install pydantic-handlebars" would be misleading.
+    """
+    real_import = builtins.__import__
+
+    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'pydantic_handlebars':
+            raise ModuleNotFoundError("No module named 'some_other_dep'", name='some_other_dep')
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', blocked_import)
+    _handlebars._pydantic_handlebars.cache_clear()
+    try:
+        with pytest.raises(ModuleNotFoundError, match='some_other_dep') as exc_info:
+            _handlebars._pydantic_handlebars()
+        assert not isinstance(exc_info.value, _handlebars.HandlebarsDependencyError)
+    finally:
+        _handlebars._pydantic_handlebars.cache_clear()
+
+
 # =============================================================================
 # VariableConfig.template_inputs_schema tests
 # =============================================================================
