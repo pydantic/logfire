@@ -107,9 +107,7 @@ classDiagram
         path
         body
         content_type: ForwardingContentType
-        content_type_header
-        content_encoding
-        user_agent
+        headers
         path_config
     }
 
@@ -126,7 +124,6 @@ classDiagram
 
     class ForwardingErrorResponse {
         status_code
-        content_type
         content
     }
 

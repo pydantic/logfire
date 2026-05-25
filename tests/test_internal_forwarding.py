@@ -86,19 +86,31 @@ def test_normalize_forwarding_path_rejections(path: str) -> None:
 
 
 def test_build_forwarding_request_valid_protobuf() -> None:
+    headers = {
+        'Content-Type': 'application/x-protobuf',
+        'Content-Encoding': 'gzip',
+        'User-Agent': 'browser',
+        'Authorization': 'client-token',
+    }
     request = build_forwarding_request(
         path='/v1/traces',
-        headers={'Content-Type': 'application/x-protobuf', 'Content-Encoding': 'gzip', 'User-Agent': 'browser'},
+        headers=headers,
         body=b'trace-data',
     )
+    headers['Content-Type'] = 'text/plain'
+    headers['Content-Encoding'] = 'br'
+    headers['User-Agent'] = 'changed'
 
     assert isinstance(request, ForwardingRequest)
     assert request.path == '/v1/traces'
     assert request.body == b'trace-data'
     assert request.content_type is ForwardingContentType.PROTOBUF
-    assert request.content_type_header == 'application/x-protobuf'
-    assert request.content_encoding == 'gzip'
-    assert request.user_agent == 'browser'
+    assert request.headers == {
+        'Content-Type': 'application/x-protobuf',
+        'Content-Encoding': 'gzip',
+        'User-Agent': 'browser',
+    }
+    assert 'Authorization' not in request.headers
 
 
 def test_build_forwarding_request_valid_json_with_parameters() -> None:
@@ -112,9 +124,7 @@ def test_build_forwarding_request_valid_json_with_parameters() -> None:
     assert request.path == '/v1/logs'
     assert request.body == b'{"resourceLogs":[]}'
     assert request.content_type is ForwardingContentType.JSON
-    assert request.content_type_header == 'application/json; charset=utf-8'
-    assert request.content_encoding is None
-    assert request.user_agent is None
+    assert request.headers == {'Content-Type': 'application/json; charset=utf-8'}
 
 
 def test_build_forwarding_request_none_body_normalizes_to_empty_bytes() -> None:
@@ -194,9 +204,7 @@ def test_build_success_response_protobuf() -> None:
         path='/v1/traces',
         body=b'trace-data',
         content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/x-protobuf'},
     )
 
     response = build_success_response(request)
@@ -211,9 +219,7 @@ def test_build_success_response_json() -> None:
         path='/v1/logs',
         body=b'{}',
         content_type=ForwardingContentType.JSON,
-        content_type_header='application/json; charset=utf-8',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/json; charset=utf-8'},
     )
 
     response = build_success_response(request)
@@ -236,9 +242,7 @@ def test_build_partial_success_response_json(path: str, rejected_field: str) -> 
         path=path,  # type: ignore[arg-type]
         body=b'{}',
         content_type=ForwardingContentType.JSON,
-        content_type_header='application/json',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/json'},
     )
 
     response = build_partial_success_response(request, message='queue full')
@@ -266,9 +270,7 @@ def test_build_partial_success_response_protobuf(path: str, message_cls: type[ob
         path=path,  # type: ignore[arg-type]
         body=b'data',
         content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/x-protobuf'},
     )
 
     response = build_partial_success_response(request, message='closed')
@@ -286,9 +288,11 @@ def test_build_forwarding_headers_preserves_representation_and_injects_token() -
         path='/v1/traces',
         body=b'data',
         content_type=ForwardingContentType.JSON,
-        content_type_header='application/json; charset=utf-8',
-        content_encoding='gzip',
-        user_agent='browser-agent',
+        headers={
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Encoding': 'gzip',
+            'User-Agent': 'browser-agent',
+        },
     )
 
     headers = build_forwarding_headers(request, token='server-token')
@@ -306,9 +310,7 @@ def test_build_forwarding_headers_without_optional_content_encoding_or_user_agen
         path='/v1/logs',
         body=b'data',
         content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/x-protobuf'},
     )
 
     headers = build_forwarding_headers(request, token='other-token')
@@ -351,9 +353,7 @@ def _make_forwarding_request(body: bytes) -> ForwardingRequest:
         path='/v1/traces',
         body=body,
         content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/x-protobuf'},
     )
 
 
@@ -782,9 +782,7 @@ def test_forwarding_manager_submit_success_enqueues_per_backend_url() -> None:
         path='/v1/traces',
         body=b'data',
         content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/x-protobuf'},
     )
     manager.pipelines = {  # type: ignore[assignment]
         'https://backend-1.example.com': pipeline_1,
@@ -806,9 +804,7 @@ def test_forwarding_manager_submit_partial_success_for_mixed_backend_outcomes() 
         path='/v1/logs',
         body=b'data',
         content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/x-protobuf'},
     )
     manager.pipelines = {  # type: ignore[assignment]
         'https://backend-1.example.com': accepting_pipeline,
@@ -832,9 +828,7 @@ def test_forwarding_manager_submit_after_close_returns_partial_success_without_e
         path='/v1/metrics',
         body=b'data',
         content_type=ForwardingContentType.PROTOBUF,
-        content_type_header='application/x-protobuf',
-        content_encoding=None,
-        user_agent=None,
+        headers={'Content-Type': 'application/x-protobuf'},
     )
     manager.pipelines = {'https://backend.example.com': pipeline}  # type: ignore[assignment]
     manager.closed = True

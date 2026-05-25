@@ -46,9 +46,7 @@ class ForwardingRequest:
     path: ForwardingPath
     body: bytes
     content_type: ForwardingContentType
-    content_type_header: str
-    content_encoding: str | None
-    user_agent: str | None
+    headers: Mapping[str, str]
 
     @property
     def path_config(self) -> ForwardingPathConfig:
@@ -62,7 +60,7 @@ class ForwardingContentType(Enum):
 
 `ForwardingRequest` is created once for a valid inbound request and is shared by reference across backend-url queues.
 
-`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `path_config` returns the centralized forwarding metadata for that path. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the inferred OTLP representation and drives the local response representation. `content_type_header` stores the original inbound `Content-Type` field value used for the Logfire-bound request, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional inbound `Content-Encoding` header value, found by case-insensitive lookup as part of the closed forwarded-header whitelist and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
+`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `path_config` returns the centralized forwarding metadata for that path. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the inferred OTLP representation and drives the local response representation. `headers` stores a copied read-only canonical snapshot of only the whitelisted inbound headers needed to build the Logfire-bound request: original `Content-Type`, optional `Content-Encoding`, and optional original `User-Agent`. Client `Authorization`, cookies, host headers, and other inbound headers are not retained on the queued request.
 
 `ForwardingContentType.PROTOBUF` represents `application/x-protobuf` requests and responses. `ForwardingContentType.JSON` represents `application/json` requests and responses.
 
@@ -201,7 +199,7 @@ def build_forwarding_request(
 
 `parse_forwarding_content_type()` is used during admission before constructing `ForwardingRequest`. It inspects an already-extracted `Content-Type` header value for the supported representation markers `application/x-protobuf` and `application/json` case-insensitively. It does not validate the header as a media type; backend validation owns actual header semantics for the forwarded request. Empty values or values without a supported representation marker map to `None`, and `None` maps to the local 415 response. Missing `Content-Type` is handled by `build_forwarding_request()` before calling this parser.
 
-`build_forwarding_request()` is the shared request-level adapter for path, representation header, body size, body normalization, and whitelisted header extraction. It normalizes `None` to empty bytes, rejects bodies larger than `max_body_size` with the local 413 response, and otherwise keeps the payload opaque. Header extraction uses case-insensitive lookups for `Content-Type`, `Content-Encoding`, and `User-Agent`. A successful request stores both the inferred `ForwardingContentType` and the original inbound `Content-Type` field value; successful output proceeds to manager submission. `ForwardingErrorResponse` remains an internal validation shape and must be adapted into `ForwardExportRequestResponse` at the public adapter boundary.
+`build_forwarding_request()` is the shared request-level adapter for path, representation header, body size, body normalization, and whitelisted header extraction. It normalizes `None` to empty bytes, rejects bodies larger than `max_body_size` with the local 413 response, and otherwise keeps the payload opaque. Header extraction uses case-insensitive lookups for `Content-Type`, `Content-Encoding`, and `User-Agent`. A successful request stores both the inferred `ForwardingContentType` and a copied whitelisted header snapshot; successful output proceeds to manager submission. `ForwardingErrorResponse` remains an internal validation shape and must be adapted into `ForwardExportRequestResponse` at the public adapter boundary.
 
 **Response builders encode local success and partial success.** *(implements "Response encoding matches the inferred request representation", "Accepted queued payloads return local OTLP success", "Locally dropped valid payloads return OTLP partial success")*
 The response builder creates empty OTLP success for complete local acceptance and partial success with rejected count `0` plus an explanatory message for local queue drops.
@@ -282,7 +280,7 @@ def build_forwarding_headers(
     """Build Logfire-bound headers for one active Logfire export write token."""
 ```
 
-`build_forwarding_headers()` is called by `_send()` for each token in the pipeline's token list. It uses `request.content_type_header`, optional `request.content_encoding`, optional `request.user_agent`, and the token to construct the complete Logfire-bound header set. The emitted `Content-Type` header preserves the original inbound field value.
+`build_forwarding_headers()` is called by `_send()` for each token in the pipeline's token list. It copies the request's whitelisted header snapshot, composes the Logfire proxy user agent with any original inbound user agent, and injects the active Logfire export write token as `Authorization`. Each token send receives a fresh header dictionary. The emitted `Content-Type` header preserves the original inbound field value.
 
 **Worker send exceptions are contained at token and queued-item boundaries.** *(implements "Forwarding worker send failures are contained")*
 `OTLPExporterHttpSession.post()` may raise after performing its immediate retry or after adding a failed request to `DiskRetryer`. `_send()` catches exceptions around each per-token `post()` call, logs or suppresses the exception locally, and continues with the remaining tokens in the pipeline token list. A failed token send must not skip later token sends for the same backend URL.

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 from threading import Condition, RLock, Thread, current_thread
 from time import monotonic
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 from urllib.parse import unquote, urljoin
 
@@ -99,9 +100,7 @@ class ForwardingRequest:
     path: ForwardingPath
     body: bytes
     content_type: ForwardingContentType
-    content_type_header: str
-    content_encoding: str | None
-    user_agent: str | None
+    headers: Mapping[str, str]
 
     @property
     def path_config(self) -> ForwardingPathConfig:
@@ -332,6 +331,20 @@ def _get_header(headers: Mapping[str, str], name: str) -> str | None:
     return None
 
 
+def _build_forwarding_request_headers(headers: Mapping[str, str], *, content_type: str) -> Mapping[str, str]:
+    request_headers = {'Content-Type': content_type}
+
+    content_encoding = _get_header(headers, 'content-encoding')
+    if content_encoding is not None:
+        request_headers['Content-Encoding'] = content_encoding
+
+    user_agent = _get_header(headers, 'user-agent')
+    if user_agent is not None:
+        request_headers['User-Agent'] = user_agent
+
+    return MappingProxyType(request_headers)
+
+
 def parse_forwarding_content_type(content_type: str) -> ForwardingContentType | None:
     normalized_content_type = content_type.lower()
     for forwarding_content_type in ForwardingContentType:
@@ -397,9 +410,7 @@ def build_forwarding_request(
         path=normalized_path,
         body=normalized_body,
         content_type=content_type,
-        content_type_header=content_type_header,
-        content_encoding=_get_header(headers, 'content-encoding'),
-        user_agent=_get_header(headers, 'user-agent'),
+        headers=_build_forwarding_request_headers(headers, content_type=content_type_header),
     )
 
 
@@ -449,10 +460,11 @@ def _forwarding_user_agent(user_agent: str | None) -> str:
 
 def build_forwarding_headers(request: ForwardingRequest, *, token: str) -> dict[str, str]:
     headers = {
-        'Content-Type': request.content_type_header,
-        'User-Agent': _forwarding_user_agent(request.user_agent),
+        'Content-Type': request.headers['Content-Type'],
+        'User-Agent': _forwarding_user_agent(request.headers.get('User-Agent')),
         'Authorization': token,
     }
-    if request.content_encoding is not None:
-        headers['Content-Encoding'] = request.content_encoding
+    content_encoding = request.headers.get('Content-Encoding')
+    if content_encoding is not None:
+        headers['Content-Encoding'] = content_encoding
     return headers
