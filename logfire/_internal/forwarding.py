@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from threading import Condition, RLock, Thread, current_thread
+from threading import Condition, Thread, current_thread
 from time import monotonic
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
@@ -251,7 +251,6 @@ class OTLPForwardingManager:
         self.config = config
         self.pipelines: dict[str, OTLPForwardingPipeline] = {}
         self.closed = False
-        self.lock = RLock()
         for base_url, token in destinations:
             pipeline = self.pipelines.get(base_url)
             if pipeline is None:
@@ -266,20 +265,17 @@ class OTLPForwardingManager:
             pipeline.tokens.append(token)
 
     def has_destinations(self) -> bool:
-        with self.lock:
-            return bool(self.pipelines)
+        return bool(self.pipelines)
 
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
-        with self.lock:
-            if self.closed:
-                return ForwardingAdmissionResult(
-                    response='partial_success',
-                    message='Forwarding manager is closed; request was locally dropped.',
-                )
-            pipelines = tuple(self.pipelines.values())
+        if self.closed:
+            return ForwardingAdmissionResult(
+                response='partial_success',
+                message='Forwarding manager is closed; request was locally dropped.',
+            )
 
         dropped_count = 0
-        for pipeline in pipelines:
+        for pipeline in self.pipelines.values():
             if not pipeline.enqueue(request):
                 dropped_count += 1
 
@@ -292,11 +288,9 @@ class OTLPForwardingManager:
 
     def force_flush(self, timeout_millis: int) -> bool:
         deadline = monotonic() + timeout_millis / 1000
-        with self.lock:
-            pipelines = tuple(self.pipelines.values())
 
         complete = True
-        for pipeline in pipelines:
+        for pipeline in self.pipelines.values():
             remaining_millis = max(0, int((deadline - monotonic()) * 1000))
             if not pipeline.force_flush(remaining_millis):
                 complete = False
@@ -304,18 +298,16 @@ class OTLPForwardingManager:
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         deadline = monotonic() + timeout_millis / 1000
-        with self.lock:
-            self.closed = True
-            pipelines = tuple(self.pipelines.values())
+        self.closed = True
 
         complete = True
         if not drain_queued:
-            for pipeline in pipelines:
+            for pipeline in self.pipelines.values():
                 if not pipeline.shutdown(0, drain_queued=False):
                     complete = False
             return complete
 
-        for pipeline in pipelines:
+        for pipeline in self.pipelines.values():
             remaining_millis = max(0, int((deadline - monotonic()) * 1000))
             if not pipeline.shutdown(remaining_millis, drain_queued=drain_queued):
                 complete = False

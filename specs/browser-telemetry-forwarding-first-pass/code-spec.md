@@ -153,7 +153,6 @@ class OTLPForwardingManager:
     config: LogfireConfig
     pipelines: dict[str, OTLPForwardingPipeline]
     closed: bool
-    lock: RLock
 
     def __init__(self, config: LogfireConfig, destinations: Sequence[tuple[str, str]]) -> None:
         """Create backend pipelines for the resolved forwarding destinations."""
@@ -171,7 +170,7 @@ class OTLPForwardingManager:
         """Close admission, drain or drop memory work, wait active sends, then close idle transport resources."""
 ```
 
-`config` is the source of advanced response hooks used when creating pipeline sessions. `pipelines` maps resolved backend URL to the single pipeline that owns that backend's memory queue, token list, and session. `closed` marks manager-level shutdown and makes future submissions return partial success without creating pipelines. `lock` protects lifecycle snapshots while submit, flush, and shutdown coordinate.
+`config` is the source of advanced response hooks used when creating pipeline sessions. `pipelines` maps resolved backend URL to the single pipeline that owns that backend's memory queue, token list, and session. `closed` marks manager-level shutdown and makes future submissions return partial success without creating pipelines. The manager does not need its own lock because destination pipelines are fixed during construction and each pipeline owns its queue, closed state, active-send count, worker state, and session-close synchronization.
 
 The constructor receives the destination pairs collected while configuring normal Logfire export, from the same token loop that creates trace, metric, and log exporters. It creates the backend-url pipeline immediately on the first token for that URL and records additional tokens for the same URL without creating another pipeline. New pipeline creation constructs a fresh `OTLPExporterHttpSession` and installs `config.advanced.server_response_hook` on it before the session is used for sends.
 

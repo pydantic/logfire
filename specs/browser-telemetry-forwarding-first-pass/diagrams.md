@@ -77,7 +77,6 @@ classDiagram
         config: LogfireConfig
         pipelines: dict
         closed: bool
-        lock: RLock
         submit(request) ForwardingAdmissionResult
         has_destinations() bool
         force_flush(timeout_millis) bool
@@ -152,7 +151,6 @@ classDiagram
         <<constant>>
     }
 
-    class RLock
     class Condition
     class Thread
     class deque
@@ -160,7 +158,6 @@ classDiagram
     class DiskRetryer
 
     LogfireConfig *-- OTLPForwardingManager : owns
-    OTLPForwardingManager --> RLock : protects manager state
     OTLPForwardingManager *-- OTLPForwardingPipeline : pipelines by base_url
     OTLPForwardingManager ..> ForwardingRequest : enqueues shared request
     OTLPForwardingManager ..> ForwardingAdmissionResult : returns
