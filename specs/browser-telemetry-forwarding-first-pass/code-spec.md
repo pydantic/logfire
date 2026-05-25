@@ -130,7 +130,7 @@ class OTLPForwardingPipeline:
 
 `queue` holds memory-admitted `ForwardingRequest` objects until their immediate send attempt completes. The worker peeks at the first item, sends it once per token, and removes it in a `finally` block after any send outcome. `queued_body_bytes` is a computed property over `queue`, so one payload counts once for the backend URL regardless of how many tokens the pipeline fans out to during send. `max_queued_body_bytes` is the admission ceiling for `queued_body_bytes`.
 
-`worker` is the non-daemon sender thread for this pipeline, or `None` while no worker is active. A worker may exit after draining current memory work, and later accepted enqueue calls may create a new worker while the pipeline remains open. `enqueue()` owns this worker creation inline after admitting work. `closed` blocks new enqueue attempts and marks the pipeline as shutting down; it is an admission flag, not a worker stop flag. When `drain_queued=True`, already-queued memory work may still drain after `closed` becomes true. When `drain_queued=False`, shutdown explicitly drops queued work before waiting for a live worker to finish any in-progress send. `condition` protects `queue`, `worker`, and `closed`, and is the synchronization point used by enqueue, worker wakeups, flush waits, and shutdown waits.
+`worker` is the non-daemon sender thread for this pipeline, or `None` while no worker is active. A worker may exit after draining current memory work, and later accepted enqueue calls may create a new worker while the pipeline remains open. `enqueue()` owns this worker creation inline after admitting work. `closed` blocks new enqueue attempts and marks the pipeline as shutting down; it is an admission flag, not a worker stop flag. When `drain_queued=True`, already-queued memory work may still drain after `closed` becomes true. When `drain_queued=False`, shutdown explicitly drops queued work before waiting for any currently live worker. `condition` protects `queue`, `worker`, and `closed`, and is the synchronization point used by enqueue, worker wakeups, flush waits, and shutdown waits.
 
 **The hardcoded queue limit is named once in the internal module.** *(implements "Each backend-URL memory queue has a hardcoded 64 MiB byte limit")*
 
@@ -166,10 +166,10 @@ class OTLPForwardingManager:
         """Return whether forwarding has any Logfire export destinations."""
 
     def force_flush(self, timeout_millis: int) -> bool:
-        """Wait for memory queued forwarding work and active immediate sends."""
+        """Wait for forwarding workers to finish queued work and active sends."""
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
-        """Close admission, drain or drop memory work, wait active sends, then close idle transport resources."""
+        """Close admission, optionally drop memory work, wait workers, then close idle transport resources."""
 ```
 
 `config` is the source of advanced response hooks used when creating pipeline sessions. `pipelines` maps resolved backend URL to the single pipeline that owns that backend's memory queue, token list, and session. `closed` marks manager-level shutdown and makes future submissions return partial success without creating pipelines. The manager does not need its own lock because destination pipelines are fixed during construction and each pipeline owns its queue, closed state, worker state, and session-close synchronization.
@@ -178,9 +178,9 @@ The constructor receives the destination pairs collected while configuring norma
 
 `has_destinations()` is called by `forward_export_request()` before queue admission to decide whether the selected configuration has any active forwarding destination.
 
-`submit()` is called by `forward_export_request()` after request validation. It reads the existing pipelines and enqueues the same `ForwardingRequest` independently into each backend URL pipeline. If no destinations were registered, submit is not called; the adapter returns the local forbidden response. `force_flush()` waits for manager-owned memory queues and active immediate forwarding sends within the flush timeout. `shutdown(drain_queued=True)` closes admission, drains memory queues within the caller timeout, waits for active immediate sends to complete even if the caller timeout has expired, and then closes pipeline sessions after they have no active send. `shutdown(drain_queued=False)` is used by `Logfire.shutdown(flush=False)`; it closes admission, drops memory-queued work that has not started sending, waits for active immediate sends, closes sessions, and does not report incomplete merely because queued work was deliberately dropped.
+`submit()` is called by `forward_export_request()` after request validation. It reads the existing pipelines and enqueues the same `ForwardingRequest` independently into each backend URL pipeline. If no destinations were registered, submit is not called; the adapter returns the local forbidden response. `force_flush()` waits for manager-owned forwarding workers within the flush timeout. `shutdown(drain_queued=True)` closes admission, waits for workers within the caller timeout, and drops queued memory work if the deadline expires first. `shutdown(drain_queued=False)` is used by `Logfire.shutdown(flush=False)`; it closes admission, drops memory-queued work before waiting for workers, closes sessions when workers finish, and does not report incomplete merely because queued work was deliberately dropped.
 
-The manager applies one remaining-time budget across all pipeline flush calls and across shutdown's queued-memory drain phase. `force_flush()` returns `False` if the deadline is exhausted before all in-memory queues are drained and all active immediate forwarding sends complete. `shutdown(drain_queued=True)` returns `False` if the deadline is exhausted before all queued memory work is drained; in that case it drops queued memory work, waits for any live worker to finish, and only then closes idle sessions and returns. If queued memory work drains before the deadline, shutdown does not become incomplete merely because an already-active send finishes after the deadline. `shutdown(drain_queued=False)` does not spend the deadline on queued-memory drain and does not return `False` merely because it deliberately dropped queued memory work. It must not close a pipeline session while that pipeline has a live worker.
+The manager applies one remaining-time budget across all pipeline flush calls and forwarding shutdown. `force_flush()` returns `False` if the deadline is exhausted before the pipeline worker finishes. Since accepted work always starts a worker and the worker exits only after the queue is empty, worker completion covers both queued memory work and active immediate sends. `shutdown(drain_queued=True)` returns `False` if the worker does not finish before the deadline; in that case it drops queued memory work and leaves final session close to worker cleanup. `shutdown(drain_queued=False)` drops queued memory work before waiting for any live worker and does not return `False` merely because it deliberately dropped queued memory work.
 
 **The manager exposes request validation helpers for the public adapter.** *(implements "`Content-Type` supports protobuf and JSON OTLP", "The helper forwards only whitelisted representation headers")*
 These helpers live beside the manager so header and response representation decisions are shared by forwarding adapters without introducing public API.
@@ -255,10 +255,10 @@ class OTLPForwardingPipeline:
         """Try to enqueue one request for this backend URL."""
 
     def force_flush(self, timeout_millis: int) -> bool:
-        """Wait until the memory queue and active immediate sends are empty or the timeout expires."""
+        """Wait until the forwarding worker exits or the timeout expires."""
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
-        """Close admission, drain or drop memory work, wait active sends, then close the idle session."""
+        """Close admission, optionally drop memory work, wait worker, then close the idle session."""
 
     def _run(self) -> None:
         """Run the forwarding worker for this backend URL."""
@@ -267,7 +267,7 @@ class OTLPForwardingPipeline:
         """Send one queued payload once per token for this backend URL."""
 ```
 
-`enqueue()` is called by the manager once per backend-url group and returns whether this pipeline accepted the item into memory. `force_flush()` is called by the manager to wait for memory queue drain and active immediate sends for this one backend URL. `shutdown(drain_queued=True)` is called by the manager when the config or Logfire instance shuts down with flush enabled; it closes admission, drains queued memory work until the deadline expires, drops queued work if the deadline expires first, waits until the worker is not alive, and only then closes the session. `shutdown(drain_queued=False)` closes admission and immediately drops queued memory work before waiting for any worker to exit and closing the session.
+`enqueue()` is called by the manager once per backend-url group and returns whether this pipeline accepted the item into memory. `force_flush()` is called by the manager to wait for the worker to finish queued memory work and active immediate sends for this one backend URL. `shutdown(drain_queued=True)` is called by the manager when the config or Logfire instance shuts down with flush enabled; it closes admission, waits for the worker to finish until the deadline expires, drops queued work if the deadline expires first, and closes the session only when the worker has finished. `shutdown(drain_queued=False)` closes admission, immediately drops queued memory work, then waits for any live worker before closing the session.
 
 `enqueue()` starts a non-daemon worker while holding `condition` when queued work exists and no live worker is recorded, including after a previous worker drained the queue and exited. `_run()` is the worker target that peeks at the first queued item, calls `_send()` inside a `try` block, removes that item from the queue in a `finally` block after the immediate send attempt completes if shutdown did not already drop it, and notifies flush/shutdown waiters when either queued work or worker liveness changes. `_run()` exits when the memory queue is empty; it must not treat `closed=True` as a reason to abandon queued work. Before returning, `_run()` clears or marks worker state so future enqueue can create a new worker and shutdown can observe that no non-daemon worker remains alive. `_send()` performs the token fanout for one queued request and delegates each Logfire-bound request to `OTLPExporterHttpSession.post()`.
 
@@ -284,7 +284,7 @@ The worker resolves an explicit request timeout for each send from the queued re
 
 For `/v1/traces`, the helper reads `OTEL_EXPORTER_OTLP_TRACES_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the trace OTLP HTTP exporter default timeout. For `/v1/logs`, it reads `OTEL_EXPORTER_OTLP_LOGS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the logs OTLP HTTP exporter default timeout. For `/v1/metrics`, it reads `OTEL_EXPORTER_OTLP_METRICS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the metrics OTLP HTTP exporter default timeout.
 
-This timeout is passed as the `timeout` keyword argument to `OTLPExporterHttpSession.post()`. Flush and shutdown timeouts do not rewrite the per-send timeout. Flush timeout bounds how long the caller waits for the queue and active immediate sends. Shutdown timeout bounds queued memory drain only when `drain_queued=True`; after shutdown has closed admission, any active immediate send is allowed to finish under the existing `OTLPExporterHttpSession.post()` timeout/retry behavior before shutdown closes the session and returns. With `drain_queued=False`, shutdown skips queued-memory drain and drops not-yet-started queued work immediately before waiting for active sends.
+This timeout is passed as the `timeout` keyword argument to `OTLPExporterHttpSession.post()`. Flush and shutdown timeouts do not rewrite the per-send timeout. Flush timeout bounds how long the caller waits for forwarding workers. Shutdown timeout bounds how long the caller waits for workers after admission is closed; with `drain_queued=False`, shutdown drops queued memory work before that wait.
 
 **Part 4: Call Relationships**
 
@@ -321,7 +321,7 @@ The config-level flush method preserves the existing `force_flush()` structure: 
 Reconfiguration collects forwarding destinations while the existing `send_to_logfire` branch resolves tokens and backend URLs, including credentials-derived values, from the same loop that constructs normal exporters. After exporter construction succeeds, configuration installs a fresh manager built from that destination list and closes the previous config-owned forwarding manager.
 
 **`Logfire.shutdown()` closes forwarding admission before provider shutdown completes.** *(implements "Forwarding participates in Logfire flush and shutdown", "Post-shutdown forwarding calls are locally dropped")*
-Shutdown calls the config-owned manager with the remaining deadline. With `flush=True`, the manager drains memory work within that deadline, drops any queued memory work that did not start sending if the deadline expires, waits for active immediate sends to complete, and then closes forwarding-owned sessions that are no longer in use by a send. With `flush=False`, shutdown still calls the manager, but passes `drain_queued=False` so queued memory work is dropped rather than flushed while active immediate sends are still allowed to finish before sessions close. After this point, otherwise valid forwarding calls map to partial success and do not recreate pipelines.
+Shutdown calls the config-owned manager with the remaining deadline. With `flush=True`, the manager waits for forwarding workers within that deadline and drops queued memory work if the deadline expires. With `flush=False`, shutdown still calls the manager, but passes `drain_queued=False` so queued memory work is dropped before waiting for workers. After this point, otherwise valid forwarding calls map to partial success and do not recreate pipelines.
 
 **Part 5: Response Representations**
 

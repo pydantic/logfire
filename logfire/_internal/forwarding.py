@@ -197,49 +197,41 @@ class OTLPForwardingPipeline:
     def force_flush(self, timeout_millis: int) -> bool:
         deadline = monotonic() + timeout_millis / 1000
         with self.condition:
-            while self.queue or self._has_live_worker_locked():
-                remaining = deadline - monotonic()
-                if remaining <= 0:
-                    return False
-                self.condition.wait(timeout=remaining)
-            return True
+            return self._wait_for_worker_locked(deadline)
 
     def _has_live_worker_locked(self) -> bool:
         return self.worker is not None and self.worker.is_alive()
+
+    def _wait_for_worker_locked(self, deadline: float) -> bool:
+        while self._has_live_worker_locked():
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                return False
+            self.condition.wait(timeout=remaining)
+        return True
 
     def _drop_queue_locked(self) -> None:
         self.queue.clear()
         self.condition.notify_all()
 
     def _close_session_if_idle_locked(self) -> None:
-        if self.closed and not self.queue and not self._has_live_worker_locked():
+        if self.closed and not self.queue:
             self.session.close()
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         deadline = monotonic() + timeout_millis / 1000
-        complete = True
         with self.condition:
             self.closed = True
             self.condition.notify_all()
             if not drain_queued:
                 self._drop_queue_locked()
 
-            while self.queue:
-                remaining = deadline - monotonic()
-                if remaining <= 0:
-                    self._drop_queue_locked()
-                    complete = False
-                    break
-                self.condition.wait(timeout=remaining)
-
-            while self._has_live_worker_locked():
-                remaining = deadline - monotonic()
-                if remaining <= 0:
-                    return False
-                self.condition.wait(timeout=remaining)
+            if not self._wait_for_worker_locked(deadline):
+                self._drop_queue_locked()
+                return False
 
             self._close_session_if_idle_locked()
-            return complete
+            return True
 
 
 class OTLPForwardingManager:

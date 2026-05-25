@@ -239,17 +239,15 @@ flowchart TD
 
     ManagerFlush --> PipelineFlush["OTLPForwardingPipeline.force_flush(timeout_millis)"]
     PipelineFlush --> Condition
-    PipelineFlush --> FlushWaitEmpty["wait for queue empty and no live worker"]
+    PipelineFlush --> FlushWaitEmpty["wait for no live worker"]
 
     ManagerShutdownDrain --> PipelineShutdown["OTLPForwardingPipeline.shutdown(timeout_millis, drain_queued=True)"]
     ManagerShutdownDrop --> PipelineShutdownNoDrain["OTLPForwardingPipeline.shutdown(timeout_millis, drain_queued=False)"]
     ManagerShutdownOld --> PipelineShutdown
     PipelineShutdown --> Condition
-    PipelineShutdown --> ShutdownDrain["drain queued memory until empty or timeout"]
-    ShutdownDrain -->|"timeout with queued work"| DropQueued["drop unsent queued memory work"]
-    ShutdownDrain --> WaitWorker["wait for no live worker"]
-    DropQueued --> WaitWorker
-    PipelineShutdownNoDrain --> DropQueuedNoDrain["drop unsent queued memory work without drain attempt"]
+    PipelineShutdown --> WaitWorker["wait for no live worker"]
+    WaitWorker -->|"timeout"| DropQueued["drop queued memory work"]
+    PipelineShutdownNoDrain --> DropQueuedNoDrain["drop queued memory work without drain attempt"]
     DropQueuedNoDrain --> WaitWorker
     WaitWorker --> SessionClose["OTLPExporterHttpSession.close()"]
     Retryer -.->|"not awaited by flush/shutdown"| SessionClose
