@@ -51,9 +51,12 @@ _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_O
 # Per-`get()`-call cache for the code-default value. Keyed by `id(variable)`.
 # Lets `_get_default_cached` short-circuit when the same callable default
 # would otherwise be invoked twice in one resolution (once to feed
-# composition, then again on a fallback path). Set up by `Variable._resolve`
+# composition, then again on a fallback path). Each entry is
+# `(ok: bool, value_or_exception: Any)`: successful invocations cache the
+# returned value; raising invocations cache the exception so re-entry
+# re-raises without re-invoking the callable. Set up by `Variable._resolve`
 # at the top of the call and reset when it returns.
-_DEFAULT_CACHE: ContextVar[dict[int, Any] | None] = ContextVar('_DEFAULT_CACHE', default=None)
+_DEFAULT_CACHE: ContextVar[dict[int, tuple[bool, Any]] | None] = ContextVar('_DEFAULT_CACHE', default=None)
 
 
 @dataclass
@@ -565,8 +568,12 @@ class Variable(Generic[T_co]):
         Avoids re-invoking a callable default twice when the same `get()`
         consults it for the code-default tier (to feed composition) and then
         again on a fallback path (composition failure, render failure,
-        deserialization failure). Outside a `_resolve` call the cache is
-        not set and this is a direct passthrough to `_get_default`.
+        deserialization failure). Both successful values and raised
+        exceptions are cached — a callable that raises on first invocation
+        re-raises (without re-invoking) on subsequent calls, so a failing
+        default doesn't get called multiple times either. Outside a
+        `_resolve` call the cache is not set and this is a direct
+        passthrough to `_get_default`.
         """
         cache = _DEFAULT_CACHE.get()
         if cache is None:  # pragma: no cover
@@ -577,8 +584,14 @@ class Variable(Generic[T_co]):
             return self._get_default(targeting_key, merged_attributes)
         key = id(self)
         if key not in cache:
-            cache[key] = self._get_default(targeting_key, merged_attributes)
-        return cache[key]
+            try:
+                cache[key] = (True, self._get_default(targeting_key, merged_attributes))
+            except Exception as e:
+                cache[key] = (False, e)
+        ok, payload = cache[key]
+        if ok:
+            return cast('T_co', payload)
+        raise cast('Exception', payload)
 
     def _get_serialized_default(
         self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None

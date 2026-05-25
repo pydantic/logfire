@@ -748,6 +748,35 @@ class TestCompositionIntegration:
         assert result.reason == 'other_error'
         assert call_count == 1, f'callable default invoked {call_count} times, expected 1'
 
+    def test_failing_callable_default_invoked_once_per_get(self, config_kwargs: dict[str, Any]):
+        """A callable default that *raises* is invoked only once per `get()`.
+
+        Regression for #1954 r3296066209 — `_get_default_cached` originally
+        cached only successful values, so a raising callable escaped the
+        cache and could be re-invoked up to three times in one `get()`
+        (once each in `_get_serialized_default`, `_resolve_code_default`,
+        and the outer-`except` fallback). The cache now records the
+        exception too and re-raises it on subsequent lookups.
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        call_count = 0
+
+        def always_raises(targeting_key: str | None, attributes: Any) -> str:
+            nonlocal call_count
+            call_count += 1
+            raise RuntimeError('default unavailable')
+
+        var = lf.var(name='failing_default', default=always_raises, type=str)
+        result = var.get()
+
+        # The variable still resolves to something — the outer `except` in
+        # `_resolve` swallows the raised exception and returns `None`-typed.
+        # The point under test is the call count.
+        assert result.reason == 'other_error'
+        assert call_count == 1, f'failing callable invoked {call_count} times, expected 1'
+
     def test_nested_reference(self, config_kwargs: dict[str, Any]):
         """A→B→C chain resolves fully."""
         variables_config = _make_variables_config(
