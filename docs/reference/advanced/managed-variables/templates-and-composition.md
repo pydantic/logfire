@@ -213,7 +213,12 @@ with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolv
 
 ### Recursive Resolution
 
-Composition is **recursive**, not a one-shot substitution. When a `@{ref}@` is expanded the referenced variable goes through its own full resolution — including expanding any `@{...}@` it contains — before its value is substituted in. So a tree like `parent → @{middle}@ → @{leaf}@` resolves leaf-first, builds middle, then substitutes the result into parent.
+!!! warning "Different from plain Handlebars"
+    Standard Handlebars expressions like `{{greeting}}` perform a **one-shot string substitution**: whatever string `greeting` resolves to appears verbatim in the output. If that string happens to contain `{{name}}`, the inner `{{name}}` is *not* re-evaluated — it ends up in the output as the literal text `{{name}}`.
+
+    `@{...}@` composition does the opposite: when the SDK substitutes a referenced variable, it first **fully resolves** that variable — including expanding any `@{...}@` references *inside* it — before splicing the result in. This is the main semantic difference between composition and plain Handlebars, and it trips up people coming from "normal" Handlebars where the assumption is that values are inert strings.
+
+Concretely, composition walks the reference graph at resolution time. A tree like `parent → @{middle}@ → @{leaf}@` resolves leaf-first, builds `middle`, then substitutes the result into `parent`:
 
 ```python skip="true"
 import logfire
@@ -231,7 +236,14 @@ with parent.get() as resolved:
     #   middle (composed_from: [leaf])
 ```
 
-This is the main semantic difference from "plain" Handlebars: a value isn't just a template, it's a node in a graph that the SDK walks at resolution time.
+Contrast with plain Handlebars rendering, where `{{...}}` only substitutes — no graph walk, no re-rendering of values that happen to look template-like:
+
+```python skip="true"
+from pydantic_handlebars import render
+
+render('{{greeting}}', {'greeting': 'Hello, {{name}}!', 'name': 'Alice'})
+#> 'Hello, {{name}}!'   ← the inner {{name}} is NOT re-rendered
+```
 
 ### Cycle and depth guards
 
