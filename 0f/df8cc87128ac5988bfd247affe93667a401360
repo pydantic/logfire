@@ -1,0 +1,21 @@
+logfire/_internal/forwarding.py
+  s_1d4356de64f0ec::t_699a3ff849f479 9,268,271-275,278,293,301,305,310
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_21dea1e8eacaec 173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "0fdf8cc87128ac5988bfd247affe93667a401360",
+  "prompts": {},
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
