@@ -181,6 +181,36 @@ class Variable(Generic[T_co]):
     def override(self, value: T_co | ResolveFunction[T_co]) -> Generator[None]:
         """Context manager to temporarily override this variable's value.
 
+        Inside the `with` block, every `get()` call on this variable returns
+        *value* (or the result of calling it as a `ResolveFunction`) instead
+        of consulting the provider or code default.
+
+        ## Composition is skipped
+
+        Overrides do **not** participate in `@{ref}@` composition: *value*
+        is treated as the user's literal choice and is returned as-is, not
+        as a template to expand. If you override with the string
+        `'hi @{user}@'`, the `@{user}@` is *not* substituted — the result
+        is the literal string. Use composition by leaving the override off
+        and letting the default / provider value drive resolution.
+
+        ## Template rendering still applies to TemplateVariable
+
+        For `TemplateVariable.get(inputs)`, `{{...}}` rendering against
+        *inputs* runs on the override the same way it would on a
+        provider value — *as long as the override is JSON-serializable*.
+        For example, overriding with `'Hi {{name}}'` and calling
+        `get(Inputs(name='Alice'))` yields `'Hi Alice'`.
+
+        ## Unserializable overrides come back verbatim
+
+        If *value* can't be serialized through the variable's type adapter
+        (e.g. an arbitrary Python object on a `Variable[object]`), the
+        override is returned exactly as you passed it in, with no
+        serialize/deserialize round-trip and no template render pass. This
+        matches the "literal user choice" intent — a non-JSON Python value
+        is by definition not a template, so there's nothing to render.
+
         Args:
             value: The value to use within this context, or a function that computes
                 the value based on targeting_key and attributes.
