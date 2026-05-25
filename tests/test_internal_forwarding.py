@@ -1442,3 +1442,15 @@ def test_forwarding_manager_shutdown_without_drain_calls_all_pipelines_without_b
     assert manager.closed is True
     assert pipeline_1.shutdown_calls == [(0, False)]
     assert pipeline_2.shutdown_calls == [(0, False)]
+
+
+def test_forwarding_manager_shutdown_without_drain_does_not_short_circuit() -> None:
+    pipeline_1 = FakeShutdownPipeline(result=False)
+    pipeline_2 = FakeShutdownPipeline()
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.shutdown(100, drain_queued=False) is False
+
+    assert pipeline_1.shutdown_calls == [(0, False)]
+    assert pipeline_2.shutdown_calls == [(0, False)]
