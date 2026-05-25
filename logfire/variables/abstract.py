@@ -386,7 +386,11 @@ class ValidationReport:
 
         variables_with_errors = len({e.variable_name for e in self.errors})
         valid_count = self.variables_checked - variables_with_errors - len(self.variables_not_on_server)
-        if valid_count > 0:
+        # Only advertise "Valid" when the report as a whole is valid. Otherwise
+        # a partial pass (per-variable type checks succeeded but reference /
+        # template-field errors exist) emits the contradictory pair
+        # "=== Valid (N variables) ===" + "=== Reference errors ===".
+        if valid_count > 0 and self.is_valid:
             lines.append(f'\n{green}=== Valid ({valid_count} variables) ==={reset}')
 
         # Show description differences as informational warnings

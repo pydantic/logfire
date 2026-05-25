@@ -255,7 +255,7 @@ def expand_references(
     return result_serialized, composed
 
 
-def find_references(serialized_value: str) -> list[str]:
+def find_references(serialized_value: str) -> set[str]:
     """Find all top-level `@{variable_name}@` references in a serialized value.
 
     Walks the decoded JSON value and runs each string containing composition
@@ -267,8 +267,7 @@ def find_references(serialized_value: str) -> list[str]:
         serialized_value: The raw JSON-serialized variable value to scan.
 
     Returns:
-        List of unique top-level variable names referenced, in order of
-        first occurrence.
+        Set of top-level variable names referenced.
     """
     return _collect_ref_names(_safe_json_load(serialized_value))
 
@@ -286,33 +285,22 @@ def _safe_json_load(serialized_value: str) -> Any:
         return None
 
 
-def _collect_ref_names(value: Any) -> list[str]:
+def _collect_ref_names(value: Any) -> set[str]:
     """Recursively walk a decoded JSON value and collect unique top-level reference names.
 
     For each string the AST-aware
     ``pydantic_handlebars.extract_dependencies`` picks the authoritative set
     of real references (so block helpers, dotted paths, subexpressions are
-    handled correctly and Handlebars helper names are excluded). Names from
-    that set are added to the result list ordered by their first textual
-    occurrence in the source string, giving deterministic output across
-    `dict` iteration orders.
+    handled correctly and Handlebars helper names are excluded).
     """
     from logfire.variables._handlebars import extract_composition_dependencies
 
-    seen: set[str] = set()
-    result: list[str] = []
+    refs: set[str] = set()
 
     def _walk(v: Any) -> None:
         if isinstance(v, str):
-            if not has_references(v):
-                return
-            valid = extract_composition_dependencies(v)
-            if not valid:
-                return
-            for name in _order_by_first_position(valid, v):
-                if name not in seen:
-                    seen.add(name)
-                    result.append(name)
+            if has_references(v):
+                refs.update(extract_composition_dependencies(v))
         elif isinstance(v, dict):
             for val in v.values():  # pyright: ignore[reportUnknownVariableType]
                 _walk(val)
@@ -321,25 +309,7 @@ def _collect_ref_names(value: Any) -> list[str]:
                 _walk(item)
 
     _walk(value)
-    return result
-
-
-def _order_by_first_position(names: set[str], source: str) -> list[str]:
-    """Order *names* by their first whole-word occurrence in *source*.
-
-    Used to give `find_references` deterministic, source-order output for a
-    set produced by `extract_composition_dependencies`. Names that don't
-    appear textually in the source — which shouldn't happen for refs
-    returned by the AST walker, but is defensive — sort to the end of the
-    list in alphabetical order so output remains stable.
-    """
-    positions: dict[str, int] = {}
-    for name in names:
-        # Use a word-boundary search so e.g. `key` doesn't match inside `keyword`.
-        pattern = re.compile(rf'\b{re.escape(name)}\b')
-        match = pattern.search(source)
-        positions[name] = match.start() if match is not None else len(source) + sum(map(ord, name))
-    return sorted(names, key=lambda n: positions[n])
+    return refs
 
 
 def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str]) -> Any:

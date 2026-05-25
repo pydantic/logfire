@@ -48,6 +48,13 @@ InputsT = TypeVar('InputsT')
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
 
+# Per-`get()`-call cache for the code-default value. Keyed by `id(variable)`.
+# Lets `_get_default_cached` short-circuit when the same callable default
+# would otherwise be invoked twice in one resolution (once to feed
+# composition, then again on a fallback path). Set up by `Variable._resolve`
+# at the top of the call and reset when it returns.
+_DEFAULT_CACHE: ContextVar[dict[int, Any] | None] = ContextVar('_DEFAULT_CACHE', default=None)
+
 
 @dataclass
 class _TargetingContextData:
@@ -238,6 +245,25 @@ class Variable(Generic[T_co]):
         label: str | None = None,
         render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co]:
+        # `_DEFAULT_CACHE` memoises the code-default value across every
+        # `_get_default_cached` call inside this `get()` invocation, so a
+        # callable default isn't re-invoked when the code-default tier
+        # supplies the value AND a downstream step (composition expansion,
+        # template render, deserialization) falls back to it.
+        cache_token = _DEFAULT_CACHE.set({})
+        try:
+            return self._resolve_inner(targeting_key, attributes, span, label, render_fn)
+        finally:
+            _DEFAULT_CACHE.reset(cache_token)
+
+    def _resolve_inner(
+        self,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        label: str | None,
+        render_fn: Callable[[str], str] | None,
+    ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
             # Top-level context-override fast path: handled here, before
@@ -290,7 +316,7 @@ class Variable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             try:
-                default = self._get_default(targeting_key, attributes)
+                default = self._get_default_cached(targeting_key, attributes)
             except Exception:
                 default = cast('T_co', None)
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
@@ -473,7 +499,7 @@ class Variable(Generic[T_co]):
             reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
             return ResolvedVariable(
                 name=self.name,
-                value=self._get_default(targeting_key, attributes),
+                value=self._get_default_cached(targeting_key, attributes),
                 exception=value_or_exc,
                 reason=reason,
                 label=serialized_result.label,
@@ -515,7 +541,7 @@ class Variable(Generic[T_co]):
         )
         return ResolvedVariable(
             name=self.name,
-            value=self._get_default(targeting_key, attributes),
+            value=self._get_default_cached(targeting_key, attributes),
             exception=exception,
             reason='other_error',
             label=serialized_result.label,
@@ -531,12 +557,31 @@ class Variable(Generic[T_co]):
         else:
             return self.default
 
+    def _get_default_cached(
+        self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
+    ) -> T_co:
+        """Return the code default, memoised for the duration of one `_resolve` call.
+
+        Avoids re-invoking a callable default twice when the same `get()`
+        consults it for the code-default tier (to feed composition) and then
+        again on a fallback path (composition failure, render failure,
+        deserialization failure). Outside a `_resolve` call the cache is
+        not set and this is a direct passthrough to `_get_default`.
+        """
+        cache = _DEFAULT_CACHE.get()
+        if cache is None:
+            return self._get_default(targeting_key, merged_attributes)
+        key = id(self)
+        if key not in cache:
+            cache[key] = self._get_default(targeting_key, merged_attributes)
+        return cache[key]
+
     def _get_serialized_default(
         self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
     ) -> str | None:
         """Return the code default serialized as JSON, or None if serialization fails."""
         try:
-            default = self._get_default(targeting_key, merged_attributes)
+            default = self._get_default_cached(targeting_key, merged_attributes)
             return self.type_adapter.dump_json(default).decode('utf-8')
         except (ValueError, TypeError, RuntimeError):
             return None
@@ -557,7 +602,7 @@ class Variable(Generic[T_co]):
         """
         return ResolvedVariable(
             name=self.name,
-            value=self._get_default(targeting_key, attributes),
+            value=self._get_default_cached(targeting_key, attributes),
             exception=serialized_result.exception,
             label=serialized_result.label,
             version=serialized_result.version,
