@@ -314,7 +314,10 @@ def _make_forwarding_request(body: bytes) -> ForwardingRequest:
         path='/v1/traces',
         body=body,
         content_type=ForwardingContentType.PROTOBUF,
-        headers={'Content-Type': 'application/x-protobuf'},
+        headers={
+            'Content-Type': 'application/x-protobuf',
+            'User-Agent': f'logfire-proxy/{VERSION}',
+        },
     )
 
 

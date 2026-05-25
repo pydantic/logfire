@@ -161,7 +161,6 @@ class OTLPForwardingPipeline:
         for token in self.tokens:
             headers = {
                 **request.headers,
-                'User-Agent': request.headers.get('User-Agent', _forwarding_user_agent(None)),
                 'Authorization': token,
             }
             try:
