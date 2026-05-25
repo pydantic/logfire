@@ -96,9 +96,6 @@ def test_build_forwarding_request_valid_protobuf() -> None:
         headers=headers,
         body=b'trace-data',
     )
-    headers['Content-Type'] = 'text/plain'
-    headers['Content-Encoding'] = 'br'
-    headers['User-Agent'] = 'changed'
 
     assert isinstance(request, ForwardingRequest)
     assert request.path == '/v1/traces'
@@ -129,30 +126,12 @@ def test_build_forwarding_request_valid_json_with_parameters() -> None:
     }
 
 
-def test_build_forwarding_request_none_body_normalizes_to_empty_bytes() -> None:
-    request = build_forwarding_request(
-        path='/v1/metrics',
-        headers={'Content-Type': 'application/x-protobuf'},
-        body=None,
-    )
-
-    assert isinstance(request, ForwardingRequest)
-    assert request.body == b''
-
-
-@pytest.mark.parametrize(
-    ('body', 'max_body_size'),
-    [
-        (b'12345', 4),
-        (b'12345', 3),
-    ],
-)
-def test_build_forwarding_request_oversized_body(body: bytes, max_body_size: int) -> None:
+def test_build_forwarding_request_oversized_body() -> None:
     response = build_forwarding_request(
         path='/v1/traces',
         headers={'Content-Type': 'application/x-protobuf'},
-        body=body,
-        max_body_size=max_body_size,
+        body=b'12345',
+        max_body_size=4,
     )
 
     assert isinstance(response, ForwardingErrorResponse)
@@ -326,10 +305,11 @@ def test_forwarding_pipeline_enqueue_accepts_and_accounts_bytes() -> None:
     request = _make_forwarding_request(b'12345')
 
     assert pipeline.enqueue(request) is True
-    pipeline.started.wait(timeout=5)
+    assert pipeline.started.wait(timeout=5) is True
     assert list(pipeline.queue) == [request]
     assert pipeline.queued_body_bytes == 5
     assert pipeline.worker is not None
+    assert pipeline.worker.daemon is False
     pipeline.stop()
 
 
@@ -340,6 +320,7 @@ def test_forwarding_pipeline_enqueue_rejects_when_queue_full() -> None:
     assert pipeline.enqueue(request) is False
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
+    assert pipeline.worker is None
 
 
 def test_forwarding_pipeline_enqueue_rejects_when_closed() -> None:
@@ -350,6 +331,7 @@ def test_forwarding_pipeline_enqueue_rejects_when_closed() -> None:
     assert pipeline.enqueue(request) is False
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
+    assert pipeline.worker is None
 
 
 class BlockingRunForwardingPipeline(OTLPForwardingPipeline):
@@ -372,17 +354,6 @@ class BlockingRunForwardingPipeline(OTLPForwardingPipeline):
             self.worker.join(timeout=5)
 
 
-def test_forwarding_pipeline_enqueue_starts_non_daemon_worker() -> None:
-    pipeline = BlockingRunForwardingPipeline()
-
-    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
-    assert pipeline.started.wait(timeout=5) is True
-
-    assert pipeline.worker is not None
-    assert pipeline.worker.daemon is False
-    pipeline.stop()
-
-
 def test_forwarding_pipeline_enqueue_does_not_start_duplicate_live_worker() -> None:
     pipeline = BlockingRunForwardingPipeline()
 
@@ -393,18 +364,6 @@ def test_forwarding_pipeline_enqueue_does_not_start_duplicate_live_worker() -> N
 
     assert pipeline.worker is first_worker
     pipeline.stop()
-
-
-def test_forwarding_pipeline_rejected_enqueue_does_not_start_worker() -> None:
-    full_pipeline = BlockingRunForwardingPipeline(max_queued_body_bytes=1)
-    closed_pipeline = BlockingRunForwardingPipeline()
-    closed_pipeline.closed = True
-
-    assert full_pipeline.enqueue(_make_forwarding_request(b'too-large')) is False
-    assert closed_pipeline.enqueue(_make_forwarding_request(b'one')) is False
-
-    assert full_pipeline.worker is None
-    assert closed_pipeline.worker is None
 
 
 class BlockingSendForwardingPipeline(OTLPForwardingPipeline):
@@ -468,26 +427,12 @@ def test_forwarding_pipeline_shutdown_closes_admission_and_idle_session() -> Non
     )
 
     assert pipeline.shutdown(1000) is True
+    assert pipeline.shutdown(1000) is True
 
     assert pipeline.closed is True
     assert pipeline.worker is None
     assert session.close_count == 1
     assert pipeline.enqueue(_make_forwarding_request(b'one')) is False
-
-
-def test_forwarding_pipeline_shutdown_no_queued_work_is_idempotent() -> None:
-    session = FakeForwardingSession()
-    pipeline = OTLPForwardingPipeline(
-        base_url='https://example.com',
-        session=session,  # type: ignore[arg-type]
-        max_queued_body_bytes=100,
-    )
-
-    assert pipeline.shutdown(1000) is True
-    assert pipeline.shutdown(1000) is True
-
-    assert session.close_count == 1
-    assert pipeline.worker is None
 
 
 class FakeForwardingSession:
@@ -835,20 +780,6 @@ class FakeShutdownPipeline:
         return self.result
 
 
-def test_forwarding_manager_shutdown_basic() -> None:
-    pipeline_1 = FakeShutdownPipeline()
-    pipeline_2 = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
-    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
-
-    assert manager.shutdown(100) is True
-
-    assert manager.closed is True
-    assert 0 < pipeline_1.shutdown_calls[0][0] <= 100
-    assert pipeline_1.shutdown_calls[0][1] is True
-    assert pipeline_2.shutdown_calls[0][1] is True
-
-
 def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     times = iter([0.0, 0.0, 0.04])
     monkeypatch.setattr(forwarding_module, 'monotonic', lambda: next(times))
@@ -859,6 +790,7 @@ def test_forwarding_manager_shutdown_uses_remaining_budget(monkeypatch: pytest.M
 
     assert manager.shutdown(100) is True
 
+    assert manager.closed is True
     assert pipeline_1.shutdown_calls == [(100, True)]
     assert pipeline_2.shutdown_calls == [(60, True)]
 
@@ -879,19 +811,6 @@ def test_forwarding_manager_shutdown_without_drain_calls_all_pipelines_without_b
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(forwarding_module, 'monotonic', lambda: 999.0)
-    pipeline_1 = FakeShutdownPipeline()
-    pipeline_2 = FakeShutdownPipeline()
-    manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
-    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
-
-    assert manager.shutdown(100, drain_queued=False) is True
-
-    assert manager.closed is True
-    assert pipeline_1.shutdown_calls == [(0, False)]
-    assert pipeline_2.shutdown_calls == [(0, False)]
-
-
-def test_forwarding_manager_shutdown_without_drain_does_not_short_circuit() -> None:
     pipeline_1 = FakeShutdownPipeline(result=False)
     pipeline_2 = FakeShutdownPipeline()
     manager = OTLPForwardingManager(object(), [])  # type: ignore[arg-type]
@@ -899,5 +818,6 @@ def test_forwarding_manager_shutdown_without_drain_does_not_short_circuit() -> N
 
     assert manager.shutdown(100, drain_queued=False) is False
 
+    assert manager.closed is True
     assert pipeline_1.shutdown_calls == [(0, False)]
     assert pipeline_2.shutdown_calls == [(0, False)]

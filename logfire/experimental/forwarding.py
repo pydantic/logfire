@@ -29,7 +29,7 @@ def forward_export_request(
     *,
     path: str,
     headers: Mapping[str, str],
-    body: bytes | None,
+    body: bytes,
     logfire_instance: logfire.Logfire | None = None,
     max_body_size: int = OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
 ) -> ForwardExportRequestResponse:

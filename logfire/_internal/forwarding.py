@@ -367,15 +367,14 @@ def build_forwarding_request(
     *,
     path: str,
     headers: Mapping[str, str],
-    body: bytes | None,
+    body: bytes,
     max_body_size: int = OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
 ) -> ForwardingRequest | ForwardingErrorResponse:
     normalized_path = _normalize_forwarding_path(path)
     if isinstance(normalized_path, ForwardingErrorResponse):
         return normalized_path
 
-    normalized_body = body or b''
-    if len(normalized_body) > max_body_size:
+    if len(body) > max_body_size:
         return ForwardingErrorResponse(
             status_code=413,
             content=b'Payload too large',
@@ -397,7 +396,7 @@ def build_forwarding_request(
 
     return ForwardingRequest(
         path=normalized_path,
-        body=normalized_body,
+        body=body,
         content_type=content_type,
         headers=_build_forwarding_request_headers(headers, content_type=content_type_header),
     )

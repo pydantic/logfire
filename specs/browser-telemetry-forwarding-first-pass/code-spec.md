@@ -192,7 +192,7 @@ def build_forwarding_request(
     *,
     path: str,
     headers: Mapping[str, str],
-    body: bytes | None,
+    body: bytes,
     max_body_size: int = OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
 ) -> ForwardingRequest | ForwardingErrorResponse:
     """Build an opaque forwarding request or a local validation error response."""
@@ -200,7 +200,7 @@ def build_forwarding_request(
 
 `parse_forwarding_content_type()` is used during admission before constructing `ForwardingRequest`. It inspects an already-extracted `Content-Type` header value for the supported representation markers `application/x-protobuf` and `application/json` case-insensitively. It does not validate the header as a media type; backend validation owns actual header semantics for the forwarded request. Empty values or values without a supported representation marker map to `None`, and `None` maps to the local 415 response. Missing `Content-Type` is handled by `build_forwarding_request()` before calling this parser.
 
-`build_forwarding_request()` is the shared request-level adapter for path, representation header, body size, body normalization, and whitelisted header extraction. It normalizes `None` to empty bytes, rejects bodies larger than `max_body_size` with the local 413 response, and otherwise keeps the payload opaque. Header extraction uses case-insensitive lookups for `Content-Type`, `Content-Encoding`, and `User-Agent`. A successful request stores both the inferred `ForwardingContentType` and a copied whitelisted header snapshot; successful output proceeds to manager submission. `ForwardingErrorResponse` remains an internal validation shape and must be adapted into `ForwardExportRequestResponse` at the public adapter boundary.
+`build_forwarding_request()` is the shared request-level adapter for path, representation header, body size, and whitelisted header extraction. It rejects bodies larger than `max_body_size` with the local 413 response and otherwise keeps the payload opaque. Header extraction uses case-insensitive lookups for `Content-Type`, `Content-Encoding`, and `User-Agent`. A successful request stores both the inferred `ForwardingContentType` and a copied whitelisted header snapshot; successful output proceeds to manager submission. `ForwardingErrorResponse` remains an internal validation shape and must be adapted into `ForwardExportRequestResponse` at the public adapter boundary.
 
 **Response builders encode local success and partial success.** *(implements "Response encoding matches the inferred request representation", "Accepted queued payloads return local OTLP success", "Locally dropped valid payloads return OTLP partial success")*
 The response builder creates empty OTLP success for complete local acceptance and partial success with rejected count `0` plus an explanatory message for local queue drops.
@@ -297,7 +297,7 @@ def forward_export_request(
     *,
     path: str,
     headers: Mapping[str, str],
-    body: bytes | None,
+    body: bytes,
     logfire_instance: logfire.Logfire | None = None,
     max_body_size: int = OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
 ) -> ForwardExportRequestResponse:
