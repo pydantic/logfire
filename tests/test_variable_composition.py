@@ -87,9 +87,7 @@ class TestExpandReferences:
         )
         expanded, composed = expand_references('"@{greeting}@ @{name}@!"', 'my_var', resolve_fn)
         assert expanded == '"Hello World!"'
-        assert len(composed) == 2
-        assert composed[0].name == 'greeting'
-        assert composed[1].name == 'name'
+        assert {ref.name for ref in composed} == {'greeting', 'name'}
 
     def test_same_reference_multiple_times(self):
         """The same @{ref}@ used multiple times expands each occurrence."""
@@ -219,7 +217,7 @@ class TestExpandReferences:
         resolve_fn = _make_resolve_fn({'known': '"there"'})
         expanded, composed = expand_references('"Hi @{known}@ @{missing.field}@"', 'my_var', resolve_fn)
         assert expanded == '"Hi there @{missing.field}@"'
-        assert [ref.name for ref in composed] == ['known', 'missing']
+        assert {ref.name for ref in composed} == {'known', 'missing'}
 
     def test_unresolvable_simple_and_dotted_reference_same_base(self):
         """Simple and dotted unresolved refs for the same base are both preserved."""
@@ -289,7 +287,7 @@ class TestExpandReferences:
         expanded, composed = expand_references(serialized, 'my_var', resolve_fn)
 
         assert json.loads(expanded) == ['Hello Alice', 42, {'nested': 'Alice'}]
-        assert [ref.name for ref in composed] == ['greeting', 'name']
+        assert {ref.name for ref in composed} == {'greeting', 'name'}
 
     def test_keyword_block_references_are_ignored(self):
         """Handlebars built-in names (`this`, helpers, `else`) aren't treated as variable references.
@@ -382,11 +380,13 @@ class TestFindReferences:
         assert find_references('"@{greeting}@"') == ['greeting']
 
     def test_multiple_unique_references(self):
-        assert find_references('"@{a}@ @{b}@ @{c}@"') == ['a', 'b', 'c']
+        # Sorted alphabetically — the parser doesn't surface source order, and
+        # callers shouldn't depend on iteration-order-dependent behaviour.
+        assert find_references('"@{c}@ @{a}@ @{b}@"') == ['a', 'b', 'c']
 
     def test_duplicate_references(self):
-        """Duplicates are deduplicated, order preserved."""
-        assert find_references('"@{a}@ @{b}@ @{a}@"') == ['a', 'b']
+        """The same name appearing in multiple `@{ref}@` slots is deduplicated."""
+        assert find_references('"@{b}@ @{a}@ @{b}@"') == ['a', 'b']
 
     def test_escaped_not_matched(self):
         assert find_references(r'"\\@{escaped}@"') == []
@@ -397,7 +397,7 @@ class TestFindReferences:
 
     def test_in_structured_json(self):
         serialized = json.dumps({'prompt': '@{safety}@', 'other': '@{format}@'})
-        assert find_references(serialized) == ['safety', 'format']
+        assert find_references(serialized) == ['format', 'safety']
 
     def test_find_references_block_helpers(self):
         """find_references detects variable names from block helper syntax."""
@@ -560,16 +560,13 @@ class TestFindReferencesNativeHandlebarsSyntax:
 
     def test_dotted_path_in_block_helper_header_contributes_top_level(self):
         # `@{#if user.active}@` only references `user` at the top level.
-        refs = find_references('"@{#if user.active}@x@{/if}@"')
-        assert refs == ['user']
+        assert find_references('"@{#if user.active}@x@{/if}@"') == ['user']
 
     def test_each_block_helper_contributes_iterable_name(self):
-        refs = find_references('"@{#each tags}@@{this}@@{/each}@"')
-        assert refs == ['tags']
+        assert find_references('"@{#each tags}@@{this}@@{/each}@"') == ['tags']
 
     def test_lookup_helper_arguments_are_refs(self):
-        refs = find_references('"@{lookup obj key}@"')
-        assert sorted(refs) == ['key', 'obj']
+        assert find_references('"@{lookup obj key}@"') == ['key', 'obj']
 
     def test_known_helpers_are_not_treated_as_context_refs(self):
         # `if` / `each` / `lookup` are registered helpers; their names must
@@ -578,13 +575,12 @@ class TestFindReferencesNativeHandlebarsSyntax:
         # resolve against each iteration item rather than the top-level
         # context and are not top-level dependencies.
         refs = find_references('"@{#if cond}@@{#each items}@@{lookup obj key}@@{/each}@@{/if}@"')
-        assert sorted(refs) == ['cond', 'items']
+        assert refs == ['cond', 'items']
 
     def test_lookup_args_at_top_level_are_refs(self):
         # When the helper call is at the top level (no enclosing context-
         # shifting block), its arguments are top-level deps.
-        refs = find_references('"@{lookup obj key}@"')
-        assert sorted(refs) == ['key', 'obj']
+        assert find_references('"@{lookup obj key}@"') == ['key', 'obj']
 
 
 # =============================================================================
@@ -712,6 +708,45 @@ class TestCompositionIntegration:
         assert result.value == 'fallback'
         assert result.exception is not None
         assert result.reason == 'other_error'
+
+    def test_callable_default_invoked_once_on_composition_failure(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        """A callable default must not be re-invoked on the composition-failure fallback path.
+
+        Regression for #1954 r3287513610 — when the code-default tier
+        supplies the value AND composition then fails, both the
+        serialize step (in `_lookup_serialized` → `_get_serialized_default`)
+        and the fallback step (in `_fallback_to_default`) previously
+        invoked the callable, doubling side effects. With `_DEFAULT_CACHE`
+        in place the callable is invoked once per `get()`.
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        call_count = 0
+
+        def make_default(targeting_key: str | None, attributes: Any) -> str:
+            nonlocal call_count
+            call_count += 1
+            # Returns a value that contains a reference, so composition
+            # runs against it; we force composition to fail below so the
+            # fallback path also needs the default.
+            return '@{missing_for_test}@'
+
+        # Provider has nothing; code default (the callable above) supplies
+        # the serialized value. Then we force composition to fail.
+        def raise_composition_error(*args: Any, **kwargs: Any) -> Any:
+            raise VariableCompositionError('forced composition failure')
+
+        monkeypatch.setattr('logfire.variables.variable.expand_references', raise_composition_error)
+
+        var = lf.var(name='callable_default', default=make_default, type=str)
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            result = var.get()
+
+        assert result.reason == 'other_error'
+        assert call_count == 1, f'callable default invoked {call_count} times, expected 1'
 
     def test_nested_reference(self, config_kwargs: dict[str, Any]):
         """A→B→C chain resolves fully."""
