@@ -9,10 +9,11 @@ from dataclasses import dataclass
 from enum import Enum
 from threading import Condition, RLock, Thread, current_thread
 from time import monotonic
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import unquote, urljoin
 
 from google.protobuf.json_format import MessageToJson
+from google.protobuf.message import Message
 from opentelemetry.exporter.otlp.proto.http._log_exporter import DEFAULT_TIMEOUT as DEFAULT_LOGS_TIMEOUT
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import DEFAULT_TIMEOUT as DEFAULT_METRICS_TIMEOUT
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import DEFAULT_TIMEOUT as DEFAULT_TRACES_TIMEOUT
@@ -53,7 +54,9 @@ class ForwardingPathConfig:
     timeout_env: str
     default_timeout: float
     partial_success_rejected_attribute: str
-    response_message_type: type[Any]
+    response_message_type: (
+        type[ExportTraceServiceResponse] | type[ExportLogsServiceResponse] | type[ExportMetricsServiceResponse]
+    )
 
     def timeout(self) -> float:
         signal_timeout = os.environ.get(self.timeout_env)
@@ -427,19 +430,8 @@ def build_forwarding_request(
 
 
 def build_success_response(request: ForwardingRequest) -> ForwardExportRequestResponse:
-    from logfire.experimental.forwarding import ForwardExportRequestResponse
-
     message = request.path_config.response_message_type()
-    if request.content_type is ForwardingContentType.PROTOBUF:
-        content = message.SerializeToString()
-    else:
-        content = MessageToJson(message, indent=None).encode()
-
-    return ForwardExportRequestResponse(
-        status_code=200,
-        headers={'Content-Type': request.content_type.value},
-        content=content,
-    )
+    return _build_response(message, request)
 
 
 def build_partial_success_response(
@@ -447,18 +439,22 @@ def build_partial_success_response(
     *,
     message: str,
 ) -> ForwardExportRequestResponse:
-    from logfire.experimental.forwarding import ForwardExportRequestResponse
-
     response_message = request.path_config.response_message_type()
     partial_success = response_message.partial_success
     setattr(partial_success, request.path_config.partial_success_rejected_attribute, 0)
     partial_success.error_message = message
 
+    return _build_response(response_message, request)
+
+
+def _build_response(message: Message, request: ForwardingRequest) -> ForwardExportRequestResponse:
+    from logfire.experimental.forwarding import ForwardExportRequestResponse
+
     if request.content_type is ForwardingContentType.PROTOBUF:
-        content = response_message.SerializeToString()
+        content = message.SerializeToString()
     else:
         content = MessageToJson(
-            response_message,
+            message,
             indent=None,
             always_print_fields_with_no_presence=True,
         ).encode()
