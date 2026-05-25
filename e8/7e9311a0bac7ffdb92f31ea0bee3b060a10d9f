@@ -1,0 +1,14 @@
+logfire/_internal/forwarding.py
+  h_d9dd17644dded9 37,149-151,154,443,471
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "e87e9311a0bac7ffdb92f31ea0bee3b060a10d9f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
