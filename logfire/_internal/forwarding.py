@@ -54,6 +54,17 @@ class ForwardingPathConfig:
     partial_success_rejected_attribute: str
     response_message_type: type[Any]
 
+    def timeout(self) -> float:
+        signal_timeout = os.environ.get(self.timeout_env)
+        if signal_timeout is not None:
+            return float(signal_timeout)
+
+        generic_timeout = os.environ.get(OTEL_EXPORTER_OTLP_TIMEOUT)
+        if generic_timeout is not None:
+            return float(generic_timeout)
+
+        return self.default_timeout
+
 
 FORWARDING_CONFIGS: dict[ForwardingPath, ForwardingPathConfig] = {
     '/v1/traces': ForwardingPathConfig(
@@ -155,7 +166,7 @@ class OTLPForwardingPipeline:
 
         request = queued_request.request
         url = urljoin(self.base_url.rstrip('/') + '/', request.path.lstrip('/'))
-        timeout = forwarding_timeout_for_path(request.path)
+        timeout = FORWARDING_CONFIGS[request.path].timeout()
         for token in queued_request.tokens:
             headers = build_forwarding_headers(request, token=token)
             try:
@@ -499,15 +510,3 @@ def build_forwarding_headers(request: ForwardingRequest, *, token: str) -> dict[
     if request.content_encoding is not None:
         headers['Content-Encoding'] = request.content_encoding
     return headers
-
-
-def forwarding_timeout_for_path(path: ForwardingPath) -> float:
-    signal_timeout = os.environ.get(FORWARDING_CONFIGS[path].timeout_env)
-    if signal_timeout is not None:
-        return float(signal_timeout)
-
-    generic_timeout = os.environ.get(OTEL_EXPORTER_OTLP_TIMEOUT)
-    if generic_timeout is not None:
-        return float(generic_timeout)
-
-    return FORWARDING_CONFIGS[path].default_timeout
