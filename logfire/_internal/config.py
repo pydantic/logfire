@@ -1418,6 +1418,7 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        # TODO: Combine non-tracer flush results into the returned status in a follow-up.
         self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 

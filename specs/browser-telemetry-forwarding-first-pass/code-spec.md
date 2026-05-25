@@ -317,6 +317,8 @@ The worker performs one immediate send attempt per pipeline token through the pi
 **`LogfireConfig.force_flush()` calls the forwarding manager before returning.** *(implements "Forwarding participates in Logfire flush and shutdown")*
 The config-level flush method preserves the existing `force_flush()` structure: meter, logger, forwarding, and tracer flush calls each receive the original `timeout_millis` value rather than sharing one aggregate deadline. The forwarding manager is called before the final tracer flush return, and its boolean result is not combined into the return value, matching the current behavior where meter and logger flush results do not change the returned tracer result.
 
+TODO: Address the pre-existing `LogfireConfig.force_flush()` result aggregation bug in a follow-up rather than in this forwarding PR.
+
 **`LogfireConfig.configure()` replaces forwarding lifecycle with configuration lifecycle.** *(implements "Forwarding transport lifecycle is owned by Logfire configuration, not by each forwarding call")*
 Reconfiguration collects forwarding destinations while the existing `send_to_logfire` branch resolves tokens and backend URLs, including credentials-derived values, from the same loop that constructs normal exporters. After exporter construction succeeds, configuration installs a fresh manager built from that destination list and closes the previous config-owned forwarding manager.
 
