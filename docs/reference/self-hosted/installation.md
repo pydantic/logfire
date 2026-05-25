@@ -1,190 +1,47 @@
 ---
-title: "Logfire Self-Hosted Installation: Step-by-Step Guide"
-description: "How to deploy Pydantic Logfire in a self-hosted environment, with guidance on Postgres databases, object storage, and identity provider configuration."
+title: Self-Hosted Logfire Production Requirements
+description: "Plan the production values required for self-hosted Pydantic Logfire, including PostgreSQL, object storage, authentication, and sizing."
 ---
-# Self Hosted Installation
+# Production Requirements
 
-Installation of the self-hosted **Logfire** requires that you have a few prerequisites before installing.
+Use this page to plan the production values you need before installing self-hosted Logfire. Use the [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-chart) for the exact install commands, local evaluation flow, and chart-version-specific sizing preset details.
 
-## Prerequisites
+## Production Values Checklist
 
-### Helm CLI
+Before installing the chart, decide how you will configure:
 
-This guide assumes that you will be using the Helm CLI to run commands.  If you are running a CI/CD tool such as Argo etc. then please adapt instructions for that platform.
+* Image pull credentials.
+* PostgreSQL databases and credentials.
+* Object storage bucket/container and credentials.
+* Dex identity provider connector.
+* Production sizing preset: `standard`, `small`, or `tiny`.
+* Storage classes if your cluster does not have a default `StorageClass`.
 
-### Kubernetes Admin
+## Starter Values Shape
 
-When running the helm chart, you will be required to create resources within a Kubernetes cluster, including secrets, pods, deployments, configurations, etc.
-
-### Image Pull Secrets
-
-You will require image pull secrets to pull down the docker images from our private repository. Contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) to get a copy.
-
-### Postgres Database
-
-The Helm chart does not include a production-ready Postgres Database (only a development instance).  You will be required to connect to, and create databases on a Postgres instance.
-
-You will need to make sure the following extensions can be enabled on the instance: `intarray` and `btree_gist`.
-
-You will need to create 3 databases, that are used for different things. It's ok to have them all on the same instance.
-
-While we are currently working on running **Logfire** on one database, for now they *must* be separated.
-
-The 3 database in question are:
-
-* Standard Postgres Database, i.e, `crud`
-* Object Storage/File Metadata, i.e, `ff`
-* Dex i.e, `dex`
-
-While they can be named anything, we will refer to them with these identifiers in this guide.
-
-### Identity Provider
-
-An Identity Provider should ideally be set up to be used.  I.e, via Github or Google.
-
-You can view the full list of supported providers within the [Dex connectors docs](https://dexidp.io/docs/connectors/)
-
-Note that, when looking at connectors, the yaml config examples within the helm `values.yaml` file under the `logfire-dex:config` map.
-
-I.e, if the connector config looks like this in Dex docs:
+Your production values file should have this shape. Replace the placeholders with your environment details and load sensitive values from Kubernetes Secrets, External Secrets, or your secret manager where possible.
 
 ```yaml
-connectors:
-- type: github
-  id: github
-  name: GitHub
-  config:
-    ...
-```
+imagePullSecrets:
+  - logfire-image-key
 
-Then within the helm `values.yaml` this will look like:
+sizingPreset: standard
+adminEmail: sre@example.com
 
-```yaml
-logfire-dex:
-  config:
-    connectors:
-      - type: "github"
-        id: "github"
-        name: "GitHub"
-        config:
-          ...
-```
-
-### Object Storage
-
-**Logfire** requires Object Storage to store data.  There are a number of different integrations that can be used:
-
-* Amazon S3
-* Google Cloud Storage
-* Azure Storage
-
-Each has their own set of environment variables that can be used to configure them. However if your kubernetes service account has the appropriate credentials, that can be used by setting `serviceAccountName`.
-
-### Ingress/HTTP Gateway
-
-Depending on how you want to access **Logfire**, you can use a Kubernetes Ingress, a Kubernetes Gateway, or connect directly to the Logfire Service (`logfire-service`).
-
-#### Using Ingress
-
-Here's an example of using `nginx` as an ingress controller, and providing a [cert manager](https://cert-manager.io/) annotation to manage the SSL certificate:
-```yaml
 ingress:
   enabled: true
   tls: true
   hostnames:
     - logfire.example.com
   ingressClassName: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt"
-```
 
-#### Using Gateway API
+objectStore:
+  uri: s3://logfire-prod
+  env:
+    AWS_DEFAULT_REGION: us-east-1
 
-As an alternative to Ingress, you can use the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) to expose Logfire.
-This is useful if you're using a Gateway controller like Istio, Envoy Gateway, Cilium, or any other Gateway API implementation.
-
-The chart can create both a Gateway and HTTPRoute resource for you:
-
-```yaml
-ingress:
-  # Disable the Ingress resource
-  enabled: false
-  # Still required for CORS headers and Gateway listener hostname
-  tls: true
-  hostnames:
-    - logfire.example.com
-  # TLS secret for the Gateway listener
-  secretName: logfire-tls-cert
-
-gateway:
-  enabled: true
-  # Create the Gateway resource (default: true)
-  create: true
-  # GatewayClass name (required when create is true)
-  # Common values: istio, cilium, nginx, envoy-gateway, gke-l7-rilb
-  gatewayClassName: istio
-  # Custom Gateway name (optional, defaults to "logfire-gateway")
-  name: logfire-gateway
-```
-
-When `ingress.tls` is true, the Gateway will be configured with an HTTPS listener on port 443. Otherwise, an HTTP listener on port 80 will be created.
-
-#### Using `logfire-service` directly
-
-We expose a service called `logfire-service` which will route traffic appropriately.
-
-If you don't want to use the ingress controller, you will still need to define hostnames and whether you are externally using TLS:
-
-I.e, this config will turn off the ingress resource, but still set appropriate cors headers for the `logfire-service`:
-
-```yaml
-ingress:
-  # this turns off the ingress resource
-  enabled: false
-  # used to ensure appropriate CORS headers are set.  If your browser is accessing it on https, then needs to be enabled here
-  tls: true
-  # used to ensure appropriate CORS headers are set.
-  hostnames:
-    - logfire.example.com
-```
-
-If you are *not* using kubernetes ingress, you must still set the hostnames under the `ingress` configuration.
-
-## Initial `values.yaml`
-
-Before doing any scaling/replication adjustments, we'll write out an initial helm chart `values.yaml`.
-
-You can see all the configuration options in the default:
-
-[https://github.com/pydantic/logfire-helm-chart/blob/main/charts/logfire/values.yaml](https://github.com/pydantic/logfire-helm-chart/blob/main/charts/logfire/values.yaml)
-
-Here's a checklist you can use to ensure you have all your prerequisites:
-
-- [ ] Helm CLI Installed
-- [ ] Image Pull Secrets
-- [ ] Access to a Kubernetes cluster
-- [ ] The 3 PostgreSQL databases set up
-- [ ] Identity Provider Configuration
-- [ ] Object Storage Configuration
-- [ ] HTTP Ingress/Gateway information (i.e, hostname etc.)
-
-Here's an example `values.yaml` to get you started:
-
-
-```yaml
-adminEmail: admin-email@my-company.dev
-
-# Configure the Image Pull Secrets
-
-imagePullSecrets:
-  - logfire-image-key
-
-# Configure Logfire Postgres Databases
-
-postgresDsn: postgres://postgres:postgres@postgres.example.com:5432/crud
-postgresFFDsn: postgres://postgres:postgres@postgres.example.com:5432/ff
-
-# Configure Dex Postgres & Identity Provider
+postgresDsn: postgresql://logfire_crud:PASSWORD@postgres.example.com:5432/crud
+postgresFFDsn: postgresql://logfire_ff:PASSWORD@postgres.example.com:5432/ff
 
 logfire-dex:
   config:
@@ -193,87 +50,73 @@ logfire-dex:
       config:
         host: postgres.example.com
         port: 5432
-        user: postgres
+        user: logfire_dex
         database: dex
-        password: postgres
+        password: PASSWORD
         ssl:
-          mode: disable
+          mode: require
     connectors:
-      - type: "github"
-        id: "github"
-        name: "GitHub"
+      - type: github
+        id: github
+        name: GitHub
         config:
-          clientID: client_id
-          clientSecret: client_secret
+          clientID: GITHUB_CLIENT_ID
+          clientSecret: GITHUB_CLIENT_SECRET
           getUserInfo: true
-
-# Configure Object Storage
-
-objectStore:
-  uri: s3://logfire-example-bucket
-  env:
-    AWS_ACCESS_KEY_ID: logfire-example
-    AWS_SECRET_ACCESS_KEY: logfire-example
-
-# Configure Ingress
-
-ingress:
-  enabled: true
-  tls: true
-  hostnames:
-    - logfire.example.com
-  ingressClassName: nginx
 ```
 
-This uses Amazon S3 as an Object Store, and Github as an Identity Provider, but you can change to your own environment.  Read the sections below to see how you make changes.
+## Image Pull Secret
 
-### Image Pull Secrets
+Logfire images are private. Contact [sales@pydantic.dev](mailto:sales@pydantic.dev) to get the `key.json` file used to create an image pull secret.
 
-You will require image pull secrets to pull down the docker images from our private repository. Contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) to get a copy.
+Create the secret in the same namespace as the Helm release:
 
-When you have the `key.json` file you can load it in as a secret like so:
-
-```
-kubectl create secret docker-registry logfire-image-key \
+```bash
+kubectl -n logfire create secret docker-registry logfire-image-key \
   --docker-server=us-docker.pkg.dev \
   --docker-username=_json_key \
   --docker-password="$(cat key.json)" \
   --docker-email=YOUR-EMAIL@example.com
 ```
 
-Then you can either configure your [service account](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account) to use them or specify this in `values.yaml` under `imagePullSecrets`:
+Then reference it from your values file:
 
 ```yaml
 imagePullSecrets:
   - logfire-image-key
 ```
 
-### Postgres Databases
+If you mirror Logfire images into your own registry, keep the chart version and mirrored image tags aligned.
 
-With the 3 databases configured, you will need to configure Logfire & Dex within `values.yaml`.
+## PostgreSQL
 
-The 2 databases for logfire (`crud` and `ff`) can be configured either via the DSNs in `values.yaml` or as a secret.
+The Helm chart does not deploy production PostgreSQL. Use PostgreSQL 16 or later and make sure the `intarray` and `btree_gist` extensions can be enabled.
 
-I.e,
+Create three databases. They can live on the same PostgreSQL instance:
+
+* `crud`: Logfire application data such as organizations, projects, dashboards, and users.
+* `ff`: FusionFire metadata for files stored in object storage.
+* `dex`: Dex identity service storage.
+
+Telemetry payloads are stored in object storage, not PostgreSQL.
+Each database user needs owner permissions so chart migrations can create and update schemas.
+
+You can provide the two Logfire database DSNs directly:
 
 ```yaml
-postgresDsn: postgres://postgres:postgres@postgres.example.com:5432/crud
-postgresFFDsn: postgres://postgres:postgres@postgres.example.com:5432/ff
+postgresDsn: postgresql://logfire_crud:PASSWORD@postgres.example.com:5432/crud
+postgresFFDsn: postgresql://logfire_ff:PASSWORD@postgres.example.com:5432/ff
 ```
 
-Or if you have a secret containing postgresDsn and postgresFFDsn keys:
-
-!!! note
-    For ArgoCD users, it is highly recommended to [use an existing Kubernetes secret](https://argo-cd.readthedocs.io/en/stable/operator-manual/secret-management/) to manage your database credentials.
-    To do so, ensure you set `enabled: true` and provide the name of your secret.
+Or reference an existing Kubernetes Secret with `postgresDsn` and `postgresFFDsn` keys:
 
 ```yaml
 postgresSecret:
   enabled: true
-  name: "my-postgres-secret"
+  name: my-postgres-secret
 ```
 
-For Dex (`dex`), this is configured via a config map, rather than a DSN:
+Dex uses its own PostgreSQL configuration:
 
 ```yaml
 logfire-dex:
@@ -283,14 +126,14 @@ logfire-dex:
       config:
         host: postgres.example.com
         port: 5432
-        user: postgres
+        user: logfire_dex
         database: dex
-        password: postgres
+        password: PASSWORD
         ssl:
-          mode: disable
+          mode: require
 ```
 
-If you want to use a secret for the password you can substitute with `$ENV_NAME` syntax:
+Dex configuration can reference environment variables. Use this pattern if the password is stored in a Secret:
 
 ```yaml
 logfire-dex:
@@ -306,256 +149,142 @@ logfire-dex:
       config:
         host: postgres.example.com
         port: 5432
-        user: postgres
+        user: logfire_dex
         database: dex
         password: $DEX_POSTGRES_PASSWORD
         ssl:
-          mode: disable
+          mode: require
 ```
 
-### Identity Provider
+## Object Storage
 
-
-Depending on what [connector you want to use](https://dexidp.io/docs/connectors/), you can configure dex connectors accordingly.
-
-Here's an example using `github` as a connector:
-
-```yaml
-logfire-dex:
-  ...
-  config:
-    connectors:
-      - type: "github"
-        id: "github"
-        name: "GitHub"
-        config:
-          # You get clientID and clientSecret by creating a GitHub OAuth App
-          # See https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app
-          clientID: client_id
-          clientSecret: client_secret
-          getUserInfo: true
-```
-
-To use GitHub as an example, you can find general instructions for creating an OAuth app [in the GitHub docs](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
-
-Dex allows configuration parameters to reference environment variables.
-This can be done by using the `$` symbol.  For example, the `clientID` and `clientSecret` can be set as environment variables:
-
-```yaml
-logfire-dex:
-  env:
-    - name: GITHUB_CLIENT_ID
-      valueFrom:
-        secretKeyRef:
-          name: my-github-secret
-          key: client-id
-    - name: GITHUB_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: my-github-secret
-          key: client-secret
-  config:
-    connectors:
-      - type: "github"
-        id: "github"
-        name: "GitHub"
-        config:
-          clientID: $GITHUB_CLIENT_ID
-          clientSecret: $GITHUB_CLIENT_SECRET
-          getUserInfo: true
-```
-
-You would have to manually (or via IaC, etc.) create `my-github-secret`.
-This allows you to avoid putting any secrets into a `values.yaml` file.
-
-### Object Storage
-
-There are a number of different integrations that can be used:
-
-* Amazon S3
-* Google Cloud Storage
-* Azure Storage
-
-Each has their own set of environment variables that can be used to configure them. However if your kubernetes service account has the appropriate credentials, that can be used by setting `serviceAccountName`.
-
-#### Amazon S3
-
-Variables extracted from environment:
-
- * `AWS_ACCESS_KEY_ID` -> access_key_id
- * `AWS_SECRET_ACCESS_KEY` -> secret_access_key
- * `AWS_DEFAULT_REGION` -> region
- * `AWS_ENDPOINT` -> endpoint
- * `AWS_SESSION_TOKEN` -> token
- * `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` -> <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html>
- * `AWS_ALLOW_HTTP` -> set to "true" to permit HTTP connections without TLS
-
-Example:
+Set `objectStore.uri` to your bucket or container:
 
 ```yaml
 objectStore:
-  uri: s3://<bucket_name>
-  # Note: not needed if the service account specified by `serviceAccountName` itself has credentials
+  uri: s3://logfire-prod
+```
+
+Do not enable bucket versioning. Logfire manages its own data lifecycle, and bucket versioning can increase cost and interfere with lifecycle behavior.
+
+For Amazon S3, prefer workload identity such as IRSA, EKS Pod Identity, or your platform's equivalent. If you need static credentials, load them from a Secret:
+
+```yaml
+objectStore:
+  uri: s3://logfire-prod
   env:
-    AWS_DEFAULT_REGION: <region>
+    AWS_DEFAULT_REGION: us-east-1
+    AWS_ACCESS_KEY_ID:
+      valueFrom:
+        secretKeyRef:
+          name: logfire-object-storage
+          key: access-key-id
     AWS_SECRET_ACCESS_KEY:
       valueFrom:
         secretKeyRef:
-          name: my-aws-secret
-          key: secret-key
-    AWS_ACCESS_KEY_ID: <access_key>
+          name: logfire-object-storage
+          key: secret-access-key
 ```
 
-#### Google Cloud Storage
-
-Variables extracted from environment:
-
- * `GOOGLE_SERVICE_ACCOUNT`: location of service account file
- * `GOOGLE_SERVICE_ACCOUNT_PATH`: (alias) location of service account file
- * `SERVICE_ACCOUNT`: (alias) location of service account file
- * `GOOGLE_SERVICE_ACCOUNT_KEY`: JSON serialized service account key
- * `GOOGLE_BUCKET`: bucket name
- * `GOOGLE_BUCKET_NAME`: (alias) bucket name
-
-Example:
+For Google Cloud Storage:
 
 ```yaml
 objectStore:
-  uri: gs://<bucket>
-  # Note: not needed if the service account specified by `serviceAccountName` itself has credentials
+  uri: gs://logfire-prod
   env:
-    GOOGLE_SERVICE_ACCOUNT_PATH: /path/to/service/account
+    GOOGLE_SERVICE_ACCOUNT_KEY:
+      valueFrom:
+        secretKeyRef:
+          name: logfire-object-storage
+          key: service-account-key
 ```
 
-#### Azure Storage
-
-Variables extracted from environment:
-
- * `AZURE_STORAGE_ACCOUNT_NAME`: storage account name
- * `AZURE_STORAGE_ACCOUNT_KEY`: storage account master key
- * `AZURE_STORAGE_ACCESS_KEY`: alias for AZURE_STORAGE_ACCOUNT_KEY
- * `AZURE_STORAGE_CLIENT_ID`: client id for service principal authorization
- * `AZURE_STORAGE_CLIENT_SECRET`: client secret for service principal authorization
- * `AZURE_STORAGE_TENANT_ID`: tenant id used in oauth flows
-
-Example:
+For Azure Storage:
 
 ```yaml
 objectStore:
-  uri: az://<container_name>
+  uri: az://logfire-prod
   env:
-    AZURE_STORAGE_ACCOUNT_NAME: <storage_account_name>
+    AZURE_STORAGE_ACCOUNT_NAME: logfireprod
     AZURE_STORAGE_ACCOUNT_KEY:
       valueFrom:
         secretKeyRef:
-          name: my-azure-secret
+          name: logfire-object-storage
           key: account-key
 ```
 
+## Hostnames and Exposure
 
-## Deploying the Helm Chart
+Logfire needs a stable hostname so it can generate correct public URLs and CORS headers.
 
-Once you have created the helm chart `values.yaml` as above, then the next step is to pull down the helm chart and deploy it.
+For a standard Ingress:
 
-* If you haven't already, grab the latest helm chart for **Logfire**:
-  ```
-  helm repo add pydantic https://charts.pydantic.dev/
-  ```
-* Create a namespace to store all of your resources:
-  ```
-  kubectl create namespace logfire
-  ```
-* Add in the image pull secret to your namespace (& any other secrets):
-  ```
-  kubectl -n logfire create secret docker-registry logfire-image-key \
-    --docker-server=us-docker.pkg.dev \
-    --docker-username=_json_key \
-    --docker-password="$(cat key.json)" \
-    --docker-email=YOUR-EMAIL@example.com
-  ```
-* Then, using your `values.yaml`, you can deploy it like so:
-  ```
-  helm --namespace=logfire upgrade --install logfire pydantic/logfire -f values.yaml --wait
-  ```
-
-If everything is configured correctly, you will see a list of pods deployed and ready:
-
-```
-NAME                                             READY   STATUS    RESTARTS   AGE
-logfire-backend-6956589db6-rvt4s                 1/1     Running   0          2m9s
-logfire-dex-74f8b9d5f8-rqg9k                     1/1     Running   0          2m9s
-logfire-ff-cache-byte-64b97f99b4-twj8v           1/1     Running   0          2m9s
-logfire-ff-cache-filter-a1b2c3d4e5-xyz12         1/1     Running   0          2m9s
-logfire-ff-cache-ipc-f6g7h8i9j0-abc34            1/1     Running   0          2m9s
-logfire-ff-compaction-worker-k1l2m3n4-def56      1/1     Running   0          2m9s
-logfire-ff-crud-api-o5p6q7r8-ghi78               1/1     Running   0          2m9s
-logfire-ff-ingest-0                              1/1     Running   0          2m9s
-logfire-ff-ingest-processor-68c45668fd-mmmt9     1/1     Running   0          2m9s
-logfire-ff-maintenance-worker-6bc45f65f5-l5lv9   1/1     Running   0          2m9s
-logfire-ff-proxy-cache-byte-s9t0u1v2-jkl90       1/1     Running   0          2m9s
-logfire-ff-proxy-cache-filter-w3x4y5z6-mno12     1/1     Running   0          2m9s
-logfire-ff-proxy-cache-ipc-a7b8c9d0-pqr34        1/1     Running   0          2m9s
-logfire-ff-query-api-77d8798dc6-f4m67            1/1     Running   0          2m8s
-logfire-frontend-service-e1f2g3h4-stu56          1/1     Running   0          2m8s
-logfire-otel-collector-7bdcf78dd9-b9d7q          1/1     Running   0          2m8s
-logfire-redis-65fb774fc-s8xgk                    1/1     Running   0          2m9s
-logfire-service-7688f7c56-q7lmk                  1/1     Running   0          2m8s
-logfire-worker-85bd6f5c47-mx8pz                  1/1     Running   0          2m8s
+```yaml
+ingress:
+  enabled: true
+  tls: true
+  hostnames:
+    - logfire.example.com
+  ingressClassName: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
 ```
 
-Once completed, have a read through [scaling](./scaling.md) to start adding replicas.
+If you expose `logfire-service` directly instead of rendering an Ingress, keep `ingress.enabled: false` and still set the public hostname and TLS behavior:
 
-### Common Errors
-
-There are a couple of common errors that can happen when deploying the helm chart for the first time
-
-#### Bad Image Secret
-
-When the helm chart runs, it's required to pull the images down from the private registry.  You must ensure you have the image pull secrets configured in `values.yaml` correctly.
-
-The helm chart, if it has the `--wait` argument will exit after some time with the following errors:
-
-```
-Error: UPGRADE FAILED: pre-upgrade hooks failed: 1 error occurred:
-	* timed out waiting for the condition
+```yaml
+ingress:
+  enabled: false
+  tls: true
+  hostnames:
+    - logfire.example.com
 ```
 
-Viewing the list of pods you will see the following status:
+Gateway API is also supported. To have the chart create a Gateway and HTTPRoute:
 
-```
-NAME                                             READY   STATUS         RESTARTS   AGE
-logfire-backend-migrations-plmh6                 0/1     ErrImagePull   0          70s
-```
+```yaml
+ingress:
+  enabled: false
+  tls: true
+  hostnames:
+    - logfire.example.com
+  secretName: logfire-tls-cert
 
-**To fix:** ensure that you have configured the image pull secret within your `values.yaml` file.
-
-#### Postgres Passwords
-
-When the helm chart runs, there are two migration processes that run to create the database schema needed.  These migrations are required to run *before* bringing up a lot of the pods.  If the postgres password is incorrect or the instance is inaccessible, the helm installation will not finish.
-
-The helm chart, if it has the `--wait` argument, will exit after some time with the following error:
-
-```
-Error: UPGRADE FAILED: pre-upgrade hooks failed: 1 error occurred:
-	* job logfire-ff-migrations failed: BackoffLimitExceeded
+gateway:
+  enabled: true
+  create: true
+  gatewayClassName: istio
 ```
 
-While the helm chart is running, you will see the following pod crashing:
+## Identity Provider
 
+Logfire uses [Dex](https://dexidp.io/docs/connectors/) for user authentication. Dex connector examples belong in your values file under `logfire-dex.config.connectors`.
+
+For GitHub:
+
+```yaml
+logfire-dex:
+  config:
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
+        config:
+          clientID: GITHUB_CLIENT_ID
+          clientSecret: GITHUB_CLIENT_SECRET
+          getUserInfo: true
 ```
-NAME                                             READY   STATUS             RESTARTS      AGE
-logfire-ff-migrations-48jqb                      0/1     CrashLoopBackOff   3 (43s ago)   86s
+
+For Azure AD, Okta, and more detailed GitHub steps, see [examples](./examples.md).
+
+## Sizing and Storage
+
+Start production deployments with one of the chart's production sizing presets:
+
+```yaml
+sizingPreset: standard
 ```
 
-You can see the error in the pod's console:
+Use `standard` for the default production starting point, `small` for lower-traffic production deployments, or `tiny` for the smallest production footprint. The [Helm chart README](https://github.com/pydantic/logfire-helm-chart#sizing) is the source of truth for preset behavior and any per-workload overrides.
 
-```
-2025-06-24T06:56:46.469773Z  INFO fusionfire::config::entrypoints running fusionfire command command=migrate
-2025-06-24T06:56:46.469840Z  INFO fusionfire::config::entrypoints running migrations
-error running fusionfire: error returned from database: password authentication failed for user "postgres"
-
-Caused by:
-    password authentication failed for user "postgres"
-```
-
-**To fix:** ensure that your postgres passwords are correct, and that you can connect to Postgres from the Kubernetes cluster.
+Production clusters should have working HorizontalPodAutoscaler metrics before relying on the built-in presets. If your cluster has no default `StorageClass`, set the required storage class values for scratch and ingest volumes.
