@@ -159,7 +159,11 @@ class OTLPForwardingPipeline:
         url = urljoin(self.base_url.rstrip('/') + '/', request.path.lstrip('/'))
         timeout = request.path_config.timeout()
         for token in self.tokens:
-            headers = build_forwarding_headers(request, token=token)
+            headers = {
+                **request.headers,
+                'User-Agent': request.headers.get('User-Agent', _forwarding_user_agent(None)),
+                'Authorization': token,
+            }
             try:
                 with suppress_instrumentation():
                     self.session.post(url, data=request.body, headers=headers, timeout=timeout)
@@ -332,15 +336,14 @@ def _get_header(headers: Mapping[str, str], name: str) -> str | None:
 
 
 def _build_forwarding_request_headers(headers: Mapping[str, str], *, content_type: str) -> Mapping[str, str]:
-    request_headers = {'Content-Type': content_type}
+    request_headers = {
+        'Content-Type': content_type,
+        'User-Agent': _forwarding_user_agent(_get_header(headers, 'user-agent')),
+    }
 
     content_encoding = _get_header(headers, 'content-encoding')
     if content_encoding is not None:
         request_headers['Content-Encoding'] = content_encoding
-
-    user_agent = _get_header(headers, 'user-agent')
-    if user_agent is not None:
-        request_headers['User-Agent'] = user_agent
 
     return MappingProxyType(request_headers)
 
@@ -456,15 +459,3 @@ def _forwarding_user_agent(user_agent: str | None) -> str:
     if user_agent:
         return f'{forwarding_user_agent} {user_agent}'
     return forwarding_user_agent
-
-
-def build_forwarding_headers(request: ForwardingRequest, *, token: str) -> dict[str, str]:
-    headers = {
-        'Content-Type': request.headers['Content-Type'],
-        'User-Agent': _forwarding_user_agent(request.headers.get('User-Agent')),
-        'Authorization': token,
-    }
-    content_encoding = request.headers.get('Content-Encoding')
-    if content_encoding is not None:
-        headers['Content-Encoding'] = content_encoding
-    return headers

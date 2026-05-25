@@ -60,7 +60,7 @@ class ForwardingContentType(Enum):
 
 `ForwardingRequest` is created once for a valid inbound request and is shared by reference across backend-url queues.
 
-`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `path_config` returns the centralized forwarding metadata for that path. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the inferred OTLP representation and drives the local response representation. `headers` stores a copied read-only canonical snapshot of only the whitelisted inbound headers needed to build the Logfire-bound request: original `Content-Type`, optional `Content-Encoding`, and optional original `User-Agent`. Client `Authorization`, cookies, host headers, and other inbound headers are not retained on the queued request.
+`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `path_config` returns the centralized forwarding metadata for that path. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the inferred OTLP representation and drives the local response representation. `headers` stores a copied read-only canonical snapshot of only the whitelisted inbound headers needed to build the Logfire-bound request: original `Content-Type`, optional `Content-Encoding`, and the composed Logfire proxy `User-Agent`. Client `Authorization`, cookies, host headers, and other inbound headers are not retained on the queued request.
 
 `ForwardingContentType.PROTOBUF` represents `application/x-protobuf` requests and responses. `ForwardingContentType.JSON` represents `application/json` requests and responses.
 
@@ -269,18 +269,7 @@ class OTLPForwardingPipeline:
 `enqueue()` starts a non-daemon worker while holding `condition` when queued work exists and no live worker is recorded, including after a previous worker drained the queue and exited. `_run()` is the worker target that drains queued items, increments `active_send_count` before sending, calls `_send()` inside a `try` block, decrements `active_send_count` in a `finally` block after the immediate send attempt completes, and notifies flush/shutdown waiters when either queued bytes, active sends, or worker liveness changes. `_run()` exits when the memory queue is empty; it must not treat `closed=True` as a reason to abandon queued work. Before returning, `_run()` clears or marks worker state so future enqueue can create a new worker and shutdown can observe that no non-daemon worker remains alive. `_send()` performs the token fanout for one queued request and delegates each Logfire-bound request to `OTLPExporterHttpSession.post()`.
 
 **Pipeline sends use per-token authorization with shared backend transport.** *(implements "Forwarding uses every active Logfire export write token grouped by backend URL", "Server authentication headers are injected, not forwarded from the client")*
-Each queued payload is sent once per active Logfire export token in the backend-url group. The worker constructs per-send headers from the whitelisted representation headers, composed User-Agent, and that token's authorization.
-
-```python
-def build_forwarding_headers(
-    request: ForwardingRequest,
-    *,
-    token: str,
-) -> dict[str, str]:
-    """Build Logfire-bound headers for one active Logfire export write token."""
-```
-
-`build_forwarding_headers()` is called by `_send()` for each token in the pipeline's token list. It copies the request's whitelisted header snapshot, composes the Logfire proxy user agent with any original inbound user agent, and injects the active Logfire export write token as `Authorization`. Each token send receives a fresh header dictionary. The emitted `Content-Type` header preserves the original inbound field value.
+Each queued payload is sent once per active Logfire export token in the backend-url group. `build_forwarding_request()` stores the whitelisted representation headers and composed Logfire proxy `User-Agent` once on the request. `_send()` copies that snapshot for each token and injects the active Logfire export write token as `Authorization`, so each token send receives a fresh header dictionary. The emitted `Content-Type` header preserves the original inbound field value.
 
 **Worker send exceptions are contained at token and queued-item boundaries.** *(implements "Forwarding worker send failures are contained")*
 `OTLPExporterHttpSession.post()` may raise after performing its immediate retry or after adding a failed request to `DiskRetryer`. `_send()` catches exceptions around each per-token `post()` call, logs or suppresses the exception locally, and continues with the remaining tokens in the pipeline token list. A failed token send must not skip later token sends for the same backend URL.

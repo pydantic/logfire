@@ -22,7 +22,6 @@ from logfire._internal.forwarding import (
     OTLPForwardingManager,
     OTLPForwardingPipeline,
     _normalize_forwarding_path,  # pyright: ignore[reportPrivateUsage]
-    build_forwarding_headers,
     build_forwarding_request,
     build_partial_success_response,
     build_success_response,
@@ -108,7 +107,7 @@ def test_build_forwarding_request_valid_protobuf() -> None:
     assert request.headers == {
         'Content-Type': 'application/x-protobuf',
         'Content-Encoding': 'gzip',
-        'User-Agent': 'browser',
+        'User-Agent': f'logfire-proxy/{VERSION} browser',
     }
     assert 'Authorization' not in request.headers
 
@@ -124,7 +123,10 @@ def test_build_forwarding_request_valid_json_with_parameters() -> None:
     assert request.path == '/v1/logs'
     assert request.body == b'{"resourceLogs":[]}'
     assert request.content_type is ForwardingContentType.JSON
-    assert request.headers == {'Content-Type': 'application/json; charset=utf-8'}
+    assert request.headers == {
+        'Content-Type': 'application/json; charset=utf-8',
+        'User-Agent': f'logfire-proxy/{VERSION}',
+    }
 
 
 def test_build_forwarding_request_none_body_normalizes_to_empty_bytes() -> None:
@@ -281,47 +283,6 @@ def test_build_partial_success_response_protobuf(path: str, message_cls: type[ob
     assert response.headers == {'Content-Type': 'application/x-protobuf'}
     assert message.partial_success.error_message == 'closed'  # type: ignore[attr-defined]
     assert getattr(message.partial_success, rejected_attr) == 0  # type: ignore[attr-defined]
-
-
-def test_build_forwarding_headers_preserves_representation_and_injects_token() -> None:
-    request = ForwardingRequest(
-        path='/v1/traces',
-        body=b'data',
-        content_type=ForwardingContentType.JSON,
-        headers={
-            'Content-Type': 'application/json; charset=utf-8',
-            'Content-Encoding': 'gzip',
-            'User-Agent': 'browser-agent',
-        },
-    )
-
-    headers = build_forwarding_headers(request, token='server-token')
-
-    assert headers == {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Content-Encoding': 'gzip',
-        'User-Agent': f'logfire-proxy/{VERSION} browser-agent',
-        'Authorization': 'server-token',
-    }
-
-
-def test_build_forwarding_headers_without_optional_content_encoding_or_user_agent() -> None:
-    request = ForwardingRequest(
-        path='/v1/logs',
-        body=b'data',
-        content_type=ForwardingContentType.PROTOBUF,
-        headers={'Content-Type': 'application/x-protobuf'},
-    )
-
-    headers = build_forwarding_headers(request, token='other-token')
-
-    assert headers == {
-        'Content-Type': 'application/x-protobuf',
-        'User-Agent': f'logfire-proxy/{VERSION}',
-        'Authorization': 'other-token',
-    }
-    assert 'Cookie' not in headers
-    assert 'Host' not in headers
 
 
 def test_forwarding_path_config_timeout_defaults(monkeypatch: pytest.MonkeyPatch) -> None:

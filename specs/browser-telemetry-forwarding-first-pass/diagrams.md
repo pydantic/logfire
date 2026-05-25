@@ -232,7 +232,7 @@ flowchart TD
     Enqueue --> Worker["Thread target: OTLPForwardingPipeline._run()"]
     Worker --> ActiveSend["increment active_send_count"]
     ActiveSend --> Send["OTLPForwardingPipeline._send(request)"]
-    Send --> Headers["build_forwarding_headers(request, token)"]
+    Send --> Headers["copy request headers and inject token authorization"]
     Send --> Timeout["request.path_config.timeout()"]
     Timeout --> SessionPost["OTLPExporterHttpSession.post(..., timeout=timeout)"]
     Send --> SessionPost
