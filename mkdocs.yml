@@ -261,6 +261,7 @@ nav:
           - Collect Cloud Provider Metrics: how-to-guides/cloud-metrics.md
           - Connect to MCP Server: how-to-guides/mcp-server.md
           - Coding Agent Skills: how-to-guides/skills.md
+          - Export Codex Activity: how-to-guides/codex-logfire-exporter.md
       - Reference:
           - SQL: reference/sql.md
       - Deploy & Scale:

@@ -82,6 +82,15 @@ Add to your Claude settings:
 Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
 for more information.
 
+### Codex
+
+Install the [Logfire plugin](skills.md#codex) from the Pydantic marketplace. The plugin configures the hosted
+Logfire MCP server automatically — no separate MCP JSON configuration is required.
+
+The Codex plugin currently configures the US endpoint. For EU projects, use a local `pydantic/skills` checkout
+and update `plugins/logfire/mcp.json` to `https://logfire-eu.pydantic.dev/mcp` before installing or reloading
+the plugin. Edits made inside an installed plugin cache may be overwritten by plugin updates.
+
 ### Cline
 
 Add to your Cline settings in `cline_mcp_settings.json`:

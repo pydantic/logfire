@@ -29,7 +29,7 @@ The plugin bundles skills, commands, and an MCP server. Claude will use the rele
 automatically, or you can invoke a command directly:
 
 ```
-/instrumentation
+/instrument
 ```
 
 As an alternative, you can install from the [`pydantic/skills`](https://github.com/pydantic/skills)
@@ -39,6 +39,36 @@ marketplace, which bundles the Logfire skill alongside other Pydantic-maintained
 claude plugin marketplace add pydantic/skills
 claude plugin install logfire@pydantic-skills
 ```
+
+### Codex
+
+Install the Pydantic marketplace in Codex:
+
+```bash
+codex plugin marketplace add pydantic/skills --ref main
+```
+
+Then enable plugins from the **Pydantic** marketplace. Either enable them in the Codex plugin UI, or run:
+
+```bash
+codex plugin add logfire@pydantic-skills
+codex plugin add codex-logfire-exporter@pydantic-skills
+```
+
+Two plugins are available:
+
+| Plugin | Purpose |
+| --- | --- |
+| **Logfire** | Gives Codex Logfire skills and the hosted Logfire MCP server for instrumentation, querying, and opening UI views. |
+| **Codex Logfire Exporter** | Exports completed Codex turns and tool calls to Logfire as OpenTelemetry traces. |
+
+These plugins solve different problems and can be installed together. After enabling **Codex Logfire Exporter**,
+restart Codex and run `/hooks` if Codex asks you to review or trust the new hooks.
+
+See also:
+
+- [Connect to MCP Server](mcp-server.md) for how the Logfire plugin configures MCP access.
+- [Export Codex Activity to Logfire](codex-logfire-exporter.md) for exporter setup, configuration, and troubleshooting.
 
 ### Cross-Agent
 
