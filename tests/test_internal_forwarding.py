@@ -451,42 +451,38 @@ def test_forwarding_pipeline_send_fans_out_to_tokens(monkeypatch: pytest.MonkeyP
     ]
 
 
-class RecordingForwardingPipeline(OTLPForwardingPipeline):
-    def __init__(self, *, fail_bodies: set[bytes] | None = None) -> None:
+class FailingSendForwardingPipeline(OTLPForwardingPipeline):
+    def __init__(self) -> None:
         super().__init__(
             base_url='https://example.com',
             session=SimpleNamespace(close=lambda: None),  # type: ignore[arg-type]
             max_queued_body_bytes=100,
         )
-        self.fail_bodies = fail_bodies or set()
+        self.first_send_started = Event()
+        self.release_first_send = Event()
         self.sent_bodies: list[bytes] = []
-        self.active_send_states: list[bool] = []
 
     def _send(self, request: ForwardingRequest) -> None:
-        self.active_send_states.append(self.active_send)
         self.sent_bodies.append(request.body)
-        if request.body in self.fail_bodies:
+        if request.body == b'one':
+            self.first_send_started.set()
+            self.release_first_send.wait(timeout=5)
             raise RuntimeError('send failed')
 
 
-def _queue_without_worker(pipeline: OTLPForwardingPipeline, *requests: ForwardingRequest) -> None:
-    with pipeline.condition:
-        for request in requests:
-            pipeline.queue.append(request)
-            pipeline.queued_body_bytes += len(request.body)
+def test_forwarding_pipeline_worker_continues_after_unexpected_send_failure() -> None:
+    pipeline = FailingSendForwardingPipeline()
+    assert pipeline.enqueue(_make_forwarding_request(b'one')) is True
+    assert pipeline.first_send_started.wait(timeout=5) is True
+    assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
 
-
-def test_forwarding_pipeline_run_continues_after_unexpected_send_failure() -> None:
-    pipeline = RecordingForwardingPipeline(fail_bodies={b'one'})
-    _queue_without_worker(pipeline, _make_forwarding_request(b'one'), _make_forwarding_request(b'two'))
-
-    pipeline._run()  # pyright: ignore[reportPrivateUsage]
+    pipeline.release_first_send.set()
+    _wait_for_no_live_worker(pipeline)
 
     assert list(pipeline.queue) == []
     assert pipeline.queued_body_bytes == 0
     assert pipeline.active_send is False
     assert pipeline.sent_bodies == [b'one', b'two']
-    assert pipeline.active_send_states == [True, True]
 
 
 def test_forwarding_manager_destinations_create_pipeline_and_group_tokens(
