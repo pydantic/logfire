@@ -266,18 +266,11 @@ def find_references(serialized_value: str) -> list[str]:
     helpers (`@{#if var}@`), dotted paths (`@{var.field}@`), and
     subexpressions (`@{lookup obj key}@`) are all picked up correctly.
 
-    The returned list is **sorted alphabetically** — not in source order
-    (the parser is the only thing that could give an accurate source order
-    and `extract_dependencies` doesn't surface that today). Sorted output
-    gives composition resolution and `composed_from` chains a deterministic
-    order, which matters for reproducible error messages and stable span
-    attributes.
-
     Args:
         serialized_value: The raw JSON-serialized variable value to scan.
 
     Returns:
-        Sorted list of unique top-level variable names referenced.
+        Sorted (alphabetical) list of unique top-level variable names referenced.
     """
     return sorted(_collect_ref_names(_safe_json_load(serialized_value)))
 
