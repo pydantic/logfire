@@ -3,16 +3,19 @@ from __future__ import annotations as _annotations
 import json
 import warnings
 from abc import ABC, abstractmethod
+from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
+from pydantic import TypeAdapter, ValidationError
+
+from logfire.variables._handlebars import compile_runtime_template, get_safe_string_cls
+
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
-    from pydantic import TypeAdapter
-
     import logfire
     from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
@@ -187,8 +190,6 @@ def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     Returns:
         The rendered JSON string.
     """
-    from logfire.variables._handlebars import compile_runtime_template, get_safe_string_cls
-
     safe_string_cls = get_safe_string_cls()
     context = _inputs_to_context(inputs)
 
@@ -438,8 +439,6 @@ def _check_label_compatibility(
     serialized_value: str,
 ) -> LabelCompatibility:
     """Check if a label's value is compatible with the variable's type."""
-    from pydantic import ValidationError
-
     try:
         variable.type_adapter.validate_json(serialized_value)
         return LabelCompatibility(
@@ -499,8 +498,6 @@ def _check_type_label_compatibility(
 
     Returns a list of incompatible labels (empty if all are compatible).
     """
-    from pydantic import ValidationError
-
     from logfire.variables.config import LabeledValue
 
     incompatible: list[LabelCompatibility] = []
@@ -589,8 +586,6 @@ def _check_reference_errors(
     # `ref_graph` and, if any point at an unknown name, a
     # non-existent-reference warning. Visited names are gated on `seen` so
     # a shared sub-tree is walked once.
-    from collections import deque
-
     ref_graph: dict[str, set[str]] = {}
     seen: set[str] = set()
     frontier: deque[str] = deque(v.name for v in variables)
@@ -1513,8 +1508,6 @@ class VariableProvider(ABC):
             provider.push_variable_types([(FeatureConfig, 'my_feature_config')])
             ```
         """
-        from pydantic import TypeAdapter
-
         from logfire.variables.config import VariableTypeConfig, get_default_type_name, get_source_hint
 
         if not types:
