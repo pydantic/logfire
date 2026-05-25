@@ -192,8 +192,7 @@ class OTLPForwardingPipeline:
             with self.condition:
                 if self.worker is current_thread():
                     self.worker = None
-                if self.closed and not self.queue and not self.active_send:
-                    self.session.close()
+                self._close_session_if_idle_locked()
                 self.condition.notify_all()
 
     def force_flush(self, timeout_millis: int) -> bool:
@@ -209,6 +208,15 @@ class OTLPForwardingPipeline:
     def _has_live_worker_locked(self) -> bool:
         return self.worker is not None and self.worker.is_alive()
 
+    def _drop_queue_locked(self) -> None:
+        self.queue.clear()
+        self.queued_body_bytes = 0
+        self.condition.notify_all()
+
+    def _close_session_if_idle_locked(self) -> None:
+        if self.closed and not self.queue and not self.active_send and not self._has_live_worker_locked():
+            self.session.close()
+
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         deadline = monotonic() + timeout_millis / 1000
         complete = True
@@ -216,17 +224,13 @@ class OTLPForwardingPipeline:
             self.closed = True
             self.condition.notify_all()
             if not drain_queued:
-                self.queue.clear()
-                self.queued_body_bytes = 0
-                self.condition.notify_all()
+                self._drop_queue_locked()
 
             while self.queue:
                 remaining = deadline - monotonic()
                 if remaining <= 0:
-                    self.queue.clear()
-                    self.queued_body_bytes = 0
+                    self._drop_queue_locked()
                     complete = False
-                    self.condition.notify_all()
                     break
                 self.condition.wait(timeout=remaining)
 
@@ -236,7 +240,7 @@ class OTLPForwardingPipeline:
                     return False
                 self.condition.wait(timeout=remaining)
 
-            self.session.close()
+            self._close_session_if_idle_locked()
             return complete
 
 
