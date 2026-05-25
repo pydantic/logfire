@@ -36,11 +36,14 @@ The browser integration markdown page that previously lived at `docs/integration
 The admission path creates one `ForwardingRequest` after route, content type, and request body-size checks pass, before active forwarding destination checks and backend-url fanout. The same request object can be enqueued into multiple backend-url pipelines.
 
 ```python
+ForwardingPath = Literal['/v1/traces', '/v1/logs', '/v1/metrics']
+
+
 @dataclass(frozen=True)
 class ForwardingRequest:
     """Opaque inbound OTLP payload admitted for asynchronous forwarding."""
 
-    path: Literal['/v1/traces', '/v1/logs', '/v1/metrics']
+    path: ForwardingPath
     body: bytes
     content_type: ForwardingContentType
     content_type_header: str
@@ -55,7 +58,7 @@ class ForwardingContentType(Enum):
 
 `ForwardingRequest` is created once for a valid inbound request and is shared by reference across backend-url queues.
 
-`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the accepted OTLP representation and drives the response representation. `content_type_header` stores the accepted inbound `Content-Type` field value used for the Logfire-bound request, including any media type parameters, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional whitelisted inbound content encoding, found by case-insensitive header lookup and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
+`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the accepted OTLP representation and drives the response representation. `content_type_header` stores the accepted inbound `Content-Type` field value used for the Logfire-bound request, including any media type parameters, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional inbound `Content-Encoding` header value, found by case-insensitive lookup as part of the closed forwarded-header whitelist and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
 
 `ForwardingContentType.PROTOBUF` represents `application/x-protobuf` requests and responses. `ForwardingContentType.JSON` represents `application/json` requests and responses.
 
