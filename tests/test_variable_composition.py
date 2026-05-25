@@ -292,10 +292,18 @@ class TestExpandReferences:
         assert [ref.name for ref in composed] == ['greeting', 'name']
 
     def test_keyword_block_references_are_ignored(self):
-        """Handlebars built-in names are not treated as variable references."""
+        """Handlebars built-in names (`this`, helpers, `else`) aren't treated as variable references.
+
+        `@{#if this}@yes@{/if}@` is a real Handlebars `if` block whose
+        condition is the current context (`this`). It evaluates normally —
+        with an empty context object (truthy in JS-style truthiness, which
+        pydantic-handlebars follows) the body renders as `yes`. The
+        important property under test is that no `composed` entries are
+        produced — `this` and `if` are not resolved as variable lookups.
+        """
         expanded, composed = expand_references(json.dumps('@{#if this}@yes@{/if}@'), 'my_var', _make_resolve_fn({}))
 
-        assert json.loads(expanded) == '@{#if this}@yes@{/if}@'
+        assert json.loads(expanded) == 'yes'
         assert composed == []
 
     def test_json_encoding_newlines(self):
@@ -495,10 +503,17 @@ class TestBlockHelpers:
         assert json.loads(expanded) == 'literal &#123; and &#125;'
 
     def test_referenced_escaped_reference_is_preserved(self):
-        r"""Escaped reference syntax inside referenced values keeps its backslash."""
+        r"""Escaped reference syntax inside referenced values becomes the literal text post-render.
+
+        Per `pydantic-handlebars >= 0.2.1` (and the Handlebars.js spec it
+        matches), the escape `\@{...}@` consumes the backslash and emits
+        the literal `@{...}@` in the output. The inner content is preserved
+        — just unescaped of its backslash — so callers can author "this
+        looks like a ref but render it literally" payloads.
+        """
         resolve_fn = _make_resolve_fn({'ref': json.dumps(r'\@{not_a_ref}@')})
         expanded, _ = expand_references('"@{ref}@"', 'my_var', resolve_fn)
-        assert json.loads(expanded) == r'\@{not_a_ref}@'
+        assert json.loads(expanded) == '@{not_a_ref}@'
 
 
 class TestExpandReferencesNativeHandlebarsSyntax:
@@ -616,6 +631,65 @@ class TestCompositionIntegration:
         assert len(result.composed_from) == 1
         assert result.composed_from[0].name == 'greeting'
         assert result.composed_from[0].value == 'Hello'
+
+    def test_escape_only_value_is_unescaped_consistently(self, config_kwargs: dict[str, Any]):
+        r"""Escape behaviour matches whether or not another real `@{ref}@` is present.
+
+        Regression for #1951 r3288986490 — a value containing only an escaped
+        `\@{baz}@` used to keep its backslash, while the same escape combined
+        with a real reference produced literal `@{baz}@`. After dropping the
+        `has_references` short-circuit both go through the unescape path.
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        # No real refs — must still unescape.
+        bar2 = lf.var(name='bar2', default=r'\@{baz}@', type=str)
+        assert bar2.get().value == '@{baz}@'
+
+        # Escape + real ref — both unescape (existing behaviour, asserted as a
+        # consistency anchor with the previous case).
+        baz = lf.var(name='baz', default='BAZ', type=str)
+        bar3 = lf.var(name='bar3', default=r'@{baz}@ and \@{baz}@', type=str)
+        assert bar3.get().value == 'BAZ and @{baz}@'
+
+        # Used in the test_simple_reference style: silence unused-var warning
+        # by referencing `baz` once.
+        assert baz.get().value == 'BAZ'
+
+    def test_backslash_run_parity_under_composition(self, config_kwargs: dict[str, Any]):
+        r"""Even-length backslash runs render the mustache; odd-length escape it.
+
+        Regression for the bug exposed by pydantic-handlebars 0.2.1 — the
+        previous logfire-side `has_references` regex treated *any* preceding
+        backslash as the escape marker, so `\\@{x}@` (two backslashes) was
+        seen as "no refs" and rendered as-is. With 0.2.1's spec-compliant
+        renderer plus the simplified `'@{' in v` gate, both odd and even
+        runs route through the renderer and resolve per Handlebars.js rules:
+
+          N backslashes contributes N // 2 literal `\` characters; parity
+          decides whether the mustache renders (even) or stays literal (odd).
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        lf.var(name='x', default='X', type=str)
+
+        # 1 backslash → escape mustache, no literal backslash in output.
+        one = lf.var(name='one', default=r'\@{x}@', type=str)
+        assert one.get().value == '@{x}@'
+
+        # 2 backslashes → one literal backslash, then mustache renders.
+        two = lf.var(name='two', default=r'\\@{x}@', type=str)
+        assert two.get().value == r'\X'
+
+        # 3 backslashes → one literal backslash, then escape mustache.
+        three = lf.var(name='three', default=r'\\\@{x}@', type=str)
+        assert three.get().value == r'\@{x}@'
+
+        # 4 backslashes → two literal backslashes, then mustache renders.
+        four = lf.var(name='four', default=r'\\\\@{x}@', type=str)
+        assert four.get().value == r'\\X'
 
     def test_composition_exception_falls_back(self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch):
         """Composition engine failures fall back to the code default."""

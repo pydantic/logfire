@@ -2622,11 +2622,32 @@ class Logfire:
 
         return variable
 
+    @overload
+    def template_var(
+        self,
+        name: str,
+        *,
+        default: T,
+        inputs_type: type[InputsT],
+        description: str | None = None,
+    ) -> TemplateVariable[T, InputsT]: ...
+
+    @overload
     def template_var(
         self,
         name: str,
         *,
         type: type[T],
+        default: T | ResolveFunction[T],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+    ) -> TemplateVariable[T, InputsT]: ...
+
+    def template_var(
+        self,
+        name: str,
+        *,
+        type: type[T] | None = None,
         default: T | ResolveFunction[T],
         inputs_type: type[InputsT],
         description: str | None = None,
@@ -2652,7 +2673,6 @@ class Logfire:
 
         prompt = logfire.template_var(
             'system_prompt',
-            type=str,
             default='Hello {{user_name}}',
             inputs_type=PromptInputs,
         )
@@ -2663,16 +2683,30 @@ class Logfire:
 
         Args:
             name: Unique identifier for the variable.
-            type: Expected type for validation and JSON schema generation.
+            type: Expected type for validation and JSON schema generation. Can be a primitive
+                type or a Pydantic model. If not provided, the type is inferred from `default`.
+                Required when `default` is a resolve function.
             default: Default value used when no remote configuration is found.
-                Can also be a callable with `targeting_key` and `attributes` parameters.
+                When `type` is not provided, the type is inferred from this value.
+                Can also be a callable with `targeting_key` and `attributes` parameters
+                (requires `type` to be set explicitly).
             inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
                 template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
             description: Optional human-readable description of what the variable controls.
         """
         import re
 
-        from logfire.variables.variable import TemplateVariable
+        from logfire.variables.variable import TemplateVariable, is_resolve_function
+
+        if type is None:
+            if is_resolve_function(default):
+                raise TypeError(
+                    'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
+                    '`type` must be provided to specify the variable value type.'
+                )
+            tp = cast(Type[T], default.__class__)  # noqa UP006
+        else:
+            tp = type
 
         if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
             raise ValueError(
@@ -2692,7 +2726,7 @@ class Logfire:
 
         variable = TemplateVariable[T, InputsT](
             name,
-            type=type,
+            type=tp,
             default=default,
             inputs_type=inputs_type,
             description=description,
