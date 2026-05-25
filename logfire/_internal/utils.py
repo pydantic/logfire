@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 
     from packaging.version import Version
 
-    SysExcInfo = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
+    SysExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
     """
     The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
     """
@@ -294,12 +294,15 @@ def log_internal_error():
         raise
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception(
-            'Caught an internal error in Logfire. '
-            'Your code should still be running fine, just with less telemetry. '
-            'This is just logging the internal error.',
-            exc_info=_internal_error_exc_info(),
-        )
+        try:
+            logger.exception(
+                'Caught an internal error in Logfire. '
+                'Your code should still be running fine, just with less telemetry. '
+                'This is just logging the internal error.',
+                exc_info=_internal_error_exc_info(),
+            )
+        except Exception:  # pragma: no cover
+            pass
 
 
 def _internal_error_exc_info() -> SysExcInfo:
@@ -454,7 +457,10 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
             visited: set[str] = set()
             for frame, lineno in traceback.walk_tb(exc.__traceback__):
                 filename = frame.f_code.co_filename
-                source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                try:
+                    source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                except Exception:
+                    source_line = '<error getting source line>'
                 module = frame.f_globals.get('__name__', filename)
                 frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
                 if frame_summary in visited:

@@ -1,5 +1,4 @@
 import os
-import sys
 import warnings
 from unittest import mock
 from unittest.mock import patch
@@ -20,9 +19,6 @@ os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 pytestmark = [
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
-    ),
-    pytest.mark.skipif(
-        sys.version_info < (3, 10), reason='Python 3.9 produces ResourceWarnings unrelated to the instrumentation'
     ),
 ]
 

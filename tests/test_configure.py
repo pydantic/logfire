@@ -7,12 +7,12 @@ import pickle
 import subprocess
 import sys
 import threading
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
 from time import sleep, time
-from typing import Any, Callable
+from typing import Any
 from unittest import mock
 from unittest.mock import call, patch
 
