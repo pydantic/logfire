@@ -569,7 +569,11 @@ class Variable(Generic[T_co]):
         not set and this is a direct passthrough to `_get_default`.
         """
         cache = _DEFAULT_CACHE.get()
-        if cache is None:
+        if cache is None:  # pragma: no cover
+            # Defensive: every production call site is inside `_resolve`,
+            # which sets the cache. Falling back to a direct compute keeps
+            # the helper safe if someone reaches in from an unexpected
+            # entry point in the future.
             return self._get_default(targeting_key, merged_attributes)
         key = id(self)
         if key not in cache:
