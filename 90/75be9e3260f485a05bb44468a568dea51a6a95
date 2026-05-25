@@ -1,0 +1,18 @@
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  ai_agent 1-351
+specs/browser-telemetry-forwarding-first-pass/diagrams.md
+  ai_agent 1-261
+specs/browser-telemetry-forwarding-first-pass/spec.md
+  ai_agent 1-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "9075be9e3260f485a05bb44468a568dea51a6a95",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
