@@ -99,7 +99,6 @@ classDiagram
         enqueue(request) bool
         force_flush(timeout_millis) bool
         shutdown(timeout_millis, drain_queued) bool
-        _ensure_worker_locked()
         _run()
         _send(request)
     }
@@ -111,6 +110,7 @@ classDiagram
         content_type_header
         content_encoding
         user_agent
+        path_config
     }
 
     class ForwardingContentType {
@@ -200,8 +200,8 @@ flowchart TD
     Submit --> Admission["ForwardingAdmissionResult"]
     Admission -->|"response == success"| SuccessBuilder["build_success_response(request)"]
     Admission -->|"response == partial_success"| PartialBuilder["build_partial_success_response(request, message)"]
-    SuccessBuilder --> ResponseMessageA["response_message_for_path(request.path)"]
-    PartialBuilder --> ResponseMessageB["response_message_for_path(request.path)"]
+    SuccessBuilder --> ResponseMessageA["request.path_config.response_message_type"]
+    PartialBuilder --> ResponseMessageB["request.path_config.response_message_type"]
     ResponseMessageA --> PublicSuccess["ForwardExportRequestResponse"]
     ResponseMessageB --> PublicPartial["ForwardExportRequestResponse"]
 ```
@@ -232,12 +232,11 @@ flowchart TD
     Pipeline --> Enqueue["OTLPForwardingPipeline.enqueue(request)"]
     Enqueue --> Limit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
     Enqueue --> Condition["Condition protects queue bytes, active_send_count, worker, closed"]
-    Enqueue --> EnsureWorker["OTLPForwardingPipeline._ensure_worker_locked()"]
-    EnsureWorker --> Worker["Thread target: OTLPForwardingPipeline._run()"]
+    Enqueue --> Worker["Thread target: OTLPForwardingPipeline._run()"]
     Worker --> ActiveSend["increment active_send_count"]
     ActiveSend --> Send["OTLPForwardingPipeline._send(request)"]
     Send --> Headers["build_forwarding_headers(request, token)"]
-    Send --> Timeout["FORWARDING_CONFIGS[request.path].timeout()"]
+    Send --> Timeout["request.path_config.timeout()"]
     Timeout --> SessionPost["OTLPExporterHttpSession.post(..., timeout=timeout)"]
     Send --> SessionPost
     SessionPost -->|"retryable failure"| Retryer["DiskRetryer"]

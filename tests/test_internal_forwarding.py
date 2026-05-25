@@ -697,14 +697,17 @@ class RecordingForwardingPipeline(OTLPForwardingPipeline):
         if request.body in self.fail_bodies:
             raise RuntimeError('send failed')
 
-    def _ensure_worker_locked(self) -> None:
-        return None
+
+def _queue_without_worker(pipeline: OTLPForwardingPipeline, *requests: ForwardingRequest) -> None:
+    with pipeline.condition:
+        for request in requests:
+            pipeline.queue.append(request)
+            pipeline.queued_body_bytes += len(request.body)
 
 
 def test_forwarding_pipeline_run_drains_queue_and_resets_state() -> None:
     pipeline = RecordingForwardingPipeline()
-    pipeline.enqueue(_make_forwarding_request(b'one'))
-    pipeline.enqueue(_make_forwarding_request(b'two'))
+    _queue_without_worker(pipeline, _make_forwarding_request(b'one'), _make_forwarding_request(b'two'))
 
     pipeline._run()  # pyright: ignore[reportPrivateUsage]
 
@@ -717,8 +720,7 @@ def test_forwarding_pipeline_run_drains_queue_and_resets_state() -> None:
 
 def test_forwarding_pipeline_run_continues_after_unexpected_send_failure() -> None:
     pipeline = RecordingForwardingPipeline(fail_bodies={b'one'})
-    pipeline.enqueue(_make_forwarding_request(b'one'))
-    pipeline.enqueue(_make_forwarding_request(b'two'))
+    _queue_without_worker(pipeline, _make_forwarding_request(b'one'), _make_forwarding_request(b'two'))
 
     pipeline._run()  # pyright: ignore[reportPrivateUsage]
 

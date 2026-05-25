@@ -50,6 +50,10 @@ class ForwardingRequest:
     content_encoding: str | None
     user_agent: str | None
 
+    @property
+    def path_config(self) -> ForwardingPathConfig:
+        """Return the forwarding metadata for this request path."""
+
 
 class ForwardingContentType(Enum):
     PROTOBUF = 'application/x-protobuf'
@@ -58,7 +62,7 @@ class ForwardingContentType(Enum):
 
 `ForwardingRequest` is created once for a valid inbound request and is shared by reference across backend-url queues.
 
-`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the accepted OTLP representation and drives the response representation. `content_type_header` stores the accepted inbound `Content-Type` field value used for the Logfire-bound request, including any media type parameters, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional inbound `Content-Encoding` header value, found by case-insensitive lookup as part of the closed forwarded-header whitelist and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
+`path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `path_config` returns the centralized forwarding metadata for that path. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the accepted OTLP representation and drives the response representation. `content_type_header` stores the accepted inbound `Content-Type` field value used for the Logfire-bound request, including any media type parameters, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional inbound `Content-Encoding` header value, found by case-insensitive lookup as part of the closed forwarded-header whitelist and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
 
 `ForwardingContentType.PROTOBUF` represents `application/x-protobuf` requests and responses. `ForwardingContentType.JSON` represents `application/json` requests and responses.
 
@@ -126,7 +130,7 @@ class OTLPForwardingPipeline:
 
 `queue` holds memory-admitted `ForwardingRequest` objects waiting for the worker. `queued_body_bytes` tracks the total queued `ForwardingRequest.body` bytes for this backend URL; one payload counts once for the backend URL regardless of how many tokens the pipeline fans out to during send. `active_send_count` tracks queued items that have been removed from the memory queue and are currently executing their immediate forwarding send through `OTLPExporterHttpSession.post()`. With one worker this count is normally `0` or `1`, but the explicit state makes flush and shutdown wait conditions unambiguous. `max_queued_body_bytes` is the admission ceiling for `queued_body_bytes`.
 
-`worker` is the non-daemon sender thread for this pipeline, or `None` while no worker is active. A worker may exit after draining current memory work, and later accepted enqueue calls may create a new worker while the pipeline remains open. When `_run()` exits, it clears worker state or otherwise leaves `_ensure_worker_locked()` able to recognize that no live worker remains. `closed` blocks new enqueue attempts and marks the pipeline as shutting down; it is an admission flag, not a worker stop flag. When `drain_queued=True`, already-queued memory work may still drain after `closed` becomes true. When `drain_queued=False`, shutdown explicitly drops not-yet-started queued work before waiting for active sends. `condition` protects `queue`, `queued_body_bytes`, `active_send_count`, `worker`, and `closed`, and is the synchronization point used by enqueue, worker wakeups, flush waits, and shutdown waits.
+`worker` is the non-daemon sender thread for this pipeline, or `None` while no worker is active. A worker may exit after draining current memory work, and later accepted enqueue calls may create a new worker while the pipeline remains open. `enqueue()` owns this worker creation inline after admitting work. `closed` blocks new enqueue attempts and marks the pipeline as shutting down; it is an admission flag, not a worker stop flag. When `drain_queued=True`, already-queued memory work may still drain after `closed` becomes true. When `drain_queued=False`, shutdown explicitly drops not-yet-started queued work before waiting for active sends. `condition` protects `queue`, `queued_body_bytes`, `active_send_count`, `worker`, and `closed`, and is the synchronization point used by enqueue, worker wakeups, flush waits, and shutdown waits.
 
 **The hardcoded queue limit is named once in the internal module.** *(implements "Each backend-URL memory queue has a hardcoded 64 MiB byte limit")*
 
@@ -213,17 +217,13 @@ def build_partial_success_response(
     message: str,
 ) -> ForwardExportRequestResponse:
     """Return an HTTP 200 OTLP partial-success response with rejected count 0."""
-
-
-def response_content_type(content_type: ForwardingContentType) -> str:
-    """Return the HTTP response Content-Type for an accepted request representation."""
 ```
 
-`build_success_response()` is used when `ForwardingAdmissionResult.response` is `success`. It uses `request.path` to select the signal-specific OTLP export response message and `request.content_type` to serialize the response representation. The returned `ForwardExportRequestResponse.headers` must include `Content-Type` set from `response_content_type(request.content_type)`.
+`build_success_response()` is used when `ForwardingAdmissionResult.response` is `success`. It uses `request.path` to select the signal-specific OTLP export response message and `request.content_type` to serialize the response representation. The returned `ForwardExportRequestResponse.headers` must include `Content-Type` set from `request.content_type.value`.
 
-`build_partial_success_response()` is used when `ForwardingAdmissionResult.response` is `partial_success`. It uses the same path and content-type selection as success, and stores `message` as the OTLP partial-success explanatory text. The returned `ForwardExportRequestResponse.headers` must include `Content-Type` set from `response_content_type(request.content_type)`.
+`build_partial_success_response()` is used when `ForwardingAdmissionResult.response` is `partial_success`. It uses the same path and content-type selection as success, and stores `message` as the OTLP partial-success explanatory text. The returned `ForwardExportRequestResponse.headers` must include `Content-Type` set from `request.content_type.value`.
 
-`response_content_type()` returns `application/x-protobuf` for `ForwardingContentType.PROTOBUF` and `application/json` for `ForwardingContentType.JSON`. Unlike the Logfire-bound request `Content-Type`, response `Content-Type` is the canonical accepted media type and does not preserve inbound request media type parameters.
+The response `Content-Type` header uses `request.content_type.value`, so it is `application/x-protobuf` for `ForwardingContentType.PROTOBUF` and `application/json` for `ForwardingContentType.JSON`. Unlike the Logfire-bound request `Content-Type`, response `Content-Type` is the canonical accepted media type and does not preserve inbound request media type parameters.
 
 **Validation errors remain response objects.** *(implements "The forwarding endpoint is an ingress adapter, not a transparent HTTP proxy")*
 Internal validation failure shapes preserve the public response dataclass boundary instead of raising framework-specific exceptions.
@@ -260,9 +260,6 @@ class OTLPForwardingPipeline:
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         """Close admission, drain or drop memory work, wait active sends, then close the idle session."""
 
-    def _ensure_worker_locked(self) -> None:
-        """Ensure a worker thread exists while memory work is queued."""
-
     def _run(self) -> None:
         """Run the forwarding worker for this backend URL."""
 
@@ -272,7 +269,7 @@ class OTLPForwardingPipeline:
 
 `enqueue()` is called by the manager once per backend-url group and returns whether this pipeline accepted the item into memory. `force_flush()` is called by the manager to wait for memory queue drain and active immediate sends for this one backend URL. `shutdown(drain_queued=True)` is called by the manager when the config or Logfire instance shuts down with flush enabled; it closes admission, drains queued memory work until the deadline expires, drops any queued work that has not started sending if the deadline expires first, waits until `active_send_count` is `0`, waits until the worker is not alive, and only then closes the session. `shutdown(drain_queued=False)` closes admission and immediately drops not-yet-started queued memory work before waiting for active sends, waiting for any worker to exit, and closing the session.
 
-`_ensure_worker_locked()` is called while holding `condition` after enqueueing work; it owns worker creation but not sending. It starts a non-daemon worker when queued work exists and no live worker is recorded, including after a previous worker drained the queue and exited. `_run()` is the worker target that drains queued items, increments `active_send_count` before sending, calls `_send()` inside a `try` block, decrements `active_send_count` in a `finally` block after the immediate send attempt completes, and notifies flush/shutdown waiters when either queued bytes, active sends, or worker liveness changes. `_run()` exits when the memory queue is empty; it must not treat `closed=True` as a reason to abandon queued work. Before returning, `_run()` clears or marks worker state so future enqueue can create a new worker and shutdown can observe that no non-daemon worker remains alive. `_send()` performs the token fanout for one queued request and delegates each Logfire-bound request to `OTLPExporterHttpSession.post()`.
+`enqueue()` starts a non-daemon worker while holding `condition` when queued work exists and no live worker is recorded, including after a previous worker drained the queue and exited. `_run()` is the worker target that drains queued items, increments `active_send_count` before sending, calls `_send()` inside a `try` block, decrements `active_send_count` in a `finally` block after the immediate send attempt completes, and notifies flush/shutdown waiters when either queued bytes, active sends, or worker liveness changes. `_run()` exits when the memory queue is empty; it must not treat `closed=True` as a reason to abandon queued work. Before returning, `_run()` clears or marks worker state so future enqueue can create a new worker and shutdown can observe that no non-daemon worker remains alive. `_send()` performs the token fanout for one queued request and delegates each Logfire-bound request to `OTLPExporterHttpSession.post()`.
 
 **Pipeline sends use per-token authorization with shared backend transport.** *(implements "Forwarding uses every active Logfire export write token grouped by backend URL", "Server authentication headers are injected, not forwarded from the client")*
 Each queued payload is sent once per active Logfire export token in the backend-url group. The worker constructs per-send headers from the whitelisted representation headers, composed User-Agent, and that token's authorization.
@@ -294,7 +291,7 @@ def build_forwarding_headers(
 `_run()` also protects the queued-item boundary: if `_send()` raises unexpectedly despite per-token containment, `_run()` logs or suppresses that exception, still decrements `active_send_count` and notifies waiters in `finally`, and then continues draining later queued items even if admission has been closed for shutdown. No send exception may terminate the worker while queued memory work remains or leave `active_send_count` stale.
 
 **Forwarding timeout resolution mirrors OTLP HTTP exporters.** *(implements "Forwarding send timeout follows OTLP HTTP exporter timeout configuration")*
-The worker resolves an explicit request timeout for each send from the queued request path by reading `FORWARDING_CONFIGS[request.path].timeout()`. `ForwardingPathConfig.timeout()` follows the same signal-specific environment variable precedence and default as the OpenTelemetry Python OTLP HTTP exporters.
+The worker resolves an explicit request timeout for each send from the queued request path by reading `request.path_config.timeout()`. `ForwardingPathConfig.timeout()` follows the same signal-specific environment variable precedence and default as the OpenTelemetry Python OTLP HTTP exporters.
 
 For `/v1/traces`, the helper reads `OTEL_EXPORTER_OTLP_TRACES_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the trace OTLP HTTP exporter default timeout. For `/v1/logs`, it reads `OTEL_EXPORTER_OTLP_LOGS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the logs OTLP HTTP exporter default timeout. For `/v1/metrics`, it reads `OTEL_EXPORTER_OTLP_METRICS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the metrics OTLP HTTP exporter default timeout.
 
@@ -326,7 +323,7 @@ Existing direct call sites remain valid because `max_body_size` is keyword-only 
 The manager reads the current pipeline values and enqueues into each backend pipeline independently. Submit does not create pipelines; pipelines are created only by `add_destination()` during normal Logfire exporter construction, and each pipeline carries the token list for its backend URL.
 
 **`OTLPForwardingPipeline._send()` delegates retry ownership to `OTLPExporterHttpSession.post()`.** *(implements "Forwarding sends use the existing OTLP session retry ownership")*
-The worker performs one immediate send attempt per pipeline token through the pipeline session, passing `timeout=FORWARDING_CONFIGS[request.path].timeout()`. Retryable transport failures are handled by `OTLPExporterHttpSession` and its `DiskRetryer`, not by queue-level retry logic. Any exception re-raised by the session after that retry handling is contained by `_send()`/`_run()` so the forwarding worker continues draining.
+The worker performs one immediate send attempt per pipeline token through the pipeline session, passing `timeout=request.path_config.timeout()`. Retryable transport failures are handled by `OTLPExporterHttpSession` and its `DiskRetryer`, not by queue-level retry logic. Any exception re-raised by the session after that retry handling is contained by `_send()`/`_run()` so the forwarding worker continues draining.
 
 **`LogfireConfig.force_flush()` calls the forwarding manager before returning.** *(implements "Forwarding participates in Logfire flush and shutdown")*
 The config-level flush method preserves the existing `force_flush()` structure: meter, logger, forwarding, and tracer flush calls each receive the original `timeout_millis` value rather than sharing one aggregate deadline. The forwarding manager is called before the final tracer flush return, and its boolean result is not combined into the return value, matching the current behavior where meter and logger flush results do not change the returned tracer result.
@@ -342,12 +339,7 @@ Shutdown calls the config-owned manager with the remaining deadline. With `flush
 **Protobuf responses use OTLP export response messages.** *(implements "Response encoding matches accepted request content type", "Accepted queued payloads return local OTLP success", "Locally dropped valid payloads return OTLP partial success")*
 The implementation uses the generated OTLP trace/logs/metrics export response classes corresponding to the request path to serialize empty success and partial success bytes.
 
-```python
-def response_message_for_path(path: Literal['/v1/traces', '/v1/logs', '/v1/metrics']) -> type[Any]:
-    """Return the OTLP export response message class for a forwarding path."""
-```
-
-`response_message_for_path()` is called by both response builders and returns `FORWARDING_CONFIGS[path].response_message_type`. The path determines whether the response is a trace, log, or metric export response message; the caller's `ForwardingRequest.content_type` determines whether that message is serialized as protobuf bytes or protobuf JSON.
+Both response builders instantiate `request.path_config.response_message_type`. The path determines whether the response is a trace, log, or metric export response message; the caller's `ForwardingRequest.content_type` determines whether that message is serialized as protobuf bytes or protobuf JSON.
 
 **JSON responses use OTLP protobuf JSON mapping.** *(implements "Response encoding matches accepted request content type")*
 JSON success serializes as `{}`. JSON partial success serializes the same OTLP response message shape as protobuf partial success, using lower camel case protobuf JSON field names.

@@ -103,6 +103,10 @@ class ForwardingRequest:
     content_encoding: str | None
     user_agent: str | None
 
+    @property
+    def path_config(self) -> ForwardingPathConfig:
+        return FORWARDING_CONFIGS[self.path]
+
 
 @dataclass(frozen=True)
 class ForwardingErrorResponse:
@@ -155,7 +159,7 @@ class OTLPForwardingPipeline:
 
     def _send(self, request: ForwardingRequest) -> None:
         url = urljoin(self.base_url.rstrip('/') + '/', request.path.lstrip('/'))
-        timeout = FORWARDING_CONFIGS[request.path].timeout()
+        timeout = request.path_config.timeout()
         for token in self.tokens:
             headers = build_forwarding_headers(request, token=token)
             try:
@@ -169,9 +173,6 @@ class OTLPForwardingPipeline:
             while True:
                 with self.condition:
                     if not self.queue:
-                        if self.worker is current_thread():
-                            self.worker = None
-                        self.condition.notify_all()
                         return
 
                     queued_request = self.queue.popleft()
@@ -425,14 +426,10 @@ def build_forwarding_request(
     )
 
 
-def response_message_for_path(path: ForwardingPath) -> type[Any]:
-    return FORWARDING_CONFIGS[path].response_message_type
-
-
 def build_success_response(request: ForwardingRequest) -> ForwardExportRequestResponse:
     from logfire.experimental.forwarding import ForwardExportRequestResponse
 
-    message = response_message_for_path(request.path)()
+    message = request.path_config.response_message_type()
     if request.content_type is ForwardingContentType.PROTOBUF:
         content = message.SerializeToString()
     else:
@@ -452,9 +449,9 @@ def build_partial_success_response(
 ) -> ForwardExportRequestResponse:
     from logfire.experimental.forwarding import ForwardExportRequestResponse
 
-    response_message = response_message_for_path(request.path)()
+    response_message = request.path_config.response_message_type()
     partial_success = response_message.partial_success
-    setattr(partial_success, FORWARDING_CONFIGS[request.path].partial_success_rejected_attribute, 0)
+    setattr(partial_success, request.path_config.partial_success_rejected_attribute, 0)
     partial_success.error_message = message
 
     if request.content_type is ForwardingContentType.PROTOBUF:
