@@ -27,8 +27,8 @@ class LogfireConfig(_LogfireConfigData):
 **`logfire/_internal/main.py` shuts down forwarding with the Logfire instance.** *(implements "Forwarding participates in Logfire flush and shutdown", "Post-shutdown forwarding calls are locally dropped")*
 `Logfire.shutdown()` includes forwarding manager shutdown in the same overall deadline accounting used for variables, traces, and metrics for queued memory drain. With `flush=True`, shutdown closes forwarding admission before draining memory work, then waits for any active immediate forwarding send to finish before closing forwarding sessions and returning. With `flush=False`, shutdown still closes forwarding admission and sessions, but it passes `drain_queued=False` so queued forwarding work is dropped rather than flushed.
 
-**`docs/integrations/javascript/browser.md` documents the changed forwarding semantics.** *(implements "The endpoint must be documented as externally driven ingress", "CORS documentation must discourage public wildcard ingestion by default")*
-The JavaScript integration docs explain that the Python endpoint is externally driven telemetry ingress, that accepted responses mean local admission rather than remote delivery, that Python-side scrubbing does not apply to opaque inbound payloads, and that users should protect the route with their normal app controls.
+**Markdown docs changes are deferred to the docs source repo.** *(implements "Documentation of externally driven ingress is deferred to the docs source repo", "CORS documentation is deferred with the ingress documentation")*
+The browser integration markdown page that previously lived at `docs/integrations/javascript/browser.md` has moved out of this repository, so this PR does not change that file. The deferred docs work should port the intent captured in `ignoreme/workflow/patches/pr-1940-browser.patch`: explain that the Python endpoint is externally driven telemetry ingress, that accepted responses mean local admission rather than remote delivery, that Python-side scrubbing does not apply to opaque inbound payloads, and that users should protect the route with their normal app controls.
 
 **Part 2: Internal Data Shapes**
 
@@ -58,6 +58,26 @@ class ForwardingContentType(Enum):
 `path` selects the Logfire OTLP endpoint and the matching OTLP export response message. `body` is the opaque payload forwarded to Logfire and the byte value counted against each backend-url memory queue. `content_type` records the accepted OTLP representation and drives the response representation. `content_type_header` stores the accepted inbound `Content-Type` field value used for the Logfire-bound request, including any media type parameters, because the body is opaque and forwarding must not rewrite representation metadata without rewriting the body. `content_encoding` is the optional whitelisted inbound content encoding, found by case-insensitive header lookup and forwarded unchanged with the body. `user_agent` stores the original inbound user agent, if any, for User-Agent composition.
 
 `ForwardingContentType.PROTOBUF` represents `application/x-protobuf` requests and responses. `ForwardingContentType.JSON` represents `application/json` requests and responses.
+
+**Path-specific forwarding metadata is centralized.** *(implements "Forwarding send timeout follows OTLP HTTP exporter timeout configuration", "Response encoding matches accepted request content type", "Partial success has zero rejected records and an explanatory message")*
+The internal module keeps path-specific timeout and response metadata in one table keyed by forwarding path.
+
+```python
+@dataclass(frozen=True)
+class ForwardingPathConfig:
+    timeout_env: str
+    default_timeout: float
+    partial_success_rejected_attribute: str
+    response_message_type: type[Any]
+
+    def timeout(self) -> float:
+        """Return the OTLP HTTP exporter timeout, in seconds, for this signal path."""
+
+
+FORWARDING_CONFIGS: dict[ForwardingPath, ForwardingPathConfig]
+```
+
+`timeout_env` stores the signal-specific OpenTelemetry timeout environment variable for the path. `default_timeout` stores the matching OTLP HTTP exporter default timeout. `partial_success_rejected_attribute` identifies the OTLP response field that must be set to `0` for local partial-success responses. `response_message_type` stores the generated OTLP export response message class for the path. This avoids parallel path maps for timeout resolution, path validation, response message selection, and partial-success field selection.
 
 **Destination resolution follows the normal Logfire exporter token loop.** *(implements "Destination pipelines are separated by resolved backend URL", "Forwarding uses every active Logfire export write token grouped by backend URL")*
 The forwarding manager starts with an empty internal `dict[str, tuple[str, ...]]` and an empty `pipelines` map. Inside the same `for token in token_list:` loop that constructs normal Logfire OTLP exporters, after the code resolves `base_url = self.advanced.generate_base_url(token)`, the configuration registers that `(base_url, token)` pair with the forwarding manager. If a pipeline for the resolved backend URL does not already exist, registration constructs it immediately; if it does exist, registration appends the token to that backend URL's token tuple. This means forwarding uses exactly the write tokens and backend URLs used by normal Logfire export.
@@ -282,12 +302,7 @@ def build_forwarding_headers(
 `_run()` also protects the queued-item boundary: if `_send()` raises unexpectedly despite per-token containment, `_run()` logs or suppresses that exception, still decrements `active_send_count` and notifies waiters in `finally`, and then continues draining later queued items even if admission has been closed for shutdown. No send exception may terminate the worker while queued memory work remains or leave `active_send_count` stale.
 
 **Forwarding timeout resolution mirrors OTLP HTTP exporters.** *(implements "Forwarding send timeout follows OTLP HTTP exporter timeout configuration")*
-The worker resolves an explicit request timeout for each send from the queued request path. The helper follows the same signal-specific environment variable precedence and default as the OpenTelemetry Python OTLP HTTP exporters.
-
-```python
-def forwarding_timeout_for_path(path: Literal['/v1/traces', '/v1/logs', '/v1/metrics']) -> float:
-    """Return the OTLP HTTP exporter timeout, in seconds, for this signal path."""
-```
+The worker resolves an explicit request timeout for each send from the queued request path by reading `FORWARDING_CONFIGS[request.path].timeout()`. `ForwardingPathConfig.timeout()` follows the same signal-specific environment variable precedence and default as the OpenTelemetry Python OTLP HTTP exporters.
 
 For `/v1/traces`, the helper reads `OTEL_EXPORTER_OTLP_TRACES_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the trace OTLP HTTP exporter default timeout. For `/v1/logs`, it reads `OTEL_EXPORTER_OTLP_LOGS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the logs OTLP HTTP exporter default timeout. For `/v1/metrics`, it reads `OTEL_EXPORTER_OTLP_METRICS_TIMEOUT`, then `OTEL_EXPORTER_OTLP_TIMEOUT`, then the metrics OTLP HTTP exporter default timeout.
 
@@ -319,7 +334,7 @@ Existing direct call sites remain valid because `max_body_size` is keyword-only 
 The manager reads `tokens_by_base_url` and enqueues into each backend pipeline independently. Submit does not create pipelines; pipelines are created only by `add_destination()` during normal Logfire exporter construction.
 
 **`OTLPForwardingPipeline._send()` delegates retry ownership to `OTLPExporterHttpSession.post()`.** *(implements "Forwarding sends use the existing OTLP session retry ownership")*
-The worker performs one immediate send attempt per queued token through the pipeline session, passing `timeout=forwarding_timeout_for_path(queued_request.request.path)`. Retryable transport failures are handled by `OTLPExporterHttpSession` and its `DiskRetryer`, not by queue-level retry logic. Any exception re-raised by the session after that retry handling is contained by `_send()`/`_run()` so the forwarding worker continues draining.
+The worker performs one immediate send attempt per queued token through the pipeline session, passing `timeout=FORWARDING_CONFIGS[queued_request.request.path].timeout()`. Retryable transport failures are handled by `OTLPExporterHttpSession` and its `DiskRetryer`, not by queue-level retry logic. Any exception re-raised by the session after that retry handling is contained by `_send()`/`_run()` so the forwarding worker continues draining.
 
 **`LogfireConfig.force_flush()` calls the forwarding manager before returning.** *(implements "Forwarding participates in Logfire flush and shutdown")*
 The config-level flush method preserves the existing `force_flush()` structure: meter, logger, forwarding, and tracer flush calls each receive the original `timeout_millis` value rather than sharing one aggregate deadline. The forwarding manager is called before the final tracer flush return, and its boolean result is not combined into the return value, matching the current behavior where meter and logger flush results do not change the returned tracer result.
@@ -340,7 +355,7 @@ def response_message_for_path(path: Literal['/v1/traces', '/v1/logs', '/v1/metri
     """Return the OTLP export response message class for a forwarding path."""
 ```
 
-`response_message_for_path()` is called by both response builders. The path determines whether the response is a trace, log, or metric export response message; the caller's `ForwardingRequest.content_type` determines whether that message is serialized as protobuf bytes or protobuf JSON.
+`response_message_for_path()` is called by both response builders and returns `FORWARDING_CONFIGS[path].response_message_type`. The path determines whether the response is a trace, log, or metric export response message; the caller's `ForwardingRequest.content_type` determines whether that message is serialized as protobuf bytes or protobuf JSON.
 
 **JSON responses use OTLP protobuf JSON mapping.** *(implements "Response encoding matches accepted request content type")*
 JSON success serializes as `{}`. JSON partial success serializes the same OTLP response message shape as protobuf partial success, using lower camel case protobuf JSON field names.

@@ -133,8 +133,16 @@ classDiagram
         content
     }
 
-    class forwarding_timeout_for_path {
-        <<function>>
+    class ForwardingPathConfig {
+        timeout_env
+        default_timeout
+        partial_success_rejected_attribute
+        response_message_type
+        timeout() float
+    }
+
+    class FORWARDING_CONFIGS {
+        <<constant>>
     }
 
     class ForwardExportRequestResponse {
@@ -164,7 +172,8 @@ classDiagram
     OTLPForwardingManager ..> QueuedForwardingRequest : creates queued work
     OTLPForwardingManager ..> ForwardingAdmissionResult : returns
     OTLPForwardingPipeline --> OTLPExporterHttpSession : sends through
-    OTLPForwardingPipeline ..> forwarding_timeout_for_path : timeout per signal path
+    OTLPForwardingPipeline ..> FORWARDING_CONFIGS : timeout per signal path
+    FORWARDING_CONFIGS *-- ForwardingPathConfig : per path
     OTLPExporterHttpSession --> DiskRetryer : defers retryable failures
     OTLPForwardingPipeline --> Condition : protects queue state
     OTLPForwardingPipeline --> Thread : worker
@@ -232,7 +241,7 @@ flowchart TD
     Worker --> ActiveSend["increment active_send_count"]
     ActiveSend --> Send["OTLPForwardingPipeline._send(queued_request)"]
     Send --> Headers["build_forwarding_headers(request, token)"]
-    Send --> Timeout["forwarding_timeout_for_path(request.path)"]
+    Send --> Timeout["FORWARDING_CONFIGS[request.path].timeout()"]
     Timeout --> SessionPost["OTLPExporterHttpSession.post(..., timeout=timeout)"]
     Send --> SessionPost
     SessionPost -->|"retryable failure"| Retryer["DiskRetryer"]

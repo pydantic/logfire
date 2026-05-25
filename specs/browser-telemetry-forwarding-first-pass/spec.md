@@ -67,6 +67,8 @@ Each immediate forwarding send passes an explicit request timeout resolved with 
 
 Context: the OpenTelemetry Python OTLP HTTP exporters currently default this timeout to 10 seconds. Forwarding should reuse that default rather than introducing a forwarding-specific constant.
 
+Implementation note: the path-specific timeout environment variable and default belong to centralized forwarding path metadata, alongside the path-specific OTLP response message and partial-success rejected-count field. The design does not require a standalone timeout-only path helper.
+
 **Forwarding transport lifecycle is owned by Logfire configuration, not by each forwarding call.** *(from "Accepted OTLP payloads are queued locally before any Logfire network I/O", "Forwarding sends use the existing OTLP session retry ownership")*
 Public forwarding functions must not create independent long-lived queues, sessions, or disk retryers per request. They submit work to forwarding lifecycle owned by the relevant `LogfireConfig`.
 
@@ -108,11 +110,11 @@ If a valid payload is accepted into the local memory queue for every configured 
 **Locally dropped valid payloads return OTLP partial success.** *(from "The forwarding endpoint is an ingress adapter", "Response encoding matches accepted request content type", "A full backend-URL queue does not block other backend URLs")*
 If a payload passes request validation but cannot be accepted for one or more configured backend URLs, the helper returns HTTP 200 with an OTLP partial-success response in the request representation. This includes post-shutdown admission closure, one or more backend-URL queues exceeding the 64 MiB limit, and other local queue-unavailable cases.
 
-**The endpoint must be documented as externally driven ingress.** *(from "The forwarding endpoint is an ingress adapter")*
-External clients can be numerous, retrying, duplicated, or malicious. Documentation must tell users to protect the endpoint with their normal auth/session/CORS/rate-limiting controls.
+**Documentation of externally driven ingress is deferred to the docs source repo.** *(from "The forwarding endpoint is an ingress adapter")*
+External clients can be numerous, retrying, duplicated, or malicious. Documentation must tell users to protect the endpoint with their normal auth/session/CORS/rate-limiting controls, but the browser integration markdown page has moved out of this repository. The deferred docs work should port the intent captured in `ignoreme/workflow/patches/pr-1940-browser.patch` to the repository that now owns that page.
 
-**CORS documentation must discourage public wildcard ingestion by default.** *(from "The endpoint must be documented as externally driven ingress")*
-Docs should say CORS should match the app origin, not `*`, unless the user intentionally wants public telemetry ingestion using their backend's Logfire write authority.
+**CORS documentation is deferred with the ingress documentation.** *(from "Documentation of externally driven ingress is deferred to the docs source repo")*
+The deferred docs update should say CORS should match the app origin, not `*`, unless the user intentionally wants public telemetry ingestion using their backend's Logfire write authority.
 
 **Part 3: Scope Exclusions**
 These are explicit non-goals for this pass.
@@ -124,7 +126,7 @@ The memory queue is capped by queued body bytes only. Request body size limits s
 The helper treats traces, logs, and metrics payloads as opaque bytes after validating route, content type, and size. It does not merge small requests, split large requests, rewrite resources, or apply span/log/metric processors.
 
 **Python scrubbing rules do not apply to opaque forwarded payloads.** *(from "The first pass does not parse, split, merge, or rewrite OTLP payloads")*
-Because the first pass does not parse the OTLP payload, Python-side Logfire scrubbing cannot redact forwarded telemetry attributes. Documentation must make clear that forwarded telemetry should be scrubbed before it reaches the forwarding endpoint.
+Because the first pass does not parse the OTLP payload, Python-side Logfire scrubbing cannot redact forwarded telemetry attributes. The deferred browser docs update must make clear that forwarded telemetry should be scrubbed before it reaches the forwarding endpoint.
 
 **Forwarding flush and shutdown do not wait for DiskRetryer recovery.**
 The first pass only needs forwarding flush/shutdown to cover the memory queue and the immediate `OTLPExporterHttpSession.post()` calls made by forwarding workers. If the OTLP session hands a failed request to `DiskRetryer`, flush and shutdown do not wait for later disk retry recovery.
