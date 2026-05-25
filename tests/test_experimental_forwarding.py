@@ -25,6 +25,12 @@ class FakeForwardingManager:
     def has_destinations(self) -> bool:
         return True
 
+    def is_idle(self) -> bool:
+        return True
+
+    def retire(self) -> bool:
+        return False
+
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
         self.submissions.append(request)
         return self.result

@@ -595,6 +595,7 @@ def test_logfire_config_has_empty_forwarding_manager() -> None:
 def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
     config = LogfireConfig(send_to_logfire=False)
     previous_manager = mock.Mock()
+    previous_manager.retire.return_value = False
     config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
 
     config.configure(
@@ -620,7 +621,8 @@ def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
         advanced=None,
     )
 
-    previous_manager.shutdown.assert_called_once_with(0, drain_queued=False)
+    previous_manager.retire.assert_called_once_with()
+    previous_manager.shutdown.assert_not_called()
     manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
     assert isinstance(manager, OTLPForwardingManager)
     assert manager is not previous_manager
@@ -661,6 +663,75 @@ def test_logfire_config_reconfigure_keeps_forwarding_manager_when_configuration_
     assert config._otlp_forwarding is previous_manager  # pyright: ignore[reportPrivateUsage]
 
 
+def test_logfire_config_reconfigure_prunes_idle_retired_forwarding_managers() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    idle_retired = mock.Mock()
+    idle_retired.is_idle.return_value = True
+    active_retired = mock.Mock()
+    active_retired.is_idle.return_value = False
+    previous_manager = mock.Mock()
+    previous_manager.retire.return_value = False
+    config._retired_otlp_forwarding = [idle_retired, active_retired]  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
+
+    config.configure(
+        send_to_logfire=False,
+        token=None,
+        api_key=None,
+        service_name=None,
+        service_version=None,
+        environment=None,
+        console=False,
+        config_dir=None,
+        data_dir=None,
+        additional_span_processors=None,
+        metrics=False,
+        scrubbing=None,
+        inspect_arguments=None,
+        sampling=None,
+        min_level=None,
+        add_baggage_to_attributes=True,
+        code_source=None,
+        variables=None,
+        distributed_tracing=None,
+        advanced=None,
+    )
+
+    assert config._retired_otlp_forwarding == [active_retired]  # pyright: ignore[reportPrivateUsage]
+
+
+def test_logfire_config_reconfigure_tracks_pending_forwarding_manager() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    previous_manager = mock.Mock()
+    previous_manager.retire.return_value = True
+    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
+
+    config.configure(
+        send_to_logfire=False,
+        token=None,
+        api_key=None,
+        service_name=None,
+        service_version=None,
+        environment=None,
+        console=False,
+        config_dir=None,
+        data_dir=None,
+        additional_span_processors=None,
+        metrics=False,
+        scrubbing=None,
+        inspect_arguments=None,
+        sampling=None,
+        min_level=None,
+        add_baggage_to_attributes=True,
+        code_source=None,
+        variables=None,
+        distributed_tracing=None,
+        advanced=None,
+    )
+
+    assert config._retired_otlp_forwarding == [previous_manager]  # pyright: ignore[reportPrivateUsage]
+
+
 def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_for_idle_manager() -> None:
     config = LogfireConfig(send_to_logfire=False)
     previous_manager = OTLPForwardingManager(config)
@@ -693,6 +764,7 @@ def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_fo
     thread.assert_not_called()
     assert previous_manager.closed is True
     assert config._otlp_forwarding is not previous_manager  # pyright: ignore[reportPrivateUsage]
+    assert config._retired_otlp_forwarding == []  # pyright: ignore[reportPrivateUsage]
 
 
 def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -723,17 +795,21 @@ def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> 
 
 def test_logfire_config_force_flush_includes_forwarding_manager() -> None:
     config = LogfireConfig(send_to_logfire=False)
+    retired_forwarding = mock.Mock()
+    retired_forwarding.is_idle.return_value = False
     config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
     config._logger_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
     config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
     config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._retired_otlp_forwarding = [retired_forwarding]  # pyright: ignore[reportPrivateUsage]
     config._tracer_provider.force_flush.return_value = False  # pyright: ignore[reportPrivateUsage]
 
     assert config.force_flush(1234) is False
 
     config._meter_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
     config._logger_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding.force_flush.assert_called_once()  # pyright: ignore[reportPrivateUsage]
+    retired_forwarding.force_flush.assert_called_once()
     config._tracer_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
 
 
@@ -799,6 +875,26 @@ def test_logfire_shutdown_returns_false_when_forwarding_shutdown_incomplete() ->
 
     config._tracer_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
     config._meter_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_logfire_shutdown_includes_retired_forwarding_managers() -> None:
+    config = LogfireConfig(send_to_logfire=False)
+    retired_forwarding = mock.Mock()
+    retired_forwarding.is_idle.return_value = False
+    config._initialized = True  # pyright: ignore[reportPrivateUsage]
+    config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._otlp_forwarding.shutdown.return_value = True  # pyright: ignore[reportPrivateUsage]
+    config._retired_otlp_forwarding = [retired_forwarding]  # pyright: ignore[reportPrivateUsage]
+    retired_forwarding.shutdown.return_value = True
+    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+
+    assert logfire.Logfire(config=config).shutdown(timeout_millis=1000, flush=False) is True
+
+    config._otlp_forwarding.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
+    retired_forwarding.shutdown.assert_called_once()
+    assert config._retired_otlp_forwarding == []  # pyright: ignore[reportPrivateUsage]
 
 
 def test_logfire_shutdown_still_shuts_down_providers_when_forwarding_uses_timeout(

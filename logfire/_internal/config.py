@@ -934,6 +934,7 @@ class LogfireConfig(_LogfireConfigData):
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         self._otlp_forwarding = OTLPForwardingManager(self)
+        self._retired_otlp_forwarding: list[OTLPForwardingManager] = []
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -1388,7 +1389,9 @@ class LogfireConfig(_LogfireConfigData):
 
             previous_otlp_forwarding = self._otlp_forwarding
             self._otlp_forwarding = otlp_forwarding
-            previous_otlp_forwarding.shutdown(0, drain_queued=False)
+            self._prune_retired_otlp_forwarding()
+            if previous_otlp_forwarding.retire():
+                self._retired_otlp_forwarding.append(previous_otlp_forwarding)
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
@@ -1407,6 +1410,19 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
+    def _forget_retired_otlp_forwarding(self, manager: OTLPForwardingManager) -> None:
+        with self._lock:
+            with suppress(ValueError):
+                self._retired_otlp_forwarding.remove(manager)
+
+    def _prune_retired_otlp_forwarding(self) -> None:
+        self._retired_otlp_forwarding = [manager for manager in self._retired_otlp_forwarding if not manager.is_idle()]
+
+    def _otlp_forwarding_managers(self) -> tuple[OTLPForwardingManager, ...]:
+        with self._lock:
+            self._prune_retired_otlp_forwarding()
+            return (self._otlp_forwarding, *self._retired_otlp_forwarding)
+
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.
 
@@ -1418,8 +1434,22 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
-        self._otlp_forwarding.force_flush(timeout_millis)
+        deadline = time.monotonic() + timeout_millis / 1000
+        for manager in self._otlp_forwarding_managers():
+            remaining_millis = max(0, int((deadline - time.monotonic()) * 1000))
+            manager.force_flush(remaining_millis)
         return self._tracer_provider.force_flush(timeout_millis)
+
+    def shutdown_otlp_forwarding(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
+        deadline = time.monotonic() + timeout_millis / 1000
+        complete = True
+        for manager in self._otlp_forwarding_managers():
+            remaining_millis = max(0, int((deadline - time.monotonic()) * 1000))
+            if not manager.shutdown(remaining_millis, drain_queued=drain_queued):
+                complete = False
+            if manager is not self._otlp_forwarding:
+                self._forget_retired_otlp_forwarding(manager)
+        return complete
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.

@@ -802,6 +802,44 @@ class BlockingShutdownForwardingPipeline(OTLPForwardingPipeline):
         self.release.wait(timeout=5)
 
 
+def test_forwarding_pipeline_retire_closes_idle_session_without_worker() -> None:
+    session = FakeForwardingSession()
+    pipeline = OTLPForwardingPipeline(
+        base_url='https://example.com',
+        session=session,  # type: ignore[arg-type]
+        max_queued_body_bytes=100,
+    )
+
+    assert pipeline.is_idle() is True
+    assert pipeline.retire() is False
+
+    assert pipeline.closed is True
+    assert pipeline.worker is None
+    assert session.close_count == 1
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is False
+
+
+def test_forwarding_pipeline_retire_lets_existing_worker_drain() -> None:
+    pipeline = BlockingShutdownForwardingPipeline()
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'one')) is True
+    assert pipeline.started.wait(timeout=5) is True
+    worker = pipeline.worker
+
+    assert pipeline.retire() is True
+
+    assert pipeline.closed is True
+    assert pipeline.is_idle() is False
+    assert pipeline.worker is worker
+    assert pipeline.enqueue(_make_queued_forwarding_request(b'two')) is False
+    assert pipeline.fake_session.close_count == 0
+
+    pipeline.release.set()
+    _wait_for_no_live_worker(pipeline)
+
+    assert pipeline.is_idle() is True
+    assert pipeline.fake_session.close_count == 1
+
+
 def test_forwarding_pipeline_run_clears_current_worker_reference_after_unexpected_exit() -> None:
     class FatalForwardingPipeline(RecordingForwardingPipeline):
         def _send(self, queued_request: QueuedForwardingRequest) -> None:
@@ -1300,6 +1338,42 @@ class FakeShutdownPipeline:
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
         self.shutdown_calls.append((timeout_millis, drain_queued))
         return self.result
+
+
+class FakeRetirePipeline:
+    def __init__(self, *, pending: bool) -> None:
+        self.pending = pending
+        self.retire_calls = 0
+
+    def is_idle(self) -> bool:
+        return not self.pending
+
+    def retire(self) -> bool:
+        self.retire_calls += 1
+        return self.pending
+
+
+def test_forwarding_manager_retire_closes_all_pipelines_and_reports_pending() -> None:
+    pipeline_1 = FakeRetirePipeline(pending=False)
+    pipeline_2 = FakeRetirePipeline(pending=True)
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {'one': pipeline_1, 'two': pipeline_2}  # type: ignore[assignment]
+
+    assert manager.retire() is True
+
+    assert manager.closed is True
+    assert pipeline_1.retire_calls == 1
+    assert pipeline_2.retire_calls == 1
+
+
+def test_forwarding_manager_is_idle_requires_all_pipelines_idle() -> None:
+    manager = OTLPForwardingManager(object())  # type: ignore[arg-type]
+    manager.pipelines = {  # type: ignore[assignment]
+        'one': FakeRetirePipeline(pending=False),
+        'two': FakeRetirePipeline(pending=True),
+    }
+
+    assert manager.is_idle() is False
 
 
 def test_forwarding_manager_shutdown_basic() -> None:
