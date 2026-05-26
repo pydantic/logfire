@@ -615,7 +615,7 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
 
     class MockResponse:
         def __init__(self, content: Any, status_code: int, headers: dict[str, str] | None = None) -> None:
-            self.content = content
+            self.body = content
             self.status_code = status_code
             self.headers = headers or {}
 
@@ -646,7 +646,7 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
             response = asyncio.run(logfire_proxy(request, max_body_size=10))
 
             assert response.status_code == 200
-            assert response.content == b'{"ok": true}'
+            assert response.body == b'{"ok": true}'
             assert mock_fwd.call_args.kwargs == {
                 'path': 'v1/traces',
                 'headers': {},
@@ -661,7 +661,7 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
             response2 = asyncio.run(logfire_proxy(request, max_body_size=10))
 
             assert response2.status_code == 200
-            assert response2.content == b'{"ok": true}'
+            assert response2.body == b'{"ok": true}'
             assert mock_fwd.call_args.kwargs == {
                 'path': 'v1/traces',
                 'headers': {'content-length': '10'},
