@@ -7,7 +7,7 @@ Logfire is built on top of OpenTelemetry, which means that it supports all the l
 In addition, we currently have custom SDKs for:
 
 - [Python](https://github.com/pydantic/logfire)
-- [JavaScript/TypeScript](https://github.com/pydantic/logfire-js)
+- [JavaScript/TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/)
 - [Rust](https://github.com/pydantic/logfire-rust)
 
 These SDKs offer a streamlined developer experience.

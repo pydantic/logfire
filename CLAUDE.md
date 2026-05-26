@@ -11,7 +11,7 @@ Pre-commit automatically runs ruff and pyright, but you can also run `make forma
 
 # Documentation
 
-`uv run mkdocs build --no-strict` to build docs, just to check for errors. Expect lots of warnings, only worry about a non-zero exit code.
+Docs are rendered and deployed through the `pydantic/unified-docs` pipeline. Do not use MkDocs checks in this repository.
 
 # Core Structure
 
@@ -33,7 +33,7 @@ logfire/
 
 logfire-api/                 # No-op shim package for libraries
 tests/                       # Test suite
-docs/                        # MkDocs documentation
+docs/                        # Documentation source for unified docs
 ```
 
 # Testing

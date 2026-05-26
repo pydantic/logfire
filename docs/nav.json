@@ -171,19 +171,6 @@
     ]
   },
   {
-    "label": "TypeScript SDK",
-    "items": [
-      { "label": "Overview", "slug": "integrations/javascript/index" },
-      { "label": "Browser", "slug": "integrations/javascript/browser" },
-      { "label": "Next.js", "slug": "integrations/javascript/nextjs" },
-      { "label": "Cloudflare", "slug": "integrations/javascript/cloudflare" },
-      { "label": "Express", "slug": "integrations/javascript/express" },
-      { "label": "Node.js", "slug": "integrations/javascript/node" },
-      { "label": "Deno", "slug": "integrations/javascript/deno" },
-      { "label": "Vercel AI SDK", "slug": "integrations/javascript/vercel-ai" }
-    ]
-  },
-  {
     "label": "Observe & Investigate",
     "items": [
       { "label": "Live View", "slug": "guides/web-ui/live" },
