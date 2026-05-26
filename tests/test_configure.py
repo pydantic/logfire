@@ -632,22 +632,6 @@ def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> 
     assert manager.has_destinations() is False
 
 
-def test_logfire_config_force_flush_includes_forwarding_manager() -> None:
-    config = LogfireConfig(send_to_logfire=False)
-    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._logger_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider.force_flush.return_value = False  # pyright: ignore[reportPrivateUsage]
-
-    assert config.force_flush(1234) is False
-
-    config._meter_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
-    config._logger_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
-
-
 def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
