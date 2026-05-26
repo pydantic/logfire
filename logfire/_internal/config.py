@@ -1429,7 +1429,7 @@ class LogfireConfig(_LogfireConfigData):
         return self._tracer_provider.force_flush(timeout_millis)
 
     def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
-        """Shut down variables, forwarding, traces, and metrics."""
+        """Shut down variables, forwarding, traces, logs, and metrics."""
         start = time.time()
 
         def remaining_ms() -> int:
@@ -1448,6 +1448,13 @@ class LogfireConfig(_LogfireConfigData):
             remaining = remaining_ms()
 
         self._tracer_provider.shutdown()
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._logger_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._logger_provider.shutdown()
         remaining = remaining_ms()
 
         if flush and remaining:

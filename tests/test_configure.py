@@ -651,25 +651,35 @@ def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
             local_logfire.shutdown(flush=False)
 
 
-def test_logfire_shutdown_closes_forwarding_without_drain_when_flush_false(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize('flush', [False, True])
+def test_logfire_shutdown_closes_providers(monkeypatch: pytest.MonkeyPatch, flush: bool) -> None:
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     variable_provider = mock.Mock()
     otlp_forwarding = mock.Mock()
     otlp_forwarding.shutdown.return_value = True
     tracer_provider = mock.Mock()
+    logger_provider = mock.Mock()
     meter_provider = mock.Mock()
     monkeypatch.setattr(config, '_variable_provider', variable_provider)
     monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
     monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+    monkeypatch.setattr(config, '_logger_provider', logger_provider)
     monkeypatch.setattr(config, '_meter_provider', meter_provider)
 
-    assert logfire.shutdown(timeout_millis=1000, flush=False) is True
+    assert logfire.shutdown(timeout_millis=1000, flush=flush) is True
 
     forwarding_timeout = otlp_forwarding.shutdown.call_args.args[0]
-    otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=False)
-    tracer_provider.force_flush.assert_not_called()
-    meter_provider.force_flush.assert_not_called()
+    otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=flush)
+    if flush:
+        tracer_provider.force_flush.assert_called_once()
+        logger_provider.force_flush.assert_called_once()
+        meter_provider.force_flush.assert_called_once()
+    else:
+        tracer_provider.force_flush.assert_not_called()
+        logger_provider.force_flush.assert_not_called()
+        meter_provider.force_flush.assert_not_called()
     tracer_provider.shutdown.assert_called_once()
+    logger_provider.shutdown.assert_called_once()
     meter_provider.shutdown.assert_called_once()
 
 
