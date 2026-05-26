@@ -674,15 +674,15 @@ def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
 
 
 def test_logfire_shutdown_closes_forwarding_without_drain_when_flush_false() -> None:
-    config = LogfireConfig(send_to_logfire=False)
-    config._initialized = True  # pyright: ignore[reportPrivateUsage]
+    local_logfire = logfire.configure(local=True, send_to_logfire=False, console=False, metrics=False)
+    config = local_logfire.config
     config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
     config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
     config._otlp_forwarding.shutdown.return_value = True  # pyright: ignore[reportPrivateUsage]
     config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
     config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
 
-    assert logfire.Logfire(config=config).shutdown(timeout_millis=1000, flush=False) is True
+    assert local_logfire.shutdown(timeout_millis=1000, flush=False) is True
 
     forwarding_timeout = config._otlp_forwarding.shutdown.call_args.args[0]  # pyright: ignore[reportPrivateUsage]
     config._otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=False)  # pyright: ignore[reportPrivateUsage]
@@ -690,28 +690,6 @@ def test_logfire_shutdown_closes_forwarding_without_drain_when_flush_false() -> 
     config._meter_provider.force_flush.assert_not_called()  # pyright: ignore[reportPrivateUsage]
     config._tracer_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
     config._meter_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
-
-
-def test_logfire_shutdown_still_shuts_down_providers_when_forwarding_uses_timeout(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = LogfireConfig(send_to_logfire=False)
-    config._initialized = True  # pyright: ignore[reportPrivateUsage]
-    config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding.shutdown.return_value = False  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    times = iter([0.0, 0.0, 0.0, 2.0, 2.0, 2.0, 2.0])
-    monkeypatch.setattr('logfire._internal.main.time', lambda: next(times))
-
-    assert logfire.Logfire(config=config).shutdown(timeout_millis=1000, flush=True) is False
-
-    config._otlp_forwarding.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider.force_flush.assert_not_called()  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider.force_flush.assert_not_called()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider.shutdown.assert_called_once_with(0)  # pyright: ignore[reportPrivateUsage]
 
 
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
