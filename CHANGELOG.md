@@ -1,5 +1,15 @@
 # Release Notes
 
+## [v4.34.0] (2026-05-26)
+
+* Add `logfire.forward_export_request` and `forward_export_request_starlette` methods by @alexmojaki in [#1974](https://github.com/pydantic/logfire/pull/1974)
+* Forward telemetry in a separate thread by @alexmojaki in [#1973](https://github.com/pydantic/logfire/pull/1973)
+* Drop Python 3.9 support by @alexmojaki in [#1919](https://github.com/pydantic/logfire/pull/1919)
+* Managed variables: Propagate variable version in baggage alongside label by @dmontagu in [#1927](https://github.com/pydantic/logfire/pull/1927)
+* Managed variables: Expose `ResolvedVariable.reason` by @alexmojaki in [#1945](https://github.com/pydantic/logfire/pull/1945)
+* Handle errors from `traceback.format_exception` by @alexmojaki in [#1948](https://github.com/pydantic/logfire/pull/1948)
+* Add `db.query.text` to scrubber `SAFE_KEYS` by @bendrucker in [#1959](https://github.com/pydantic/logfire/pull/1959)
+
 ## [v4.33.0] (2026-05-13)
 
 CLI:
@@ -1148,3 +1158,4 @@ First release from new repo!
 [v4.32.0]: https://github.com/pydantic/logfire/compare/v4.31.2...v4.32.0
 [v4.32.1]: https://github.com/pydantic/logfire/compare/v4.32.0...v4.32.1
 [v4.33.0]: https://github.com/pydantic/logfire/compare/v4.32.1...v4.33.0
+[v4.34.0]: https://github.com/pydantic/logfire/compare/v4.33.0...v4.34.0

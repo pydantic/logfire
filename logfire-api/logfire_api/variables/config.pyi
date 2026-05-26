@@ -108,11 +108,11 @@ class RolloutOverride(BaseModel):
 class VariableConfig(BaseModel):
     """Configuration for a single managed variable including labels, versions, and rollout rules."""
     name: VariableName
+    description: str | None
     labels: dict[str, LabeledValue | LabelRef]
     rollout: Rollout
     overrides: list[RolloutOverride]
     latest_version: LatestVersion | None
-    description: str | None
     json_schema: dict[str, Any] | None
     type_name: str | None
     aliases: list[VariableName] | None
