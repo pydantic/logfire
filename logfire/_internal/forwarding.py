@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import posixpath
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from threading import Condition, Thread
@@ -11,6 +11,7 @@ from time import monotonic
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 from urllib.parse import unquote, urljoin
+from weakref import WeakMethod
 
 from google.protobuf.json_format import MessageToJson
 from google.protobuf.message import Message
@@ -156,7 +157,7 @@ class OTLPForwardingPipeline:
             self.queue.append(queued_request)
 
             if self.worker is None or not self.worker.is_alive():
-                self.worker = Thread(target=self._run, daemon=False)
+                self.worker = Thread(target=self._run, daemon=True)
                 self.worker.start()
 
             self.condition.notify_all()
@@ -225,6 +226,11 @@ class OTLPForwardingPipeline:
         self.queue.clear()
         self.condition.notify_all()
 
+    def _at_fork_reinit(self) -> None:
+        self.condition = Condition()
+        self.queue.clear()
+        self.worker = None
+
     def _close_session_if_idle_locked(self) -> None:
         if self.closed and not self.queue:
             self.session.close()
@@ -271,6 +277,10 @@ class OTLPForwardingManager:
 
             pipeline.tokens.append(token)
 
+        if self.pipelines and hasattr(os, 'register_at_fork'):
+            weak_reinit = WeakMethod(self._at_fork_reinit)
+            os.register_at_fork(after_in_child=lambda: _call_weak_method(weak_reinit))
+
     def has_destinations(self) -> bool:
         return bool(self.pipelines)
 
@@ -313,6 +323,16 @@ class OTLPForwardingManager:
             if not pipeline.shutdown(remaining_millis, drain_queued=drain_queued):
                 complete = False
         return complete
+
+    def _at_fork_reinit(self) -> None:
+        for pipeline in self.pipelines.values():
+            pipeline._at_fork_reinit()  # pyright: ignore[reportPrivateUsage]
+
+
+def _call_weak_method(method_ref: WeakMethod[Callable[[], None]]) -> None:
+    method = method_ref()
+    if method is not None:
+        method()
 
 
 def _get_header(headers: Mapping[str, str], name: str) -> str | None:

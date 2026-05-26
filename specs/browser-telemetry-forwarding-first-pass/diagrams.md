@@ -16,8 +16,8 @@ flowchart LR
     PipelineB --> TokensB["tokens for backend URL B"]
     PipelineA --> QueueA["memory queue: 64 MiB"]
     PipelineB --> QueueB["memory queue: 64 MiB"]
-    PipelineA --> WorkerA["non-daemon worker"]
-    PipelineB --> WorkerB["non-daemon worker"]
+    PipelineA --> WorkerA["daemon worker"]
+    PipelineB --> WorkerB["daemon worker"]
     WorkerA --> SessionA["OTLPExporterHttpSession"]
     WorkerB --> SessionB["OTLPExporterHttpSession"]
     SessionA -->|"retryable failure"| RetryA["DiskRetryer"]
@@ -201,7 +201,7 @@ flowchart TD
     ResponseMessageB --> PublicPartial["ForwardExportRequestResponse"]
 ```
 
-**Manager and pipeline methods own lifecycle, flushing, and sending.** *(supports "Forwarding participates in Logfire flush and shutdown", "The forwarding worker is non-daemon and lifecycle-managed", "Forwarding sends use the existing OTLP session retry ownership")*
+**Manager and pipeline methods own lifecycle, flushing, and sending.** *(supports "Forwarding participates in Logfire flush and shutdown", "The forwarding worker is daemon and lifecycle-managed", "Forwarding sends use the existing OTLP session retry ownership")*
 This lifecycle graph covers each manager and pipeline method. It also shows how config-level lifecycle calls interact with the forwarding manager and how the worker uses the existing OTLP session retry behavior.
 
 ```mermaid
@@ -218,6 +218,8 @@ flowchart TD
     NewManager -->|"non-empty destinations"| PipelineForDestination["create or reuse pipeline for backend URL"]
 
     ConfigFlush["LogfireConfig.force_flush(timeout_millis)"] --> ManagerFlush["OTLPForwardingManager.force_flush(timeout_millis)"]
+    Atexit["atexit forwarding cleanup"] --> ManagerShutdownDrain
+    Fork["after fork in child"] --> ForkReset["clear inherited queue and worker state"]
     LogfireShutdown["Logfire.shutdown(timeout_millis, flush)"] --> ManagerShutdown{"flush?"}
     ManagerShutdown -->|"true"| ManagerShutdownDrain["OTLPForwardingManager.shutdown(timeout_millis, drain_queued=True)"]
     ManagerShutdown -->|"false"| ManagerShutdownDrop["OTLPForwardingManager.shutdown(timeout_millis, drain_queued=False)"]

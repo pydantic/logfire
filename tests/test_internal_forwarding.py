@@ -270,7 +270,7 @@ def test_forwarding_pipeline_enqueue_accepts_and_accounts_bytes() -> None:
     assert list(pipeline.queue) == [request]
     assert pipeline.queued_body_bytes == 5
     assert worker is not None
-    assert worker.daemon is False
+    assert worker.daemon is True
     assert pipeline.enqueue(_make_forwarding_request(b'two')) is True
     assert pipeline.worker is worker
     assert pipeline.enqueue(_make_forwarding_request(b'three')) is False
@@ -318,6 +318,29 @@ def test_forwarding_pipeline_enqueue_rejects_at_item_limit() -> None:
         assert pipeline.queued_body_bytes == 0
     finally:
         pipeline.stop()
+
+
+def test_forwarding_pipeline_at_fork_reinit_clears_inherited_queue_and_worker() -> None:
+    pipeline = BlockingRunForwardingPipeline()
+    request = _make_forwarding_request(b'one')
+    worker: Thread | None = None
+
+    try:
+        assert pipeline.enqueue(request) is True
+        assert pipeline.started.wait(timeout=5) is True
+        worker = pipeline.worker
+        condition = pipeline.condition
+
+        pipeline._at_fork_reinit()  # pyright: ignore[reportPrivateUsage]
+
+        assert list(pipeline.queue) == []
+        assert pipeline.worker is None
+        assert pipeline.condition is not condition
+        assert worker is not None
+    finally:
+        pipeline.release.set()
+        if worker is not None:
+            worker.join(timeout=5)
 
 
 class BlockingSendForwardingPipeline(OTLPForwardingPipeline):

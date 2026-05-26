@@ -7,6 +7,7 @@ import pickle
 import subprocess
 import sys
 import threading
+import weakref
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
@@ -46,6 +47,7 @@ from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
+import logfire._internal.config as config_module
 from logfire import configure, propagate
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
@@ -735,6 +737,29 @@ def test_logfire_config_force_flush_includes_forwarding_manager() -> None:
     config._logger_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
     config._otlp_forwarding.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
     config._tracer_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_shutdown_otlp_forwarding_uses_unique_managers_and_shared_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_1 = LogfireConfig(send_to_logfire=False)
+    config_2 = LogfireConfig(send_to_logfire=False)
+    manager_1 = mock.Mock()
+    manager_2 = mock.Mock()
+    config_1._otlp_forwarding = manager_1  # pyright: ignore[reportPrivateUsage]
+    config_2._otlp_forwarding = manager_2  # pyright: ignore[reportPrivateUsage]
+    monkeypatch.setattr(
+        config_module,
+        '_LOGFIRE_CONFIG_INSTANCES',
+        [weakref.ref(config_1), weakref.ref(config_1), weakref.ref(config_2)],
+    )
+    times = iter([0.0, 0.0, 0.01])
+    monkeypatch.setattr(config_module.time, 'monotonic', lambda: next(times))
+
+    config_module.shutdown_otlp_forwarding(100)
+
+    manager_1.shutdown.assert_called_once_with(100, drain_queued=True)
+    manager_2.shutdown.assert_called_once_with(90, drain_queued=True)
 
 
 def test_logfire_shutdown_shuts_down_forwarding_before_provider_shutdown() -> None:
