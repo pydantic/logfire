@@ -1,0 +1,28 @@
+logfire-api/logfire_api/__init__.py
+  s_4653b14f014a8c::t_bbde9e79d39709 209-214,271-272
+  s_4653b14f014a8c::t_66621af34c408d 5
+  s_4653b14f014a8c::t_8a54d14a4d6a17 6-7,146,179,182,185,204,327,333
+logfire/__init__.py
+  s_4653b14f014a8c::t_a3605a4e7faae1 78-79,218-219
+tests/test_experimental_forwarding.py
+  s_4653b14f014a8c::t_d31118afcc209e 18,116,133,148,161,213,568,579,603,611,618,626
+  s_4653b14f014a8c::t_d1421ffb0477b4 70,87,94,104,174,183,197,226,236,245,259,282,296,321,375,433,483,526,551
+tests/test_logfire_api.py
+  s_4653b14f014a8c::t_cd6c1948d75eab 3,328-335
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4b08e6ec312965da892dcdc53822ff0499e0c7a3",
+  "prompts": {},
+  "sessions": {
+    "s_4653b14f014a8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6530-1a7f-7712-96d5-3b40d66da7f1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
