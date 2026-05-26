@@ -1,125 +1,51 @@
 ---
-title: "Logfire Self-Hosted: How to Deploy On-Premises"
-description: "Overview of benefits and requirements for deploying Pydantic Logfire in a self-hosted environment, including client configuration instructions."
+title: Self-Hosted Logfire Overview
+description: "Overview of self-hosted Pydantic Logfire, including production requirements and operational procedures."
 ---
-# Self Hosted Introduction
+# Self-Hosted Logfire Overview
 
-Logfire can be deployed on-premises using the official [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart). This allows organizations the ability to fully manage their own data.
+Self-hosted Logfire runs the same product as the public Logfire deployment in your own Kubernetes environment. It is delivered through the official [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart).
 
-This chart is included in our [Enterprise plan](../../enterprise.md). Contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) for details.
+Self-hosted Logfire is included in the [Enterprise plan](../../enterprise.md). Contact [sales@pydantic.dev](mailto:sales@pydantic.dev) for access to the private container images and commercial terms.
 
-### Key Benefits
+Use the [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-chart) for the current chart commands and chart-version-specific values. These website docs focus on planning, architecture, examples, and operational procedures.
 
-* **Simplified Deployment:** Install and manage the entire application stack with a single command.
-* **Flexible Configuration:** Easily adjust resource allocation, ingress settings, and authentication to your needs.
-* **Production-Ready Defaults:** Built-in settings for high availability, resource limits, and health checks.
-* **Repeatable & Versioned:** Manage your application deployment as code, ensuring consistency across environments.
-* **Compliance Friendly:** Leverage your own infrastructure to meet internal security standards.
+## Website Docs
 
-## System Requirements
+* [Local quickstart](./local-quickstart.md): run a first install with the chart's `values.dev.yaml` file.
+* [Production requirements](./installation.md): plan the production values you need before installing the chart.
+* [Architecture](./architecture.md): understand the main services, dependencies, and data flow.
+* [Examples](./examples.md): copy provider-specific authentication snippets into your values file.
+* [Troubleshooting](./troubleshooting.md): debug image pull, database, and runtime issues.
+* [Bucket migration](./bucket-migration.md): migrate telemetry object storage buckets.
+* [Usage report](./usage-report.md): generate usage reports for self-hosted deployments.
 
-**Logfire** has been built from the ground up to be horizontally scalable. The self-hosted version shares the same code as the public deployment, and so is able to scale to high volumes of traffic.
+## Production Prerequisites
 
-With that in mind, here are some minimum requirements that you will need to deploy logfire self-hosted:
+A production deployment needs:
 
-- A **Kubernetes** Cluster
-- A **PostgreSQL** Database version `16` or greater
-- **Object Storage** such as Amazon S3, Azure Blob Storage or Google Cloud Storage
-- At least `512GB` or more local SSD scratch disk for ingest, compaction and caching
-- A **DNS/Hostname** to serve Logfire on. This does not need to be Internet accessible, but will need to be accessed over HTTP from any client.
-- An **Identity Provider** for Authenticating Users such as Github, Google or Microsoft.  **Logfire** uses [Dex for authentication](https://dexidp.io/docs/connectors/)
-- (Optional) **Kubernetes Gateway API** for advanced traffic management (instead of Ingress)
+* A Kubernetes cluster with enough capacity for the selected sizing preset.
+* Image pull credentials for Logfire's private images.
+* PostgreSQL 16 or later.
+* Three PostgreSQL databases: one for Logfire application data, one for FusionFire metadata, and one for Dex.
+* Object storage using Amazon S3, Google Cloud Storage, Azure Storage, or an S3-compatible provider.
+* An identity provider supported by [Dex](https://dexidp.io/docs/connectors/).
+* Kubernetes storage for scratch and ingest volumes, either through a default `StorageClass` or explicit storage class settings in values.
 
-Please view [installation](./installation.md) to find out how each of these are used.
+## Client Configuration
 
-## Client Configuration Instructions
-
-After setting up the chart, you can send data to your **Logfire** Self-hosted instance by specifying the base url in advanced options:
+After deploying self-hosted Logfire, point the SDK at your Logfire base URL:
 
 ```python
 import logfire
 
 logfire.configure(
-    advanced=logfire.AdvancedOptions(base_url='https://<your_logfire_hostname>'),
+    advanced=logfire.AdvancedOptions(base_url='https://logfire.example.com'),
 )
 ```
 
-### CLI Authentication
-
-You can also authenticate with your self-hosted instance using the CLI:
+You can also authenticate the CLI against your self-hosted instance:
 
 ```bash
-logfire --base-url="https://<your_logfire_hostname>" auth
+logfire --base-url="https://logfire.example.com" auth
 ```
-
-This will authenticate you against your self-hosted domain and store the credentials locally.
-
-## Service Architecture
-
-The Self-hosted deployment has a number of interdependent services that work to run logfire.  Each component can be scaled independently of others depending on the utilisation of the system.
-
-### Service Dependency Diagram
-
-```mermaid
-graph
-    %% Entry point
-    LS[logfire-service:8080]
-
-    %% Core services
-    LB[logfire-backend:8000]
-    RD[logfire-redis:6379]
-    FIA[logfire-ff-ingest:8012]
-    FQA[logfire-ff-query-api:8011]
-    FC[logfire-ff-cache]
-    MW[logfire-ff-maintenance-worker]
-    CW[logfire-ff-compaction-worker]
-
-    OS[(Object Storage)]
-    PG[(Postgres DB)]
-
-    %% Connections from entry point
-    LS --> LB
-    LS --> FIA
-
-    FQA --> FC
-    FQA --> PG
-    FQA --> RD
-    FQA --> OS
-
-    LB --> FQA
-    LB --> RD
-
-    FIA --> PG
-    FIA --> RD
-    FIA --> OS
-
-    FC --> OS
-
-    MW --> PG
-    MW --> OS
-
-    CW --> PG
-    CW --> OS
-
-
-```
-
-### Service Descriptions
-
-#### Entry Point
-- `logfire-service` (Port 8080): Main entry point/proxy for the system
-
-#### Core Services
-- `logfire-backend` (Port 8000): Backend service handling business logic, frontend and authentication
-- `logfire-ff-ingest` (Port 8012): API for data ingestion
-- `logfire-ff-ingest-processor`: Processes ingested data
-- `logfire-ff-query-api` (Port 8011): API for querying data
-- `logfire-ff-crud-api`: CRUD operations API
-- `logfire-ff-maintenance-worker`: Maintenance jobs
-- `logfire-ff-compaction-worker`: Data compaction jobs
-- `logfire-redis`: Live query streaming and autocomplete cache
-- `logfire-ff-cache-*`: Cache services (byte, ipc, filter) with corresponding proxy caches for consistent hashing
-- `logfire-otel-collector`: OpenTelemetry collector for internal telemetry
-- `logfire-frontend-service`: Frontend static assets
-- `logfire-worker`: Background worker for async tasks
-- `logfire-dex`: Identity provider service
