@@ -585,7 +585,7 @@ def test_logfire_config_console_options() -> None:
 
 
 def test_logfire_config_has_empty_forwarding_manager() -> None:
-    config = LogfireConfig(send_to_logfire=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
 
     assert isinstance(manager, OTLPForwardingManager)

@@ -228,6 +228,7 @@ class OTLPForwardingPipeline:
 
     def _at_fork_reinit(self, *, session: OTLPExporterHttpSession | None = None) -> None:
         self.condition = Condition()
+        # Queued items were accepted by the parent process; the child must not send duplicates.
         self.queue.clear()
         self.worker = None
         if session is not None:
