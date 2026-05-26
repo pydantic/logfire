@@ -584,17 +584,11 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
 
 
-def test_logfire_config_has_empty_forwarding_manager() -> None:
-    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
-
-    assert isinstance(manager, OTLPForwardingManager)
-    assert manager.has_destinations() is False
-
-
 def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(previous_manager, OTLPForwardingManager)
+    assert previous_manager.has_destinations() is False
 
     logfire.configure(send_to_logfire=False, console=False, metrics=False)
 
