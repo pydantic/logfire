@@ -1,0 +1,25 @@
+tests/test_configure.py
+  s_1d4356de64f0ec::t_bf035ff5e573b8 655,662
+logfire/_internal/config.py
+  s_1d4356de64f0ec::t_d8ba0aee1e90da 1431-1477
+logfire/_internal/main.py
+  s_1d4356de64f0ec::t_33abe30f982bf5 2482
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_3df579a0b7c400 27-28,344-345
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "9c2985d8af7d13f31d400cd23b872e11ed3fdfbe",
+  "prompts": {},
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
