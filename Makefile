@@ -63,9 +63,3 @@ docs docs-serve:
 
 .PHONY: all
 all: format lint test
-
-.PHONY: cf-pages-build  # Deprecated Cloudflare Pages docs build
-cf-pages-build:
-	@echo "Cloudflare Pages docs builds are disabled; docs are deployed by pydantic/unified-docs."
-	@mkdir -p site
-	@printf '%s\n' '<!doctype html><title>Logfire docs build disabled</title><p>Logfire docs are deployed by pydantic/unified-docs.</p>' > site/index.html
