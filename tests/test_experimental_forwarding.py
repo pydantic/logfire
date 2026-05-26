@@ -13,6 +13,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 import logfire
 from logfire._internal.config import LogfireConfig
 from logfire._internal.forwarding import ForwardingAdmissionResult, ForwardingRequest
+from logfire.experimental import forwarding
 from logfire.experimental.forwarding import ForwardExportRequestResponse
 
 if TYPE_CHECKING:
@@ -94,6 +95,20 @@ def test_forward_export_request_logic() -> None:
         mock_post.assert_not_called()
         assert manager.submissions[0].path == '/v1/traces'
         assert manager.submissions[0].body == b'data'
+
+
+def test_forward_export_request_function_defaults_to_default_instance() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+    manager = _set_successful_forwarding_manager()
+
+    response = forwarding.forward_export_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'data',
+    )
+
+    assert response.status_code == 200
+    assert manager.submissions[0].body == b'data'
 
 
 def test_forward_export_request_invalid_path() -> None:
