@@ -52,7 +52,7 @@ Then enable plugins from the **Pydantic** marketplace. Either enable them in the
 
 ```bash
 codex plugin add logfire@pydantic-skills
-codex plugin add codex-logfire-exporter@pydantic-skills
+codex plugin add logfire-exporter@pydantic-skills
 ```
 
 Two plugins are available:
@@ -60,9 +60,9 @@ Two plugins are available:
 | Plugin | Purpose |
 | --- | --- |
 | **Logfire** | Gives Codex Logfire skills and the hosted Logfire MCP server for instrumentation, querying, and opening UI views. |
-| **Codex Logfire Exporter** | Exports completed Codex turns and tool calls to Logfire as OpenTelemetry traces. |
+| **Logfire Exporter** | Exports completed Codex turns and tool calls to Logfire as OpenTelemetry traces. |
 
-These plugins solve different problems and can be installed together. After enabling **Codex Logfire Exporter**,
+These plugins solve different problems and can be installed together. After enabling **Logfire Exporter**,
 restart Codex and run `/hooks` if Codex asks you to review or trust the new hooks.
 
 See also:

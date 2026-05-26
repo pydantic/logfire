@@ -1,18 +1,18 @@
 ---
 title: Export Codex Activity to Logfire
-description: Install the Codex Logfire Exporter plugin to send completed Codex turns and tool calls to Logfire as OpenTelemetry traces.
+description: Install the Logfire Exporter plugin to send completed Codex turns and tool calls to Logfire as OpenTelemetry traces.
 ---
 
 # Export Codex Activity to Logfire
 
-The **Codex Logfire Exporter** plugin sends Codex's own activity telemetry to Logfire. It is separate from the
+The **Logfire Exporter** plugin sends Codex's own activity telemetry to Logfire. It is separate from the
 main [Logfire plugin](skills.md#codex), which gives Codex skills and MCP access for instrumenting applications
 and querying existing telemetry.
 
 | Plugin | Purpose |
 | --- | --- |
 | **Logfire** | Helps Codex instrument your code, query Logfire data, and open Logfire UI views. |
-| **Codex Logfire Exporter** | Exports Codex turns and tool calls to Logfire. |
+| **Logfire Exporter** | Exports Codex turns and tool calls to Logfire. |
 
 The two plugins solve different problems and can be installed together.
 
@@ -22,10 +22,10 @@ Add the Pydantic marketplace and enable the exporter plugin:
 
 ```bash
 codex plugin marketplace add pydantic/skills --ref main
-codex plugin add codex-logfire-exporter@pydantic-skills
+codex plugin add logfire-exporter@pydantic-skills
 ```
 
-You can also enable **Codex Logfire Exporter** from the **Pydantic** marketplace in the Codex plugin UI.
+You can also enable **Logfire Exporter** from the **Pydantic** marketplace in the Codex plugin UI.
 
 After enabling the plugin:
 
@@ -38,23 +38,25 @@ After enabling the plugin:
 Create a config file at:
 
 ```text
-${XDG_CONFIG_HOME:-~/.config}/codex-logfire-exporter/config.env
+${XDG_CONFIG_HOME:-~/.config}/logfire-exporter/config.env
 ```
 
 Example for Logfire Cloud:
 
 ```dotenv
 LOGFIRE_TOKEN=<your Logfire write token>
-LOGFIRE_URL=https://logfire-api.pydantic.dev
+LOGFIRE_BASE_URL=https://logfire-api.pydantic.dev
 ```
 
 For a local Logfire instance:
 
 ```dotenv
 LOGFIRE_TOKEN=test-e2e-write-token
-LOGFIRE_URL=http://localhost:3000
+LOGFIRE_BASE_URL=http://localhost:3000
 CODEX_LOGFIRE_DEBUG=true
 ```
+
+`LOGFIRE_URL` is still accepted as a compatibility alias, but `LOGFIRE_BASE_URL` takes precedence.
 
 The exporter sends `Authorization: <LOGFIRE_TOKEN>`, matching Logfire's direct OTLP client configuration. If you
 need a scheme-prefixed header, set `CODEX_LOGFIRE_AUTH_SCHEME=Bearer`.
@@ -115,13 +117,13 @@ that lets Logfire show Codex turns in the generic LLM conversation details panel
 Debug logs are written to:
 
 ```text
-${XDG_STATE_HOME:-~/.local/state}/codex-logfire-exporter/logs/
+${XDG_STATE_HOME:-~/.local/state}/logfire-exporter/logs/
 ```
 
 If no spans appear after a completed Codex turn, check the Codex TUI log:
 
 ```bash
-rg -n "codex-logfire|failed to load plugin" ~/.codex/log/codex-tui.log
+rg -n "logfire-exporter|failed to load plugin" ~/.codex/log/codex-tui.log
 ```
 
 Common issues:
