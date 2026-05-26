@@ -113,4 +113,7 @@ def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float 
 @handle_internal_errors
 def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False, callback: ExceptionCallback | None = None) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
+
+original_format_exception: Incomplete
+
 def set_exception_status(span: trace_api.Span, exception: BaseException): ...
