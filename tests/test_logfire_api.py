@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import sys
 import warnings
@@ -323,6 +324,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'url_from_eval')
     logfire_api.url_from_eval(MagicMock(trace_id='abc', span_id='def'))
     logfire__all__.remove('url_from_eval')
+
+    assert hasattr(logfire_api, 'forward_export_request')
+    logfire_api.forward_export_request(path='/invalid', headers={}, body=b'')
+    logfire__all__.remove('forward_export_request')
+
+    assert hasattr(logfire_api, 'forward_export_request_starlette')
+    request = MagicMock(method='GET', headers={})
+    asyncio.run(logfire_api.forward_export_request_starlette(request))
+    logfire__all__.remove('forward_export_request_starlette')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
