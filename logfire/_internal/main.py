@@ -10,7 +10,6 @@ from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
 from functools import cached_property, partial
-from time import time
 from typing import (  # NOQA UP035
     TYPE_CHECKING,
     Any,
@@ -2480,39 +2479,7 @@ class Logfire:
         Returns:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
-        start = time()
-
-        def remaining_ms() -> int:
-            return max(0, int(timeout_millis - (time() - start) * 1000))
-
-        self.config.get_variable_provider().shutdown(timeout_millis=remaining_ms())
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._tracer_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._tracer_provider.shutdown()
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._meter_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._meter_provider.shutdown(remaining)
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        return remaining_ms() > 0
+        return self._config.shutdown(timeout_millis=timeout_millis, flush=flush)
 
     @overload
     def var(

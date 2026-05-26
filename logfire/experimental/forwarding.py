@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import unquote, urljoin
-
-import requests
 
 import logfire
-from logfire.version import VERSION
+from logfire._internal.forwarding import (
+    OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
+    ForwardingErrorResponse,
+    build_forwarding_request,
+    build_partial_success_response,
+    build_success_response,
+)
 
 __all__ = ('ForwardExportRequestResponse', 'forward_export_request', 'logfire_proxy')
 
@@ -27,105 +29,45 @@ def forward_export_request(
     *,
     path: str,
     headers: Mapping[str, str],
-    body: bytes | None,
+    body: bytes,
     logfire_instance: logfire.Logfire | None = None,
+    max_body_size: int = OTLP_FORWARDING_MAX_REQUEST_BODY_BYTES,
 ) -> ForwardExportRequestResponse:
     """Forward an export request to the Logfire API.
 
-    Note: If the provided logfire instance is configured with multiple tokens,
-    only the first token will be used for the proxy request.
+    Note: If the provided logfire instance is configured with multiple Logfire destinations,
+    the request is admitted for forwarding to all of them.
     """
     if logfire_instance is None:
         logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
     config = logfire_instance.config
 
-    if not path.startswith('/'):
-        path = '/' + path
-
-    # Security: Normalize path to prevent directory traversal attacks (e.g. /v1/traces/../secret)
-    # We unquote first to handle percent-encoded traversals (e.g. %2e%2e) that might bypass normalization
-    path = posixpath.normpath(unquote(path))
-
-    if path not in ('/v1/traces', '/v1/logs', '/v1/metrics'):
-        return ForwardExportRequestResponse(
-            status_code=400,
-            headers={'Content-Type': 'text/plain'},
-            content=b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics',
-        )
-
-    token = config.token
-    if isinstance(token, list):
-        # Proxying only supports the first configured project/token
-        token = token[0] if token else None
-
-    if not token:
-        return ForwardExportRequestResponse(
-            status_code=500,
-            headers={'Content-Type': 'text/plain'},
-            content=b'Logfire is not configured with a token',
-        )
-
-    base_url = config.advanced.generate_base_url(token)
-    url = urljoin(base_url, path)
-
-    headers_to_remove = {
-        'host',
-        'content-length',
-        'authorization',
-        'connection',
-        'transfer-encoding',
-        'keep-alive',
-        'proxy-authenticate',
-        'proxy-authorization',
-        'te',
-        'trailer',
-        'upgrade',
-        'cookie',
-        'cf-connecting-ip',
-    }
-
-    new_headers = {k: v for k, v in headers.items() if k.lower() not in headers_to_remove}
-
-    # Case-insensitive lookup to preserve original User-Agent
-    user_agent_key = next((k for k in new_headers if k.lower() == 'user-agent'), None)
-    if user_agent_key:
-        original_ua = new_headers.pop(user_agent_key)
-        new_headers['User-Agent'] = f'logfire-proxy/{VERSION} {original_ua}'
-    else:
-        new_headers['User-Agent'] = f'logfire-proxy/{VERSION}'
-
-    new_headers['Authorization'] = token
-
-    try:
-        # Wrap with suppress_instrumentation so we don't infinitely trace proxy telemetry
-        with logfire.suppress_instrumentation():
-            response = requests.post(
-                url=url,
-                headers=new_headers,
-                data=body,
-                stream=False,
-                timeout=30,
-            )
-    except requests.RequestException:
-        # Security: Return a generic error to avoid leaking internal URL/configuration details
-        return ForwardExportRequestResponse(
-            status_code=502,
-            headers={'Content-Type': 'text/plain'},
-            content=b'Upstream service error',
-        )
-
-    response_headers = {
-        k: v
-        for k, v in response.headers.items()
-        if k.lower() not in ('content-encoding', 'content-length', 'transfer-encoding', 'connection', 'set-cookie')
-    }
-
-    return ForwardExportRequestResponse(
-        status_code=response.status_code,
-        headers=response_headers,
-        content=response.content,
+    forwarding_request = build_forwarding_request(
+        path=path,
+        headers=headers,
+        body=body,
+        max_body_size=max_body_size,
     )
+    if isinstance(forwarding_request, ForwardingErrorResponse):
+        return ForwardExportRequestResponse(
+            status_code=forwarding_request.status_code,
+            headers={'Content-Type': 'text/plain'},
+            content=forwarding_request.content,
+        )
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    if not manager.has_destinations():
+        return ForwardExportRequestResponse(
+            status_code=403,
+            headers={'Content-Type': 'text/plain'},
+            content=b'Logfire is not configured with an active forwarding destination',
+        )
+
+    admission_result = manager.submit(forwarding_request)
+    if admission_result.response == 'success':
+        return build_success_response(forwarding_request)
+    return build_partial_success_response(forwarding_request, message=admission_result.message or '')
 
 
 async def logfire_proxy(
@@ -139,8 +81,8 @@ async def logfire_proxy(
     This is useful for proxying requests from a browser to Logfire,
     to avoid exposing your write token in the browser.
 
-    Note: If the provided logfire instance is configured with multiple tokens,
-    only the first token will be used for the proxy request.
+    Note: If the provided logfire instance is configured with multiple Logfire destinations,
+    accepted requests are admitted for forwarding to all of them.
 
     **Security Note**: This endpoint is unauthenticated unless you protect it.
     Any client capable of reaching this endpoint can send telemetry data to your Logfire project.
@@ -155,7 +97,6 @@ async def logfire_proxy(
     Returns:
         A Starlette/FastAPI Response object.
     """
-    from starlette.concurrency import run_in_threadpool
     from starlette.responses import Response
 
     if request.method.upper() != 'POST':
@@ -182,12 +123,11 @@ async def logfire_proxy(
     if not path:
         return Response(status_code=400, content='Missing path parameter. Use {path:path} in the route definition.')
 
-    # Performance: Run synchronous requests call in a thread pool to avoid blocking the event loop
-    response = await run_in_threadpool(
-        forward_export_request,
+    response = forward_export_request(
         path=path,
         headers=request.headers,
         body=bytes(body),
         logfire_instance=logfire_instance,
+        max_body_size=max_body_size,
     )
     return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
