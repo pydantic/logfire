@@ -1,0 +1,36 @@
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_b25cb8d153e0bd 30-32,111,137,182-184,192,264,282-284,289-291
+  s_1d4356de64f0ec::t_65004dca546713 191
+logfire/_internal/forwarding.py
+  s_1d4356de64f0ec::t_398022472c0d36 280
+  s_1d4356de64f0ec::t_e840bda5691d63 6,14,160,229-233,281-283,327-335
+logfire/_internal/config.py
+  s_1d4356de64f0ec::t_eea35932c8c2a8 1383-1385
+  s_1d4356de64f0ec::t_4117e29cbb2ffd 1386-1387,1644-1651,1653-1661,1674
+  s_1d4356de64f0ec::t_140ae6ce6b8edd 1652
+tests/test_configure.py
+  s_1d4356de64f0ec::t_4bf0c93b68d153 10,50,742-762
+tests/test_internal_forwarding.py
+  s_1d4356de64f0ec::t_35fbc7044c4aef 273,323-325,327-343
+  s_1d4356de64f0ec::t_10a447f03a8f48 326
+specs/browser-telemetry-forwarding-first-pass/spec.md
+  s_1d4356de64f0ec::t_56438da439e2d8 80,82-86
+specs/browser-telemetry-forwarding-first-pass/diagrams.md
+  s_1d4356de64f0ec::t_b468d201023427 19-20,204,221-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "4fd6cc02b9cd5b64176f8d08e071127f05df18bd",
+  "prompts": {},
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
