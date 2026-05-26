@@ -1428,6 +1428,53 @@ class LogfireConfig(_LogfireConfigData):
         self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:  # pragma: no cover
+        """Shut down variables, forwarding, traces, and metrics."""
+        start = time.time()
+
+        def remaining_ms() -> int:
+            return max(0, int(timeout_millis - (time.time() - start) * 1000))
+
+        complete = True
+        self.get_variable_provider().shutdown(timeout_millis=remaining_ms())
+        remaining = remaining_ms()
+        if not remaining:
+            complete = False
+
+        forwarding_shutdown_result = self._otlp_forwarding.shutdown(remaining, drain_queued=flush)
+        complete = complete and forwarding_shutdown_result
+        remaining = remaining_ms()
+        if not remaining:
+            complete = False
+
+        if flush and remaining:
+            self._tracer_provider.force_flush(remaining)
+            remaining = remaining_ms()
+            if not remaining:
+                complete = False
+        elif flush:
+            complete = False
+
+        self._tracer_provider.shutdown()
+        remaining = remaining_ms()
+        if not remaining:
+            complete = False
+
+        if flush and remaining:
+            self._meter_provider.force_flush(remaining)
+            remaining = remaining_ms()
+            if not remaining:
+                complete = False
+        elif flush:
+            complete = False
+
+        self._meter_provider.shutdown(remaining)
+        remaining = remaining_ms()
+        if not remaining:
+            complete = False
+
+        return remaining_ms() > 0 and complete
+
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
 
