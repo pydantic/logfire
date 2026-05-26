@@ -1642,7 +1642,7 @@ def exit_open_spans():  # pragma: no cover
         span.end = lambda *_, **__: None  # pyright: ignore[reportUnknownLambdaType]
 
 
-def shutdown_otlp_forwarding(timeout_millis: int = 30_000) -> None:  # pragma: no cover
+def shutdown_otlp_forwarding(timeout_millis: int = 30_000) -> None:
     deadline = time.monotonic() + timeout_millis / 1000
     for config_ref in list(_LOGFIRE_CONFIG_INSTANCES):
         config = config_ref()
