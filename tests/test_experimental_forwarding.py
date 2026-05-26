@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import json
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 import pytest
@@ -14,6 +14,10 @@ import logfire
 from logfire._internal.config import LogfireConfig
 from logfire._internal.forwarding import ForwardingAdmissionResult, ForwardingRequest
 from logfire.experimental.forwarding import ForwardExportRequestResponse
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+    from starlette.testclient import TestClient
 
 
 class FakeForwardingManager:
@@ -61,14 +65,14 @@ def _set_successful_forwarding_manager(
 
 
 @pytest.fixture
-def fastapi_app() -> Any:
+def fastapi_app() -> FastAPI:
     fastapi = pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
-    return fastapi.FastAPI()
+    return cast('FastAPI', fastapi.FastAPI())
 
 
 @pytest.fixture
-def test_client_cls(fastapi_app: Any) -> type[Any]:
-    return pytest.importorskip('starlette.testclient').TestClient
+def test_client_cls(fastapi_app: FastAPI) -> type[TestClient]:
+    return cast('type[TestClient]', pytest.importorskip('starlette.testclient').TestClient)
 
 
 def test_forward_export_request_logic() -> None:
@@ -117,7 +121,7 @@ def test_forward_export_request_exception_handling() -> None:
         mock_post.assert_not_called()
 
 
-def test_fastapi_proxy_handler(fastapi_app: Any, test_client_cls: type[Any]) -> None:
+def test_fastapi_proxy_handler(fastapi_app: FastAPI, test_client_cls: type[TestClient]) -> None:
     app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
     _set_successful_forwarding_manager()
@@ -135,7 +139,7 @@ def test_fastapi_proxy_handler(fastapi_app: Any, test_client_cls: type[Any]) -> 
         mock_post.assert_not_called()
 
 
-def test_fastapi_proxy_size_limit(fastapi_app: Any, test_client_cls: type[Any]) -> None:
+def test_fastapi_proxy_size_limit(fastapi_app: FastAPI, test_client_cls: type[TestClient]) -> None:
     app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
 
@@ -151,7 +155,7 @@ def test_fastapi_proxy_size_limit(fastapi_app: Any, test_client_cls: type[Any]) 
     assert response.content == b'Payload too large'
 
 
-def test_fastapi_proxy_invalid_content_length(fastapi_app: Any, test_client_cls: type[Any]) -> None:
+def test_fastapi_proxy_invalid_content_length(fastapi_app: FastAPI, test_client_cls: type[TestClient]) -> None:
     app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
     app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST'])
@@ -163,7 +167,7 @@ def test_fastapi_proxy_invalid_content_length(fastapi_app: Any, test_client_cls:
     assert response.content == b'Invalid Content-Length header'
 
 
-def test_fastapi_proxy_body_limit_late_check(fastapi_app: Any, test_client_cls: type[Any]) -> None:
+def test_fastapi_proxy_body_limit_late_check(fastapi_app: FastAPI, test_client_cls: type[TestClient]) -> None:
     app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
 
@@ -571,7 +575,7 @@ def test_forward_export_request_partial_success_protobuf(
     assert getattr(message.partial_success, rejected_attr) == 0  # type: ignore[attr-defined]
 
 
-def test_fastapi_proxy_invalid_method(fastapi_app: Any, test_client_cls: type[Any]) -> None:
+def test_fastapi_proxy_invalid_method(fastapi_app: FastAPI, test_client_cls: type[TestClient]) -> None:
     app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
     app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST', 'GET'])
@@ -582,7 +586,7 @@ def test_fastapi_proxy_invalid_method(fastapi_app: Any, test_client_cls: type[An
     assert response.content == b'Method Not Allowed'
 
 
-def test_fastapi_proxy_missing_path(fastapi_app: Any, test_client_cls: type[Any]) -> None:
+def test_fastapi_proxy_missing_path(fastapi_app: FastAPI, test_client_cls: type[TestClient]) -> None:
     app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
     app.add_route('/logfire-proxy-missing', logfire.forward_export_request_starlette, methods=['POST'])
