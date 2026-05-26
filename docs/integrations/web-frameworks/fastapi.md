@@ -114,7 +114,7 @@ It can also be useful for grouping together child logs and spans produced by the
 
 If your frontend application sends telemetry from the browser, you should never expose your Logfire Write Token in the frontend code.
 
-You can use an experimental proxy handler to securely forward OTLP telemetry through your FastAPI backend.
+You can use an experimental proxy handler to securely forward OTLP telemetry through your FastAPI backend. See the [Logfire JS browser package docs](https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy) for detailed instructions.
 
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html

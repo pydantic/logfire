@@ -60,7 +60,7 @@ The keyword arguments of `logfire.instrument_starlette()` are passed to the `Sta
 
 If your frontend application sends telemetry from the browser, you should never expose your Logfire Write Token in the frontend code.
 
-You can use an experimental proxy handler to securely forward OTLP telemetry through your Starlette backend.
+You can use an experimental proxy handler to securely forward OTLP telemetry through your Starlette backend. See the [Logfire JS browser package docs](https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy) for detailed instructions.
 
 [starlette]: https://www.starlette.io/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html

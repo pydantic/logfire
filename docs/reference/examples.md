@@ -30,4 +30,4 @@ automatically generated:
 
 Logfire provides a TypeScript SDK that enables instrumentation of JavaScript/TypeScript applications.
 For implementation details and examples, please refer to the
-[package README](https://github.com/pydantic/logfire-js?tab=readme-ov-file#usage).
+[TypeScript SDK getting started guide](https://pydantic.dev/docs/logfire/typescript-sdk/get-started/).
