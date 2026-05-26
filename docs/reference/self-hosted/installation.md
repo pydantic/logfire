@@ -240,20 +240,20 @@ ingress:
     - logfire.example.com
 ```
 
-Gateway API is also supported. To have the chart create a Gateway and HTTPRoute:
+Gateway API is also supported. Use `gateway.hostnames` and `gateway.tls` to keep the public URL settings with the Gateway configuration. To have the chart create a Gateway and HTTPRoute:
 
 ```yaml
 ingress:
   enabled: false
-  tls: true
-  hostnames:
-    - logfire.example.com
-  secretName: logfire-tls-cert
 
 gateway:
   enabled: true
   create: true
   gatewayClassName: istio
+  hostnames:
+    - logfire.example.com
+  tls: true
+  tlsSecretName: logfire-tls-cert
 ```
 
 ## Identity Provider
