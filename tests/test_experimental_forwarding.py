@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from typing import Any, cast
 from unittest import mock
 
@@ -610,62 +609,45 @@ def test_fastapi_proxy_missing_path() -> None:
     assert response.content == b'Missing path parameter. Use {path:path} in the route definition.'
 
 
-def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
-    mock_responses = mock.Mock()
+@pytest.mark.anyio
+async def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
+    request = mock.Mock()
+    request.headers = {}
 
-    class MockResponse:
-        def __init__(self, content: Any, status_code: int, headers: dict[str, str] | None = None) -> None:
-            self.body = content
-            self.status_code = status_code
-            self.headers = headers or {}
+    async def mock_stream():
+        yield b'12345'
+        yield b'67890'
 
-    mock_responses.Response = MockResponse
+    request.stream = mock_stream
+    request.path_params = {'path': 'v1/traces'}
+    request.method = 'POST'
 
-    with mock.patch.dict(
-        sys.modules,
-        {'starlette': mock.Mock(), 'starlette.responses': mock_responses},
-    ):
-        request = mock.Mock()
-        request.headers = {}
+    with mock.patch('logfire.experimental.forwarding.forward_export_request') as mock_fwd:
+        mock_fwd.return_value = ForwardExportRequestResponse(200, {'Content-Type': 'application/json'}, b'{"ok": true}')
 
-        async def mock_stream():
-            yield b'12345'
-            yield b'67890'
+        response = await logfire_proxy(request, max_body_size=10)
 
-        request.stream = mock_stream
-        request.path_params = {'path': 'v1/traces'}
-        request.method = 'POST'
+        assert response.status_code == 200
+        assert response.body == b'{"ok": true}'
+        assert mock_fwd.call_args.kwargs == {
+            'path': 'v1/traces',
+            'headers': {},
+            'body': b'1234567890',
+            'logfire_instance': None,
+            'max_body_size': 10,
+        }
 
-        with mock.patch('logfire.experimental.forwarding.forward_export_request') as mock_fwd:
-            mock_fwd.return_value = ForwardExportRequestResponse(
-                200, {'Content-Type': 'application/json'}, b'{"ok": true}'
-            )
+        mock_fwd.reset_mock()
 
-            import asyncio
+        request.headers = {'content-length': '10'}
+        response2 = await logfire_proxy(request, max_body_size=10)
 
-            response = asyncio.run(logfire_proxy(request, max_body_size=10))
-
-            assert response.status_code == 200
-            assert response.body == b'{"ok": true}'
-            assert mock_fwd.call_args.kwargs == {
-                'path': 'v1/traces',
-                'headers': {},
-                'body': b'1234567890',
-                'logfire_instance': None,
-                'max_body_size': 10,
-            }
-
-            mock_fwd.reset_mock()
-
-            request.headers = {'content-length': '10'}
-            response2 = asyncio.run(logfire_proxy(request, max_body_size=10))
-
-            assert response2.status_code == 200
-            assert response2.body == b'{"ok": true}'
-            assert mock_fwd.call_args.kwargs == {
-                'path': 'v1/traces',
-                'headers': {'content-length': '10'},
-                'body': b'1234567890',
-                'logfire_instance': None,
-                'max_body_size': 10,
-            }
+        assert response2.status_code == 200
+        assert response2.body == b'{"ok": true}'
+        assert mock_fwd.call_args.kwargs == {
+            'path': 'v1/traces',
+            'headers': {'content-length': '10'},
+            'body': b'1234567890',
+            'logfire_instance': None,
+            'max_body_size': 10,
+        }
