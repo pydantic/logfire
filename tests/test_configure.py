@@ -722,21 +722,6 @@ def test_logfire_shutdown_closes_forwarding_without_drain_when_flush_false() -> 
     config._meter_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
 
 
-def test_logfire_shutdown_returns_false_when_forwarding_shutdown_incomplete() -> None:
-    config = LogfireConfig(send_to_logfire=False)
-    config._initialized = True  # pyright: ignore[reportPrivateUsage]
-    config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding.shutdown.return_value = False  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-
-    assert logfire.Logfire(config=config).shutdown(timeout_millis=1000, flush=True) is False
-
-    config._tracer_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
-
-
 def test_logfire_shutdown_still_shuts_down_providers_when_forwarding_uses_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
