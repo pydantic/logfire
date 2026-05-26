@@ -97,7 +97,6 @@ async def logfire_proxy(
     Returns:
         A Starlette/FastAPI Response object.
     """
-    from starlette.concurrency import run_in_threadpool
     from starlette.responses import Response
 
     if request.method.upper() != 'POST':
@@ -124,9 +123,7 @@ async def logfire_proxy(
     if not path:
         return Response(status_code=400, content='Missing path parameter. Use {path:path} in the route definition.')
 
-    # Performance: Run synchronous requests call in a thread pool to avoid blocking the event loop
-    response = await run_in_threadpool(
-        forward_export_request,
+    response = forward_export_request(
         path=path,
         headers=request.headers,
         body=bytes(body),

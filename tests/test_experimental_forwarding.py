@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import json
 import sys
 from typing import Any, cast
@@ -612,14 +611,6 @@ def test_fastapi_proxy_missing_path() -> None:
 
 
 def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
-    mock_concurrency = mock.Mock()
-
-    async def mock_run_in_threadpool(func: Any, *args: Any, **kwargs: Any) -> Any:
-        if inspect.iscoroutinefunction(func):
-            return await func(*args, **kwargs)
-        return func(*args, **kwargs)
-
-    mock_concurrency.run_in_threadpool = mock.AsyncMock(side_effect=mock_run_in_threadpool)
     mock_responses = mock.Mock()
 
     class MockResponse:
@@ -632,7 +623,7 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
 
     with mock.patch.dict(
         sys.modules,
-        {'starlette': mock.Mock(), 'starlette.concurrency': mock_concurrency, 'starlette.responses': mock_responses},
+        {'starlette': mock.Mock(), 'starlette.responses': mock_responses},
     ):
         request = mock.Mock()
         request.headers = {}
@@ -656,7 +647,6 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
 
             assert response.status_code == 200
             assert response.content == b'{"ok": true}'
-            assert mock_concurrency.run_in_threadpool.called
             assert mock_fwd.call_args.kwargs == {
                 'path': 'v1/traces',
                 'headers': {},
@@ -665,7 +655,6 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
                 'max_body_size': 10,
             }
 
-            mock_concurrency.run_in_threadpool.reset_mock()
             mock_fwd.reset_mock()
 
             request.headers = {'content-length': '10'}
@@ -673,7 +662,6 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
 
             assert response2.status_code == 200
             assert response2.content == b'{"ok": true}'
-            assert mock_concurrency.run_in_threadpool.called
             assert mock_fwd.call_args.kwargs == {
                 'path': 'v1/traces',
                 'headers': {'content-length': '10'},
