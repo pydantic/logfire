@@ -1,0 +1,25 @@
+tests/test_experimental_forwarding.py
+  h_d9dd17644dded9 9,13
+  s_4653b14f014a8c::t_a62acf7011a755 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "55bf5cad708f2039261c2f1ecee85c0c4585cb39",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_4653b14f014a8c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6530-1a7f-7712-96d5-3b40d66da7f1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
