@@ -112,8 +112,8 @@ def test_simple_console_exporter_colors_concise(simple_spans: list[ReadableSpan]
 
     assert out.getvalue().splitlines() == snapshot(
         [
-            '\x1b[32m00:00:01.000\x1b[0m rootSpan',
-            '\x1b[32m00:00:02.000\x1b[0m childSpan 1',
+            '00:00:01.000 rootSpan',
+            '00:00:02.000 childSpan 1',
         ]
     )
 
@@ -438,13 +438,13 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
     SimpleConsoleSpanExporter(output=out, verbose=True, colors='always').export(spans)  # type: ignore
     assert out.getvalue().splitlines() == snapshot(
         [
-            '\x1b[32m00:00:01.000\x1b[0m Hello world!',
-            '             \x1b[34m│\x1b[0m\x1b[36m test_console_exporter.py:123\x1b[0m info',
-            "             \x1b[34m│ \x1b[0m\x1b[34mname=\x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mworld\x1b[0m\x1b[93;49m'\x1b[0m",
-            '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m          ',
-            "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49ma\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m,\x1b[0m",
-            "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mb\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m2\x1b[0m\x1b[97;49m,\x1b[0m",
-            '             \x1b[34m│ \x1b[0m  \x1b[97;49m}\x1b[0m          ',
+            '00:00:01.000 Hello world!',
+            '             │ test_console_exporter.py:123 info',
+            "             │ name='world'",
+            '             │ d={          ',
+            "             │       'a': 1,",
+            "             │       'b': 2,",
+            '             │   }          ',
         ]
     )
 
@@ -481,7 +481,7 @@ def test_tags(exporter: TestExporter):
 
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, colors='always').export(spans)  # type: ignore
-    assert out.getvalue() == snapshot('\x1b[32m00:00:01.000\x1b[0m Hello \x1b[36m[tag1,tag2]\x1b[0m\n')
+    assert out.getvalue() == snapshot('00:00:01.000 Hello [tag1,tag2]\n')
 
 
 def test_levels(exporter: TestExporter):
@@ -664,13 +664,13 @@ def test_levels(exporter: TestExporter):
     SimpleConsoleSpanExporter(output=out, colors='always', min_log_level='trace').export(spans)  # type: ignore
     assert out.getvalue().splitlines() == snapshot(
         [
-            '\x1b[32m00:00:01.000\x1b[0m trace message',
-            '\x1b[32m00:00:02.000\x1b[0m debug message',
-            '\x1b[32m00:00:03.000\x1b[0m info message',
-            '\x1b[32m00:00:04.000\x1b[0m notice message',
-            '\x1b[32m00:00:05.000\x1b[0m \x1b[33mwarn message\x1b[0m',
-            '\x1b[32m00:00:06.000\x1b[0m \x1b[31merror message\x1b[0m',
-            '\x1b[32m00:00:07.000\x1b[0m \x1b[31mfatal message\x1b[0m',
+            '00:00:01.000 trace message',
+            '00:00:02.000 debug message',
+            '00:00:03.000 info message',
+            '00:00:04.000 notice message',
+            '00:00:05.000 warn message',
+            '00:00:06.000 error message',
+            '00:00:07.000 fatal message',
         ]
     )
 
@@ -830,9 +830,9 @@ def test_console_exporter_invalid_text(capsys: pytest.CaptureFixture[str]) -> No
     assert capsys.readouterr().out.splitlines() == snapshot(
         [
             'hi',
-            '\x1b[34m│\x1b[0m\x1b[36m 3\x1b[0m info',
+            '│ 3 info',
             'hi',
-            '\x1b[34m│\x1b[0m info',
+            '│ info',
         ]
     )
 
