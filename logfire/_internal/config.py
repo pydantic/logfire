@@ -1430,13 +1430,13 @@ class LogfireConfig(_LogfireConfigData):
 
     def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
         """Shut down variables, forwarding, traces, logs, and metrics."""
-        start = time.time()
+        start = time.monotonic()
 
         def remaining_ms() -> int:
-            return max(0, int(timeout_millis - (time.time() - start) * 1000))
+            return max(0, int(timeout_millis - (time.monotonic() - start) * 1000))
 
         complete = True
-        self.get_variable_provider().shutdown(timeout_millis=remaining_ms())
+        self._variable_provider.shutdown(timeout_millis=remaining_ms())
         remaining = remaining_ms()
 
         forwarding_shutdown_result = self._otlp_forwarding.shutdown(remaining, drain_queued=flush)
