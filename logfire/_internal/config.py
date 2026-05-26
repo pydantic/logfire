@@ -1644,18 +1644,12 @@ def exit_open_spans():  # pragma: no cover
 
 def shutdown_otlp_forwarding(timeout_millis: int = 30_000) -> None:  # pragma: no cover
     deadline = time.monotonic() + timeout_millis / 1000
-    seen_managers: set[int] = set()
     for config_ref in list(_LOGFIRE_CONFIG_INSTANCES):
         config = config_ref()
         if config is None:
             continue
 
         manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
-        manager_id = id(manager)
-        if manager_id in seen_managers:
-            continue
-        seen_managers.add(manager_id)
-
         remaining_millis = max(0, int((deadline - time.monotonic()) * 1000))
         manager.shutdown(remaining_millis, drain_queued=True)
 

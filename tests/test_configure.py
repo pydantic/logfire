@@ -7,7 +7,6 @@ import pickle
 import subprocess
 import sys
 import threading
-import weakref
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
@@ -739,27 +738,28 @@ def test_logfire_config_force_flush_includes_forwarding_manager() -> None:
     config._tracer_provider.force_flush.assert_called_once_with(1234)  # pyright: ignore[reportPrivateUsage]
 
 
-def test_shutdown_otlp_forwarding_uses_unique_managers_and_shared_deadline(
+def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config_1 = LogfireConfig(send_to_logfire=False)
-    config_2 = LogfireConfig(send_to_logfire=False)
-    manager_1 = mock.Mock()
-    manager_2 = mock.Mock()
-    config_1._otlp_forwarding = manager_1  # pyright: ignore[reportPrivateUsage]
-    config_2._otlp_forwarding = manager_2  # pyright: ignore[reportPrivateUsage]
-    monkeypatch.setattr(
-        config_module,
-        '_LOGFIRE_CONFIG_INSTANCES',
-        [weakref.ref(config_1), weakref.ref(config_1), weakref.ref(config_2)],
-    )
-    times = iter([0.0, 0.0, 0.01])
-    monkeypatch.setattr(config_module.time, 'monotonic', lambda: next(times))
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
 
-    config_module.shutdown_otlp_forwarding(100)
+    local_logfires = [
+        logfire.configure(local=True, token='pylf_v1_us_token1', send_to_logfire=True, console=False, metrics=False),
+        logfire.configure(local=True, token='pylf_v1_eu_token2', send_to_logfire=True, console=False, metrics=False),
+    ]
+    wait_for_check_token_thread()
+    managers = [local_logfire.config._otlp_forwarding for local_logfire in local_logfires]  # pyright: ignore[reportPrivateUsage]
 
-    manager_1.shutdown.assert_called_once_with(100, drain_queued=True)
-    manager_2.shutdown.assert_called_once_with(90, drain_queued=True)
+    try:
+        assert all(manager.has_destinations() for manager in managers)
+
+        config_module.shutdown_otlp_forwarding(100)
+
+        assert all(manager.closed for manager in managers)
+        assert all(pipeline.closed for manager in managers for pipeline in manager.pipelines.values())
+    finally:
+        for local_logfire in local_logfires:
+            local_logfire.shutdown(flush=False)
 
 
 def test_logfire_shutdown_shuts_down_forwarding_before_provider_shutdown() -> None:
