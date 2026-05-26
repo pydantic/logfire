@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import functools
 import json
-import sys
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 import pytest
@@ -13,7 +13,12 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 import logfire
 from logfire._internal.config import LogfireConfig
 from logfire._internal.forwarding import ForwardingAdmissionResult, ForwardingRequest
-from logfire.experimental.forwarding import ForwardExportRequestResponse, forward_export_request, logfire_proxy
+from logfire.experimental import forwarding
+from logfire.experimental.forwarding import ForwardExportRequestResponse
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+    from starlette.testclient import TestClient
 
 
 class FakeForwardingManager:
@@ -60,12 +65,24 @@ def _set_successful_forwarding_manager(
     return manager
 
 
+@pytest.fixture
+def fastapi_app() -> FastAPI:
+    fastapi = pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
+    return cast('FastAPI', fastapi.FastAPI())
+
+
+@pytest.fixture
+def fastapi_client(fastapi_app: FastAPI) -> TestClient:
+    test_client_cls = pytest.importorskip('starlette.testclient').TestClient
+    return cast('TestClient', test_client_cls(fastapi_app))
+
+
 def test_forward_export_request_logic() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
     manager = _set_successful_forwarding_manager()
 
     with mock.patch('requests.post') as mock_post:
-        response = forward_export_request(
+        response = logfire.forward_export_request(
             path='/v1/traces',
             headers={'Content-Type': 'application/x-protobuf', 'Host': 'example.com'},
             body=b'data',
@@ -80,16 +97,30 @@ def test_forward_export_request_logic() -> None:
         assert manager.submissions[0].body == b'data'
 
 
+def test_forward_export_request_function_defaults_to_default_instance() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+    manager = _set_successful_forwarding_manager()
+
+    response = forwarding.forward_export_request(
+        path='/v1/traces',
+        headers={'Content-Type': 'application/x-protobuf'},
+        body=b'data',
+    )
+
+    assert response.status_code == 200
+    assert manager.submissions[0].body == b'data'
+
+
 def test_forward_export_request_invalid_path() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    response = forward_export_request(path='/invalid', headers={}, body=b'')
+    response = logfire.forward_export_request(path='/invalid', headers={}, body=b'')
     assert response.status_code == 400
     assert b'Invalid path' in response.content
 
 
 def test_forward_export_request_path_traversal() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    response = forward_export_request(path='/v1/traces/../secret', headers={}, body=b'')
+    response = logfire.forward_export_request(path='/v1/traces/../secret', headers={}, body=b'')
     assert response.status_code == 400
     assert b'Invalid path' in response.content
 
@@ -99,28 +130,21 @@ def test_forward_export_request_exception_handling() -> None:
     _set_successful_forwarding_manager()
 
     with mock.patch('requests.post') as mock_post:
-        response = forward_export_request(
+        response = logfire.forward_export_request(
             path='/v1/traces', headers={'Content-Type': 'application/x-protobuf'}, body=b''
         )
         assert response.status_code == 200
         mock_post.assert_not_called()
 
 
-def test_fastapi_proxy_handler() -> None:
-    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
-    TestClient = pytest.importorskip('starlette.testclient').TestClient
-    FastAPI = fastapi.FastAPI
-
-    app = FastAPI()
+def test_fastapi_proxy_handler(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
     _set_successful_forwarding_manager()
 
-    app.add_route('/logfire-proxy/{path:path}', logfire_proxy, methods=['POST'])
-
-    client = TestClient(app)
+    fastapi_app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST'])
 
     with mock.patch('requests.post') as mock_post:
-        response = client.post(
+        response = fastapi_client.post(
             '/logfire-proxy/v1/traces', content=b'trace_data', headers={'Content-Type': 'application/x-protobuf'}
         )
 
@@ -128,66 +152,43 @@ def test_fastapi_proxy_handler() -> None:
         mock_post.assert_not_called()
 
 
-def test_fastapi_proxy_size_limit() -> None:
-    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
-    TestClient = pytest.importorskip('starlette.testclient').TestClient
-    FastAPI = fastapi.FastAPI
-    import functools
-
-    app = FastAPI()
+def test_fastapi_proxy_size_limit(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
-    handler = functools.partial(logfire_proxy, max_body_size=10)
-    app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
+    handler = functools.partial(logfire.forward_export_request_starlette, max_body_size=10)
+    fastapi_app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
 
-    client = TestClient(app)
-
-    response = client.post(
+    response = fastapi_client.post(
         '/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Type': 'application/json'}
     )
     assert response.status_code == 413
     assert response.content == b'Payload too large'
 
 
-def test_fastapi_proxy_invalid_content_length() -> None:
-    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
-    TestClient = pytest.importorskip('starlette.testclient').TestClient
-    FastAPI = fastapi.FastAPI
-
-    app = FastAPI()
+def test_fastapi_proxy_invalid_content_length(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    app.add_route('/logfire-proxy/{path:path}', logfire_proxy, methods=['POST'])
+    fastapi_app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST'])
 
-    client = TestClient(app)
-
-    response = client.post('/logfire-proxy/v1/traces', content=b'', headers={'Content-Length': 'invalid'})
+    response = fastapi_client.post('/logfire-proxy/v1/traces', content=b'', headers={'Content-Length': 'invalid'})
     assert response.status_code == 400
     assert response.content == b'Invalid Content-Length header'
 
 
-def test_fastapi_proxy_body_limit_late_check() -> None:
-    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
-    TestClient = pytest.importorskip('starlette.testclient').TestClient
-    FastAPI = fastapi.FastAPI
-    import functools
-
-    app = FastAPI()
+def test_fastapi_proxy_body_limit_late_check(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
-    handler = functools.partial(logfire_proxy, max_body_size=10)
-    app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
-
-    client = TestClient(app)
+    handler = functools.partial(logfire.forward_export_request_starlette, max_body_size=10)
+    fastapi_app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
 
     # Lying about Content-Length bypasses early check, so we catch it while chunking
-    response = client.post('/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Length': '5'})
+    response = fastapi_client.post('/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Length': '5'})
     assert response.status_code == 413
     assert response.content == b'Payload too large'
 
 
 def test_forward_export_request_percent_encoded_traversal() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    response = forward_export_request(path='/v1/traces/%2e%2e/secret', headers={}, body=b'')
+    response = logfire.forward_export_request(path='/v1/traces/%2e%2e/secret', headers={}, body=b'')
     assert response.status_code == 400
 
 
@@ -196,7 +197,7 @@ def test_forward_export_request_multi_token() -> None:
     _set_successful_forwarding_manager()
 
     with mock.patch('requests.post') as mock_post:
-        response = forward_export_request(
+        response = logfire.forward_export_request(
             path='/v1/traces', headers={'Content-Type': 'application/x-protobuf'}, body=b''
         )
 
@@ -210,11 +211,10 @@ def test_forward_export_request_missing_token() -> None:
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
     with mock.patch.object(logfire_instance.config, 'token', None):
-        response = forward_export_request(
+        response = logfire.forward_export_request(
             path='/v1/traces',
             headers={'Content-Type': 'application/x-protobuf'},
             body=b'',
-            logfire_instance=logfire_instance,
         )
         assert response.status_code == 200
 
@@ -227,11 +227,10 @@ def test_forward_export_request_explicit_instance() -> None:
     explicit_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
     with mock.patch('requests.post') as mock_post:
-        response = forward_export_request(
+        response = explicit_instance.forward_export_request(
             path='/v1/traces',
             headers={'Content-Type': 'application/x-protobuf'},
             body=b'',
-            logfire_instance=explicit_instance,
         )
 
         assert response.status_code == 200
@@ -241,7 +240,7 @@ def test_forward_export_request_explicit_instance() -> None:
 def test_forward_export_request_missing_content_type() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
-    response = forward_export_request(path='/v1/traces', headers={}, body=b'')
+    response = logfire.forward_export_request(path='/v1/traces', headers={}, body=b'')
 
     assert response.status_code == 415
     assert response.headers == {'Content-Type': 'text/plain'}
@@ -251,7 +250,7 @@ def test_forward_export_request_missing_content_type() -> None:
 def test_forward_export_request_unsupported_content_type() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
-    response = forward_export_request(path='/v1/traces', headers={'Content-Type': 'text/plain'}, body=b'')
+    response = logfire.forward_export_request(path='/v1/traces', headers={'Content-Type': 'text/plain'}, body=b'')
 
     assert response.status_code == 415
     assert response.content == b'Unsupported content type, must be application/json or application/x-protobuf'
@@ -260,7 +259,7 @@ def test_forward_export_request_unsupported_content_type() -> None:
 def test_forward_export_request_oversized_body() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path='/v1/traces',
         headers={'Content-Type': 'application/x-protobuf'},
         body=b'12345',
@@ -274,7 +273,7 @@ def test_forward_export_request_oversized_body() -> None:
 def test_forward_export_request_no_destination_forbidden() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path='/v1/traces',
         headers={'Content-Type': 'application/x-protobuf'},
         body=b'',
@@ -297,7 +296,7 @@ def test_forward_export_request_submits_to_checked_forwarding_manager() -> None:
     manager = SwappingForwardingManager()
     cast(Any, config)._otlp_forwarding = manager
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path='/v1/traces',
         headers={'Content-Type': 'application/x-protobuf'},
         body=b'data',
@@ -311,7 +310,7 @@ def test_forward_export_request_submits_to_checked_forwarding_manager() -> None:
 def test_forward_export_request_validation_before_no_destination() -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
 
-    response = forward_export_request(path='/invalid', headers={}, body=b'')
+    response = logfire.forward_export_request(path='/invalid', headers={}, body=b'')
 
     assert response.status_code == 400
 
@@ -336,7 +335,7 @@ def test_forward_export_request_configured_token_fanout(monkeypatch: pytest.Monk
         metrics=False,
     )
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path='/v1/traces',
         headers={'Content-Type': 'application/x-protobuf'},
         body=b'trace-payload',
@@ -390,7 +389,7 @@ def test_forward_export_request_backend_isolation(monkeypatch: pytest.MonkeyPatc
         metrics=False,
     )
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path='/v1/logs',
         headers={'Content-Type': 'application/x-protobuf'},
         body=b'log-payload',
@@ -448,7 +447,7 @@ def test_forward_export_request_header_sanitization(monkeypatch: pytest.MonkeyPa
         metrics=False,
     )
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path='/v1/metrics',
         headers={
             'Content-Type': 'application/json; charset=utf-8',
@@ -498,7 +497,7 @@ def test_forward_export_request_partial_success_when_backend_queue_full(
     manager = logfire.DEFAULT_LOGFIRE_INSTANCE.config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
     manager.pipelines['https://logfire-us.pydantic.dev'].max_queued_body_bytes = 0
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path='/v1/traces',
         headers={'Content-Type': 'application/json'},
         body=b'{}',
@@ -541,7 +540,7 @@ def test_forward_export_request_partial_success_json(path: str, rejected_field: 
     logfire.configure(token='test_token', send_to_logfire=False)
     _set_successful_forwarding_manager(ForwardingAdmissionResult(response='partial_success', message='queue full'))
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path=path,
         headers={'Content-Type': 'application/json'},
         body=b'{}',
@@ -566,7 +565,7 @@ def test_forward_export_request_partial_success_protobuf(
     logfire.configure(token='test_token', send_to_logfire=False)
     _set_successful_forwarding_manager(ForwardingAdmissionResult(response='partial_success', message='closed'))
 
-    response = forward_export_request(
+    response = logfire.forward_export_request(
         path=path,
         headers={'Content-Type': 'application/x-protobuf'},
         body=b'',
@@ -580,92 +579,65 @@ def test_forward_export_request_partial_success_protobuf(
     assert getattr(message.partial_success, rejected_attr) == 0  # type: ignore[attr-defined]
 
 
-def test_fastapi_proxy_invalid_method() -> None:
-    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
-    TestClient = pytest.importorskip('starlette.testclient').TestClient
-    FastAPI = fastapi.FastAPI
-
-    app = FastAPI()
+def test_fastapi_proxy_invalid_method(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    app.add_route('/logfire-proxy/{path:path}', logfire_proxy, methods=['POST', 'GET'])
+    fastapi_app.add_route(
+        '/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST', 'GET']
+    )
 
-    client = TestClient(app)
-    response = client.get('/logfire-proxy/v1/traces')
+    response = fastapi_client.get('/logfire-proxy/v1/traces')
     assert response.status_code == 405
     assert response.content == b'Method Not Allowed'
 
 
-def test_fastapi_proxy_missing_path() -> None:
-    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
-    TestClient = pytest.importorskip('starlette.testclient').TestClient
-    FastAPI = fastapi.FastAPI
-
-    app = FastAPI()
+def test_fastapi_proxy_missing_path(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
     logfire.configure(token='test_token', send_to_logfire=False)
-    app.add_route('/logfire-proxy-missing', logfire_proxy, methods=['POST'])
+    fastapi_app.add_route('/logfire-proxy-missing', logfire.forward_export_request_starlette, methods=['POST'])
 
-    client = TestClient(app)
-    response = client.post('/logfire-proxy-missing')
+    response = fastapi_client.post('/logfire-proxy-missing')
     assert response.status_code == 400
     assert response.content == b'Missing path parameter. Use {path:path} in the route definition.'
 
 
-def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
-    mock_responses = mock.Mock()
+@pytest.mark.anyio
+async def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
+    request = mock.Mock()
+    request.headers = {}
 
-    class MockResponse:
-        def __init__(self, content: Any, status_code: int, headers: dict[str, str] | None = None) -> None:
-            self.content = content
-            self.status_code = status_code
-            self.headers = headers or {}
+    async def mock_stream():
+        yield b'12345'
+        yield b'67890'
 
-    mock_responses.Response = MockResponse
+    request.stream = mock_stream
+    request.path_params = {'path': 'v1/traces'}
+    request.method = 'POST'
 
-    with mock.patch.dict(
-        sys.modules,
-        {'starlette': mock.Mock(), 'starlette.responses': mock_responses},
-    ):
-        request = mock.Mock()
-        request.headers = {}
+    with mock.patch('logfire.experimental.forwarding.forward_export_request') as mock_fwd:
+        mock_fwd.return_value = ForwardExportRequestResponse(200, {'Content-Type': 'application/json'}, b'{"ok": true}')
 
-        async def mock_stream():
-            yield b'12345'
-            yield b'67890'
+        response = await logfire.forward_export_request_starlette(request, max_body_size=10)
 
-        request.stream = mock_stream
-        request.path_params = {'path': 'v1/traces'}
-        request.method = 'POST'
+        assert response.status_code == 200
+        assert response.body == b'{"ok": true}'
+        assert mock_fwd.call_args.kwargs == {
+            'path': 'v1/traces',
+            'headers': {},
+            'body': b'1234567890',
+            'logfire_instance': logfire.DEFAULT_LOGFIRE_INSTANCE,
+            'max_body_size': 10,
+        }
 
-        with mock.patch('logfire.experimental.forwarding.forward_export_request') as mock_fwd:
-            mock_fwd.return_value = ForwardExportRequestResponse(
-                200, {'Content-Type': 'application/json'}, b'{"ok": true}'
-            )
+        mock_fwd.reset_mock()
 
-            import asyncio
+        request.headers = {'content-length': '10'}
+        response2 = await logfire.forward_export_request_starlette(request, max_body_size=10)
 
-            response = asyncio.run(logfire_proxy(request, max_body_size=10))
-
-            assert response.status_code == 200
-            assert response.content == b'{"ok": true}'
-            assert mock_fwd.call_args.kwargs == {
-                'path': 'v1/traces',
-                'headers': {},
-                'body': b'1234567890',
-                'logfire_instance': None,
-                'max_body_size': 10,
-            }
-
-            mock_fwd.reset_mock()
-
-            request.headers = {'content-length': '10'}
-            response2 = asyncio.run(logfire_proxy(request, max_body_size=10))
-
-            assert response2.status_code == 200
-            assert response2.content == b'{"ok": true}'
-            assert mock_fwd.call_args.kwargs == {
-                'path': 'v1/traces',
-                'headers': {'content-length': '10'},
-                'body': b'1234567890',
-                'logfire_instance': None,
-                'max_body_size': 10,
-            }
+        assert response2.status_code == 200
+        assert response2.body == b'{"ok": true}'
+        assert mock_fwd.call_args.kwargs == {
+            'path': 'v1/traces',
+            'headers': {'content-length': '10'},
+            'body': b'1234567890',
+            'logfire_instance': logfire.DEFAULT_LOGFIRE_INSTANCE,
+            'max_body_size': 10,
+        }
