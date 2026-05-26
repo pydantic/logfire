@@ -1428,7 +1428,7 @@ class LogfireConfig(_LogfireConfigData):
         self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
-    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:  # pragma: no cover
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
         """Shut down variables, forwarding, traces, and metrics."""
         start = time.time()
 

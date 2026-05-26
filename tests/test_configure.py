@@ -651,22 +651,26 @@ def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
             local_logfire.shutdown(flush=False)
 
 
-def test_logfire_shutdown_closes_forwarding_without_drain_when_flush_false() -> None:
+def test_logfire_shutdown_closes_forwarding_without_drain_when_flush_false(monkeypatch: pytest.MonkeyPatch) -> None:
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    config._variable_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding.shutdown.return_value = True  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider = mock.Mock()  # pyright: ignore[reportPrivateUsage]
+    variable_provider = mock.Mock()
+    otlp_forwarding = mock.Mock()
+    otlp_forwarding.shutdown.return_value = True
+    tracer_provider = mock.Mock()
+    meter_provider = mock.Mock()
+    monkeypatch.setattr(config, '_variable_provider', variable_provider)
+    monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
+    monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+    monkeypatch.setattr(config, '_meter_provider', meter_provider)
 
     assert logfire.shutdown(timeout_millis=1000, flush=False) is True
 
-    forwarding_timeout = config._otlp_forwarding.shutdown.call_args.args[0]  # pyright: ignore[reportPrivateUsage]
-    config._otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=False)  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider.force_flush.assert_not_called()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider.force_flush.assert_not_called()  # pyright: ignore[reportPrivateUsage]
-    config._tracer_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
-    config._meter_provider.shutdown.assert_called_once()  # pyright: ignore[reportPrivateUsage]
+    forwarding_timeout = otlp_forwarding.shutdown.call_args.args[0]
+    otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=False)
+    tracer_provider.force_flush.assert_not_called()
+    meter_provider.force_flush.assert_not_called()
+    tracer_provider.shutdown.assert_called_once()
+    meter_provider.shutdown.assert_called_once()
 
 
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
