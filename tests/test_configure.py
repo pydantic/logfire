@@ -620,7 +620,8 @@ def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypat
 
 
 def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> None:
-    config = LogfireConfig(send_to_logfire=False, token='pylf_v1_us_token')
+    logfire.configure(token='pylf_v1_us_token', send_to_logfire=False, console=False, metrics=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
 
     manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
     assert manager.has_destinations() is False
