@@ -80,6 +80,18 @@ class ComposedReference:
     """How the referenced variable was resolved."""
     error: str | None = None
     """Error message if the reference could not be expanded."""
+    error_kind: str | None = None
+    """Classification of `error`, when set:
+
+    - `'unresolved'`: the referenced variable produced no value (missing/unknown ref).
+    - `'non_json'`: the referenced variable's value was not valid JSON.
+    - `'cycle'`: a circular reference was detected while expanding this reference.
+    - `'depth'`: the maximum composition depth was exceeded under this reference.
+
+    Callers use this to decide how to recover: `'unresolved'`/`'non_json'` errors leave the
+    reference literal in the output (a usable partial value), while `'cycle'`/`'depth'`
+    errors are unrecoverable and trigger a fall back to the code default.
+    """
     composed_from: list[ComposedReference] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     """Nested references that were expanded within this reference."""
 
@@ -178,6 +190,7 @@ def expand_references(
                     version=ref_version,
                     reason=ref_reason,
                     error=f"Referenced variable '{ref_name}' could not be resolved.",
+                    error_kind='unresolved',
                 )
             )
             unresolved_names.add(ref_name)
@@ -195,6 +208,7 @@ def expand_references(
                     version=ref_version,
                     reason=ref_reason,
                     error=f"Referenced variable '{ref_name}' has a non-JSON serialized value.",
+                    error_kind='non_json',
                 )
             )
             unresolved_names.add(ref_name)
@@ -221,6 +235,7 @@ def expand_references(
                         version=ref_version,
                         reason=ref_reason,
                         error=str(e),
+                        error_kind='cycle' if isinstance(e, VariableCompositionCycleError) else 'depth',
                     )
                 )
                 unresolved_names.add(ref_name)

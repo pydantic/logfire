@@ -1830,8 +1830,10 @@ class TestVariable:
 
         var = lf.var(name='unconfigured', default=bad_default, type=str)
 
-        result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
+        with pytest.warns(RuntimeWarning, match='code default also failed'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
 
+        assert result.value is None
         assert result.reason == 'other_error'
         assert result.exception is default_error
 
@@ -4694,6 +4696,64 @@ class TestResolveVariantDeserializationError:
         assert result.exception is not None
 
 
+class TestCodeDefaultLabel:
+    """Selecting a label that maps to `code_default` must serve the code default.
+
+    Regression test: a `LabelRef(ref='code_default')` resolves to `None`, which previously
+    looked identical to "label not found" and made `get(label=...)` fall through to
+    rollout-based resolution — surfacing whatever the rollout pointed at instead of the
+    code default, defeating the documented "disable remote config for this label" use case.
+    """
+
+    def _config(self) -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'feature': VariableConfig(
+                    name='feature',
+                    json_schema={'type': 'string'},
+                    labels={
+                        'production': LabeledValue(version=1, serialized_value='"PROD"'),
+                        'disabled': LabelRef(ref='code_default'),
+                        'disabled_chain': LabelRef(ref='disabled'),  # chain terminating in code_default
+                    },
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                )
+            }
+        )
+
+    def test_explicit_code_default_label_serves_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=self._config())
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature', default='CODE_DEFAULT', type=str)
+
+        result = var.get(label='disabled')
+        assert result.value == 'CODE_DEFAULT'
+        assert result.reason == 'code_default'
+        assert result.label == 'disabled'
+
+    def test_code_default_label_via_ref_chain(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=self._config())
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature', default='CODE_DEFAULT', type=str)
+
+        result = var.get(label='disabled_chain')
+        assert result.value == 'CODE_DEFAULT'
+        assert result.reason == 'code_default'
+
+    def test_other_labels_and_missing_label_unaffected(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=self._config())
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature', default='CODE_DEFAULT', type=str)
+
+        # A normal label still resolves to its value.
+        assert var.get(label='production').value == 'PROD'
+        # A missing label still falls back to rollout-based resolution (documented behavior).
+        missing = var.get(label='nonexistent')
+        assert missing.value == 'PROD'
+        assert missing.reason == 'resolved'
+
+
 class TestGetSourceHintNoModule:
     """Test get_source_hint when a type has no module attribute."""
 
@@ -5063,7 +5123,7 @@ class TestVariableConfigFollowRef:
             overrides=[],
             latest_version=LatestVersion(version=3, serialized_value='"latest_val"'),
         )
-        serialized, version = config.follow_ref(config.labels['v1'])
+        serialized, version, _ = config.follow_ref(config.labels['v1'])
         assert serialized == '"latest_val"'
         assert version == 3
 
@@ -5077,7 +5137,7 @@ class TestVariableConfigFollowRef:
             overrides=[],
             latest_version=None,
         )
-        serialized, version = config.follow_ref(config.labels['v1'])
+        serialized, version, _ = config.follow_ref(config.labels['v1'])
         assert serialized is None
         assert version == 1
 
@@ -5091,7 +5151,7 @@ class TestVariableConfigFollowRef:
             rollout=Rollout(labels={}),
             overrides=[],
         )
-        serialized, version = config.follow_ref(config.labels['v2'])
+        serialized, version, _ = config.follow_ref(config.labels['v2'])
         assert serialized == '"final_value"'
         assert version == 1
 
@@ -5116,7 +5176,7 @@ class TestVariableConfigFollowRef:
                 'example': None,
             },
         )
-        serialized, version = config.follow_ref(config.labels['a'])
+        serialized, version, _ = config.follow_ref(config.labels['a'])
         assert serialized is None  # Cycle detected, returns None
         assert version == 1
 
@@ -5140,7 +5200,7 @@ class TestVariableConfigFollowRef:
                 'example': None,
             },
         )
-        serialized, version = config.follow_ref(config.labels['v1'])
+        serialized, version, _ = config.follow_ref(config.labels['v1'])
         assert serialized is None
         assert version == 1
 
@@ -5156,9 +5216,10 @@ class TestVariableConfigFollowRef:
             overrides=[],
             latest_version=LatestVersion(version=3, serialized_value='"latest_val"'),
         )
-        serialized, version = config.follow_ref(config.labels['v1'])
+        serialized, version, is_code_default = config.follow_ref(config.labels['v1'])
         assert serialized is None
         assert version is None
+        assert is_code_default is True
 
     def test_label_ref_without_version(self):
         """LabelRef with version=None (default) parses correctly."""
@@ -5278,7 +5339,10 @@ class TestGetSerializedValueForLabelCodeDefault:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'v1')
         assert result.value is None
-        assert result.reason == 'resolved'
+        # A label that maps to `code_default` is reported with reason='code_default' (not
+        # 'resolved'), so the caller serves the code default instead of falling through to
+        # rollout-based resolution.
+        assert result.reason == 'code_default'
 
 
 class TestGetSerializedValueForLabelNotFound:
@@ -5447,6 +5511,27 @@ class TestLazyVariableProviderInit:
             assert isinstance(provider1, LogfireRemoteVariableProvider)
 
             provider1.shutdown()
+
+    def test_no_lazy_init_before_configure(self) -> None:
+        """Before `configure()` has been called, `get_variable_provider()` must not lazily
+        create a remote provider even when a `LOGFIRE_API_KEY` is present in the environment.
+
+        Otherwise `logfire.var(...).get()` would silently fetch remote values without the user
+        ever calling `logfire.configure()` — variable resolution should rely only on data
+        supplied via `configure()` and fall back to the code default otherwise.
+        """
+        from logfire._internal.config import LogfireConfig
+
+        with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+            config = LogfireConfig()
+            # api_key is loaded eagerly from the environment at construction time...
+            assert config.api_key == REMOTE_TOKEN
+            # ...but configure() has not been called, so no remote provider should be created.
+            assert config._initialized is False
+            provider = config.get_variable_provider()
+
+        assert isinstance(provider, NoOpVariableProvider)
+        assert isinstance(config._variable_provider, NoOpVariableProvider)
 
     def test_lazy_init_double_check_returns_early(self, config_kwargs: dict[str, Any]) -> None:
         """_lazy_init_variable_provider() returns early if provider is already set (double-check guard)."""

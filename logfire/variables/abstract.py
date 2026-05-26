@@ -938,7 +938,14 @@ class VariableProvider(ABC):
         if labeled_value is None:
             return ResolvedVariable(name=variable_name, value=None, reason='resolved')
 
-        serialized, version = config.follow_ref(labeled_value)
+        serialized, version, is_code_default = config.follow_ref(labeled_value)
+        if serialized is None and is_code_default:
+            # The requested label deliberately maps to the code default (directly or
+            # through a ref chain). Signal that with `reason='code_default'` so the caller
+            # serves the code default instead of falling through to rollout-based
+            # resolution — otherwise selecting a "disabled" label would surface whatever
+            # the rollout points at, defeating the purpose of the label.
+            return ResolvedVariable(name=variable_name, value=None, label=label, reason='code_default')
         return ResolvedVariable(
             name=variable_name,
             value=serialized,

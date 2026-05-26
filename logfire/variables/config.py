@@ -406,7 +406,7 @@ class VariableConfig(BaseModel):
         if label is not None:
             labeled_value = self.labels.get(label)
             if labeled_value is not None:
-                serialized, version = self.follow_ref(labeled_value)
+                serialized, version, _ = self.follow_ref(labeled_value)
                 return serialized, label, version
             # Label not found, fall through to rollout-based resolution
 
@@ -416,7 +416,7 @@ class VariableConfig(BaseModel):
         if selected_label is not None:
             labeled_value = self.labels.get(selected_label)
             if labeled_value is not None:  # pragma: no branch
-                serialized, version = self.follow_ref(labeled_value)
+                serialized, version, _ = self.follow_ref(labeled_value)
                 return serialized, selected_label, version
 
         # No label selected (empty rollout or remainder probability) -> use code default
@@ -424,7 +424,7 @@ class VariableConfig(BaseModel):
 
     def follow_ref(
         self, labeled_value: LabeledValue | LabelRef, _visited: set[str] | None = None
-    ) -> tuple[str | None, int | None]:
+    ) -> tuple[str | None, int | None, bool]:
         """Follow ref chains to get the actual serialized value.
 
         Args:
@@ -432,32 +432,36 @@ class VariableConfig(BaseModel):
             _visited: Set of already-visited ref names to detect cycles.
 
         Returns:
-            A tuple of (serialized_value, version).
+            A tuple of `(serialized_value, version, is_code_default)`. `is_code_default`
+            is True only when the chain terminates in a `code_default` ref, so callers can
+            distinguish "this label deliberately maps to the code default" (serve the code
+            default, don't fall through to rollout) from "no value here" (e.g. a broken ref
+            or a cycle, where falling through is appropriate).
         """
         if isinstance(labeled_value, LabelRef):
             if labeled_value.ref == 'code_default':
-                return None, None
+                return None, None, True
 
             if labeled_value.ref == 'latest':
                 # Reference to latest version
                 if self.latest_version is not None:
-                    return self.latest_version.serialized_value, self.latest_version.version
-                return None, labeled_value.version
+                    return self.latest_version.serialized_value, self.latest_version.version, False
+                return None, labeled_value.version, False
 
             # Reference to another label - follow the chain
             if _visited is None:
                 _visited = set()
             if labeled_value.ref in _visited:
                 # Cycle detected, return None
-                return None, labeled_value.version
+                return None, labeled_value.version, False
             _visited.add(labeled_value.ref)
 
             target = self.labels.get(labeled_value.ref)
             if target is None:
-                return None, labeled_value.version
+                return None, labeled_value.version, False
             return self.follow_ref(target, _visited)
 
-        return labeled_value.serialized_value, labeled_value.version
+        return labeled_value.serialized_value, labeled_value.version, False
 
 
 class VariablesConfig(BaseModel):

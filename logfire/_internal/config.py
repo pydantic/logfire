@@ -1448,15 +1448,20 @@ class LogfireConfig(_LogfireConfigData):
 
         This is used internally and should not be called by users of the SDK.
 
-        If no provider has been explicitly configured (i.e. `variables=` was not passed to
-        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
-        will be lazily created on the first call.
+        If `configure()` has been called without an explicit `variables=` option, but a
+        `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider` will be lazily
+        created on the first call.
+
+        Before `configure()` has been called, the no-op provider is returned so that
+        variable resolution relies only on data supplied via `configure()` (and falls back
+        to the registered code default) rather than silently fetching remote values just
+        because a `LOGFIRE_API_KEY` happens to be set in the environment.
 
         Returns:
             The variable provider.
         """
         provider = self._variable_provider
-        if isinstance(provider, NoOpVariableProvider) and self.variables is None:
+        if self._initialized and isinstance(provider, NoOpVariableProvider) and self.variables is None:
             provider = self._lazy_init_variable_provider()
         return provider
 

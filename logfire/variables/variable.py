@@ -195,7 +195,7 @@ class Variable(Generic[T_co]):
         *value* (or the result of calling it as a `ResolveFunction`) instead
         of consulting the provider or code default.
 
-        ## Composition is skipped
+        ## Composition is skipped *for the overridden variable's own value*
 
         Overrides do **not** participate in `@{ref}@` composition: *value*
         is treated as the user's literal choice and is returned as-is, not
@@ -203,6 +203,14 @@ class Variable(Generic[T_co]):
         `'hi @{user}@'`, the `@{user}@` is *not* substituted — the result
         is the literal string. Use composition by leaving the override off
         and letting the default / provider value drive resolution.
+
+        This only applies to the variable you call `get()` on. An override
+        *is* still consulted when another variable composes this one: if you
+        override `greeting` and then resolve a `prompt` variable whose value
+        contains `@{greeting}@`, the `prompt` composition picks up the
+        overridden `greeting` value. In other words, an override replaces a
+        variable's resolved value everywhere it is looked up; it just isn't
+        itself re-expanded as a template.
 
         ## Template rendering still applies to TemplateVariable
 
@@ -321,7 +329,17 @@ class Variable(Generic[T_co]):
             try:
                 default = self._get_default_cached(targeting_key, attributes)
             except Exception:
+                # The code default itself failed (e.g. a callable default raised), so there
+                # is no value to fall back to and we resolve to None. Warn loudly: this is a
+                # more severe failure than the composition/render fallbacks (which still
+                # produce a usable value yet warn), but was previously silent.
                 default = cast('T_co', None)
+                warnings.warn(
+                    f"Variable '{self.name}' could not be resolved and its code default "
+                    f'also failed; resolving to None: {e}',
+                    category=RuntimeWarning,
+                    stacklevel=2,
+                )
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _resolve_context_override(
@@ -390,7 +408,10 @@ class Variable(Generic[T_co]):
         # 2. Provider (label-specific first, falling back to default targeting)
         if label is not None:
             provider_result = provider.get_serialized_value_for_label(name, label)
-            if provider_result.value is None:
+            # A `code_default` reason means the label deliberately maps to the code
+            # default; fall through to the code-default tier rather than rollout. Any
+            # other empty result (label not found) falls back to default targeting.
+            if provider_result.value is None and provider_result.reason != 'code_default':
                 provider_result = provider.get_serialized_value(name, targeting_key, attributes)
         else:
             provider_result = provider.get_serialized_value(name, targeting_key, attributes)
@@ -454,20 +475,38 @@ class Variable(Generic[T_co]):
             )
             return (ref_result.value, ref_result.label, ref_result.version, ref_result.reason)
 
+        # Tracks a recoverable composition failure (unresolved/non-JSON references left
+        # literal in the value). Surfaced on the final result's `exception` so callers can
+        # still detect the partial expansion, without discarding the provider value.
+        composition_exception: VariableCompositionError | None = None
         try:
             serialized_value, composed = expand_references(
                 serialized_value,
                 self.name,
                 resolve_ref,
             )
-            if composition_error := _first_composition_error(composed):
-                return self._fallback_to_default(
-                    exception=VariableCompositionError(composition_error),
-                    failure_stage='composition',
-                    targeting_key=targeting_key,
-                    attributes=attributes,
-                    serialized_result=serialized_result,
-                    composed=composed,
+            if failure := _first_composition_failure(composed):
+                message, recoverable = failure
+                if not recoverable:
+                    # Cycle or depth overflow: expansion was aborted mid-graph, so fall back
+                    # to the code default rather than emit a half-composed value.
+                    return self._fallback_to_default(
+                        exception=VariableCompositionError(message),
+                        failure_stage='composition',
+                        targeting_key=targeting_key,
+                        attributes=attributes,
+                        serialized_result=serialized_result,
+                        composed=composed,
+                    )
+                # Recoverable: keep the partially composed value with the unresolved
+                # references left literal — that is less surprising than silently reverting
+                # to the code default — but warn and record the error so it stays visible.
+                composition_exception = VariableCompositionError(message)
+                warnings.warn(
+                    f"Variable '{self.name}' has unresolved composition reference(s); "
+                    f'leaving them unexpanded in the value: {message}',
+                    category=RuntimeWarning,
+                    stacklevel=2,
                 )
         except VariableCompositionError as e:
             return self._fallback_to_default(
@@ -512,6 +551,7 @@ class Variable(Generic[T_co]):
 
         return ResolvedVariable(
             name=self.name,
+            exception=composition_exception,
             value=value_or_exc,
             label=serialized_result.label,
             version=serialized_result.version,
@@ -732,6 +772,7 @@ class Variable(Generic[T_co]):
                                 'label': c.label,
                                 'reason': c.reason,
                                 'error': c.error,
+                                'error_kind': c.error_kind,
                             }
                             for c in result.composed_from
                         ]
@@ -861,14 +902,39 @@ def get_template_inputs_schema(variable: Variable[Any]) -> dict[str, Any] | None
     return None
 
 
-def _first_composition_error(composed: list[ComposedReference]) -> str | None:
-    """Return the first nested composition error, if any."""
-    for ref in composed:
-        if ref.error is not None:
-            return ref.error
-        if nested_error := _first_composition_error(ref.composed_from):
-            return nested_error
-    return None
+# Composition errors that cannot yield a usable partial value. A cycle or a
+# depth overflow means expansion was aborted mid-graph, so the only safe result
+# is the code default. Everything else (an unresolved or non-JSON reference) can
+# be left literal in the output, preserving the rest of the composed value.
+_UNRECOVERABLE_COMPOSITION_ERROR_KINDS = frozenset({'cycle', 'depth'})
+
+
+def _first_composition_failure(composed: list[ComposedReference]) -> tuple[str, bool] | None:
+    """Summarise composition errors across the (possibly nested) `composed` tree.
+
+    Returns `(first_error_message, recoverable)` or `None` when no reference failed.
+    `recoverable` is `False` if *any* error in the tree is unrecoverable (a cycle or a
+    depth overflow); such failures must fall back to the code default. When every error is
+    recoverable (unresolved / non-JSON references), the caller keeps the partially composed
+    value with those references left literal.
+    """
+    first_message: str | None = None
+    recoverable = True
+
+    def _walk(refs: list[ComposedReference]) -> None:
+        nonlocal first_message, recoverable
+        for ref in refs:
+            if ref.error is not None:
+                if first_message is None:
+                    first_message = ref.error
+                if ref.error_kind in _UNRECOVERABLE_COMPOSITION_ERROR_KINDS:
+                    recoverable = False
+            _walk(ref.composed_from)
+
+    _walk(composed)
+    if first_message is None:
+        return None
+    return first_message, recoverable
 
 
 @contextmanager
