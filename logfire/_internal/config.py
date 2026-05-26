@@ -1666,7 +1666,6 @@ def patched_os_exit(code: int):  # pragma: no cover
             config = config_ref()
             if config is not None:
                 config.force_flush()
-        shutdown_otlp_forwarding()
         cleanup_disk_retryers()
     except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
         pass
