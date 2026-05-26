@@ -333,12 +333,14 @@ def test_forwarding_pipeline_at_fork_reinit_clears_inherited_queue_and_worker() 
         assert pipeline.started.wait(timeout=5) is True
         worker = pipeline.worker
         condition = pipeline.condition
+        session = SimpleNamespace(close=lambda: None)
 
-        pipeline._at_fork_reinit()  # pyright: ignore[reportPrivateUsage]
+        pipeline._at_fork_reinit(session=session)  # pyright: ignore[reportPrivateUsage, reportArgumentType]
 
         assert list(pipeline.queue) == []
         assert pipeline.worker is None
         assert pipeline.condition is not condition
+        assert pipeline.session is session
         assert worker is not None
     finally:
         pipeline.release.set()
