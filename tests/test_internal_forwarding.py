@@ -632,7 +632,7 @@ def test_forwarding_manager_submit_reinitializes_after_pid_change(monkeypatch: p
     manager = OTLPForwardingManager([('https://backend.example.com', 'token')])
     pipeline = manager.pipelines['https://backend.example.com']
     inherited_condition = pipeline.condition
-    pipeline.queue.append(_make_forwarding_request(b'parent'))
+    inherited_session = pipeline.session
 
     pid = 1001
     result = manager.submit(_make_forwarding_request(b'child'))
@@ -641,6 +641,7 @@ def test_forwarding_manager_submit_reinitializes_after_pid_change(monkeypatch: p
     _wait_for_no_live_worker(pipeline)
 
     assert pipeline.condition is not inherited_condition
+    assert pipeline.session is not inherited_session
     assert pipeline.session is created_sessions[1]
     assert created_sessions[0].calls == []
     assert [call['data'] for call in created_sessions[1].calls] == [b'child']
