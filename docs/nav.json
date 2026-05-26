@@ -271,8 +271,8 @@
         "items": [
           { "label": "Overview", "slug": "reference/self-hosted/overview" },
           { "label": "Local Quickstart", "slug": "reference/self-hosted/local-quickstart" },
-          { "label": "Installation", "slug": "reference/self-hosted/installation" },
-          { "label": "Scaling", "slug": "reference/self-hosted/scaling" },
+          { "label": "Architecture", "slug": "reference/self-hosted/architecture" },
+          { "label": "Production Requirements", "slug": "reference/self-hosted/installation" },
           { "label": "Troubleshooting", "slug": "reference/self-hosted/troubleshooting" },
           { "label": "Bucket Migration", "slug": "reference/self-hosted/bucket-migration" },
           { "label": "Examples", "slug": "reference/self-hosted/examples" },
