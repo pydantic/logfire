@@ -1380,13 +1380,14 @@ class LogfireConfig(_LogfireConfigData):
             # Track this instance for cleanup on exit
             _LOGFIRE_CONFIG_INSTANCES.append(weakref.ref(self))
 
-            # OTEL registers its own atexit callbacks in providers to shut them down.
-            # Re-registering these after the OTEL callbacks means atexit runs open-span cleanup first,
-            # then forwarding shutdown, then OTEL provider shutdown.
-            atexit.unregister(shutdown_otlp_forwarding)
-            atexit.register(shutdown_otlp_forwarding)
+            # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+            # Registering this callback here after the OTEL one means that this runs first.
+            # Otherwise OTEL would log an error "Already shutdown, dropping span."
             atexit.unregister(exit_open_spans)
             atexit.register(exit_open_spans)
+
+            atexit.unregister(shutdown_otlp_forwarding)
+            atexit.register(shutdown_otlp_forwarding)
 
             previous_otlp_forwarding = self._otlp_forwarding
             self._otlp_forwarding = OTLPForwardingManager(
