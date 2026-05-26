@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import gc
 import json
+import weakref
+from collections.abc import Callable
 from threading import Event, Thread
 from types import SimpleNamespace
 from typing import Any, cast
@@ -570,6 +573,39 @@ def test_forwarding_manager_destinations_create_pipeline_and_group_tokens(
     )
     assert manager.pipelines['https://backend-1.example.com'].max_queued_items == OTLP_FORWARDING_MAX_QUEUED_ITEMS
     assert all(pipeline.worker is None for pipeline in manager.pipelines.values())
+
+
+def test_forwarding_manager_after_fork_callback_is_weak(monkeypatch: pytest.MonkeyPatch) -> None:
+    callbacks: list[Callable[[], None]] = []
+
+    def register_at_fork(*, after_in_child: Callable[[], None]) -> None:
+        callbacks.append(after_in_child)
+
+    class FakeSession(FakeForwardingSession):
+        def __init__(self) -> None:
+            super().__init__()
+            self.hooks: dict[str, list[object]] = {}
+
+    monkeypatch.setattr(forwarding_module.os, 'register_at_fork', register_at_fork)
+    monkeypatch.setattr(forwarding_module, 'OTLPExporterHttpSession', FakeSession)
+    manager = OTLPForwardingManager([('https://backend.example.com', 'token')])
+    pipeline = manager.pipelines['https://backend.example.com']
+    pipeline.queue.append(_make_forwarding_request(b'data'))
+    pipeline.worker = Thread(target=lambda: None)
+    condition = pipeline.condition
+
+    callbacks[0]()
+
+    assert list(pipeline.queue) == []
+    assert pipeline.worker is None
+    assert pipeline.condition is not condition
+
+    manager_ref = weakref.ref(manager)
+    del manager
+    gc.collect()
+
+    assert manager_ref() is None
+    callbacks[0]()
 
 
 class FakeForwardingPipeline:
