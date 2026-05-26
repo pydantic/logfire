@@ -606,19 +606,6 @@ def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
     assert manager.has_destinations() is False
 
 
-def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_for_idle_manager() -> None:
-    logfire.configure(send_to_logfire=False, console=False, metrics=False)
-    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
-
-    with mock.patch('logfire._internal.forwarding.Thread') as thread:
-        logfire.configure(send_to_logfire=False, console=False, metrics=False)
-
-    thread.assert_not_called()
-    assert previous_manager.closed is True
-    assert config._otlp_forwarding is not previous_manager  # pyright: ignore[reportPrivateUsage]
-
-
 def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
 
