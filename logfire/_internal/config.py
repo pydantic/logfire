@@ -1438,40 +1438,23 @@ class LogfireConfig(_LogfireConfigData):
         complete = True
         self.get_variable_provider().shutdown(timeout_millis=remaining_ms())
         remaining = remaining_ms()
-        if not remaining:
-            complete = False
 
         forwarding_shutdown_result = self._otlp_forwarding.shutdown(remaining, drain_queued=flush)
         complete = complete and forwarding_shutdown_result
         remaining = remaining_ms()
-        if not remaining:
-            complete = False
 
         if flush and remaining:
             self._tracer_provider.force_flush(remaining)
             remaining = remaining_ms()
-            if not remaining:
-                complete = False
-        elif flush:
-            complete = False
 
         self._tracer_provider.shutdown()
         remaining = remaining_ms()
-        if not remaining:
-            complete = False
 
         if flush and remaining:
             self._meter_provider.force_flush(remaining)
             remaining = remaining_ms()
-            if not remaining:
-                complete = False
-        elif flush:
-            complete = False
 
         self._meter_provider.shutdown(remaining)
-        remaining = remaining_ms()
-        if not remaining:
-            complete = False
 
         return remaining_ms() > 0 and complete
 
