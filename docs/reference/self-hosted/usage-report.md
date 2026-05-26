@@ -13,6 +13,9 @@ Usage reports are available from the `logfire-meta` project.
     https://logfire.example.com/logfire-meta/logfire-meta
     ```
 
-3. Select **Download usage report** in the top-right corner.
+3. Open **Platform admin** > **Download usage**.
+4. Select **Download usage report**.
+
+The report covers the last six months for your self-hosted Logfire instance and can be shared with Pydantic for billing reconciliation.
 
 ![Download usage report](../../images/self-hosted/usage-report.png)
