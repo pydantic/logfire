@@ -581,15 +581,19 @@ def test_forwarding_manager_after_fork_callback_is_weak(monkeypatch: pytest.Monk
     def register_at_fork(*, after_in_child: Callable[[], None]) -> None:
         callbacks.append(after_in_child)
 
+    created_sessions: list[FakeForwardingSession] = []
+
     class FakeSession(FakeForwardingSession):
         def __init__(self) -> None:
             super().__init__()
             self.hooks: dict[str, list[object]] = {}
+            created_sessions.append(self)
 
     monkeypatch.setattr(forwarding_module.os, 'register_at_fork', register_at_fork)
     monkeypatch.setattr(forwarding_module, 'OTLPExporterHttpSession', FakeSession)
     manager = OTLPForwardingManager([('https://backend.example.com', 'token')])
     pipeline = manager.pipelines['https://backend.example.com']
+    inherited_session = pipeline.session
     pipeline.queue.append(_make_forwarding_request(b'data'))
     pipeline.worker = Thread(target=lambda: None)
     condition = pipeline.condition
@@ -599,6 +603,8 @@ def test_forwarding_manager_after_fork_callback_is_weak(monkeypatch: pytest.Monk
     assert list(pipeline.queue) == []
     assert pipeline.worker is None
     assert pipeline.condition is not condition
+    assert pipeline.session is not inherited_session
+    assert pipeline.session is created_sessions[1]
 
     manager_ref = weakref.ref(manager)
     del manager
@@ -606,6 +612,7 @@ def test_forwarding_manager_after_fork_callback_is_weak(monkeypatch: pytest.Monk
 
     assert manager_ref() is None
     callbacks[0]()
+    assert len(created_sessions) == 2
 
 
 class FakeForwardingPipeline:

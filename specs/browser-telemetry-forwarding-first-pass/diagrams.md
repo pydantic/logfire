@@ -219,7 +219,7 @@ flowchart TD
 
     ConfigFlush["LogfireConfig.force_flush(timeout_millis)"] --> ManagerFlush["OTLPForwardingManager.force_flush(timeout_millis)"]
     Atexit["atexit forwarding cleanup"] --> ManagerShutdownDrain
-    Fork["after fork in child"] --> ForkReset["clear inherited queue and worker state"]
+    Fork["after fork in child"] --> ForkReset["clear inherited queue/worker state; replace session"]
     LogfireShutdown["Logfire.shutdown(timeout_millis, flush)"] --> ManagerShutdown{"flush?"}
     ManagerShutdown -->|"true"| ManagerShutdownDrain["OTLPForwardingManager.shutdown(timeout_millis, drain_queued=True)"]
     ManagerShutdown -->|"false"| ManagerShutdownDrop["OTLPForwardingManager.shutdown(timeout_millis, drain_queued=False)"]

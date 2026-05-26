@@ -226,10 +226,12 @@ class OTLPForwardingPipeline:
         self.queue.clear()
         self.condition.notify_all()
 
-    def _at_fork_reinit(self) -> None:
+    def _at_fork_reinit(self, *, session: OTLPExporterHttpSession | None = None) -> None:
         self.condition = Condition()
         self.queue.clear()
         self.worker = None
+        if session is not None:
+            self.session = session
 
     def _close_session_if_idle_locked(self) -> None:
         if self.closed and not self.queue:
@@ -262,12 +264,12 @@ class OTLPForwardingManager:
         server_response_hook: ServerResponseCallback | None = None,
     ) -> None:
         self.pipelines: dict[str, OTLPForwardingPipeline] = {}
+        self._server_response_hook = server_response_hook
         self.closed = False
         for base_url, token in destinations:
             pipeline = self.pipelines.get(base_url)
             if pipeline is None:
-                session = OTLPExporterHttpSession()
-                install_logfire_response_hook(session, server_response_hook)
+                session = self._make_session()
                 pipeline = self.pipelines[base_url] = OTLPForwardingPipeline(
                     base_url=base_url,
                     session=session,
@@ -326,7 +328,12 @@ class OTLPForwardingManager:
 
     def _at_fork_reinit(self) -> None:
         for pipeline in self.pipelines.values():
-            pipeline._at_fork_reinit()  # pyright: ignore[reportPrivateUsage]
+            pipeline._at_fork_reinit(session=self._make_session())  # pyright: ignore[reportPrivateUsage]
+
+    def _make_session(self) -> OTLPExporterHttpSession:
+        session = OTLPExporterHttpSession()
+        install_logfire_response_hook(session, self._server_response_hook)
+        return session
 
 
 def _call_weak_method(method_ref: WeakMethod[Callable[[], None]]) -> None:
