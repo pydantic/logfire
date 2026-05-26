@@ -159,6 +159,7 @@ class OTLPForwardingManager:
 
     pipelines: dict[str, OTLPForwardingPipeline]
     closed: bool
+    _pid: int
 
     def __init__(
         self,
@@ -188,7 +189,9 @@ class OTLPForwardingManager:
 
 The constructor receives the destination pairs collected while configuring normal Logfire export, from the same token loop that creates trace, metric, and log exporters, plus the resolved advanced response hook for the configuration that owns the manager. It creates the backend-url pipeline immediately on the first token for that URL and records additional tokens for the same URL without creating another pipeline. New pipeline creation constructs a fresh `OTLPExporterHttpSession` and installs the resolved `server_response_hook` on it before the session is used for sends.
 
-If `os.register_at_fork` is available and the manager owns at least one pipeline, the constructor registers a weak after-fork callback for `_at_fork_reinit()`. The callback does not keep the manager alive. In the child process, `_at_fork_reinit()` asks each pipeline to replace synchronization primitives, clear inherited queued work, clear any stale worker reference, and replace the inherited `OTLPExporterHttpSession` with a fresh session using the same server response hook.
+If `os.register_at_fork` is available and the manager owns at least one pipeline, the constructor registers a weak after-fork callback for `_at_fork_reinit()`. The callback does not keep the manager alive. The manager also stores its construction PID and checks it before `submit()`, `force_flush()`, or `shutdown()` touches any pipeline queue lock. If the PID changed, it calls `_at_fork_reinit()` before continuing. This mirrors the OpenTelemetry batch processor fallback for environments that do not reliably run Python after-fork hooks.
+
+In the child process, `_at_fork_reinit()` first updates the stored PID, then asks each pipeline to replace synchronization primitives, clear inherited queued work, clear any stale worker reference, and replace the inherited `OTLPExporterHttpSession` with a fresh session using the same server response hook. A later fork from the child can be repaired too.
 
 `has_destinations()` is called by `forward_export_request()` before queue admission to decide whether the selected configuration has any active forwarding destination.
 

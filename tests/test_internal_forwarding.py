@@ -617,6 +617,35 @@ def test_forwarding_manager_after_fork_callback_is_weak(monkeypatch: pytest.Monk
     assert len(created_sessions) == 2
 
 
+def test_forwarding_manager_submit_reinitializes_after_pid_change(monkeypatch: pytest.MonkeyPatch) -> None:
+    pid = 1000
+    created_sessions: list[FakeForwardingSession] = []
+
+    class FakeSession(FakeForwardingSession):
+        def __init__(self) -> None:
+            super().__init__()
+            self.hooks: dict[str, list[object]] = {}
+            created_sessions.append(self)
+
+    monkeypatch.setattr(forwarding_module.os, 'getpid', lambda: pid)
+    monkeypatch.setattr(forwarding_module, 'OTLPExporterHttpSession', FakeSession)
+    manager = OTLPForwardingManager([('https://backend.example.com', 'token')])
+    pipeline = manager.pipelines['https://backend.example.com']
+    inherited_condition = pipeline.condition
+    pipeline.queue.append(_make_forwarding_request(b'parent'))
+
+    pid = 1001
+    result = manager.submit(_make_forwarding_request(b'child'))
+    assert result == ForwardingAdmissionResult(response='success', message=None)
+    assert manager.force_flush(5000) is True
+    _wait_for_no_live_worker(pipeline)
+
+    assert pipeline.condition is not inherited_condition
+    assert pipeline.session is created_sessions[1]
+    assert created_sessions[0].calls == []
+    assert [call['data'] for call in created_sessions[1].calls] == [b'child']
+
+
 class FakeForwardingPipeline:
     def __init__(self, *, accepted: bool = True) -> None:
         self.accepted = accepted

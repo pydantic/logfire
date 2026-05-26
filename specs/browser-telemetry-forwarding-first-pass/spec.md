@@ -85,6 +85,8 @@ The worker follows the OpenTelemetry batch processor model: it is a daemon threa
 **Forwarding reinitializes worker state after fork.** *(from "The forwarding worker is daemon and lifecycle-managed")*
 After a process fork, inherited worker threads no longer exist in the child and inherited queued work belongs to the parent process. Forwarding clears child-process memory queues and stale worker references after fork, and replaces inherited forwarding sessions so child sends do not reuse parent process transport or disk-retry state. The configured destination manager remains available for future child-process forwarding calls. Later accepted work in the child can start a new worker lazily.
 
+Forwarding performs this repair from the registered after-fork hook when Python runs it, and also from a manager-level PID check before forwarding queue locks are touched. The PID fallback follows the OpenTelemetry batch processor pattern and covers process managers that do not reliably invoke `os.register_at_fork` handlers.
+
 **Post-shutdown forwarding calls are locally dropped.** *(from "Forwarding participates in Logfire flush and shutdown", "The forwarding endpoint is an ingress adapter")*
 If a request is otherwise valid but arrives after forwarding shutdown has closed admission, the helper returns HTTP 200 with an OTLP partial-success response in the request representation. It must not recreate forwarding queues after shutdown.
 

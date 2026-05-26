@@ -266,6 +266,7 @@ class OTLPForwardingManager:
         self.pipelines: dict[str, OTLPForwardingPipeline] = {}
         self._server_response_hook = server_response_hook
         self.closed = False
+        self._pid = os.getpid()
         for base_url, token in destinations:
             pipeline = self.pipelines.get(base_url)
             if pipeline is None:
@@ -287,6 +288,7 @@ class OTLPForwardingManager:
         return bool(self.pipelines)
 
     def submit(self, request: ForwardingRequest) -> ForwardingAdmissionResult:
+        self._reset_after_fork_if_needed()
         if self.closed:
             return ForwardingAdmissionResult(
                 response='partial_success',
@@ -306,6 +308,7 @@ class OTLPForwardingManager:
         )
 
     def force_flush(self, timeout_millis: int) -> bool:
+        self._reset_after_fork_if_needed()
         deadline = monotonic() + timeout_millis / 1000
 
         complete = True
@@ -316,6 +319,7 @@ class OTLPForwardingManager:
         return complete
 
     def shutdown(self, timeout_millis: int, *, drain_queued: bool = True) -> bool:
+        self._reset_after_fork_if_needed()
         deadline = monotonic() + timeout_millis / 1000
         self.closed = True
 
@@ -326,7 +330,12 @@ class OTLPForwardingManager:
                 complete = False
         return complete
 
+    def _reset_after_fork_if_needed(self) -> None:
+        if self._pid != os.getpid():
+            self._at_fork_reinit()
+
     def _at_fork_reinit(self) -> None:
+        self._pid = os.getpid()
         for pipeline in self.pipelines.values():
             pipeline._at_fork_reinit(session=self._make_session())  # pyright: ignore[reportPrivateUsage]
 

@@ -219,14 +219,15 @@ flowchart TD
 
     ConfigFlush["LogfireConfig.force_flush(timeout_millis)"] --> ManagerFlush["OTLPForwardingManager.force_flush(timeout_millis)"]
     Atexit["atexit forwarding cleanup"] --> ManagerShutdownDrain
-    Fork["after fork in child"] --> ForkReset["clear inherited queue/worker state; replace session"]
+    Fork["after fork in child or PID mismatch"] --> ForkReset["clear inherited queue/worker state; replace session"]
     LogfireShutdown["Logfire.shutdown(timeout_millis, flush)"] --> ManagerShutdown{"flush?"}
     ManagerShutdown -->|"true"| ManagerShutdownDrain["OTLPForwardingManager.shutdown(timeout_millis, drain_queued=True)"]
     ManagerShutdown -->|"false"| ManagerShutdownDrop["OTLPForwardingManager.shutdown(timeout_millis, drain_queued=False)"]
 
     HasDestinations["OTLPForwardingManager.has_destinations()"] --> Submit["OTLPForwardingManager.submit(request)"]
-    Submit --> Group["pipelines by backend URL"]
-    Submit --> Pipeline["OTLPForwardingPipeline"]
+    Submit --> PIDCheck["repair after fork before queue locks"]
+    PIDCheck --> Group["pipelines by backend URL"]
+    PIDCheck --> Pipeline["OTLPForwardingPipeline"]
     Pipeline --> Enqueue["OTLPForwardingPipeline.enqueue(request)"]
     Enqueue --> ByteLimit["OTLP_FORWARDING_MAX_QUEUED_BODY_BYTES"]
     Enqueue --> ItemLimit["OTLP_FORWARDING_MAX_QUEUED_ITEMS"]
