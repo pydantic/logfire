@@ -593,7 +593,6 @@ def test_logfire_config_has_empty_forwarding_manager() -> None:
 
 
 def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
-    logfire.configure(send_to_logfire=False, console=False, metrics=False)
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
 
