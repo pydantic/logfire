@@ -59,6 +59,68 @@ except Exception:  # pragma: no cover
     pass
 
 
+try:
+    from opentelemetry.instrumentation.google_genai import generate_content as _gc_module
+
+    _Helper = _gc_module._GenerateContentInstrumentationHelper  # pyright: ignore[reportPrivateUsage]
+    _original_maybe_update = _Helper._maybe_update_token_counts  # pyright: ignore[reportPrivateUsage]
+    _original_create_final = _Helper.create_final_attributes
+
+    def _wrapped_maybe_update_token_counts(self: Any, response: Any) -> None:
+        _original_maybe_update(self, response)
+        try:
+            metadata = getattr(response, 'usage_metadata', None)
+            if metadata is None:
+                return
+            # "keep last non-zero" — streaming sends partial chunks; cached/thoughts/tool_use
+            # counts typically only appear in the final chunk.
+            if cached := getattr(metadata, 'cached_content_token_count', None):
+                self._lf_cache_read = cached
+            if thoughts := getattr(metadata, 'thoughts_token_count', None):
+                self._lf_thoughts = thoughts
+            if tool_use := getattr(metadata, 'tool_use_prompt_token_count', None):
+                self._lf_tool_use_prompt = tool_use
+            self._lf_response = response
+        except Exception:  # pragma: no cover
+            pass
+
+    def _wrapped_create_final_attributes(self: Any) -> dict[str, Any]:
+        attrs = _original_create_final(self)
+        try:
+            if cached := getattr(self, '_lf_cache_read', None):
+                attrs['gen_ai.usage.cache_read.input_tokens'] = cached
+            if thoughts := getattr(self, '_lf_thoughts', None):
+                attrs['gen_ai.usage.details.thoughts_tokens'] = thoughts
+            if tool_use := getattr(self, '_lf_tool_use_prompt', None):
+                attrs['gen_ai.usage.details.tool_use_prompt_tokens'] = tool_use
+            response = getattr(self, '_lf_response', None)
+            if response is not None:
+                try:
+                    from genai_prices import calc_price, extract_usage
+
+                    # genai_prices expects the camelCase JSON keys ('usageMetadata', 'modelVersion');
+                    # google-genai pydantic models use snake_case fields with camelCase aliases.
+                    usage_data = extract_usage(response.model_dump(by_alias=True), provider_id='google')
+                    if usage_data.model is not None:  # pragma: no branch
+                        attrs['operation.cost'] = float(
+                            calc_price(
+                                usage_data.usage,
+                                model_ref=usage_data.model.id,
+                                provider_id='google',
+                            ).total_price
+                        )
+                except Exception:
+                    pass
+        except Exception:  # pragma: no cover
+            pass
+        return attrs
+
+    _Helper._maybe_update_token_counts = _wrapped_maybe_update_token_counts  # pyright: ignore[reportPrivateUsage]
+    _Helper.create_final_attributes = _wrapped_create_final_attributes
+except Exception:  # pragma: no cover
+    pass
+
+
 Part: TypeAlias = 'dict[str, Any] | str'
 
 

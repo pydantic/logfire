@@ -1,5 +1,6 @@
 import os
 import warnings
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -108,6 +109,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': 58,
                     'gen_ai.usage.output_tokens': 9,
                     'gen_ai.response.finish_reasons': ('stop',),
+                    'operation.cost': 9.4e-06,
                     'logfire.metrics': IsPartialDict(),
                     'events': [
                         {'content': 'help', 'role': 'system'},
@@ -200,6 +202,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': 39,
                     'gen_ai.usage.output_tokens': 7,
                     'gen_ai.response.finish_reasons': ('stop',),
+                    'operation.cost': 6.7e-06,
                     'logfire.metrics': IsPartialDict(),
                     'events': [
                         {'content': '<elided>', 'role': 'user'},
@@ -258,6 +261,8 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 13,
                     'gen_ai.response.finish_reasons': ('stop',),
+                    'gen_ai.usage.details.thoughts_tokens': 58,
+                    'operation.cost': 0.0001781,
                     'logfire.metrics': IsPartialDict(),
                     'events': [
                         {'content': 'Hi', 'role': 'user'},
@@ -276,6 +281,189 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
             }
         ]
     )
+
+
+def _stub_generate_content(response: Any) -> Any:
+    def _generate(self: Any, **kwargs: Any) -> Any:
+        return response
+
+    return _generate
+
+
+def _build_fake_genai_response(
+    *,
+    model_version: str = 'gemini-2.5-flash',
+    prompt_token_count: int = 1000,
+    candidates_token_count: int = 200,
+    cached_content_token_count: int | None = None,
+    thoughts_token_count: int | None = None,
+    tool_use_prompt_token_count: int | None = None,
+):
+    from google.genai.types import (
+        Candidate,
+        Content,
+        FinishReason,
+        GenerateContentResponse,
+        GenerateContentResponseUsageMetadata,
+        Part,
+    )
+
+    return GenerateContentResponse(
+        model_version=model_version,
+        usage_metadata=GenerateContentResponseUsageMetadata(
+            prompt_token_count=prompt_token_count,
+            candidates_token_count=candidates_token_count,
+            cached_content_token_count=cached_content_token_count,
+            thoughts_token_count=thoughts_token_count,
+            tool_use_prompt_token_count=tool_use_prompt_token_count,
+            total_token_count=(prompt_token_count or 0) + (candidates_token_count or 0),
+        ),
+        candidates=[
+            Candidate(
+                content=Content(parts=[Part.from_text(text='hi back')], role='model'),
+                finish_reason=FinishReason.STOP,
+            )
+        ],
+    )
+
+
+@pytest.fixture
+def reset_google_genai_instrumentation():
+    """Force re-instrumentation so monkeypatched `Models.generate_content` is captured.
+
+    The upstream `_MethodsSnapshot` captures `Models.generate_content` at instrument
+    time. The instrumentor is a process-wide singleton with an
+    `is_instrumented_by_opentelemetry` flag that gates re-instrumentation. We clear
+    the flag (the proper `uninstrument()` call asserts on a snapshot that the
+    upstream `__init__` resets to None on every `GoogleGenAiSdkInstrumentor()` call,
+    which makes it unreliable in a test suite) so the next `instrument()` call
+    re-creates the snapshot and picks up the mock.
+    """
+    from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
+
+    instrumentor = GoogleGenAiSdkInstrumentor()
+    instrumentor._is_instrumented_by_opentelemetry = False  # pyright: ignore[reportPrivateUsage]
+    yield
+    instrumentor._is_instrumented_by_opentelemetry = False  # pyright: ignore[reportPrivateUsage]
+
+
+def test_instrument_google_genai_cache_and_thinking_tokens(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, reset_google_genai_instrumentation: None
+) -> None:
+    from google.genai import Client
+    from google.genai.models import Models
+
+    fake_response = _build_fake_genai_response(
+        prompt_token_count=1000,
+        candidates_token_count=200,
+        cached_content_token_count=750,
+        thoughts_token_count=80,
+        tool_use_prompt_token_count=30,
+    )
+    monkeypatch.setattr(Models, 'generate_content', _stub_generate_content(fake_response))
+
+    logfire.instrument_google_genai()
+
+    client = Client(api_key='fake')
+    client.models.generate_content(model='gemini-2.5-flash', contents='hi')  # type: ignore
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = span['attributes']
+    assert attrs['gen_ai.usage.input_tokens'] == 1000
+    assert attrs['gen_ai.usage.output_tokens'] == 200
+    assert attrs['gen_ai.usage.cache_read.input_tokens'] == 750
+    assert attrs['gen_ai.usage.details.thoughts_tokens'] == 80
+    assert attrs['gen_ai.usage.details.tool_use_prompt_tokens'] == 30
+    # operation.cost depends on the current Gemini 2.5 Flash pricing table in
+    # genai_prices; just confirm it was computed and is a sensible positive value.
+    assert isinstance(attrs['operation.cost'], float)
+    assert attrs['operation.cost'] > 0
+
+
+def test_instrument_google_genai_no_cache_metadata(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, reset_google_genai_instrumentation: None
+) -> None:
+    from google.genai import Client
+    from google.genai.models import Models
+
+    fake_response = _build_fake_genai_response(
+        prompt_token_count=58,
+        candidates_token_count=9,
+    )
+    monkeypatch.setattr(Models, 'generate_content', _stub_generate_content(fake_response))
+
+    logfire.instrument_google_genai()
+
+    client = Client(api_key='fake')
+    client.models.generate_content(model='gemini-2.5-flash', contents='hi')  # type: ignore
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = span['attributes']
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attrs
+    assert 'gen_ai.usage.details.thoughts_tokens' not in attrs
+    assert 'gen_ai.usage.details.tool_use_prompt_tokens' not in attrs
+    assert attrs['gen_ai.usage.input_tokens'] == 58
+    assert attrs['gen_ai.usage.output_tokens'] == 9
+
+
+def test_instrument_google_genai_no_usage_metadata(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, reset_google_genai_instrumentation: None
+) -> None:
+    """Response missing `usage_metadata` entirely: no extra attrs and no cost computation."""
+    from google.genai import Client
+    from google.genai.models import Models
+    from google.genai.types import Candidate, Content, FinishReason, GenerateContentResponse, Part
+
+    fake_response = GenerateContentResponse(
+        model_version='gemini-2.5-flash',
+        usage_metadata=None,
+        candidates=[
+            Candidate(
+                content=Content(parts=[Part.from_text(text='hi')], role='model'),
+                finish_reason=FinishReason.STOP,
+            )
+        ],
+    )
+    monkeypatch.setattr(Models, 'generate_content', _stub_generate_content(fake_response))
+
+    logfire.instrument_google_genai()
+
+    client = Client(api_key='fake')
+    client.models.generate_content(model='gemini-2.5-flash', contents='hi')  # type: ignore
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = span['attributes']
+    assert 'gen_ai.usage.cache_read.input_tokens' not in attrs
+    assert 'gen_ai.usage.details.thoughts_tokens' not in attrs
+    assert 'gen_ai.usage.details.tool_use_prompt_tokens' not in attrs
+    assert 'operation.cost' not in attrs
+
+
+def test_instrument_google_genai_cost_silent_failure(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch, reset_google_genai_instrumentation: None
+) -> None:
+    from google.genai import Client
+    from google.genai.models import Models
+
+    fake_response = _build_fake_genai_response(
+        model_version='gemini-unknown-999',
+        prompt_token_count=1000,
+        candidates_token_count=200,
+        cached_content_token_count=750,
+        thoughts_token_count=80,
+    )
+    monkeypatch.setattr(Models, 'generate_content', _stub_generate_content(fake_response))
+
+    logfire.instrument_google_genai()
+
+    client = Client(api_key='fake')
+    client.models.generate_content(model='gemini-unknown-999', contents='hi')  # type: ignore
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = span['attributes']
+    assert 'operation.cost' not in attrs
+    assert attrs['gen_ai.usage.cache_read.input_tokens'] == 750
+    assert attrs['gen_ai.usage.details.thoughts_tokens'] == 80
 
 
 def test_span_event_logger_with_none_parts(exporter: TestExporter) -> None:
