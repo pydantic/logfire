@@ -123,11 +123,10 @@ def test_forward_export_request_exception_handling() -> None:
 
 
 def test_fastapi_proxy_handler(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
-    app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
     _set_successful_forwarding_manager()
 
-    app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST'])
+    fastapi_app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST'])
 
     with mock.patch('requests.post') as mock_post:
         response = fastapi_client.post(
@@ -139,11 +138,10 @@ def test_fastapi_proxy_handler(fastapi_app: FastAPI, fastapi_client: TestClient)
 
 
 def test_fastapi_proxy_size_limit(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
-    app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
 
     handler = functools.partial(logfire.forward_export_request_starlette, max_body_size=10)
-    app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
+    fastapi_app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
 
     response = fastapi_client.post(
         '/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Type': 'application/json'}
@@ -153,9 +151,8 @@ def test_fastapi_proxy_size_limit(fastapi_app: FastAPI, fastapi_client: TestClie
 
 
 def test_fastapi_proxy_invalid_content_length(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
-    app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
-    app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST'])
+    fastapi_app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST'])
 
     response = fastapi_client.post('/logfire-proxy/v1/traces', content=b'', headers={'Content-Length': 'invalid'})
     assert response.status_code == 400
@@ -163,11 +160,10 @@ def test_fastapi_proxy_invalid_content_length(fastapi_app: FastAPI, fastapi_clie
 
 
 def test_fastapi_proxy_body_limit_late_check(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
-    app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
 
     handler = functools.partial(logfire.forward_export_request_starlette, max_body_size=10)
-    app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
+    fastapi_app.add_route('/logfire-proxy/{path:path}', handler, methods=['POST'])
 
     # Lying about Content-Length bypasses early check, so we catch it while chunking
     response = fastapi_client.post('/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Length': '5'})
@@ -569,9 +565,10 @@ def test_forward_export_request_partial_success_protobuf(
 
 
 def test_fastapi_proxy_invalid_method(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
-    app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
-    app.add_route('/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST', 'GET'])
+    fastapi_app.add_route(
+        '/logfire-proxy/{path:path}', logfire.forward_export_request_starlette, methods=['POST', 'GET']
+    )
 
     response = fastapi_client.get('/logfire-proxy/v1/traces')
     assert response.status_code == 405
@@ -579,9 +576,8 @@ def test_fastapi_proxy_invalid_method(fastapi_app: FastAPI, fastapi_client: Test
 
 
 def test_fastapi_proxy_missing_path(fastapi_app: FastAPI, fastapi_client: TestClient) -> None:
-    app = fastapi_app
     logfire.configure(token='test_token', send_to_logfire=False)
-    app.add_route('/logfire-proxy-missing', logfire.forward_export_request_starlette, methods=['POST'])
+    fastapi_app.add_route('/logfire-proxy-missing', logfire.forward_export_request_starlette, methods=['POST'])
 
     response = fastapi_client.post('/logfire-proxy-missing')
     assert response.status_code == 400
