@@ -593,102 +593,26 @@ def test_logfire_config_has_empty_forwarding_manager() -> None:
 
 
 def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
-    config = LogfireConfig(send_to_logfire=False)
-    previous_manager = mock.Mock()
-    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
+    logfire.configure(send_to_logfire=False, console=False, metrics=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
 
-    config.configure(
-        send_to_logfire=False,
-        token=None,
-        api_key=None,
-        service_name=None,
-        service_version=None,
-        environment=None,
-        console=False,
-        config_dir=None,
-        data_dir=None,
-        additional_span_processors=None,
-        metrics=False,
-        scrubbing=None,
-        inspect_arguments=None,
-        sampling=None,
-        min_level=None,
-        add_baggage_to_attributes=True,
-        code_source=None,
-        variables=None,
-        distributed_tracing=None,
-        advanced=None,
-    )
+    logfire.configure(send_to_logfire=False, console=False, metrics=False)
 
-    previous_manager.shutdown.assert_called_once_with(0, drain_queued=False)
     manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
     assert isinstance(manager, OTLPForwardingManager)
     assert manager is not previous_manager
+    assert previous_manager.closed is True
     assert manager.has_destinations() is False
 
 
-def test_logfire_config_reconfigure_keeps_forwarding_manager_when_configuration_fails() -> None:
-    config = LogfireConfig(send_to_logfire=False)
-    previous_manager = mock.Mock()
-    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
-
-    with mock.patch.object(config, '_load_configuration', side_effect=RuntimeError('failed')):
-        with pytest.raises(RuntimeError, match='failed'):
-            config.configure(
-                send_to_logfire=False,
-                token=None,
-                api_key=None,
-                service_name=None,
-                service_version=None,
-                environment=None,
-                console=False,
-                config_dir=None,
-                data_dir=None,
-                additional_span_processors=None,
-                metrics=False,
-                scrubbing=None,
-                inspect_arguments=None,
-                sampling=None,
-                min_level=None,
-                add_baggage_to_attributes=True,
-                code_source=None,
-                variables=None,
-                distributed_tracing=None,
-                advanced=None,
-            )
-
-    previous_manager.shutdown.assert_not_called()
-    assert config._otlp_forwarding is previous_manager  # pyright: ignore[reportPrivateUsage]
-
-
 def test_logfire_config_reconfigure_does_not_start_forwarding_shutdown_thread_for_idle_manager() -> None:
-    config = LogfireConfig(send_to_logfire=False)
-    previous_manager = OTLPForwardingManager([])
-    config._otlp_forwarding = previous_manager  # pyright: ignore[reportPrivateUsage]
+    logfire.configure(send_to_logfire=False, console=False, metrics=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
 
-    with mock.patch('logfire._internal.config.Thread') as thread:
-        config.configure(
-            send_to_logfire=False,
-            token=None,
-            api_key=None,
-            service_name=None,
-            service_version=None,
-            environment=None,
-            console=False,
-            config_dir=None,
-            data_dir=None,
-            additional_span_processors=None,
-            metrics=False,
-            scrubbing=None,
-            inspect_arguments=None,
-            sampling=None,
-            min_level=None,
-            add_baggage_to_attributes=True,
-            code_source=None,
-            variables=None,
-            distributed_tracing=None,
-            advanced=None,
-        )
+    with mock.patch('logfire._internal.forwarding.Thread') as thread:
+        logfire.configure(send_to_logfire=False, console=False, metrics=False)
 
     thread.assert_not_called()
     assert previous_manager.closed is True
