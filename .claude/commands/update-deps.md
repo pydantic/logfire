@@ -10,7 +10,7 @@ git commit -am "chore: Update dependencies"
 
 Run these, make any fixes needed, and commit the results (including automated changes) for each step where there are changes:
 
-make format && make lint && make typecheck && uv run mkdocs build --no-strict
+make format && make lint && make typecheck && make docs
 (usually these all pass without changes)
 
 uv run pytest --inline-snapshot=fix
