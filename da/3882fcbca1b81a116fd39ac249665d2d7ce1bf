@@ -1,0 +1,19 @@
+.claude/commands/update-deps.md
+  s_1882ba2cc1c746::t_d3df2fbbdfb6da 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "da3882fcbca1b81a116fd39ac249665d2d7ce1bf",
+  "prompts": {},
+  "sessions": {
+    "s_1882ba2cc1c746": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e656e-0e76-7610-9497-f7a7752a3216",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
