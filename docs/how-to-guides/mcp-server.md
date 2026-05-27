@@ -58,11 +58,16 @@ For more detailed information, you can check the
 
 ### Claude Code
 
-Run the following command:
+Run the following command to add the Logfire MCP server:
 
 ```bash
 claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp
 ```
+
+Then use the `/mcp` slash command within Claude Code to authenticate with your Logfire account.
+This will open a browser window where you can complete the login process.
+
+For more information, see the [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp#authenticate-with-remote-mcp-servers).
 
 ### Claude Desktop
 
