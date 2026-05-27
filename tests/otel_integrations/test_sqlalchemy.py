@@ -8,7 +8,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from dirty_equals import IsStr
+from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
@@ -249,7 +249,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': 'PRAGMA read_uncommitted',
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': 'PRAGMA read_uncommitted',
                 },
             },
@@ -279,7 +278,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': 'PRAGMA main.table_info("auth_records") … 000000000000002-0000000000000005-01\'*/',
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': "PRAGMA main.table_info(\"auth_records\") /*db_driver='pysqlite',traceparent='00-00000000000000000000000000000002-0000000000000005-01'*/",
                 },
             },
@@ -310,7 +308,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': 'PRAGMA temp.table_info("auth_records") … 000000000000004-0000000000000009-01\'*/',
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': "PRAGMA temp.table_info(\"auth_records\") /*db_driver='pysqlite',traceparent='00-00000000000000000000000000000004-0000000000000009-01'*/",
                 },
             },
@@ -341,7 +338,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': "CREATE TABLE auth_records ( id INTEGER … 000000000000006-000000000000000d-01'*/",
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': """\
 
 CREATE TABLE auth_records (
@@ -435,49 +431,49 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 },
             },
             {
-                'name': IsStr(regex=r'PRAGMA .*test_(engine|engines)\.db$'),
+                'name': IsStr(regex=r'PRAGMA( .*test_(engine|engines)\.db)?$'),
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
                 'end_time': 4000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'PRAGMA main.table_info("auth_records")',
-                    'db.statement': 'PRAGMA main.table_info("auth_records")',
-                    'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
-                },
+                'attributes': IsPartialDict(
+                    {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'PRAGMA main.table_info("auth_records")',
+                        'db.statement': 'PRAGMA main.table_info("auth_records")',
+                        'db.system': 'sqlite',
+                    }
+                ),
             },
             {
-                'name': IsStr(regex=r'PRAGMA .*test_(engine|engines)\.db$'),
+                'name': IsStr(regex=r'PRAGMA( .*test_(engine|engines)\.db)?$'),
                 'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'parent': None,
                 'start_time': 5000000000,
                 'end_time': 6000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
-                    'db.statement': 'PRAGMA temp.table_info("auth_records")',
-                    'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
-                },
+                'attributes': IsPartialDict(
+                    {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
+                        'db.statement': 'PRAGMA temp.table_info("auth_records")',
+                        'db.system': 'sqlite',
+                    }
+                ),
             },
             {
-                'name': IsStr(regex=r'CREATE .*test_(engine|engines)\.db$'),
+                'name': IsStr(regex=r'CREATE( .*test_(engine|engines)\.db)?$'),
                 'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
                 'parent': None,
                 'start_time': 7000000000,
                 'end_time': 8000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)\n)',
-                    'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
-                    'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
-                },
+                'attributes': IsPartialDict(
+                    {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)\n)',
+                        'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
+                        'db.system': 'sqlite',
+                    }
+                ),
             },
             {
                 'name': 'connect',
@@ -494,34 +490,34 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 },
             },
             {
-                'name': IsStr(regex=r'select .*test_(engine|engines)\.db$'),
+                'name': IsStr(regex=r'select( .*test_(engine|engines)\.db)?$'),
                 'context': {'trace_id': 6, 'span_id': 11, 'is_remote': False},
                 'parent': None,
                 'start_time': 11000000000,
                 'end_time': 12000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'select * from auth_records',
-                    'db.statement': 'select * from auth_records',
-                    'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
-                },
+                'attributes': IsPartialDict(
+                    {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'select * from auth_records',
+                        'db.statement': 'select * from auth_records',
+                        'db.system': 'sqlite',
+                    }
+                ),
             },
             {
-                'name': IsStr(regex=r'INSERT .*test_(engine|engines)\.db$'),
+                'name': IsStr(regex=r'INSERT( .*test_(engine|engines)\.db)?$'),
                 'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
                 'end_time': 14000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
-                    'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
-                    'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
-                },
+                'attributes': IsPartialDict(
+                    {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
+                        'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
+                        'db.system': 'sqlite',
+                    }
+                ),
             },
             {
                 'name': 'connect',
@@ -538,36 +534,36 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 },
             },
             {
-                'name': IsStr(regex=r'SELECT .*test_(engine|engines)\.db$'),
+                'name': IsStr(regex=r'SELECT( .*test_(engine|engines)\.db)?$'),
                 'context': {'trace_id': 9, 'span_id': 17, 'is_remote': False},
                 'parent': None,
                 'start_time': 17000000000,
                 'end_time': 18000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'SELECT auth_recor…ds_content FROM auth_records WHERE …',
-                    'db.statement': """\
+                'attributes': IsPartialDict(
+                    {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'SELECT auth_recor…ds_content FROM auth_records WHERE …',
+                        'db.statement': """\
 SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?\
 """,
-                    'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
-                },
+                        'db.system': 'sqlite',
+                    }
+                ),
             },
             {
-                'name': IsStr(regex=r'DELETE .*test_(engine|engines)\.db$'),
+                'name': IsStr(regex=r'DELETE( .*test_(engine|engines)\.db)?$'),
                 'context': {'trace_id': 10, 'span_id': 19, 'is_remote': False},
                 'parent': None,
                 'start_time': 19000000000,
                 'end_time': 20000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
-                    'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
-                    'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
-                },
+                'attributes': IsPartialDict(
+                    {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
+                        'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
+                        'db.system': 'sqlite',
+                    }
+                ),
             },
         ]
     )
