@@ -49,39 +49,41 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
 
 def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_system_metrics(base='full')
-    expected_metric_names = [
-        'cpython.gc.collected_objects',
-        'cpython.gc.collections',
-        'cpython.gc.uncollectable_objects',
-        'process.context_switches',
-        'process.cpu.core_utilization',
-        'process.cpu.time',
-        'process.cpu.utilization',
-        'process.memory.usage',
-        'process.memory.virtual',
-        'process.open_file_descriptor.count',
-        'process.runtime.cpython.gc_count',
-        'process.thread.count',
-        'system.cpu.simple_utilization',
-        'system.cpu.time',
-        'system.cpu.utilization',
-        'system.disk.io',
-        'system.disk.operations',
-        'system.disk.time',
-        'system.memory.usage',
-        'system.memory.utilization',
-        'system.network.dropped_packets',
-        'system.network.errors',
-        'system.network.io',
-        'system.network.packets',
-        'system.swap.usage',
-        'system.swap.utilization',
-        'system.thread_count',
-    ]
+    collected_metric_names = get_collected_metric_names(metrics_reader)
     if process_disk_io_supported():
-        expected_metric_names.insert(7, 'process.disk.io')
+        collected_metric_names.pop(collected_metric_names.index('process.disk.io'))
 
-    assert get_collected_metric_names(metrics_reader) == expected_metric_names
+    assert collected_metric_names == snapshot(
+        [
+            'cpython.gc.collected_objects',
+            'cpython.gc.collections',
+            'cpython.gc.uncollectable_objects',
+            'process.context_switches',
+            'process.cpu.core_utilization',
+            'process.cpu.time',
+            'process.cpu.utilization',
+            'process.memory.usage',
+            'process.memory.virtual',
+            'process.open_file_descriptor.count',
+            'process.runtime.cpython.gc_count',
+            'process.thread.count',
+            'system.cpu.simple_utilization',
+            'system.cpu.time',
+            'system.cpu.utilization',
+            'system.disk.io',
+            'system.disk.operations',
+            'system.disk.time',
+            'system.memory.usage',
+            'system.memory.utilization',
+            'system.network.dropped_packets',
+            'system.network.errors',
+            'system.network.io',
+            'system.network.packets',
+            'system.swap.usage',
+            'system.swap.utilization',
+            'system.thread_count',
+        ]
+    )
 
 
 def test_measure_process_runtime_cpu_utilization(metrics_reader: InMemoryMetricReader) -> None:
