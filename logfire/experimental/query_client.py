@@ -150,22 +150,6 @@ class _BaseLogfireQueryClient(Generic[T]):
         headers.setdefault('user-agent', _USER_AGENT)
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
-    def _build_query_params(
-        self,
-        sql: str,
-        min_timestamp: datetime | None,
-        max_timestamp: datetime | None,
-        limit: int | None,
-    ) -> dict[str, str]:
-        params: dict[str, str] = {'sql': sql}
-        if limit is not None:
-            params['limit'] = str(limit)
-        if min_timestamp is not None:
-            params['min_timestamp'] = min_timestamp.isoformat()
-        if max_timestamp is not None:
-            params['max_timestamp'] = max_timestamp.isoformat()
-        return params
-
     def _build_v2_body(
         self,
         sql: str,
@@ -339,8 +323,8 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
-                query rows where no environment is set, use the empty string (`''`).
+            environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
+                use the empty string (`''`).
 
         Returns:
             A dictionary with two entries:
@@ -429,15 +413,15 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
-                query rows where no environment is set, use the empty string (`''`).
+            environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
+                use the empty string (`''`).
         """
         try:
             import pyarrow
         except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
-        if min_timestamp is None:
+        if min_timestamp is None:  # pragma: no branch
             warnings.warn(
                 'Using query_arrow() without a min_timestamp is deprecated',
                 DeprecationWarning,
@@ -519,8 +503,8 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
-                query rows where no environment is set, use the empty string (`''`).
+            environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
+                use the empty string (`''`).
         """
         if min_timestamp is None:
             warnings.warn(
@@ -689,8 +673,8 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
-                query rows where no environment is set, use the empty string (`''`).
+            environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
+                use the empty string (`''`).
         """
         if min_timestamp is None:
             warnings.warn(
@@ -774,15 +758,15 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
-                query rows where no environment is set, use the empty string (`''`).
+            environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
+                use the empty string (`''`).
         """
         try:
             import pyarrow
         except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
-        if min_timestamp is None:
+        if min_timestamp is None:  # pragma: no branch
             warnings.warn(
                 'Using query_arrow() without a min_timestamp is deprecated',
                 DeprecationWarning,
@@ -864,8 +848,8 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
-                query rows where no environment is set, use the empty string (`''`).
+            environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
+                use the empty string (`''`).
         """
         if min_timestamp is None:
             warnings.warn(

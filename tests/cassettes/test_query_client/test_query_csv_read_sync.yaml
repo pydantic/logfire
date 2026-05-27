@@ -1,19 +1,18 @@
 interactions:
 - request:
-    body: '{"sql":"\n    SELECT count(*) AS n\n    FROM records\n    WHERE span_name
-      = $name\n    ","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00","params":{"name":"''aha
-      {n}''"}}'
+    body: '{"sql":"\n        SELECT kind, message, is_exception, tags\n        FROM
+      records\n        ORDER BY is_exception, message\n        LIMIT 2\n        ","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00"}'
     headers:
       Connection:
       - keep-alive
       Content-Length:
-      - '201'
+      - '231'
       Content-Type:
       - application/json
       Host:
       - localhost:3000
       accept:
-      - application/json
+      - text/csv
       accept-encoding:
       - identity
       user-agent:
@@ -23,7 +22,13 @@ interactions:
     uri: http://localhost:3000/v2/query
   response:
     body:
-      string: '{"schema":{"fields":[{"name":"n","data_type":"Int64","nullable":false}],"metadata":{}},"data":[{"n":36}]}'
+      string: 'kind,message,is_exception,tags
+
+        log,about to raise an error,false,[]
+
+        log,aha 0,false,"[""tag1"",""tag2""]"
+
+        '
     headers:
       Connection:
       - keep-alive
