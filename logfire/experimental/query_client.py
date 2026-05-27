@@ -124,7 +124,7 @@ def _map_v2_result(obj: dict[str, Any]) -> RowQueryResultsV2:
         'columns': _transform_fields_for_backwards_compatibility(obj['schema']['fields']),
         'rows': obj['data'],
     }
-    if 'logical_plan' in obj:
+    if 'logical_plan' in obj:  # pragma: no cover (plan option not provided for now)
         # All the plan keys are guaranteed to be present:
         for k in ['logical_plan', 'physical_plan', 'physical_plan_with_metrics']:
             mapped[k] = obj[k]
@@ -156,11 +156,8 @@ class _BaseLogfireQueryClient(Generic[T]):
         min_timestamp: datetime | None,
         max_timestamp: datetime | None,
         limit: int | None,
-        accept: _ACCEPT,
     ) -> dict[str, str]:
         params: dict[str, str] = {'sql': sql}
-        if accept == 'application/json':
-            params['json_rows'] = 'true'
         if limit is not None:
             params['limit'] = str(limit)
         if min_timestamp is not None:
@@ -421,7 +418,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         limit: int | None = None,
     ) -> Response:
         params = self._build_query_params(
-            sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
+            sql=sql, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
         )
         response = self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
@@ -655,7 +652,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         limit: int | None = None,
     ) -> Response:
         params = self._build_query_params(
-            sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
+            sql=sql, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
         )
         response = await self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
