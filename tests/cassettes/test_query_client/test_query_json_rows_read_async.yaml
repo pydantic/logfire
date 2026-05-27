@@ -1,0 +1,162 @@
+interactions:
+- request:
+    body: '{"sql":"\n        SELECT kind, message, is_exception, tags\n        FROM
+      records\n        ORDER BY is_exception, message\n        LIMIT 2\n        ","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '231'
+      Content-Type:
+      - application/json
+      Host:
+      - localhost:3000
+      accept:
+      - application/json
+      accept-encoding:
+      - identity
+      user-agent:
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: POST
+    uri: http://localhost:3000/v2/query
+  response:
+    body:
+      string: '{"schema":{"fields":[{"name":"kind","data_type":"Utf8","nullable":false},{"name":"message","data_type":"Utf8","nullable":false},{"name":"is_exception","data_type":"Boolean","nullable":true},{"name":"tags","data_type":{"List":{"name":"item","data_type":"Utf8","nullable":true,"dict_id":0,"dict_is_ordered":false,"metadata":{}}},"nullable":true}],"metadata":{}},"data":[{"kind":"log","message":"about
+        to raise an error","is_exception":false,"tags":[]},{"kind":"log","message":"aha
+        0","is_exception":false,"tags":["tag1","tag2"]}]}'
+    headers:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 14:55:56 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
+      - chunked
+      vary:
+      - accept-encoding
+      x-logfire-context:
+      - viicos/logfire-sdk-cassettes
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      Connection:
+      - keep-alive
+      Host:
+      - localhost:3000
+      accept:
+      - text/csv
+      accept-encoding:
+      - identity
+      user-agent:
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: GET
+    uri: http://localhost:3000/v1/query?sql=%0A++++++++SELECT+kind%2C+message%2C+is_exception%2C+tags%0A++++++++FROM+records%0A++++++++ORDER+BY+is_exception%2C+message%0A++++++++LIMIT+2%0A++++++++
+  response:
+    body:
+      string: 'kind,message,is_exception,tags
+
+        log,about to raise an error,false,[]
+
+        log,aha 0,false,"[""tag1"",""tag2""]"
+
+        '
+    headers:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 14:55:56 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
+      - chunked
+      access-control-expose-headers:
+      - traceresponse
+      content-disposition:
+      - attachment; filename="query_results.csv"
+      traceresponse:
+      - 00-019e69ef63d165b48da9dd6d5fe2b260-781471e4b116a4aa-01
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - XNuUaS53WJzoBapWPMoe9cCX5eaMgtL4J1HFv8giPCU=
+      x-logfire-context:
+      - viicos/logfire-sdk-cassettes
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      Connection:
+      - keep-alive
+      Host:
+      - localhost:3000
+      accept:
+      - application/vnd.apache.arrow.stream
+      accept-encoding:
+      - identity
+      user-agent:
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: GET
+    uri: http://localhost:3000/v1/query?sql=%0A++++++++SELECT+kind%2C+message%2C+is_exception%2C+tags%0A++++++++FROM+records%0A++++++++ORDER+BY+is_exception%2C+message%0A++++++++LIMIT+2%0A++++++++
+  response:
+    body:
+      string: !!binary |
+        /////zgBAAAQAAAAAAAKAAwACgAJAAQACgAAABAAAAAAAQQACAAIAAAABAAIAAAABAAAAAQAAADc
+        AAAAoAAAAGwAAAAEAAAArP///xgAAAAMAAAAAAABDDgAAAABAAAACAAAADj////M////FAAAAAwA
+        AAAAAAEFDAAAAAAAAABU////BAAAAGl0ZW0AAAAABAAAAHRhZ3MAAAAAEAAUABAADgAPAAQAAAAI
+        ABAAAAAUAAAADAAAAAAAAQYMAAAAAAAAAJj///8MAAAAaXNfZXhjZXB0aW9uAAAAANj///8UAAAA
+        DAAAAAAAAAUMAAAAAAAAAMj///8HAAAAbWVzc2FnZQAQABQAEAAAAA8ABAAAAAgAEAAAABgAAAAM
+        AAAAAAAABRAAAAAAAAAABAAEAAQAAAAEAAAAa2luZAAAAAD/////eAEAABAAAAAMABoAGAAXAAQA
+        CAAMAAAAIAAAAEADAAAAAAAAAAAAAAAAAAMEAAoAGAAMAAgABAAKAAAAbAAAABAAAAACAAAAAAAA
+        AAAAAAAFAAAAAgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAA
+        AgAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAADQAAAAAAAAAAAAAAAQAAAAAAAABA
+        AAAAAAAAAAwAAAAAAAAAgAAAAAAAAAAGAAAAAAAAAMAAAAAAAAAAAQAAAAAAAAAAAQAAAAAAAAwA
+        AAAAAAAAQAEAAAAAAAAcAAAAAAAAAIABAAAAAAAAAQAAAAAAAADAAQAAAAAAAAEAAAAAAAAAAAIA
+        AAAAAAABAAAAAAAAAEACAAAAAAAADAAAAAAAAACAAgAAAAAAAAEAAAAAAAAAwAIAAAAAAAAMAAAA
+        AAAAAAADAAAAAAAACAAAAAAAAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGxvZ2xvZwAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/AAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABcAAAAc
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGFi
+        b3V0IHRvIHJhaXNlIGFuIGVycm9yYWhhIDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAACAAAAAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0YWcxdGFnMgAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////
+        /wAAAAA=
+    headers:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 14:55:56 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
+      - chunked
+      access-control-expose-headers:
+      - traceresponse
+      traceresponse:
+      - 00-019e69ef63e7e8515a9c7f3065b4dc10-8a803ef01af8a084-01
+      vary:
+      - Accept-Encoding
+      x-api-version:
+      - XNuUaS53WJzoBapWPMoe9cCX5eaMgtL4J1HFv8giPCU=
+      x-logfire-context:
+      - viicos/logfire-sdk-cassettes
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import platform
+import sys
+import warnings
 from datetime import datetime, timezone
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, overload
@@ -9,6 +11,11 @@ from typing_extensions import Self, deprecated
 
 from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
+
+if sys.version_info >= (3, 11):
+    from datetime import UTC
+else:
+    UTC = timezone.utc
 
 try:
     from httpx import AsyncClient, Client, Response, Timeout
@@ -81,7 +88,6 @@ class RowQueryResultsV2(TypedDict):
     rows: list[dict[str, Any]]
 
 
-
 def _rows_to_columns(result: RowQueryResults) -> QueryResults:
     """Convert a row-oriented JSON query result to a column-oriented one."""
     columns_by_name: dict[str, ColumnData] = {col['name']: {**col, 'values': []} for col in result['columns']}
@@ -131,7 +137,7 @@ T = TypeVar('T', bound=BaseClient)
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
 _USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
-_MIN_DATETIME = datetime(2020, 1, 1, tzinfo=timezone.utc)
+_MIN_DATETIME = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -178,9 +184,19 @@ class _BaseLogfireQueryClient(Generic[T]):
 
         if limit is not None:
             body['limit'] = limit
-        body['min_timestamp'] = min_timestamp.isoformat() if min_timestamp is not None else _MIN_DATETIME
+
+        # /v2/query requires aware datetimes, assume UTC:
+        if min_timestamp is not None:
+            if min_timestamp.tzinfo is None:
+                min_timestamp = min_timestamp.replace(tzinfo=UTC)
+            body['min_timestamp'] = min_timestamp.isoformat()
+        else:
+            body['min_timestamp'] = _MIN_DATETIME
         if max_timestamp is not None:
+            if max_timestamp.tzinfo is None:
+                max_timestamp = max_timestamp.replace(tzinfo=UTC)
             body['max_timestamp'] = max_timestamp.isoformat()
+
         if params is not None:
             body['params'] = params
         if timezone is not None:
@@ -192,10 +208,17 @@ class _BaseLogfireQueryClient(Generic[T]):
         return body
 
     def handle_response_errors(self, response: Response) -> None:
+        # Note: the MDN spec does not specify any default for content types,
+        # although it is common to assume `application/octet-stream`.
+        # In our case, our API isn't supposed to return binary data, so
+        # we assume text/plain if not set.
+        content_type = response.headers.get('content-type', 'text/plain')
         if response.status_code == 400:  # pragma: no cover
-            raise QueryExecutionError(response.json())
+            data = response.json() if content_type == 'application/json' else response.text
+            raise QueryExecutionError(data)
         if response.status_code == 422:  # pragma: no cover
-            raise QueryRequestError(response.json())
+            data = response.json() if content_type == 'application/json' else response.text
+            raise QueryRequestError(data)
         assert response.status_code == 200, response.content
 
 
@@ -249,12 +272,14 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
-        row_results = self.query_json_rows(  # type: ignore[reportDeprecated]
-            sql=sql,
-            min_timestamp=min_timestamp,
-            max_timestamp=max_timestamp,
-            limit=limit,
-        )
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message='Using query_json_rows.*', category=DeprecationWarning)
+            row_results = self.query_json_rows(  # type: ignore[reportDeprecated]
+                sql=sql,
+                min_timestamp=min_timestamp,
+                max_timestamp=max_timestamp,
+                limit=limit,
+            )
         return _rows_to_columns(row_results)
 
     # Note: on the next major version, move the keyword-only marker after `sql`:
@@ -296,7 +321,35 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResultsV2:
-        """Query Logfire data and return the results as a row-oriented dictionary."""
+        """Query Logfire data and return the results as a row-oriented dictionary.
+
+        Args:
+            sql: The SQL `SELECT` query to execute.
+            min_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+
+                /// version-deprecated | v3.35.0
+                Not providing a `min_timestamp` is deprecated.
+                ///
+            max_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+            limit: The maximum number of rows to query. This value takes priority over the
+                `LIMIT` clause in the `sql` query.
+            params: Parameters to be used for substitution of prepared statements. For instance,
+                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
+                to provide `{'svc': "'my_service'"}` as `params`.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+                query rows where no environment is set, use the empty string (`''`).
+        """
+        if min_timestamp is None:
+            warnings.warn(
+                'Using query_json_rows() without a min_timestamp is deprecated',
+                DeprecationWarning,
+                stacklevel=2,
+            )
         response = self._query_v2(
             accept='application/json',
             sql=sql,
@@ -444,6 +497,35 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 'The read token info response is missing required fields: organization_name or project_name'
             )
 
+    # Note: on the next major version, move the keyword-only marker after `sql`:
+    @overload
+    @deprecated('Using query_json_rows() without a min_timestamp is deprecated')
+    async def query_json_rows(
+        self,
+        sql: str,
+        min_timestamp: None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> RowQueryResultsV2: ...
+
+    @overload
+    async def query_json_rows(
+        self,
+        sql: str,
+        min_timestamp: datetime,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> RowQueryResultsV2: ...
+
+    @deprecated('query_json() is deprecated, use query_json_rows() instead', stacklevel=2)
     async def query_json(
         self,
         sql: str,
@@ -452,12 +534,14 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
-        row_results = await self.query_json_rows(
-            sql=sql,
-            min_timestamp=min_timestamp,
-            max_timestamp=max_timestamp,
-            limit=limit,
-        )
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message='Using query_json_rows.*', category=DeprecationWarning)
+            row_results = await self.query_json_rows(  # type: ignore[reportDeprecated]
+                sql=sql,
+                min_timestamp=min_timestamp,
+                max_timestamp=max_timestamp,
+                limit=limit,
+            )
         return _rows_to_columns(row_results)
 
     async def query_json_rows(
@@ -466,16 +550,52 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-    ) -> RowQueryResults:
-        """Query Logfire data and return the results as a row-oriented dictionary."""
-        response = await self._query(
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> RowQueryResultsV2:
+        """Query Logfire data and return the results as a row-oriented dictionary.
+
+        Args:
+            sql: The SQL `SELECT` query to execute.
+            min_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+
+                /// version-deprecated | v3.35.0
+                Not providing a `min_timestamp` is deprecated.
+                ///
+            max_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+            limit: The maximum number of rows to query. This value takes priority over the
+                `LIMIT` clause in the `sql` query.
+            params: Parameters to be used for substitution of prepared statements. For instance,
+                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
+                to provide `{'svc': "'my_service'"}` as `params`.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+                query rows where no environment is set, use the empty string (`''`).
+        """
+        if min_timestamp is None:
+            warnings.warn(
+                'Using query_json_rows() without a min_timestamp is deprecated',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        response = await self._query_v2(
             accept='application/json',
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
+            params=params,
+            timezone=timezone,
+            environment=environment,
+            explain=False,  # Note: we can expose this in the future
         )
-        return response.json()
+        return _map_v2_result(response.json())
 
     async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
         self,
@@ -538,5 +658,33 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
         )
         response = await self.client.get('/v1/query', headers={'accept': accept}, params=params)
+        self.handle_response_errors(response)
+        return response
+
+    async def _query_v2(
+        self,
+        *,
+        accept: _ACCEPT,
+        sql: str,
+        min_timestamp: datetime | None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+        explain: bool = False,
+    ) -> Response:
+
+        body = self._build_v2_body(
+            sql=sql,
+            min_timestamp=min_timestamp,
+            max_timestamp=max_timestamp,
+            limit=limit,
+            params=params,
+            timezone=timezone,
+            environment=environment,
+            explain=explain,
+        )
+        response = await self.client.post('/v2/query', headers={'accept': accept}, json=body)
         self.handle_response_errors(response)
         return response
