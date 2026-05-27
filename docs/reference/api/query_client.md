@@ -2,7 +2,6 @@
     options:
         members:
           - info
-          - query_json
           - query_json_rows
           - query_arrow
           - query_csv
@@ -11,7 +10,6 @@
     options:
         members:
           - info
-          - query_json
           - query_json_rows
           - query_arrow
           - query_csv

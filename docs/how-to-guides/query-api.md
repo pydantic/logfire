@@ -60,9 +60,9 @@ from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 
 ### Client Usage Examples
 
-The `AsyncLogfireQueryClient` allows for asynchronous interaction with the Logfire API.
-If blocking I/O is acceptable and you want to avoid the complexities of asynchronous programming,
-you can use the plain `LogfireQueryClient`.
+The [`AsyncLogfireQueryClient`][logfire.query_client.AsyncLogfireQueryClient] allows for asynchronous interaction with
+the Logfire API. If blocking I/O is acceptable and you want to avoid the complexities of asynchronous programming,
+you can use the plain [`LogfireQueryClient`][logfire.query_client.LogfireQueryClient].
 
 Here's an example of how to use these clients:
 

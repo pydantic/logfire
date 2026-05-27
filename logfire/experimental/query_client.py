@@ -210,11 +210,12 @@ class _BaseLogfireQueryClient(Generic[T]):
         # In our case, our API isn't supposed to return binary data, so
         # we assume text/plain if not set.
         content_type = response.headers.get('content-type', 'text/plain')
+        media_type = content_type.split(';', 1)[0].strip().lower()
         if response.status_code == 400:  # pragma: no cover
-            data = response.json() if content_type == 'application/json' else response.text
+            data = response.json() if media_type == 'application/json' else response.text
             raise QueryExecutionError(data)
         if response.status_code == 422:  # pragma: no cover
-            data = response.json() if content_type == 'application/json' else response.text
+            data = response.json() if media_type == 'application/json' else response.text
             raise QueryRequestError(data)
         assert response.status_code == 200, response.content
 
@@ -329,7 +330,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 /// version-deprecated | v3.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
-            max_timestamp: The minimum timestamp to use when querying data. If the provided
+            max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
@@ -338,7 +339,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
                 query rows where no environment is set, use the empty string (`''`).
 
         Returns:
@@ -419,7 +420,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 /// version-deprecated | v3.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
-            max_timestamp: The minimum timestamp to use when querying data. If the provided
+            max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
@@ -428,7 +429,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
                 query rows where no environment is set, use the empty string (`''`).
         """
         try:
@@ -509,7 +510,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 /// version-deprecated | v3.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
-            max_timestamp: The minimum timestamp to use when querying data. If the provided
+            max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
@@ -518,7 +519,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
                 query rows where no environment is set, use the empty string (`''`).
         """
         if min_timestamp is None:
@@ -539,21 +540,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             explain=False,  # Note: we can expose this in the future
         )
         return response.text
-
-    def _query(
-        self,
-        accept: _ACCEPT,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-    ) -> Response:
-        params = self._build_query_params(
-            sql=sql, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
-        )
-        response = self.client.get('/v1/query', headers={'accept': accept}, params=params)
-        self.handle_response_errors(response)
-        return response
 
     def _query_v2(
         self,
@@ -694,7 +680,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 /// version-deprecated | v3.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
-            max_timestamp: The minimum timestamp to use when querying data. If the provided
+            max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
@@ -703,7 +689,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
                 query rows where no environment is set, use the empty string (`''`).
         """
         if min_timestamp is None:
@@ -779,7 +765,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 /// version-deprecated | v3.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
-            max_timestamp: The minimum timestamp to use when querying data. If the provided
+            max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
@@ -788,7 +774,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
                 query rows where no environment is set, use the empty string (`''`).
         """
         try:
@@ -869,7 +855,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 /// version-deprecated | v3.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
-            max_timestamp: The minimum timestamp to use when querying data. If the provided
+            max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
@@ -878,7 +864,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
                 to provide `{'svc': "'my_service'"}` as `params`.
             timezone: The timezone to use for the query execution context.
-            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+            environment: Restrict rows to the provided [environment(s)](../../manage/environments.md). To only
                 query rows where no environment is set, use the empty string (`''`).
         """
         if min_timestamp is None:
@@ -899,21 +885,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             explain=False,  # Note: we can expose this in the future
         )
         return response.text
-
-    async def _query(
-        self,
-        accept: Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv'],
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-    ) -> Response:
-        params = self._build_query_params(
-            sql=sql, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
-        )
-        response = await self.client.get('/v1/query', headers={'accept': accept}, params=params)
-        self.handle_response_errors(response)
-        return response
 
     async def _query_v2(
         self,
