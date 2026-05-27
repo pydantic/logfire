@@ -340,6 +340,11 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided [environment(s)](../environments.md). To only
                 query rows where no environment is set, use the empty string (`''`).
+
+        Returns:
+            A dictionary with two entries:
+              * `columns`: A list of column details including the name, datatype and whether the column is nullable.
+              * `rows`: The list of rows matching the query.
         """
         if min_timestamp is None:
             warnings.warn(

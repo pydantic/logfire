@@ -77,7 +77,7 @@ class NotSupportedError(DatabaseError):
 # Defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_LIMIT = 10_000  # server-side maximum
+DEFAULT_LIMIT = 10_000
 DEFAULT_MIN_TIMESTAMP_AGE = timedelta(days=1)
 
 

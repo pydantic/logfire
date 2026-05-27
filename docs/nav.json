@@ -148,7 +148,8 @@
               { "label": "Exceptions", "link": "/logfire/api/exceptions/" },
               { "label": "Pydantic", "link": "/logfire/api/pydantic/" },
               { "label": "Types", "link": "/logfire/api/types/" },
-              { "label": "Datasets", "link": "/logfire/api/datasets/" }
+              { "label": "Datasets", "link": "/logfire/api/datasets/" },
+              { "label": "Query client", "link": "/logfire/api/query_client/" }
             ]
           },
           { "label": "CLI", "link": "/logfire/reference/cli/" },
