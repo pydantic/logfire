@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Iterable
 from platform import python_implementation
-from typing import TYPE_CHECKING, Literal, Optional, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
 
@@ -49,6 +49,7 @@ MetricName: type[
         'process.cpu.time',
         'process.cpu.utilization',
         'process.cpu.core_utilization',
+        'process.disk.io',
         'process.memory.usage',
         'process.memory.virtual',
         'process.thread.count',
@@ -79,6 +80,7 @@ MetricName: type[
     'process.cpu.time',
     'process.cpu.utilization',
     'process.cpu.core_utilization',
+    'process.disk.io',
     'process.memory.usage',
     'process.memory.virtual',
     'process.thread.count',
@@ -88,7 +90,7 @@ MetricName: type[
     'cpython.gc.uncollectable_objects',
 ]
 
-Config = dict[MetricName, Optional[Iterable[str]]]
+Config = dict[MetricName, Iterable[str] | None]
 
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).

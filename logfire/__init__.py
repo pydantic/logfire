@@ -75,6 +75,8 @@ with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
 url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
+forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
+forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
 
 # Logging
 log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -213,4 +215,6 @@ __all__ = (
     'get_context',
     'attach_context',
     'url_from_eval',
+    'forward_export_request',
+    'forward_export_request_starlette',
 )

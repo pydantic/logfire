@@ -6,6 +6,7 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 from logfire.variables.abstract import (
+    ResolutionReason,
     ResolvedVariable,
     SyncMode,
     ValidationReport,
@@ -71,6 +72,7 @@ __all__ = [
     # Context managers and utilities
     'targeting_context',
     # Types
+    'ResolutionReason',
     'SyncMode',
     'ValidationReport',
     # Exceptions

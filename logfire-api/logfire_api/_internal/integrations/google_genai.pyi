@@ -2,8 +2,7 @@ import logfire
 from _typeshed import Incomplete
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors, safe_repr as safe_repr
 from opentelemetry._logs import LogRecord, Logger, LoggerProvider
-from typing import Any
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias
 
 original_flatten_compound_value: Incomplete
 
