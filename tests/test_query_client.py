@@ -180,12 +180,16 @@ def test_query_json_rows_read_sync():
                 ],
             }
         )
-        assert client.query_csv(sql) == snapshot("""\
+        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
+            csv_result = client.query_csv(sql)  # type: ignore[reportDeprecated]
+        assert csv_result == snapshot("""\
 kind,message,is_exception,tags
 log,about to raise an error,false,[]
 log,aha 0,false,"[""tag1"",""tag2""]"
 """)
-        assert client.query_arrow(sql).to_pylist() == snapshot(  # type: ignore
+        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
+            arrow_result = client.query_arrow(sql)  # type: ignore[reportDeprecated]
+        assert arrow_result.to_pylist() == snapshot(  # type: ignore
             [
                 {
                     'kind': 'log',
@@ -292,12 +296,16 @@ async def test_query_json_rows_read_async():
                 ],
             }
         )
-        assert await client.query_csv(sql) == snapshot("""\
+        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
+            csv_result = await client.query_csv(sql)  # type: ignore[reportDeprecated]
+        assert csv_result == snapshot("""\
 kind,message,is_exception,tags
 log,about to raise an error,false,[]
 log,aha 0,false,"[""tag1"",""tag2""]"
 """)
-        assert (await client.query_arrow(sql)).to_pylist() == snapshot(  # type: ignore
+        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
+            arrow_result = await client.query_arrow(sql)  # type: ignore[reportDeprecated]
+        assert arrow_result.to_pylist() == snapshot(  # type: ignore
             [
                 {
                     'kind': 'log',
@@ -316,6 +324,9 @@ log,aha 0,false,"[""tag1"",""tag2""]"
 
 
 def test_query_params_sync():
+    # `_MIN_DATETIME` matches the SDK's default min_timestamp, so the request body
+    # (and the recorded cassette) is identical to omitting `min_timestamp`.
+    min_ts = datetime(2020, 1, 1, tzinfo=timezone.utc)
     with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS) as client:
         sql = """
         SELECT is_exception, count(*)
@@ -323,7 +334,7 @@ def test_query_params_sync():
         GROUP BY is_exception
         ORDER BY is_exception
         """
-        assert client.query_csv(sql) == snapshot("""\
+        assert client.query_csv(sql, min_timestamp=min_ts) == snapshot("""\
 is_exception,count(*)
 false,37
 true,1
@@ -331,10 +342,10 @@ true,1
         assert client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
 is_exception,count(*)
 """)
-        assert client.query_csv(sql, max_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
+        assert client.query_csv(sql, min_timestamp=min_ts, max_timestamp=min_ts) == snapshot("""\
 is_exception,count(*)
 """)
-        assert client.query_csv(sql, limit=1) == snapshot("""\
+        assert client.query_csv(sql, min_timestamp=min_ts, limit=1) == snapshot("""\
 is_exception,count(*)
 false,37
 """)
@@ -342,6 +353,9 @@ false,37
 
 @pytest.mark.anyio
 async def test_query_params_async():
+    # `_MIN_DATETIME` matches the SDK's default min_timestamp, so the request body
+    # (and the recorded cassette) is identical to omitting `min_timestamp`.
+    min_ts = datetime(2020, 1, 1, tzinfo=timezone.utc)
     async with AsyncLogfireQueryClient(
         read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS
     ) as client:
@@ -351,7 +365,7 @@ async def test_query_params_async():
         GROUP BY is_exception
         ORDER BY is_exception
         """
-        assert await client.query_csv(sql) == snapshot("""\
+        assert await client.query_csv(sql, min_timestamp=min_ts) == snapshot("""\
 is_exception,count(*)
 false,37
 true,1
@@ -359,10 +373,10 @@ true,1
         assert await client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
 is_exception,count(*)
 """)
-        assert await client.query_csv(sql, max_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
+        assert await client.query_csv(sql, min_timestamp=min_ts, max_timestamp=min_ts) == snapshot("""\
 is_exception,count(*)
 """)
-        assert await client.query_csv(sql, limit=1) == snapshot("""\
+        assert await client.query_csv(sql, min_timestamp=min_ts, limit=1) == snapshot("""\
 is_exception,count(*)
 false,37
 """)

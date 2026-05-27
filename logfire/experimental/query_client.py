@@ -365,34 +365,125 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         )
         return _map_v2_result(response.json())
 
+    # Note: on the next major version, move the keyword-only marker after `sql`:
+    @overload
+    @deprecated('Using query_arrow() without a min_timestamp is deprecated')
+    def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+        self,
+        sql: str,
+        min_timestamp: None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> Table: ...
+
+    @overload
+    def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+        self,
+        sql: str,
+        min_timestamp: datetime,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> Table: ...
+
     def query_arrow(  # pyright: ignore[reportUnknownParameterType]
         self,
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
     ) -> Table:
         """Query Logfire data and return the results as a pyarrow Table.
 
         Note that pyarrow must be installed for this method to succeed.
 
         You can use `polars.from_arrow(result)` to convert the returned table to a polars DataFrame.
+
+        Args:
+            sql: The SQL `SELECT` query to execute.
+            min_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+
+                /// version-deprecated | v3.35.0
+                Not providing a `min_timestamp` is deprecated.
+                ///
+            max_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+            limit: The maximum number of rows to query. This value takes priority over the
+                `LIMIT` clause in the `sql` query.
+            params: Parameters to be used for substitution of prepared statements. For instance,
+                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
+                to provide `{'svc': "'my_service'"}` as `params`.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+                query rows where no environment is set, use the empty string (`''`).
         """
         try:
             import pyarrow
         except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
-        response = self._query(
+        if min_timestamp is None:
+            warnings.warn(
+                'Using query_arrow() without a min_timestamp is deprecated',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        response = self._query_v2(
             accept='application/vnd.apache.arrow.stream',
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
+            params=params,
+            timezone=timezone,
+            environment=environment,
+            explain=False,  # Note: we can expose this in the future
         )
         with pyarrow.ipc.open_stream(response.content) as reader:
             arrow_table: Table = reader.read_all()
         return arrow_table  # pyright: ignore[reportUnknownVariableType]
+
+    # Note: on the next major version, move the keyword-only marker after `sql`:
+    @overload
+    @deprecated('Using query_csv() without a min_timestamp is deprecated')
+    def query_csv(
+        self,
+        sql: str,
+        min_timestamp: None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> str: ...
+
+    @overload
+    def query_csv(
+        self,
+        sql: str,
+        min_timestamp: datetime,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> str: ...
 
     def query_csv(
         self,
@@ -400,17 +491,52 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
     ) -> str:
         """Query Logfire data and return the results as a CSV-format string.
 
         Use `polars.read_csv(StringIO(result))` to convert the returned CSV to a polars DataFrame.
+
+        Args:
+            sql: The SQL `SELECT` query to execute.
+            min_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+
+                /// version-deprecated | v3.35.0
+                Not providing a `min_timestamp` is deprecated.
+                ///
+            max_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+            limit: The maximum number of rows to query. This value takes priority over the
+                `LIMIT` clause in the `sql` query.
+            params: Parameters to be used for substitution of prepared statements. For instance,
+                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
+                to provide `{'svc': "'my_service'"}` as `params`.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+                query rows where no environment is set, use the empty string (`''`).
         """
-        response = self._query(
+        if min_timestamp is None:
+            warnings.warn(
+                'Using query_csv() without a min_timestamp is deprecated',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        response = self._query_v2(
             accept='text/csv',
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
+            params=params,
+            timezone=timezone,
+            environment=environment,
+            explain=False,  # Note: we can expose this in the future
         )
         return response.text
 
@@ -599,34 +725,125 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         )
         return _map_v2_result(response.json())
 
+    # Note: on the next major version, move the keyword-only marker after `sql`:
+    @overload
+    @deprecated('Using query_arrow() without a min_timestamp is deprecated')
+    async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+        self,
+        sql: str,
+        min_timestamp: None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> Table: ...
+
+    @overload
+    async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+        self,
+        sql: str,
+        min_timestamp: datetime,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> Table: ...
+
     async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
         self,
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
     ) -> Table:
         """Query Logfire data and return the results as a pyarrow Table.
 
         Note that pyarrow must be installed for this method to succeed.
 
         You can use `polars.from_arrow(result)` to convert the returned table to a polars DataFrame.
+
+        Args:
+            sql: The SQL `SELECT` query to execute.
+            min_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+
+                /// version-deprecated | v3.35.0
+                Not providing a `min_timestamp` is deprecated.
+                ///
+            max_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+            limit: The maximum number of rows to query. This value takes priority over the
+                `LIMIT` clause in the `sql` query.
+            params: Parameters to be used for substitution of prepared statements. For instance,
+                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
+                to provide `{'svc': "'my_service'"}` as `params`.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+                query rows where no environment is set, use the empty string (`''`).
         """
         try:
             import pyarrow
         except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
-        response = await self._query(
+        if min_timestamp is None:
+            warnings.warn(
+                'Using query_arrow() without a min_timestamp is deprecated',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        response = await self._query_v2(
             accept='application/vnd.apache.arrow.stream',
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
+            params=params,
+            timezone=timezone,
+            environment=environment,
+            explain=False,  # Note: we can expose this in the future
         )
         with pyarrow.ipc.open_stream(response.content) as reader:
             arrow_table: Table = reader.read_all()
         return arrow_table  # pyright: ignore[reportUnknownVariableType]
+
+    # Note: on the next major version, move the keyword-only marker after `sql`:
+    @overload
+    @deprecated('Using query_csv() without a min_timestamp is deprecated')
+    async def query_csv(
+        self,
+        sql: str,
+        min_timestamp: None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> str: ...
+
+    @overload
+    async def query_csv(
+        self,
+        sql: str,
+        min_timestamp: datetime,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
+    ) -> str: ...
 
     async def query_csv(
         self,
@@ -634,17 +851,52 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        environment: str | list[str] | None = None,
     ) -> str:
         """Query Logfire data and return the results as a CSV-format string.
 
         Use `polars.read_csv(StringIO(result))` to convert the returned CSV to a polars DataFrame.
+
+        Args:
+            sql: The SQL `SELECT` query to execute.
+            min_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+
+                /// version-deprecated | v3.35.0
+                Not providing a `min_timestamp` is deprecated.
+                ///
+            max_timestamp: The minimum timestamp to use when querying data. If the provided
+                [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
+                be UTC.
+            limit: The maximum number of rows to query. This value takes priority over the
+                `LIMIT` clause in the `sql` query.
+            params: Parameters to be used for substitution of prepared statements. For instance,
+                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
+                to provide `{'svc': "'my_service'"}` as `params`.
+            timezone: The timezone to use for the query execution context.
+            environment: Restrict rows to the provided [environment(s)](../environments.md). To only
+                query rows where no environment is set, use the empty string (`''`).
         """
-        response = await self._query(
+        if min_timestamp is None:
+            warnings.warn(
+                'Using query_csv() without a min_timestamp is deprecated',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        response = await self._query_v2(
             accept='text/csv',
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
+            params=params,
+            timezone=timezone,
+            environment=environment,
+            explain=False,  # Note: we can expose this in the future
         )
         return response.text
 

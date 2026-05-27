@@ -1,9 +1,14 @@
 interactions:
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00"}'
     headers:
       Connection:
       - keep-alive
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/json
       Host:
       - localhost:3000
       accept:
@@ -13,8 +18,8 @@ interactions:
       user-agent:
       - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
         arch arm64)
-    method: GET
-    uri: http://localhost:3000/v1/query?sql=%0A++++++++SELECT+is_exception%2C+count%28%2A%29%0A++++++++FROM+records%0A++++++++GROUP+BY+is_exception%0A++++++++ORDER+BY+is_exception%0A++++++++
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
       string: 'is_exception,count(*)
@@ -28,31 +33,28 @@ interactions:
       Connection:
       - keep-alive
       Date:
-      - Wed, 27 May 2026 14:55:56 GMT
+      - Wed, 27 May 2026 19:13:43 GMT
       Server:
       - nginx/1.29.6
       Transfer-Encoding:
       - chunked
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      traceresponse:
-      - 00-019e69ef640fc0aea86225017dccf71a-24eec9dd3dffd291-01
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - XNuUaS53WJzoBapWPMoe9cCX5eaMgtL4J1HFv8giPCU=
+      - accept-encoding
       x-logfire-context:
       - viicos/logfire-sdk-cassettes
     status:
       code: 200
       message: OK
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"min_timestamp":"2030-01-01T00:00:00+00:00"}'
     headers:
       Connection:
       - keep-alive
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/json
       Host:
       - localhost:3000
       accept:
@@ -62,8 +64,8 @@ interactions:
       user-agent:
       - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
         arch arm64)
-    method: GET
-    uri: http://localhost:3000/v1/query?sql=%0A++++++++SELECT+is_exception%2C+count%28%2A%29%0A++++++++FROM+records%0A++++++++GROUP+BY+is_exception%0A++++++++ORDER+BY+is_exception%0A++++++++&min_timestamp=2030-01-01T00%3A00%3A00%2B00%3A00
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
       string: 'is_exception,count(*)
@@ -73,31 +75,28 @@ interactions:
       Connection:
       - keep-alive
       Date:
-      - Wed, 27 May 2026 14:55:56 GMT
+      - Wed, 27 May 2026 19:13:43 GMT
       Server:
       - nginx/1.29.6
       Transfer-Encoding:
       - chunked
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      traceresponse:
-      - 00-019e69ef642378ecde1c88c8a3b88ce5-970f90340b1d2e67-01
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - XNuUaS53WJzoBapWPMoe9cCX5eaMgtL4J1HFv8giPCU=
+      - accept-encoding
       x-logfire-context:
       - viicos/logfire-sdk-cassettes
     status:
       code: 200
       message: OK
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00","max_timestamp":"2020-01-01T00:00:00+00:00"}'
     headers:
       Connection:
       - keep-alive
+      Content-Length:
+      - '269'
+      Content-Type:
+      - application/json
       Host:
       - localhost:3000
       accept:
@@ -107,8 +106,8 @@ interactions:
       user-agent:
       - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
         arch arm64)
-    method: GET
-    uri: http://localhost:3000/v1/query?sql=%0A++++++++SELECT+is_exception%2C+count%28%2A%29%0A++++++++FROM+records%0A++++++++GROUP+BY+is_exception%0A++++++++ORDER+BY+is_exception%0A++++++++&max_timestamp=2020-01-01T00%3A00%3A00%2B00%3A00
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
       string: 'is_exception,count(*)
@@ -118,31 +117,28 @@ interactions:
       Connection:
       - keep-alive
       Date:
-      - Wed, 27 May 2026 14:55:56 GMT
+      - Wed, 27 May 2026 19:13:43 GMT
       Server:
       - nginx/1.29.6
       Transfer-Encoding:
       - chunked
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      traceresponse:
-      - 00-019e69ef6430b545a8db06508c7ac782-f911a001838c69fa-01
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - XNuUaS53WJzoBapWPMoe9cCX5eaMgtL4J1HFv8giPCU=
+      - accept-encoding
       x-logfire-context:
       - viicos/logfire-sdk-cassettes
     status:
       code: 200
       message: OK
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"limit":1,"min_timestamp":"2020-01-01T00:00:00+00:00"}'
     headers:
       Connection:
       - keep-alive
+      Content-Length:
+      - '235'
+      Content-Type:
+      - application/json
       Host:
       - localhost:3000
       accept:
@@ -152,8 +148,8 @@ interactions:
       user-agent:
       - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
         arch arm64)
-    method: GET
-    uri: http://localhost:3000/v1/query?sql=%0A++++++++SELECT+is_exception%2C+count%28%2A%29%0A++++++++FROM+records%0A++++++++GROUP+BY+is_exception%0A++++++++ORDER+BY+is_exception%0A++++++++&limit=1
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
       string: 'is_exception,count(*)
@@ -165,21 +161,13 @@ interactions:
       Connection:
       - keep-alive
       Date:
-      - Wed, 27 May 2026 14:55:57 GMT
+      - Wed, 27 May 2026 19:13:43 GMT
       Server:
       - nginx/1.29.6
       Transfer-Encoding:
       - chunked
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      traceresponse:
-      - 00-019e69ef643cfcca1e3784d2c518c8fe-29df21398cfa780b-01
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - XNuUaS53WJzoBapWPMoe9cCX5eaMgtL4J1HFv8giPCU=
+      - accept-encoding
       x-logfire-context:
       - viicos/logfire-sdk-cassettes
     status:

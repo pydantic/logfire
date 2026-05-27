@@ -69,7 +69,7 @@ Here's an example of how to use these clients:
 === "Async"
 
     ```python skip-run="true" skip-reason="external-connection"
-    from datetime import datetime, timedelta, UTC
+    from datetime import UTC, datetime, timedelta
     from io import StringIO
 
     import polars as pl
@@ -87,25 +87,25 @@ Here's an example of how to use these clients:
 
         async with AsyncLogfireQueryClient(read_token='<your_read_token>') as client:
             # Load data as JSON
-            json_rows = await client.query_json_rows(sql=query, min_timestamp=min_timestamp)
+            json_rows = await client.query_json_rows(sql=query,min_timestamp=min_timestamp)
             print(json_rows)
             """
             {
-              "columns": [{'name': 'start_timestamp', 'datatype': {'Timestamp': ['Microsecond', 'UTC']}, 'nullable': False}],
-              "rows":  [{'start_timestamp': '2026-05-27T13:16:36.517321Z'}]
+                "columns": [{'name': 'start_timestamp', 'datatype': {'Timestamp': ['Microsecond', 'UTC']}, 'nullable': False}],
+                "rows":  [{'start_timestamp': '2026-05-27T13:16:36.517321Z'}]
             }
             """
 
             # Retrieve data in arrow format, and load into a polars DataFrame
             # Note that JSON columns such as `attributes` will be returned as
             # JSON-serialized strings
-            df_from_arrow = pl.from_arrow(await client.query_arrow(sql=query))
+            df_from_arrow = pl.from_arrow(await client.query_arrow(sql=query, min_timestamp=min_timestamp))
             print(df_from_arrow)
 
             # Retrieve data in CSV format, and load into a polars DataFrame
             # Note that JSON columns such as `attributes` will be returned as
             # JSON-serialized strings
-            df_from_csv = pl.read_csv(StringIO(await client.query_csv(sql=query)))
+            df_from_csv = pl.read_csv(StringIO(await client.query_csv(sql=query, min_timestamp=min_timestamp)))
             print(df_from_csv)
 
             # Get read token info
@@ -122,7 +122,7 @@ Here's an example of how to use these clients:
 === "Sync"
 
     ```python skip-run="true" skip-reason="external-connection"
-    from datetime import datetime, timedelta, UTC
+    from datetime import UTC, datetime, timedelta
     from io import StringIO
 
     import polars as pl
@@ -152,13 +152,13 @@ Here's an example of how to use these clients:
             # Retrieve data in arrow format, and load into a polars DataFrame
             # Note that JSON columns such as `attributes` will be returned as
             # JSON-serialized strings
-            df_from_arrow = pl.from_arrow(client.query_arrow(sql=query))
+            df_from_arrow = pl.from_arrow(client.query_arrow(sql=query, min_timestamp=min_timestamp))
             print(df_from_arrow)
 
             # Retrieve data in CSV format, and load into a polars DataFrame
             # Note that JSON columns such as `attributes` will be returned as
             # JSON-serialized strings
-            df_from_csv = pl.read_csv(StringIO(client.query_csv(sql=query)))
+            df_from_csv = pl.read_csv(StringIO(client.query_csv(sql=query, min_timestamp=min_timestamp)))
             print(df_from_csv)
 
             # Get read token info
