@@ -1,0 +1,21 @@
+pyodide_test/package.json
+  s_ade8d77f7871b8::t_13692c3e5c39ec 12
+pyodide_test/package-lock.json
+  ai_agent 12,22-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a76f5707634a9d8b54ec7a12f48a2ad7878f2785",
+  "prompts": {},
+  "sessions": {
+    "s_ade8d77f7871b8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e68c4-d0b2-7eb1-9534-3caa4d4b3097",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
