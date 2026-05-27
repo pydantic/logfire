@@ -228,7 +228,7 @@ class Cursor:
         if parameters is not None:
             sql = _substitute_params(operation, parameters)
 
-        result = self._connection.client.query_json_rows(
+        result = self._connection.client.query_json_rows(  # type: ignore[reportDeprecated]
             sql=sql,
             min_timestamp=self.min_timestamp if self.min_timestamp is not _UNSET else self._connection.min_timestamp,
             max_timestamp=self.max_timestamp if self.max_timestamp is not _UNSET else self._connection.max_timestamp,
