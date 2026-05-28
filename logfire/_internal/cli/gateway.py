@@ -238,13 +238,25 @@ def _oauth_done_html(title: str, body: str) -> str:
 async def _handle_oauth_callback(request: Any) -> Any:
     state: ProxyState = request.app.state.logfire_gateway
     params = request.query_params
-    result = state.auth.complete_browser_callback(
-        error=params.get('error'),
-        error_description=params.get('error_description'),
-        code=params.get('code'),
-        state=params.get('state'),
-        iss=params.get('iss'),
-    )
+    # RFC 6749 §3.1 / RFC 9207: response parameters MUST NOT appear more than
+    # once. Reject a smuggled duplicate `iss` rather than silently resolving to
+    # the first value (which `params.get('iss')` would do).
+    if len(params.getlist('iss')) > 1:
+        result = state.auth.complete_browser_callback(
+            error='invalid_request',
+            error_description='authorization response has multiple iss parameters',
+            code=None,
+            state=None,
+            iss=None,
+        )
+    else:
+        result = state.auth.complete_browser_callback(
+            error=params.get('error'),
+            error_description=params.get('error_description'),
+            code=params.get('code'),
+            state=params.get('state'),
+            iss=params.get('iss'),
+        )
     return Response(
         _oauth_done_html(result.title, result.body),
         status_code=result.status_code,

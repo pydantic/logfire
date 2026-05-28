@@ -29,6 +29,7 @@ import requests
 import requests_mock
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from starlette.datastructures import QueryParams
 
 import logfire._internal.cli
 import logfire._internal.cli.ai_tools as ai_tools
@@ -2170,9 +2171,7 @@ def test_gateway_oauth_callback_and_favicon_handlers(monkeypatch: pytest.MonkeyP
         state: str | None,
         iss: str | None = None,
     ) -> gateway_auth.OAuthCallbackResult:
-        calls.append(
-            {'error': error, 'error_description': error_description, 'code': code, 'state': state, 'iss': iss}
-        )
+        calls.append({'error': error, 'error_description': error_description, 'code': code, 'state': state, 'iss': iss})
         return gateway_auth.OAuthCallbackResult('Authorization failed', '<bad>', status_code=400)
 
     auth = Mock(spec=gateway_auth.GatewayAuth)
@@ -2187,7 +2186,9 @@ def test_gateway_oauth_callback_and_favicon_handlers(monkeypatch: pytest.MonkeyP
     )
     request = types.SimpleNamespace(
         app=types.SimpleNamespace(state=types.SimpleNamespace(logfire_gateway=state)),
-        query_params={'error': 'access_denied', 'error_description': 'nope', 'code': 'code', 'state': 'state'},
+        query_params=QueryParams(
+            [('error', 'access_denied'), ('error_description', 'nope'), ('code', 'code'), ('state', 'state')]
+        ),
     )
 
     response = asyncio.run(handle_oauth_callback(request))
@@ -2200,6 +2201,64 @@ def test_gateway_oauth_callback_and_favicon_handlers(monkeypatch: pytest.MonkeyP
     assert response.media_type == 'text/html'
     assert '&lt;bad&gt;' in response.content
     assert favicon.status_code == 204
+
+
+def test_gateway_oauth_callback_rejects_duplicate_iss(monkeypatch: pytest.MonkeyPatch) -> None:
+    """RFC 6749 §3.1 / RFC 9207: a response with multiple `iss` parameters is rejected."""
+    handle_oauth_callback = cast(
+        Callable[[Any], Coroutine[Any, Any, Any]], getattr(gateway_cli, '_handle_oauth_callback')
+    )
+
+    class CapturedResponse:
+        def __init__(self, content: str = '', *, status_code: int, media_type: str | None = None) -> None:
+            self.content = content
+            self.status_code = status_code
+            self.media_type = media_type
+
+    calls: list[dict[str, str | None]] = []
+
+    def complete_browser_callback(
+        *,
+        error: str | None,
+        error_description: str | None,
+        code: str | None,
+        state: str | None,
+        iss: str | None = None,
+    ) -> gateway_auth.OAuthCallbackResult:
+        calls.append({'error': error, 'error_description': error_description, 'code': code, 'state': state, 'iss': iss})
+        return gateway_auth.OAuthCallbackResult('Authorization failed', 'bad', status_code=400)
+
+    auth = Mock(spec=gateway_auth.GatewayAuth)
+    auth.complete_browser_callback = complete_browser_callback
+    monkeypatch.setattr(gateway_cli, 'Response', CapturedResponse)
+    state = gateway_cli.ProxyState(
+        auth=auth,
+        client=Mock(),
+        gateway='https://gateway.example.com',
+        region='us',
+        local_token='local-token',
+    )
+    request = types.SimpleNamespace(
+        app=types.SimpleNamespace(state=types.SimpleNamespace(logfire_gateway=state)),
+        query_params=QueryParams(
+            [('code', 'code'), ('state', 'state'), ('iss', 'https://evil.example'), ('iss', 'https://backend.example')]
+        ),
+    )
+
+    response = asyncio.run(handle_oauth_callback(request))
+
+    # The duplicate iss is collapsed to an invalid_request error; the smuggled
+    # code/state/iss values are not forwarded to the callback.
+    assert calls == [
+        {
+            'error': 'invalid_request',
+            'error_description': 'authorization response has multiple iss parameters',
+            'code': None,
+            'state': None,
+            'iss': None,
+        }
+    ]
+    assert response.status_code == 400
 
 
 def test_gateway_build_app_registers_routes(monkeypatch: pytest.MonkeyPatch) -> None:
