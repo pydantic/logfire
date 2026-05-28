@@ -2163,9 +2163,16 @@ def test_gateway_oauth_callback_and_favicon_handlers(monkeypatch: pytest.MonkeyP
     calls: list[dict[str, str | None]] = []
 
     def complete_browser_callback(
-        *, error: str | None, error_description: str | None, code: str | None, state: str | None
+        *,
+        error: str | None,
+        error_description: str | None,
+        code: str | None,
+        state: str | None,
+        iss: str | None = None,
     ) -> gateway_auth.OAuthCallbackResult:
-        calls.append({'error': error, 'error_description': error_description, 'code': code, 'state': state})
+        calls.append(
+            {'error': error, 'error_description': error_description, 'code': code, 'state': state, 'iss': iss}
+        )
         return gateway_auth.OAuthCallbackResult('Authorization failed', '<bad>', status_code=400)
 
     auth = Mock(spec=gateway_auth.GatewayAuth)
@@ -2186,7 +2193,9 @@ def test_gateway_oauth_callback_and_favicon_handlers(monkeypatch: pytest.MonkeyP
     response = asyncio.run(handle_oauth_callback(request))
     favicon = asyncio.run(handle_favicon(request))
 
-    assert calls == [{'error': 'access_denied', 'error_description': 'nope', 'code': 'code', 'state': 'state'}]
+    assert calls == [
+        {'error': 'access_denied', 'error_description': 'nope', 'code': 'code', 'state': 'state', 'iss': None}
+    ]
     assert response.status_code == 400
     assert response.media_type == 'text/html'
     assert '&lt;bad&gt;' in response.content
@@ -2465,11 +2474,13 @@ def test_gateway_auth_discovers_oauth_metadata() -> None:
     class Response:
         status_code = 200
 
-        def json(self) -> dict[str, str]:
+        def json(self) -> dict[str, Any]:
             return {
+                'issuer': 'https://backend.example',
                 'authorization_endpoint': 'https://backend.example/authorize',
                 'token_endpoint': 'https://backend.example/token',
                 'device_authorization_endpoint': 'https://backend.example/device',
+                'authorization_response_iss_parameter_supported': True,
             }
 
     class Http:
@@ -2487,9 +2498,11 @@ def test_gateway_auth_discovers_oauth_metadata() -> None:
     metadata, http = asyncio.run(run())
 
     assert metadata == gateway_auth.OAuthMetadata(
+        issuer='https://backend.example',
         authorization_endpoint='https://backend.example/authorize',
         token_endpoint='https://backend.example/token',
         device_authorization_endpoint='https://backend.example/device',
+        iss_parameter_supported=True,
     )
     assert http.urls == ['https://backend.example/.well-known/oauth-authorization-server']
 
@@ -2516,7 +2529,7 @@ def test_gateway_auth_discovery_errors() -> None:
     with pytest.raises(gateway_auth.GatewayError, match='OAuth discovery failed'):
         asyncio.run(run(Response(500, {})))
     with pytest.raises(gateway_auth.GatewayError, match="missing field 'device_authorization_endpoint'"):
-        asyncio.run(run(Response(200, {'authorization_endpoint': 'a', 'token_endpoint': 't'})))
+        asyncio.run(run(Response(200, {'issuer': 'i', 'authorization_endpoint': 'a', 'token_endpoint': 't'})))
     with pytest.raises(gateway_auth.GatewayError, match='Expected JSON object response, got list'):
         asyncio.run(run(Response(200, [])))
 
@@ -2580,6 +2593,93 @@ def test_gateway_auth_browser_callback_error_branches() -> None:
         assert bootstrap.event.is_set()
 
     asyncio.run(run())
+
+
+def test_gateway_auth_browser_callback_validates_iss() -> None:
+    """RFC 9207: the callback rejects a mismatched or (when required) missing iss."""
+
+    def make_auth(bootstrap: gateway_auth.AuthBootstrap) -> gateway_auth.GatewayAuth:
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, MockOAuthSession()),
+            redirect_uri='http://127.0.0.1/callback',
+            flow='browser',
+        )
+        setattr(auth, '_auth_bootstrap', bootstrap)
+        return auth
+
+    # iss present but does not match the discovered issuer -> rejected.
+    mismatch = gateway_auth.AuthBootstrap(
+        redirect_uri='http://127.0.0.1/callback', expected_state='expected', expected_issuer='https://backend.example'
+    )
+    auth = make_auth(mismatch)
+    assert auth.complete_browser_callback(
+        error=None, error_description=None, code='code', state='expected', iss='https://evil.example'
+    ) == gateway_auth.OAuthCallbackResult(
+        'Authorization failed', 'issuer mismatch in authorization response', status_code=400
+    )
+    assert mismatch.received_code is None
+
+    # iss omitted while the AS advertised support for it -> rejected.
+    missing = gateway_auth.AuthBootstrap(
+        redirect_uri='http://127.0.0.1/callback',
+        expected_state='expected',
+        expected_issuer='https://backend.example',
+        iss_required=True,
+    )
+    auth = make_auth(missing)
+    assert auth.complete_browser_callback(
+        error=None, error_description=None, code='code', state='expected', iss=None
+    ) == gateway_auth.OAuthCallbackResult(
+        'Authorization failed', 'authorization response missing required iss parameter', status_code=400
+    )
+    assert missing.received_code is None
+
+    # iss present and matching -> accepted.
+    ok = gateway_auth.AuthBootstrap(
+        redirect_uri='http://127.0.0.1/callback',
+        expected_state='expected',
+        expected_issuer='https://backend.example',
+        iss_required=True,
+    )
+    auth = make_auth(ok)
+    assert auth.complete_browser_callback(
+        error=None, error_description=None, code='code', state='expected', iss='https://backend.example'
+    ) == gateway_auth.OAuthCallbackResult('Authorized', 'You can close this tab and return to the terminal.')
+    assert ok.received_code == 'code'
+
+
+def test_gateway_auth_code_flow_propagates_issuer_to_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The auth-code flow seeds the bootstrap with the discovered issuer for RFC 9207 checks."""
+    monkeypatch.setattr(gateway_auth.webbrowser, 'open', lambda _url: None)
+
+    async def run() -> gateway_auth.AuthBootstrap:
+        client = MockCimdOAuthClient()
+        session = gateway_auth.OAuthSession(
+            cast(gateway_auth.CimdOAuthClient, client),
+            gateway_auth.OAuthMetadata(
+                authorization_endpoint='http://localhost:3000/oauth/authorize',
+                token_endpoint='http://localhost:3000/oauth/token',
+                device_authorization_endpoint='http://localhost:3000/oauth/device',
+                issuer='http://localhost:3000',
+                iss_parameter_supported=True,
+            ),
+            resource='http://localhost:3000/proxy',
+            scope='project:gateway_proxy',
+        )
+        bootstrap = gateway_auth.AuthBootstrap(redirect_uri='http://127.0.0.1:11465/callback')
+        task = asyncio.create_task(session.auth_code_flow(bootstrap))
+        for _ in range(10):
+            if bootstrap.expected_state:
+                break
+            await asyncio.sleep(0)
+        bootstrap.received_code = 'code-123'
+        bootstrap.event.set()
+        await task
+        return bootstrap
+
+    bootstrap = asyncio.run(run())
+    assert bootstrap.expected_issuer == 'http://localhost:3000'
+    assert bootstrap.iss_required is True
 
 
 def test_gateway_auth_code_flow_error_and_missing_code(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -3274,6 +3374,7 @@ def test_gateway_authorize_and_serve_lifecycle(monkeypatch: pytest.MonkeyPatch) 
 
         def json(self) -> dict[str, str]:
             return {
+                'issuer': 'https://backend.example',
                 'authorization_endpoint': 'https://backend.example/authorize',
                 'token_endpoint': 'https://backend.example/token',
                 'device_authorization_endpoint': 'https://backend.example/device',
@@ -3458,6 +3559,7 @@ def test_gateway_authorize_and_serve_fails_when_server_does_not_start(monkeypatc
 
         def json(self) -> dict[str, str]:
             return {
+                'issuer': 'https://backend.example',
                 'authorization_endpoint': 'https://backend.example/authorize',
                 'token_endpoint': 'https://backend.example/token',
                 'device_authorization_endpoint': 'https://backend.example/device',

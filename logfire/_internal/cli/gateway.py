@@ -243,6 +243,7 @@ async def _handle_oauth_callback(request: Any) -> Any:
         error_description=params.get('error_description'),
         code=params.get('code'),
         state=params.get('state'),
+        iss=params.get('iss'),
     )
     return Response(
         _oauth_done_html(result.title, result.body),

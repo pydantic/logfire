@@ -28,6 +28,12 @@ class OAuthMetadata:
     authorization_endpoint: str
     token_endpoint: str
     device_authorization_endpoint: str
+    issuer: str = ''
+    # RFC 9207: whether the AS includes the `iss` parameter on authorization
+    # responses.  When True we require and validate it to defend against mix-up
+    # attacks; when the AS doesn't advertise it we still validate any `iss` it does
+    # return.
+    iss_parameter_supported: bool = False
 
 
 async def discover_oauth_metadata(http: Any, backend: str) -> OAuthMetadata:
@@ -39,9 +45,11 @@ async def discover_oauth_metadata(http: Any, backend: str) -> OAuthMetadata:
     body = _json_dict(response)
     try:
         return OAuthMetadata(
+            issuer=body['issuer'],
             authorization_endpoint=body['authorization_endpoint'],
             token_endpoint=body['token_endpoint'],
             device_authorization_endpoint=body['device_authorization_endpoint'],
+            iss_parameter_supported=bool(body.get('authorization_response_iss_parameter_supported', False)),
         )
     except KeyError as exc:
         raise GatewayError(f'OAuth discovery missing field {exc.args[0]!r} in {url}') from exc
@@ -82,6 +90,8 @@ class CimdOAuthClient:
 class AuthBootstrap:
     redirect_uri: str
     expected_state: str = ''
+    expected_issuer: str = ''
+    iss_required: bool = False
     code_verifier: str = ''
     received_code: str | None = None
     error: str | None = None
@@ -113,6 +123,8 @@ class OAuthSession:
         state = secrets.token_urlsafe(32)
         bootstrap.code_verifier = verifier
         bootstrap.expected_state = state
+        bootstrap.expected_issuer = self._metadata.issuer
+        bootstrap.iss_required = self._metadata.iss_parameter_supported
         params = {
             'response_type': 'code',
             'client_id': self._client.client_id,
@@ -287,13 +299,30 @@ class GatewayAuth:
             await self.authorize()
 
     def complete_browser_callback(
-        self, *, error: str | None, error_description: str | None, code: str | None, state: str | None
+        self,
+        *,
+        error: str | None,
+        error_description: str | None,
+        code: str | None,
+        state: str | None,
+        iss: str | None = None,
     ) -> OAuthCallbackResult:
         bootstrap = self._auth_bootstrap
         if bootstrap is None or bootstrap.event.is_set():
             return OAuthCallbackResult('No pending authorization', 'Return to the terminal.', status_code=400)
         if error:
             bootstrap.error = f'{error}: {error_description or ""}'
+            bootstrap.event.set()
+            return OAuthCallbackResult('Authorization failed', bootstrap.error, status_code=400)
+        # RFC 9207 (mix-up defense): validate the authorization server's issuer
+        # identifier on the response.  Reject a mismatched `iss`, and reject a
+        # missing `iss` when the AS advertised that it supplies one.
+        if iss is not None and bootstrap.expected_issuer and iss != bootstrap.expected_issuer:
+            bootstrap.error = 'issuer mismatch in authorization response'
+            bootstrap.event.set()
+            return OAuthCallbackResult('Authorization failed', bootstrap.error, status_code=400)
+        if iss is None and bootstrap.iss_required:
+            bootstrap.error = 'authorization response missing required iss parameter'
             bootstrap.event.set()
             return OAuthCallbackResult('Authorization failed', bootstrap.error, status_code=400)
         if not code or state != bootstrap.expected_state:
