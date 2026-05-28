@@ -26,7 +26,9 @@ DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 
 
 PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
-    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_)(?P<token>[a-zA-Z0-9]+)$'
+    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_'
+    r'(?:(?P<organization_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_)?)'
+    r'(?P<token>[a-zA-Z0-9]+)$'
 )
 
 
