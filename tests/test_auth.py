@@ -34,6 +34,11 @@ from logfire.exceptions import LogfireConfigError
             'pylf_v1_unknownregion_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
             'US (https://logfire-us.pydantic.dev) - pylf_v1_unknownregion_0kYhc****',
         ),
+        (
+            'https://logfire-eu.pydantic.dev',
+            'pylf_v2_eu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
+            'EU (https://logfire-eu.pydantic.dev) - pylf_v2_eu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc****',
+        ),
     ],
 )
 def test_user_token_str(base_url: str, token: str, expected: str) -> None:
