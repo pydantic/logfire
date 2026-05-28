@@ -239,8 +239,8 @@ async def _handle_oauth_callback(request: Any) -> Any:
     state: ProxyState = request.app.state.logfire_gateway
     params = request.query_params
     # RFC 6749 §3.1 / RFC 9207: response parameters MUST NOT appear more than
-    # once. Reject a smuggled duplicate `iss` rather than silently resolving to
-    # the first value (which `params.get('iss')` would do).
+    # once. Starlette does not enforce this — `params.get('iss')` silently returns
+    # a single value (the last) — so reject a smuggled duplicate `iss` explicitly.
     if len(params.getlist('iss')) > 1:
         result = state.auth.complete_browser_callback(
             error='invalid_request',
