@@ -12,6 +12,9 @@ application's telemetry data, analyze distributed traces, and perform custom que
 You can check the [Logfire MCP server](https://github.com/pydantic/logfire-mcp) repository
 for more information.
 
+Once connected, you can query telemetry data and manage dashboards, alerts, issues, and more.
+For a full list of available tools, see [Available MCP Tools](#available-mcp-tools) at the end of this guide.
+
 ## Remote MCP Server (Recommended)
 
 Pydantic Logfire provides a hosted remote MCP server that you can use without installing anything locally.
@@ -175,3 +178,28 @@ If browser-based authentication is not available (e.g. in sandboxed environments
 
 !!! warning
     If you still want to run the MCP server locally, refer to the [local mcp server documentation](https://github.com/pydantic/logfire-mcp/blob/main/OLD_README.md) for setup and configuration instructions.
+
+---
+
+## Available MCP Tools
+
+The Logfire MCP server exposes tools for querying telemetry data and managing observability resources.
+The table below lists the full tool set for the `/mcp` endpoint.
+
+!!! note
+  The tools visible to a given client depend on the token scopes granted to that client.
+  If `/mcp/codemod` is enabled, that endpoint also provides `exec` and `help` tools.
+
+| Tool family | What it does | Common tool names |
+| --- | --- | --- |
+| Query execution | Run SQL against telemetry data, inspect schema, and retrieve recent exceptions for a file. | `query_run`, `query_schema_reference`, `query_find_exceptions_in_file` |
+| Projects and auth context | Discover accessible projects, inspect token context, and create Logfire UI links. | `project_list`, `token_info`, `project_logfire_link`, `project_logfire_ui_link` |
+| Dashboards | Create, list, fetch, update, and delete dashboards and panels, including dashboard settings. | `dashboard_create`, `dashboard_list`, `dashboard_get`, `dashboard_update`, `dashboard_delete`, `dashboard_update_settings`, `dashboard_add_panel`, `dashboard_update_panel`, `dashboard_remove_panel` |
+| Dashboard variables | Add, update, replace, or remove dashboard variables. | `dashboard_add_variable`, `dashboard_update_variable`, `dashboard_update_variables`, `dashboard_remove_variable` |
+| Dashboard layout groups | Organize dashboard panels into groups and control group layout/visibility. | `dashboard_create_group`, `dashboard_delete_group`, `dashboard_rename_group`, `dashboard_toggle_group_collapse`, `dashboard_reorder_groups` |
+| Alerts | Create and manage SQL-based alerts and inspect alert status/history. | `alert_create`, `alert_list`, `alert_get`, `alert_update`, `alert_delete`, `alert_status`, `alert_history` |
+| Notification channels | Create and manage organization-level destinations for alert notifications (for example webhooks/Opsgenie). | `channel_create_webhook`, `channel_create_opsgenie`, `channel_list`, `channel_get`, `channel_update_webhook`, `channel_update_opsgenie`, `channel_delete` |
+| Notification schedules | Create and manage schedule windows that gate alert notification delivery. | `schedule_create`, `schedule_list`, `schedule_get`, `schedule_update`, `schedule_delete` |
+| Issue tracking | List tracked exception issues and triage them by state. | `issue_list`, `issue_set_states` |
+| Managed variables (feature flags) | Create and manage variables, versions, labels, and rollout behavior. | `variable_create`, `variable_list`, `variable_get`, `variable_list_versions`, `variable_update`, `variable_delete`, `variable_update_rollout`, `variable_create_version`, `variable_assign_label` |
+| Local development bootstrap | Create a local dev session (including token/env setup) for sending telemetry. | `local_dev_session` |
