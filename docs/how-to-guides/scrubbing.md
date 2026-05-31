@@ -47,6 +47,7 @@ Here are the default scrubbing patterns:
     'credential',
     'private[._ -]?key',
     'api[._ -]?key',
+    'logfire[._ -]?token',
     'session',
     'cookie',
     'social[._ -]?security',

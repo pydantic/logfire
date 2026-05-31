@@ -45,8 +45,10 @@ Example for Logfire Cloud:
 
 ```dotenv
 LOGFIRE_TOKEN=<your Logfire write token>
-LOGFIRE_BASE_URL=https://logfire-api.pydantic.dev
+LOGFIRE_BASE_URL=https://logfire-us.pydantic.dev
 ```
+
+Use `https://logfire-eu.pydantic.dev` instead if your data is in the EU region.
 
 For a local Logfire instance:
 

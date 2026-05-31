@@ -83,7 +83,12 @@ CREATE TABLE metrics AS (
     service_name text,
     service_version text,
     service_instance_id text,
-    process_pid integer
+    process_pid integer,
+    deployment_environment text,
+    otel_resource_attributes jsonb,
+    telemetry_sdk_name text,
+    telemetry_sdk_language text,
+    telemetry_sdk_version text
 )
 ```
 

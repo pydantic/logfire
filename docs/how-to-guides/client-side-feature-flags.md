@@ -40,7 +40,7 @@ import { OFREPWebProvider } from '@openfeature/ofrep-web-provider'
 import { OpenFeature } from '@openfeature/web-sdk'
 
 const LOGFIRE_API_KEY = 'your-api-key'  // project:read_external_variables scope
-const LOGFIRE_API_HOST = 'logfire-api.pydantic.dev'  // or your self-hosted API host
+const LOGFIRE_API_HOST = 'logfire-us.pydantic.dev'  // use 'logfire-eu.pydantic.dev' for EU region
 
 const provider = new OFREPWebProvider({
   baseUrl: `https://${LOGFIRE_API_HOST}/v1/ofrep/v1`,
