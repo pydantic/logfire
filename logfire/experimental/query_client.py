@@ -172,6 +172,7 @@ class _BaseLogfireQueryClient(Generic[T]):
                 min_timestamp = min_timestamp.replace(tzinfo=UTC)
             body['min_timestamp'] = min_timestamp.isoformat()
         else:
+            # For when `min_timestamp` is not provided (deprecated):
             body['min_timestamp'] = _MIN_DATETIME
         if max_timestamp is not None:
             if max_timestamp.tzinfo is None:
@@ -254,14 +255,12 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', message='Using query_json_rows.*', category=DeprecationWarning)
-            row_results = self.query_json_rows(  # type: ignore[reportDeprecated]
-                sql=sql,
-                min_timestamp=min_timestamp,
-                max_timestamp=max_timestamp,
-                limit=limit,
-            )
+        row_results = self.query_json_rows(  # type: ignore[reportDeprecated]
+            sql=sql,
+            min_timestamp=min_timestamp,
+            max_timestamp=max_timestamp,
+            limit=limit,
+        )
         return _rows_to_columns(row_results)
 
     # Note: on the next major version, move the keyword-only marker after `sql`:
@@ -311,7 +310,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
 
-                /// version-deprecated | v3.35.0
+                /// version-deprecated | v4.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
@@ -319,9 +318,10 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution of prepared statements. For instance,
+            params: Parameters to be used for substitution in the query. For instance,
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params`.
+                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
+                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -401,7 +401,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
 
-                /// version-deprecated | v3.35.0
+                /// version-deprecated | v4.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
@@ -409,9 +409,10 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution of prepared statements. For instance,
+            params: Parameters to be used for substitution in the query. For instance,
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params`.
+                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
+                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -491,7 +492,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
 
-                /// version-deprecated | v3.35.0
+                /// version-deprecated | v4.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
@@ -499,9 +500,10 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution of prepared statements. For instance,
+            params: Parameters to be used for substitution in the query. For instance,
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params`.
+                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
+                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -632,14 +634,12 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', message='Using query_json_rows.*', category=DeprecationWarning)
-            row_results = await self.query_json_rows(  # type: ignore[reportDeprecated]
-                sql=sql,
-                min_timestamp=min_timestamp,
-                max_timestamp=max_timestamp,
-                limit=limit,
-            )
+        row_results = await self.query_json_rows(  # type: ignore[reportDeprecated]
+            sql=sql,
+            min_timestamp=min_timestamp,
+            max_timestamp=max_timestamp,
+            limit=limit,
+        )
         return _rows_to_columns(row_results)
 
     async def query_json_rows(
@@ -661,7 +661,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
 
-                /// version-deprecated | v3.35.0
+                /// version-deprecated | v4.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
@@ -669,9 +669,10 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution of prepared statements. For instance,
+            params: Parameters to be used for substitution in the query. For instance,
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params`.
+                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
+                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -746,7 +747,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
 
-                /// version-deprecated | v3.35.0
+                /// version-deprecated | v4.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
@@ -754,9 +755,10 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution of prepared statements. For instance,
+            params: Parameters to be used for substitution in the query. For instance,
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params`.
+                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
+                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -836,7 +838,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
 
-                /// version-deprecated | v3.35.0
+                /// version-deprecated | v4.35.0
                 Not providing a `min_timestamp` is deprecated.
                 ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
@@ -844,9 +846,10 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution of prepared statements. For instance,
+            params: Parameters to be used for substitution in the query. For instance,
                 with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params`.
+                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
+                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).

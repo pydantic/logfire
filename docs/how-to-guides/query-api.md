@@ -369,10 +369,10 @@ The Logfire API supports various response formats and body parameters to give yo
     - `text/csv`: Returns the data in CSV format, which is easy to use with many data tools.
     - If no `Accept` header is provided, the default response format is JSON.
 - **Body Parameters**:
-    - **`sql`**: The SQL query to execute. This is the only required query parameter.
-    - **`min_timestamp`**: An optional ISO-format timestamp to filter records with `start_timestamp` greater than this value for the `records` table
+    - **`sql`**: The SQL query to execute. This parameter is required.
+    - **`min_timestamp`**: An ISO-format timestamp to filter records with `start_timestamp` greater than this value for the `records` table
       or `recorded_timestamp` greater than this value for the `metrics` table. The same filtering can also be done manually within the query itself.
-      If not provided, defaults to a day from the current time.
+      This parameter is required.
     - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
     - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 100**. The maximum allowed value is 10,000.
     - **`params`**: An optional object mapping prepared-statement placeholder names to their substitution values. For example, with the query `SELECT * FROM records WHERE service_name = $svc`, pass `{"svc": "'my_service'"}` as `params` (note the inner quotes — values are inlined verbatim into the SQL).
