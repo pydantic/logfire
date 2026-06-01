@@ -6,6 +6,8 @@ description: Learn how to connect Logfire to any backend that supports OpenTelem
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure the SDK to export to any backend that supports OpenTelemetry.
 
+This is useful when you want to send telemetry to a self-hosted backend or collector, such as Jaeger, Grafana Tempo, or any other OTLP-compatible server.
+
 The easiest way is to set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable to a URL that points to your backend.
 This will be used as a base, and the SDK will append `/v1/traces` and `/v1/metrics` to the URL to send traces and metrics, respectively.
 
