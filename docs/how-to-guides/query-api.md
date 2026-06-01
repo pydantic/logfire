@@ -6,7 +6,7 @@ description: "Leverage the Logfire web API to query data via SQL. Export logs & 
 This API can be used to retrieve data for export, analysis, or integration with other tools, allowing you to leverage
 your data in a variety of ways.
 
-The API is available at `https://logfire-api.pydantic.dev/v1/query` and requires a **read token** for authentication.
+The API is available at `https://logfire-us.pydantic.dev/v1/query` (US region) or `https://logfire-eu.pydantic.dev/v1/query` (EU region) and requires a **read token** for authentication.
 Read tokens can be generated from the Logfire web interface and provide secure access to your data.
 
 The API can return data in various formats, including JSON, Apache Arrow, and CSV, to suit your needs.
@@ -357,7 +357,9 @@ The Logfire API supports various response formats and query parameters to give y
     - **`sql`**: The SQL query to execute. This is the only required query parameter.
     - **`min_timestamp`**: An optional ISO-format timestamp to filter records with `start_timestamp` greater than this value for the `records` table or `recorded_timestamp` greater than this value for the `metrics` table. The same filtering can also be done manually within the query itself.
     - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
-    - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 500**. The maximum allowed value is 10,000.
-    - **`row_oriented`**: Only affects JSON responses. If set to `true`, the JSON response will be row-oriented; otherwise, it will be column-oriented.
+    - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 100**. The maximum allowed value is 10,000.
+    - **`json_rows`**: Only affects JSON responses. If set to `true`, the JSON response will be row-oriented; otherwise, it will be column-oriented (the default).
+    - **`deployment_environment`**: An optional list of deployment environment names to filter results. Can be specified multiple times (e.g. `?deployment_environment=production&deployment_environment=staging`).
+    - **`timezone`**: An optional IANA timezone name (e.g. `America/New_York`) to convert timestamps in the response. Defaults to UTC.
 
 All query parameters besides `sql` are optional and can be used in any combination to tailor the API response to your needs.

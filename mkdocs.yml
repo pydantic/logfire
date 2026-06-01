@@ -155,6 +155,7 @@ nav:
                   - SQLite3: integrations/databases/sqlite3.md
                   - Redis: integrations/databases/redis.md
                   - BigQuery: integrations/databases/bigquery.md
+                  - SurrealDB: integrations/databases/surrealdb.md
               - HTTP Clients:
                   - HTTPX: integrations/http-clients/httpx.md
                   - Requests: integrations/http-clients/requests.md

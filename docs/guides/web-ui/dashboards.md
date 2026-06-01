@@ -129,6 +129,7 @@ Here's a list of the chart types and the query type they require.
 
 | Chart Type  | Query Type          |
 | ----------- | ------------------  |
+| Gauge       | `Time Series Query`
 | Time Series | `Time Series Query`    |
 | Table       | `Non Time Series Query` |
 | Bar Chart   | `Non Time Series Query`

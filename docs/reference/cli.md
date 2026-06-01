@@ -43,6 +43,14 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 ![Terminal screenshot with successful authentication](../images/cli/terminal-screenshot-auth-2.png)
 
+### Log Out (`auth logout`)
+
+To log out and remove locally stored credentials, run:
+
+```bash
+logfire auth logout
+```
+
 ## Clean (`clean`)
 
 To clean _most_ the files created by **Logfire**, run the following command:
@@ -163,6 +171,65 @@ logfire projects new <project-name>
 ```
 
 Follow the instructions, and you'll have a new project created in no time! :partying_face:
+
+## Read Tokens (`read-tokens`)
+
+Read tokens allow programmatic read access to your project data via the [Query API](../how-to-guides/query-api.md).
+
+### Create a Read Token (`read-tokens create`)
+
+```bash
+logfire read-tokens --project <organization>/<project> create
+```
+
+This outputs the token to stdout, making it convenient for use in scripts or CI environments.
+
+## Run (`run`)
+
+The `run` command executes a Python script or module with **automatic OpenTelemetry instrumentation**. It detects installed instrumentation packages and enables them without any code changes.
+
+```bash
+logfire run my_script.py
+logfire run my_script.py arg1 arg2
+logfire run -m my_module
+```
+
+Options:
+
+- `-m MODULE` / `--module MODULE`: Run a module as a script (equivalent to `python -m MODULE`).
+- `--exclude PACKAGE`: Exclude a package from auto-instrumentation (can be repeated).
+- `--no-summary`: Suppress the instrumentation summary box printed at startup.
+
+This is useful for quickly adding tracing to existing scripts without modifying their source code.
+
+## Prompt (`prompt`)
+
+The `prompt` command sets up the Logfire MCP server configuration for AI coding assistants and optionally retrieves a context prompt for a specific issue.
+
+```bash
+logfire prompt
+logfire prompt --claude
+logfire prompt --codex
+logfire prompt --opencode
+logfire prompt --update
+logfire prompt <issue-id>
+```
+
+Options:
+
+- `--claude`: Verify and configure the Claude Code MCP setup.
+- `--codex`: Verify and configure the Codex MCP setup.
+- `--opencode`: Verify and configure the OpenCode MCP setup.
+- `--update`: Replace any existing Logfire MCP server configuration.
+- `--project ORG/PROJECT`: Target a specific project (defaults to the current project).
+
+## Info (`info`)
+
+The `info` command displays version information for Logfire and related packages, useful for debugging and bug reports.
+
+```bash
+logfire info
+```
 
 [terms-of-service]: https://pydantic.dev/legal/terms-of-service
 [privacy_policy]: https://pydantic.dev/legal/privacy-policy
