@@ -6,8 +6,12 @@ description: "Leverage the Logfire web API to query data via SQL. Export logs & 
 This API can be used to retrieve data for export, analysis, or integration with other tools, allowing you to leverage
 your data in a variety of ways.
 
-The API POST endpoint is available at `https://logfire-api.pydantic.dev/v2/query` and requires a **read token** for authentication.
-Read tokens can be generated from the Logfire web interface and provide secure access to your data.
+The API endpoint expects a POST request and is available at:
+
+* `https://logfire-us.pydantic.dev/v2/query` for the US [region](reference/data-regions.md).
+* `https://logfire-eu.pydantic.dev/v2/query` for the EU [region](reference/data-regions.md).
+
+It requires a **read token** for authentication, which can be generated from the Logfire web interface and provide secure access to your data.
 
 The API can return data in various formats, including JSON, Apache Arrow, and CSV, to suit your needs.
 See [here](#additional-configuration) for more details about the available response formats.
@@ -87,7 +91,7 @@ Here's an example of how to use these clients:
 
         async with AsyncLogfireQueryClient(read_token='<your_read_token>') as client:
             # Load data as JSON
-            json_rows = await client.query_json_rows(sql=query,min_timestamp=min_timestamp)
+            json_rows = await client.query_json_rows(sql=query, min_timestamp=min_timestamp)
             print(json_rows)
             """
             {
@@ -321,6 +325,8 @@ You can also use the `Accept` header to specify the desired format for the respo
 ### Example: Using Python `requests` Library
 
 ```python skip-run="true" skip-reason="external-connection"
+from datetime import UTC, datetime, timedelta
+
 import requests
 
 # Define the base URL and your read token
@@ -338,7 +344,8 @@ LIMIT 1
 """
 
 # Prepare the body for the POST request
-body = {'sql': query}
+min_timestamp = datetime.now(tz=UTC) - timedelta(hours=2)
+body = {'sql': query, 'min_timestamp': min_timestamp.isoformat()}
 
 # Send the POST request to the Logfire API
 response = requests.post(f'{base_url}/v2/query', json=body, headers=headers)
@@ -365,9 +372,9 @@ The Logfire API supports various response formats and body parameters to give yo
     - **`sql`**: The SQL query to execute. This is the only required query parameter.
     - **`min_timestamp`**: An optional ISO-format timestamp to filter records with `start_timestamp` greater than this value for the `records` table
       or `recorded_timestamp` greater than this value for the `metrics` table. The same filtering can also be done manually within the query itself.
-      If not provided, defaults to a day from now.
+      If not provided, defaults to a day from the current time.
     - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
-    - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 1000**. The maximum allowed value is 10,000.
+    - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 100**. The maximum allowed value is 10,000.
     - **`params`**: An optional object mapping prepared-statement placeholder names to their substitution values. For example, with the query `SELECT * FROM records WHERE service_name = $svc`, pass `{"svc": "'my_service'"}` as `params` (note the inner quotes — values are inlined verbatim into the SQL).
     - **`timezone`**: An optional timezone (e.g. `"Europe/Paris"`) to use for the query execution context.
     - **`deployment_environment`**: Restrict rows to one or more [environments](../environments.md). Accepts a single environment string or a list of strings. To only match rows where no environment is set, use the empty string (`""`).
