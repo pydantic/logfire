@@ -10,8 +10,8 @@ With **Logfire**, use Alerts to notify you when certain conditions are met.
 
 Let's see in practice how to create an alert.
 
-1. Go to the **Alerts** tab in the left sidebar.
-2. Click the **Create alert** button.
+1. Go to **Notify** → **Alerts** in the left sidebar.
+2. Click the **New Alert** button.
 
 Then you'll see the following form:
 
@@ -34,10 +34,13 @@ WHERE
 1. The `SELECT ... FROM records` statement is the base query that will be executed. The **records** table contains the spans and logs data. `trace_id` links to the trace in the live view when viewing the alert run results in the web UI.
 2. The `attributes` field is a JSON field that contains additional information about the record. In this case, we're using the `http.route` attribute to filter the records by route.
 
-The **Time window** field allows you to specify the time range over which the query will be executed.
+Use the **Notifications** section to choose:
 
-The **Webhook URL** field is where you can specify a URL to which the alert will send a POST request when triggered.
-For now, **Logfire** alerts only send the requests in [Slack format].
+- **Include rows from**: the time window of data included every time the query runs.
+- **Run the query**: how often Logfire executes the query.
+- **Notify me when**: which result condition sends a notification.
+
+Select one or more notification channels for delivery. If you have not created a channel yet, go to **Notify** → **Delivery** → **Channels** and click **New channel**. For Slack, create a Slack incoming webhook and choose the Slack channel type.
 
 ??? tip "Get a Slack webhook URL"
     To get a Slack webhook URL, follow the instructions in the [Slack documentation](https://api.slack.com/messaging/webhooks).
@@ -84,14 +87,12 @@ Otherwise, you'll see the number of matches highlighted in orange.
 
 ![Alerts list with error](../../images/guide/browser-alerts-error.png)
 
-In this case, you'll also receive a notification in the Webhook URL you've set up.
+In this case, you'll also receive notifications in the channels you've selected.
 
 ## Edit an alert
 
-You can configure an alert by clicking on the **Configuration** button on the right side of the alert.
+You can configure an alert by opening it from the alerts list and clicking **Edit Alert**.
 
 ![Edit alert](../../images/guide/browser-alerts-edit.png)
 
 You can update the alert, or delete it by clicking the **Delete** button. If instead of deleting the alert, you want to disable it, you can click on the **Active** switch.
-
-[Slack format]: https://api.slack.com/reference/surfaces/formatting

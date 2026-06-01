@@ -22,7 +22,7 @@ You'll see a panel where you can enter a query using either:
 ## 2. Writing and Generating Queries
 
 - **Direct SQL**: Type your SQL directly in the editor. Autocomplete and schema hints are available.
-- **Generate SQL with AI**: Click the "Generate SQL with AI" option, then describe what you want (e.g., "all exceptions in the last hour"). The AI will convert your description into a SQL query.
+- **Generate SQL with AI**: Click the **Generate SQL with AI** option, then describe what you want (e.g., "all exceptions in the last hour"). The AI will convert your description into a SQL query.
   - You can also enable the **Include existing SQL code** option. This allows the AI to modify or build upon your current SQL query, rather than starting from scratch.
 
 ![Natural language to SQL](../../images/guide/browser-saved-searches-natural-language.png)
@@ -89,4 +89,4 @@ flowchart TD
 **Next Steps:**
 
 - [Explore more about querying with SQL](explore.md)
-- [Learn about dashboards and alerts](dashboards.md), (alerts.md)
+- [Learn about dashboards](dashboards.md) and [alerts](alerts.md)

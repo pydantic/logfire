@@ -20,7 +20,7 @@ Each row shows:
 - **Events** — total number of evaluation events in the window
 - **Last activity** — when the most recent event arrived
 
-Use the time-window tabs in the page header (**1h**, **6h**, **24h**, **7d**, **30d**) to adjust the range. Narrowing the window never empties the page: a target that was active anywhere in the last 30 days still appears as a silent row so you can see that evaluators are configured even if traffic is quiet right now.
+Use the time-window tabs in the page header (**5m**, **1h**, **6h**, **24h**, **7d**, **30d**) to adjust the range. Narrowing the window never empties the page: a target that was active anywhere in the last 30 days still appears as a silent row so you can see that evaluators are configured even if traffic is quiet right now.
 
 The column headers are sortable — click **Target**, **Type**, **Events**, or **Last activity** to re-order. The sort state is persisted in the URL so you can share a specific view.
 

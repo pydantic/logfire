@@ -17,7 +17,7 @@ Depending on the user's organization role, they may have implicit access to the 
 ## Which organization type should I use?
 
 While you _can_ use your personal org for production use-cases (e.g. if you
-are working alone or in a small team), we strongly encourage using a a normal organization if you are working
+are working alone or in a small team), we strongly encourage using a normal organization if you are working
 at a larger company and want to create a more "official" Logfire org for that company. This also means you don't have
 to share your personal org's projects (which you may wish to keep private) with any colleagues.
 
@@ -62,5 +62,5 @@ Three project roles are available:
 
 ### Custom roles and externally managed teams
 
-Organizations using the [entreprise plan](../../enterprise.md) have the ability to create custom roles (on top of the existing ones), as well
+Organizations using the [enterprise plan](../../enterprise.md) have the ability to create custom roles (on top of the existing ones), as well
 as using external identity and access management providers such as [Microsoft Entra ID](https://www.microsoft.com/en-us/security/business/identity-access/microsoft-entra-id).

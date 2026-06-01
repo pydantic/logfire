@@ -37,8 +37,8 @@ There are a few ways to create an alert.  You can:
 We'll create an alert that will let us know if any HTTP request takes longer than a second to execute.
 
 * Login to **Logfire** and [navigate to your project](https://logfire-us.pydantic.dev/-/redirect/latest-project)
-* Click on **Alerts** in the top navigation bar
-* Select the **New Alert** button in the top right
+* Go to **Notify** → **Alerts** in the left sidebar
+* Select the **New Alert** button
 * Let's give this Alert a name of **Slow Requests**
 * For the query, we'll group results by the http path and duration.  We want to include the **max** duration in a given time frame.  We also want to filter out any traces that aren't http requests, and order by the max duration, so we can see which routes are the slowest.  This query looks like:
   ```sql
@@ -76,9 +76,9 @@ Let's set up a channel, then test that alerts can be sent with the URL:
 
 * Select **New channel** to open the New Channel dialog
 * Put in a name such as **Logfire Alerts**.  This does need to be the name of your Slack     channel
-* Select **Slack** as the format
+* Select **Slack** as the type
 * Paste in your Webhook URL from the Slack [Apps Management Dashboard]    (https://api.slack.com/apps)
-* Click on **Send a test alert** and check that you can see the alert in Slack.
+* Click **Send test** and check that you can see the alert in Slack.
 * Click **Create Channel** to create the channel and close the dialog
 * Click the checkbox next to your new channel to select it
 

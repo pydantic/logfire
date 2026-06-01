@@ -123,7 +123,7 @@ print(f'Fetched {len(dataset.cases)} cases')
 print(f'First case input type: {type(dataset.cases[0].inputs).__name__}')
 ```
 
-If you have custom evaluator types stored with your cases, pass them via `custom_evaluator_types` so they can be deserialized:
+If you have custom evaluator types stored with your cases or dataset, pass them via `custom_evaluator_types` so they can be deserialized:
 
 ```python skip="true" skip-reason="external-connection"
 dataset = client.get_dataset(
@@ -131,6 +131,7 @@ dataset = client.get_dataset(
     input_type=QuestionInput,
     output_type=AnswerOutput,
     custom_evaluator_types=[MyCustomEvaluator],
+    custom_report_evaluator_types=[MyCustomReportEvaluator],
 )
 ```
 

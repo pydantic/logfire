@@ -14,9 +14,9 @@ In addition to the [Team and Growth plans](https://pydantic.dev/pricing), Pydant
 
 ## Enterprise Single Sign-On (SSO)
 
-Logfire Enterprise supports SSO through [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway. The same Dex configuration model works across Enterprise Cloud, Enterprise Dedicated, and Enterprise Self-Hosted deployments.
+Logfire Enterprise SSO is built on [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway.
 
-Dex works with common identity providers including Okta, Azure AD, Auth0, Google Workspace, LDAP/AD, and generic OIDC or SAML providers.
+Enterprise Cloud and Enterprise Dedicated support managed OIDC identity providers such as Okta, Microsoft Azure Entra ID, and Keycloak. Self-hosted deployments configure Dex directly through Helm values, so they can use any connector supported by Dex, including OIDC, SAML, LDAP, GitHub, and Google.
 
 ## Enterprise Cloud
 

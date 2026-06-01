@@ -8,7 +8,7 @@ Sentry is a mature error monitoring platform. Logfire is an AI-native observabil
 |---------------------|----------------------------------------|------------------------------------------|
 | **Primary Focus**   | Full observability (logs, traces, AI)  | Error monitoring                         |
 | **App Tracing**     | Core capability                        | Available, not a core focus              |
-| **AI/LLM Support**  | First-class, automatic instrumentation | Generic function tracing only            |
+| **AI/LLM Support**  | First-class, automatic instrumentation | AI Performance/LLM monitoring features   |
 | **Logging**         | Structured logs with full context      | Error-focused                            |
 | **Live View**       | Real-time "pending spans"                | ❌                                        |
 | **Query Interface** | SQL (Postgres-compatible)              | Custom UI                                |
@@ -48,14 +48,9 @@ Sentry is a mature error monitoring platform. Logfire is an AI-native observabil
 
 ### AI/LLM Support
 
-**Sentry** treats AI calls like any other function. You'll see that an error occurred, but you won't see:
+**Sentry** now has AI Performance and LLM monitoring features for supported SDKs and integrations. Those features are useful when your workflow is already centered on Sentry's error and performance tooling.
 
-- What prompt was sent
-- What the model responded
-- Token usage and costs
-- Tool calls and their results
-
-**Logfire** was built for AI applications. One function call gives you complete LLM visibility:
+**Logfire** was built for AI applications and full-stack telemetry from the start. One function call gives you LLM visibility alongside the rest of your OpenTelemetry data:
 
 ```python skip="true" skip-reason="incomplete"
 import logfire
@@ -71,7 +66,7 @@ logfire.instrument_openai()  # That's it
 
 ### SQL-Powered Analytics — Essential for Agentic Coding
 
-**Sentry** uses a custom UI for querying and filtering.
+**Sentry** uses custom query and exploration UIs for querying and filtering.
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 

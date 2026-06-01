@@ -31,7 +31,7 @@ Resources include:
 
 - Terraform CLI `1.8+` (per provider docs)
 - A Logfire API key, passed as `api_key` or `LOGFIRE_API_KEY`
-- A Logfire base URL, passed as `base_url` or `LOGFIRE_BASE_URL`
+- A Logfire base URL, passed as `base_url` or `LOGFIRE_BASE_URL`, when the provider cannot infer the hosted region from the API key or when you use self-hosted Logfire
 
 See [API keys](../reference/advanced/use-api-keys.md) for key creation and scopes.
 
@@ -47,9 +47,9 @@ terraform {
 }
 
 provider "logfire" {
-  # You can also set LOGFIRE_BASE_URL and LOGFIRE_API_KEY.
-  base_url = "https://logfire-us.pydantic.dev"
-  api_key  = var.logfire_api_key
+  # You can also set LOGFIRE_API_KEY. Hosted Logfire base URLs are inferred
+  # from regional API keys; set base_url explicitly for self-hosted Logfire.
+  api_key = var.logfire_api_key
 }
 
 resource "logfire_project" "production" {

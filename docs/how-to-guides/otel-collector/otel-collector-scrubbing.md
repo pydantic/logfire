@@ -108,12 +108,13 @@ receivers:
 processors:
   # First, do simple key-based scrubbing/removal.
   attributes:
-    - key: session_id
-      action: update
-      value: "[Scrubbed due to session_id]"
-    - key: user_token
-      action: update
-      value: "[Scrubbed due to user_token]"
+    actions:
+      - key: session_id
+        action: update
+        value: "[Scrubbed due to session_id]"
+      - key: user_token
+        action: update
+        value: "[Scrubbed due to user_token]"
 
   # Next, find and mask any PII values we missed.
   redaction:
@@ -152,4 +153,4 @@ service:
 
 Now you should have a clearer sense of what's possible using the OpenTelemetry Collector processors for data scrubbing.
 
- Remember, for this scrubbing to work, ensure all telemetry data is only routed through the OTel Collector by setting `logfire.configure(send_to_logfire=False)`
+Remember, for this scrubbing to work, ensure all telemetry data is only routed through the OTel Collector by setting `logfire.configure(send_to_logfire=False)`

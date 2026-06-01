@@ -1,11 +1,11 @@
 # Managing Variables in the Logfire UI
 
-The Logfire web UI provides a complete interface for managing your variables without any code changes. You can find it under **Settings > Variables** in your project. The page includes two tabs:
+The Logfire web UI provides a complete interface for managing your variables without any code changes. You can find it under **Runtime > Managed Variables** in your project. The page includes two tabs:
 
 - **Variables**: browse, create, and manage your managed variables
 - **Types**: define reusable JSON schemas for custom variable types
 
-Clicking a variable opens its **detail page**, which has four tabs: **Values**, **Targeting**, **History**, and **Settings**.
+Clicking a variable opens its **detail page**, which has **Values**, **Targeting**, **Optimize**, and **History** tabs. Users with write access also see **Settings**.
 
 ![Variables list](../images/variables-list.png)
 
@@ -31,17 +31,19 @@ For **Custom Types**, the schema is derived from the type and shown read-only; e
 
 The **Values tab** is the primary interface for viewing and editing your variable's content. It combines label management with value editing in a single view.
 
-The left sidebar shows all labels (both active and inactive), while the right panel displays the value for the selected label. Each label in the sidebar shows its name and what it points to (e.g., a version number, another label, or "latest").
+The left sidebar shows the automatic `latest` entry plus all labels (both active and inactive), while the right panel displays the value for the selected entry. Each label in the sidebar shows its name and what it points to (e.g., a version number, another label, `latest`, or **Code default**).
 
-- Select a label in the sidebar to view its current value
+- Select `latest` or a label in the sidebar to view its current value
 - Click the **copy** button to copy the displayed value to your clipboard
 - Click the **compare** button to diff the selected label's value against another label — useful for reviewing differences between production and staging prompts, for example
-- Click **Edit** to modify the value, then **Save new version** to create a new version and assign it to the selected label
-- Click **Add label** to create new labels pointing to a specific version, another label, the latest version, or the code default
+- Click **Edit** to modify the value, then **Save new version** to create a new version. When `latest` is selected, the new version becomes the latest version. When a label is selected, the new version is assigned to that label.
+- Click **Add label** to create new labels pointing to a specific version, another label, `latest`, or **Code default**
 
 ![Variable detail values](../images/variable-detail-values.png)
 
-**Labels** are mutable pointers to specific versions. They work like Docker tags or git branch names — you can move them to point at any version at any time.
+`latest` is always present and points to the most recently created version. A new variable has no versions yet, so `latest` has no value until you create the first version.
+
+**Labels** are mutable pointers to specific versions or targets. They work like Docker tags or git branch names — you can move them to point at any version, another label, `latest`, or **Code default** at any time.
 
 Common label patterns:
 
@@ -49,8 +51,8 @@ Common label patterns:
 - **`control`** / **`treatment`**: A/B testing labels
 - **`stable`** / **`experimental`**: Risk-based labels
 
-!!! note "No labels = code default"
-    If a variable has no labels configured in its routing, your application serves the code default (the `default` value passed to `logfire.var()`). To serve the latest version instead, create a label that references `latest` and include it in your routing.
+!!! note "Code default"
+    **Code default** is the `default` value passed to `logfire.var()` in your application. Use it when you want some traffic to ignore remote versions and keep using the value from code.
 
 ## Browsing Version History
 
@@ -70,13 +72,12 @@ The **History tab** lets you browse all saved versions:
 
 ## Configuring Label Routing
 
-The **Targeting tab > Default** section controls what percentage of requests receive each labeled version. The weights are entered as percentages (0–100%) and must sum to 100% or less:
+The **Targeting tab > Default** section controls what percentage of requests receive each label, `latest`, or **Code default**. The editable weights are entered as percentages (0-100%) and must sum to 100% or less. **Code default** is the remaining percentage after label and `latest` weights are allocated.
 
 - Set `production` to `90` and `canary` to `10` for a 10% canary deployment
 - Set `control` to `50` and `treatment` to `50` for a 50/50 A/B test
-- To send some traffic to the latest version, create a label that references `latest` and include it in the routing — for example, a `latest` label referencing latest at `10` and `control` at `50` sends 10% of traffic to the latest version, 50% to the control label, and the remaining 40% falls back to the code default
-- If weights sum to less than 100%, the remaining percentage uses the **code default**
-- If no labels are in the routing (empty), all traffic uses the code default
+- Set `latest` to `10` and `control` to `50` to send 10% of traffic to the most recently created version, 50% to the control label, and the remaining 40% to **Code default**
+- New variables start with `latest` at `100`, so all traffic uses the newest version once one exists
 
 ## Targeting with Conditional Rules
 
@@ -100,4 +101,4 @@ For example, to give enterprise customers the production experience:
 ![Variable detail targeting](../images/variable-detail-routing.png)
 
 !!! important "Variable names must match"
-    The variable name in the UI must exactly match the `name` parameter in your `logfire.var()` call. If they don't match, your application will use the code default instead of the remote configuration.
+    The variable name in the UI must exactly match the `name` parameter in your `logfire.var()` call. If they don't match, your application will use **Code default** instead of the remote configuration.
