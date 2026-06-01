@@ -1736,6 +1736,7 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'min_level': 0,
                         'add_baggage_to_attributes': False,
                         'distributed_tracing': True,
+                        'update_genai_prices': False,
                         'head_sample_rate': 1.0,
                         'tail_sampling_enabled': False,
                         'code_source_set': False,
@@ -1765,6 +1766,94 @@ def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv('LOGFIRE_EMIT_CONFIGURATION_SPAN', '1')
     configure(send_to_logfire=False, console=False, inspect_arguments=False)
     assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
+
+
+def _require_genai_prices_update_prices() -> None:
+    """Skip the current test when `genai_prices.update_prices` cannot be imported.
+
+    `pytest.importorskip` only catches `ImportError`. In some CI matrix entries
+    (e.g. pydantic 2.4), importing `genai_prices.update_prices` succeeds at the
+    top level but a transitive import raises `AttributeError` because it depends
+    on `pydantic.Tag` (added in pydantic 2.5). Skip in those cases too.
+    """
+    import importlib
+
+    try:
+        importlib.import_module('genai_prices.update_prices')
+    except Exception as exc:  # pragma: no cover
+        pytest.skip(f'genai_prices.update_prices not importable in this environment: {exc!r}')
+
+
+def test_update_genai_prices_default_off(config_kwargs: dict[str, Any]) -> None:
+    _require_genai_prices_update_prices()
+    with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
+        configure(**config_kwargs)
+        MockUpdater.assert_not_called()
+    assert GLOBAL_CONFIG.update_genai_prices is False
+    assert GLOBAL_CONFIG._genai_prices_updater is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_update_genai_prices_enabled_starts_updater(config_kwargs: dict[str, Any]) -> None:
+    _require_genai_prices_update_prices()
+    with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
+        configure(**config_kwargs, update_genai_prices=True)
+        MockUpdater.assert_called_once_with()
+        MockUpdater.return_value.start.assert_called_once_with()
+    assert GLOBAL_CONFIG.update_genai_prices is True
+    # Cleanup: stop the (mocked) updater so the atexit hook doesn't fire on the real one.
+    GLOBAL_CONFIG._stop_genai_prices_updater()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_update_genai_prices_env_var(monkeypatch: pytest.MonkeyPatch, config_kwargs: dict[str, Any]) -> None:
+    _require_genai_prices_update_prices()
+    monkeypatch.setenv('LOGFIRE_UPDATE_GENAI_PRICES', '1')
+    with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
+        configure(**config_kwargs)
+        MockUpdater.assert_called_once_with()
+    assert GLOBAL_CONFIG.update_genai_prices is True
+    GLOBAL_CONFIG._stop_genai_prices_updater()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_update_genai_prices_graceful_when_not_installed(
+    config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Hide `genai_prices.update_prices` so the lazy import fails like it would on a
+    # fresh environment without `genai-prices` installed.
+    monkeypatch.setitem(sys.modules, 'genai_prices.update_prices', None)
+    with pytest.warns(UserWarning, match='requires the `genai-prices` package'):
+        configure(**config_kwargs, update_genai_prices=True)
+    assert GLOBAL_CONFIG.update_genai_prices is True
+    assert GLOBAL_CONFIG._genai_prices_updater is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_update_genai_prices_skipped_under_emscripten(
+    config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _require_genai_prices_update_prices()
+    monkeypatch.setattr('logfire._internal.config.platform_is_emscripten', lambda: True)
+    with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
+        configure(**config_kwargs, update_genai_prices=True)
+        MockUpdater.assert_not_called()
+    assert GLOBAL_CONFIG.update_genai_prices is True
+    assert GLOBAL_CONFIG._genai_prices_updater is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_update_genai_prices_reconfigure_resets_thread(config_kwargs: dict[str, Any]) -> None:
+    _require_genai_prices_update_prices()
+    with patch('genai_prices.update_prices.UpdatePrices') as MockUpdater:
+        first_instance = mock.MagicMock(name='first_updater')
+        second_instance = mock.MagicMock(name='second_updater')
+        MockUpdater.side_effect = [first_instance, second_instance]
+
+        configure(**config_kwargs, update_genai_prices=True)
+        first_instance.start.assert_called_once_with()
+        first_instance.stop.assert_not_called()
+
+        configure(**config_kwargs, update_genai_prices=True)
+        first_instance.stop.assert_called_once_with()
+        second_instance.start.assert_called_once_with()
+
+    GLOBAL_CONFIG._stop_genai_prices_updater()  # pyright: ignore[reportPrivateUsage]
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
