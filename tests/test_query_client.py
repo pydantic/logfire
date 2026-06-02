@@ -88,8 +88,10 @@ def test_query_json_read_sync():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match=r'query_json\(\) is deprecated'):
+        with pytest.warns(DeprecationWarning) as warnings_record:
             result = client.query_json(sql)  # type: ignore[reportDeprecated]
+
+        assert any('query_json() is deprecated' in str(w.message) for w in warnings_record)
         assert result == snapshot(
             {
                 'columns': [
@@ -135,6 +137,7 @@ def test_query_json_rows_read_sync():
         """
         with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
             rows_result = client.query_json_rows(sql)  # type: ignore[reportDeprecated]
+
         assert rows_result == snapshot(
             {
                 'columns': [
@@ -221,8 +224,10 @@ async def test_query_json_read_async():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match=r'query_json\(\) is deprecated'):
+        with pytest.warns(DeprecationWarning) as warnings_record:
             result = await client.query_json(sql)  # type: ignore[reportDeprecated]
+
+        assert any('query_json() is deprecated' in str(w.message) for w in warnings_record)
         assert result == snapshot(
             {
                 'columns': [
