@@ -91,17 +91,18 @@ _DATASET_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
 
 
 # --- Response TypedDicts ---
-# These describe the shapes returned by the hosted datasets API. Pydantic
-# TypeAdapters validate responses and coerce string UUIDs/datetimes into proper
-# Python types (see the `_*_adapter` objects and `_validate_or_warn` below).
+# These mirror the datasets API response models (the backend `DatasetSummary`,
+# `DatasetRead`, `DatasetCaseRead`, and export models). Pydantic TypeAdapters
+# validate responses and coerce string UUIDs/datetimes into proper Python types
+# (see the `_*_adapter` objects and `_validate_or_warn` below).
 #
-# They intentionally describe only the fields this SDK version knows about, and
-# are kept lean around the durable, coerced fields (ids and timestamps). Fields
-# the backend adds later aren't surfaced until you upgrade the SDK — the normal
-# contract for a typed client. Optional fields use `NotRequired` so the backend
-# omitting them doesn't fail, and a response that fails validation outright
-# (e.g. a renamed/retyped required field) is returned as the raw dict with a
-# warning rather than raising, so a backend change can't break clients.
+# `id`/`name` (and a case's `inputs`) are required since the backend always
+# returns them; everything else is `NotRequired` so the backend omitting a field
+# doesn't fail validation. Fields the SDK doesn't declare are dropped — you
+# upgrade the SDK to access new backend fields, the normal contract for a typed
+# client. A response that fails validation outright (e.g. a renamed/retyped
+# required field) is returned as the raw dict with a warning rather than raising,
+# so a backend change can't break clients.
 
 
 class EvaluatorSpec(TypedDict):
@@ -116,10 +117,15 @@ class DatasetSummary(TypedDict):
 
     id: UUID
     name: str
+    project_id: NotRequired[UUID]
     description: NotRequired[str | None]
+    guidance: NotRequired[str | None]
+    ai_managed_guidance: NotRequired[bool]
     case_count: NotRequired[int]
     created_at: NotRequired[datetime]
     updated_at: NotRequired[datetime]
+    created_by_name: NotRequired[str | None]
+    updated_by_name: NotRequired[str | None]
 
 
 class DatasetDetail(TypedDict):
@@ -132,13 +138,19 @@ class DatasetDetail(TypedDict):
 
     id: UUID
     name: str
+    project_id: NotRequired[UUID]
     description: NotRequired[str | None]
     input_schema: NotRequired[dict[str, Any] | None]
     output_schema: NotRequired[dict[str, Any] | None]
     metadata_schema: NotRequired[dict[str, Any] | None]
+    guidance: NotRequired[str | None]
+    ai_managed_guidance: NotRequired[bool]
+    evaluators: NotRequired[list[EvaluatorSpec] | None]
+    report_evaluators: NotRequired[list[EvaluatorSpec] | None]
     case_count: NotRequired[int]
     created_at: NotRequired[datetime]
     updated_at: NotRequired[datetime]
+    created_by: NotRequired[UUID | None]
 
 
 class CaseDetail(TypedDict):
@@ -151,8 +163,14 @@ class CaseDetail(TypedDict):
     expected_output: NotRequired[Any]
     metadata: NotRequired[Any]
     evaluators: NotRequired[list[EvaluatorSpec] | None]
+    source_trace_id: NotRequired[str | None]
+    source_span_id: NotRequired[str | None]
+    tags: NotRequired[list[str] | None]
+    version: NotRequired[int]
     created_at: NotRequired[datetime]
+    created_by: NotRequired[UUID | None]
     updated_at: NotRequired[datetime]
+    updated_by: NotRequired[UUID | None]
 
 
 class CaseData(TypedDict):
@@ -167,6 +185,9 @@ class CaseData(TypedDict):
     expected_output: NotRequired[Any]
     metadata: NotRequired[Any]
     evaluators: NotRequired[list[EvaluatorSpec] | None]
+    source_trace_id: NotRequired[str | None]
+    source_span_id: NotRequired[str | None]
+    tags: NotRequired[list[str] | None]
 
 
 class ExportedCase(TypedDict):
