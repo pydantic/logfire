@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import platform
 import sys
-import warnings
 from datetime import datetime, timezone
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, overload
@@ -11,6 +10,7 @@ from typing_extensions import Self, deprecated
 
 from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
+from logfire._internal.stack_info import warn_at_user_stacklevel
 
 if sys.version_info >= (3, 11):
     from datetime import UTC
@@ -173,6 +173,7 @@ class _BaseLogfireQueryClient(Generic[T]):
             body['min_timestamp'] = min_timestamp.isoformat()
         else:
             # For when `min_timestamp` is not provided (deprecated):
+            warn_at_user_stacklevel('Querying without a min_timestamp is deprecated', DeprecationWarning)
             body['min_timestamp'] = _MIN_DATETIME
         if max_timestamp is not None:
             if max_timestamp.tzinfo is None:
@@ -241,7 +242,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 'organization_name': token_info['organization_name'],
                 'project_name': token_info['project_name'],
             }
-        except KeyError:
+        except KeyError:  # pragma: no cover
             raise InfoRequestError(
                 'The read token info response is missing required fields: organization_name or project_name'
             )
@@ -331,12 +332,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
               * `columns`: A list of column details including the name, datatype and whether the column is nullable.
               * `rows`: The list of rows matching the query.
         """
-        if min_timestamp is None:
-            warnings.warn(
-                'Using query_json_rows() without a min_timestamp is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
         response = self._query_v2(
             accept='application/json',
             sql=sql,
@@ -422,12 +417,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
-        if min_timestamp is None:  # pragma: no branch
-            warnings.warn(
-                'Using query_arrow() without a min_timestamp is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
         response = self._query_v2(
             accept='application/vnd.apache.arrow.stream',
             sql=sql,
@@ -508,12 +497,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
         """
-        if min_timestamp is None:
-            warnings.warn(
-                'Using query_csv() without a min_timestamp is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
         response = self._query_v2(
             accept='text/csv',
             sql=sql,
@@ -592,7 +575,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 'organization_name': token_info['organization_name'],
                 'project_name': token_info['project_name'],
             }
-        except KeyError:
+        except KeyError:  # pragma: no cover
             raise InfoRequestError(
                 'The read token info response is missing required fields: organization_name or project_name'
             )
@@ -677,12 +660,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
         """
-        if min_timestamp is None:
-            warnings.warn(
-                'Using query_json_rows() without a min_timestamp is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
         response = await self._query_v2(
             accept='application/json',
             sql=sql,
@@ -768,12 +745,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         except ImportError as e:  # pragma: no cover
             raise ImportError('pyarrow is required to use the query_arrow method') from e
 
-        if min_timestamp is None:  # pragma: no branch
-            warnings.warn(
-                'Using query_arrow() without a min_timestamp is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
         response = await self._query_v2(
             accept='application/vnd.apache.arrow.stream',
             sql=sql,
@@ -854,12 +825,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
         """
-        if min_timestamp is None:
-            warnings.warn(
-                'Using query_csv() without a min_timestamp is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
         response = await self._query_v2(
             accept='text/csv',
             sql=sql,

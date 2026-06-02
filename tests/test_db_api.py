@@ -465,6 +465,16 @@ def test_cursor_timestamp_override():
     conn.close()
 
 
+def test_cursor_min_timestamp_setter_none_warns():
+    """Setting a cursor's min_timestamp to None is deprecated."""
+    conn = make_connection()
+    cur = conn.cursor()
+    with pytest.warns(DeprecationWarning, match='Setting min_timestamp to None is deprecated'):
+        cur.min_timestamp = None
+    assert cur.min_timestamp is None
+    conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Tests: truncation warning
 # ---------------------------------------------------------------------------
@@ -628,18 +638,72 @@ def test_connect_min_timestamp_none_disables_filter():
     """Passing min_timestamp=None disables the timestamp filter."""
     capture: dict[str, Any] = {}
     transport = make_mock_transport(capture=capture)
-    conn = connect(
-        read_token='pylf_v1_us_fake',
-        base_url='https://logfire-us.pydantic.dev',
-        min_timestamp=None,
-        transport=transport,
-    )
+    with pytest.warns(DeprecationWarning, match='Setting min_timestamp to None is deprecated'):
+        conn = connect(  # type: ignore[reportDeprecated]
+            read_token='pylf_v1_us_fake',
+            base_url='https://logfire-us.pydantic.dev',
+            min_timestamp=None,
+            transport=transport,
+        )
     cur = conn.cursor()
-    with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
+    # The warning is surfaced when min_timestamp is set, not when the query runs.
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
         cur.execute('SELECT 1')
     # v2 /query requires a min_timestamp, so the SDK substitutes a far-past default:
     assert capture['body']['min_timestamp'] == '2020-01-01T00:00:00+00:00'
     assert conn.min_timestamp is None
+    conn.close()
+
+
+def test_connect_min_timestamp_none_warns():
+    """connect() with min_timestamp=None emits a deprecation warning, but a real bound does not."""
+    transport = make_mock_transport()
+
+    with pytest.warns(DeprecationWarning, match='Setting min_timestamp to None is deprecated'):
+        connect(  # type: ignore[reportDeprecated]
+            read_token='pylf_v1_us_fake',
+            base_url='https://logfire-us.pydantic.dev',
+            min_timestamp=None,
+            transport=transport,
+        ).close()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        connect(
+            read_token='pylf_v1_us_fake',
+            base_url='https://logfire-us.pydantic.dev',
+            transport=transport,
+        ).close()
+
+
+def test_connection_min_timestamp_setter_none_warns():
+    """Setting min_timestamp to None on an existing connection is deprecated."""
+    transport = make_mock_transport()
+    conn = connect(
+        read_token='pylf_v1_us_fake',
+        base_url='https://logfire-us.pydantic.dev',
+        transport=transport,
+    )
+    with pytest.warns(DeprecationWarning, match='Setting min_timestamp to None is deprecated'):
+        conn.min_timestamp = None
+    assert conn.min_timestamp is None
+    conn.close()
+
+
+def test_connection_min_timestamp_setter_timedelta():
+    """Setting min_timestamp to a timedelta computes a datetime relative to now."""
+    transport = make_mock_transport()
+    conn = connect(
+        read_token='pylf_v1_us_fake',
+        base_url='https://logfire-us.pydantic.dev',
+        transport=transport,
+    )
+    conn.min_timestamp = timedelta(days=3)
+    min_timestamp = conn.min_timestamp
+    assert min_timestamp is not None
+    age = datetime.now(timezone.utc) - min_timestamp
+    assert timedelta(days=2) < age < timedelta(days=4)
     conn.close()
 
 

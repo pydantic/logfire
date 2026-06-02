@@ -285,9 +285,6 @@ import logfire.db_api
 
 # Query the last 7 days
 conn = logfire.db_api.connect(read_token='<your_read_token>', min_timestamp=timedelta(days=7))
-
-# Or disable the filter entirely
-conn = logfire.db_api.connect(read_token='<your_read_token>', min_timestamp=None)
 ```
 
 You can also override the timestamp filter per-cursor:
@@ -302,6 +299,10 @@ cursor = conn.cursor()
 cursor.min_timestamp = datetime.now(timezone.utc) - timedelta(days=14)
 cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
 ```
+
+/// version-deprecated | v4.35.0
+Setting `min_timestamp` to `None` to `connect()` or on the cursor is deprecated.
+///
 
 ## Making Direct HTTP Requests
 
@@ -379,4 +380,4 @@ The Logfire API supports various response formats and body parameters to give yo
     - **`timezone`**: An optional timezone (e.g. `"Europe/Paris"`) to use for the query execution context.
     - **`deployment_environment`**: Restrict rows to one or more [environments](../environments.md). Accepts a single environment string or a list of strings. To only match rows where no environment is set, use the empty string (`""`).
 
-All body parameters besides `sql` are optional and can be used in any combination to tailor the API response to your needs.
+All body parameters besides `sql` and `min_timestamp` are optional and can be used in any combination to tailor the API response to your needs.

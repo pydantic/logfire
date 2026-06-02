@@ -11,13 +11,13 @@ interactions:
       accept-encoding:
       - identity
       user-agent:
-      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+      - logfire-sdk-python/4.34.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
         arch arm64)
     method: GET
     uri: http://localhost:3000/v1/read-token-info
   response:
     body:
-      string: '{"token_id":"d11b14d3-620f-42ce-8243-28188ac4b6c6","organization_id":"2d5a7ceb-641c-471c-b4bd-543331cd1e8b","organization_subscription_plan":"personal","project_id":"cb6682e7-60cf-45d8-96e3-59edde9a4920","organization_name":"viicos","project_name":"logfire-sdk-cassettes","expires_at":null,"spending_cap_reached_at":null,"billing_cycle_start":"2026-05-01T00:00:00Z","billing_cycle_end":"2026-06-01T00:00:00Z","organization_analytics_enabled":true,"owner_user_id":"e378ba5a-34aa-45b0-bb8d-7bea7eead615"}'
+      string: '{"token_id":"d11b14d3-620f-42ce-8243-28188ac4b6c6","organization_id":"2d5a7ceb-641c-471c-b4bd-543331cd1e8b","organization_subscription_plan":"personal","project_id":"cb6682e7-60cf-45d8-96e3-59edde9a4920","organization_name":"viicos","project_name":"logfire-sdk-cassettes","expires_at":null,"spending_cap_reached_at":null,"billing_cycle_start":"2026-06-01T00:00:00Z","billing_cycle_end":"2026-07-01T00:00:00Z","organization_analytics_enabled":true,"owner_user_id":"e378ba5a-34aa-45b0-bb8d-7bea7eead615"}'
     headers:
       Connection:
       - keep-alive
@@ -26,17 +26,17 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Wed, 27 May 2026 20:16:19 GMT
+      - Tue, 02 Jun 2026 08:39:51 GMT
       Server:
       - nginx/1.29.6
       access-control-expose-headers:
       - traceresponse
       traceresponse:
-      - 00-019e6b14b484564e3df50cb8f22a0308-fe0645c058844762-01
+      - 00-019e877d386aa87cf31093a206216b83-aa861ddee0514196-01
       vary:
       - Accept-Encoding
       x-api-version:
-      - 2/VKJge6IRF2hZK8TfReZxndGYv5EndpnhXiZF5m7LU=
+      - ANzsm5RGTyxgPO8CBex7kM7FsPZfq4gUAgugPr/XXwo=
     status:
       code: 200
       message: OK

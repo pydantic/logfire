@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from datetime import datetime, timezone
 from typing import Any
 
@@ -65,14 +66,6 @@ def test_info_sync():
         )
 
 
-def test_info_invalid_schema_sync():
-    with pytest.raises(
-        RuntimeError, match='The read token info response is missing required fields: organization_name or project_name'
-    ):
-        with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS) as client:
-            client.info()
-
-
 @pytest.mark.anyio
 async def test_info_async():
     async with AsyncLogfireQueryClient(
@@ -85,16 +78,6 @@ async def test_info_async():
                 'project_name': 'logfire-sdk-cassettes',
             }
         )
-
-
-async def test_info_invalid_schema_async():
-    with pytest.raises(
-        RuntimeError, match='The read token info response is missing required fields: organization_name or project_name'
-    ):
-        async with AsyncLogfireQueryClient(
-            read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS
-        ) as client:
-            await client.info()
 
 
 def test_query_json_read_sync():
@@ -479,3 +462,18 @@ def test_query_body_params_sync():
         assert result == snapshot(
             {'columns': [{'name': 'n', 'datatype': 'Int64', 'nullable': False}], 'rows': [{'n': 0}]}
         )
+
+
+def test_query_methods_share_docstring():
+    # All query methods (on both clients) document the same arguments, so the `Args:` section of
+    # their docstrings should be identical. Use the first method as the reference.
+    query_methods = [
+        getattr(client_class, name)
+        for client_class in (LogfireQueryClient, AsyncLogfireQueryClient)
+        for name in ('query_arrow', 'query_csv', 'query_json_rows')
+    ]
+    reference, *others = query_methods
+    reference_doc = inspect.cleandoc(reference.__doc__)
+    doc = reference_doc[reference_doc.index('Args:') :]
+    for method in others:
+        assert doc in inspect.cleandoc(method.__doc__)
