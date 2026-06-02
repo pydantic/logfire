@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.35.0] (2026-06-02)
+
+* Add support for new `/v2/query` endoint by @Viicos in [#1897](https://github.com/pydantic/logfire/pull/1897)
+* Support OpenTelemetry SDK 1.42 by @alexmojaki in [#1978](https://github.com/pydantic/logfire/pull/1978)
+* Fix token pattern to accept organization IDs for API keys by @Viicos in [#1980](https://github.com/pydantic/logfire/pull/1980)
+
 ## [v4.34.0] (2026-05-26)
 
 * Add `logfire.forward_export_request` and `forward_export_request_starlette` methods by @alexmojaki in [#1974](https://github.com/pydantic/logfire/pull/1974)
@@ -1159,3 +1165,4 @@ First release from new repo!
 [v4.32.1]: https://github.com/pydantic/logfire/compare/v4.32.0...v4.32.1
 [v4.33.0]: https://github.com/pydantic/logfire/compare/v4.32.1...v4.33.0
 [v4.34.0]: https://github.com/pydantic/logfire/compare/v4.33.0...v4.34.0
+[v4.35.0]: https://github.com/pydantic/logfire/compare/v4.34.0...v4.35.0
