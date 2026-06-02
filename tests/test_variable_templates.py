@@ -99,7 +99,7 @@ def test_import_logfire_without_pydantic_handlebars():
 
 def test_handlebars_import_helpers_are_memoized(monkeypatch: pytest.MonkeyPatch):
     """Successful pydantic-handlebars imports are cached after the first lookup."""
-    renderer = _handlebars.get_handlebars_renderer()
+    module = _handlebars._pydantic_handlebars()
     schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}}
     _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
 
@@ -112,8 +112,62 @@ def test_handlebars_import_helpers_are_memoized(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(builtins, '__import__', blocked_import)
 
-    assert _handlebars.get_handlebars_renderer() == renderer
+    # Re-entering the cached accessors should not re-trigger the import.
+    assert _handlebars._pydantic_handlebars() is module
     _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
+
+
+def test_missing_handlebars_raises_helpful_error(monkeypatch: pytest.MonkeyPatch):
+    """When `pydantic_handlebars` can't be imported, the SDK raises a guided error.
+
+    Run in-process — same `__import__` blocking trick as
+    `test_import_logfire_without_pydantic_handlebars`, but here we wipe the
+    `_pydantic_handlebars` cache first so the import re-runs and hits the
+    dep-error branch. The subprocess version exercises the user-facing
+    `template_var` / `render_serialized_string` flows; this one gives the
+    coverage harness an in-process witness of the failure path.
+    """
+    real_import = builtins.__import__
+
+    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
+            raise ModuleNotFoundError(f'No module named {name!r}', name=name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', blocked_import)
+    _handlebars._pydantic_handlebars.cache_clear()
+    try:
+        with pytest.raises(_handlebars.HandlebarsDependencyError, match='pydantic-handlebars'):
+            _handlebars._pydantic_handlebars()
+    finally:
+        # Restore the real import so subsequent tests in the session see a
+        # populated cache.
+        _handlebars._pydantic_handlebars.cache_clear()
+
+
+def test_unrelated_module_not_found_propagates(monkeypatch: pytest.MonkeyPatch):
+    """A `ModuleNotFoundError` for a *different* module isn't reframed.
+
+    Simulates the case where a future `pydantic_handlebars` version pulls in
+    a new transitive dependency that the user hasn't installed. We want the
+    real error to surface so the user sees which package they actually need
+    — reframing it as "install pydantic-handlebars" would be misleading.
+    """
+    real_import = builtins.__import__
+
+    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'pydantic_handlebars':
+            raise ModuleNotFoundError("No module named 'some_other_dep'", name='some_other_dep')
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', blocked_import)
+    _handlebars._pydantic_handlebars.cache_clear()
+    try:
+        with pytest.raises(ModuleNotFoundError, match='some_other_dep') as exc_info:
+            _handlebars._pydantic_handlebars()
+        assert not isinstance(exc_info.value, _handlebars.HandlebarsDependencyError)
+    finally:
+        _handlebars._pydantic_handlebars.cache_clear()
 
 
 # =============================================================================
@@ -178,6 +232,31 @@ class TestTemplateVariable:
         with pytest.raises(ValueError, match='Invalid variable name'):
             lf.template_var('not-valid', type=str, default='x', inputs_type=Inputs)
 
+    def test_type_inferred_from_default(self, config_kwargs: dict[str, Any]):
+        """template_var() infers `type` from a non-callable default, mirroring `var()`."""
+
+        class Inputs(BaseModel):
+            name: str
+
+        lf = _make_lf(_simple_config('greeting', json.dumps('Hi {{name}}!')), config_kwargs)
+        var = lf.template_var('greeting', default='Hi {{name}}!', inputs_type=Inputs)
+        assert var.value_type is str
+        assert var.get(Inputs(name='Alice')).value == 'Hi Alice!'
+
+    def test_type_required_for_resolve_function_default(self, config_kwargs: dict[str, Any]):
+        """template_var() with a callable default still requires an explicit `type=`."""
+
+        class Inputs(BaseModel):
+            name: str
+
+        lf = logfire.configure(**config_kwargs)
+
+        def make_default(targeting_key: str | None, attributes: Any) -> str:
+            return 'Hi {{name}}!'
+
+        with pytest.raises(TypeError, match='resolve function'):
+            lf.template_var('greeting', default=make_default, inputs_type=Inputs)
+
     def test_remote_render_error_records_exception(self, config_kwargs: dict[str, Any]):
         """Invalid remote templates fall back, warn, and record the render exception."""
 
@@ -187,7 +266,7 @@ class TestTemplateVariable:
         lf = _make_lf(_simple_config('prompt', json.dumps('Hello {{#if name}}')), config_kwargs)
         var = lf.template_var('prompt', type=str, default='fallback', inputs_type=Inputs)
 
-        with pytest.warns(RuntimeWarning, match='composition failed'):
+        with pytest.warns(RuntimeWarning, match='template rendering failed'):
             resolved = var.get(Inputs(name='Alice'))
 
         assert resolved.value == 'fallback'
@@ -460,11 +539,14 @@ class TestTemplateVariableOverrideRender:
         )
 
         # `model_construct` bypasses the constructor's validation so the override can hold
-        # the unrendered template; rendering then produces 'abc123', which fails the
-        # pattern constraint and exercises the outer error handler's code-default fallback.
-        bad_override = Config.model_construct(code='{{code}}')
-        with var.override(bad_override):
-            resolved = var.get(Inputs(code='abc123'))
+        # the unrendered template — `templated_config` is itself a *valid* template; it's
+        # only the rendered result (`abc123`) that violates the pattern constraint.
+        # Exercises the outer error handler's code-default fallback for inputs that
+        # produce a constraint-violating render.
+        templated_config = Config.model_construct(code='{{code}}')
+        invalid_inputs = Inputs(code='abc123')
+        with var.override(templated_config):
+            resolved = var.get(invalid_inputs)
 
         assert resolved.value == Config(code='OK')  # falls back to the code default
         assert resolved.reason == 'other_error'

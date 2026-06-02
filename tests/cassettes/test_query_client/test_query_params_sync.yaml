@@ -1,182 +1,175 @@
 interactions:
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00"}'
     headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/json
+      Host:
+      - localhost:3000
       accept:
       - text/csv
       accept-encoding:
-      - gzip, deflate
-      connection:
-      - keep-alive
-      host:
-      - localhost:8000
+      - identity
       user-agent:
-      - python-httpx/0.27.2
-    method: GET
-    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
-      string: !!binary |
-        H4sIABHN9mYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucqKSpN1THkAgAPkIWfJgAA
-        AA==
+      string: 'is_exception,count(*)
+
+        false,37
+
+        true,1
+
+        '
     headers:
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      content-encoding:
-      - gzip
-      content-type:
-      - text/csv; charset=utf-8
-      date:
-      - Fri, 27 Sep 2024 15:19:45 GMT
-      server:
-      - uvicorn
-      traceresponse:
-      - 00-ea6f925a8dabd0b77b2204aa3e709d30-25169a93033fada4-01
-      transfer-encoding:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 20:16:20 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
       - chunked
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      - accept-encoding
       x-logfire-context:
-      - e2e-test/test-e2e-project
+      - viicos/logfire-sdk-cassettes
     status:
       code: 200
       message: OK
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"min_timestamp":"2030-01-01T00:00:00+00:00"}'
     headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '225'
+      Content-Type:
+      - application/json
+      Host:
+      - localhost:3000
       accept:
       - text/csv
       accept-encoding:
-      - gzip, deflate
-      connection:
-      - keep-alive
-      host:
-      - localhost:8000
+      - identity
       user-agent:
-      - python-httpx/0.27.2
-    method: GET
-    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20&min_timestamp=2030-01-01T00%3A00%3A00%2B00%3A00
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
-      string: !!binary |
-        H4sIABHN9mYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
+      string: 'is_exception,count(*)
+
+        '
     headers:
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      content-encoding:
-      - gzip
-      content-type:
-      - text/csv; charset=utf-8
-      date:
-      - Fri, 27 Sep 2024 15:19:45 GMT
-      server:
-      - uvicorn
-      traceresponse:
-      - 00-80b22a05b72adfa0370318ba1d012eb0-8292434528086269-01
-      transfer-encoding:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 20:16:20 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
       - chunked
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      - accept-encoding
       x-logfire-context:
-      - e2e-test/test-e2e-project
+      - viicos/logfire-sdk-cassettes
     status:
       code: 200
       message: OK
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"min_timestamp":"2020-01-01T00:00:00+00:00","max_timestamp":"2020-01-01T00:00:00+00:00"}'
     headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '269'
+      Content-Type:
+      - application/json
+      Host:
+      - localhost:3000
       accept:
       - text/csv
       accept-encoding:
-      - gzip, deflate
-      connection:
-      - keep-alive
-      host:
-      - localhost:8000
+      - identity
       user-agent:
-      - python-httpx/0.27.2
-    method: GET
-    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20&max_timestamp=2020-01-01T00%3A00%3A00%2B00%3A00
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
-      string: !!binary |
-        H4sIABHN9mYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uQCAFnBUz8WAAAA
+      string: 'is_exception,count(*)
+
+        '
     headers:
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      content-encoding:
-      - gzip
-      content-type:
-      - text/csv; charset=utf-8
-      date:
-      - Fri, 27 Sep 2024 15:19:45 GMT
-      server:
-      - uvicorn
-      traceresponse:
-      - 00-ef2b377579b8c5feb82e33e32b6ecf8c-1baa667e4555a5cc-01
-      transfer-encoding:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 20:16:20 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
       - chunked
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      - accept-encoding
       x-logfire-context:
-      - e2e-test/test-e2e-project
+      - viicos/logfire-sdk-cassettes
     status:
       code: 200
       message: OK
 - request:
-    body: ''
+    body: '{"sql":"\n        SELECT is_exception, count(*)\n        FROM records\n        GROUP
+      BY is_exception\n        ORDER BY is_exception\n        ","explain":false,"include_schema":true,"limit":1,"min_timestamp":"2020-01-01T00:00:00+00:00"}'
     headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '235'
+      Content-Type:
+      - application/json
+      Host:
+      - localhost:3000
       accept:
       - text/csv
       accept-encoding:
-      - gzip, deflate
-      connection:
-      - keep-alive
-      host:
-      - localhost:8000
+      - identity
       user-agent:
-      - python-httpx/0.27.2
-    method: GET
-    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20is_exception%2C%20count%28%2A%29%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20GROUP%20BY%20is_exception%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%0A%20%20%20%20%20%20%20%20&limit=1
+      - logfire-sdk-python/4.33.0 (Python 3.14.5, os macOS-26.3.1-arm64-arm-64bit-Mach-O,
+        arch arm64)
+    method: POST
+    uri: http://localhost:3000/v2/query
   response:
     body:
-      string: !!binary |
-        H4sIABHN9mYC/8ssjk+tSE4tKMnMz9NJzi/NK9HQ0uRKS8wpTtUxNucCANUZtHYfAAAA
+      string: 'is_exception,count(*)
+
+        false,37
+
+        '
     headers:
-      access-control-expose-headers:
-      - traceresponse
-      content-disposition:
-      - attachment; filename="query_results.csv"
-      content-encoding:
-      - gzip
-      content-type:
-      - text/csv; charset=utf-8
-      date:
-      - Fri, 27 Sep 2024 15:19:45 GMT
-      server:
-      - uvicorn
-      traceresponse:
-      - 00-99e9a8040fe77b68524a2995a9962444-0bd9d1e821eb5529-01
-      transfer-encoding:
+      Connection:
+      - keep-alive
+      Date:
+      - Wed, 27 May 2026 20:16:20 GMT
+      Server:
+      - nginx/1.29.6
+      Transfer-Encoding:
       - chunked
       vary:
-      - Accept-Encoding
-      x-api-version:
-      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      - accept-encoding
       x-logfire-context:
-      - e2e-test/test-e2e-project
+      - viicos/logfire-sdk-cassettes
     status:
       code: 200
       message: OK

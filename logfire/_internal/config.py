@@ -106,6 +106,7 @@ from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWr
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
+from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
@@ -625,28 +626,31 @@ def configure(
         config = LogfireConfig()
     else:
         config = GLOBAL_CONFIG
-    config.configure(
-        send_to_logfire=send_to_logfire,
-        token=token,
-        api_key=api_key,
-        service_name=service_name,
-        service_version=service_version,
-        environment=environment,
-        console=console,
-        metrics=metrics,
-        config_dir=Path(config_dir) if config_dir else None,
-        data_dir=Path(data_dir) if data_dir else None,
-        additional_span_processors=additional_span_processors,
-        scrubbing=scrubbing,
-        inspect_arguments=inspect_arguments,
-        min_level=min_level,
-        sampling=sampling,
-        add_baggage_to_attributes=add_baggage_to_attributes,
-        code_source=code_source,
-        variables=variables,
-        distributed_tracing=distributed_tracing,
-        advanced=advanced,
-    )
+    try:
+        config.configure(
+            send_to_logfire=send_to_logfire,
+            token=token,
+            api_key=api_key,
+            service_name=service_name,
+            service_version=service_version,
+            environment=environment,
+            console=console,
+            metrics=metrics,
+            config_dir=Path(config_dir) if config_dir else None,
+            data_dir=Path(data_dir) if data_dir else None,
+            additional_span_processors=additional_span_processors,
+            scrubbing=scrubbing,
+            inspect_arguments=inspect_arguments,
+            min_level=min_level,
+            sampling=sampling,
+            add_baggage_to_attributes=add_baggage_to_attributes,
+            code_source=code_source,
+            variables=variables,
+            distributed_tracing=distributed_tracing,
+            advanced=advanced,
+        )
+    except LogfireConfigError as e:
+        raise e.with_traceback(None)
 
     if local:
         logfire_instance = Logfire(config=config)
@@ -932,6 +936,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        self._otlp_forwarding = OTLPForwardingManager([])
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -996,6 +1001,7 @@ class LogfireConfig(_LogfireConfigData):
             return
 
         emscripten = platform_is_emscripten()
+        otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
@@ -1173,6 +1179,7 @@ class LogfireConfig(_LogfireConfigData):
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
+                        otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
@@ -1382,6 +1389,15 @@ class LogfireConfig(_LogfireConfigData):
             atexit.unregister(exit_open_spans)
             atexit.register(exit_open_spans)
 
+            atexit.unregister(shutdown_otlp_forwarding)
+            atexit.register(shutdown_otlp_forwarding)
+
+            previous_otlp_forwarding = self._otlp_forwarding
+            self._otlp_forwarding = OTLPForwardingManager(
+                otlp_forwarding_destinations,
+                server_response_hook=self.advanced.server_response_hook,
+            )
+            previous_otlp_forwarding.shutdown(0, drain_queued=False)
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
@@ -1411,7 +1427,46 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        # TODO: Combine non-tracer flush results into the returned status in a follow-up.
+        self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
+
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
+        """Shut down variables, forwarding, traces, logs, and metrics."""
+        start = time.monotonic()
+
+        def remaining_ms() -> int:
+            return max(0, int(timeout_millis - (time.monotonic() - start) * 1000))
+
+        complete = True
+        self._variable_provider.shutdown(timeout_millis=remaining_ms())
+        remaining = remaining_ms()
+
+        forwarding_shutdown_result = self._otlp_forwarding.shutdown(remaining, drain_queued=flush)
+        complete = complete and forwarding_shutdown_result
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._tracer_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._tracer_provider.shutdown()
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._logger_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._logger_provider.shutdown()
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._meter_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._meter_provider.shutdown(remaining)
+
+        return remaining_ms() > 0 and complete
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
@@ -1625,6 +1680,18 @@ def exit_open_spans():  # pragma: no cover
         # Interpreter shutdown may trigger another call to .end(),
         # which would log a warning "Calling end() on an ended span."
         span.end = lambda *_, **__: None  # pyright: ignore[reportUnknownLambdaType]
+
+
+def shutdown_otlp_forwarding(timeout_millis: int = 30_000) -> None:
+    deadline = time.monotonic() + timeout_millis / 1000
+    for config_ref in list(_LOGFIRE_CONFIG_INSTANCES):
+        config = config_ref()
+        if config is None:
+            continue
+
+        manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+        remaining_millis = max(0, int((deadline - time.monotonic()) * 1000))
+        manager.shutdown(remaining_millis, drain_queued=True)
 
 
 # atexit isn't called in forked processes, patch os._exit to ensure cleanup.

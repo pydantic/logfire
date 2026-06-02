@@ -132,6 +132,31 @@ def test_premium_config_handling():
     # Back to normal after context exits
 ```
 
+#### Overrides and composition
+
+Overrides take precedence over both the provider value and the code default, but they are treated as the user's literal choice. Two consequences worth knowing:
+
+- **`@{ref}@` composition is skipped on overrides.** Overriding with `'hi @{user}@'` produces the literal string — `@{user}@` is *not* expanded. Composition is for resolving fragments out of the configured graph; an override sits outside that graph.
+- **Template rendering still happens for `TemplateVariable` overrides**, as long as the override value is JSON-serializable. Overriding with `'Hi {{name}}'` and calling `get(Inputs(name='Alice'))` returns `'Hi Alice'`. An override that *isn't* JSON-serializable (e.g. an arbitrary Python object) skips the render pass and comes back exactly as passed — useful for `Variable[SomeClass]` where the value is a typed Python object rather than a template string.
+
+```python
+import logfire
+
+logfire.configure()
+
+logfire.var('user', type=str, default='Alice')
+greeting = logfire.var('greeting', type=str, default='Hello, @{user}@!')
+
+# Without an override: composition expands @{user}@.
+print(greeting.get().value)
+#> Hello, Alice!
+
+# Override is literal — @{user}@ is *not* expanded.
+with greeting.override('Hi @{user}@'):
+    print(greeting.get().value)
+    #> Hi @{user}@
+```
+
 ### Dynamic Override Functions
 
 Override with a function that computes the value based on context:

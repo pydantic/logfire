@@ -46,6 +46,7 @@ from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
+import logfire._internal.config as config_module
 from logfire import configure, propagate
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
@@ -73,6 +74,7 @@ from logfire._internal.exporters.processor_wrapper import (
 )
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
+from logfire._internal.forwarding import OTLPForwardingManager
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
@@ -580,6 +582,105 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=True)
     with patch.dict(os.environ, {'LOGFIRE_CONSOLE_VERBOSE': 'false'}):
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
+
+
+def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(previous_manager, OTLPForwardingManager)
+    assert previous_manager.has_destinations() is False
+
+    logfire.configure(send_to_logfire=False, console=False, metrics=False)
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(manager, OTLPForwardingManager)
+    assert manager is not previous_manager
+    assert previous_manager.closed is True
+    assert manager.has_destinations() is False
+
+
+def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    configure(
+        token=['pylf_v1_us_token1', 'pylf_v1_us_token2', 'pylf_v1_eu_token3'],
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+    wait_for_check_token_thread()
+    manager = GLOBAL_CONFIG._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert set(manager.pipelines) == {'https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev'}
+    assert manager.pipelines['https://logfire-us.pydantic.dev'].tokens == [
+        'pylf_v1_us_token1',
+        'pylf_v1_us_token2',
+    ]
+    assert manager.pipelines['https://logfire-eu.pydantic.dev'].tokens == ['pylf_v1_eu_token3']
+
+
+def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> None:
+    logfire.configure(token='pylf_v1_us_token', send_to_logfire=False, console=False, metrics=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert manager.has_destinations() is False
+
+
+def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    local_logfires = [
+        logfire.configure(local=True, token='pylf_v1_us_token1', send_to_logfire=True, console=False, metrics=False),
+        logfire.configure(local=True, token='pylf_v1_eu_token2', send_to_logfire=True, console=False, metrics=False),
+    ]
+    wait_for_check_token_thread()
+    managers = [local_logfire.config._otlp_forwarding for local_logfire in local_logfires]  # pyright: ignore[reportPrivateUsage]
+
+    try:
+        assert all(manager.has_destinations() for manager in managers)
+
+        config_module.shutdown_otlp_forwarding(100)
+
+        assert all(manager.closed for manager in managers)
+        assert all(pipeline.closed for manager in managers for pipeline in manager.pipelines.values())
+    finally:
+        for local_logfire in local_logfires:
+            local_logfire.shutdown(flush=False)
+
+
+@pytest.mark.parametrize('flush', [False, True])
+def test_logfire_shutdown_closes_providers(monkeypatch: pytest.MonkeyPatch, flush: bool) -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    variable_provider = mock.Mock()
+    otlp_forwarding = mock.Mock()
+    otlp_forwarding.shutdown.return_value = True
+    tracer_provider = mock.Mock()
+    logger_provider = mock.Mock()
+    meter_provider = mock.Mock()
+    monkeypatch.setattr(config, '_variable_provider', variable_provider)
+    monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
+    monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+    monkeypatch.setattr(config, '_logger_provider', logger_provider)
+    monkeypatch.setattr(config, '_meter_provider', meter_provider)
+
+    assert logfire.shutdown(timeout_millis=1000, flush=flush) is True
+
+    forwarding_timeout = otlp_forwarding.shutdown.call_args.args[0]
+    otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=flush)
+    if flush:
+        tracer_provider.force_flush.assert_called_once()
+        logger_provider.force_flush.assert_called_once()
+        meter_provider.force_flush.assert_called_once()
+    else:
+        tracer_provider.force_flush.assert_not_called()
+        logger_provider.force_flush.assert_not_called()
+        meter_provider.force_flush.assert_not_called()
+    tracer_provider.shutdown.assert_called_once()
+    logger_provider.shutdown.assert_called_once()
+    meter_provider.shutdown.assert_called_once()
 
 
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:

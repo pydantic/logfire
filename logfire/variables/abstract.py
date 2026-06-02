@@ -3,14 +3,21 @@ from __future__ import annotations as _annotations
 import json
 import warnings
 from abc import ABC, abstractmethod
+from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
+from logfire.variables._handlebars import compile_runtime_template, get_safe_string_cls
+
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
+    # Pydantic is pulled in by the `[variables]` extra, not base logfire —
+    # so its imports stay TYPE_CHECKING + function-local. `import logfire`
+    # itself must work without pydantic installed (Pyodide regression
+    # guard, exercised by `pyodide_test/test.mjs`).
     from pydantic import TypeAdapter
 
     import logfire
@@ -188,10 +195,7 @@ def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     Returns:
         The rendered JSON string.
     """
-    from logfire.variables._handlebars import get_handlebars_renderer
-
-    safe_string_cls, render_fn = get_handlebars_renderer()
-
+    safe_string_cls = get_safe_string_cls()
     context = _inputs_to_context(inputs)
 
     # Wrap all string values in SafeString to disable HTML escaping.
@@ -203,7 +207,7 @@ def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     # might contain JSON-special characters (e.g., double quotes) that
     # would make the resulting JSON invalid.
     decoded = json.loads(serialized_json)
-    rendered_value = _render_json_value(decoded, render_fn, context)
+    rendered_value = _render_json_value(decoded, compile_runtime_template, context)
     return json.dumps(rendered_value)
 
 
@@ -223,19 +227,23 @@ def _wrap_safe_value(value: Any, safe_string_cls: type[str]) -> Any:
     return value
 
 
-def _render_json_value(value: Any, hbs_render: Callable[..., str], context: dict[str, Any]) -> Any:
+def _render_json_value(value: Any, compile_template: Callable[[str], Any], context: dict[str, Any]) -> Any:
     """Recursively render Handlebars templates in a decoded JSON value.
 
     Only string values are rendered; dicts and lists are walked recursively.
+    *compile_template* is the LRU-cached compile helper from
+    `_handlebars.compile_runtime_template` — passing it in (rather than
+    importing here) keeps the recursion cheap and makes the cache hit on
+    repeated identical sources.
     """
     if isinstance(value, str):
         if '{{' not in value:
             return value
-        return hbs_render(value, context)
+        return compile_template(value).render(context)
     if isinstance(value, dict):
-        return {k: _render_json_value(v, hbs_render, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+        return {k: _render_json_value(v, compile_template, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, list):
-        return [_render_json_value(item, hbs_render, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
+        return [_render_json_value(item, compile_template, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
     # Numbers, booleans, None pass through unchanged
     return value
 
@@ -395,7 +403,11 @@ class ValidationReport:
 
         variables_with_errors = len({e.variable_name for e in self.errors})
         valid_count = self.variables_checked - variables_with_errors - len(self.variables_not_on_server)
-        if valid_count > 0:
+        # Only advertise "Valid" when the report as a whole is valid. Otherwise
+        # a partial pass (per-variable type checks succeeded but reference /
+        # template-field errors exist) emits the contradictory pair
+        # "=== Valid (N variables) ===" + "=== Reference errors ===".
+        if valid_count > 0 and self.is_valid:
             lines.append(f'\n{green}=== Valid ({valid_count} variables) ==={reset}')
 
         # Show description differences as informational warnings
@@ -640,8 +652,16 @@ def _check_reference_errors(
 ) -> list[str]:
     """Check for reference errors: non-existent refs and cycles.
 
-    Scans local variable defaults and server label values for @{references}@
-    and validates that referenced variables exist and there are no cycles.
+    Walks the full composition graph starting from each locally-registered
+    variable, transitively following `@{ref}@` edges into server-only
+    variables — so a missing reference reachable only through a chain that
+    passes through a server-only node still surfaces, as does a cycle whose
+    midpoints are server-only.
+
+    `VariablesConfig` is treated as self-contained for substitution: any
+    `@{name}@` whose `name` isn't in either the local registration set or
+    `server_config` is reported as a non-existent reference, the same way
+    a registration miss is.
     """
     from logfire.variables.composition import find_references
     from logfire.variables.config import LabeledValue
@@ -649,40 +669,59 @@ def _check_reference_errors(
 
     warnings_list: list[str] = []
 
-    # Collect all known variable names (local + server)
     all_names: set[str] = {v.name for v in variables} | set(server_config.variables.keys())
+    locals_by_name = {v.name: v for v in variables}
 
-    # Build a reference graph: variable_name -> set of referenced names
-    ref_graph: dict[str, set[str]] = {}
+    def _refs_of(name: str) -> set[str]:
+        """Collect refs from every serialized value reachable for *name*.
 
-    # Scan local variable defaults for references
-    for variable in variables:
+        That's the local code default (if registered locally) plus every
+        labeled server value plus the `latest_version`. Failures to
+        serialize the local default are tolerated — we want the walker to
+        keep going.
+        """
         refs: set[str] = set()
-        if not is_resolve_function(variable.default):
+        local = locals_by_name.get(name)
+        if local is not None and not is_resolve_function(local.default):
             try:
-                serialized_default = variable.type_adapter.dump_json(variable.default).decode('utf-8')
+                serialized_default = local.type_adapter.dump_json(local.default).decode('utf-8')
                 refs.update(find_references(serialized_default))
             except Exception:
                 pass
-
-        # Also scan server label values for this variable
-        server_var = server_config.variables.get(variable.name)
+        server_var = server_config.variables.get(name)
         if server_var is not None:
-            for _, labeled_value in server_var.labels.items():
-                if isinstance(labeled_value, LabeledValue):
-                    refs.update(find_references(labeled_value.serialized_value))
+            for labeled in server_var.labels.values():
+                if isinstance(labeled, LabeledValue):
+                    refs.update(find_references(labeled.serialized_value))
             if server_var.latest_version is not None:
                 refs.update(find_references(server_var.latest_version.serialized_value))
+        return refs
 
+    # BFS the composition graph from every local variable in declaration
+    # order. Each node we visit contributes its outgoing edges to
+    # `ref_graph` and, if any point at an unknown name, a
+    # non-existent-reference warning. Visited names are gated on `seen` so
+    # a shared sub-tree is walked once.
+    ref_graph: dict[str, set[str]] = {}
+    seen: set[str] = set()
+    frontier: deque[str] = deque(v.name for v in variables)
+    while frontier:
+        current = frontier.popleft()
+        if current in seen:
+            continue
+        seen.add(current)
+        refs = _refs_of(current)
         if refs:
-            ref_graph[variable.name] = refs
+            ref_graph[current] = refs
+        for ref in refs:
+            if ref not in all_names:
+                warnings_list.append(f"Variable '{current}' references '@{{{ref}}}@' which does not exist.")
+            elif ref not in seen:
+                frontier.append(ref)
 
-        # Check for non-existent references
-        for ref_name in refs:
-            if ref_name not in all_names:
-                warnings_list.append(f"Variable '{variable.name}' references '@{{{ref_name}}}@' which does not exist.")
-
-    # Check for cycles using DFS
+    # Cycle detection on the assembled graph. Because the graph includes
+    # nodes reached transitively through server-only variables, cycles
+    # whose midpoints are server-only are now caught too.
     def _detect_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
         cycles: list[list[str]] = []
         visited: set[str] = set()
@@ -691,7 +730,6 @@ def _check_reference_errors(
 
         def dfs(node: str) -> None:
             if node in in_stack:
-                # Found a cycle - extract it
                 cycle_start = path.index(node)
                 cycles.append(path[cycle_start:] + [node])
                 return

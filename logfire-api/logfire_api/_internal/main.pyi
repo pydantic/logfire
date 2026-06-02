@@ -6,6 +6,7 @@ import pydantic_ai
 import pydantic_ai.models
 import requests
 from . import async_ as async_
+from ..experimental.forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
 from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
 from ..integrations.httpx import AsyncRequestHook as HttpxAsyncRequestHook, AsyncResponseHook as HttpxAsyncResponseHook, RequestHook as HttpxRequestHook, ResponseHook as HttpxResponseHook
@@ -51,7 +52,8 @@ from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, Command
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
-from starlette.requests import Request as Request
+from starlette.requests import Request
+from starlette.responses import Response
 from starlette.websockets import WebSocket as WebSocket
 from surrealdb.connections.async_template import AsyncTemplate
 from surrealdb.connections.sync_template import SyncTemplate
@@ -398,7 +400,7 @@ class Logfire:
     def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -1418,6 +1420,50 @@ class Logfire:
             print(config.model_dump_json(indent=2))
             ```
         '''
+    def forward_export_request(self, *, path: str, headers: Mapping[str, str], body: bytes, max_body_size: int = ...) -> ForwardExportRequestResponse:
+        '''Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is generic and can be used for any web framework.
+        For Starlette/FastAPI, use `forward_export_request_starlette` instead for extra protection and convenience.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn\'t need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            path: one of "/v1/traces", "/v1/metrics", or "/v1/logs"
+            headers: the request headers, as a mapping of header names to values
+            body: the request body, as bytes
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+        '''
+    async def forward_export_request_starlette(self, request: Request, *, max_body_size: int = ...) -> Response:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is designed for Starlette/FastAPI.
+        For other web frameworks, use `forward_export_request` instead and adapt the request/response handling as needed.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            request: The Starlette/FastAPI `Request` object.
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A Starlette/FastAPI `Response` object.
+        """
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""

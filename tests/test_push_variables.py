@@ -507,6 +507,80 @@ def test_compute_diff_reference_error_scan_skips_already_visited_nodes(
     assert diff.reference_errors == []
 
 
+def test_compute_diff_reference_errors_through_server_only_chain(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """Missing refs reached through server-only variables are surfaced.
+
+    Reproduces the case from #1951's review: a local variable composes a
+    server-only fragment whose own value references a third name that
+    doesn't exist anywhere. The walker has to follow `@{ref}@` edges out
+    of server-only nodes — values are in `VariablesConfig`, the walker
+    just needs to follow them.
+    """
+    foo2 = Variable[str](
+        name='foo2',
+        default='@{foo1}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'foo1': VariableConfig(
+                name='foo1',
+                json_schema={'type': 'string'},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+                latest_version=LatestVersion(version=1, serialized_value='"foo1 references @{foo3}@"'),
+            ),
+        }
+    )
+
+    diff = _compute_diff([foo2], server_config)
+
+    assert any("'foo1' references '@{foo3}@'" in warning for warning in diff.reference_errors)
+
+
+def test_compute_diff_detects_cycle_through_server_only_chain(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """Cycles whose midpoints are server-only are detected."""
+    foo = Variable[str](
+        name='foo',
+        default='@{server_a}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    # foo -> server_a -> server_b -> foo (cycle, server_a and server_b
+    # are server-only — no local registration).
+    server_config = VariablesConfig(
+        variables={
+            'server_a': VariableConfig(
+                name='server_a',
+                json_schema={'type': 'string'},
+                labels={'production': LabeledValue(version=1, serialized_value='"@{server_b}@"')},
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            ),
+            'server_b': VariableConfig(
+                name='server_b',
+                json_schema={'type': 'string'},
+                labels={'production': LabeledValue(version=1, serialized_value='"@{foo}@"')},
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([foo], server_config)
+
+    assert any(
+        'Reference cycle detected' in warning and 'foo' in warning and 'server_a' in warning and 'server_b' in warning
+        for warning in diff.reference_errors
+    )
+
+
 def test_format_diff_creates() -> None:
     """Test diff formatting for creates."""
     diff = VariableDiff(

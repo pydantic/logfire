@@ -1882,6 +1882,29 @@ class TestVariable:
                 assert var.get().value == 'inner'
             assert var.get().value == 'outer'
 
+    def test_override_unserializable_value_returned_typed(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        """Top-level overrides return the user's typed Python value, even when it isn't JSON-serializable.
+
+        Regression for #1951 r3287492856 / r3289439477 — the SDK previously
+        round-tripped overrides through `dump_json`/`validate_json`, silently
+        dropping unserializable values back to the provider / code default
+        and leaving callers unaware. Pre-#1951 behaviour was to return the
+        typed object verbatim; this restores that for the no-composition
+        case while still serializing when composition / template rendering
+        needs a string.
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=object)
+        sentinel = object()
+        with var.override(sentinel):
+            result = var.get()
+            assert result.value is sentinel
+            assert result.reason == 'context_override'
+
     def test_override_with_function(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)

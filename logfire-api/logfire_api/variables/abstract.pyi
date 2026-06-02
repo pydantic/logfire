@@ -7,11 +7,12 @@ from logfire.variables.config import VariableConfig, VariableTypeConfig, Variabl
 from logfire.variables.variable import Variable
 from typing import Any, Generic, TypeVar
 
-__all__ = ['ResolvedVariable', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError']
+__all__ = ['ResolvedVariable', 'ResolutionReason', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError']
 
 SyncMode: Incomplete
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
+ResolutionReason: Incomplete
 
 class VariableWriteError(Exception):
     """Base exception for variable write operation failures."""
@@ -25,17 +26,19 @@ class ResolvedVariable(Generic[T_co]):
     '''Details about a variable resolution including value, label, version, and any errors.
 
     This class can be used as a context manager. When used as a context manager, it
-    automatically sets baggage with the variable name and label, enabling downstream
-    spans and logs to be associated with the variable resolution that was active at the time.
+    automatically sets baggage with the variable name, label, and (when applicable)
+    version, enabling downstream spans and logs to be associated with the variable
+    resolution that was active at the time.
 
     Example:
         ```python skip="true"
         my_var = logfire.var(name=\'my_var\', type=str, default=\'default\')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
-            # logfire.variables.my_var = <label> (or \'<code_default>\' if no label)
+            #   logfire.variables.my_var          = <label> (or \'<code_default>\' if no label)
+            #   logfire.variables.my_var.version  = <version> (only when a versioned value was resolved)
             value = details.value
-            # Any spans/logs created here will have the baggage attached
+            # Any spans/logs created here will have the baggage attached.
         ```
     '''
     name: str
@@ -43,6 +46,7 @@ class ResolvedVariable(Generic[T_co]):
     label: str | None = ...
     version: int | None = ...
     exception: Exception | None = ...
+    reason: ResolutionReason
     def __post_init__(self) -> None: ...
     def __enter__(self): ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None: ...
