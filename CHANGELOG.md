@@ -3,6 +3,7 @@
 ## [v4.35.0] (2026-06-02)
 
 * Add support for new `/v2/query` endoint by @Viicos in [#1897](https://github.com/pydantic/logfire/pull/1897)
+
   This introduces changes to the `LogfireQueryClient` (and its `AsyncLogfireQueryClient` async variant), that are backwards compatible.
   However, a couple deprecations were introduced:
   * The `query_json()` method was deprecated. Use `query_json_rows()` instead.
