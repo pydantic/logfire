@@ -149,7 +149,6 @@ class _BaseLogfireQueryClient(Generic[T]):
         min_timestamp: datetime | None,
         max_timestamp: datetime | None,
         limit: int | None,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
         explain: bool = False,
@@ -173,8 +172,6 @@ class _BaseLogfireQueryClient(Generic[T]):
                 max_timestamp = max_timestamp.replace(tzinfo=UTC)
             body['max_timestamp'] = max_timestamp.isoformat()
 
-        if params is not None:
-            body['params'] = params
         if timezone is not None:
             body['timezone'] = timezone
         if isinstance(environment, str):
@@ -267,7 +264,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults: ...
@@ -280,7 +276,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults: ...
@@ -292,7 +287,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults:
@@ -312,10 +306,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution in the query. For instance,
-                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
-                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -331,7 +321,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=False,  # Note: we can expose this in the future
@@ -348,7 +337,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table: ...
@@ -361,7 +349,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table: ...
@@ -373,7 +360,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table:
@@ -397,10 +383,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution in the query. For instance,
-                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
-                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -416,7 +398,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=False,  # Note: we can expose this in the future
@@ -435,7 +416,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str: ...
@@ -448,7 +428,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str: ...
@@ -460,7 +439,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str:
@@ -482,10 +460,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution in the query. For instance,
-                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
-                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -496,7 +470,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=False,  # Note: we can expose this in the future
@@ -511,7 +484,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
         explain: bool = False,
@@ -522,7 +494,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=explain,
@@ -583,7 +554,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults: ...
@@ -596,7 +566,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults: ...
@@ -625,7 +594,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults:
@@ -645,10 +613,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution in the query. For instance,
-                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
-                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -659,7 +623,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=False,  # Note: we can expose this in the future
@@ -676,7 +639,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table: ...
@@ -689,7 +651,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table: ...
@@ -701,7 +662,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table:
@@ -725,10 +685,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution in the query. For instance,
-                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
-                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -744,7 +700,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=False,  # Note: we can expose this in the future
@@ -763,7 +718,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str: ...
@@ -776,7 +730,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str: ...
@@ -788,7 +741,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         *,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str:
@@ -810,10 +762,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 be UTC.
             limit: The maximum number of rows to query. This value takes priority over the
                 `LIMIT` clause in the `sql` query.
-            params: Parameters to be used for substitution in the query. For instance,
-                with the query `SELECT * FROM records WHERE service_name = $svc`, it is necessary
-                to provide `{'svc': "'my_service'"}` as `params` (note the inner quotes — values are
-                inlined verbatim into the SQL).
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
@@ -824,7 +772,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=False,  # Note: we can expose this in the future
@@ -839,7 +786,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
         explain: bool = False,
@@ -850,7 +796,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            params=params,
             timezone=timezone,
             environment=environment,
             explain=explain,

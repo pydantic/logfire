@@ -376,7 +376,6 @@ The Logfire API supports various response formats and body parameters to give yo
       This parameter is required.
     - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
     - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 100**. The maximum allowed value is 10,000.
-    - **`params`**: An optional object mapping prepared-statement placeholder names to their substitution values. For example, with the query `SELECT * FROM records WHERE service_name = $svc`, pass `{"svc": "'my_service'"}` as `params` (note the inner quotes — values are inlined verbatim into the SQL).
     - **`timezone`**: An optional timezone (e.g. `"Europe/Paris"`) to use for the query execution context.
     - **`deployment_environment`**: Restrict rows to one or more [environments](../environments.md). Accepts a single environment string or a list of strings. To only match rows where no environment is set, use the empty string (`""`).
 

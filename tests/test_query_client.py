@@ -416,43 +416,6 @@ false,37
 """)
 
 
-def test_query_prepared_statement_params_sync():
-    sql = """
-    SELECT count(*) AS n
-    FROM records
-    WHERE span_name = $name
-    """
-    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS) as client:
-        result = client.query_json_rows(
-            sql,
-            min_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
-            params={'name': "'aha {n}'"},
-        )
-        assert result == snapshot(
-            {'columns': [{'name': 'n', 'datatype': 'Int64', 'nullable': False}], 'rows': [{'n': 36}]}
-        )
-
-
-@pytest.mark.anyio
-async def test_query_prepared_statement_params_async():
-    sql = """
-    SELECT count(*) AS n
-    FROM records
-    WHERE span_name = $name
-    """
-    async with AsyncLogfireQueryClient(
-        read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS
-    ) as client:
-        result = await client.query_json_rows(
-            sql,
-            min_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
-            params={'name': "'aha {n}'"},
-        )
-        assert result == snapshot(
-            {'columns': [{'name': 'n', 'datatype': 'Int64', 'nullable': False}], 'rows': [{'n': 36}]}
-        )
-
-
 def test_query_body_params_sync():
     """Exercise every optional body parameter (naive timestamps, timezone, environment) on `/v2/query`."""
     sql = 'SELECT count(*) AS n FROM records'
