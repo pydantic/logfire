@@ -3,6 +3,11 @@
 ## [v4.35.0] (2026-06-02)
 
 * Add support for new `/v2/query` endoint by @Viicos in [#1897](https://github.com/pydantic/logfire/pull/1897)
+  This introduces changes to the `LogfireQueryClient` (and its `AsyncLogfireQueryClient` async variant), that are backwards compatible.
+  However, a couple deprecations were introduced:
+  * The `query_json()` method was deprecated. Use `query_json_rows()` instead.
+  * Using the `query_json_rows()` / `query_arrow()` / `query_csv()` methods without providing a `min_timestamp` is deprecated.
+
 * Support OpenTelemetry SDK 1.42 by @alexmojaki in [#1978](https://github.com/pydantic/logfire/pull/1978)
 * Fix token pattern to accept organization IDs for API keys by @Viicos in [#1980](https://github.com/pydantic/logfire/pull/1980)
 
