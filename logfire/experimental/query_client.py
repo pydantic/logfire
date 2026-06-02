@@ -81,13 +81,6 @@ class RowQueryResults(TypedDict):
     rows: list[dict[str, Any]]
 
 
-class RowQueryResultsV2(TypedDict):
-    """The row-oriented results of a JSON-format query."""
-
-    columns: list[ColumnDetails]
-    rows: list[dict[str, Any]]
-
-
 def _rows_to_columns(result: RowQueryResults) -> QueryResults:
     """Convert a row-oriented JSON query result to a column-oriented one."""
     columns_by_name: dict[str, ColumnData] = {col['name']: {**col, 'values': []} for col in result['columns']}
@@ -119,8 +112,8 @@ def _transform_fields_for_backwards_compatibility(obj: Any) -> Any:
         return obj
 
 
-def _map_v2_result(obj: dict[str, Any]) -> RowQueryResultsV2:
-    mapped: RowQueryResultsV2 = {
+def _map_v2_result(obj: dict[str, Any]) -> RowQueryResults:
+    mapped: RowQueryResults = {
         'columns': _transform_fields_for_backwards_compatibility(obj['schema']['fields']),
         'rows': obj['data'],
     }
@@ -277,7 +270,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
-    ) -> RowQueryResultsV2: ...
+    ) -> RowQueryResults: ...
 
     @overload
     def query_json_rows(
@@ -290,7 +283,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
-    ) -> RowQueryResultsV2: ...
+    ) -> RowQueryResults: ...
 
     def query_json_rows(
         self,
@@ -302,7 +295,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
-    ) -> RowQueryResultsV2:
+    ) -> RowQueryResults:
         """Query Logfire data and return the results as a row-oriented dictionary.
 
         Args:
@@ -593,7 +586,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
-    ) -> RowQueryResultsV2: ...
+    ) -> RowQueryResults: ...
 
     @overload
     async def query_json_rows(
@@ -606,7 +599,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
-    ) -> RowQueryResultsV2: ...
+    ) -> RowQueryResults: ...
 
     @deprecated('query_json() is deprecated, use query_json_rows() instead', stacklevel=2)
     async def query_json(
@@ -635,7 +628,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         params: dict[str, str] | None = None,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
-    ) -> RowQueryResultsV2:
+    ) -> RowQueryResults:
         """Query Logfire data and return the results as a row-oriented dictionary.
 
         Args:
