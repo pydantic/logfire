@@ -1494,13 +1494,18 @@ class TestResponseValidation:
         assert result == {'id': UUID('12345678-1234-5678-1234-567812345678'), 'name': 'minimal'}
 
     def test_warns_and_returns_raw_on_schema_mismatch(self):
-        # `id` is required; an unexpected shape should warn and pass the raw dict
-        # through unchanged instead of raising, so clients keep working.
-        bad_response = {'name': 'no-id-here', 'unexpected': True}
+        # `id` is required and must be a UUID; an unexpected shape should warn and
+        # pass the raw dict through unchanged instead of raising, so clients keep working.
+        bad_response = {'id': 'not-a-uuid-sensitive-token', 'name': 42}
         client = make_client({('GET', '/v1/datasets/test-dataset/'): httpx.Response(200, json=bad_response)})
-        with pytest.warns(UserWarning, match='did not match the expected schema'):
+        with pytest.warns(UserWarning, match='did not match the expected schema') as record:
             result = client.get_dataset('test-dataset', include_cases=False)
         assert result == bad_response
+        # The warning should name the offending fields but must not leak the
+        # payload values (which can be sensitive).
+        message = str(record[0].message)
+        assert 'id' in message and 'name' in message
+        assert 'not-a-uuid-sensitive-token' not in message
 
     @pytest.mark.anyio
     async def test_async_warns_and_returns_raw_on_schema_mismatch(self):

@@ -237,10 +237,17 @@ def _validate_or_warn(adapter: TypeAdapter[ResponseT], data: Any, *, stacklevel:
     try:
         return adapter.validate_python(data)
     except ValidationError as e:
+        # Summarize the errors by location and reason, but exclude the offending
+        # input values: the response payload can contain sensitive data (case
+        # inputs, outputs, metadata) that shouldn't leak into logs via the warning.
+        error_summary = '; '.join(
+            f'{".".join(str(loc) for loc in err["loc"]) or "(root)"}: {err["msg"]}'
+            for err in e.errors(include_input=False, include_url=False)
+        )
         warnings.warn(
             'Logfire API response did not match the expected schema and was returned unvalidated '
             '(fields such as UUIDs and datetimes were not coerced). This usually means the SDK is '
-            f'out of date with the backend; consider upgrading logfire. Details: {e}',
+            f'out of date with the backend; consider upgrading logfire. Validation errors: {error_summary}',
             UserWarning,
             stacklevel=stacklevel,
         )
