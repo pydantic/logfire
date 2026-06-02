@@ -143,29 +143,11 @@ class Connection:
         self.client = client
         self.client.__enter__()
         self.closed = False
-        # The setter handles `timedelta` conversion and deprecation of `None`.
+        if isinstance(min_timestamp, timedelta):
+            min_timestamp = datetime.now(timezone.utc) - min_timestamp
         self.min_timestamp = min_timestamp
         self.max_timestamp = max_timestamp
         self.limit = limit
-
-    # -- min_timestamp -----------------------------------------------------
-
-    @property
-    def min_timestamp(self) -> datetime | None:
-        """Lower bound for `start_timestamp` filtering."""
-        return self._min_timestamp
-
-    @min_timestamp.setter
-    def min_timestamp(self, value: datetime | timedelta | None) -> None:
-        if value is None:
-            warnings.warn(
-                'Setting min_timestamp to None is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        elif isinstance(value, timedelta):
-            value = datetime.now(timezone.utc) - value
-        self._min_timestamp = value
 
     # -- PEP 249 methods ---------------------------------------------------
 
@@ -414,6 +396,12 @@ def connect(
     Returns:
         A PEP 249 `Connection` object.
     """
+    if min_timestamp is None:
+        warnings.warn(
+            'Setting min_timestamp to None is deprecated',
+            DeprecationWarning,
+            stacklevel=2,
+        )
     from httpx import Timeout as HttpxTimeout
 
     client = LogfireQueryClient(

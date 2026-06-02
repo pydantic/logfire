@@ -677,36 +677,6 @@ def test_connect_min_timestamp_none_warns():
         ).close()
 
 
-def test_connection_min_timestamp_setter_none_warns():
-    """Setting min_timestamp to None on an existing connection is deprecated."""
-    transport = make_mock_transport()
-    conn = connect(
-        read_token='pylf_v1_us_fake',
-        base_url='https://logfire-us.pydantic.dev',
-        transport=transport,
-    )
-    with pytest.warns(DeprecationWarning, match='Setting min_timestamp to None is deprecated'):
-        conn.min_timestamp = None
-    assert conn.min_timestamp is None
-    conn.close()
-
-
-def test_connection_min_timestamp_setter_timedelta():
-    """Setting min_timestamp to a timedelta computes a datetime relative to now."""
-    transport = make_mock_transport()
-    conn = connect(
-        read_token='pylf_v1_us_fake',
-        base_url='https://logfire-us.pydantic.dev',
-        transport=transport,
-    )
-    conn.min_timestamp = timedelta(days=3)
-    min_timestamp = conn.min_timestamp
-    assert min_timestamp is not None
-    age = datetime.now(timezone.utc) - min_timestamp
-    assert timedelta(days=2) < age < timedelta(days=4)
-    conn.close()
-
-
 def test_connect_min_timestamp_timedelta():
     """Passing a timedelta computes min_timestamp relative to now."""
     capture: dict[str, Any] = {}
