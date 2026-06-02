@@ -626,28 +626,31 @@ def configure(
         config = LogfireConfig()
     else:
         config = GLOBAL_CONFIG
-    config.configure(
-        send_to_logfire=send_to_logfire,
-        token=token,
-        api_key=api_key,
-        service_name=service_name,
-        service_version=service_version,
-        environment=environment,
-        console=console,
-        metrics=metrics,
-        config_dir=Path(config_dir) if config_dir else None,
-        data_dir=Path(data_dir) if data_dir else None,
-        additional_span_processors=additional_span_processors,
-        scrubbing=scrubbing,
-        inspect_arguments=inspect_arguments,
-        min_level=min_level,
-        sampling=sampling,
-        add_baggage_to_attributes=add_baggage_to_attributes,
-        code_source=code_source,
-        variables=variables,
-        distributed_tracing=distributed_tracing,
-        advanced=advanced,
-    )
+    try:
+        config.configure(
+            send_to_logfire=send_to_logfire,
+            token=token,
+            api_key=api_key,
+            service_name=service_name,
+            service_version=service_version,
+            environment=environment,
+            console=console,
+            metrics=metrics,
+            config_dir=Path(config_dir) if config_dir else None,
+            data_dir=Path(data_dir) if data_dir else None,
+            additional_span_processors=additional_span_processors,
+            scrubbing=scrubbing,
+            inspect_arguments=inspect_arguments,
+            min_level=min_level,
+            sampling=sampling,
+            add_baggage_to_attributes=add_baggage_to_attributes,
+            code_source=code_source,
+            variables=variables,
+            distributed_tracing=distributed_tracing,
+            advanced=advanced,
+        )
+    except LogfireConfigError as e:
+        raise e.with_traceback(None)
 
     if local:
         logfire_instance = Logfire(config=config)
