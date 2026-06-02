@@ -167,7 +167,7 @@ class UserTokenCollection:
 
 Hey, looks like you don't have Pydantic Logfire configured yet.
 
-If you're running this locally, we recommend running `logfire auth`.
+If you're running this locally, we recommend running `uv run logfire auth`.
 
 Or you could get a write token for a specific project and set the `LOGFIRE_TOKEN` environment variable.
 
