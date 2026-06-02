@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import psutil
 import pytest
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
@@ -23,6 +24,17 @@ def get_collected_metric_names(metrics_reader: InMemoryMetricReader) -> list[str
         SystemMetricsInstrumentor().uninstrument()
 
 
+def process_disk_io_supported() -> bool:
+    io_counters = getattr(psutil.Process(), 'io_counters', None)
+    if io_counters is None:
+        return False
+    try:
+        io_counters()
+    except (AttributeError, NotImplementedError, PermissionError):
+        return False
+    return True
+
+
 def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_system_metrics()
     assert get_collected_metric_names(metrics_reader) == snapshot(
@@ -37,7 +49,11 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
 
 def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_system_metrics(base='full')
-    assert get_collected_metric_names(metrics_reader) == snapshot(
+    collected_metric_names = get_collected_metric_names(metrics_reader)
+    if process_disk_io_supported():
+        collected_metric_names.pop(collected_metric_names.index('process.disk.io'))
+
+    assert collected_metric_names == snapshot(
         [
             'cpython.gc.collected_objects',
             'cpython.gc.collections',
@@ -164,6 +180,7 @@ def test_full_base():
         # There's no reason for OTel to give a value here, so the docs say `None`
         'process.cpu.utilization': None,
         'process.cpu.core_utilization': None,
+        'process.disk.io': ['read', 'write'],
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
         'cpython.gc.collected_objects': None,

@@ -7,7 +7,7 @@ from abc import abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 import agents
 from agents import (
@@ -27,7 +27,7 @@ from agents import (
     TranscriptionSpanData,
 )
 from agents.models.openai_responses import OpenAIResponsesModel
-from agents.tracing import ResponseSpanData, response_span
+from agents.tracing import ResponseSpanData, TaskSpanData, TurnSpanData, response_span
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
@@ -110,6 +110,12 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Speech → Text with {gen_ai.request.model!r}'
             elif isinstance(span_data, MCPListToolsSpanData):
                 msg_template = 'MCP: list tools from server {server}'
+            elif isinstance(span_data, TaskSpanData):
+                # For newer span types, inline low cardinality attribute values in the message template
+                # (which becomes the span name) so that they render nicely in other OTel platforms.
+                msg_template = f'Task: {span_data.name}'
+            elif isinstance(span_data, TurnSpanData):
+                msg_template = f'Turn {{turn}} for agent {span_data.agent_name}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
@@ -151,7 +157,7 @@ class LogfireTraceProviderWrapper:
             if isinstance(original, cls):
                 return
             wrapper = cls(original, logfire_instance)
-            set_trace_provider(wrapper)  # type: ignore
+            set_trace_provider(wrapper)  # pyright: ignore[reportArgumentType]
 
 
 @dataclass
@@ -166,17 +172,17 @@ class LogfireSpanHelper:
         ):
             cm = use_span(NonRecordingSpan(span_context))
         with cm:
-            self.span._start()  # type: ignore
+            self.span._start()  # pyright: ignore[reportPrivateUsage]
         if mark_as_current:
-            self.span._attach()  # type: ignore
+            self.span._attach()  # pyright: ignore[reportPrivateUsage]
 
     def end(self, reset_current: bool):
-        self.span._end()  # type: ignore
+        self.span._end()  # pyright: ignore[reportPrivateUsage]
         self.maybe_detach(reset_current)
 
     def maybe_detach(self, reset_current: bool):
         if reset_current:
-            self.span._detach()  # type: ignore
+            self.span._detach()  # pyright: ignore[reportPrivateUsage]
 
     def __enter__(self):
         self.start(True)
@@ -186,7 +192,7 @@ class LogfireSpanHelper:
         self.maybe_detach(exc_type is not GeneratorExit)
 
 
-T = TypeVar('T', Trace, Span[TSpanData])  # type: ignore
+T = TypeVar('T', Trace, Span[TSpanData])  # pyright: ignore[reportGeneralTypeIssues]
 
 
 @dataclass
@@ -382,6 +388,10 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                 attributes['output'] = {k: v for k, v in attributes['output'].items() if k != 'data'}
         elif isinstance(span_data, FunctionSpanData):
             attributes['output'] = span_data.output
+        elif isinstance(span_data, (TaskSpanData, TurnSpanData)):
+            data = attributes.pop('data', None)
+            if isinstance(data, dict):  # pragma: no branch
+                attributes.update(cast('dict[str, Any]', data))
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()
@@ -425,7 +435,7 @@ def get_magic_response_attributes() -> dict[str, Any]:
 
 def get_response_span_events(span: ResponseSpanData):
     response = span.response
-    inputs: str | list[dict[str, Any]] | None = span.input  # type: ignore
+    inputs: str | list[dict[str, Any]] | None = span.input  # pyright: ignore[reportAssignmentType]
     instructions = getattr(response, 'instructions', None)
     events = inputs_to_events(inputs, instructions) or []
     if response:

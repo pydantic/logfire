@@ -11,7 +11,7 @@ import platform
 import random
 import sys
 import traceback
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,10 +20,10 @@ from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     TypedDict,
     TypeVar,
     Union,
+    cast,
 )
 
 from opentelemetry import context, trace as trace_api
@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 
     from packaging.version import Version
 
-    SysExcInfo = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
+    SysExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
     """
     The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
     """
@@ -179,7 +179,7 @@ def span_to_dict(span: ReadableSpan) -> ReadableSpanDict:
 class UnexpectedResponse(RequestException):
     """An unexpected response was received from the server."""
 
-    response: Response  # type: ignore
+    response: Response  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __init__(self, response: Response) -> None:
         super().__init__(f'Unexpected response: {response.status_code}', response=response)
@@ -245,7 +245,7 @@ def get_version(version: str) -> Version:
         except ImportError:
             # sys.path is only changed in newer versions, so fallback to just importing the vendored Version directly.
             from setuptools._vendor.packaging.version import Version
-    return Version(version)  # type: ignore
+    return Version(version)  # pyright: ignore[reportReturnType]
 
 
 # OTEL uses two different keys to suppress instrumentation. We need to check both.
@@ -256,7 +256,7 @@ SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS = [
 
 try:
     # This is the 'main' key used by OTEL in recent versions
-    SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS.append(context._SUPPRESS_INSTRUMENTATION_KEY)  # type: ignore
+    SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS.append(context._SUPPRESS_INSTRUMENTATION_KEY)  # pyright: ignore[reportPrivateUsage]
 except AttributeError:  # pragma: no cover
     pass
 
@@ -294,12 +294,15 @@ def log_internal_error():
         raise
 
     with suppress_instrumentation():  # prevent infinite recursion from the logging integration
-        logger.exception(
-            'Caught an internal error in Logfire. '
-            'Your code should still be running fine, just with less telemetry. '
-            'This is just logging the internal error.',
-            exc_info=_internal_error_exc_info(),
-        )
+        try:
+            logger.exception(
+                'Caught an internal error in Logfire. '
+                'Your code should still be running fine, just with less telemetry. '
+                'This is just logging the internal error.',
+                exc_info=_internal_error_exc_info(),
+            )
+        except Exception:  # pragma: no cover
+            pass
 
 
 def _internal_error_exc_info() -> SysExcInfo:
@@ -454,7 +457,10 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
             visited: set[str] = set()
             for frame, lineno in traceback.walk_tb(exc.__traceback__):
                 filename = frame.f_code.co_filename
-                source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                try:
+                    source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                except Exception:
+                    source_line = '<error getting source line>'
                 module = frame.f_globals.get('__name__', filename)
                 frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
                 if frame_summary in visited:
@@ -476,7 +482,7 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
         else:
             seen.add(id(exc))
             if isinstance(exc, BaseExceptionGroup):
-                sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
+                sub_exceptions = cast('tuple[BaseException, ...]', exc.exceptions)  # pyright: ignore[reportUnknownMemberType]
                 parts += [
                     '\n<ExceptionGroup>',
                     *sorted({canonicalize_exception_traceback(nested_exc, seen) for nested_exc in sub_exceptions}),

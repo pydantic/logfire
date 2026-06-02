@@ -14,8 +14,8 @@ from logfire._internal.constants import log_level_attributes
 from logfire._internal.utils import is_asgi_send_receive_span_name, maybe_capture_server_headers
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
-    from typing import Any, Callable, Protocol, TypedDict
+    from collections.abc import Awaitable, Callable
+    from typing import Any, Protocol, TypedDict
 
     from opentelemetry.trace import Span
     from typing_extensions import Unpack
@@ -107,9 +107,9 @@ def instrument_asgi(
     See the `Logfire.instrument_asgi` method for details.
     """
     maybe_capture_server_headers(capture_headers)
-    return OpenTelemetryMiddleware(
+    return OpenTelemetryMiddleware(  # pyright: ignore[reportReturnType]
         app,
-        **{  # type: ignore
+        **{  # pyright: ignore[reportArgumentType]
             'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,

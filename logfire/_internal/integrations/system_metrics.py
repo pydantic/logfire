@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Iterable
 from platform import python_implementation
-from typing import TYPE_CHECKING, Literal, Optional, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 try:
     import psutil
     from opentelemetry.instrumentation.system_metrics import (
-        _DEFAULT_CONFIG,  # type: ignore
+        _DEFAULT_CONFIG,  # pyright: ignore[reportPrivateUsage]
         SystemMetricsInstrumentor,
     )
 except ImportError as e:  # pragma: no cover
@@ -49,6 +49,7 @@ MetricName: type[
         'process.cpu.time',
         'process.cpu.utilization',
         'process.cpu.core_utilization',
+        'process.disk.io',
         'process.memory.usage',
         'process.memory.virtual',
         'process.thread.count',
@@ -79,6 +80,7 @@ MetricName: type[
     'process.cpu.time',
     'process.cpu.utilization',
     'process.cpu.core_utilization',
+    'process.disk.io',
     'process.memory.usage',
     'process.memory.virtual',
     'process.thread.count',
@@ -88,7 +90,7 @@ MetricName: type[
     'cpython.gc.uncollectable_objects',
 ]
 
-Config = dict[MetricName, Optional[Iterable[str]]]
+Config = dict[MetricName, Iterable[str] | None]
 
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
@@ -127,7 +129,7 @@ for _deprecated in [
     'process.runtime.cpu.utilization',
     'process.runtime.context_switches',
 ]:
-    FULL_CONFIG.pop(_deprecated, None)  # type: ignore
+    FULL_CONFIG.pop(_deprecated, None)  # pyright: ignore[reportArgumentType, reportCallIssue]
 
 BASIC_CONFIG: Config = {
     'process.cpu.utilization': None,
@@ -160,18 +162,18 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
     if 'process.cpu.core_utilization' in config:
         measure_process_cpu_core_utilization(logfire_instance)
 
-    if 'process.runtime.cpu.utilization' in config:  # type: ignore
+    if 'process.runtime.cpu.utilization' in config:  # pyright: ignore[reportUnnecessaryContains]
         # Override OTEL here, see comment in measure_process_runtime_cpu_utilization.<locals>.callback.
         # (The name is also deprecated by OTEL, but that's not really important)
         measure_process_runtime_cpu_utilization(logfire_instance)
-        del config['process.runtime.cpu.utilization']  # type: ignore
+        del config['process.runtime.cpu.utilization']  # pyright: ignore[reportArgumentType]
 
     if 'process.cpu.utilization' in config:
         # Override OTEL here to avoid emitting 0 in the first measurement.
         measure_process_cpu_utilization(logfire_instance)
         del config['process.cpu.utilization']
 
-    instrumentor = SystemMetricsInstrumentor(config=config)  # type: ignore
+    instrumentor = SystemMetricsInstrumentor(config=config)  # pyright: ignore[reportArgumentType]
     instrumentor.instrument(meter_provider=logfire_instance.config.get_meter_provider())
 
 

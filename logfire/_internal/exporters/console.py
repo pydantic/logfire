@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -67,18 +66,18 @@ class Record:
         return cls(
             attributes=attributes,
             timestamp=span.start_time or 0,
-            message=attributes.get(ATTRIBUTES_MESSAGE_KEY) or span.name,  # type: ignore
+            message=attributes.get(ATTRIBUTES_MESSAGE_KEY) or span.name,  # pyright: ignore[reportArgumentType]
             events=span.events,
             span_id=span.context and span.context.span_id,
             parent_span_id=span.parent and span.parent.span_id,
-            kind=attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span'),  # type: ignore
-            level=attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL),  # type: ignore
+            kind=attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span'),  # pyright: ignore[reportArgumentType]
+            level=attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL),  # pyright: ignore[reportArgumentType]
         )
 
     @classmethod
     def from_log(cls, log: LogRecord) -> Record:
         attributes = log.attributes or {}
-        message: str = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
+        message: str = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # pyright: ignore[reportAssignmentType]
         if not message:
             # TODO: this message could be better, for now we just want to have *something*
             # TODO: this message should be constructed in a wrapper processor so that it's also used in the UI
@@ -119,17 +118,21 @@ class SimpleConsoleSpanExporter(SpanExporter):
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
-        self._output = output or sys.stdout
+        self._output = output
         if colors == 'auto':
             force_terminal = None
+            no_color = None
         else:
             force_terminal = colors == 'always'
+            # Rich 15 honors NO_COLOR even with force_terminal=True unless no_color is set explicitly.
+            no_color = colors == 'never'
         self._console = Console(
             color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
             file=self._output,
             force_terminal=force_terminal,
             highlight=False,
             markup=False,
+            no_color=no_color,
             soft_wrap=True,
         )
         if not self._console.is_terminal:
@@ -239,7 +242,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             if lineno not in (None, 'null'):
                 file_location += f':{lineno}'
 
-        log_level_num: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)  # type: ignore
+        log_level_num: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)  # pyright: ignore[reportAssignmentType]
         log_level = NUMBER_TO_LEVEL.get(log_level_num)
 
         if file_location or log_level:
@@ -258,7 +261,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             return
 
         arguments: dict[str, Any] = {}
-        json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
+        json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # pyright: ignore[reportArgumentType]
         for key, schema in json_schema.get('properties', {}).items():
             value = span.attributes.get(key)
             if schema and isinstance(value, str):
@@ -489,7 +492,7 @@ def _pending_span_parent(attributes: Mapping[str, object]) -> int | None:
     `ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY` encoded from `0`.
     """
     if parent_id_str := attributes.get(ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY):
-        return int(parent_id_str, 16)  # type: ignore
+        return int(parent_id_str, 16)  # pyright: ignore[reportArgumentType]
 
 
 @dataclass

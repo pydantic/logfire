@@ -73,7 +73,7 @@ await OpenFeature.setContext({
 })
 ```
 
-Any attributes you include in the context can be used by [override rules](../reference/advanced/managed-variables/ui.md#targeting-with-override-rules) configured in the Logfire UI. For example, you could route all `enterprise` plan users to a specific label.
+Any attributes you include in the context can be used by [conditional rules](../reference/advanced/managed-variables/ui.md#targeting-with-conditional-rules) configured in the Logfire UI. For example, you could route all `enterprise` plan users to a specific label.
 
 ## Evaluating Flags
 

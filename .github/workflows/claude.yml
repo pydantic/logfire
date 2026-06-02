@@ -27,9 +27,10 @@ jobs:
       actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Checkout PR branch for PR comments
         if: github.event_name == 'issue_comment' && github.event.issue.pull_request
@@ -39,7 +40,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@0432df8bfe0572278dd19bca33be32cdc8061ebb  # v1.0.87
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           settings: ".claude/settings.json"

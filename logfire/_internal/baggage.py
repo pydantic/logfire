@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from opentelemetry import baggage, context
@@ -31,7 +31,7 @@ MAX_BAGGAGE_VALUE_LENGTH = 1000
 
 
 @contextmanager
-def set_baggage(**values: str) -> Iterator[None]:
+def set_baggage(**values: str) -> Generator[None]:
     """Context manager that attaches key/value pairs as OpenTelemetry baggage to the current context.
 
     See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
@@ -57,7 +57,7 @@ def set_baggage(**values: str) -> Iterator[None]:
     """
     current_context = context.get_current()
     for key, value in values.items():
-        if not isinstance(value, str):  # type: ignore
+        if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
             warnings.warn(
                 f'Baggage value for key "{key}" is of type "{type(value).__name__}". Converting to string.',
                 stacklevel=3,

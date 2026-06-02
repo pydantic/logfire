@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import ast
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ..utils import log_internal_error
 from .rewrite_ast import compile_source
@@ -54,9 +54,9 @@ class LogfireFinder(MetaPathFinder):
             # We fully expect plain_spec.origin and self.get_filename(...)
             # to be the same thing (a valid filename), but they're optional.
             filename = plain_spec.origin
-            if not filename:  # pragma: no cover
+            if not filename and plain_spec.loader is not None:  # pragma: no cover
                 try:
-                    filename = cast('str | None', plain_spec.loader.get_filename(fullname))  # type: ignore
+                    filename = cast('str | None', plain_spec.loader.get_filename(fullname))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
                 except Exception:
                     pass
 

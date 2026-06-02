@@ -102,7 +102,7 @@ POST /v1/ofrep/v1/evaluate/flags
 ```
 
 - `targetingKey` is required and is used for deterministic rollout selection.
-- Any additional fields in `context` become attributes for override rules.
+- Any additional fields in `context` become attributes for conditional rules.
 - The OFREP response maps labels to the `variant` field for compatibility with OpenFeature clients.
 
 **Caching (bulk endpoint):**

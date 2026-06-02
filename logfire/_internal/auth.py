@@ -26,7 +26,9 @@ DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 
 
 PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
-    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_)(?P<token>[a-zA-Z0-9]+)$'
+    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_'
+    r'(?:(?P<organization_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_)?)'
+    r'(?P<token>[a-zA-Z0-9]+)$'
 )
 
 
@@ -161,7 +163,15 @@ class UserTokenCollection:
             )
             token = tokens_list[int_choice - 1]
         else:  # tokens_list == []
-            raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
+            raise LogfireConfigError("""
+
+Hey, looks like you don't have Pydantic Logfire configured yet.
+
+If you're running this locally, we recommend running `uv run logfire auth`.
+
+Or you could get a write token for a specific project and set the `LOGFIRE_TOKEN` environment variable.
+
+See https://pydantic.dev/docs/logfire/get-started for more details.""")
 
         if token.is_expired:
             raise LogfireConfigError(f'User token {token} is expired. Please run `logfire auth` to authenticate.')
@@ -185,6 +195,24 @@ class UserTokenCollection:
         self.user_tokens[base_url] = user_token = UserToken.from_user_token_data(base_url, token)
         self._dump()
         return user_token
+
+    def logout(self, base_url: str | None = None) -> list[str]:
+        """Remove user token(s) from the collection."""
+        if not self.user_tokens:
+            raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
+
+        if base_url is not None and base_url not in self.user_tokens:
+            raise LogfireConfigError(
+                f'No user token was found matching the {base_url} Logfire URL. '
+                'Please run `logfire auth` to authenticate.'
+            )
+
+        removed = [base_url] if base_url is not None else list(self.user_tokens.keys())
+        for url in removed:
+            del self.user_tokens[url]
+
+        self._dump()
+        return removed
 
     def _dump(self) -> None:
         """Dump the user token collection as TOML to the provided path."""

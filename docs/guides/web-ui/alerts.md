@@ -44,6 +44,34 @@ For now, **Logfire** alerts only send the requests in [Slack format].
 
 After filling in the form, click the **Create alert** button. And... Alert created! :tada:
 
+## Notification modes
+
+The **"Notify me when"** setting controls when you receive notifications. There are four modes:
+
+### The query has any results
+
+This is the default mode. You'll receive a notification **every time** the alert runs and the query returns one or more rows. This is useful for simple threshold alerts where you always want to be notified.
+
+**Example use case:** Alert me every 5 minutes if there are any 5xx errors.
+
+### The query starts or stops having results
+
+You'll receive a notification when the query **transitions** between having results and not. If your query is written so that rows indicate a problem (e.g., selecting error spans), this means you'll be notified both when the issue starts and when it resolves.
+
+**Example use case:** Alert me when my API starts experiencing high latency (over 1 second), and again when it recovers.
+
+### The query starts having results
+
+Same as above, but you'll **only** be notified on the transition from no rows to rows — not the other direction. If rows indicate a problem, this means you'll hear about the onset but not the resolution.
+
+**Example use case:** Alert me when my service starts throwing exceptions, but don't notify me when it stops — I'll check resolution on my own schedule.
+
+### The query's results change
+
+You'll receive a notification whenever the **actual data** returned by the query changes between consecutive runs. This is more granular than the previous mode — it detects changes in the result set itself, not just whether there are results.
+
+**Example use case:** Detect when a service goes down by querying for health check spans and [using a `CASE` expression](../../how-to-guides/detect-service-is-down.md) to return `'up'` or `'down'`. You'll be notified when the status changes in either direction.
+
 ## Alert History
 
 After creating an alert, you'll be redirected to the alerts' list. There you can see the alerts you've created and their status.

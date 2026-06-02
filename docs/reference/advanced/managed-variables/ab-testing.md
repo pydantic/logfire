@@ -1,6 +1,6 @@
 # A/B Testing Configurations
 
-Here's a complete example showing how to A/B test two complete agent configurations. In this example, we use local configuration for development — in production, you'd create the versions and labels in the Logfire UI instead.
+Here's a complete example showing how to A/B test two complete agent configurations. In this example, we use local configuration for development — in production, you'd manage versions and labels through the Logfire UI or push them from code.
 
 ```python skip="true"
 from pydantic import BaseModel
@@ -29,7 +29,7 @@ class AgentConfig(BaseModel):
 
 
 # For local development/testing, you can define versions and labels in code.
-# In production, you'd configure these in the Logfire UI.
+# In production, you can configure these in the Logfire UI or push them from code.
 variables_config = VariablesConfig(
     variables={
         'support_agent_config': VariableConfig(

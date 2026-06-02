@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import pickle
+from collections.abc import Callable
 from dataclasses import asdict
-from functools import partial
-from typing import Any, Callable
+from functools import partial, wraps
+from typing import Any
 
 from logfire.propagate import ContextCarrier, attach_context, get_context
 
@@ -27,12 +28,14 @@ try:
         if ProcessPoolExecutor.submit is submit_p_orig:
             ProcessPoolExecutor.submit = submit_p
 
+    @wraps(submit_t_orig)
     def submit_t(s: ThreadPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
         """A wrapper around ThreadPoolExecutor.submit() that carries over OTEL context across threads."""
         fn = partial(fn, *args, **kwargs)
         carrier = get_context()
         return submit_t_orig(s, _run_with_context, carrier=carrier, func=fn, parent_config=None)
 
+    @wraps(submit_p_orig)
     def submit_p(s: ProcessPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
         """A wrapper around ProcessPoolExecutor.submit() that carries over OTEL context across processes."""
         fn = partial(fn, *args, **kwargs)
@@ -66,13 +69,14 @@ def serialize_config() -> dict[str, Any] | None:
     """
     from ..config import GLOBAL_CONFIG
 
-    # note: since `logfire.config._LogfireConfigData` is a dataclass
-    # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
-    # which is what we want here!
-    config_dict = asdict(GLOBAL_CONFIG)
-
     try:
+        # note: since `logfire.config._LogfireConfigData` is a dataclass
+        # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
+        # which is what we want here!
+        config_dict = asdict(GLOBAL_CONFIG)
+        # Verify that the config can be pickled before ProcessPoolExecutor tries to pickle it.
         pickle.dumps(config_dict)
+        return config_dict
     except Exception:
         warn_at_user_stacklevel(
             'The Logfire configuration cannot be pickled and will not be automatically '
@@ -83,8 +87,6 @@ def serialize_config() -> dict[str, Any] | None:
         )
         return None
 
-    return config_dict
-
 
 def deserialize_config(config: dict[str, Any] | None) -> None:
     """Deserialize a config dict and apply it to the global config."""
@@ -93,5 +95,5 @@ def deserialize_config(config: dict[str, Any] | None) -> None:
     if config is None:
         return
 
-    if not GLOBAL_CONFIG._initialized:  # type: ignore
+    if not GLOBAL_CONFIG._initialized:  # pyright: ignore[reportPrivateUsage]
         configure(**config)

@@ -290,7 +290,7 @@ def _tweak_http_spans(span: ReadableSpanDict):
 
 def _summarize_db_statement(span: ReadableSpanDict):
     attributes = span['attributes']
-    message: str | None = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
+    message: str | None = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # pyright: ignore[reportAssignmentType]
     summary = message_from_db_statement(attributes, message, span['name'])
     if summary is not None:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: summary}
@@ -482,7 +482,7 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
     }
 
     content: list[Any] = result.get('content', [])
-    if isinstance(content, list) and content:  # type: ignore
+    if isinstance(content, list) and content:  # pyright: ignore[reportUnnecessaryIsInstance]
         new_content: list[Any] = []
         for item in content:
             item = cast(dict[str, Any], item)

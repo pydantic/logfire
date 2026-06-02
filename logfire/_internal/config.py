@@ -10,13 +10,13 @@ import sys
 import time
 import warnings
 import weakref
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -50,7 +50,7 @@ from opentelemetry.sdk.metrics import (
     UpDownCounter,
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
-from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
+from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
@@ -62,6 +62,7 @@ from typing_extensions import Self, Unpack, assert_type
 
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -73,12 +74,15 @@ from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
+    ATTRIBUTES_CONFIG,
+    ATTRIBUTES_PACKAGE_VERSIONS,
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
+    RESOURCE_ATTRIBUTES_VERSION,
     LevelName,
 )
 from .exporters.console import (
@@ -96,15 +100,18 @@ from .exporters.otlp import (
     QuietLogExporter,
     QuietSpanExporter,
     RetryFewerSpansSpanExporter,
+    cleanup_disk_retryers,
 )
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
+from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
+from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
@@ -175,6 +182,8 @@ class AdvancedOptions:
     base_url: str | None = None
     """Base URL for the Logfire API.
 
+    Defaults to the `LOGFIRE_BASE_URL` environment variable.
+
     If not set, Logfire will infer the base URL from the token (which contains information about the region).
     """
 
@@ -198,6 +207,41 @@ class AdvancedOptions:
     Note: When using `ProcessPoolExecutor`, this callback must be defined at the module level
     (not as a local function) to be picklable. Local functions will be excluded from the
     serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
+    """
+
+    emit_configuration_span: bool | None = None
+    """If `True`, emit a `Logfire configured` log after `logfire.configure()` containing
+    installed package versions and a curated set of non-sensitive configuration flags.
+
+    Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN` environment variable, or `False`.
+
+    This log and configuration is experimental and may be modified or removed.
+    """
+
+    server_response_hook: ServerResponseCallback | None = None
+    """Optional callback invoked for every HTTP response received from the Logfire API.
+
+    This is experimental and may be modified or removed.
+
+    This applies to OTLP exports, credential / project initialisation, and the remote
+    variables provider. The default surfaces the `X-Logfire-Warning` header as a
+    `LogfireServerWarning`.
+
+    Setting this replaces the default; pass `lambda response: None` to opt out entirely.
+
+    Example usage:
+
+    ```python skip-run="true" skip-reason="needs metric/logfire setup"
+    from logfire.types import ServerResponseCallbackHelper
+
+    def hook(helper: ServerResponseCallbackHelper):
+        my_metric.inc(helper.response.status_code)
+        helper.default_hook()  # call this to keep the default warning behavior
+
+    logfire.configure(advanced=AdvancedOptions(server_response_hook=hook))
+    ```
+
+    Raise from the hook to abort the calling code path.
     """
 
     def generate_base_url(self, token: str) -> str:
@@ -224,9 +268,9 @@ class PydanticPlugin:
     * `failure`: Send metrics for all validations and traces only for validation failures.
     * `metrics`: Send only metrics.
     """
-    include: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
+    include: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
     """By default, third party modules are not instrumented. This option allows you to include specific modules."""
-    exclude: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
+    exclude: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
     """Exclude specific modules from instrumentation."""
 
 
@@ -235,6 +279,10 @@ class MetricsOptions:
     """Configuration of metrics."""
 
     DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
+        View(
+            instrument_name='otel.sdk.*',
+            aggregation=DropAggregation(),
+        ),
         View(
             instrument_type=Histogram,
             aggregation=ExponentialBucketHistogramAggregation(),
@@ -258,6 +306,7 @@ class MetricsOptions:
 
     The default views include:
 
+    - **Dropping all 'meta' metrics from the OpenTelemetry SDK** to avoid unnecessary noise and overhead.
     - **Exponential bucket histogram aggregation** for all `Histogram` instruments, which provides
       better resolution and smaller payload sizes compared to fixed-bucket histograms.
     - **Attribute filtering** for the `http.server.active_requests` `UpDownCounter`, limiting
@@ -506,7 +555,7 @@ def configure(
             'The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated. '
             'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
         )
-        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore
+        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # pyright: ignore[reportArgumentType]
 
     project_name = deprecated_kwargs.pop('project_name', None)
     if project_name is not None:
@@ -514,7 +563,7 @@ def configure(
             'The `project_name` argument is deprecated and not needed.',
         )
 
-    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # type: ignore
+    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # pyright: ignore[reportAssignmentType]
     if trace_sample_rate is not None:
         if sampling:
             raise ValueError(
@@ -577,33 +626,38 @@ def configure(
         config = LogfireConfig()
     else:
         config = GLOBAL_CONFIG
-    config.configure(
-        send_to_logfire=send_to_logfire,
-        token=token,
-        api_key=api_key,
-        service_name=service_name,
-        service_version=service_version,
-        environment=environment,
-        console=console,
-        metrics=metrics,
-        config_dir=Path(config_dir) if config_dir else None,
-        data_dir=Path(data_dir) if data_dir else None,
-        additional_span_processors=additional_span_processors,
-        scrubbing=scrubbing,
-        inspect_arguments=inspect_arguments,
-        min_level=min_level,
-        sampling=sampling,
-        add_baggage_to_attributes=add_baggage_to_attributes,
-        code_source=code_source,
-        variables=variables,
-        distributed_tracing=distributed_tracing,
-        advanced=advanced,
-    )
+    try:
+        config.configure(
+            send_to_logfire=send_to_logfire,
+            token=token,
+            api_key=api_key,
+            service_name=service_name,
+            service_version=service_version,
+            environment=environment,
+            console=console,
+            metrics=metrics,
+            config_dir=Path(config_dir) if config_dir else None,
+            data_dir=Path(data_dir) if data_dir else None,
+            additional_span_processors=additional_span_processors,
+            scrubbing=scrubbing,
+            inspect_arguments=inspect_arguments,
+            min_level=min_level,
+            sampling=sampling,
+            add_baggage_to_attributes=add_baggage_to_attributes,
+            code_source=code_source,
+            variables=variables,
+            distributed_tracing=distributed_tracing,
+            advanced=advanced,
+        )
+    except LogfireConfigError as e:
+        raise e.with_traceback(None)
 
     if local:
         logfire_instance = Logfire(config=config)
     else:
         logfire_instance = DEFAULT_LOGFIRE_INSTANCE
+
+    emit_configuration_span(config, logfire_instance, local=local)
 
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
@@ -732,7 +786,7 @@ class _LogfireConfigData:
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            scrubbing = ScrubbingOptions(**scrubbing)  # type: ignore
+            scrubbing = ScrubbingOptions(**scrubbing)  # pyright: ignore[reportUnknownArgumentType]
         if scrubbing is None:
             scrubbing = ScrubbingOptions()
         self.scrubbing: ScrubbingOptions | Literal[False] = scrubbing
@@ -742,7 +796,7 @@ class _LogfireConfigData:
 
         if isinstance(console, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            console = ConsoleOptions(**console)  # type: ignore
+            console = ConsoleOptions(**console)  # pyright: ignore[reportUnknownArgumentType]
         if console is not None:
             self.console = console
         elif param_manager.load_param('console') is False:
@@ -760,7 +814,7 @@ class _LogfireConfigData:
 
         if isinstance(sampling, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            sampling = SamplingOptions(**sampling)  # type: ignore
+            sampling = SamplingOptions(**sampling)  # pyright: ignore[reportUnknownArgumentType]
         elif sampling is None:
             sampling = SamplingOptions(
                 head=param_manager.load_param('trace_sample_rate'),
@@ -769,38 +823,43 @@ class _LogfireConfigData:
 
         if isinstance(code_source, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            code_source = CodeSource(**code_source)  # type: ignore
+            code_source = CodeSource(**code_source)  # pyright: ignore[reportUnknownArgumentType]
         self.code_source = code_source
 
         if isinstance(variables, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            config = variables.pop('config', None)  # type: ignore
+            config = variables.pop('config', None)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
             if isinstance(config, dict):
                 if 'variables' in config:
                     from logfire.variables import VariablesConfig as _VariablesConfig  # pragma: no cover
 
-                    config = _VariablesConfig(**config)  # type: ignore  # pragma: no cover
-                    variables = LocalVariablesOptions(config=config, **variables)  # type: ignore  # pragma: no cover
+                    config = _VariablesConfig(**config)  # pyright: ignore[reportUnknownArgumentType]  # pragma: no cover
+                    variables = LocalVariablesOptions(config=config, **variables)  # pyright: ignore[reportUnknownArgumentType]  # pragma: no cover
                 else:
-                    variables = VariablesOptions(**config, **variables)  # type: ignore
+                    variables = VariablesOptions(**config, **variables)  # pyright: ignore[reportUnknownArgumentType]
             elif config is not None:
                 # config is a VariablesConfig Pydantic model (from asdict() of LocalVariablesOptions)
-                variables = LocalVariablesOptions(config=config, **variables)  # type: ignore
+                variables = LocalVariablesOptions(config=config, **variables)  # pyright: ignore[reportUnknownArgumentType]
             else:
-                variables = VariablesOptions(**variables)  # type: ignore  # pragma: no cover
+                variables = VariablesOptions(**variables)  # pyright: ignore[reportUnknownArgumentType]  # pragma: no cover
         self.variables = variables
 
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            advanced = AdvancedOptions(**advanced)  # type: ignore
+            advanced = AdvancedOptions(**advanced)  # pyright: ignore[reportUnknownArgumentType]
             id_generator = advanced.id_generator
-            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # type: ignore  # pragma: no branch
-                advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # type: ignore
+            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # pyright: ignore[reportUnknownArgumentType]  # pragma: no branch
+                advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # pyright: ignore[reportUnknownArgumentType]
         elif advanced is None:
-            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
+            advanced = AdvancedOptions()
+        advanced.base_url = param_manager.load_param('base_url', advanced.base_url)
+        advanced.emit_configuration_span = param_manager.load_param(
+            'emit_configuration_span', advanced.emit_configuration_span
+        )
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
+        self._project_url: str | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -877,6 +936,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        self._otlp_forwarding = OTLPForwardingManager([])
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -941,18 +1001,17 @@ class LogfireConfig(_LogfireConfigData):
             return
 
         emscripten = platform_is_emscripten()
+        otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
+                RESOURCE_ATTRIBUTES_VERSION: VERSION,
                 'service.name': self.service_name,
                 'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
                 'process.runtime.name': sys.implementation.name,
                 'process.runtime.version': get_runtime_version(),
                 'process.runtime.description': sys.version,
-                # Having this giant blob of data associated with every span/metric causes various problems so it's
-                # disabled for now, but we may want to re-enable something like it in the future
-                # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
             if self.code_source:
                 otel_resource_attributes.update(
@@ -1007,17 +1066,14 @@ class LogfireConfig(_LogfireConfigData):
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
             processors_with_pending_spans: list[SpanProcessor] = []
-            root_processor = main_multiprocessor = SynchronousMultiSpanProcessor()
-            if self.sampling.tail:
-                root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
-            tracer_provider.add_span_processor(
-                CheckSuppressInstrumentationProcessorWrapper(
-                    MainSpanProcessorWrapper(root_processor, self.scrubber),
-                )
-            )
+            user_deferred_processors: list[SpanProcessor] = []
+            main_multiprocessor = SynchronousMultiSpanProcessor()
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
-                main_multiprocessor.add_span_processor(span_processor)
+                if self.sampling.tail and getattr(span_processor, 'tail_sampling_defer_on_start', False):
+                    user_deferred_processors.append(span_processor)
+                else:
+                    main_multiprocessor.add_span_processor(span_processor)
                 has_pending = isinstance(
                     getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
@@ -1074,7 +1130,7 @@ class LogfireConfig(_LogfireConfigData):
                     # If we don't have tokens or credentials from a file,
                     # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    client = LogfireClient.from_url(self.advanced.base_url)
+                    client = LogfireClient.from_url(self.advanced.base_url, self.advanced.server_response_hook)
                     credentials = LogfireCredentials.initialize_project(client=client)
                     credentials.write_creds_file(self.data_dir)
 
@@ -1083,6 +1139,7 @@ class LogfireConfig(_LogfireConfigData):
                     # This means that e.g. a token in an env var takes priority over a token in a creds file.
                     self.token = self.token or credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                    self._project_url = self._project_url or credentials.project_url
 
                 if self.token:
                     # Convert to list for iteration (handles both str and list[str])
@@ -1108,12 +1165,10 @@ class LogfireConfig(_LogfireConfigData):
                         with suppress_instrumentation():
                             for token in token_list:
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if (
-                                    validated_credentials is not None
-                                    and show_project_link
-                                    and token not in printed_tokens
-                                ):
-                                    validated_credentials.print_token_summary()
+                                if validated_credentials is not None:
+                                    self._project_url = self._project_url or validated_credentials.project_url
+                                    if show_project_link and token not in printed_tokens:
+                                        validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
@@ -1124,8 +1179,10 @@ class LogfireConfig(_LogfireConfigData):
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
+                        otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
+                        install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
@@ -1183,16 +1240,39 @@ class LogfireConfig(_LogfireConfigData):
                         # This line is just to make sure.
                         session.headers.update(headers)
 
+            deferred_processors: list[SpanProcessor] = []
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
                 for processor in processors_with_pending_spans:
                     pending_multiprocessor.add_span_processor(processor)
-
-                main_multiprocessor.add_span_processor(
+                deferred_processors.append(
                     PendingSpanProcessor(
                         self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
                     )
                 )
+            deferred_processors.extend(user_deferred_processors)
+
+            root_processor: SpanProcessor = main_multiprocessor
+            if self.sampling.tail:
+                deferred_multi: SpanProcessor | None = None
+                if deferred_processors:
+                    deferred_multi = SynchronousMultiSpanProcessor()
+                    for p in deferred_processors:
+                        deferred_multi.add_span_processor(p)
+                root_processor = TailSamplingProcessor(
+                    main_multiprocessor,
+                    self.sampling.tail,
+                    deferred_processor=deferred_multi,
+                )
+            else:
+                for p in deferred_processors:
+                    main_multiprocessor.add_span_processor(p)
+
+            tracer_provider.add_span_processor(
+                CheckSuppressInstrumentationProcessorWrapper(
+                    MainSpanProcessorWrapper(root_processor, self.scrubber),
+                )
+            )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
@@ -1227,6 +1307,12 @@ class LogfireConfig(_LogfireConfigData):
                     resource=resource,
                     views=self.metrics.views,
                 )
+                for reader in metric_readers:
+                    with suppress(Exception):
+                        # Prevent metric readers from recording metrics about themselves which just adds noise.
+                        # The default metric view with the DropAggregation isn't enough here because it's a histogram
+                        # and there's another default view that matches it.
+                        reader._metrics = type(reader._metrics)('', NoOpMeterProvider())  # type: ignore
             else:
                 meter_provider = NoOpMeterProvider()
 
@@ -1235,9 +1321,9 @@ class LogfireConfig(_LogfireConfigData):
                 def fix_pid():  # pragma: no cover
                     with handle_internal_errors:
                         new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
-                        tracer_provider._resource = new_resource  # type: ignore
-                        meter_provider._resource = new_resource  # type: ignore
-                        logger_provider._resource = new_resource  # type: ignore
+                        tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                        meter_provider._resource = new_resource  # pyright: ignore[reportAttributeAccessIssue]
+                        logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
 
                 os.register_at_fork(after_in_child=fix_pid)
 
@@ -1273,6 +1359,7 @@ class LogfireConfig(_LogfireConfigData):
                     base_url=base_url,
                     token=self.api_key,
                     options=self.variables,
+                    server_response_hook=self.advanced.server_response_hook,
                 )
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
@@ -1296,6 +1383,21 @@ class LogfireConfig(_LogfireConfigData):
             # Track this instance for cleanup on exit
             _LOGFIRE_CONFIG_INSTANCES.append(weakref.ref(self))
 
+            # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+            # Registering this callback here after the OTEL one means that this runs first.
+            # Otherwise OTEL would log an error "Already shutdown, dropping span."
+            atexit.unregister(exit_open_spans)
+            atexit.register(exit_open_spans)
+
+            atexit.unregister(shutdown_otlp_forwarding)
+            atexit.register(shutdown_otlp_forwarding)
+
+            previous_otlp_forwarding = self._otlp_forwarding
+            self._otlp_forwarding = OTLPForwardingManager(
+                otlp_forwarding_destinations,
+                server_response_hook=self.advanced.server_response_hook,
+            )
+            previous_otlp_forwarding.shutdown(0, drain_queued=False)
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
@@ -1325,7 +1427,46 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        # TODO: Combine non-tracer flush results into the returned status in a follow-up.
+        self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
+
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
+        """Shut down variables, forwarding, traces, logs, and metrics."""
+        start = time.monotonic()
+
+        def remaining_ms() -> int:
+            return max(0, int(timeout_millis - (time.monotonic() - start) * 1000))
+
+        complete = True
+        self._variable_provider.shutdown(timeout_millis=remaining_ms())
+        remaining = remaining_ms()
+
+        forwarding_shutdown_result = self._otlp_forwarding.shutdown(remaining, drain_queued=flush)
+        complete = complete and forwarding_shutdown_result
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._tracer_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._tracer_provider.shutdown()
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._logger_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._logger_provider.shutdown()
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._meter_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._meter_provider.shutdown(remaining)
+
+        return remaining_ms() > 0 and complete
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
@@ -1399,6 +1540,7 @@ class LogfireConfig(_LogfireConfigData):
                 base_url=base_url,
                 token=api_key,
                 options=options,
+                server_response_hook=self.advanced.server_response_hook,
             )
             self._variable_provider = provider
             provider.start(Logfire(config=self))
@@ -1415,7 +1557,9 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
+        session = requests.Session()
+        install_logfire_response_hook(session, self.advanced.server_response_hook)
+        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -1475,16 +1619,58 @@ class LogfireConfig(_LogfireConfigData):
         self._logger_provider.suppress_scopes(*scopes)
 
 
+@handle_internal_errors
+def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *, local: bool) -> None:
+    """Emit a span describing the active Logfire configuration and installed packages.
+
+    Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
+    non-sensitive configuration fields.
+    """
+    if not config.advanced.emit_configuration_span:
+        return
+
+    sampling = config.sampling
+    if isinstance(config.token, str):  # pragma: no cover
+        token_count = 1
+    elif config.token is None:
+        token_count = 0
+    else:  # pragma: no cover
+        token_count = len(config.token)
+
+    logfire_instance.info(
+        'Logfire configured',
+        **{  # type: ignore
+            ATTRIBUTES_CONFIG: {
+                'local': local,
+                'send_to_logfire': config.send_to_logfire,
+                'console_enabled': bool(config.console),
+                'scrubbing_enabled': bool(config.scrubbing),
+                'inspect_arguments': config.inspect_arguments,
+                'min_level': config.min_level,
+                'add_baggage_to_attributes': config.add_baggage_to_attributes,
+                'distributed_tracing': config.distributed_tracing,
+                'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
+                'tail_sampling_enabled': sampling.tail is not None,
+                'code_source_set': config.code_source is not None,
+                'variables_set': config.variables is not None,
+                'token_count': token_count,
+                'api_key': bool(config.api_key),
+                'service_name': bool(config.service_name),
+                'service_version': bool(config.service_version),
+                'environment': bool(config.environment),
+                'additional_span_processors': len(config.additional_span_processors or ()),
+            },
+            ATTRIBUTES_PACKAGE_VERSIONS: collect_package_info(),
+        },
+    )
+
+
 # Global list to track all LogfireConfig instances for cleanup on exit
 _LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
 
 
-@atexit.register
 def exit_open_spans():  # pragma: no cover
     # Ensure that all open spans are closed when the program exits.
-    # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
-    # Registering this callback here after the OTEL one means that this runs first.
-    # Otherwise OTEL would log an error "Already shutdown, dropping span."
     # The reason that spans may be lingering open is that they're in suspended generator frames.
     # Apart from here, they will be ended when the generator is garbage collected
     # as the interpreter shuts down, but that's too late.
@@ -1493,7 +1679,19 @@ def exit_open_spans():  # pragma: no cover
         span.end()
         # Interpreter shutdown may trigger another call to .end(),
         # which would log a warning "Calling end() on an ended span."
-        span.end = lambda *_, **__: None  # type: ignore
+        span.end = lambda *_, **__: None  # pyright: ignore[reportUnknownLambdaType]
+
+
+def shutdown_otlp_forwarding(timeout_millis: int = 30_000) -> None:
+    deadline = time.monotonic() + timeout_millis / 1000
+    for config_ref in list(_LOGFIRE_CONFIG_INSTANCES):
+        config = config_ref()
+        if config is None:
+            continue
+
+        manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+        remaining_millis = max(0, int((deadline - time.monotonic()) * 1000))
+        manager.shutdown(remaining_millis, drain_queued=True)
 
 
 # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
@@ -1508,6 +1706,7 @@ def patched_os_exit(code: int):  # pragma: no cover
             config = config_ref()
             if config is not None:
                 config.force_flush()
+        cleanup_disk_retryers()
     except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
         pass
     return original_os_exit(code)
@@ -1773,14 +1972,14 @@ class LogfireCredentials:
             try:
                 project = client.create_new_project(organization, project_name)
             except ProjectAlreadyExists:
-                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
                 )
                 project_name = None
                 continue
             except InvalidProjectName as exc:
-                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
                 )
@@ -1843,19 +2042,15 @@ class LogfireCredentials:
         """Print a summary of the existing project."""
         if self.project_url:  # pragma: no branch
             _print_summary(
-                f'[bold]Logfire[/bold] project URL: [link={self.project_url} cyan]{self.project_url}[/link]',
+                f'[bold]Logfire[/bold] project URL: [cyan]{self.project_url}[/cyan]',
                 min_content_width=len(self.project_url),
             )
 
 
 def _print_summary(message: str, min_content_width: int) -> None:
     from rich.console import Console
-    from rich.style import Style
-    from rich.theme import Theme
 
-    # customise the link color since the default `blue` is too dark for me to read.
-    custom_theme = Theme({'markdown.link_url': Style(color='cyan')})
-    console = Console(stderr=True, theme=custom_theme)
+    console = Console(stderr=True)
     if console.width < min_content_width + 4:  # pragma: no cover
         console.width = min_content_width + 4
     console.print(message)

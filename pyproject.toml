@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.25.0"
+version = "4.34.0"
 description = "The best Python observability tool! 🪵🔥"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
     { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
@@ -26,7 +26,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -47,8 +46,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.39.0, < 1.40.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.40.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.43.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.43.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -58,6 +57,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gateway = ["httpx>=0.27.0", "starlette>=0.37.0", "uvicorn>=0.30.0"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
 asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
@@ -83,14 +83,14 @@ aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 google-genai = ["opentelemetry-instrumentation-google-genai >= 0.4b0"]
 litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
-datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0; python_version >= '3.10'"]
+datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2"]
 
 [project.urls]
-Homepage = "https://logfire.pydantic.dev/"
+Homepage = "https://pydantic.dev/logfire"
 Source = "https://github.com/pydantic/logfire"
-Documentation = "https://logfire.pydantic.dev/docs/"
-Changelog = "https://logfire.pydantic.dev/docs/release-notes/"
+Documentation = "https://pydantic.dev/docs/logfire/"
+Changelog = "https://github.com/pydantic/logfire/blob/main/CHANGELOG.md"
 
 [project.scripts]
 logfire = "logfire.cli:main"
@@ -144,14 +144,13 @@ dev = [
     "opentelemetry-instrumentation-aws-lambda>=0.42b0",
     "eval-type-backport >= 0.2.0",
     "requests-mock >= 1.12.1",
-    "inline-snapshot >= 0.17.1",
+    "inline-snapshot >= 0.32.5",
     "structlog >= 24.4.0",
     "loguru >= 0.7.3",
     "ruff >= 0.8.3",
     "pyright != 1.1.407",
     "pre-commit>=3.5.0",
-    "coverage[toml]>=7.5.0; python_version < '3.10'",
-    "coverage[toml]>=7.13.0; python_version >= '3.10'",
+    "coverage[toml]>=7.13.0",
     "psycopg[binary] >= 3.2.3",
     "psycopg2-binary >= 2.9.10",
     "asyncpg >= 0.30.0",
@@ -164,7 +163,7 @@ dev = [
     "celery>=5.4.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
     "testcontainers<4.13",
-    "mysql-connector-python~=8.0",
+    "mysql-connector-python>=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
@@ -180,9 +179,9 @@ dev = [
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
-    "openai-agents[voice]>=0.9.0; python_version >= '3.10'",
+    "openai-agents[voice]>=0.14.0",
     "pydantic-ai-slim>=0.0.39",
-    "pydantic-evals>=1.0.0; python_version >= '3.10'",
+    "pydantic-evals>=1.0.0",
     "langchain>=0.0.27",
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
@@ -190,26 +189,15 @@ dev = [
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.80.9",
-    "openinference-instrumentation-dspy >= 0; python_version >= '3.10'",
-    "dspy >= 3.1.0; python_version >= '3.10'",
+    "openinference-instrumentation-dspy >= 0",
+    "dspy >= 3.1.0",
     "pip >= 0",
     "surrealdb >= 0",
     "pytest-examples>=0.0.18",
     "pytest-timeout>=2.4.0",
     "pytest-asyncio>=0.24.0",
+    "claude-agent-sdk>=0",
 ]
-docs = [
-    "black>=23.12.0",
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.32",
-    "mkdocs-glightbox>=0.4.0",
-    "mkdocstrings-python>=1.8.0",
-    "mkdocs-redirects>=1.2.1",
-    "griffe",
-    "algoliasearch>=3,<4",
-    "mkdocs-llmstxt>=0.2.0",
-]
-
 [tool.inline-snapshot]
 default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
@@ -218,7 +206,16 @@ format-command = "ruff format --stdin-filename {filename}"
 logfire-api = { workspace = true }
 
 [tool.uv]
-default-groups = ["dev", "docs"]
+default-groups = ["dev"]
+exclude-newer = "1 week"
+
+[tool.uv.exclude-newer-package]
+# These are our own packages, not worth defending from supply chain attacks on them.
+pydantic_ai_slim = false
+pydantic-graph = false
+pydantic-evals = false
+pydantic = false
+pydantic-core = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
@@ -312,6 +309,12 @@ filterwarnings = [
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
     # OpenTelemetry event logger stuff being used by Pydantic AI
     "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
+    # flask.__version__ is deprecated and used by OTel
+    "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.2.*:DeprecationWarning",
+    # aiohttp web.Application is deprecated and used by OTel
+    "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
+    # anthropic SDK warns when using older models that are still recorded in test cassettes
+    "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

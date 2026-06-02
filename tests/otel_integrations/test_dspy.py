@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from unittest import mock
 
 import pydantic
@@ -11,10 +10,6 @@ from inline_snapshot import snapshot
 import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
-
-# Skip entire module if requirements not met
-if sys.version_info < (3, 10):
-    pytest.skip('DSPy instrumentation requires Python 3.10+', allow_module_level=True)
 
 if get_version(pydantic.__version__) < get_version('2.5.0'):
     pytest.skip('DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import', allow_module_level=True)
@@ -175,8 +170,8 @@ Paris
                         'signature': """\
 BasicQA(question -> answer
     instructions='Answer questions with short factoid answers.'
-    question = Field(annotation=str required=True json_schema_extra={'__dspy_field_type': 'input', 'prefix': 'Question:', 'desc': '${question}'})
-    answer = Field(annotation=str required=True json_schema_extra={'desc': 'often between 1 and 5 words', '__dspy_field_type': 'output', 'prefix': 'Answer:'})
+    question = Field(annotation=str required=True json_schema_extra={'__dspy_field_type': 'input', 'IS_TYPE_UNDEFINED': True, 'prefix': 'Question:', 'desc': '${question}'})
+    answer = Field(annotation=str required=True json_schema_extra={'desc': 'often between 1 and 5 words', '__dspy_field_type': 'output', 'IS_TYPE_UNDEFINED': True, 'prefix': 'Answer:'})
 )\
 """,
                         'demos': [],

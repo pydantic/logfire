@@ -9,6 +9,7 @@ from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
+from inline_snapshot.plugin import Builder, Import, customize
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -27,9 +28,12 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
+os.environ['LOGFIRE_API_KEY'] = ''
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
+os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KEY', 'foo'))
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
+os.environ.pop('LOGFIRE_EMIT_CONFIGURATION_SPAN', None)
 
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
@@ -39,7 +43,11 @@ try:
 
     get_trace_provider().shutdown()
     get_trace_provider().set_processors([])
-except ImportError:
+except (ImportError, UserWarning):
+    # On pydantic <2.10, openai-agents 0.14+ emits a `model_info` protected-namespace
+    # UserWarning during class construction that gets promoted to an exception by
+    # `filterwarnings=error`. Test modules that need the agents API guard themselves
+    # with `pytest.importorskip`, which silences warnings inside its own catch_warnings.
     pass
 
 logfire.configure(send_to_logfire=False)
@@ -229,3 +237,21 @@ def vcr_config() -> dict[str, Any]:
         'filter_headers': SENSITIVE_HEADERS,
         'before_record_response': scrub_headers,
     }
+
+
+@customize
+def logfire_handler(value: Any, builder: Builder, local_vars: dict[str, Any], global_vars: dict[str, Any]) -> Any:
+    all_vars = {**global_vars, **local_vars}
+    for var in ['redis_port', 'HANDLER_NAME', 'code_function']:
+        if var in all_vars and all_vars[var] == value:
+            return builder.create_code(var)
+
+    for attr in ['started_at', 'ended_at']:
+        if 's' in local_vars and hasattr(var := local_vars['s'], attr) and getattr(var, attr) == value:
+            return builder.create_code(f's.{attr}')
+
+    if value == os.getcwd():
+        return builder.create_code('os.getcwd()', imports=[Import('os')])
+
+    if value == sys.version:
+        return builder.create_code('sys.version', imports=[Import('sys')])

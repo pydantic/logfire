@@ -25,7 +25,7 @@ from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
 
-from .tracer import _LogfireWrappedSpan  # type: ignore
+from .tracer import _LogfireWrappedSpan  # pyright: ignore[reportPrivateUsage]
 from .utils import handle_internal_errors
 
 
@@ -33,9 +33,9 @@ from .utils import handle_internal_errors
 @dataclasses.dataclass
 class ProxyMeterProvider(MeterProvider):
     provider: MeterProvider
-    meters: WeakSet[_ProxyMeter] = dataclasses.field(default_factory=WeakSet)  # type: ignore[reportUnknownVariableType]
+    meters: WeakSet[_ProxyMeter] = dataclasses.field(default_factory=WeakSet)  # pyright: ignore[reportUnknownVariableType]
     lock: Lock = dataclasses.field(default_factory=Lock)
-    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # type: ignore[reportUnknownVariableType]
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
 
     def get_meter(
         self,
@@ -110,7 +110,7 @@ class _ProxyMeter(Meter):
         with self._lock:
             proxy = instrument_type(self._meter, **kwargs)
             self._instruments.add(proxy)
-            return proxy  # type: ignore
+            return proxy  # pyright: ignore[reportReturnType]
 
     def create_counter(
         self,

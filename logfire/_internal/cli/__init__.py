@@ -25,8 +25,9 @@ from ..auth import HOME_LOGFIRE
 from ..client import LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
+from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
-from .auth import parse_auth
+from .auth import parse_auth, parse_logout
 from .prompt import parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
@@ -45,6 +46,13 @@ def version_callback() -> None:
     py_version = platform.python_version()
     system = platform.system()
     print(f'Running Logfire {VERSION} with {py_impl} {py_version} on {system}.')
+
+
+def _parse_gateway(args: argparse.Namespace) -> None:
+    """Run a local OAuth proxy for the Logfire AI Gateway."""
+    from .gateway import parse_gateway
+
+    parse_gateway(args)
 
 
 def parse_whoami(args: argparse.Namespace) -> None:
@@ -322,17 +330,25 @@ def _main(args: list[str] | None = None) -> None:
         '--base-url', help='the base URL for self-hosted Logfire instances (e.g., http://localhost:8080)'
     )
     url_or_region_grp.add_argument('--region', choices=REGIONS, help='the region to use')
-    parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
+    parser.set_defaults(func=lambda _: parser.print_help())  # pyright: ignore[reportUnknownLambdaType]
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
     # NOTE(DavidM): Let's try to keep the commands listed in alphabetical order if we can
-    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # type: ignore
+    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # pyright: ignore[reportOptionalMemberAccess]
     cmd_auth.set_defaults(func=parse_auth)
+    auth_subparsers = cmd_auth.add_subparsers()
+
+    cmd_logout = auth_subparsers.add_parser('logout', help=parse_logout.__doc__)
+    cmd_logout.set_defaults(func=parse_logout)
 
     cmd_clean = subparsers.add_parser('clean', help=parse_clean.__doc__)
     cmd_clean.set_defaults(func=parse_clean)
     cmd_clean.add_argument('--data-dir', default='.logfire')
     cmd_clean.add_argument('--logs', action='store_true', default=False, help='remove the Logfire logs')
+
+    cmd_gateway = subparsers.add_parser('gateway', help=_parse_gateway.__doc__)
+    cmd_gateway.add_argument('gateway_args', nargs=argparse.REMAINDER)
+    cmd_gateway.set_defaults(func=_parse_gateway)
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
@@ -343,7 +359,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_whoami.add_argument('--data-dir', default='.logfire')
 
     cmd_projects = subparsers.add_parser('projects', help='Project management for Logfire.')
-    cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # type: ignore
+    cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # pyright: ignore[reportUnknownLambdaType]
     projects_subparsers = cmd_projects.add_subparsers()
 
     cmd_projects_list = projects_subparsers.add_parser('list', help='list projects')
@@ -366,7 +382,7 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_read_tokens = subparsers.add_parser('read-tokens', help='Manage read tokens for a project')
     cmd_read_tokens.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
-    cmd_read_tokens.set_defaults(func=lambda _: cmd_read_tokens.print_help())  # type: ignore
+    cmd_read_tokens.set_defaults(func=lambda _: cmd_read_tokens.print_help())  # pyright: ignore[reportUnknownLambdaType]
     read_tokens_subparsers = cmd_read_tokens.add_subparsers()
 
     # With this command you can do:
@@ -380,6 +396,9 @@ def _main(args: list[str] | None = None) -> None:
     agent_code_group.add_argument('--claude', action='store_true', help='verify the Claude Code setup')
     agent_code_group.add_argument('--codex', action='store_true', help='verify the Cursor setup')
     agent_code_group.add_argument('--opencode', action='store_true', help='verify the OpenCode setup')
+    cmd_prompt.add_argument(
+        '--update', action='store_true', help='replace any existing Logfire MCP server configuration'
+    )
     cmd_prompt.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
     cmd_prompt.add_argument('issue', nargs='?', help='the issue to get a prompt for')
     cmd_prompt.set_defaults(func=parse_prompt)
@@ -427,8 +446,9 @@ def _main(args: list[str] | None = None) -> None:
     else:
         with tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
             context = get_context()
-            session.hooks = {'response': functools.partial(log_trace_id, context=context)}
+            session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
             session.headers.update(context)
+            install_logfire_response_hook(session)
             namespace._session = session
             namespace.func(namespace)
 

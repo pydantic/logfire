@@ -4,9 +4,9 @@ import copy
 import json
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 import typing_extensions
 from opentelemetry._logs import LogRecord
@@ -15,20 +15,23 @@ from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 
 from .constants import (
+    ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_LOGGING_NAME,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_PACKAGE_VERSIONS,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT,
-    RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
+    RESOURCE_ATTRIBUTES_VERSION,
 )
+from .integrations.llm_providers import semconv as gen_ai_semconv
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, truncate_string
 
@@ -122,7 +125,9 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SAMPLE_RATE_KEY,
         ATTRIBUTES_LOGGING_NAME,
         ATTRIBUTES_SCRUBBED_KEY,
-        RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
+        ATTRIBUTES_CONFIG,
+        ATTRIBUTES_PACKAGE_VERSIONS,
+        RESOURCE_ATTRIBUTES_VERSION,
         *STACK_INFO_KEYS,
         'exception.stacktrace',
         'exception.type',
@@ -135,10 +140,10 @@ class BaseScrubber(ABC):
         'http.target',
         'http.route',
         'db.statement',
+        'db.query.text',
         'db.plan',
         'fastapi.route.name',
         'fastapi.route.operation_id',
-        # Newer semantic conventions
         'url.full',
         'url.path',
         'url.query',
@@ -146,17 +151,27 @@ class BaseScrubber(ABC):
         'agent_session_id',
         'do_not_scrub',
         'binary_content',
-        'gen_ai.input.messages',
-        'gen_ai.output.messages',
-        'gen_ai.system_instructions',
         'pydantic_ai.all_messages',
-        'gen_ai.tool.name',
-        'gen_ai.tool.call.id',
         'rpc.method',
-        'gen_ai.system',
         'model_request_parameters',
         'langsmith.metadata.session_id',
         'langsmith.trace.session_name',
+        gen_ai_semconv.INPUT_MESSAGES,
+        gen_ai_semconv.OUTPUT_MESSAGES,
+        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
+        gen_ai_semconv.TOOL_DEFINITIONS,
+        gen_ai_semconv.TOOL_NAME,
+        gen_ai_semconv.TOOL_CALL_ID,
+        gen_ai_semconv.INPUT_TOKENS,
+        gen_ai_semconv.OUTPUT_TOKENS,
+        gen_ai_semconv.CACHE_READ_INPUT_TOKENS,
+        gen_ai_semconv.CACHE_CREATION_INPUT_TOKENS,
+        gen_ai_semconv.USAGE_RAW,
+        gen_ai_semconv.CONVERSATION_ID,
+        gen_ai_semconv.SYSTEM,
+        gen_ai_semconv.PROVIDER_NAME,
+        gen_ai_semconv.REQUEST_MODEL,
+        gen_ai_semconv.RESPONSE_MODEL,
     }
 
     @abstractmethod
@@ -229,8 +244,8 @@ class SpanScrubber:
     """
 
     def __init__(self, parent: Scrubber):
-        self._pattern = parent._pattern  # type: ignore
-        self._callback = parent._callback  # type: ignore
+        self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.did_scrub = False
 

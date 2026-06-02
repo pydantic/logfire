@@ -26,7 +26,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 | Scale-up (50-150 hosts, 500M spans) | $9,860/mo  | $1,229/mo         | 87%     |
 | High-volume (500 hosts, 2B spans) | $33,550/mo | $4,229/mo         | 87%     |
 
-*Logfire Cloud Pro pricing (Team or Growth plans -> $2/million spans). Enterprise pricing (self-hosting, SSO, custom retention) available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
+*Logfire Cloud pricing (Team or Growth plans -> $2/million spans). Enterprise pricing (self-hosting, SSO, custom retention) available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
 ## When to Choose Logfire
 
@@ -57,7 +57,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 
 **Datadog** added LLM observability as a separate product. It works, but AI isn't central to the platform's design.
 
-**Logfire** was built for the AI era. [One function call](https://logfire.pydantic.dev/docs/integrations/?utm_source=datadog_comparison_docs) (`logfire.instrument_openai()`) gives you:
+**Logfire** was built for the AI era. [One function call](https://pydantic.dev/docs/logfire/integrations/?utm_source=datadog_comparison_docs) (`logfire.instrument_openai()`) gives you:
 
 - Token tracking and cost monitoring
 - LLM-specific panels for conversations
@@ -69,7 +69,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 
 **Datadog** uses proprietary agents. While they support OTel export, it's not the native path.
 
-**Logfire** is OpenTelemetry-native with [first-class integrations for most technologies](https://logfire.pydantic.dev/docs/integrations/?utm_source=datadog_comparison_docs). Any OTel instrumentation works automatically. Your instrumentation is portable: if you ever want to switch, your code doesn't change.
+**Logfire** is OpenTelemetry-native with [first-class integrations for most technologies](https://pydantic.dev/docs/logfire/integrations/?utm_source=datadog_comparison_docs). Any OTel instrumentation works automatically. Your instrumentation is portable: if you ever want to switch, your code doesn't change.
 
 ### Query Language — Essential for Agentic Coding
 

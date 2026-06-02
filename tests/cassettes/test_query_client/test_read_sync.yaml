@@ -13,16 +13,17 @@ interactions:
       user-agent:
       - python-httpx/0.27.2
     method: GET
-    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20
+    uri: http://localhost:8000/v1/query?sql=%0A%20%20%20%20%20%20%20%20SELECT%20kind%2C%20message%2C%20is_exception%2C%20tags%0A%20%20%20%20%20%20%20%20FROM%20records%0A%20%20%20%20%20%20%20%20ORDER%20BY%20is_exception%2C%20message%0A%20%20%20%20%20%20%20%20LIMIT%202%0A%20%20%20%20%20%20%20%20&json_rows=true
   response:
     body:
-      string: '{"columns":[{"name":"kind","nullable":false,"datatype":"Utf8","values":["log","log"]},{"name":"message","nullable":true,"datatype":"Utf8","values":["about
-        to raise an error","aha 0"]},{"name":"is_exception","nullable":true,"datatype":"Boolean","values":[false,false]},{"name":"tags","nullable":true,"datatype":{"List":{"name":"item","nullable":true,"datatype":"Utf8"}},"values":[[],["tag1","tag2"]]}]}'
+      string: '{"columns":[{"name":"kind","nullable":false,"datatype":"Utf8"},{"name":"message","nullable":true,"datatype":"Utf8"},{"name":"is_exception","nullable":true,"datatype":"Boolean"},{"name":"tags","nullable":true,"datatype":{"List":{"name":"item","nullable":true,"datatype":"Utf8"}}}],"rows":[{"kind":"log","message":"about
+        to raise an error","is_exception":false,"tags":[]},{"kind":"log","message":"aha
+        0","is_exception":false,"tags":["tag1","tag2"]}]}'
     headers:
       access-control-expose-headers:
       - traceresponse
       content-length:
-      - '401'
+      - '448'
       content-type:
       - application/json
       date:

@@ -51,7 +51,15 @@ def test_good_route(client: Client, capfire: CaptureLogfire):
                             'start_time_unix_nano': IsInt(),
                             'time_unix_nano': IsInt(),
                             'value': 0,
-                            'exemplars': [],
+                            'exemplars': [
+                                {
+                                    'filtered_attributes': {'http.server_name': 'testserver'},
+                                    'value': IsNumeric(),
+                                    'time_unix_nano': IsNumeric(),
+                                    'span_id': 1,
+                                    'trace_id': 1,
+                                }
+                            ],
                         }
                     ],
                     'aggregation_temporality': 2,
@@ -85,7 +93,15 @@ def test_good_route(client: Client, capfire: CaptureLogfire):
                             'flags': 0,
                             'min': IsNumeric(),
                             'max': IsNumeric(),
-                            'exemplars': [],
+                            'exemplars': [
+                                {
+                                    'filtered_attributes': {},
+                                    'value': IsNumeric(),
+                                    'time_unix_nano': IsNumeric(),
+                                    'span_id': 1,
+                                    'trace_id': 1,
+                                }
+                            ],
                         }
                     ],
                     'aggregation_temporality': 1,
@@ -116,7 +132,15 @@ def test_good_route(client: Client, capfire: CaptureLogfire):
                             'flags': 0,
                             'min': IsNumeric(),
                             'max': IsNumeric(),
-                            'exemplars': [],
+                            'exemplars': [
+                                {
+                                    'filtered_attributes': {},
+                                    'value': IsNumeric(),
+                                    'time_unix_nano': IsNumeric(),
+                                    'span_id': 1,
+                                    'trace_id': 1,
+                                }
+                            ],
                         }
                     ],
                     'aggregation_temporality': 1,
@@ -191,6 +215,40 @@ def test_error_route(client: Client, exporter: TestExporter):
                     'http.status_code': 400,
                     'http.response.status_code': 400,
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 400,
+                                        'http.target': 'django_test_app/bad/',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 400,
+                                        'http.route': 'django_test_app/bad/',
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                    },
                     'http.target': '/django_test_app/bad/',
                     'logfire.level_num': 17,
                 },
@@ -241,6 +299,38 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                     'network.protocol.version': '1.1',
                     'http.status_code': 404,
                     'http.response.status_code': 404,
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 404,
+                                        'net.host.port': 80,
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 404,
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                    },
                     'http.target': '/django_test_app/nowhere/',
                     'logfire.level_num': 13,
                 },

@@ -231,4 +231,4 @@ config = VariablesConfig(
 )
 ```
 
-[slack]: https://logfire.pydantic.dev/docs/join-slack/
+[slack]: https://pydantic.dev/docs/logfire/join-slack/

@@ -5,12 +5,13 @@ import os
 import re
 import sys
 import warnings
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from logging import getLogger
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import patch
 
 import cloudpickle
@@ -63,6 +64,141 @@ def test_log_methods_without_kwargs(method: str):
     See https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#messages-and-span-names.
     The problem was: The field {foo} is not defined.\
 """)
+
+
+def test_instrument_with_level(exporter: TestExporter) -> None:
+    @logfire.instrument('my span', level='warn', extract_args=False)
+    def my_func() -> str:
+        return 'ok'
+
+    assert my_func() == 'ok'
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'my span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_with_level.<locals>.my_func',
+                    'logfire.msg_template': 'my span',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.level_num': 13,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'my span',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_level_filtered(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span', level='debug', extract_args=False)
+    def my_func() -> str:
+        return 'ok'
+
+    assert my_func() == 'ok'
+    assert exporter.exported_spans_as_dict() == []
+
+
+def test_instrument_level_filtered_record_return(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span', level='debug', extract_args=False, record_return=True)
+    def my_func() -> str:
+        return 'ok'
+
+    assert my_func() == 'ok'
+    assert exporter.exported_spans_as_dict() == []
+
+
+def test_instrument_level_filtered_extract_args(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span {x=}', level='debug', extract_args=True)
+    def my_func(x: int) -> int:
+        return x * 2
+
+    assert my_func(5) == 10
+    assert exporter.exported_spans_as_dict() == []
+
+
+def test_instrument_level_filtered_extract_args_iterable(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span', level='debug', extract_args=('x',))
+    def my_func(x: int) -> int:
+        return x * 2
+
+    assert my_func(5) == 10
+    assert exporter.exported_spans_as_dict() == []
+
+
+@pytest.mark.anyio
+async def test_instrument_with_level_async(exporter: TestExporter) -> None:
+    @logfire.instrument('async span', level='warn', extract_args=False)
+    async def my_async_func() -> str:
+        return 'ok'
+
+    assert await my_async_func() == 'ok'
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'async span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_with_level_async.<locals>.my_async_func',
+                    'logfire.msg_template': 'async span',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.level_num': 13,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'async span',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_with_level_and_extract_args(exporter: TestExporter) -> None:
+    @logfire.instrument('span {x=}', level='warn')
+    def my_func(x: int) -> int:
+        return x * 2
+
+    assert my_func(5) == 10
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'span {x=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_with_level_and_extract_args.<locals>.my_func',
+                    'logfire.msg_template': 'span {x=}',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.level_num': 13,
+                    'logfire.msg': 'span x=5',
+                    'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+                    'x': 5,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
 
 
 def test_instrument_with_no_args(exporter: TestExporter) -> None:

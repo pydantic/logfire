@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 from celery import Celery
-from celery.contrib.testing.worker import start_worker
+from celery.contrib.testing.worker import start_worker  # pyright: ignore[reportUnknownVariableType]
 from celery.result import AsyncResult
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
@@ -47,7 +47,7 @@ def celery_app() -> Iterator[Celery]:
 
 def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
     logger = logging.getLogger()
-    with logfire.span('trace'), start_worker(celery_app, perform_ping_check=False, loglevel=logger.level):
+    with logfire.span('trace'), start_worker(celery_app, perform_ping_check=False, loglevel=logger.level):  # pyright: ignore[reportGeneralTypeIssues]
         for _ in range(3):
             exporter.clear()
             # Send and wait for the task to be executed

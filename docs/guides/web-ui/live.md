@@ -17,7 +17,7 @@ To search the live view, click `Search your spans` (keyboard shortcut `/`), this
 ### SQL Search
 
 For confident SQL users, write your queries directly here. For devs who want a bit of help,
-try the new [Pydantic AI](https://ai.pydantic.dev/) feature which generates a SQL query based on your prompt.
+try the new [Pydantic AI](https://pydantic.dev/docs/ai/overview/) feature which generates a SQL query based on your prompt.
 You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
 
 **WHERE clause**

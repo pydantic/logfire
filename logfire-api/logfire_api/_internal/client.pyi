@@ -1,4 +1,5 @@
 from .auth import UserToken as UserToken, UserTokenCollection as UserTokenCollection
+from .server_response import ServerResponseCallback as ServerResponseCallback, install_logfire_response_hook as install_logfire_response_hook
 from .utils import UnexpectedResponse as UnexpectedResponse
 from _typeshed import Incomplete
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
@@ -19,11 +20,13 @@ class LogfireClient:
 
     Args:
         user_token: The user token to use when authenticating against the API.
+        server_response_hook: Optional override for the API response hook (see
+            `AdvancedOptions.server_response_hook`).
     """
     base_url: Incomplete
-    def __init__(self, user_token: UserToken) -> None: ...
+    def __init__(self, user_token: UserToken, server_response_hook: ServerResponseCallback | None = None) -> None: ...
     @classmethod
-    def from_url(cls, base_url: str | None) -> Self:
+    def from_url(cls, base_url: str | None, server_response_hook: ServerResponseCallback | None = None) -> Self:
         """Create a client from the provided base URL.
 
         Args:
@@ -31,6 +34,8 @@ class LogfireClient:
                 the user into selecting a token from the token collection (or, if only one available,
                 use it directly). The token collection will be created from the `~/.logfire/default.toml`
                 file (or an empty one if no such file exists).
+            server_response_hook: Optional override for the API response hook (see
+                `AdvancedOptions.server_response_hook`).
         """
     def get_user_organizations(self) -> list[dict[str, Any]]:
         """Get the organizations of the logged-in user."""

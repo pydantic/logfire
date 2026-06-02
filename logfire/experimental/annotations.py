@@ -22,7 +22,7 @@ def get_traceparent(span: Span | logfire.LogfireSpan) -> str:
     if isinstance(span, Span):
         real_span = span
     else:
-        real_span = span._span  # type: ignore
+        real_span = span._span  # pyright: ignore[reportAssignmentType, reportPrivateUsage]
         assert real_span
     context = set_span_in_context(real_span)
     carrier: dict[str, Any] = {}
@@ -35,7 +35,7 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
     with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
         feedback_logfire.info(
             span_name,
-            **attributes,  # type: ignore
+            **attributes,  # pyright: ignore[reportArgumentType]
             **{
                 ATTRIBUTES_MESSAGE_KEY: message,
                 ATTRIBUTES_SPAN_TYPE_KEY: 'annotation',

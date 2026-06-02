@@ -3,7 +3,6 @@
 
 import asyncio
 import os
-import sys
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -28,7 +27,6 @@ except ImportError:
         assert False
 
 pytestmark = [
-    pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
     ),
@@ -67,7 +65,7 @@ async def test_mcp(exporter: TestExporter):
 
         class MyMCPServer(_MCPServerWithClientSession):
             @asynccontextmanager
-            async def create_streams(self):  # type: ignore
+            async def create_streams(self):
                 yield client_streams
 
             @property
@@ -116,10 +114,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server handle request: tools/list',
-                'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 7, 'is_remote': True},
-                'start_time': 6000000000,
-                'end_time': 7000000000,
+                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 9, 'is_remote': True},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/list',
@@ -127,7 +125,7 @@ async def test_mcp(exporter: TestExporter):
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-0000000000000007-01',
+                                'traceparent': '00-00000000000000000000000000000002-0000000000000009-01',
                             },
                             'cursor': None,
                         },
@@ -146,10 +144,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP request: tools/list',
-                'context': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
-                'start_time': 5000000000,
-                'end_time': 8000000000,
+                'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
@@ -173,10 +171,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP: list tools from server {server}',
-                'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 4000000000,
-                'end_time': 9000000000,
+                'context': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
@@ -191,15 +189,23 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
-                'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'start_time': 11000000000,
-                'end_time': 12000000000,
+                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
+                'start_time': 13000000000,
+                'end_time': 14000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908455c48191a9de5131e91abcb805b6a918ffc4827a',
+                    'usage': {
+                        'requests': 1,
+                        'input_tokens': 51,
+                        'output_tokens': 11,
+                        'total_tokens': 62,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                    },
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
@@ -225,10 +231,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log',
-                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': True},
-                'start_time': 16000000000,
-                'end_time': 16000000000,
+                'context': {'trace_id': 2, 'span_id': 25, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': True},
+                'start_time': 18000000000,
+                'end_time': 18000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -239,10 +245,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server log from my_logger',
-                'context': {'trace_id': 2, 'span_id': 22, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': True},
-                'start_time': 17000000000,
-                'end_time': 17000000000,
+                'context': {'trace_id': 2, 'span_id': 26, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': True},
+                'start_time': 19000000000,
+                'end_time': 19000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 21,
@@ -253,10 +259,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server handle request: tools/call',
-                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': True},
-                'start_time': 15000000000,
-                'end_time': 18000000000,
+                'context': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 21, 'is_remote': True},
+                'start_time': 17000000000,
+                'end_time': 20000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
@@ -264,7 +270,7 @@ async def test_mcp(exporter: TestExporter):
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-0000000000000011-01',
+                                'traceparent': '00-00000000000000000000000000000002-0000000000000015-01',
                             },
                             'name': 'random_number',
                             'arguments': {},
@@ -285,10 +291,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP request: tools/call random_number',
-                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
-                'start_time': 14000000000,
-                'end_time': 19000000000,
+                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
+                'start_time': 16000000000,
+                'end_time': 21000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
@@ -310,10 +316,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'Function: {name}',
-                'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'start_time': 13000000000,
-                'end_time': 20000000000,
+                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
+                'start_time': 15000000000,
+                'end_time': 22000000000,
                 'attributes': {
                     'logfire.msg_template': 'Function: {name}',
                     'logfire.span_type': 'span',
@@ -326,11 +332,33 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
+                'name': 'Turn {turn} for agent Assistant',
+                'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
+                'start_time': 12000000000,
+                'end_time': 23000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents_mcp.py',
+                    'code.function': 'test_mcp',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Turn {turn} for agent Assistant',
+                    'type': 'custom',
+                    'name': 'turn',
+                    'gen_ai.system': 'openai',
+                    'sdk_span_type': 'turn',
+                    'turn': 1,
+                    'agent_name': 'Assistant',
+                    'usage': {'input_tokens': 51, 'output_tokens': 11, 'cached_input_tokens': 0},
+                    'logfire.msg': 'Turn 1 for agent Assistant',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
                 'name': 'MCP server handle request: tools/list',
-                'context': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 25, 'is_remote': True},
-                'start_time': 23000000000,
-                'end_time': 24000000000,
+                'context': {'trace_id': 2, 'span_id': 31, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 29, 'is_remote': True},
+                'start_time': 26000000000,
+                'end_time': 27000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/list',
@@ -338,7 +366,7 @@ async def test_mcp(exporter: TestExporter):
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-0000000000000019-01',
+                                'traceparent': '00-00000000000000000000000000000002-000000000000001d-01',
                             },
                             'cursor': None,
                         },
@@ -357,10 +385,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP request: tools/list',
-                'context': {'trace_id': 2, 'span_id': 25, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
-                'start_time': 22000000000,
-                'end_time': 25000000000,
+                'context': {'trace_id': 2, 'span_id': 29, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
+                'start_time': 25000000000,
+                'end_time': 28000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
@@ -370,39 +398,56 @@ async def test_mcp(exporter: TestExporter):
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'tools/list',
                     'logfire.msg_template': 'MCP request: tools/list',
-                    'logfire.msg': 'MCP request: tools/list',
                     'logfire.span_type': 'span',
+                    'logfire.msg': 'MCP request: tools/list',
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [IsPartialDict()],
+                        'tools': [
+                            {
+                                'name': 'random_number',
+                                'title': None,
+                                'description': '',
+                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
+                                    'required': ['result'],
+                                    'title': 'random_numberOutput',
+                                    'type': 'object',
+                                },
+                                'icons': None,
+                                'annotations': None,
+                                'meta': None,
+                                'execution': None,
+                            }
+                        ],
                     },
                 },
             },
             {
                 'name': 'MCP: list tools from server {server}',
-                'context': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'start_time': 21000000000,
-                'end_time': 26000000000,
+                'context': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
+                'start_time': 24000000000,
+                'end_time': 29000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
                     'logfire.msg_template': 'MCP: list tools from server {server}',
-                    'logfire.span_type': 'span',
                     'server': 'MyMCPServer',
                     'result': ['random_number'],
+                    'logfire.span_type': 'span',
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'MCP: list tools from server MyMCPServer',
                 },
             },
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
-                'context': {'trace_id': 2, 'span_id': 29, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'start_time': 27000000000,
-                'end_time': 28000000000,
+                'context': {'trace_id': 2, 'span_id': 35, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 33, 'is_remote': False},
+                'start_time': 31000000000,
+                'end_time': 32000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
@@ -411,7 +456,14 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908542b08191a02609780bb4c28205b6a918ffc4827a',
-                    'gen_ai.system': 'openai',
+                    'usage': {
+                        'requests': 1,
+                        'input_tokens': 83,
+                        'output_tokens': 11,
+                        'total_tokens': 94,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [
@@ -458,27 +510,76 @@ async def test_mcp(exporter: TestExporter):
                     ],
                     'gen_ai.usage.input_tokens': 83,
                     'gen_ai.usage.output_tokens': 11,
+                    'gen_ai.system': 'openai',
                     'logfire.msg': "Responses API with 'gpt-4o'",
                 },
             },
             {
+                'name': 'Turn {turn} for agent Assistant',
+                'context': {'trace_id': 2, 'span_id': 33, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
+                'start_time': 30000000000,
+                'end_time': 33000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents_mcp.py',
+                    'code.function': 'test_mcp',
+                    'code.lineno': 123,
+                    'name': 'turn',
+                    'type': 'custom',
+                    'gen_ai.system': 'openai',
+                    'logfire.msg_template': 'Turn {turn} for agent Assistant',
+                    'sdk_span_type': 'turn',
+                    'turn': 2,
+                    'agent_name': 'Assistant',
+                    'usage': {'input_tokens': 83, 'output_tokens': 11, 'cached_input_tokens': 0},
+                    'logfire.msg': 'Turn 2 for agent Assistant',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
                 'name': 'Agent run: {name!r}',
-                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 29000000000,
+                'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'start_time': 11000000000,
+                'end_time': 34000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
                     'logfire.msg_template': 'Agent run: {name!r}',
-                    'logfire.span_type': 'span',
                     'name': 'Assistant',
                     'handoffs': [],
                     'tools': ['random_number'],
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'Assistant'",
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'Task: Agent workflow',
+                'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 35000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents_mcp.py',
+                    'code.function': 'test_mcp',
+                    'code.lineno': 123,
+                    'type': 'custom',
+                    'name': 'Agent workflow',
+                    'gen_ai.system': 'openai',
+                    'logfire.msg_template': 'Task: Agent workflow',
+                    'sdk_span_type': 'task',
+                    'usage': {
+                        'input_tokens': 134,
+                        'output_tokens': 22,
+                        'cached_input_tokens': 0,
+                        'requests': 2,
+                        'total_tokens': 156,
+                    },
+                    'logfire.msg': 'Task: Agent workflow',
+                    'logfire.span_type': 'span',
                 },
             },
             {
@@ -486,7 +587,7 @@ async def test_mcp(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
-                'end_time': 30000000000,
+                'end_time': 36000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
@@ -503,10 +604,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server handle request: ping',
-                'context': {'trace_id': 3, 'span_id': 33, 'is_remote': False},
-                'parent': {'trace_id': 3, 'span_id': 31, 'is_remote': True},
-                'start_time': 32000000000,
-                'end_time': 33000000000,
+                'context': {'trace_id': 3, 'span_id': 39, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 37, 'is_remote': True},
+                'start_time': 38000000000,
+                'end_time': 39000000000,
                 'attributes': {
                     'request': {
                         'method': 'ping',
@@ -514,7 +615,7 @@ async def test_mcp(exporter: TestExporter):
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000003-000000000000001f-01',
+                                'traceparent': '00-00000000000000000000000000000003-0000000000000025-01',
                                 'foo': 'bar1',
                             },
                         },
@@ -529,10 +630,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP request: ping',
-                'context': {'trace_id': 3, 'span_id': 31, 'is_remote': False},
+                'context': {'trace_id': 3, 'span_id': 37, 'is_remote': False},
                 'parent': None,
-                'start_time': 31000000000,
-                'end_time': 34000000000,
+                'start_time': 37000000000,
+                'end_time': 40000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
@@ -549,10 +650,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP server handle request: ping',
-                'context': {'trace_id': 4, 'span_id': 37, 'is_remote': False},
-                'parent': {'trace_id': 4, 'span_id': 35, 'is_remote': True},
-                'start_time': 36000000000,
-                'end_time': 37000000000,
+                'context': {'trace_id': 4, 'span_id': 43, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 41, 'is_remote': True},
+                'start_time': 42000000000,
+                'end_time': 43000000000,
                 'attributes': {
                     'request': {
                         'method': 'ping',
@@ -560,7 +661,7 @@ async def test_mcp(exporter: TestExporter):
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000004-0000000000000023-01',
+                                'traceparent': '00-00000000000000000000000000000004-0000000000000029-01',
                                 'foo': 'bar2',
                             },
                         },
@@ -575,10 +676,10 @@ async def test_mcp(exporter: TestExporter):
             },
             {
                 'name': 'MCP request: ping',
-                'context': {'trace_id': 4, 'span_id': 35, 'is_remote': False},
+                'context': {'trace_id': 4, 'span_id': 41, 'is_remote': False},
                 'parent': None,
-                'start_time': 35000000000,
-                'end_time': 38000000000,
+                'start_time': 41000000000,
+                'end_time': 44000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',

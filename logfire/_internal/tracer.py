@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import functools
 import json
+import traceback
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import opentelemetry.trace as trace_api
@@ -55,9 +57,9 @@ class ProxyTracerProvider(TracerProvider):
 
     provider: TracerProvider
     config: LogfireConfig
-    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)  # type: ignore[reportUnknownVariableType]
+    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)  # pyright: ignore[reportUnknownVariableType]
     lock: Lock = field(default_factory=Lock)
-    suppressed_scopes: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
+    suppressed_scopes: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
         with self.lock:
@@ -214,7 +216,17 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
-        if not (self.is_recording() and (self.record_metrics or name == 'operation.cost')):
+        if not (
+            self.is_recording()
+            and (
+                (
+                    self.record_metrics
+                    # Filter out these OTel meta metrics which are just noise
+                    and not name.startswith('otel.sdk.')
+                )
+                or name in ('operation.cost', 'gen_ai.client.token.usage')
+            )
+        ):
             return
 
         self.metrics[name].increment(attributes, value)
@@ -439,7 +451,7 @@ def record_exception(
         with handle_internal_errors:
             callback(helper)
 
-    if not helper._record_exception:  # type: ignore
+    if not helper._record_exception:  # pyright: ignore[reportPrivateUsage]
         return
 
     attributes = helper.event_attributes
@@ -470,6 +482,20 @@ def record_exception(
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+
+
+original_format_exception = traceback.format_exception
+
+
+@functools.wraps(original_format_exception)
+def _patched_format_exception(*args: Any, **kwargs: Any):
+    try:
+        return original_format_exception(*args, **kwargs)
+    except Exception as exc:
+        return [f'Formatting stacktrace failed: {type(exc).__name__}: {exc}\n']
+
+
+traceback.format_exception = _patched_format_exception
 
 
 def set_exception_status(span: trace_api.Span, exception: BaseException):

@@ -4,7 +4,7 @@ description: Share and access key trace queries. Logfire Saved Searches allow yo
 ---
 # Saved Searches
 
-Logfire's **Saved Searches** feature allows you to quickly access, organize, and share your most useful queries in the web UI. This feature is available on the Live page, and can be tested on the [public demo](https://logfire-eu.pydantic.dev/demo/logfire-demo).
+Logfire's **Saved Searches** feature allows you to quickly access, organize, and share your most useful queries in the web UI. This feature is available on the Live page.
 
 ## 1. Opening the Search Panel
 
@@ -65,7 +65,7 @@ You'll see a panel where you can enter a query using either:
 
 ```mermaid
 flowchart TD
-    A["Open Logfire Demo or Project"] --> B["Click 'Search & filter with SQL'"]
+    A["Open Project"] --> B["Click 'Search & filter with SQL'"]
     B --> C["Enter SQL Query or Describe Query in Natural Language"]
     C --> D["Optionally Use 'Filter by...' for Additional Filters"]
     D --> E["Click 'Run' to Execute Query"]
@@ -81,7 +81,6 @@ flowchart TD
 
 ## Tips
 
-- You can test this feature on the [public demo page](https://logfire-eu.pydantic.dev/demo/logfire-demo).
 - Use the search fields in both **Recent** and **Saved** tabs to quickly find queries by name.
 - Use the **Filter by...** pills to build queries faster without writing SQL.
 

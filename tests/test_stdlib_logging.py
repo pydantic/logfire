@@ -260,7 +260,7 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
         # This is the message logged by OTEL, in BatchSpanProcessor.on_end.
         # We're testing that it doesn't get converted to a logfire log by LogfireLoggingHandler.
         # To prevent that, MainSpanProcessorWrapper.on_end uses suppress_instrumentation.
-        assert record.message == 'Queue is full, likely spans will be dropped.'
+        assert record.message in ('Queue is full, likely spans will be dropped.', 'Queue full, dropping Span.')
 
         # Ensure that we got some of the spans from `logfire.info('test')` above and nothing else.
         assert exporter.exported_spans
@@ -274,9 +274,11 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
         with logfire_logging_handler_on_root_logger() as test_logging_handler:
             logfire.info('spans after shutdown are dropped')
 
-        [record] = test_logging_handler.logs
-        # This is the message logged by OTEL, in BatchSpanProcessor.on_end, same as above.
-        assert record.message == 'Already shutdown, dropping span.'
+        if test_logging_handler.logs:
+            [record] = test_logging_handler.logs
+            # This is the message logged by OTEL, in BatchSpanProcessor.on_end, same as above.
+            # Newer OTel versions don't log it any more.
+            assert record.message == 'Already shutdown, dropping span.'
 
         assert not exporter.exported_spans
 

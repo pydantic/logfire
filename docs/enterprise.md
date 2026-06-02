@@ -6,10 +6,17 @@ description: "The Logfire Enterprise Plan includes custom SSO, guaranteed SLAs, 
 
 ## Overview
 
-In addition to the [Pro plan](https://pydantic.dev/pricing), Pydantic Logfire has two enterprise offerings:
+In addition to the [Team and Growth plans](https://pydantic.dev/pricing), Pydantic Logfire has three enterprise offerings:
 
 - **Enterprise Cloud**: Fully managed, SLA-backed service
+- **Enterprise Dedicated**: Fully managed, single-tenant deployment on isolated infrastructure — see the [Enterprise Dedicated](enterprise-single-tenant.md) page for details
 - **Enterprise Self-Hosted**: On-premises deployment via Kubernetes
+
+## Enterprise Single Sign-On (SSO)
+
+Logfire Enterprise supports SSO through [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway. The same Dex configuration model works across Enterprise Cloud, Enterprise Dedicated, and Enterprise Self-Hosted deployments.
+
+Dex works with common identity providers including Okta, Azure AD, Auth0, Google Workspace, LDAP/AD, and generic OIDC or SAML providers.
 
 ## Enterprise Cloud
 
@@ -35,40 +42,11 @@ Organizations requiring:
 | **Custom SSO**                  | Login via custom identity providers (e.g. Okta, Azure AD, Auth0)   |
 
 
-#### Single Sign-On (SSO) with Dex
-
-- Logfire uses [Dex](https://github.com/dexidp/dex) under the hood, an open-source OIDC gateway, enabling quick
-  integration with almost any identity provider.
-- Works out-of-the-box with Okta, Azure AD, Auth0, Google Workspace, LDAP/AD, and any generic OIDC or SAML IdP.
-- The same Dex config runs in both Enterprise Cloud and Self-Hosted, giving seamless SSO across deployments.
-
-#### Single Sign-on (SSO) with OIDC Providers
-
-Logfire supports SSO authentication with [OIDC (OpenID Connect)](https://openid.net/developers/how-connect-works/) Providers, allowing your team to access the platform using their existing corporate credentials.
-
-
-When a user logs in, your OIDC provider verifies their identity and securely shares authorized user information with our platform—eliminating the need for separate passwords while maintaining enterprise-grade security.
-
-**Popular OIDC Providers**
-
-- Okta - Enterprise identity management
-- Auth0 - Flexible authentication platform
-- Azure EntraID (formerly Azure Active Directory) - Microsoft's cloud identity service
-
-- Google Workspace - Google's business identity solution
-- AWS Cognito - Amazon's user identity service
-- Keycloak - Open-source identity management
-
-**Key Benefits**
-
-- Enhanced Security: Centralized authentication with multi-factor authentication support
-- Simplified Access: One login for all your enterprise applications
-- Automated Provisioning: Sync user roles and permissions automatically
-- Compliance Ready: Meet enterprise security and audit requirements
-
 ## Enterprise Self-Hosted
 
 > **Note:** The Helm chart for Pydantic Logfire is now [open source](https://github.com/pydantic/logfire-helm-chart)
+
+For setup details, see the [self-hosted Logfire overview](reference/self-hosted/overview.md).
 
 ### Target Users
 
@@ -106,7 +84,7 @@ Enterprise Self-Hosted customers receive:
 
 ### Core Technology Stack
 
-Both deployment options use the same underlying technology:
+All deployment options use the same underlying technology:
 
 - **Data Ingestion**: OpenTelemetry
 - **Storage Format**: Parquet
@@ -136,4 +114,4 @@ Both deployment options use the same underlying technology:
 
 ## Getting Started
 
-For more information about Enterprise Cloud or Enterprise Self-Hosted solutions, [please contact](mailto:sales@pydantic.dev) our sales team.
+For more information about Enterprise Cloud, Enterprise Dedicated, or Enterprise Self-Hosted solutions, [please contact](mailto:sales@pydantic.dev) our sales team.

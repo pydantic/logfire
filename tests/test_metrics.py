@@ -537,8 +537,7 @@ def test_reconfigure(caplog: pytest.LogCaptureFixture):
 def test_metrics_options_default_views() -> None:
     """Test that MetricsOptions.DEFAULT_VIEWS is accessible as a class variable."""
     # DEFAULT_VIEWS should be accessible as a class variable
-    assert logfire.MetricsOptions.DEFAULT_VIEWS is not None
-    assert len(logfire.MetricsOptions.DEFAULT_VIEWS) == 2
+    assert logfire.MetricsOptions.DEFAULT_VIEWS
 
     # Each element should be a View
     for view in logfire.MetricsOptions.DEFAULT_VIEWS:

@@ -10,7 +10,6 @@ from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
 from functools import cached_property, partial
-from time import time
 from typing import (  # NOQA UP035
     TYPE_CHECKING,
     Any,
@@ -18,7 +17,6 @@ from typing import (  # NOQA UP035
     Literal,
     Type,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -64,8 +62,8 @@ from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import (
     ProxyTracerProvider,
-    _LogfireWrappedSpan,  # type: ignore
-    _ProxyTracer,  # type: ignore
+    _LogfireWrappedSpan,  # pyright: ignore[reportPrivateUsage]
+    _ProxyTracer,  # pyright: ignore[reportPrivateUsage]
     set_exception_status,
 )
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
@@ -79,21 +77,28 @@ if TYPE_CHECKING:
     import openai
     import pydantic_ai.models
     import requests
+    from anthropic.lib.bedrock import (
+        AnthropicBedrock as _AnthropicBedrock,
+        AsyncAnthropicBedrock as _AsyncAnthropicBedrock,
+    )
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
+    from pydantic_evals.reporting import EvaluationReport
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
     from starlette.requests import Request
+    from starlette.responses import Response
     from starlette.websockets import WebSocket
     from surrealdb.connections.async_template import AsyncTemplate
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
+    from ..experimental.forwarding import ForwardExportRequestResponse
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
         ResponseHook as AiohttpClientResponseHook,
@@ -134,7 +139,7 @@ if TYPE_CHECKING:
     # 1. It's convenient to pass the result of sys.exc_info() directly
     # 2. It mirrors the exc_info argument of the stdlib logging methods
     # 3. The argument name exc_info is very suggestive of the sys function.
-    ExcInfo = Union[SysExcInfo, BaseException, bool, None]
+    ExcInfo = SysExcInfo | BaseException | bool | None
 
 T = TypeVar('T')
 
@@ -211,7 +216,7 @@ class Logfire:
                 level_attributes = log_level_attributes(_level)
                 level_num = level_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY]
                 if level_num < self.config.min_level:
-                    return NoopSpan()  # type: ignore
+                    return NoopSpan()  # pyright: ignore[reportReturnType]
             else:
                 level_attributes = None
 
@@ -219,7 +224,7 @@ class Logfire:
             merged_attributes = {**stack_info, **attributes}
 
             if self._config.inspect_arguments:
-                fstring_frame = inspect.currentframe().f_back  # type: ignore
+                fstring_frame = inspect.currentframe().f_back  # pyright: ignore[reportOptionalMemberAccess]
             else:
                 fstring_frame = None
 
@@ -264,7 +269,7 @@ class Logfire:
             )
         except Exception:
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # pyright: ignore[reportReturnType]
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes, **kwargs: Any) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
@@ -276,7 +281,7 @@ class Logfire:
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # pyright: ignore[reportReturnType]
 
     def _instrument_span_with_args(
         self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any], **kwargs: Any
@@ -287,7 +292,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         try:
-            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
@@ -295,7 +300,7 @@ class Logfire:
             return self._fast_span(name, attributes, **kwargs)
         except Exception:  # pragma: no cover
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # pyright: ignore[reportReturnType]
 
     def trace(
         self,
@@ -607,6 +612,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -632,6 +638,8 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
 
     @overload
@@ -650,7 +658,7 @@ class Logfire:
         ```
         """
 
-    def instrument(  # type: ignore[reportInconsistentOverload]
+    def instrument(  # pyright: ignore[reportInconsistentOverload]
         self,
         msg_template: Callable[P, R] | LiteralString | None = None,
         *,
@@ -659,6 +667,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -684,11 +693,21 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
         return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_trace
+            self,
+            tuple(self._tags),
+            msg_template,
+            span_name,
+            extract_args,
+            record_return,
+            allow_generator,
+            new_trace,
+            level=level,
         )
 
     def log(
@@ -735,10 +754,10 @@ class Logfire:
                 fstring_frame = None
                 if self._config.inspect_arguments:
                     fstring_frame = inspect.currentframe()
-                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # pyright: ignore[reportOptionalMemberAccess]
                         # fstring_frame.f_back should be the user's frame.
                         # The user called logfire.info or a similar method rather than calling logfire.log directly.
-                        fstring_frame = fstring_frame.f_back  # type: ignore
+                        fstring_frame = fstring_frame.f_back  # pyright: ignore[reportOptionalMemberAccess]
 
                 msg, extra_attrs, msg_template = logfire_format_with_magic(
                     msg_template,
@@ -800,7 +819,7 @@ class Logfire:
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
                     span.record_exception(exc_info)
-                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # type: ignore
+                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # pyright: ignore[reportOperatorIssue]
                         # Set the status description to the exception message.
                         # OTEL only lets us set the description when the status code is ERROR,
                         # which we only want to do when the log level is error.
@@ -892,6 +911,22 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
+    def url_from_eval(self, report: EvaluationReport[Any, Any, Any]) -> str | None:
+        """Generate a Logfire URL to view an evaluation report.
+
+        Args:
+            report: An evaluation report from `pydantic_evals`.
+
+        Returns:
+            The URL string, or `None` if the project URL or trace/span IDs are not available.
+        """
+        project_url = self._config._project_url  # type: ignore[reportPrivateUsage]
+        trace_id = report.trace_id
+        span_id = report.span_id
+        if not project_url or not trace_id or not span_id:
+            return None
+        return f'{project_url.rstrip("/")}/evals/compare?experiment={trace_id}-{span_id}'
+
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
@@ -918,7 +953,7 @@ class Logfire:
     ) -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -982,6 +1017,24 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_mcp(self, propagate_otel_context)
+
+    def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
+        """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
+
+        All `ClaudeSDKClient` instances created after this call will be automatically traced.
+        Existing instances created before this call will not have tool call tracing.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the instrumentation
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
+        """
+        from .integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_claude_agent_sdk(self)
 
     def instrument_pydantic(
         self,
@@ -1095,7 +1148,7 @@ class Logfire:
                 If `'attributes'`, events are attached to the span as attributes.
                 If `'logs'`, events are emitted as OpenTelemetry log-based events.
             kwargs: Additional keyword arguments to pass to
-                [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
+                [`InstrumentationSettings`](https://pydantic.dev/docs/ai/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
                 for future compatibility.
         """
         from .integrations.pydantic_ai import instrument_pydantic_ai
@@ -1295,12 +1348,12 @@ class Logfire:
         anthropic_client: (
             anthropic.Anthropic
             | anthropic.AsyncAnthropic
-            | anthropic.AnthropicBedrock
-            | anthropic.AsyncAnthropicBedrock
+            | _AnthropicBedrock
+            | _AsyncAnthropicBedrock
             | type[anthropic.Anthropic]
             | type[anthropic.AsyncAnthropic]
-            | type[anthropic.AnthropicBedrock]
-            | type[anthropic.AsyncAnthropicBedrock]
+            | type[_AnthropicBedrock]
+            | type[_AsyncAnthropicBedrock]
             | None
         ) = None,
         *,
@@ -1366,6 +1419,7 @@ class Logfire:
                 Use of this context manager is optional.
         """
         import anthropic
+        from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
@@ -1379,8 +1433,8 @@ class Logfire:
             or (
                 anthropic.Anthropic,
                 anthropic.AsyncAnthropic,
-                anthropic.AnthropicBedrock,
-                anthropic.AsyncAnthropicBedrock,
+                AnthropicBedrock,
+                AsyncAnthropicBedrock,
             ),
             suppress_other_instrumentation,
             'Anthropic',
@@ -1456,8 +1510,14 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_print(self)
 
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
@@ -1465,6 +1525,7 @@ class Logfire:
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
+                'capture_parameters': capture_parameters,
                 **kwargs,
             },
         )
@@ -1938,7 +1999,13 @@ class Logfire:
         from .integrations.aiohttp_server import instrument_aiohttp_server
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_aiohttp_server(**kwargs)
+        return instrument_aiohttp_server(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_sqlalchemy(
         self,
@@ -2018,7 +2085,7 @@ class Logfire:
         return instrument_aws_lambda(
             lambda_handler=lambda_handler,
             event_context_extractor=event_context_extractor,
-            **{  # type: ignore
+            **{  # pyright: ignore[reportArgumentType]
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
@@ -2113,7 +2180,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_mysql(
             conn=conn,
-            **{  # type: ignore
+            **{  # pyright: ignore[reportArgumentType]
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
@@ -2414,39 +2481,7 @@ class Logfire:
         Returns:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
-        start = time()
-
-        def remaining_ms() -> int:
-            return max(0, int(timeout_millis - (time() - start) * 1000))
-
-        self.config.get_variable_provider().shutdown(timeout_millis=remaining_ms())
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._tracer_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._tracer_provider.shutdown()
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._meter_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._meter_provider.shutdown(remaining)
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        return remaining_ms() > 0
+        return self._config.shutdown(timeout_millis=timeout_millis, flush=flush)
 
     @overload
     def var(
@@ -2806,6 +2841,80 @@ class Logfire:
 
         return VariablesConfig.from_variables(variables)
 
+    def forward_export_request(
+        self,
+        *,
+        path: str,
+        headers: Mapping[str, str],
+        body: bytes,
+        max_body_size: int = 50 * 1024 * 1024,
+    ) -> ForwardExportRequestResponse:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is generic and can be used for any web framework.
+        For Starlette/FastAPI, use `forward_export_request_starlette` instead for extra protection and convenience.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            path: one of "/v1/traces", "/v1/metrics", or "/v1/logs"
+            headers: the request headers, as a mapping of header names to values
+            body: the request body, as bytes
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+        """
+        from ..experimental.forwarding import forward_export_request
+
+        return forward_export_request(
+            path=path,
+            headers=headers,
+            body=body,
+            max_body_size=max_body_size,
+            logfire_instance=self,
+        )
+
+    async def forward_export_request_starlette(
+        self,
+        request: Request,
+        *,
+        max_body_size: int = 50 * 1024 * 1024,
+    ) -> Response:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is designed for Starlette/FastAPI.
+        For other web frameworks, use `forward_export_request` instead and adapt the request/response handling as needed.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            request: The Starlette/FastAPI `Request` object.
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A Starlette/FastAPI `Response` object.
+        """
+        from ..experimental.forwarding import logfire_proxy
+
+        return await logfire_proxy(
+            request=request,
+            max_body_size=max_body_size,
+            logfire_instance=self,
+        )
+
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
@@ -3011,7 +3120,7 @@ class NoopSpan:
 
     def __getattr__(self, _name: str) -> Any:
         # Handle methods of LogfireSpan which return nothing
-        return lambda *_args, **__kwargs: None  # type: ignore
+        return lambda *_args, **__kwargs: None  # pyright: ignore[reportUnknownVariableType, reportUnknownLambdaType]
 
     def __enter__(self) -> NoopSpan:
         return self
@@ -3042,11 +3151,15 @@ class NoopSpan:
     def message(self, message: str):
         pass
 
+    @property
+    def _span(self) -> Any:
+        return trace_api.INVALID_SPAN
+
     def is_recording(self) -> bool:
         return False
 
 
-AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
+AttributesValueType = TypeVar('AttributesValueType', bound=Any | otel_types.AttributeValue)
 
 
 def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:

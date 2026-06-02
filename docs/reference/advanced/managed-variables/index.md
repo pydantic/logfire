@@ -119,11 +119,26 @@ Here's the typical workflow using the `AgentConfig` example from above:
 1. **Define the variable in code** with your current configuration as the default
 2. **Deploy your application**: it starts using the default immediately
 3. **Push the variable to Logfire** using `logfire.variables_push()` to sync metadata and schemas
-4. **Create versions** in the Logfire UI: add your initial value as version 1, then create additional versions with different configurations
-5. **Assign labels**: create labels like `production` and `canary`, pointing them at specific versions
+4. **Create versions** in the Logfire UI or programmatically via `logfire.variables_push_config()`: add your initial value as version 1, then create additional versions with different configurations
+5. **Assign labels**: create labels like `production` and `canary`, pointing them at specific versions — from the UI or programmatically
 6. **Set up a rollout**: configure 90% of traffic to the `production` label and 10% to `canary`
 7. **Monitor in real-time**: filter traces by label to compare response quality, latency, and token usage
 8. **Adjust based on data**: if the canary version performs better, move the `production` label to that version
+
+## API Keys {#api-keys}
+
+Managed variables require API keys with the appropriate scopes. There are two scenarios that each require a key with a different scope:
+
+- **Reading variables at runtime** (in your application): an API key with the `project:read_variables` scope (or `project:read_external_variables` if you only need access to external variables, e.g. in client-side apps), set via the `LOGFIRE_API_KEY` environment variable.
+- **Pushing variable definitions** (syncing schemas from code): an API key with the `project:write_variables` scope, used with `logfire.variables_push()` and other related write APIs. This is separate from the write token (`LOGFIRE_TOKEN`) used to send traces.
+
+| Scope | Purpose |
+|-------|---------|
+| `project:read_variables` | Read all variables via SDK or OFREP |
+| `project:write_variables` | Create, update, and delete variables and variable types |
+| `project:read_external_variables` | Read only external variables via OFREP (for client-side apps) |
+
+You can create and manage API keys in your project's **Settings > API Keys** page. For more details on external variables and client-side access patterns, see [External Variables and OFREP](external.md#api-key-scopes-for-variables).
 
 ## Quick Start
 

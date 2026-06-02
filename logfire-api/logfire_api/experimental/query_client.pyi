@@ -2,6 +2,7 @@ from _typeshed import Incomplete
 from datetime import datetime
 from httpx import AsyncClient, Client, Response, Timeout
 from httpx._client import BaseClient
+from logfire import VERSION as VERSION
 from logfire._internal.config import get_base_url_from_token as get_base_url_from_token
 from pyarrow import Table
 from types import TracebackType
@@ -48,7 +49,6 @@ class _BaseLogfireQueryClient(Generic[T]):
     timeout: Incomplete
     client: T
     def __init__(self, base_url: str, read_token: str, timeout: Timeout, client: type[T], **client_kwargs: Any) -> None: ...
-    def build_query_params(self, sql: str, min_timestamp: datetime | None = None, max_timestamp: datetime | None = None, limit: int | None = None, row_oriented: bool = False) -> dict[str, str]: ...
     def handle_response_errors(self, response: Response) -> None: ...
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):

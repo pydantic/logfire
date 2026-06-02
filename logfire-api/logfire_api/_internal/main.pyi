@@ -6,6 +6,7 @@ import pydantic_ai
 import pydantic_ai.models
 import requests
 from . import async_ as async_
+from ..experimental.forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
 from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
 from ..integrations.httpx import AsyncRequestHook as HttpxAsyncRequestHook, AsyncResponseHook as HttpxAsyncResponseHook, RequestHook as HttpxRequestHook, ResponseHook as HttpxResponseHook
@@ -34,6 +35,7 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
+from anthropic.lib.bedrock import AnthropicBedrock as _AnthropicBedrock, AsyncAnthropicBedrock as _AsyncAnthropicBedrock
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
@@ -45,11 +47,13 @@ from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Up
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
+from pydantic_evals.reporting import EvaluationReport
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
-from starlette.requests import Request as Request
+from starlette.requests import Request
+from starlette.responses import Response
 from starlette.websockets import WebSocket as WebSocket
 from surrealdb.connections.async_template import AsyncTemplate
 from surrealdb.connections.sync_template import SyncTemplate
@@ -249,7 +253,7 @@ class Logfire:
                 Attributes starting with an underscore are not allowed.
         """
     @overload
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False, level: LevelName | int | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -274,6 +278,8 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
     @overload
     def instrument(self, func: Callable[P, R]) -> Callable[P, R]:
@@ -367,6 +373,15 @@ class Logfire:
         Returns:
             Whether the flush of spans was successful.
         """
+    def url_from_eval(self, report: EvaluationReport[Any, Any, Any]) -> str | None:
+        """Generate a Logfire URL to view an evaluation report.
+
+        Args:
+            report: An evaluation report from `pydantic_evals`.
+
+        Returns:
+            The URL string, or `None` if the project URL or trace/span IDs are not available.
+        """
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
@@ -385,7 +400,7 @@ class Logfire:
     def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -432,6 +447,19 @@ class Logfire:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
+    def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
+        """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
+
+        All `ClaudeSDKClient` instances created after this call will be automatically traced.
+        Existing instances created before this call will not have tool call tracing.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the instrumentation
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
         """
     def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
         """Instrument Pydantic model validations.
@@ -568,7 +596,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | _AnthropicBedrock | _AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[_AnthropicBedrock] | type[_AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -674,8 +702,14 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
     @overload
     def instrument_httpx(self, client: httpx.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
@@ -1386,6 +1420,50 @@ class Logfire:
             print(config.model_dump_json(indent=2))
             ```
         '''
+    def forward_export_request(self, *, path: str, headers: Mapping[str, str], body: bytes, max_body_size: int = ...) -> ForwardExportRequestResponse:
+        '''Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is generic and can be used for any web framework.
+        For Starlette/FastAPI, use `forward_export_request_starlette` instead for extra protection and convenience.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn\'t need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            path: one of "/v1/traces", "/v1/metrics", or "/v1/logs"
+            headers: the request headers, as a mapping of header names to values
+            body: the request body, as bytes
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+        '''
+    async def forward_export_request_starlette(self, request: Request, *, max_body_size: int = ...) -> Response:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is designed for Starlette/FastAPI.
+        For other web frameworks, use `forward_export_request` instead and adapt the request/response handling as needed.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            request: The Starlette/FastAPI `Request` object.
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A Starlette/FastAPI `Response` object.
+        """
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""

@@ -21,7 +21,7 @@ LangSmith is the observability and evaluation platform from the LangChain team. 
 | Standard (14 days retention) | ~$500/1M traces | ~$6-10/1M traces |
 | Extended (400 days retention) | ~$5,000/1M traces | ~$6-10/1M traces |
 
-*Logfire Cloud Pro pricing. Enterprise pricing available on request.
+*Logfire Cloud pricing. Enterprise pricing available on request.
 
 At scale, Logfire can be 50-100X cheaper than LangSmith. This isn't about Logfire being a "budget option". It's about architectural efficiency. Logfire's OpenTelemetry-native design avoids the overhead of proprietary trace formats, and our query engine (DataFusion) retrieves traces significantly faster.
 

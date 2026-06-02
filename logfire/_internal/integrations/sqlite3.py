@@ -26,4 +26,4 @@ def instrument_sqlite3(*, conn: SQLite3Connection, tracer_provider: TracerProvid
     if conn is not None:
         return SQLite3Instrumentor().instrument_connection(conn, tracer_provider=tracer_provider)
     else:
-        return SQLite3Instrumentor().instrument(tracer_provider=tracer_provider, **kwargs)  # type: ignore
+        return SQLite3Instrumentor().instrument(tracer_provider=tracer_provider, **kwargs)  # pyright: ignore[reportReturnType]

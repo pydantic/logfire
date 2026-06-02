@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import functools
 import inspect
+from collections.abc import Callable
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cache
-from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import attr
 from aiohttp.client import ClientSession
@@ -146,7 +147,7 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
         self.span.set_attribute(attr_name, text)
 
     def _set_complex_span_attributes(self, attributes: dict[str, Any]) -> None:
-        set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
+        set_user_attributes_on_raw_span(self.span, attributes)  # pyright: ignore[reportArgumentType]
 
 
 @attr.s(auto_attribs=True, slots=True)
@@ -195,7 +196,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
 
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str) -> None:
         span.set_attribute(attr_name, {})
-        span._span.set_attribute(attr_name, text)  # type: ignore
+        span._span.set_attribute(attr_name, text)  # pyright: ignore[reportOptionalMemberAccess, reportPrivateUsage]
 
     @classmethod
     def create_from_trace_params(
@@ -226,6 +227,9 @@ def make_request_hook(
             capture_request(span, request, capture_headers, capture_request_body)
             run_hook(hook, span, request)
 
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
+
     return new_hook
 
 
@@ -248,6 +252,9 @@ def make_response_hook(
                 capture_response_body,
             )
             run_hook(hook, span, response)
+
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
 
     return new_hook
 
@@ -308,7 +315,7 @@ def capture_request_or_response_headers(
 
 
 CODES_FOR_METHODS_WITH_DATA_OR_JSON_PARAM = [
-    inspect.unwrap(ClientSession._request).__code__,  # type: ignore
+    inspect.unwrap(ClientSession._request).__code__,  # pyright: ignore[reportPrivateUsage]
 ]
 
 

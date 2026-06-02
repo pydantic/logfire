@@ -3,11 +3,11 @@ from __future__ import annotations
 import contextlib
 import functools
 import inspect
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cached_property, lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import httpx
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
@@ -203,7 +203,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
             return False
 
         data = self.form_data
-        if not (data and isinstance(data, Mapping)):  # pragma: no cover  # type: ignore
+        if not (data and isinstance(data, Mapping)):  # pragma: no cover  # pyright: ignore[reportUnnecessaryIsInstance]
             return False
         self.set_complex_span_attributes({attr_name: data})
         return True
@@ -224,11 +224,11 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     def content(self) -> bytes:
         if self.body_is_streaming:  # pragma: no cover
             raise ValueError('Cannot read content from a streaming body')
-        return list(self.stream)[0]  # type: ignore
+        return list(self.stream)[0]  # pyright: ignore[reportUnknownVariableType, reportArgumentType]
 
     @cached_property
     def form_data(self) -> Mapping[str, Any] | None:
-        frame = inspect.currentframe().f_back.f_back.f_back  # type: ignore
+        frame = inspect.currentframe().f_back.f_back.f_back  # pyright: ignore[reportOptionalMemberAccess]
         while frame:
             if frame.f_code in CODES_FOR_METHODS_WITH_DATA_PARAM:
                 break
@@ -239,7 +239,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
         return frame.f_locals.get('data')
 
     def set_complex_span_attributes(self, attributes: dict[str, Any]):
-        set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
+        set_user_attributes_on_raw_span(self.span, attributes)  # pyright: ignore[reportArgumentType]
 
 
 class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
@@ -264,7 +264,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
 
     @cached_property
     def response(self) -> httpx.Response:
-        frame = inspect.currentframe().f_back.f_back  # type: ignore
+        frame = inspect.currentframe().f_back.f_back  # pyright: ignore[reportOptionalMemberAccess]
         while frame:  # pragma: no branch
             response = frame.f_locals.get('response')
             frame = frame.f_back
@@ -328,7 +328,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str):
         span.set_attribute(attr_name, {})  # Set the JSON schema
         # Set the attribute to the raw text so that the backend can parse it
-        span._span.set_attribute(attr_name, text)  # type: ignore
+        span._span.set_attribute(attr_name, text)  # pyright: ignore[reportOptionalMemberAccess, reportPrivateUsage]
 
 
 def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> RequestHook | None:
@@ -339,6 +339,9 @@ def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_b
         with handle_internal_errors:
             request = capture_request(span, request, capture_headers, capture_body)
             run_hook(hook, span, request)
+
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
 
     return new_hook
 
@@ -355,6 +358,9 @@ def make_async_request_hook(
         with handle_internal_errors:
             request = capture_request(span, request, should_capture_headers, should_capture_body)
             await run_async_hook(hook, span, request)
+
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
 
     return new_hook
 
@@ -381,6 +387,9 @@ def make_response_hook(
             )
             run_hook(hook, span, request, response)
 
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
+
     return new_hook
 
 
@@ -405,6 +414,9 @@ def make_async_response_hook(
                 is_async=True,
             )
             await run_async_hook(hook, span, request, response)
+
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
 
     return new_hook
 

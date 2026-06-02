@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
-from functools import lru_cache
-from typing import Any, Callable
+from functools import lru_cache, wraps
+from typing import Any
 from weakref import WeakKeyDictionary
 
 import fastapi.routing
@@ -122,6 +122,9 @@ def patch_fastapi():
     """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
     registry: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = WeakKeyDictionary()
 
+    original_solve_dependencies = fastapi.routing.solve_dependencies  # pyright: ignore[reportPrivateImportUsage]
+
+    @wraps(original_solve_dependencies)
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any) -> Any:
         original = original_solve_dependencies(request=request, **kwargs)
         if instrumentation := registry.get(request.app):
@@ -133,9 +136,11 @@ def patch_fastapi():
     # but it's imported into `fastapi.routing`, which is where we need to patch it.
     # It also calls itself recursively, but for now we don't want to intercept those calls,
     # so we don't patch it back into the original module.
-    original_solve_dependencies = fastapi.routing.solve_dependencies  # type: ignore
-    fastapi.routing.solve_dependencies = patched_solve_dependencies  # type: ignore
+    fastapi.routing.solve_dependencies = patched_solve_dependencies  # pyright: ignore[reportPrivateImportUsage]
 
+    original_run_endpoint_function = fastapi.routing.run_endpoint_function
+
+    @wraps(original_run_endpoint_function)
     async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
         if isinstance(values, _InstrumentedValues):
             request = values.request
@@ -145,7 +150,6 @@ def patch_fastapi():
                 )
         return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)  # pragma: no cover
 
-    original_run_endpoint_function = fastapi.routing.run_endpoint_function
     fastapi.routing.run_endpoint_function = patched_run_endpoint_function
 
     return registry
@@ -215,8 +219,8 @@ class FastAPIInstrumentation:
                 solved_errors: list[Any]
 
                 if isinstance(result, tuple):  # pragma: no cover
-                    solved_values = result[0]  # type: ignore
-                    solved_errors = result[1]  # type: ignore
+                    solved_values = result[0]  # pyright: ignore[reportUnknownVariableType]
+                    solved_errors = result[1]  # pyright: ignore[reportUnknownVariableType]
 
                     def solved_with_new_values(new_values: dict[str, Any]) -> Any:
                         return new_values, *result[1:]
@@ -233,10 +237,10 @@ class FastAPIInstrumentation:
                     # Making a deep copy could be very expensive and maybe even impossible.
                     'values': {
                         k: v
-                        for k, v in solved_values.items()  # type: ignore
+                        for k, v in solved_values.items()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
                         if not isinstance(v, (Request, WebSocket, BackgroundTasks, SecurityScopes, Response))
                     },
-                    'errors': solved_errors.copy(),  # type: ignore
+                    'errors': solved_errors.copy(),  # pyright: ignore[reportUnknownMemberType]
                 }
 
                 # Set the current app on `values` so that `patched_run_endpoint_function` can check it.
@@ -252,7 +256,7 @@ class FastAPIInstrumentation:
                     # We can't drop the span since it's already been created,
                     # but we can set the level to debug so that it's hidden by default.
                     span.set_level('debug')
-                    return result  # type: ignore
+                    return result  # pyright: ignore[reportUnknownVariableType]
 
                 # request_attributes_mapper may have removed the errors, so we need .get() here.
                 if attributes.get('errors'):
@@ -265,7 +269,7 @@ class FastAPIInstrumentation:
                         attributes['fastapi.arguments.' + key] = attributes.pop(key)
                 set_user_attributes_on_raw_span(root_span, attributes)
 
-        return result  # type: ignore
+        return result  # pyright: ignore[reportUnknownVariableType]
 
     async def run_endpoint_function(
         self,
@@ -308,7 +312,7 @@ def _default_request_attributes_mapper(
     return attributes  # pragma: no cover
 
 
-class _InstrumentedValues(dict):  # type: ignore
+class _InstrumentedValues(dict):  # pyright: ignore[reportMissingTypeArgument]
     request: Request
 
 
@@ -322,5 +326,8 @@ def _server_request_hook(user_hook: ServerRequestHook | None):
         scope[LOGFIRE_SPAN_SCOPE_KEY] = span
         if user_hook:
             user_hook(span, scope)
+
+    if user_hook is not None:
+        hook = wraps(user_hook)(hook)
 
     return hook

@@ -13,7 +13,7 @@ from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerPro
 from logfire._internal.constants import LEVEL_NUMBERS
 
 if TYPE_CHECKING:
-    from opentelemetry.util.types import _ExtendedAttributes  # type: ignore
+    from opentelemetry.util.types import _ExtendedAttributes  # pyright: ignore[reportPrivateUsage]
 
 
 @dataclass
@@ -22,9 +22,9 @@ class ProxyLoggerProvider(LoggerProvider):
 
     provider: LoggerProvider
 
-    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet)  # type: ignore[reportUnknownVariableType]
+    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet)  # pyright: ignore[reportUnknownVariableType]
     lock: Lock = dataclasses.field(default_factory=Lock)
-    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # type: ignore[reportUnknownVariableType]
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
     min_level: int = 0
 
     def get_logger(
@@ -69,7 +69,7 @@ class ProxyLoggerProvider(LoggerProvider):
         except AttributeError:
             if item in ['shutdown', 'force_flush']:
                 # These methods don't exist on the default NoOpLoggerProvider
-                return lambda *_, **__: None  # type: ignore
+                return lambda *_, **__: None  # pyright: ignore[reportUnknownVariableType, reportUnknownLambdaType]
             raise  # pragma: no cover
 
         if callable(result):
@@ -99,7 +99,7 @@ class ProxyLogger(Logger):
     @overload
     def emit(self, **kwargs: Any) -> None: ...
 
-    def emit(self, record: LogRecord | None = None, **kwargs: Any) -> None:  # type: ignore
+    def emit(self, record: LogRecord | None = None, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         # If record is not provided, create one from kwargs
         if record is None:
             record = LogRecord(**kwargs)

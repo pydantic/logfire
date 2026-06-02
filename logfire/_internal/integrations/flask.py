@@ -41,7 +41,7 @@ def instrument_flask(
         warn_at_user_stacklevel('exclude_urls is deprecated; use excluded_urls instead', DeprecationWarning)
     excluded_urls = excluded_urls or kwargs.pop('exclude_urls', None)
 
-    FlaskInstrumentor().instrument_app(  # type: ignore[reportUnknownMemberType]
+    FlaskInstrumentor().instrument_app(  # pyright: ignore[reportUnknownMemberType]
         app,
         enable_commenter=enable_commenter,
         commenter_options=commenter_options,

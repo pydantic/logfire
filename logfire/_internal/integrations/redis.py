@@ -36,7 +36,7 @@ def instrument_redis(
     if capture_statement:
         request_hook = _capture_statement_hook(request_hook)
 
-    RedisInstrumentor().instrument(request_hook=request_hook, response_hook=response_hook, **kwargs)  # type: ignore[reportUnknownMemberType]
+    RedisInstrumentor().instrument(request_hook=request_hook, response_hook=response_hook, **kwargs)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestHook:
@@ -50,5 +50,8 @@ def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestH
         span.set_attribute(ATTRIBUTES_MESSAGE_KEY, ' '.join(map(truncate_value, str_command)))
         if request_hook is not None:
             request_hook(span, instance, command, *args, **kwargs)
+
+    if request_hook is not None:
+        _capture_statement = functools.wraps(request_hook)(_capture_statement)
 
     return _capture_statement
