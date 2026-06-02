@@ -1,9 +1,11 @@
 """Variable composition: expand `@{variable_name}@` references in serialized values.
 
 This module provides pure functions for expanding variable references in serialized
-JSON strings. References use the `@{variable_name}@` syntax and are expanded using
-a Handlebars-compatible subset: simple references, dotted field reads, and block
-helpers whose condition/iterable is a top-level referenced variable.
+JSON strings. References use the `@{variable_name}@` syntax and are expanded by
+running the value through `pydantic_handlebars` with the composition delimiter
+pair, so the full Handlebars syntax is available: simple references, dotted
+field reads, block helpers (including with dotted or sub-expression headers like
+`@{#if user.active}@`), and helper sub-expressions.
 
 Meanwhile, any `{{runtime}}` placeholders are preserved untouched for later
 template rendering.
@@ -32,11 +34,14 @@ __all__ = (
     'has_references',
 )
 
-# Matches unescaped @{ (not preceded by \). Used as a cheap gate so we only
-# parse strings that actually contain composition syntax. Real reference
-# extraction goes through `pydantic_handlebars.extract_dependencies` so block
-# helpers, dotted paths, and subexpressions are all handled AST-correctly.
-_HAS_REFERENCE = re.compile(r'(?<!\\)@\{')
+# Cheap gate used to skip strings with no composition syntax at all. Any
+# `@{` (even escaped) routes through pydantic-handlebars, which is where the
+# escape semantics live — under `pydantic-handlebars >= 0.2.1` a run of N
+# backslashes before `@{` contributes `N // 2` literal `\`s and lets parity
+# decide whether the mustache renders. Doing that count in a regex would
+# need a variable-width lookbehind we can't portably write on 3.10/3.11, and
+# is unnecessary now that the renderer is the single source of truth.
+_HAS_OPEN_DELIM = '@{'
 
 # Dotted-reference matcher used by the unresolved-reference protection
 # helpers — those need a textual hook so the literal `@{name.field}@` source
@@ -84,8 +89,18 @@ ResolveFn = Callable[[str], tuple[str | None, str | None, int | None, Resolution
 
 
 def has_references(serialized_value: str) -> bool:
-    """Quick check for any unescaped `@{` in a serialized value."""
-    return _HAS_REFERENCE.search(serialized_value) is not None
+    r"""Quick check for any `@{` in a serialized value.
+
+    Returns `True` whenever the string contains the composition open
+    delimiter, regardless of preceding backslashes. The actual
+    escape-or-real decision is made by `pydantic_handlebars` at render time
+    — distinguishing an escaped `\@{x}@` from an unescaped `@{x}@` here
+    would require a variable-width lookbehind (the renderer counts
+    backslash parity to match Handlebars.js semantics) and is unnecessary:
+    `extract_composition_dependencies` returns an empty set for escaped-only
+    strings, and the renderer correctly leaves the literal text in place.
+    """
+    return _HAS_OPEN_DELIM in serialized_value
 
 
 def expand_references(
@@ -98,9 +113,10 @@ def expand_references(
 ) -> tuple[str, list[ComposedReference]]:
     """Expand `@{var}@` references in a serialized variable value.
 
-    Uses the Handlebars engine so that `@{}@` supports simple references,
-    dotted field reads, and block helpers whose condition/iterable is a
-    top-level referenced variable while preserving `{{runtime}}` placeholders
+    Uses the Handlebars engine so `@{}@` supports the full Handlebars
+    syntax — simple references, dotted field reads, block helpers (including
+    with dotted or sub-expression headers like `@{#if user.active}@`), and
+    helper sub-expressions — while preserving `{{runtime}}` placeholders
     untouched.
 
     Args:
@@ -137,12 +153,14 @@ def expand_references(
         # render an invalid value.
         return serialized_value, composed
 
-    # Collect all unique base variable names referenced anywhere in the decoded value.
-    all_ref_names = _collect_ref_names(decoded)
-    if not all_ref_names:
-        # No references at all — return unchanged (but still unescape \@{ → @{).
-        expanded = _unescape_serialized(serialized_value)
-        return expanded, composed
+    # Collect all unique base variable names referenced anywhere in the decoded
+    # value. Sorted so composition resolution order is deterministic — which
+    # `composed_from` entry surfaces first, which error gets reported when
+    # several refs fail, etc. shouldn't depend on set-iteration order. If there
+    # are none we still walk the structure through `_render_value` — the value
+    # may contain only escape sequences (`\@{x}@` etc.) that need to be
+    # processed through the renderer to produce the literal output.
+    all_ref_names = sorted(_collect_ref_names(decoded))
 
     # Resolve each unique variable name and recursively expand nested references.
     context: dict[str, Any] = {}
@@ -252,10 +270,9 @@ def find_references(serialized_value: str) -> list[str]:
         serialized_value: The raw JSON-serialized variable value to scan.
 
     Returns:
-        List of unique top-level variable names referenced, in order of
-        first occurrence.
+        Sorted (alphabetical) list of unique top-level variable names referenced.
     """
-    return _collect_ref_names(_safe_json_load(serialized_value))
+    return sorted(_collect_ref_names(_safe_json_load(serialized_value)))
 
 
 # ---------------------------------------------------------------------------
@@ -271,33 +288,22 @@ def _safe_json_load(serialized_value: str) -> Any:
         return None
 
 
-def _collect_ref_names(value: Any) -> list[str]:
+def _collect_ref_names(value: Any) -> set[str]:
     """Recursively walk a decoded JSON value and collect unique top-level reference names.
 
     For each string the AST-aware
     ``pydantic_handlebars.extract_dependencies`` picks the authoritative set
     of real references (so block helpers, dotted paths, subexpressions are
-    handled correctly and Handlebars helper names are excluded). Names from
-    that set are added to the result list ordered by their first textual
-    occurrence in the source string, giving deterministic output across
-    `dict` iteration orders.
+    handled correctly and Handlebars helper names are excluded).
     """
     from logfire.variables._handlebars import extract_composition_dependencies
 
-    seen: set[str] = set()
-    result: list[str] = []
+    refs: set[str] = set()
 
     def _walk(v: Any) -> None:
         if isinstance(v, str):
-            if not has_references(v):
-                return
-            valid = extract_composition_dependencies(v)
-            if not valid:
-                return
-            for name in _order_by_first_position(valid, v):
-                if name not in seen:
-                    seen.add(name)
-                    result.append(name)
+            if has_references(v):
+                refs.update(extract_composition_dependencies(v))
         elif isinstance(v, dict):
             for val in v.values():  # pyright: ignore[reportUnknownVariableType]
                 _walk(val)
@@ -306,25 +312,7 @@ def _collect_ref_names(value: Any) -> list[str]:
                 _walk(item)
 
     _walk(value)
-    return result
-
-
-def _order_by_first_position(names: set[str], source: str) -> list[str]:
-    """Order *names* by their first whole-word occurrence in *source*.
-
-    Used to give `find_references` deterministic, source-order output for a
-    set produced by `extract_composition_dependencies`. Names that don't
-    appear textually in the source — which shouldn't happen for refs
-    returned by the AST walker, but is defensive — sort to the end of the
-    list in alphabetical order so output remains stable.
-    """
-    positions: dict[str, int] = {}
-    for name in names:
-        # Use a word-boundary search so e.g. `key` doesn't match inside `keyword`.
-        pattern = re.compile(rf'\b{re.escape(name)}\b')
-        match = pattern.search(source)
-        positions[name] = match.start() if match is not None else len(source) + sum(map(ord, name))
-    return sorted(names, key=lambda n: positions[n])
+    return refs
 
 
 def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str]) -> Any:
@@ -334,15 +322,17 @@ def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str
     ``@{name}@`` text so the renderer preserves them in the output. Dotted
     accesses against unresolved names are pre-protected so they retain the
     full ``@{name.field}@`` source rather than rendering as empty.
+    Strings without any composition delimiter pass straight through; strings
+    that contain `@{` (escaped or not) route through the renderer, which
+    handles the backslash-parity escape rule.
     """
     if isinstance(value, str):
         if not has_references(value):
-            # Unescape \@{ to @{ for non-reference strings.
-            return value.replace('\\@{', '@{')
+            return value
         from logfire.variables.reference_syntax import render_once
 
         protected_value, protected_refs = _protect_unresolved_dotted_refs(value, unresolved_names)
-        rendered = render_once(protected_value, context) if has_references(protected_value) else protected_value
+        rendered = render_once(protected_value, context)
         return _restore_unresolved_refs(rendered, protected_refs)
     if isinstance(value, dict):
         return {
@@ -384,12 +374,3 @@ def _restore_unresolved_refs(value: str, protected_refs: dict[str, str]) -> str:
     for sentinel, ref in protected_refs.items():
         value = value.replace(sentinel, ref)
     return value
-
-
-def _unescape_serialized(serialized: str) -> str:
-    r"""Unescape `\@{` to `@{` in a JSON-serialized string.
-
-    In JSON encoding, a literal backslash is `\\`, so `\@{` in user content
-    appears as `\\@{` in the serialized JSON.
-    """
-    return serialized.replace('\\\\@{', '@{')

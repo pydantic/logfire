@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from logfire.experimental.query_client import ColumnDetails as ColumnDetails, LogfireQueryClient as LogfireQueryClient
-from typing import Any
+from typing import Any, overload
 
 apilevel: str
 threadsafety: int
@@ -49,10 +49,14 @@ class Cursor:
     """PEP 249 Cursor that executes queries via `LogfireQueryClient.query_json_rows()`."""
     rowcount: int
     arraysize: int
-    min_timestamp: datetime | None
     max_timestamp: datetime | None
     limit: int
     def __init__(self, connection: Connection) -> None: ...
+    @property
+    def min_timestamp(self) -> datetime | None:
+        """Per-cursor override for the lower `start_timestamp` bound."""
+    @min_timestamp.setter
+    def min_timestamp(self, value: datetime | None) -> None: ...
     @property
     def description(self) -> list[tuple[Any, ...]] | None:
         """Column description as a list of 7-tuples per PEP 249.
@@ -88,23 +92,7 @@ class Cursor:
     def __enter__(self) -> Cursor: ...
     def __exit__(self, *args: Any) -> None: ...
 
-def connect(read_token: str, base_url: str | None = None, timeout: float = 30.0, *, min_timestamp: datetime | timedelta | None = ..., max_timestamp: datetime | None = None, limit: int = ..., **kwargs: Any) -> Connection:
-    """Create a PEP 249 connection to the Logfire query API.
-
-    Args:
-        read_token: A Logfire read token for authentication.
-        base_url: Override the default API base URL (inferred from token region).
-        timeout: HTTP request timeout in seconds.
-        min_timestamp: Default lower bound for `start_timestamp` filtering.
-            Accepts a `datetime` for an exact bound, a `timedelta` for a
-            relative window (computed as `now - timedelta`), or `None` to
-            disable the filter.  Defaults to 1 day ago.
-        max_timestamp: Default upper bound for `start_timestamp` filtering.
-        limit: Default row limit per query (max 10,000). When the number of
-            returned rows equals the limit a warning is emitted.
-        **kwargs: Additional keyword arguments forwarded to the underlying
-            `httpx.Client`.
-
-    Returns:
-        A PEP 249 `Connection` object.
-    """
+@overload
+def connect(read_token: str, base_url: str | None = None, timeout: float = 30.0, *, min_timestamp: None, max_timestamp: datetime | None = None, limit: int = ..., **kwargs: Any) -> Connection: ...
+@overload
+def connect(read_token: str, base_url: str | None = None, timeout: float = 30.0, *, min_timestamp: datetime | timedelta = ..., max_timestamp: datetime | None = None, limit: int = ..., **kwargs: Any) -> Connection: ...

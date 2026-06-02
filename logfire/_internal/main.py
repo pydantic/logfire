@@ -10,7 +10,6 @@ from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
 from functools import cached_property, partial
-from time import time
 from typing import (  # NOQA UP035
     TYPE_CHECKING,
     Any,
@@ -93,11 +92,13 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
     from starlette.requests import Request
+    from starlette.responses import Response
     from starlette.websockets import WebSocket
     from surrealdb.connections.async_template import AsyncTemplate
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
+    from ..experimental.forwarding import ForwardExportRequestResponse
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
         ResponseHook as AiohttpClientResponseHook,
@@ -2483,39 +2484,7 @@ class Logfire:
         Returns:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
-        start = time()
-
-        def remaining_ms() -> int:
-            return max(0, int(timeout_millis - (time() - start) * 1000))
-
-        self.config.get_variable_provider().shutdown(timeout_millis=remaining_ms())
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._tracer_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._tracer_provider.shutdown()
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._meter_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._meter_provider.shutdown(remaining)
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        return remaining_ms() > 0
+        return self._config.shutdown(timeout_millis=timeout_millis, flush=flush)
 
     @overload
     def var(
@@ -2623,11 +2592,34 @@ class Logfire:
 
         return variable
 
+    @overload
+    def template_var(
+        self,
+        name: str,
+        *,
+        default: T,
+        inputs_type: type[InputsT],
+        description: str | None = None,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
+    ) -> TemplateVariable[T, InputsT]: ...
+
+    @overload
     def template_var(
         self,
         name: str,
         *,
         type: type[T],
+        default: T | ResolveFunction[T],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
+    ) -> TemplateVariable[T, InputsT]: ...
+
+    def template_var(
+        self,
+        name: str,
+        *,
+        type: type[T] | None = None,
         default: T | ResolveFunction[T],
         inputs_type: type[InputsT],
         description: str | None = None,
@@ -2654,7 +2646,6 @@ class Logfire:
 
         prompt = logfire.template_var(
             'system_prompt',
-            type=str,
             default='Hello {{user_name}}',
             inputs_type=PromptInputs,
         )
@@ -2665,9 +2656,13 @@ class Logfire:
 
         Args:
             name: Unique identifier for the variable.
-            type: Expected type for validation and JSON schema generation.
+            type: Expected type for validation and JSON schema generation. Can be a primitive
+                type or a Pydantic model. If not provided, the type is inferred from `default`.
+                Required when `default` is a resolve function.
             default: Default value used when no remote configuration is found.
-                Can also be a callable with `targeting_key` and `attributes` parameters.
+                When `type` is not provided, the type is inferred from this value.
+                Can also be a callable with `targeting_key` and `attributes` parameters
+                (requires `type` to be set explicitly).
             inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
                 template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
             description: Optional human-readable description of what the variable controls.
@@ -2681,7 +2676,17 @@ class Logfire:
         """
         import re
 
-        from logfire.variables.variable import TemplateVariable
+        from logfire.variables.variable import TemplateVariable, is_resolve_function
+
+        if type is None:
+            if is_resolve_function(default):
+                raise TypeError(
+                    'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
+                    '`type` must be provided to specify the variable value type.'
+                )
+            tp = cast(Type[T], default.__class__)  # noqa UP006
+        else:
+            tp = type
 
         if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
             raise ValueError(
@@ -2701,7 +2706,7 @@ class Logfire:
 
         variable = TemplateVariable[T, InputsT](
             name,
-            type=type,
+            type=tp,
             default=default,
             inputs_type=inputs_type,
             description=description,
@@ -2978,6 +2983,80 @@ class Logfire:
         from logfire.variables.config import VariablesConfig
 
         return VariablesConfig.from_variables(variables)
+
+    def forward_export_request(
+        self,
+        *,
+        path: str,
+        headers: Mapping[str, str],
+        body: bytes,
+        max_body_size: int = 50 * 1024 * 1024,
+    ) -> ForwardExportRequestResponse:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is generic and can be used for any web framework.
+        For Starlette/FastAPI, use `forward_export_request_starlette` instead for extra protection and convenience.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            path: one of "/v1/traces", "/v1/metrics", or "/v1/logs"
+            headers: the request headers, as a mapping of header names to values
+            body: the request body, as bytes
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+        """
+        from ..experimental.forwarding import forward_export_request
+
+        return forward_export_request(
+            path=path,
+            headers=headers,
+            body=body,
+            max_body_size=max_body_size,
+            logfire_instance=self,
+        )
+
+    async def forward_export_request_starlette(
+        self,
+        request: Request,
+        *,
+        max_body_size: int = 50 * 1024 * 1024,
+    ) -> Response:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is designed for Starlette/FastAPI.
+        For other web frameworks, use `forward_export_request` instead and adapt the request/response handling as needed.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            request: The Starlette/FastAPI `Request` object.
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A Starlette/FastAPI `Response` object.
+        """
+        from ..experimental.forwarding import logfire_proxy
+
+        return await logfire_proxy(
+            request=request,
+            max_body_size=max_body_size,
+            logfire_instance=self,
+        )
 
 
 class FastLogfireSpan:

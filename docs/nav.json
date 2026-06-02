@@ -148,7 +148,8 @@
               { "label": "Exceptions", "link": "/logfire/api/exceptions/" },
               { "label": "Pydantic", "link": "/logfire/api/pydantic/" },
               { "label": "Types", "link": "/logfire/api/types/" },
-              { "label": "Datasets", "link": "/logfire/api/datasets/" }
+              { "label": "Datasets", "link": "/logfire/api/datasets/" },
+              { "label": "Query client", "link": "/logfire/api/query_client/" }
             ]
           },
           { "label": "CLI", "link": "/logfire/reference/cli/" },
@@ -168,19 +169,6 @@
           }
         ]
       }
-    ]
-  },
-  {
-    "label": "TypeScript SDK",
-    "items": [
-      { "label": "Overview", "slug": "integrations/javascript/index" },
-      { "label": "Browser", "slug": "integrations/javascript/browser" },
-      { "label": "Next.js", "slug": "integrations/javascript/nextjs" },
-      { "label": "Cloudflare", "slug": "integrations/javascript/cloudflare" },
-      { "label": "Express", "slug": "integrations/javascript/express" },
-      { "label": "Node.js", "slug": "integrations/javascript/node" },
-      { "label": "Deno", "slug": "integrations/javascript/deno" },
-      { "label": "Vercel AI SDK", "slug": "integrations/javascript/vercel-ai" }
     ]
   },
   {
@@ -262,7 +250,8 @@
       { "label": "Use Alternative Clients", "slug": "how-to-guides/alternative-clients" },
       { "label": "Collect Cloud Provider Metrics", "slug": "how-to-guides/cloud-metrics" },
       { "label": "Connect to MCP Server", "slug": "how-to-guides/mcp-server" },
-      { "label": "Coding Agent Skills", "slug": "how-to-guides/skills" }
+      { "label": "Coding Agent Skills", "slug": "how-to-guides/skills" },
+      { "label": "Export Codex Activity", "slug": "how-to-guides/codex-logfire-exporter" }
     ]
   },
   {
@@ -284,8 +273,8 @@
         "items": [
           { "label": "Overview", "slug": "reference/self-hosted/overview" },
           { "label": "Local Quickstart", "slug": "reference/self-hosted/local-quickstart" },
-          { "label": "Installation", "slug": "reference/self-hosted/installation" },
-          { "label": "Scaling", "slug": "reference/self-hosted/scaling" },
+          { "label": "Architecture", "slug": "reference/self-hosted/architecture" },
+          { "label": "Production Requirements", "slug": "reference/self-hosted/installation" },
           { "label": "Troubleshooting", "slug": "reference/self-hosted/troubleshooting" },
           { "label": "Bucket Migration", "slug": "reference/self-hosted/bucket-migration" },
           { "label": "Examples", "slug": "reference/self-hosted/examples" },

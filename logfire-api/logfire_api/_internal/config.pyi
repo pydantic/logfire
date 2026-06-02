@@ -13,6 +13,7 @@ from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWr
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
+from .forwarding import OTLPForwardingManager as OTLPForwardingManager
 from .integrations.executors import instrument_executors as instrument_executors
 from .logs import ProxyLoggerProvider as ProxyLoggerProvider
 from .main import Logfire as Logfire
@@ -253,6 +254,8 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             Whether the flush of spans was successful.
         """
+    def shutdown(self, timeout_millis: int = 30000, flush: bool = True) -> bool:
+        """Shut down variables, forwarding, traces, logs, and metrics."""
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
 
@@ -300,6 +303,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     non-sensitive configuration fields.
     """
 def exit_open_spans() -> None: ...
+def shutdown_otlp_forwarding(timeout_millis: int = 30000) -> None: ...
 
 original_os_exit: Incomplete
 

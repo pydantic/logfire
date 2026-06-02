@@ -1,1 +1,3 @@
-from .experimental.query_client import *
+from .experimental.query_client import AsyncLogfireQueryClient as AsyncLogfireQueryClient, ColumnData as ColumnData, ColumnDetails as ColumnDetails, InfoRequestError as InfoRequestError, LogfireQueryClient as LogfireQueryClient, QueryExecutionError as QueryExecutionError, QueryRequestError as QueryRequestError, QueryResults as QueryResults, ReadTokenInfo as ReadTokenInfo, RowQueryResults as RowQueryResults
+
+__all__ = ['QueryExecutionError', 'QueryRequestError', 'InfoRequestError', 'ReadTokenInfo', 'ColumnDetails', 'ColumnData', 'QueryResults', 'RowQueryResults', 'LogfireQueryClient', 'AsyncLogfireQueryClient']

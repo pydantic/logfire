@@ -121,14 +121,18 @@ class SimpleConsoleSpanExporter(SpanExporter):
         self._output = output
         if colors == 'auto':
             force_terminal = None
+            no_color = None
         else:
             force_terminal = colors == 'always'
+            # Rich 15 honors NO_COLOR even with force_terminal=True unless no_color is set explicitly.
+            no_color = colors == 'never'
         self._console = Console(
             color_system='standard' if os.environ.get('PYTEST_VERSION') else 'auto',
             file=self._output,
             force_terminal=force_terminal,
             highlight=False,
             markup=False,
+            no_color=no_color,
             soft_wrap=True,
         )
         if not self._console.is_terminal:

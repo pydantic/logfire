@@ -58,11 +58,16 @@ For more detailed information, you can check the
 
 ### Claude Code
 
-Run the following command:
+Run the following command to add the Logfire MCP server:
 
 ```bash
 claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp
 ```
+
+Then use the `/mcp` slash command within Claude Code to authenticate with your Logfire account.
+This will open a browser window where you can complete the login process.
+
+For more information, see the [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp#authenticate-with-remote-mcp-servers).
 
 ### Claude Desktop
 
@@ -81,6 +86,21 @@ Add to your Claude settings:
 
 Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
 for more information.
+
+### Codex
+
+Install the [Logfire plugin](skills.md#codex) from the Pydantic marketplace. The plugin configures the hosted
+Logfire MCP server automatically — no separate MCP JSON configuration is required.
+
+The Codex plugin currently configures the US endpoint. For EU projects, replace the MCP entry and re-authenticate:
+
+```bash
+codex mcp remove logfire
+codex mcp add logfire --url https://logfire-eu.pydantic.dev/mcp
+codex mcp login logfire
+```
+
+Start a new Codex conversation after switching so the MCP tools reload.
 
 ### Cline
 
