@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from inline_snapshot import snapshot
@@ -445,3 +445,11 @@ def test_query_methods_share_docstring():
     doc = reference_doc[reference_doc.index('Args:') :]
     for method in others:
         assert doc in inspect.cleandoc(method.__doc__)
+
+
+def test_query_json_rows_methods_share_returns_docstring():
+    # The `query_json_rows()` methods on both clients document the same return value, so the
+    # `Returns:` section of their docstrings should be identical. Use the sync method as the reference.
+    reference_doc = inspect.cleandoc(cast(str, LogfireQueryClient.query_json_rows.__doc__))
+    returns = reference_doc[reference_doc.index('Returns:') :]
+    assert returns in inspect.cleandoc(cast(str, LogfireQueryClient.query_json_rows.__doc__))

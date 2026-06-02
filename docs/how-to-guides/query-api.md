@@ -365,7 +365,9 @@ else:
 The Logfire API supports various response formats and body parameters to give you flexibility in how you retrieve your data:
 
 - **Response Format**: Use the `Accept` header to specify the response format. Supported values include:
-    - `application/json`: Returns the data in JSON format. By default, this will be column-oriented unless specified otherwise with the `json_rows` parameter.
+    - `application/json`: Returns the data in JSON format, with two entries:
+      - `columns`: A list of column details including the name, datatype and whether the column is nullable (e.g. `[{"name": "service_name", "Utf8", "nullable": false}]`).
+      - `rows`: The list of rows matching the query (e.g. `[{"service_name": "backend"}]`).
     - `application/vnd.apache.arrow.stream`: Returns the data in Apache Arrow format, suitable for high-performance data processing.
     - `text/csv`: Returns the data in CSV format, which is easy to use with many data tools.
     - If no `Accept` header is provided, the default response format is JSON.

@@ -616,6 +616,11 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             timezone: The timezone to use for the query execution context.
             environment: Restrict rows to the provided environment(s). To only query rows where no environment is set,
                 use the empty string (`''`).
+
+        Returns:
+            A dictionary with two entries:
+              * `columns`: A list of column details including the name, datatype and whether the column is nullable.
+              * `rows`: The list of rows matching the query.
         """
         response = await self._query_v2(
             accept='application/json',
