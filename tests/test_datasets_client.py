@@ -1459,10 +1459,10 @@ class TestAsyncLogfireAPIClient:
 
 
 class TestResponseValidation:
-    """Responses are validated and coerced, but the client stays resilient to
-    backend changes: unknown fields are preserved, missing optional fields are
-    tolerated, and a response that fails validation is returned raw with a
-    warning rather than raising (see `_validate_or_warn`)."""
+    """Responses are validated and coerced to the shape this SDK knows about:
+    unknown fields are dropped (upgrade the SDK for new fields), missing optional
+    fields are tolerated, and a response that fails validation is returned raw
+    with a warning rather than raising (see `_validate_or_warn`)."""
 
     def test_coerces_uuid_and_datetime(self):
         response = {
@@ -1476,13 +1476,15 @@ class TestResponseValidation:
         assert isinstance(result['id'], UUID)
         assert isinstance(result['created_at'], datetime)
 
-    def test_preserves_unknown_fields(self):
-        # A field the SDK doesn't know about must survive validation rather than
-        # being silently dropped, so a newer backend doesn't lose data.
-        response = {**FAKE_DATASET, 'a_brand_new_field': 'kept'}
+    def test_drops_unknown_fields(self):
+        # The client returns the shape this SDK version knows about: a field the
+        # SDK doesn't declare is dropped (you upgrade the SDK to access new
+        # fields), while declared fields come through.
+        response = {**FAKE_DATASET, 'a_brand_new_field': 'ignored'}
         client = make_client({('GET', '/v1/datasets/test-dataset/'): httpx.Response(200, json=response)})
         result = cast('dict[str, Any]', client.get_dataset('test-dataset', include_cases=False))
-        assert result['a_brand_new_field'] == 'kept'
+        assert 'a_brand_new_field' not in result
+        assert result['name'] == 'test-dataset'
 
     def test_tolerates_missing_optional_fields(self):
         # The backend omitting optional fields (only id + name here) must not raise.

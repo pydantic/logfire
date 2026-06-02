@@ -58,7 +58,7 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
 from uuid import UUID
 
-from pydantic import TypeAdapter, ValidationError, with_config
+from pydantic import TypeAdapter, ValidationError
 from typing_extensions import NotRequired, Self, TypedDict
 
 from logfire._internal.config import get_base_url_from_token
@@ -95,19 +95,15 @@ _DATASET_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
 # TypeAdapters validate responses and coerce string UUIDs/datetimes into proper
 # Python types (see the `_*_adapter` objects and `_validate_or_warn` below).
 #
-# The hosted backend evolves independently of this SDK, so the types are
-# deliberately lenient to avoid breaking clients when it changes: optional
-# fields use `NotRequired`, and unknown fields are preserved rather than dropped
-# (`extra='allow'`). A response that still fails validation is returned as the
-# raw dict with a warning instead of raising, so a backend change can't force an
-# SDK upgrade just to keep working.
-
-# Shared pydantic config: keep fields the SDK doesn't know about instead of
-# silently discarding them, so newly-added backend fields remain accessible.
-_ALLOW_EXTRA: Any = {'extra': 'allow'}
+# They intentionally describe only the fields this SDK version knows about, and
+# are kept lean around the durable, coerced fields (ids and timestamps). Fields
+# the backend adds later aren't surfaced until you upgrade the SDK — the normal
+# contract for a typed client. Optional fields use `NotRequired` so the backend
+# omitting them doesn't fail, and a response that fails validation outright
+# (e.g. a renamed/retyped required field) is returned as the raw dict with a
+# warning rather than raising, so a backend change can't break clients.
 
 
-@with_config(_ALLOW_EXTRA)
 class EvaluatorSpec(TypedDict):
     """An evaluator specification with a name and optional arguments."""
 
@@ -115,26 +111,17 @@ class EvaluatorSpec(TypedDict):
     arguments: NotRequired[dict[str, Any] | None]
 
 
-@with_config(_ALLOW_EXTRA)
 class DatasetSummary(TypedDict):
-    """Summary of a dataset, as returned by `LogfireAPIClient.list_datasets`.
-
-    Only `id` and `name` are guaranteed; all other fields are best-effort and
-    may be absent depending on the backend version.
-    """
+    """Summary of a dataset, as returned by `LogfireAPIClient.list_datasets`."""
 
     id: UUID
     name: str
-    project_id: NotRequired[UUID]
     description: NotRequired[str | None]
     case_count: NotRequired[int]
     created_at: NotRequired[datetime]
     updated_at: NotRequired[datetime]
-    created_by_name: NotRequired[str | None]
-    updated_by_name: NotRequired[str | None]
 
 
-@with_config(_ALLOW_EXTRA)
 class DatasetDetail(TypedDict):
     """Full dataset metadata.
 
@@ -145,7 +132,6 @@ class DatasetDetail(TypedDict):
 
     id: UUID
     name: str
-    project_id: NotRequired[UUID]
     description: NotRequired[str | None]
     input_schema: NotRequired[dict[str, Any] | None]
     output_schema: NotRequired[dict[str, Any] | None]
@@ -153,10 +139,8 @@ class DatasetDetail(TypedDict):
     case_count: NotRequired[int]
     created_at: NotRequired[datetime]
     updated_at: NotRequired[datetime]
-    created_by: NotRequired[UUID | None]
 
 
-@with_config(_ALLOW_EXTRA)
 class CaseDetail(TypedDict):
     """Full case details, as returned by case operations like `LogfireAPIClient.get_case`."""
 
@@ -167,14 +151,8 @@ class CaseDetail(TypedDict):
     expected_output: NotRequired[Any]
     metadata: NotRequired[Any]
     evaluators: NotRequired[list[EvaluatorSpec] | None]
-    source_trace_id: NotRequired[str | None]
-    source_span_id: NotRequired[str | None]
-    tags: NotRequired[list[str] | None]
-    version: NotRequired[int]
     created_at: NotRequired[datetime]
-    created_by: NotRequired[UUID | None]
     updated_at: NotRequired[datetime]
-    updated_by: NotRequired[UUID | None]
 
 
 class CaseData(TypedDict):
@@ -189,10 +167,8 @@ class CaseData(TypedDict):
     expected_output: NotRequired[Any]
     metadata: NotRequired[Any]
     evaluators: NotRequired[list[EvaluatorSpec] | None]
-    tags: NotRequired[list[str] | None]
 
 
-@with_config(_ALLOW_EXTRA)
 class ExportedCase(TypedDict):
     """A case in pydantic-evals-compatible format, part of `ExportedDataset`."""
 
@@ -203,7 +179,6 @@ class ExportedCase(TypedDict):
     evaluators: NotRequired[list[EvaluatorSpec] | None]
 
 
-@with_config(_ALLOW_EXTRA)
 class ExportedDataset(TypedDict):
     """Dataset export in pydantic-evals-compatible format.
 
@@ -230,9 +205,8 @@ def _validate_or_warn(adapter: TypeAdapter[ResponseT], data: Any, *, stacklevel:
     """Validate an API response, coercing fields (e.g. UUIDs/datetimes) to Python types.
 
     If validation fails — typically because the backend changed the response
-    shape — emit a warning and return the raw, unvalidated data instead of
-    raising. This keeps clients working against an evolving backend without
-    forcing an SDK upgrade, per the resilient-by-default design of these types.
+    shape in a breaking way — emit a warning and return the raw, unvalidated
+    data instead of raising, so a backend change can't break clients outright.
     """
     try:
         return adapter.validate_python(data)
