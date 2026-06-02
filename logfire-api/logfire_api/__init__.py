@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import importlib
 import sys
-from contextlib import contextmanager, nullcontext
-from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import MagicMock
-
 
 try:
     logfire_module = importlib.import_module('logfire')
@@ -143,7 +143,7 @@ except ImportError:
             def instrument_wsgi(self, app, *args, **kwargs):
                 return app
 
-            def instrument_fastapi(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_fastapi(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
             def instrument_pydantic(self, *args, **kwargs) -> None: ...
@@ -176,13 +176,13 @@ except ImportError:
 
             def instrument_asyncpg(self, *args, **kwargs) -> None: ...
 
-            def instrument_anthropic(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_anthropic(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
-            def instrument_openai(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_openai(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
-            def instrument_print(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_print(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
             def instrument_openai_agents(self, *args, **kwargs) -> None: ...
@@ -201,10 +201,16 @@ except ImportError:
 
             def instrument_mcp(self, *args, **kwargs) -> None: ...
 
-            def instrument_claude_agent_sdk(self, *args, **kwargs) -> ContextManager[None]:
+            def instrument_claude_agent_sdk(self, *args, **kwargs) -> AbstractContextManager[None]:
                 return nullcontext()
 
             def url_from_eval(self, *args, **kwargs) -> str | None: ...
+
+            def forward_export_request(self, *args, **kwargs) -> MagicMock:
+                return MagicMock()
+
+            async def forward_export_request_starlette(self, *args, **kwargs) -> MagicMock:
+                return MagicMock()
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
@@ -262,6 +268,8 @@ except ImportError:
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
         url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
+        forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
+        forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
 
         def loguru_handler() -> dict[str, Any]:
             return {}
@@ -316,11 +324,11 @@ except ImportError:
         def get_baggage(*args, **kwargs) -> dict[str, str]:
             return {}
 
-        def set_baggage(*args, **kwargs) -> ContextManager[None]:
+        def set_baggage(*args, **kwargs) -> AbstractContextManager[None]:
             return nullcontext()
 
         def get_context(*args, **kwargs) -> dict[str, Any]:
             return {}
 
-        def attach_context(*args, **kwargs) -> ContextManager[None]:
+        def attach_context(*args, **kwargs) -> AbstractContextManager[None]:
             return nullcontext()

@@ -85,9 +85,9 @@ One function call instruments each framework:
 
 ### JavaScript/TypeScript
 
-The [Logfire JS SDK](integrations/javascript/index.md) supports Node.js, browsers, Next.js, Cloudflare Workers, and Deno.
+The [Logfire JS SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) supports Node.js, browsers, Next.js, Cloudflare Workers, and Deno.
 
-Frameworks like [Vercel AI SDK](integrations/javascript/vercel-ai.md) have built-in OpenTelemetry support. Configure OTel to send to Logfire and it works automatically.
+Frameworks like [Vercel AI SDK](https://pydantic.dev/docs/logfire/typescript-sdk/frameworks/vercel-ai/) have built-in OpenTelemetry support. Configure OTel to send to Logfire and it works automatically.
 
 ### Any OTel-Compatible Framework
 

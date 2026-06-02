@@ -26,7 +26,9 @@ DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 
 
 PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
-    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_)(?P<token>[a-zA-Z0-9]+)$'
+    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_'
+    r'(?:(?P<organization_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_)?)'
+    r'(?P<token>[a-zA-Z0-9]+)$'
 )
 
 
@@ -161,7 +163,15 @@ class UserTokenCollection:
             )
             token = tokens_list[int_choice - 1]
         else:  # tokens_list == []
-            raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
+            raise LogfireConfigError("""
+
+Hey, looks like you don't have Pydantic Logfire configured yet.
+
+If you're running this locally, we recommend running `uv run logfire auth`.
+
+Or you could get a write token for a specific project and set the `LOGFIRE_TOKEN` environment variable.
+
+See https://pydantic.dev/docs/logfire/get-started for more details.""")
 
         if token.is_expired:
             raise LogfireConfigError(f'User token {token} is expired. Please run `logfire auth` to authenticate.')

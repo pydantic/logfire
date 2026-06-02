@@ -118,6 +118,17 @@ def test_simple_console_exporter_colors_concise(simple_spans: list[ReadableSpan]
     )
 
 
+def test_simple_console_exporter_colors_always_ignores_no_color(
+    simple_spans: list[ReadableSpan], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('NO_COLOR', '1')
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=False, colors='always').export(simple_spans)
+
+    assert out.getvalue().splitlines()[0].startswith('\x1b[32m')
+
+
 def test_simple_console_exporter_no_colors_verbose(simple_spans: list[ReadableSpan]) -> None:
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=True, colors='never').export(simple_spans)

@@ -52,7 +52,9 @@ def test_mysql_instrumentation(exporter: TestExporter, mysql_container: MySqlCon
                     'db.statement': 'DROP TABLE IF EXISTS test',
                     'db.user': 'test',
                     'net.peer.name': 'localhost',
+                    'server.address': 'localhost',
                     'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
                 },
             },
             {
@@ -69,7 +71,9 @@ def test_mysql_instrumentation(exporter: TestExporter, mysql_container: MySqlCon
                     'db.statement': 'CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))',
                     'db.user': 'test',
                     'net.peer.name': 'localhost',
+                    'server.address': 'localhost',
                     'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
                 },
             },
         ]
@@ -105,7 +109,9 @@ def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: My
                         'db.statement': 'INSERT INTO test (id, name) VALUES (1, "test")',
                         'db.user': 'test',
                         'net.peer.name': 'localhost',
+                        'server.address': 'localhost',
                         'net.peer.port': IsInt(),
+                        'server.port': IsInt(),
                     },
                 }
             ]

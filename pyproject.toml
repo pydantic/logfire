@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.33.0"
+version = "4.35.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -46,8 +46,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.39.0, < 1.42.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.42.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.43.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.43.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -186,12 +186,7 @@ dev = [
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
     "opentelemetry-instrumentation-google-genai >= 0.4b0",
-    # The latest instrumentor (0.7b0) declares `google-genai>=1.0.0,<2` as
-    # `instrumentation_dependencies()`. With google-genai 2.x installed, the
-    # `BaseInstrumentor` skips patching with a `DependencyConflict` warning,
-    # so `instrument_google_genai()` silently produces zero spans. Pin to <2
-    # until a newer instrumentor adds support.
-    "google-genai >= 0, < 2",
+    "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.80.9",
     "openinference-instrumentation-dspy >= 0",
@@ -204,36 +199,18 @@ dev = [
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
 ]
-docs = [
-    "black>=23.12.0",
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.32",
-    "mkdocs-glightbox>=0.4.0",
-    "mkdocstrings-python>=1.8.0,<2",
-    "mkdocs-redirects>=1.2.1",
-    "griffe",
-    "algoliasearch>=3,<4",
-    "mkdocs-llmstxt>=0.2.0",
-    "pydantic-docs",
-]
-
 [tool.inline-snapshot]
 default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
-pydantic-docs = { git = "https://github.com/pydantic/pydantic-docs/" }
 
 [tool.uv]
-default-groups = ["dev", "docs"]
+default-groups = ["dev"]
 exclude-newer = "1 week"
 
 [tool.uv.exclude-newer-package]
-# These are installed from our private PyPI server which is missing upload dates and that causes problems
-# when building docs in CI, so we exclude them from the exclude-newer check.
-mkdocstrings_python = false
-mkdocs_material = false
 # These are our own packages, not worth defending from supply chain attacks on them.
 pydantic_ai_slim = false
 pydantic-graph = false
