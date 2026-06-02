@@ -625,7 +625,9 @@ def _collect_template_field_issues(
         if local_var is not None and None not in result and not is_resolve_function(local_var.default):
             try:
                 result[None] = local_var.type_adapter.dump_json(local_var.default).decode('utf-8')
-            except Exception:
+            except Exception:  # pragma: no cover
+                # Defensive: a registered variable's default normally serializes against its own
+                # type adapter. If it somehow doesn't, skip validating it rather than crash the push.
                 pass
         return result
 
