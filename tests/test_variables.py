@@ -1648,7 +1648,8 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
-        details = var.get()
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            details = var.get()
         # Falls back to default when validation fails
         assert details.value == 999
         assert details.exception is not None
@@ -1707,7 +1708,8 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
-        result = var.get()
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            result = var.get()
         assert result.value == TypeErrorModel(value=0)
         assert isinstance(result.exception, TypeError)
         assert result.reason == 'other_error'
@@ -1753,7 +1755,8 @@ class TestVariable:
         int_var = lf.var(name='int_var', default=0, type=int)
 
         with int_var.override(1):
-            invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
 
         assert invalid.value == 0
         assert invalid.reason == 'other_error'
@@ -1772,9 +1775,10 @@ class TestVariable:
         type_error_var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
 
         with type_error_var.override(TypeErrorModel(value=0)):
-            type_error_result = type_error_var._get_result_and_record_span(
-                None, None, None, render_fn=lambda _: '{"value": 1}'
-            )
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                type_error_result = type_error_var._get_result_and_record_span(
+                    None, None, None, render_fn=lambda _: '{"value": 1}'
+                )
 
         assert type_error_result.value == TypeErrorModel(value=0)
         assert type_error_result.reason == 'other_error'
@@ -1791,7 +1795,8 @@ class TestVariable:
         assert result.reason == 'code_default'
 
         invalid_var = lf.var(name='unconfigured_int', default=0, type=int)
-        invalid = invalid_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            invalid = invalid_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
 
         assert invalid.value == 0
         assert invalid.reason == 'validation_error'
