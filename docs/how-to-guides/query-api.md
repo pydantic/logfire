@@ -301,7 +301,7 @@ cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
 ```
 
 /// version-deprecated | v4.35.0
-Setting `min_timestamp` to `None` to `connect()` or on the cursor is deprecated.
+Setting `min_timestamp` to `None` in `connect()` or on the cursor is deprecated.
 ///
 
 ## Making Direct HTTP Requests
@@ -320,7 +320,7 @@ client library, such as [`requests`](https://pypi.org/project/requests/) in Pyth
 
 4. **Send the Request**: Use an HTTP POST request to the `/v2/query` endpoint with the SQL query in the JSON request body.
 
-**Note:** You can provide additional query parameters to control the behavior of your requests.
+**Note:** You can provide additional body parameters to control the behavior of your requests.
 You can also use the `Accept` header to specify the desired format for the response data (JSON, Arrow, or CSV).
 
 ### Example: Using Python `requests` Library
@@ -366,8 +366,10 @@ The Logfire API supports various response formats and body parameters to give yo
 
 - **Response Format**: Use the `Accept` header to specify the response format. Supported values include:
     - `application/json`: Returns the data in JSON format, with two entries:
-      - `columns`: A list of column details including the name, datatype and whether the column is nullable (e.g. `[{"name": "service_name", "Utf8", "nullable": false}]`).
-      - `rows`: The list of rows matching the query (e.g. `[{"service_name": "backend"}]`).
+      - `schema`: Information about the result schema. This is an object with a `fields` entry, listing column details including the name,
+      datatype and whether the column is nullable (e.g. `{"schema": {"fields": [{"name": "service_name", "data_type":  "Utf8", "nullable": false}]}}`).
+      - `data`: The list of rows matching the query (e.g. `[{"service_name": "backend"}]`).
+    - `application/x-ndjson`: Returns the data in NDJSON format, in a streaming fashion (see format of messages below).
     - `application/vnd.apache.arrow.stream`: Returns the data in Apache Arrow format, suitable for high-performance data processing.
     - `text/csv`: Returns the data in CSV format, which is easy to use with many data tools.
     - If no `Accept` header is provided, the default response format is JSON.
@@ -380,5 +382,79 @@ The Logfire API supports various response formats and body parameters to give yo
     - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 100**. The maximum allowed value is 10,000.
     - **`timezone`**: An optional timezone (e.g. `"Europe/Paris"`) to use for the query execution context.
     - **`deployment_environment`**: Restrict rows to one or more [environments](../environments.md). Accepts a single environment string or a list of strings. To only match rows where no environment is set, use the empty string (`""`).
+    - **`explain`**: Whether to explain the query or not.
 
 All body parameters besides `sql` and `min_timestamp` are optional and can be used in any combination to tailor the API response to your needs.
+
+### NDJSON Response Format
+
+When you request the `application/x-ndjson` response format, the response body is streamed as
+[newline-delimited JSON](https://github.com/ndjson/ndjson-spec): each line is a self-contained JSON object
+terminated by a newline (`\n`). Every object has a `type` field that identifies the kind of message, allowing
+you to process results incrementally as they arrive rather than waiting for the full response.
+
+The following message types may be emitted:
+
+#### `schema`
+
+Describes the columns of the result set. It is emitted before any data rows.
+
+| Field    | Type   | Description                                                                                                              |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `type`   | string | Always `"schema"`.                                                                                                       |
+| `schema` | object | The result schema. Has a `fields` entry listing each column's `name`, `data_type`, and whether it is `nullable`. |
+
+```json
+{"type": "schema", "schema": {"fields": [{"name": "service_name", "data_type": "Utf8", "nullable": false}]}}
+```
+
+#### `explain`
+
+Emitted only when the `explain` body parameter is set to `true`. Carries the query plans.
+
+| Field           | Type   | Description                              |
+| --------------- | ------ | ---------------------------------------- |
+| `type`          | string | Always `"explain"`.                      |
+| `logical_plan`  | any    | The logical query plan.                  |
+| `physical_plan` | any    | The physical query plan.                 |
+
+#### `data`
+
+Carries a batch of result rows. Multiple `data` messages may be emitted for a single query, each containing a
+chunk of the overall result.
+
+| Field  | Type             | Description                                                               |
+| ------ | ---------------- | ------------------------------------------------------------------------- |
+| `type` | string           | Always `"data"`.                                                          |
+| `rows` | array of objects | A batch of result rows, where each row maps column names to their values. |
+
+```json
+{"type": "data", "rows": [{"service_name": "backend"}, {"service_name": "frontend"}]}
+```
+
+#### `error`
+
+Emitted if an error occurs while executing the query. The stream may end after an `error` message.
+
+| Field     | Type   | Description                          |
+| --------- | ------ | ------------------------------------ |
+| `type`    | string | Always `"error"`.                    |
+| `message` | string | A human-readable error description.  |
+
+```json
+{"type": "error", "message": "Invalid SQL: ..."}
+```
+
+#### `end`
+
+The final message of a successful stream, signalling that all data has been sent.
+
+| Field                        | Type    | Description                                                                            |
+| ---------------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `type`                       | string  | Always `"end"`.                                                                        |
+| `row_count`                  | integer | The total number of rows returned across all `data` messages.                          |
+| `physical_plan_with_metrics` | any     | *(Optional)* The physical query plan annotated with execution metrics, when available. |
+
+```json
+{"type": "end", "row_count": 2}
+```

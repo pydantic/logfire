@@ -452,4 +452,4 @@ def test_query_json_rows_methods_share_returns_docstring():
     # `Returns:` section of their docstrings should be identical. Use the sync method as the reference.
     reference_doc = inspect.cleandoc(cast(str, LogfireQueryClient.query_json_rows.__doc__))
     returns = reference_doc[reference_doc.index('Returns:') :]
-    assert returns in inspect.cleandoc(cast(str, LogfireQueryClient.query_json_rows.__doc__))
+    assert returns in inspect.cleandoc(cast(str, AsyncLogfireQueryClient.query_json_rows.__doc__))

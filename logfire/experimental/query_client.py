@@ -58,8 +58,13 @@ class ColumnDetails(TypedDict):
     """The details of a column in the row-oriented JSON-format query results."""
 
     name: str
+    """The name of the column."""
+
     datatype: Any
+    """The datatype of the column."""
+
     nullable: bool
+    """Whether the column is nullable or not."""
 
 
 class ColumnData(ColumnDetails):
@@ -78,7 +83,10 @@ class RowQueryResults(TypedDict):
     """The row-oriented results of a JSON-format query."""
 
     columns: list[ColumnDetails]
+    """The list of column details (e.g. `[{"name": "service_name", "datatype": "Utf8", "nullable": false}]`)."""
+
     rows: list[dict[str, Any]]
+    """The list of rows matching the query (e.g. `[{"service_name": "backend"}]`)."""
 
 
 def _rows_to_columns(result: RowQueryResults) -> QueryResults:
@@ -118,6 +126,7 @@ def _map_v2_result(obj: dict[str, Any]) -> RowQueryResults:
         'rows': obj['data'],
     }
     if 'logical_plan' in obj:  # pragma: no cover (plan option not provided for now)
+        # TODO when exposing the plan option, add these fields to the RowQueryResults type:
         # All the plan keys are guaranteed to be present:
         for k in ['logical_plan', 'physical_plan', 'physical_plan_with_metrics']:
             mapped[k] = obj[k]

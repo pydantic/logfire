@@ -205,7 +205,7 @@ class Cursor:
 
     @property
     def min_timestamp(self) -> datetime | None:
-        """Per-cursor override for the lower `start_timestamp` bound (inherits from the connection when unset)."""
+        """Per-cursor override for the lower `start_timestamp` bound."""
         return self._min_timestamp
 
     @min_timestamp.setter
@@ -341,7 +341,7 @@ class Cursor:
 
 
 @overload
-@deprecated('Using connect() without a min_timestamp is deprecated')
+@deprecated('Setting min_timestamp=None in connect() is deprecated')
 def connect(
     read_token: str,
     base_url: str | None = None,
@@ -398,7 +398,7 @@ def connect(
     """
     if min_timestamp is None:
         warnings.warn(
-            'Setting min_timestamp to None is deprecated',
+            'Setting min_timestamp=None in connect() is deprecated',
             DeprecationWarning,
             stacklevel=2,
         )

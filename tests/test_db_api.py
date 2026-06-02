@@ -638,7 +638,7 @@ def test_connect_min_timestamp_none_disables_filter():
     """Passing min_timestamp=None disables the timestamp filter."""
     capture: dict[str, Any] = {}
     transport = make_mock_transport(capture=capture)
-    with pytest.warns(DeprecationWarning, match='Setting min_timestamp to None is deprecated'):
+    with pytest.warns(DeprecationWarning, match='Setting min_timestamp=None in connect() is deprecated'):
         conn = connect(  # type: ignore[reportDeprecated]
             read_token='pylf_v1_us_fake',
             base_url='https://logfire-us.pydantic.dev',
@@ -660,7 +660,7 @@ def test_connect_min_timestamp_none_warns():
     """connect() with min_timestamp=None emits a deprecation warning, but a real bound does not."""
     transport = make_mock_transport()
 
-    with pytest.warns(DeprecationWarning, match='Setting min_timestamp to None is deprecated'):
+    with pytest.warns(DeprecationWarning, match='Setting min_timestamp=None in connect() is deprecated'):
         connect(  # type: ignore[reportDeprecated]
             read_token='pylf_v1_us_fake',
             base_url='https://logfire-us.pydantic.dev',
