@@ -110,7 +110,7 @@ logfire auth
 
     1. Generate a new write token in the **Logfire** platform
 
-        - Go to Project :material-chevron-right: Settings :material-chevron-right: Write Tokens
+        - Go to Project > Settings > Write Tokens
         - Follow the prompts to create a new token
 
 
