@@ -547,7 +547,8 @@ class TestTemplateVariableOverrideRender:
         templated_config = Config.model_construct(code='{{code}}')
         invalid_inputs = Inputs(code='abc123')
         with var.override(templated_config):
-            resolved = var.get(invalid_inputs)
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                resolved = var.get(invalid_inputs)
 
         assert resolved.value == Config(code='OK')  # falls back to the code default
         assert resolved.reason == 'other_error'

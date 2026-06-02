@@ -374,7 +374,18 @@ class Variable(Generic[T_co]):
             return ResolvedVariable(name=self.name, value=resolved_value, reason='context_override')
         if render_fn is not None:
             serialized = render_fn(serialized)
-        validated = self.type_adapter.validate_json(serialized)
+        try:
+            validated = self.type_adapter.validate_json(serialized)
+        except Exception as e:
+            # The override rendered to a value that no longer validates. Warn before the
+            # outer handler falls back to the code default, so the silent substitution that
+            # composition/render failures already surface isn't swallowed for this path.
+            warnings.warn(
+                f"Variable '{self.name}' value failed validation; falling back to code default: {e}",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+            raise
         return ResolvedVariable(name=self.name, value=validated, reason='context_override')
 
     def _lookup_serialized(
@@ -521,6 +532,14 @@ class Variable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_value)
             reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+            # A value was fetched/composed/rendered but failed validation. Warn before falling
+            # back to the code default, mirroring the composition/render failure warnings so the
+            # substitution isn't silent (the asymmetry Alex flagged on #1954).
+            warnings.warn(
+                f"Variable '{self.name}' value failed validation; falling back to code default: {value_or_exc}",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
             return ResolvedVariable(
                 name=self.name,
                 value=self._get_default_cached(targeting_key, attributes),
