@@ -8,6 +8,8 @@
   However, a couple deprecations were introduced:
   * The `query_json()` method was deprecated. Use `query_json_rows()` instead.
   * Using the `query_json_rows()` / `query_arrow()` / `query_csv()` methods without providing a `min_timestamp` is deprecated.
+ 
+  See [the announcement](https://pydantic.dev/changelog/new-query-endpoint) for more details.
 
 * Support OpenTelemetry SDK 1.42 by @alexmojaki in [#1978](https://github.com/pydantic/logfire/pull/1978)
 * Fix token pattern to accept organization IDs for API keys by @Viicos in [#1980](https://github.com/pydantic/logfire/pull/1980)
