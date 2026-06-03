@@ -906,7 +906,8 @@ def test_compute_diff_template_field_issues_label_ref_reported_against_label() -
                 name='prompt',
                 json_schema={'type': 'string'},
                 template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
-                labels={'production': LabelRef(ref='latest')},  # production pinned to latest
+                # production pinned to latest; fallback routes to the code default (resolves to None)
+                labels={'production': LabelRef(ref='latest'), 'fallback': LabelRef(ref='code_default')},
                 rollout=Rollout(labels={'production': 1.0}),
                 overrides=[],
                 latest_version=LatestVersion(version=2, serialized_value='"Hi {{nickname}}!"'),  # invalid
@@ -918,9 +919,32 @@ def test_compute_diff_template_field_issues_label_ref_reported_against_label() -
 
     issues = {(issue.field_name, issue.found_in_label) for issue in diff.template_field_issues}
     # The invalid latest value is served via the `production` ref and reported against that label
-    # (previously LabelRefs were skipped entirely), as well as the reserved 'latest' key.
+    # (previously LabelRefs were skipped entirely), as well as the reserved 'latest' key. The
+    # `fallback` label refs the code default and resolves to None, so it contributes no value.
     assert ('nickname', 'production') in issues
     assert ('nickname', 'latest') in issues
+    assert 'fallback' not in {label for _, label in issues}
+
+
+def test_compute_diff_template_field_issues_skips_resolve_function_default() -> None:
+    """A template variable whose code default is a resolve function isn't statically validated."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    def make_default(targeting_key: str | None, attributes: Any) -> str:
+        return 'Hi {{user_name}}!'
+
+    var = logfire.template_var(
+        name='prompt',
+        default=make_default,
+        type=str,
+        inputs_type=Inputs,
+    )
+
+    # No server config and a dynamic (resolve-function) default: nothing to validate statically.
+    diff = _compute_diff([var], VariablesConfig(variables={}))
+    assert diff.template_field_issues == []
 
 
 def test_variable_diff_has_changes_true() -> None:
