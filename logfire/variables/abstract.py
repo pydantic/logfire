@@ -597,7 +597,6 @@ def _collect_template_field_issues(
     that's incompatible with the current local `inputs_type`.
 
     """
-    from logfire.variables.config import LabeledValue
     from logfire.variables.template_validation import validate_template_composition
     from logfire.variables.variable import TemplateVariable, is_resolve_function
 
@@ -605,24 +604,32 @@ def _collect_template_field_issues(
     locals_by_name = {v.name: v for v in variables}
 
     def get_all_serialized_values(name: str) -> dict[str | None, str]:
-        """Return ``{label_or_None: serialized_json}`` for *name*.
+        """Return ``{label_or_None: serialized_json}`` for every value *name* can serve.
 
-        Pulls every server-stored label value, plus the local code default
-        (under the ``None`` key) when one is available. ``None`` represents
-        "the latest version" in `validate_template_composition`'s contract;
-        we reuse it to mean "the value we'd render in the absence of a
-        provider hit" — i.e. the code default.
+        Each server label is resolved through its ref chain (`follow_ref`), so `LabelRef`
+        labels — including refs to the reserved ``latest`` / ``code_default`` targets — are
+        followed and keyed by the label's own name. That way a template issue is reported
+        against the label that actually serves the offending value. The latest version is
+        keyed ``'latest'``, and the local code default is keyed ``None`` ("the value served
+        when the rollout routes to ``code_default`` or selects no label").
+
+        The code default is always included when present, independent of any server value:
+        the runtime can serve it even when a ``latest_version`` exists (empty rollout /
+        100%-code-default), so it must be validated too. ``'latest'`` and ``None`` can't
+        collide with a server label — ``latest`` is a reserved label name (see `LabelRef`)
+        and ``None`` is not a string.
         """
         result: dict[str | None, str] = {}
         server_var = server_config.variables.get(name)
         if server_var is not None:
             for label, labeled in server_var.labels.items():
-                if isinstance(labeled, LabeledValue):
-                    result[label] = labeled.serialized_value
-            if server_var.latest_version is not None and None not in result:
-                result[None] = server_var.latest_version.serialized_value
+                serialized, _ = server_var.follow_ref(labeled)
+                if serialized is not None:
+                    result[label] = serialized
+            if server_var.latest_version is not None:
+                result.setdefault('latest', server_var.latest_version.serialized_value)
         local_var = locals_by_name.get(name)
-        if local_var is not None and None not in result and not is_resolve_function(local_var.default):
+        if local_var is not None and not is_resolve_function(local_var.default):
             try:
                 result[None] = local_var.type_adapter.dump_json(local_var.default).decode('utf-8')
             except Exception:  # pragma: no cover
