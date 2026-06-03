@@ -1759,7 +1759,7 @@ class TestVariable:
                 invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
 
         assert invalid.value == 0
-        assert invalid.reason == 'other_error'
+        assert invalid.reason == 'validation_error'
         assert isinstance(invalid.exception, ValidationError)
 
         class TypeErrorModel(BaseModel):
