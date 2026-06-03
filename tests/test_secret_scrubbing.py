@@ -556,6 +556,31 @@ def test_word_boundaries(exporter: TestExporter):
     )
 
 
+def test_default_patterns():
+    from logfire._internal.scrubbing import DEFAULT_PATTERNS
+
+    assert DEFAULT_PATTERNS == [
+        'password',
+        'passwd',
+        'mysql_pwd',
+        'secret',
+        r'auth(?!ors?\b)',
+        'credential',
+        'private[._ -]?key',
+        'api[._ -]?key',
+        'session',
+        'cookie',
+        'social[._ -]?security',
+        'credit[._ -]?card',
+        'logfire[._ -]?token',
+        r'pylf_v\d+_',
+        r'(?:\b|_)csrf(?:\b|_)',
+        r'(?:\b|_)xsrf(?:\b|_)',
+        r'(?:\b|_)jwt(?:\b|_)',
+        r'(?:\b|_)ssn(?:\b|_)',
+    ], 'Docs need to be updated if this test fails: docs/how-to-guides/scrubbing.md'
+
+
 def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
     logfire.info(
         'hi',
