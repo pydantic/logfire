@@ -554,3 +554,52 @@ def test_word_boundaries(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        x=[
+            'pylf_v1_abc123xyz',
+            'pylf_v2_sometoken',
+            'pylf_v10_longerversion',
+            'not_pylf_v1_token',
+            'pylf_v1_',
+        ],
+    )
+    # pylf_v\d+_ pattern matches Logfire API token prefixes.
+    # Tokens like 'pylf_v1_abc123xyz' get scrubbed, but the prefix alone is kept.
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_logfire_token_prefix_scrubbing',
+                    'code.lineno': 123,
+                    'x': [
+                        "[Scrubbed due to 'pylf_v1_']",
+                        "[Scrubbed due to 'pylf_v2_']",
+                        "[Scrubbed due to 'pylf_v10_']",
+                        "[Scrubbed due to 'pylf_v1_']",
+                        'pylf_v1_',
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'x', 0], 'matched_substring': 'pylf_v1_'},
+                        {'path': ['attributes', 'x', 1], 'matched_substring': 'pylf_v2_'},
+                        {'path': ['attributes', 'x', 2], 'matched_substring': 'pylf_v10_'},
+                        {'path': ['attributes', 'x', 3], 'matched_substring': 'pylf_v1_'},
+                    ],
+                },
+            }
+        ]
+    )
