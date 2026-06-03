@@ -550,5 +550,5 @@ class TestTemplateVariableOverrideRender:
                 resolved = var.get(invalid_inputs)
 
         assert resolved.value == Config(code='OK')  # falls back to the code default
-        assert resolved.reason == 'other_error'
+        assert resolved.reason == 'validation_error'
         assert isinstance(resolved.exception, ValidationError)

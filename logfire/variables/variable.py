@@ -281,7 +281,7 @@ class Variable(Generic[T_co]):
             context_overrides = _VARIABLE_OVERRIDES.get()
             if context_overrides is not None and self.name in context_overrides:
                 return self._resolve_context_override(
-                    context_overrides[self.name], targeting_key, attributes, render_fn
+                    context_overrides[self.name], targeting_key, attributes, span, render_fn
                 )
 
             provider = self.logfire_instance.config.get_variable_provider()
@@ -329,19 +329,24 @@ class Variable(Generic[T_co]):
         override_value: T_co | ResolveFunction[T_co],
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
         render_fn: Callable[[str], str] | None,
     ) -> ResolvedVariable[T_co]:
         """Return a resolution for the top-level context override.
 
-        Overrides do not participate in composition. When the override value
-        serializes cleanly, run any provided `render_fn` (template rendering)
-        against the JSON form and revalidate so the user gets the same shape
-        a provider value would yield. When it doesn't serialize — common for
-        custom Python types, arbitrary objects, etc. — return the user's
-        value verbatim under `reason='context_override'`. Returning verbatim
-        is the legacy behaviour Devin / Alex flagged on #1951; the previous
-        implementation silently dropped these values back to the provider /
-        code default.
+        When the override value serializes cleanly, run it through the same
+        compose (`@{ref}@`) → render (`{{}}`) → deserialize pipeline a stored
+        value takes, so an override can stand in for a candidate stored value
+        (e.g. during iterative optimization) and resolve identically to how it
+        would once pushed. `@{ref}@` references are expanded against the live
+        provider/config, so the override participates in composition.
+
+        When the value doesn't serialize — common for custom Python types,
+        arbitrary objects, etc. — return the user's value verbatim under
+        `reason='context_override'` (no compose/render pass possible without a
+        string form). Returning verbatim is the legacy behaviour Devin / Alex
+        flagged on #1951; the previous implementation silently dropped these
+        values back to the provider / code default.
         """
         if is_resolve_function(override_value):
             resolved_value = cast('T_co', override_value(targeting_key, attributes))
@@ -351,21 +356,17 @@ class Variable(Generic[T_co]):
             serialized = self.type_adapter.dump_json(resolved_value).decode('utf-8')
         except (ValueError, TypeError, RuntimeError):
             return ResolvedVariable(name=self.name, value=resolved_value, reason='context_override')
-        if render_fn is not None:
-            serialized = render_fn(serialized)
-        try:
-            validated = self.type_adapter.validate_json(serialized)
-        except Exception as e:
-            # The override rendered to a value that no longer validates. Warn before the
-            # outer handler falls back to the code default, so the silent substitution that
-            # composition/render failures already surface isn't swallowed for this path.
-            warnings.warn(
-                f"Variable '{self.name}' value failed validation; falling back to code default: {e}",
-                category=RuntimeWarning,
-                stacklevel=2,
-            )
-            raise
-        return ResolvedVariable(name=self.name, value=validated, reason='context_override')
+
+        provider = self.logfire_instance.config.get_variable_provider()
+        serialized_result = ResolvedVariable[str | None](name=self.name, value=serialized, reason='context_override')
+        result = self._expand_and_deserialize(
+            serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
+        )
+        # Preserve the override provenance on success; on failure keep the pipeline's fallback
+        # (code default with a validation_error/other_error reason and a warning).
+        if result.reason == 'resolved':
+            result.reason = 'context_override'
+        return result
 
     def _lookup_serialized(
         self,

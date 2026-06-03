@@ -628,6 +628,30 @@ class TestCompositionIntegration:
         assert result.composed_from[0].name == 'greeting'
         assert result.composed_from[0].value == 'Hello'
 
+    def test_override_participates_in_composition(self, config_kwargs: dict[str, Any]):
+        """An override value containing @{ref}@ is expanded against the live config.
+
+        Overrides run through the same compose → render → deserialize pipeline as a stored
+        value, so an override can stand in for a candidate stored value (e.g. during iterative
+        optimization) and resolve identically to how it would once pushed.
+        """
+        variables_config = _make_variables_config(
+            greeting='"Hello"',
+            main='"@{greeting}@ World"',
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='main', default='fallback', type=str)
+        with var.override('Hi @{greeting}@!'):
+            result = var.get()
+
+        assert result.value == 'Hi Hello!'  # @{greeting}@ expanded in the override
+        assert result.reason == 'context_override'
+        assert len(result.composed_from) == 1
+        assert result.composed_from[0].name == 'greeting'
+        assert result.composed_from[0].value == 'Hello'
+
     def test_escape_only_value_is_unescaped_consistently(self, config_kwargs: dict[str, Any]):
         r"""Escape behaviour matches whether or not another real `@{ref}@` is present.
 
