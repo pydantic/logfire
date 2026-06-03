@@ -920,7 +920,7 @@ class Logfire:
         Returns:
             The URL string, or `None` if the project URL or trace/span IDs are not available.
         """
-        project_url = self._config._project_url  # type: ignore[reportPrivateUsage]
+        project_url = self._config.project_url
         trace_id = report.trace_id
         span_id = report.span_id
         if not project_url or not trace_id or not span_id:

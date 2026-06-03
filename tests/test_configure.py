@@ -1770,8 +1770,8 @@ def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch)
 def test_configuration_span_includes_project_url(
     tmp_path: Path, exporter: TestExporter, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """When emit_configuration_span is True and credentials are available from file,
-    the project URL should be included in the span message instead of printed separately."""
+    """When emit_configuration_span is True and the project URL is known from credentials,
+    the URL should be included in the span message instead of printed separately."""
     creds_file = tmp_path / 'logfire_credentials.json'
     creds_file.write_text(
         """
@@ -1791,6 +1791,7 @@ def test_configuration_span_includes_project_url(
         request_mocker.post('https://logfire.test/v1/traces', content=b'', status_code=200)
         logfire_instance = configure(
             send_to_logfire='if-token-present',
+            token='explicit-token',
             data_dir=tmp_path,
             console=logfire.ConsoleOptions(output=StringIO()),
             metrics=False,

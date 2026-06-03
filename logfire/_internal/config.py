@@ -860,7 +860,6 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
-        self._configuration_span_project_url: str | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1148,6 +1147,9 @@ class LogfireConfig(_LogfireConfigData):
 
                     # Track tokens we've already printed info for (to avoid duplicates)
                     printed_tokens: set[str] = set()
+                    project_url_emitted_in_configuration_span = bool(
+                        self.advanced.emit_configuration_span and self._project_url
+                    )
 
                     # The creds file contains the project link, so we can display it immediately.
                     # We do this if the token comes from the creds file or if it was explicitly configured
@@ -1155,9 +1157,7 @@ class LogfireConfig(_LogfireConfigData):
                     # If emit_configuration_span is enabled, include the URL in the span instead of
                     # printing separately. Otherwise, print it now.
                     if credentials and show_project_link and credentials.token in token_list:
-                        if self.advanced.emit_configuration_span:
-                            self._configuration_span_project_url = credentials.project_url
-                        else:
+                        if not self.advanced.emit_configuration_span:
                             credentials.print_token_summary()
                         printed_tokens.add(credentials.token)
 
@@ -1174,7 +1174,11 @@ class LogfireConfig(_LogfireConfigData):
                                 if validated_credentials is not None:
                                     self._project_url = self._project_url or validated_credentials.project_url
                                     if show_project_link and token not in printed_tokens:
-                                        validated_credentials.print_token_summary()
+                                        if not (
+                                            project_url_emitted_in_configuration_span
+                                            and validated_credentials.project_url == self._project_url
+                                        ):
+                                            validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
@@ -1563,9 +1567,9 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     @property
-    def configuration_span_project_url(self) -> str | None:
-        """Project URL to include in the configuration span message, if available."""
-        return self._configuration_span_project_url
+    def project_url(self) -> str | None:
+        """Best known Logfire project URL for this configuration."""
+        return self._project_url
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
@@ -1648,7 +1652,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     else:  # pragma: no cover
         token_count = len(config.token)
 
-    project_url = config.configuration_span_project_url
+    project_url = config.project_url
     if project_url:
         message = f'Logfire configured | {project_url}'
     else:
