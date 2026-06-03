@@ -1797,7 +1797,7 @@ def test_configuration_span_includes_project_url(
             additional_span_processors=[SimpleSpanProcessor(exporter)],
             advanced=logfire.AdvancedOptions(emit_configuration_span=True),
         )
-        assert logfire_instance.force_flush()
+        logfire_instance.force_flush()
         wait_for_check_token_thread()
 
     # The URL should NOT be printed separately to stderr
@@ -1806,6 +1806,8 @@ def test_configuration_span_includes_project_url(
     # Instead, it should be included in the configuration span message
     spans = exporter.exported_spans_as_dict()
     assert len(spans) == 1
+    assert spans[0]['name'] == 'Logfire configured | https://logfire.test/myproject'
+    assert spans[0]['attributes']['logfire.msg_template'] == 'Logfire configured | https://logfire.test/myproject'
     msg = spans[0]['attributes']['logfire.msg']
     assert msg == 'Logfire configured | https://logfire.test/myproject'
 
