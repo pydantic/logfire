@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import ast
 import os
+import re
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -556,29 +559,28 @@ def test_word_boundaries(exporter: TestExporter):
     )
 
 
-def test_default_patterns():
+def test_default_patterns_match_docs():
+    """The default scrubbing patterns are documented, so the docs must be kept in sync with the code.
+
+    This parses the list out of the docs and compares it to `DEFAULT_PATTERNS` directly,
+    so it fails (rather than silently drifting) whenever the two get out of sync.
+    """
     from logfire._internal.scrubbing import DEFAULT_PATTERNS
 
-    assert DEFAULT_PATTERNS == [
-        'password',
-        'passwd',
-        'mysql_pwd',
-        'secret',
-        r'auth(?!ors?\b)',
-        'credential',
-        'private[._ -]?key',
-        'api[._ -]?key',
-        'session',
-        'cookie',
-        'social[._ -]?security',
-        'credit[._ -]?card',
-        'logfire[._ -]?token',
-        r'pylf_v\d+_',
-        r'(?:\b|_)csrf(?:\b|_)',
-        r'(?:\b|_)xsrf(?:\b|_)',
-        r'(?:\b|_)jwt(?:\b|_)',
-        r'(?:\b|_)ssn(?:\b|_)',
-    ], 'Docs need to be updated if this test fails: docs/how-to-guides/scrubbing.md'
+    docs = Path(__file__).parent.parent / 'docs' / 'how-to-guides' / 'scrubbing.md'
+    # Extract the ```python [...] ``` block that follows the "default scrubbing patterns" sentence.
+    match = re.search(
+        r'Here are the default scrubbing patterns:\n+```python\n(\[.*?\])\n```',
+        docs.read_text(),
+        re.DOTALL,
+    )
+    assert match, 'Could not find the default scrubbing patterns code block in the docs'
+    documented_patterns = ast.literal_eval(match.group(1))
+
+    assert documented_patterns == DEFAULT_PATTERNS, (
+        f'The scrubbing patterns documented in {docs} are out of sync with '
+        '`DEFAULT_PATTERNS` in logfire/_internal/scrubbing.py. Update the docs.'
+    )
 
 
 def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
