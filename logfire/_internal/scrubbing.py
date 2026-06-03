@@ -49,6 +49,7 @@ DEFAULT_PATTERNS = [
     'social[._ -]?security',
     'credit[._ -]?card',
     'logfire[._ -]?token',
+    r'pylf_v\d+_',
     *[
         # Require these to be surrounded by word boundaries or underscores,
         # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
