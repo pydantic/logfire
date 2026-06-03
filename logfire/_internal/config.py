@@ -860,7 +860,7 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
-        self._instant_project_url: str | None = None
+        self._configuration_span_project_url: str | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1156,7 +1156,7 @@ class LogfireConfig(_LogfireConfigData):
                     # printing separately. Otherwise, print it now.
                     if credentials and show_project_link and credentials.token in token_list:
                         if self.advanced.emit_configuration_span:
-                            self._instant_project_url = credentials.project_url
+                            self._configuration_span_project_url = credentials.project_url
                         else:
                             credentials.print_token_summary()
                         printed_tokens.add(credentials.token)
@@ -1562,6 +1562,11 @@ class LogfireConfig(_LogfireConfigData):
                 category=LogfireNotConfiguredWarning,
             )
 
+    @property
+    def configuration_span_project_url(self) -> str | None:
+        """Project URL to include in the configuration span message, if available."""
+        return self._configuration_span_project_url
+
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
         install_logfire_response_hook(session, self.advanced.server_response_hook)
@@ -1643,9 +1648,9 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     else:  # pragma: no cover
         token_count = len(config.token)
 
-    # Build message with optional project URL
-    if config._instant_project_url:
-        message = f'Logfire configured | {config._instant_project_url}'
+    project_url = config.configuration_span_project_url
+    if project_url:
+        message = f'Logfire configured | {project_url}'
     else:
         message = 'Logfire configured'
 

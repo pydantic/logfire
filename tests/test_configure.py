@@ -1788,12 +1788,16 @@ def test_configuration_span_includes_project_url(
             'https://logfire.test/v1/info',
             json={'project_name': 'myproject', 'project_url': 'https://logfire.test/myproject'},
         )
-        configure(
+        request_mocker.post('https://logfire.test/v1/traces', content=b'', status_code=200)
+        logfire_instance = configure(
             send_to_logfire='if-token-present',
             data_dir=tmp_path,
-            console=False,
+            console=logfire.ConsoleOptions(output=StringIO()),
+            metrics=False,
+            additional_span_processors=[SimpleSpanProcessor(exporter)],
             advanced=logfire.AdvancedOptions(emit_configuration_span=True),
         )
+        assert logfire_instance.force_flush()
         wait_for_check_token_thread()
 
     # The URL should NOT be printed separately to stderr
