@@ -847,7 +847,80 @@ def test_compute_diff_template_field_issues_from_latest_version() -> None:
     field_names = {issue.field_name for issue in diff.template_field_issues}
     labels = {issue.found_in_label for issue in diff.template_field_issues}
     assert 'nickname' in field_names
-    assert None in labels  # latest_version is keyed under None
+    assert 'latest' in labels  # latest_version is keyed under the reserved 'latest' label
+
+
+def test_compute_diff_template_field_issues_code_default_with_latest_version() -> None:
+    """The local code default is validated even when the server has a `latest_version`.
+
+    Regression test for the case where both competed for the `None` key: the code default
+    used to be dropped whenever a `latest_version` existed, so an invalid code default slipped
+    past push validation — even though it can still be served at runtime (empty rollout /
+    `code_default` routing). The code default is now keyed `None` independently.
+    """
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{local_missing}}!',  # invalid: references an undeclared field
+        type=str,
+        inputs_type=Inputs,
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+                latest_version=LatestVersion(version=1, serialized_value='"Hi {{user_name}}!"'),  # valid
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    issues = {(issue.field_name, issue.found_in_label) for issue in diff.template_field_issues}
+    assert ('local_missing', None) in issues  # code default validated under None despite latest_version
+
+
+def test_compute_diff_template_field_issues_label_ref_reported_against_label() -> None:
+    """A `LabelRef` is followed and the issue is reported against the label that serves the value."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{user_name}}!',  # valid local default
+        type=str,
+        inputs_type=Inputs,
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                labels={'production': LabelRef(ref='latest')},  # production pinned to latest
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+                latest_version=LatestVersion(version=2, serialized_value='"Hi {{nickname}}!"'),  # invalid
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    issues = {(issue.field_name, issue.found_in_label) for issue in diff.template_field_issues}
+    # The invalid latest value is served via the `production` ref and reported against that label
+    # (previously LabelRefs were skipped entirely), as well as the reserved 'latest' key.
+    assert ('nickname', 'production') in issues
+    assert ('nickname', 'latest') in issues
 
 
 def test_variable_diff_has_changes_true() -> None:

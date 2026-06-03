@@ -205,7 +205,13 @@ class LabeledValue(BaseModel):
 
 
 class LabelRef(BaseModel):
-    """A label pointing to a version via a reference to another label, 'latest', or 'code_default'."""
+    """A label pointing to a version via a reference to another label, 'latest', or 'code_default'.
+
+    Note: `'latest'` and `'code_default'` are *reserved label names*. The platform rejects
+    user attempts to create labels with these names, so anywhere the SDK treats them as
+    special — `follow_ref` here, and the push-time validation that keys values by label
+    name — it can rely on them being unambiguous (no user-defined label can collide).
+    """
 
     version: int | None = None
     """The version number this label points to. None for label-to-label refs or code_default."""
