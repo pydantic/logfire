@@ -5,7 +5,6 @@ import dataclasses
 import functools
 import json
 import os
-import platform
 import re
 import sys
 import time
@@ -1644,13 +1643,11 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     else:  # pragma: no cover
         token_count = len(config.token)
 
-    # Build message with system info and optional project URL
-    python_version = f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}'
-    os_name = platform.system()
-    msg_parts = [f'Logfire configured | Python {python_version} | {os_name}']
+    # Build message with optional project URL
     if config._instant_project_url:
-        msg_parts.append(config._instant_project_url)
-    message = ' | '.join(msg_parts)
+        message = f'Logfire configured | {config._instant_project_url}'
+    else:
+        message = 'Logfire configured'
 
     logfire_instance.info(
         message,

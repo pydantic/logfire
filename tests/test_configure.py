@@ -1711,12 +1711,10 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
     config_kwargs['advanced'].emit_configuration_span = True
     configure(**config_kwargs)
 
-    # Message format: "Logfire configured | Python X.Y.Z | OS"
-    config_msg_pattern = r'Logfire configured \| Python \d+\.\d+\.\d+ \| \w+'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': IsStr(regex=config_msg_pattern),
+                'name': 'Logfire configured',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1724,8 +1722,8 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': IsStr(regex=config_msg_pattern),
-                    'logfire.msg': IsStr(regex=config_msg_pattern),
+                    'logfire.msg_template': 'Logfire configured',
+                    'logfire.msg': 'Logfire configured',
                     'code.filepath': 'test_configure.py',
                     'code.function': 'test_configuration_span_emitted_when_opted_in',
                     'code.lineno': 123,
@@ -1805,9 +1803,7 @@ def test_configuration_span_includes_project_url(
     spans = exporter.exported_spans_as_dict()
     assert len(spans) == 1
     msg = spans[0]['attributes']['logfire.msg']
-    assert 'Logfire configured' in msg
-    assert 'Python' in msg
-    assert 'https://logfire.test/myproject' in msg
+    assert msg == 'Logfire configured | https://logfire.test/myproject'
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
