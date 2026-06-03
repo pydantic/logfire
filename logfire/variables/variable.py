@@ -515,8 +515,16 @@ class Variable(Generic[T_co]):
             # A value was fetched/composed/rendered but failed validation. Warn before falling
             # back to the code default, mirroring the composition/render failure warnings so the
             # substitution isn't silent (the asymmetry Alex flagged on #1954).
+            # Format ValidationError via .errors() with input/url stripped so we don't leak
+            # validated input values into the warning text (the rest of the exception detail
+            # remains available on ResolvedVariable.exception).
+            warned_detail = (
+                value_or_exc.errors(include_input=False, include_url=False)
+                if isinstance(value_or_exc, ValidationError)
+                else value_or_exc
+            )
             warnings.warn(
-                f"Variable '{self.name}' value failed validation; falling back to code default: {value_or_exc}",
+                f"Variable '{self.name}' value failed validation; falling back to code default: {warned_detail}",
                 category=RuntimeWarning,
                 stacklevel=2,
             )
