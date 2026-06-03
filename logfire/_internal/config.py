@@ -5,6 +5,7 @@ import dataclasses
 import functools
 import json
 import os
+import platform
 import re
 import sys
 import time
@@ -860,6 +861,7 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
+        self._instant_project_url: str | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1151,8 +1153,13 @@ class LogfireConfig(_LogfireConfigData):
                     # The creds file contains the project link, so we can display it immediately.
                     # We do this if the token comes from the creds file or if it was explicitly configured
                     # and happens to match the creds file anyway.
+                    # If emit_configuration_span is enabled, include the URL in the span instead of
+                    # printing separately. Otherwise, print it now.
                     if credentials and show_project_link and credentials.token in token_list:
-                        credentials.print_token_summary()
+                        if self.advanced.emit_configuration_span:
+                            self._instant_project_url = credentials.project_url
+                        else:
+                            credentials.print_token_summary()
                         printed_tokens.add(credentials.token)
 
                     # Regardless of where the token comes from, check that it's valid.
@@ -1637,8 +1644,16 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     else:  # pragma: no cover
         token_count = len(config.token)
 
+    # Build message with system info and optional project URL
+    python_version = f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}'
+    os_name = platform.system()
+    msg_parts = [f'Logfire configured | Python {python_version} | {os_name}']
+    if config._instant_project_url:
+        msg_parts.append(config._instant_project_url)
+    message = ' | '.join(msg_parts)
+
     logfire_instance.info(
-        'Logfire configured',
+        message,
         **{  # type: ignore
             ATTRIBUTES_CONFIG: {
                 'local': local,

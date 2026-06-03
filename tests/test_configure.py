@@ -1711,10 +1711,12 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
     config_kwargs['advanced'].emit_configuration_span = True
     configure(**config_kwargs)
 
+    # Message format: "Logfire configured | Python X.Y.Z | OS"
+    config_msg_pattern = r'Logfire configured \| Python \d+\.\d+\.\d+ \| \w+'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Logfire configured',
+                'name': IsStr(regex=config_msg_pattern),
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1722,8 +1724,8 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
-                    'logfire.msg_template': 'Logfire configured',
-                    'logfire.msg': 'Logfire configured',
+                    'logfire.msg_template': IsStr(regex=config_msg_pattern),
+                    'logfire.msg': IsStr(regex=config_msg_pattern),
                     'code.filepath': 'test_configure.py',
                     'code.function': 'test_configuration_span_emitted_when_opted_in',
                     'code.lineno': 123,
@@ -1765,6 +1767,47 @@ def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv('LOGFIRE_EMIT_CONFIGURATION_SPAN', '1')
     configure(send_to_logfire=False, console=False, inspect_arguments=False)
     assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
+
+
+def test_configuration_span_includes_project_url(
+    tmp_path: Path, exporter: TestExporter, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """When emit_configuration_span is True and credentials are available from file,
+    the project URL should be included in the span message instead of printed separately."""
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text(
+        """
+        {
+            "token": "foobar",
+            "project_name": "myproject",
+            "project_url": "https://logfire.test/myproject",
+            "logfire_api_url": "https://logfire.test"
+        }
+        """
+    )
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire.test/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'https://logfire.test/myproject'},
+        )
+        configure(
+            send_to_logfire='if-token-present',
+            data_dir=tmp_path,
+            console=False,
+            advanced=logfire.AdvancedOptions(emit_configuration_span=True),
+        )
+        wait_for_check_token_thread()
+
+    # The URL should NOT be printed separately to stderr
+    assert capsys.readouterr().err == ''
+
+    # Instead, it should be included in the configuration span message
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    msg = spans[0]['attributes']['logfire.msg']
+    assert 'Logfire configured' in msg
+    assert 'Python' in msg
+    assert 'https://logfire.test/myproject' in msg
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
