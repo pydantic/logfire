@@ -22,6 +22,7 @@ from logfire.variables.composition import (
 )
 
 if TYPE_CHECKING:
+    from logfire._internal.config import TemplateMismatchPolicy
     from logfire.variables.abstract import VariableProvider
     from logfire.variables.config import VariableConfig
 
@@ -39,8 +40,23 @@ __all__ = (
     'is_resolve_function',
     'Variable',
     'TemplateVariable',
+    'TemplateInputsMismatchError',
     'targeting_context',
 )
+
+
+class TemplateInputsMismatchError(Exception):
+    """Render-time `{{field}}` mismatch raised under the strict policy.
+
+    Raised by `TemplateVariable.get(inputs)` when the resolved template
+    references a `{{field}}` not declared in the variable's `inputs_type`
+    and the active `template_mismatch_policy` is `'error'`.
+
+    Distinct from `HandlebarsError` so it bypasses the SDK's composition-
+    failure fallback and propagates to the caller — the `'error'` policy
+    is meant to fail loudly, not silently degrade to the code default.
+    """
+
 
 T_co = TypeVar('T_co', covariant=True)
 InputsT = TypeVar('InputsT')
@@ -332,6 +348,11 @@ class Variable(Generic[T_co]):
                 result.exception = serialized_result.exception
             return result
 
+        except TemplateInputsMismatchError:
+            # The `'error'` template_mismatch_policy explicitly opts into a
+            # loud failure mode — bypass the default-fallback path and let
+            # the exception reach the caller.
+            raise
         except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
@@ -858,6 +879,14 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
     inputs_type: type[InputsT]
     """The type used for template inputs."""
 
+    template_mismatch_policy: TemplateMismatchPolicy | None
+    """Per-variable override of the render-time `{{field}}` mismatch policy.
+
+    `None` means "inherit from `VariablesOptions` / `LocalVariablesOptions`"; an
+    explicit value overrides the instance-level policy for this variable only,
+    even when relaxing.
+    """
+
     def __init__(
         self,
         name: str,
@@ -867,6 +896,7 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
         inputs_type: type[InputsT],
         description: str | None = None,
         logfire_instance: logfire.Logfire,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
     ):
         """Create a new template variable.
 
@@ -879,6 +909,9 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
                 template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
             description: Optional human-readable description of what this variable controls.
             logfire_instance: The Logfire instance this variable is associated with.
+            template_mismatch_policy: Per-variable override of the render-time
+                `{{field}}` mismatch policy. `None` (default) inherits from
+                `VariablesOptions` / `LocalVariablesOptions`.
         """
         super().__init__(
             name,
@@ -889,6 +922,7 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
         )
         self.inputs_type = inputs_type
         self._inputs_type_adapter: TypeAdapter[InputsT] = TypeAdapter(inputs_type)
+        self.template_mismatch_policy = template_mismatch_policy
 
     def get_template_inputs_schema(self) -> dict[str, Any]:
         """Return the JSON schema derived from `inputs_type`."""
@@ -926,13 +960,73 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
 
         Returns:
             A ResolvedVariable with the fully rendered and deserialized value.
+
+        Raises:
+            TemplateInputsMismatchError: When `template_mismatch_policy` resolves
+                to `'error'` and the post-composition template references a
+                `{{field}}` not declared in `inputs_type`.
         """
         from logfire.variables.abstract import render_serialized_string
 
+        policy = self._effective_template_mismatch_policy()
+
         def _render_fn(serialized_json: str) -> str:
+            if policy != 'ignore':
+                self._check_template_fields(serialized_json, policy)
             return render_serialized_string(serialized_json, inputs)
 
         return self._get_result_and_record_span(targeting_key, attributes, label, render_fn=_render_fn)
+
+    def _effective_template_mismatch_policy(self) -> TemplateMismatchPolicy:
+        """Resolve the policy for this variable's next `get()` call.
+
+        Per-variable wins when set (even when relaxing). Otherwise reads the
+        instance-level `VariablesOptions` / `LocalVariablesOptions` setting,
+        falling back to `'warn'` if no managed-variables config is in use.
+        """
+        if self.template_mismatch_policy is not None:
+            return self.template_mismatch_policy
+        from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+
+        options = self.logfire_instance.config.variables
+        if isinstance(options, (VariablesOptions, LocalVariablesOptions)):
+            return options.template_mismatch_policy
+        return 'warn'
+
+    def _check_template_fields(self, serialized_value: str, policy: TemplateMismatchPolicy) -> None:
+        """Apply the render-time mismatch policy.
+
+        Walks every `{{field}}` reference in the post-composition serialized
+        template through `pydantic_handlebars.check_template_compatibility`
+        against `inputs_type`'s JSON schema. Any error-severity issue
+        triggers the policy: `'error'` raises `TemplateInputsMismatchError`,
+        `'warn'` emits a `RuntimeWarning`. (`'ignore'` callers never reach
+        this path.)
+        """
+        from logfire.variables._handlebars import check_template_compatibility
+        from logfire.variables.template_validation import extract_template_strings
+
+        templates = extract_template_strings(serialized_value)
+        if not templates:
+            return
+        schema = self.get_template_inputs_schema()
+        result = check_template_compatibility(templates, schema)
+        error_fields = [issue.field_path for issue in result.issues if issue.severity == 'error']
+        if not error_fields:
+            return
+
+        fields_str = ', '.join(repr(f) for f in dict.fromkeys(error_fields))
+        message = (
+            f"Variable '{self.name}': template references {fields_str} "
+            f'which are not declared in inputs_type {self.inputs_type.__name__!r}.'
+        )
+        if policy == 'error':
+            raise TemplateInputsMismatchError(message)
+        # Use the filter-independent emitter: a raw `warnings.warn` here would, under
+        # `-W error` / `filterwarnings=error`, escalate to a RuntimeWarning that the resolve
+        # fallback `except` swallows — turning the 'warn' policy into a silent code-default
+        # fallback (reason='other_error') instead of rendering-and-warning.
+        _emit_resolution_warning(message)
 
 
 def get_template_inputs_schema(variable: Variable[Any]) -> dict[str, Any] | None:

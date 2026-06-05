@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -568,3 +569,130 @@ class TestTemplateVariableOverrideRender:
         assert resolved.value == Config(code='OK')  # falls back to the code default
         assert resolved.reason == 'validation_error'
         assert isinstance(resolved.exception, ValidationError)
+
+
+class TestTemplateMismatchPolicy:
+    """Render-time `{{field}}` mismatch policy covering all three values + precedence."""
+
+    def _setup(
+        self,
+        *,
+        default: str,
+        config_kwargs: dict[str, Any],
+        instance_policy: Any = None,
+        variable_policy: Any = None,
+    ):
+        from pydantic import BaseModel as _BaseModel
+
+        class Inputs(_BaseModel):
+            user_name: str
+
+        local_opts_kwargs: dict[str, Any] = {'config': VariablesConfig(variables={})}
+        if instance_policy is not None:
+            local_opts_kwargs['template_mismatch_policy'] = instance_policy
+        config_kwargs['variables'] = LocalVariablesOptions(**local_opts_kwargs)
+        lf = logfire.configure(**config_kwargs)
+        kwargs: dict[str, Any] = {'type': str, 'default': default, 'inputs_type': Inputs}
+        if variable_policy is not None:
+            kwargs['template_mismatch_policy'] = variable_policy
+        var = lf.template_var('prompt', **kwargs)
+        return var, Inputs
+
+    def test_default_policy_is_warn(self, config_kwargs: dict[str, Any]):
+        var, Inputs = self._setup(default='Hi {{user_name}} {{missing}}', config_kwargs=config_kwargs)
+        with pytest.warns(RuntimeWarning, match="references 'missing'"):
+            resolved = var.get(Inputs(user_name='Alice'))
+        assert resolved.value == 'Hi Alice '
+
+    def test_warn_policy_is_filter_independent(self, config_kwargs: dict[str, Any]):
+        """Under `-W error`, the 'warn' policy still renders-and-warns instead of being swallowed.
+
+        Regression: a raw `warnings.warn` would escalate under filterwarnings=error and be caught by
+        the resolve fallback, silently turning 'warn' into a code-default fallback (reason='other_error').
+        The filter-independent emitter keeps the rendered result regardless of the warning filter.
+        """
+        var, Inputs = self._setup(default='Hi {{user_name}} {{missing}}', config_kwargs=config_kwargs)
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            resolved = var.get(Inputs(user_name='Alice'))
+        # The bug produced reason='other_error' with the unrendered code default; the fix renders.
+        assert resolved.reason != 'other_error'
+        assert resolved.value == 'Hi Alice '
+
+    def test_no_warning_when_inputs_satisfied(self, config_kwargs: dict[str, Any]):
+        var, Inputs = self._setup(default='Hi {{user_name}}!', config_kwargs=config_kwargs)
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', RuntimeWarning)
+            resolved = var.get(Inputs(user_name='Alice'))
+        assert resolved.value == 'Hi Alice!'
+
+    def test_per_variable_error_raises(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.variable import TemplateInputsMismatchError
+
+        var, Inputs = self._setup(
+            default='Hi {{missing}}',
+            config_kwargs=config_kwargs,
+            variable_policy='error',
+        )
+        with pytest.raises(TemplateInputsMismatchError, match="references 'missing'"):
+            var.get(Inputs(user_name='Alice'))
+
+    def test_per_variable_ignore_renders_silently(self, config_kwargs: dict[str, Any]):
+        var, Inputs = self._setup(
+            default='Hi {{missing}}',
+            config_kwargs=config_kwargs,
+            variable_policy='ignore',
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', RuntimeWarning)
+            resolved = var.get(Inputs(user_name='Alice'))
+        assert resolved.value == 'Hi '
+
+    def test_instance_level_error(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.variable import TemplateInputsMismatchError
+
+        var, Inputs = self._setup(
+            default='Hi {{missing}}',
+            config_kwargs=config_kwargs,
+            instance_policy='error',
+        )
+        with pytest.raises(TemplateInputsMismatchError):
+            var.get(Inputs(user_name='Alice'))
+
+    def test_variable_level_relaxes_instance_error(self, config_kwargs: dict[str, Any]):
+        """Variable-level wins, even when relaxing — instance 'error' + variable 'ignore' → ignore."""
+        var, Inputs = self._setup(
+            default='Hi {{missing}}',
+            config_kwargs=config_kwargs,
+            instance_policy='error',
+            variable_policy='ignore',
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', RuntimeWarning)
+            resolved = var.get(Inputs(user_name='Alice'))
+        assert resolved.value == 'Hi '
+
+    def test_variable_level_escalates_instance_warn(self, config_kwargs: dict[str, Any]):
+        """Instance 'warn' + variable 'error' → error."""
+        from logfire.variables.variable import TemplateInputsMismatchError
+
+        var, Inputs = self._setup(
+            default='Hi {{missing}}',
+            config_kwargs=config_kwargs,
+            instance_policy='warn',
+            variable_policy='error',
+        )
+        with pytest.raises(TemplateInputsMismatchError):
+            var.get(Inputs(user_name='Alice'))
+
+    def test_variable_level_relaxes_instance_warn_to_ignore(self, config_kwargs: dict[str, Any]):
+        """Instance 'warn' + variable 'ignore' → ignore (no warning)."""
+        var, Inputs = self._setup(
+            default='Hi {{missing}}',
+            config_kwargs=config_kwargs,
+            instance_policy='warn',
+            variable_policy='ignore',
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', RuntimeWarning)
+            var.get(Inputs(user_name='Alice'))

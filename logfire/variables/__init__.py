@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     )
     from logfire.variables.variable import (
         ResolveFunction,
+        TemplateInputsMismatchError,
         TemplateVariable,
         Variable,
         targeting_context,
@@ -84,6 +85,7 @@ __all__ = [
     'SyncMode',
     'ValidationReport',
     # Exceptions
+    'TemplateInputsMismatchError',
     'VariableAlreadyExistsError',
     'VariableCompositionCycleError',
     'VariableCompositionError',
@@ -124,6 +126,7 @@ def __getattr__(name: str):
     )
     from logfire.variables.variable import (
         ResolveFunction,
+        TemplateInputsMismatchError,
         TemplateVariable,
         Variable,
         targeting_context,
