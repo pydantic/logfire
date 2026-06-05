@@ -309,6 +309,9 @@ class TestExpandReferences:
         pydantic-handlebars follows) the body renders as `yes`. The
         important property under test is that no `composed` entries are
         produced — `this` and `if` are not resolved as variable lookups.
+        This is surprising for Python users, so we may choose to revisit it,
+        but for now `@{...}@` composition intentionally follows Handlebars
+        truthiness rather than inventing Logfire-specific semantics.
         """
         expanded, composed = expand_references(json.dumps('@{#if this}@yes@{/if}@'), 'my_var', _make_resolve_fn({}))
 
@@ -1171,7 +1174,8 @@ class TestCompositionIntegration:
         parent = lf.var(name='parent', default='fallback', type=str)
 
         with opaque.override(object()):
-            result = parent.get()
+            with pytest.warns(RuntimeWarning, match='could not be serialized'):
+                result = parent.get()
             # Override failed to serialize; falls through to provider (which has nothing)
             # then to opaque's registered code default.
             assert result.value == 'hello code_default_opaque'

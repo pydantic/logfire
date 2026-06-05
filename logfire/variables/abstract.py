@@ -1366,6 +1366,8 @@ class VariableProvider(ABC):
         self.refresh(force=True)
         return self.get_all_variables_config()
 
+    # TODO(next major): consider making strict=True the default and requiring an explicit
+    #  opt-out for pushes that publish missing refs or undeclared template fields.
     def push_variables(
         self,
         variables: Sequence[Variable[object]],

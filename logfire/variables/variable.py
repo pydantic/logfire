@@ -409,8 +409,13 @@ class Variable(Generic[T_co]):
                 override_value = override_value(targeting_key, attributes)
             try:
                 serialized = variable.type_adapter.dump_json(override_value).decode('utf-8')
-            except (ValueError, TypeError, RuntimeError):
-                pass  # Fall through to provider/code default
+            except (ValueError, TypeError, RuntimeError) as e:
+                warnings.warn(
+                    f"Context override for variable '{name}' could not be serialized while resolving "
+                    f"'{self.name}' composition; falling through to provider/code default: {e}",
+                    category=RuntimeWarning,
+                    stacklevel=2,
+                )
             else:
                 return ResolvedVariable(name=name, value=serialized, reason='context_override')
 
