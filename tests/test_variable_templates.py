@@ -257,6 +257,22 @@ class TestTemplateVariable:
         with pytest.raises(TypeError, match='resolve function'):
             lf.template_var('greeting', default=make_default, inputs_type=Inputs)
 
+    def test_type_required_for_none_default(self, config_kwargs: dict[str, Any]):
+        """A None default can't infer a usable type — both factories require explicit `type=`."""
+
+        class Inputs(BaseModel):
+            name: str
+
+        lf = logfire.configure(**config_kwargs)
+
+        with pytest.raises(TypeError, match='default` is None'):
+            lf.var('plain_none', default=None)
+        with pytest.raises(TypeError, match='default` is None'):
+            lf.template_var('tmpl_none', default=None, inputs_type=Inputs)
+        # Providing an explicit type makes a nullable variable work.
+        ok = lf.var('plain_optional', type=int | None, default=None)  # pyright: ignore[reportArgumentType]
+        assert ok.value_type == (int | None)
+
     def test_remote_render_error_records_exception(self, config_kwargs: dict[str, Any]):
         """Invalid remote templates fall back, warn, and record the render exception."""
 

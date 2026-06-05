@@ -123,7 +123,7 @@ class ResolvedVariable(Generic[T_co]):
     """The version number of the resolved value, if any."""
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
-    composed_from: list[ComposedReference] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    composed_from: list[ComposedReference] = field(default_factory=list['ComposedReference'])
     """Variables that were composed into this value via @{reference}@ expansion.
 
     Each entry is a ComposedReference for a referenced variable, including
@@ -285,16 +285,16 @@ class VariableDiff:
 
     changes: list[VariableChange]
     orphaned_server_variables: list[str]  # Variables on server not in local code
-    reference_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    reference_errors: list[str] = field(default_factory=list[str])
     """All reference problems (non-existent refs *and* cycles)."""
-    reference_cycles: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    reference_cycles: list[str] = field(default_factory=list[str])
     """The subset of `reference_errors` that are cycles.
 
     Cycles are unconditionally unresolvable (no environment can satisfy `A -> B -> A`), so a
     push blocks on them even in non-strict mode — unlike a missing reference, which may
     legitimately resolve in another codebase/environment and is only a warning in non-strict.
     """
-    template_field_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    template_field_errors: list[str] = field(default_factory=list[str])
     """`{{field}}` references that aren't declared in a template variable's inputs schema."""
 
     @property
@@ -346,11 +346,11 @@ class ValidationReport:
     """Names of variables that exist locally but not on the server."""
     description_differences: list[DescriptionDifference]
     """List of variables where local and server descriptions differ."""
-    reference_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    reference_errors: list[str] = field(default_factory=list[str])
     """Errors found while checking `@{variable}@` references (missing refs *and* cycles)."""
-    reference_cycles: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    reference_cycles: list[str] = field(default_factory=list[str])
     """The subset of `reference_errors` that are cycles (always-fatal, vs. possibly-resolvable missing refs)."""
-    template_field_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    template_field_errors: list[str] = field(default_factory=list[str])
     """`{{field}}` references that aren't declared in a template variable's inputs schema."""
 
     @property
@@ -594,7 +594,7 @@ def _check_reference_errors(
     `server_config` is reported as a non-existent reference, the same way
     a registration miss is.
     """
-    from logfire.variables.composition import find_references
+    from logfire.variables.composition import find_references_and_errors
     from logfire.variables.config import LabeledValue
     from logfire.variables.variable import is_resolve_function
 
@@ -607,25 +607,37 @@ def _check_reference_errors(
         """Collect refs from every serialized value reachable for *name*.
 
         That's the local code default (if registered locally) plus every
-        labeled server value plus the `latest_version`. Failures to
-        serialize the local default are tolerated — we want the walker to
-        keep going.
+        labeled server value plus the `latest_version`. A malformed `@{...}@`
+        value is recorded as a reference error (rather than crashing the walk),
+        and a local default that can't be serialized is skipped — we want the
+        walker to keep going either way.
         """
         refs: set[str] = set()
+
+        def _record(serialized: str) -> None:
+            found, errors = find_references_and_errors(serialized)
+            refs.update(found)
+            for err in errors:
+                warnings_list.append(f"Variable '{name}': {err}")
+
         local = locals_by_name.get(name)
         if local is not None and not is_resolve_function(local.default):
             try:
                 serialized_default = local.type_adapter.dump_json(local.default).decode('utf-8')
-                refs.update(find_references(serialized_default))
-            except Exception:
-                pass
+            except (ValueError, TypeError, RuntimeError):
+                # Only the local default's *serialization* can fail here; reference parsing is
+                # handled (and never raises) inside `_record`. Skip an unserializable default and
+                # keep walking the rest of the graph.
+                serialized_default = None
+            if serialized_default is not None:
+                _record(serialized_default)
         server_var = server_config.variables.get(name)
         if server_var is not None:
             for labeled in server_var.labels.values():
                 if isinstance(labeled, LabeledValue):
-                    refs.update(find_references(labeled.serialized_value))
+                    _record(labeled.serialized_value)
             if server_var.latest_version is not None:
-                refs.update(find_references(server_var.latest_version.serialized_value))
+                _record(server_var.latest_version.serialized_value)
         return refs
 
     # BFS the composition graph from every local variable in declaration
@@ -679,8 +691,19 @@ def _check_reference_errors(
                 dfs(node)
         return cycles
 
-    cycles = _detect_cycles(ref_graph)
     cycle_messages: list[str] = []
+    try:
+        cycles = _detect_cycles(ref_graph)
+    except RecursionError:
+        # The reference graph comes from arbitrary server config and can exceed Python's recursion
+        # limit; surface a clean, blocking error instead of crashing with a RecursionError.
+        cycles = []
+        message = (
+            'Reference graph is too deeply nested to validate for cycles; '
+            'check for an extremely long or circular @{ref}@ chain.'
+        )
+        warnings_list.append(message)
+        cycle_messages.append(message)
     for cycle in cycles:
         cycle_str = ' -> '.join(cycle)
         message = f'Reference cycle detected: {cycle_str}'
@@ -711,21 +734,37 @@ def _check_template_field_errors(
     def get_all_serialized_values(name: str) -> dict[str | None, str]:
         """Return ``{label_or_None: serialized_json}`` for *name* (None key = latest version)."""
         values: dict[str | None, str] = {}
+
+        local = locals_by_name.get(name)
+        local_default_serialized: str | None = None
+        if local is not None and not is_resolve_function(local.default):
+            try:
+                local_default_serialized = local.type_adapter.dump_json(local.default).decode('utf-8')
+            except Exception:
+                local_default_serialized = None
+
         server_var = server_config.variables.get(name)
         if server_var is not None:
             for label, labeled in server_var.labels.items():
                 if isinstance(labeled, LabeledValue):
                     values[label] = labeled.serialized_value
+                elif labeled.ref == 'code_default':
+                    # The label serves the local code default; attribute issues to this label too.
+                    if local_default_serialized is not None:
+                        values[label] = local_default_serialized
+                else:
+                    # 'latest' or an alias to another label — follow it so a `{{field}}` issue is
+                    # attributed to the user-facing label that serves the value, not just the
+                    # underlying version.
+                    serialized, _version = server_var.follow_ref(labeled)
+                    if serialized is not None:
+                        values[label] = serialized
             if server_var.latest_version is not None:
                 values[None] = server_var.latest_version.serialized_value
         # Include the local code default too, so a brand-new template variable (no server values
         # yet) is still validated against its declared inputs.
-        local = locals_by_name.get(name)
-        if local is not None and not is_resolve_function(local.default):
-            try:
-                values['code_default'] = local.type_adapter.dump_json(local.default).decode('utf-8')
-            except Exception:
-                pass
+        if local_default_serialized is not None:
+            values['code_default'] = local_default_serialized
         return values
 
     errors: list[str] = []
@@ -1062,7 +1101,9 @@ class VariableProvider(ABC):
 
         labeled_value = config.labels.get(label)
         if labeled_value is None:
-            return ResolvedVariable(name=variable_name, value=None, reason='resolved')
+            # The variable exists but this label doesn't. `reason='resolved'` with value=None was
+            # misleading (resolved implies a usable value); report missing_config instead.
+            return ResolvedVariable(name=variable_name, value=None, reason='missing_config')
 
         serialized, version = config.follow_ref(labeled_value)
         return ResolvedVariable(
@@ -1070,7 +1111,10 @@ class VariableProvider(ABC):
             value=serialized,
             label=label,
             version=version,
-            reason='resolved',
+            # A ref that resolves to nothing (e.g. a `code_default` ref the server can't supply) is
+            # not a successful resolution — surface missing_config so callers/baggage aren't told a
+            # value was used when it wasn't.
+            reason='resolved' if serialized is not None else 'missing_config',
         )
 
     def refresh(self, force: bool = False):

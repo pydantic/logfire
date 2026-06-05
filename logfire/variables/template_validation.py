@@ -59,6 +59,12 @@ class TemplateValidationResult:
 def find_template_fields(text: str) -> set[str]:
     """Find all `{{field}}` or `{{path.to.field}}` references in a string.
 
+    This is an **approximate**, regex-based helper: it does not parse Handlebars, so it
+    over-matches brace-adjacent forms such as triple-stache raw output (`{{{raw}}}` → `{'raw'}`)
+    and composition-adjacent text (`@{{x}}@` → `{'x'}`). The authoritative check used by
+    push / validate is AST-based (`check_template_compatibility`); prefer that for correctness and
+    treat this helper's output as a superset hint.
+
     Returns:
         Set of field names found in the text.
     """
@@ -149,7 +155,13 @@ def validate_template_composition(
             for ref in find_references(serialized_value):
                 _collect(ref, path + [ref], visited)
 
-    _collect(variable_name, [], frozenset())
+    try:
+        _collect(variable_name, [], frozenset())
+    except RecursionError:
+        # The composition graph comes from arbitrary server config and can nest deeper than
+        # Python's recursion limit; stop walking rather than crash. Issues found before the limit
+        # are still returned.
+        pass
 
     return TemplateValidationResult(issues=issues)
 

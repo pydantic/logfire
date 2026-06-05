@@ -117,17 +117,20 @@ def compile_runtime_template(source: str) -> CompiledTemplate:
 
 
 @lru_cache(maxsize=1024)
-def extract_composition_dependencies(template: str) -> set[str]:
+def extract_composition_dependencies(template: str) -> frozenset[str]:
     """Return the top-level `@{name}@` references in *template*.
 
     Cached because cycle / reference validation runs over the same template
     strings multiple times per push or sync. The underlying delegation goes
     to `pydantic_handlebars.extract_dependencies` configured for the
     composition delimiters, so block helpers, dotted paths, and helper
-    sub-expressions are handled AST-correctly.
+    sub-expressions are handled AST-correctly. A `frozenset` is returned so the
+    cached value can't be mutated by a caller and poison later lookups.
     """
-    return _pydantic_handlebars().extract_dependencies(
-        template, open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM
+    return frozenset(
+        _pydantic_handlebars().extract_dependencies(
+            template, open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM
+        )
     )
 
 

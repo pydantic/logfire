@@ -31,6 +31,7 @@ __all__ = (
     'ComposedReference',
     'expand_references',
     'find_references',
+    'find_references_and_errors',
     'has_references',
 )
 
@@ -43,10 +44,17 @@ __all__ = (
 # is unnecessary now that the renderer is the single source of truth.
 _HAS_OPEN_DELIM = '@{'
 
-# Dotted-reference matcher used by the unresolved-reference protection
-# helpers — those need a textual hook so the literal `@{name.field}@` source
-# substring can be replaced with a sentinel and restored after rendering.
-_DOTTED_REF_TEXT = re.compile(r'(?<!\\)@\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+)\}@')
+# Interpolation-reference matcher used by the unresolved-reference protection
+# helpers. An unresolved name is left ABSENT from the render context so it is
+# falsy in control positions (`@{#if name}@` takes the else branch), matching
+# standard Handlebars. That alone would make a bare or dotted *interpolation*
+# (`@{name}@` / `@{name.field}@`) render to an empty string, so each such
+# interpolation is replaced with a sentinel pre-render and restored afterwards
+# to keep its literal source text visible. Block/helper tags (`@{#if name}@`,
+# `@{else}@`, `@{/if}@`, …) deliberately do not match, so they render with the
+# name absent (falsy). The dotted suffix is optional so bare `@{name}@` matches
+# too.
+_INTERP_REF_TEXT = re.compile(r'(?<!\\)@\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\}@')
 
 
 MAX_COMPOSITION_DEPTH = 20
@@ -80,18 +88,20 @@ class ComposedReference:
     """How the referenced variable was resolved."""
     error: str | None = None
     """Error message if the reference could not be expanded."""
+    composed_from: list[ComposedReference] = field(default_factory=list['ComposedReference'])
+    """Nested references that were expanded within this reference."""
     fatal: bool = False
     """Whether *error* is a fatal composition failure.
 
     Fatal failures (a cycle or depth overflow) are structural — the value can't be
     meaningfully composed at all — so a consumer should discard the value and fall back.
     Non-fatal failures (an unresolved/missing reference, or a referenced variable with a
-    malformed value) are *soft*: the literal `@{ref}@` text is left in place and the rest
-    of the value still renders, so the partially-composed value is usable. Always `False`
-    when *error* is `None`.
+    malformed value) are *soft*: an unresolved reference is treated as missing — its bare
+    `@{ref}@` / `@{ref.field}@` interpolation is left in place as literal text, while in a
+    control position (`@{#if ref}@`, `@{#each ref}@`) it reads as falsy like standard
+    Handlebars — and the rest of the value still renders, so the partially-composed value
+    is usable. Always `False` when *error* is `None`.
     """
-    composed_from: list[ComposedReference] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    """Nested references that were expanded within this reference."""
 
 
 # resolve_fn signature: (ref_name) -> (serialized_value, label, version, reason)
@@ -259,15 +269,20 @@ def expand_references(
 
         context[ref_name] = raw_value
 
-    # For unresolved variable names, add a self-referential context entry so that
-    # Handlebars renders @{name}@ back as literal "@{name}@".
-    for name in unresolved_names:
-        context[name] = f'@{{{name}}}@'
-
-    # Walk the decoded value and render each string through the reference-syntax Handlebars engine.
+    # Unresolved names are intentionally left ABSENT from `context`: Handlebars
+    # then treats them as falsy/missing in control positions — `@{#if missing}@`
+    # takes the else branch, `@{#each missing}@` renders empty — matching
+    # standard Handlebars semantics rather than silently selecting a branch.
+    # Their bare/dotted *interpolation* occurrences are preserved as literal
+    # `@{name}@` text by `_render_value` (sentinel-protect), so a missing
+    # reference stays visible in the output.
     rendered = _render_value(decoded, context, unresolved_names)
 
-    result_serialized = json.dumps(rendered)
+    # ensure_ascii=False so non-ASCII characters survive as themselves in the serialized result
+    # rather than being \u-escaped — the decoded value is identical either way, but consumers that
+    # compare or display the serialized string shouldn't see surprise escaping introduced by
+    # composition.
+    result_serialized = json.dumps(rendered, ensure_ascii=False)
     return result_serialized, composed
 
 
@@ -277,7 +292,10 @@ def find_references(serialized_value: str) -> list[str]:
     Walks the decoded JSON value and runs each string containing composition
     syntax through `pydantic_handlebars.extract_dependencies`, so block
     helpers (`@{#if var}@`), dotted paths (`@{var.field}@`), and
-    subexpressions (`@{lookup obj key}@`) are all picked up correctly.
+    subexpressions (`@{lookup obj key}@`) are all picked up correctly. A string
+    whose `@{...}@` syntax can't be parsed is skipped (contributes no
+    references) so this never raises; use `find_references_and_errors` to also
+    surface those parse failures.
 
     Args:
         serialized_value: The raw JSON-serialized variable value to scan.
@@ -307,16 +325,47 @@ def _collect_ref_names(value: Any) -> set[str]:
     For each string the AST-aware
     ``pydantic_handlebars.extract_dependencies`` picks the authoritative set
     of real references (so block helpers, dotted paths, subexpressions are
-    handled correctly and Handlebars helper names are excluded).
+    handled correctly and Handlebars helper names are excluded). Strings whose
+    `@{...}@` syntax can't be parsed are skipped (see `_walk_references`), so
+    dependency discovery never raises — resolution must stay total on untrusted
+    values. Use `find_references_and_errors` when you also need those parse
+    failures surfaced.
     """
-    from logfire.variables._handlebars import extract_composition_dependencies
+    refs, _errors = _walk_references(value)
+    return refs
+
+
+def _walk_references(value: Any) -> tuple[set[str], list[str]]:
+    """Walk a decoded JSON value, returning ``(reference names, parse-error messages)``.
+
+    Each string containing composition syntax is passed to the AST-aware
+    ``pydantic_handlebars.extract_dependencies``. A malformed template
+    (``@{#if x}@`` with no close) or a reserved name (``@{true}@``) makes the
+    extractor raise — a ``HandlebarsError`` or, for reserved names, a bare
+    ``AssertionError``. Rather than propagate (which would crash
+    push / validate / resolve), the offending string is recorded as a parse
+    error and contributes no references.
+    """
+    from logfire.variables._handlebars import HandlebarsDependencyError, extract_composition_dependencies
 
     refs: set[str] = set()
+    errors: list[str] = []
 
     def _walk(v: Any) -> None:
         if isinstance(v, str):
             if has_references(v):
-                refs.update(extract_composition_dependencies(v))
+                try:
+                    refs.update(extract_composition_dependencies(v))
+                except HandlebarsDependencyError as e:
+                    # pydantic-handlebars isn't installed, so `@{...}@` composition can't be parsed
+                    # at all. Surface the clear install hint rather than a misleading "could not be
+                    # parsed" message (which would otherwise appear once per composition value).
+                    errors.append(str(e))
+                except Exception as e:
+                    # `extract_dependencies` raises HandlebarsError on malformed templates and a
+                    # bare AssertionError on reserved names, so catch broadly. The value is recorded
+                    # as a parse error instead of crashing dependency discovery.
+                    errors.append(f'value {v!r} could not be parsed as a composition template: {e}')
         elif isinstance(v, dict):
             for val in v.values():  # pyright: ignore[reportUnknownVariableType]
                 _walk(val)
@@ -325,16 +374,35 @@ def _collect_ref_names(value: Any) -> set[str]:
                 _walk(item)
 
     _walk(value)
-    return refs
+    return refs, errors
+
+
+def find_references_and_errors(serialized_value: str) -> tuple[list[str], list[str]]:
+    """Find references AND parse-error messages in a serialized value.
+
+    Like `find_references`, but also returns a message for every string whose
+    `@{...}@` syntax can't be parsed (malformed template, reserved name). Used by
+    push / validate so a malformed value is surfaced as a loud error rather than
+    silently skipped the way `find_references` does (it skips them so resolution
+    can degrade gracefully).
+
+    Returns:
+        ``(sorted unique reference names, parse-error messages)``.
+    """
+    refs, errors = _walk_references(_safe_json_load(serialized_value))
+    return sorted(refs), errors
 
 
 def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str]) -> Any:
     """Recursively walk a decoded JSON value, rendering strings through Handlebars.
 
-    Unresolved variable names are present in *context* as their literal
-    ``@{name}@`` text so the renderer preserves them in the output. Dotted
-    accesses against unresolved names are pre-protected so they retain the
-    full ``@{name.field}@`` source rather than rendering as empty.
+    Unresolved variable names are absent from *context*, so the renderer treats
+    them as falsy/missing — `@{#if missing}@` takes the else branch and a
+    missing name in a control/helper position renders empty, matching standard
+    Handlebars. To keep an unresolved *interpolation* visible, its bare and
+    dotted occurrences (`@{name}@` / `@{name.field}@`) are sentinel-protected
+    before rendering and restored afterwards, so their literal source survives
+    rather than rendering empty.
     Strings without any composition delimiter pass straight through; strings
     that contain `@{` (escaped or not) route through the renderer, which
     handles the backslash-parity escape rule.
@@ -344,7 +412,7 @@ def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str
             return value
         from logfire.variables.reference_syntax import render_once
 
-        protected_value, protected_refs = _protect_unresolved_dotted_refs(value, unresolved_names)
+        protected_value, protected_refs = _protect_unresolved_interpolations(value, unresolved_names)
         rendered = render_once(protected_value, context)
         return _restore_unresolved_refs(rendered, protected_refs)
     if isinstance(value, dict):
@@ -357,14 +425,16 @@ def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str
     return value
 
 
-def _protect_unresolved_dotted_refs(value: str, unresolved_names: set[str]) -> tuple[str, dict[str, str]]:
-    """Replace unresolved dotted reference tags with sentinels before Handlebars rendering.
+def _protect_unresolved_interpolations(value: str, unresolved_names: set[str]) -> tuple[str, dict[str, str]]:
+    """Replace unresolved-name interpolation tags with sentinels before Handlebars rendering.
 
-    With native ``@{...}@`` rendering, an unresolved name's literal text
-    placeholder in the context only retains the bare ``@{name}@`` form —
-    dotted accesses like ``@{name.field}@`` would resolve against the
-    string and produce empty output. To keep the original dotted source
-    visible we substitute a sentinel pre-render and restore it after.
+    Unresolved names are left out of the render context so they read as falsy
+    in control positions (`@{#if name}@` takes the else branch). That alone
+    would make a bare or dotted *interpolation* (`@{name}@` / `@{name.field}@`)
+    render to an empty string, so we substitute a sentinel for each such
+    interpolation pre-render and restore it after, keeping the literal source
+    visible. Block/helper tags (`@{#if name}@`, `@{#each name}@`, …) are
+    intentionally not matched, so they render with the name absent (falsy).
     """
     if not unresolved_names:
         return value, {}
@@ -379,7 +449,7 @@ def _protect_unresolved_dotted_refs(value: str, unresolved_names: set[str]) -> t
         protected_refs[sentinel] = match.group(0)
         return sentinel
 
-    return _DOTTED_REF_TEXT.sub(replace, value), protected_refs
+    return _INTERP_REF_TEXT.sub(replace, value), protected_refs
 
 
 def _restore_unresolved_refs(value: str, protected_refs: dict[str, str]) -> str:

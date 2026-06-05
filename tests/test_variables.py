@@ -870,6 +870,29 @@ class TestLocalVariableProvider:
         assert result.value is None
         assert result.reason == 'resolved'
 
+    def test_get_all_variables_config_returns_isolated_snapshot(self, simple_config: VariablesConfig):
+        """get_all_variables_config() returns a deep-copied snapshot under the lock.
+
+        Regression test: it used to return the live `self._config`, so a concurrent
+        create/update/delete mutating `variables` in place could raise
+        "dictionary changed size during iteration" in the push/validation walkers.
+        """
+        provider = LocalVariableProvider(simple_config)
+        snapshot = provider.get_all_variables_config()
+        assert set(snapshot.variables) == {'test_var'}
+        provider.create_variable(
+            VariableConfig(
+                name='added',
+                labels={'default': LabeledValue(version=1, serialized_value='"v"')},
+                rollout=Rollout(labels={'default': 1.0}),
+                overrides=[],
+            )
+        )
+        # The previously-returned snapshot is unaffected by the later write...
+        assert set(snapshot.variables) == {'test_var'}
+        # ...while a fresh snapshot reflects it.
+        assert set(provider.get_all_variables_config().variables) == {'test_var', 'added'}
+
 
 # =============================================================================
 # Test LogfireRemoteVariableProvider (using requests-mock)
@@ -917,6 +940,40 @@ class TestLogfireRemoteVariableProvider:
                 result = provider.get_serialized_value('test_var')
                 assert result.value == '"remote_value"'
                 assert result.label == 'default'
+            finally:
+                provider.shutdown()
+
+    def test_network_failure_marks_attempted_fetch(self) -> None:
+        """A failed fetch still marks `_has_attempted_fetch`, so resolves don't block on every call.
+
+        Regression test: the HTTP-failure path used to `return` before setting the flag, so with
+        `block_before_first_resolve` every `get_serialized_value` issued a fresh blocking refresh
+        while the server was unreachable.
+        """
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                # First resolve triggers a blocking refresh that fails (logged as a RuntimeWarning
+                # since no logfire instance is bound) — but the attempt must still be recorded.
+                with pytest.warns(RuntimeWarning, match='Error retrieving variables'):
+                    result = provider.get_serialized_value('test_var')
+                assert result.value is None
+                assert provider._has_attempted_fetch is True
+                assert request_mocker.call_count == 1
+                # A second resolve must NOT issue another blocking refresh now that we've attempted once.
+                provider.get_serialized_value('test_var')
+                assert request_mocker.call_count == 1
             finally:
                 provider.shutdown()
 
@@ -2793,6 +2850,35 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             finally:
                 provider.shutdown()
 
+    def test_variable_types_network_error_raises_write_error(self) -> None:
+        """list/upsert variable types surface network errors as VariableWriteError (D4).
+
+        Regression: these two methods caught only UnexpectedResponse, so a raw
+        ConnectionError/Timeout (a RequestException) leaked out, unlike create/update/delete.
+        """
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        from logfire.variables.abstract import VariableWriteError
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.get('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        request_mocker.post('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to list variable types'):
+                    provider.list_variable_types()
+                with pytest.raises(VariableWriteError, match='Failed to upsert variable type'):
+                    provider.upsert_variable_type(VariableTypeConfig(name='t', json_schema={'type': 'string'}))
+            finally:
+                provider.shutdown()
+
     def test_update_variable_success(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
@@ -3960,6 +4046,18 @@ class TestVariableToConfig:
         config = var.to_config()
         assert config.name == 'func_var'
         # Example should be None when default is a function
+        assert config.example is None
+
+    def test_to_config_with_unserializable_default(self, config_kwargs: dict[str, Any]):
+        """to_config() tolerates a non-serializable default (example=None) instead of raising.
+
+        Resolution already degrades to no example for such a default, so building a config
+        (e.g. for variables_push) must not crash where resolution wouldn't.
+        """
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='opaque', type=object, default=object())
+        config = var.to_config()
+        assert config.name == 'opaque'
         assert config.example is None
 
 
@@ -5287,7 +5385,9 @@ class TestGetSerializedValueForLabelCodeDefault:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'v1')
         assert result.value is None
-        assert result.reason == 'resolved'
+        # A label that refs code_default (which the provider can't supply a value for) is reported
+        # as missing_config, not a successful 'resolved'.
+        assert result.reason == 'missing_config'
 
 
 class TestGetSerializedValueForLabelNotFound:
@@ -5307,7 +5407,8 @@ class TestGetSerializedValueForLabelNotFound:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'nonexistent')
         assert result.value is None
-        assert result.reason == 'resolved'
+        # The variable exists but the label doesn't — reported as missing_config, not 'resolved'.
+        assert result.reason == 'missing_config'
 
 
 class TestVariableGetWithExplicitLabel:

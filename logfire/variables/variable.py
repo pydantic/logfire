@@ -137,6 +137,23 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
         return required_positional <= 2 and total_positional >= 2
 
 
+def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
+    """Emit a non-fatal resolution warning without letting it abort or corrupt resolution.
+
+    Resolution is *filter-independent*: a ``-W error`` / ``filterwarnings=error`` config would
+    otherwise turn one of these informational ``RuntimeWarning``s into an exception, which the
+    broad fallback ``except`` in ``_resolve`` then catches — replacing the correctly-computed
+    ``ResolvedVariable`` (whose ``reason``/``exception`` already carry the real signal) with a
+    bogus ``reason='other_error'`` and the ``RuntimeWarning`` as its exception. Suppressing the
+    escalation here guarantees callers always get the structured result regardless of the active
+    warning filter; the warning is still shown whenever the filter permits.
+    """
+    try:
+        warnings.warn(message, category=RuntimeWarning, stacklevel=stacklevel)
+    except Exception:
+        pass
+
+
 class Variable(Generic[T_co]):
     """A managed variable that can be resolved dynamically based on configuration."""
 
@@ -332,10 +349,8 @@ class Variable(Generic[T_co]):
                 # carried exception, and warning would double up with an inner warning that a
                 # `filterwarnings=error` config turns into the very exception caught here.)
                 default = cast('T_co', None)
-                warnings.warn(
-                    f"Variable '{self.name}' could not be resolved and its code default raised; returning None: {e}",
-                    category=RuntimeWarning,
-                    stacklevel=2,
+                _emit_resolution_warning(
+                    f"Variable '{self.name}' could not be resolved and its code default raised; returning None: {e}"
                 )
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
@@ -410,11 +425,9 @@ class Variable(Generic[T_co]):
             try:
                 serialized = variable.type_adapter.dump_json(override_value).decode('utf-8')
             except (ValueError, TypeError, RuntimeError) as e:
-                warnings.warn(
+                _emit_resolution_warning(
                     f"Context override for variable '{name}' could not be serialized while resolving "
-                    f"'{self.name}' composition; falling through to provider/code default: {e}",
-                    category=RuntimeWarning,
-                    stacklevel=2,
+                    f"'{self.name}' composition; falling through to provider/code default: {e}"
                 )
             else:
                 return ResolvedVariable(name=name, value=serialized, reason='context_override')
@@ -503,7 +516,13 @@ class Variable(Generic[T_co]):
                     serialized_result=serialized_result,
                     composed=composed,
                 )
-        except VariableCompositionError as e:
+        except (VariableCompositionError, HandlebarsError, AssertionError) as e:
+            # VariableCompositionError: cycle/depth overflow raised by expand_references.
+            # HandlebarsError / AssertionError: a malformed (`@{#if x}@`) or reserved-name
+            # (`@{true}@`) value that makes pydantic-handlebars raise while parsing/rendering —
+            # the reserved-name case surfaces as a bare AssertionError. Treat all as a composition
+            # failure and fall back to the code default (with a warning) rather than letting it
+            # escape to the broad `except` in `_resolve` as a silent `other_error`.
             return self._fallback_to_default(
                 exception=e,
                 failure_stage='composition',
@@ -520,12 +539,10 @@ class Variable(Generic[T_co]):
         # default, but warn so the unexpanded reference isn't silent (the per-reference
         # detail is also carried on `composed_from`).
         if unresolved_names := _unresolved_reference_names(composed):
-            warnings.warn(
+            _emit_resolution_warning(
                 f"Variable '{self.name}' left unresolved composition reference(s) unexpanded: "
                 f'{", ".join(repr(n) for n in unresolved_names)}. '
-                'The literal @{...}@ text is preserved in the resolved value.',
-                category=RuntimeWarning,
-                stacklevel=2,
+                'The literal @{...}@ text is preserved in the resolved value.'
             )
 
         # Apply render_fn (template rendering) if provided
@@ -569,10 +586,8 @@ class Variable(Generic[T_co]):
                 if isinstance(value_or_exc, ValidationError)
                 else value_or_exc
             )
-            warnings.warn(
-                f"Variable '{self.name}' value failed validation; falling back to code default: {warned_detail}",
-                category=RuntimeWarning,
-                stacklevel=2,
+            _emit_resolution_warning(
+                f"Variable '{self.name}' value failed validation; falling back to code default: {warned_detail}"
             )
             return ResolvedVariable(
                 name=self.name,
@@ -611,10 +626,8 @@ class Variable(Generic[T_co]):
         through different branches and shouldn't all surface as
         "composition failed".
         """
-        warnings.warn(
-            f"Variable '{self.name}' {failure_stage} failed; falling back to code default: {exception}",
-            category=RuntimeWarning,
-            stacklevel=2,
+        _emit_resolution_warning(
+            f"Variable '{self.name}' {failure_stage} failed; falling back to code default: {exception}"
         )
         return ResolvedVariable(
             name=self.name,
@@ -734,10 +747,13 @@ class Variable(Generic[T_co]):
         # Get JSON schema from the type adapter
         json_schema = self.type_adapter.json_schema()
 
-        # Get the serialized default value as an example (if not a function)
+        # Get the serialized default value as an example (if not a function). Use
+        # `_get_serialized_default`, which tolerates a non-serializable default by returning None —
+        # building a config (e.g. for variables_push) shouldn't crash where resolution would simply
+        # yield no example.
         example: str | None = None
         if not is_resolve_function(self.default):
-            example = self.type_adapter.dump_json(self.default).decode('utf-8')
+            example = self._get_serialized_default()
 
         return VariableConfig(
             name=self.name,

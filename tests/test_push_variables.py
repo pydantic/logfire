@@ -349,6 +349,39 @@ def test_compute_diff_reference_errors(mock_logfire_instance: MockLogfire) -> No
     assert any('Reference cycle detected: var_a -> var_b -> var_a' in warning for warning in diff.reference_errors)
 
 
+def test_compute_diff_reports_malformed_composition_value(mock_logfire_instance: MockLogfire) -> None:
+    """Malformed/reserved `@{...}@` values are reported as reference errors, not crashes.
+
+    `@{#if x}@` (unclosed) makes pydantic-handlebars' extractor raise a HandlebarsError, and a
+    reserved literal like `@{true}@` makes it raise a bare AssertionError. Both must be caught and
+    surfaced rather than crashing push/validate.
+    """
+    var = Variable[str](
+        name='bad',
+        default='@{#if x}@ unclosed',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'bad': VariableConfig(
+                name='bad',
+                json_schema={'type': 'string'},
+                labels={'production': LabeledValue(version=1, serialized_value='"@{true}@"')},
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([var], server_config)  # must not raise
+
+    parse_errors = [w for w in diff.reference_errors if 'could not be parsed' in w]
+    # Both the malformed local default and the reserved-name server value are reported.
+    assert any("'bad'" in w for w in parse_errors)
+    assert len(parse_errors) >= 2
+
+
 def test_compute_diff_reference_error_scan_handles_unserializable_default(
     mock_logfire_instance: MockLogfire,
 ) -> None:
@@ -584,6 +617,43 @@ def test_validate_flags_undeclared_template_field_through_composition(
 
     assert report.is_valid is False
     assert any('bonus' in e for e in report.template_field_errors)
+
+
+def test_validate_attributes_template_field_to_label_ref(mock_logfire_instance: MockLogfire) -> None:
+    """E2: a `{{field}}` issue is attributed to the user-facing label that *refs* the value.
+
+    A `LabelRef` (here `production` -> latest) used to be skipped during collection, so the issue
+    was only attributed to `latest`. Following the ref now also reports it against `production`.
+    """
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                labels={'production': LabelRef(ref='latest')},
+                latest_version=LatestVersion(version=1, serialized_value='"Hi {{user_name}}, {{bad_field}}"'),
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    prompt = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}}',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    provider = LocalVariableProvider(server_config)
+
+    report = provider.validate_variables([prompt])
+
+    assert report.is_valid is False
+    assert any('bad_field' in e and "label 'production'" in e for e in report.template_field_errors)
 
 
 def test_push_strict_blocks_undeclared_template_field(mock_logfire_instance: MockLogfire) -> None:

@@ -18,6 +18,7 @@ from logfire.variables.composition import (
     VariableCompositionError,
     expand_references,
     find_references,
+    find_references_and_errors,
 )
 from logfire.variables.config import (
     LabeledValue,
@@ -430,6 +431,27 @@ class TestFindReferences:
         serialized = json.dumps('@{this}@ @{#if this}@yes@{else}@no@{/if}@')
         assert find_references(serialized) == []
 
+    def test_malformed_template_does_not_raise(self):
+        """An unclosed block `@{#if x}@` contributes no refs instead of crashing find_references."""
+        assert find_references(json.dumps('@{#if x}@')) == []
+
+    def test_reserved_name_does_not_raise(self):
+        """A reserved literal `@{true}@` (which the extractor asserts on) doesn't crash find_references."""
+        assert find_references(json.dumps('@{true}@')) == []
+
+    def test_find_references_and_errors_reports_malformed(self):
+        """find_references_and_errors surfaces parse failures that find_references swallows."""
+        refs, errors = find_references_and_errors(json.dumps('@{#if x}@'))
+        assert refs == []
+        assert len(errors) == 1
+        assert 'could not be parsed' in errors[0]
+
+    def test_find_references_and_errors_clean_value(self):
+        """A well-formed value yields refs and no errors."""
+        refs, errors = find_references_and_errors(json.dumps('@{a}@ @{b}@'))
+        assert refs == ['a', 'b']
+        assert errors == []
+
 
 # =============================================================================
 # Tests for Handlebars-compatible @{}@ block helpers
@@ -485,6 +507,57 @@ class TestBlockHelpers:
         resolve_fn = _make_resolve_fn({'brand': '{"tagline": "Build faster"}'})
         expanded, _ = expand_references('"@{#if brand}@@{brand.tagline}@@{/if}@"', 'my_var', resolve_fn)
         assert json.loads(expanded) == 'Build faster'
+
+    def test_block_if_missing_ref_is_falsy(self):
+        """An unresolved `@{#if missing}@` is falsy (takes the else branch).
+
+        Regression test: a missing reference used to be injected into the render
+        context as the truthy literal string ``@{missing}@``, so `#if` wrongly
+        took the *then* branch — leaking content guarded behind it. Missing refs
+        are now left absent from the context, so they read as falsy like
+        standard Handlebars.
+        """
+        resolve_fn = _make_resolve_fn({'flag': None})
+        expanded, composed = expand_references('"@{#if flag}@SECRET@{else}@safe@{/if}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'safe'
+        assert len(composed) == 1
+        assert composed[0].name == 'flag'
+        assert composed[0].fatal is False
+
+    def test_block_if_missing_ref_no_else_renders_empty(self):
+        """An unresolved `@{#if missing}@` with no else branch renders empty."""
+        resolve_fn = _make_resolve_fn({'flag': None})
+        expanded, _ = expand_references('"@{#if flag}@SECRET@{/if}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == ''
+
+    def test_block_if_missing_dotted_ref_is_falsy(self):
+        """An unresolved `@{#if missing.field}@` is falsy (takes the else branch)."""
+        resolve_fn = _make_resolve_fn({'cfg': None})
+        expanded, _ = expand_references('"@{#if cfg.enabled}@on@{else}@off@{/if}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'off'
+
+    def test_block_unless_missing_ref_shows_body(self):
+        """An unresolved `@{#unless missing}@` shows its body (missing is falsy)."""
+        resolve_fn = _make_resolve_fn({'flag': None})
+        expanded, _ = expand_references('"@{#unless flag}@shown@{/unless}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'shown'
+
+    def test_block_each_missing_ref_is_empty(self):
+        """An unresolved `@{#each missing}@` iterates zero times."""
+        resolve_fn = _make_resolve_fn({'items': None})
+        expanded, _ = expand_references('"@{#each items}@x@{/each}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == ''
+
+    def test_missing_ref_interpolation_preserved_alongside_falsy_block(self):
+        """A missing ref stays literal when interpolated, but is falsy in a control position."""
+        resolve_fn = _make_resolve_fn({'name': None})
+        expanded, composed = expand_references(
+            '"Hi @{name}@! @{#if name}@VIP@{else}@guest@{/if}@ tail=@{name.title}@"', 'my_var', resolve_fn
+        )
+        assert json.loads(expanded) == 'Hi @{name}@! guest tail=@{name.title}@'
+        assert len(composed) == 1
+        assert composed[0].name == 'name'
+        assert composed[0].fatal is False
 
     def test_reference_and_curly_placeholders_preserved(self):
         """@{greeting}@ expands, {{user.name}} is preserved for later rendering."""
@@ -746,6 +819,49 @@ class TestCompositionIntegration:
         assert result.value == 'fallback'
         assert result.exception is not None
         assert result.reason == 'other_error'
+
+    def test_validation_failure_reason_is_filter_independent(self, config_kwargs: dict[str, Any]):
+        """Under `filterwarnings=error`, a validation failure still reports reason='validation_error'.
+
+        Regression for the warning/`except` coupling (B1): a soft `RuntimeWarning` escalated to an
+        error by `-W error` used to be caught by the broad fallback `except` in `_resolve`,
+        replacing the computed result with `reason='other_error'` and the `RuntimeWarning` as its
+        exception. `_emit_resolution_warning` now suppresses that escalation so resolution is
+        filter-independent.
+        """
+        import warnings as _warnings
+
+        from pydantic import ValidationError
+
+        variables_config = _make_variables_config(main='"not an int"')
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='main', default=0, type=int)
+        with _warnings.catch_warnings():
+            _warnings.simplefilter('error')
+            result = var.get()
+        assert result.reason == 'validation_error'
+        assert result.value == 0
+        assert isinstance(result.exception, ValidationError)
+
+    def test_malformed_composition_value_falls_back(self, config_kwargs: dict[str, Any]):
+        """A malformed `@{...}@` stored value falls back to the code default instead of crashing (A3).
+
+        `@{#if x}@` (unclosed) makes pydantic-handlebars raise while rendering during resolution;
+        `_expand_and_deserialize` catches it and routes to the code-default fallback with a warning,
+        carrying the real parse error on `.exception` rather than letting it escape uncaught.
+        """
+        from logfire.variables._handlebars import HandlebarsError
+
+        variables_config = _make_variables_config(main='"@{#if x}@ oops"')
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='main', default='fallback', type=str)
+        with pytest.warns(RuntimeWarning, match='composition failed'):
+            result = var.get()
+        assert result.value == 'fallback'
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, HandlebarsError)
 
     def test_callable_default_invoked_once_on_composition_failure(
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch

@@ -2562,6 +2562,11 @@ class Logfire:
                     'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
                     '`type` must be provided to specify the variable value type.'
                 )
+            if default is None:
+                raise TypeError(
+                    'When `default` is None, `type` must be provided (e.g. `type=Optional[int]`); '
+                    'the variable value type cannot be inferred from a None default.'
+                )
             tp = cast(Type[T], default.__class__)  # noqa UP006
         else:
             tp = type
@@ -2575,6 +2580,9 @@ class Logfire:
                 'not starting with a digit).'
             )
 
+        # Variables are expected to be defined once at import time (single-threaded), so this
+        # check-then-insert is not locked. If you register variables concurrently from multiple
+        # threads, guard your own registration to preserve the uniqueness guarantee.
         if name in self._variables:
             raise ValueError(
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
@@ -2673,6 +2681,11 @@ class Logfire:
                     'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
                     '`type` must be provided to specify the variable value type.'
                 )
+            if default is None:
+                raise TypeError(
+                    'When `default` is None, `type` must be provided (e.g. `type=Optional[int]`); '
+                    'the variable value type cannot be inferred from a None default.'
+                )
             tp = cast(Type[T], default.__class__)  # noqa UP006
         else:
             tp = type
@@ -2684,6 +2697,9 @@ class Logfire:
                 'not starting with a digit).'
             )
 
+        # Variables are expected to be defined once at import time (single-threaded), so this
+        # check-then-insert is not locked. If you register variables concurrently from multiple
+        # threads, guard your own registration to preserve the uniqueness guarantee.
         if name in self._variables:
             raise ValueError(
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
