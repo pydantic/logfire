@@ -258,6 +258,11 @@ def test_compute_diff_template_inputs_schema_change(mock_logfire_instance: MockL
     assert change.change_type == 'update_schema'
     assert change.template_inputs_schema is not None
     assert 'user_name' in change.template_inputs_schema['properties']
+    # Only the template-inputs schema changed; the value's JSON schema is unchanged.
+    assert change.inputs_schema_changed is True
+    assert change.value_schema_changed is False
+    # The diff labels precisely which schema changed instead of a generic "(schema changed)".
+    assert '(template inputs schema)' in _format_diff(diff)
 
     provider = LocalVariableProvider(server_config)
     _apply_changes(provider, diff, server_config)
@@ -524,6 +529,120 @@ def test_format_diff_reference_errors() -> None:
     assert 'missing' in output
 
 
+def test_validate_flags_undeclared_template_field(mock_logfire_instance: MockLogfire) -> None:
+    """`validate_variables` flags a `{{field}}` not declared in the template inputs schema."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}}, code={{secret_code}}',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+
+    report = provider.validate_variables([var])
+
+    assert report.is_valid is False
+    assert any('secret_code' in e for e in report.template_field_errors)
+    assert 'Template field errors' in report.format(colors=False)
+
+
+def test_validate_flags_undeclared_template_field_through_composition(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """An undeclared `{{field}}` in a composed `@{fragment}@` is flagged against the prompt's schema."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    # A server-side fragment whose value contains a field not in the prompt's inputs schema.
+    server_config = VariablesConfig(
+        variables={
+            'fragment': VariableConfig(
+                name='fragment',
+                json_schema={'type': 'string'},
+                labels={'production': LabeledValue(version=1, serialized_value='"extra {{bonus}}"')},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            )
+        }
+    )
+    prompt = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}} @{fragment}@',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    provider = LocalVariableProvider(server_config)
+
+    report = provider.validate_variables([prompt])
+
+    assert report.is_valid is False
+    assert any('bonus' in e for e in report.template_field_errors)
+
+
+def test_push_strict_blocks_undeclared_template_field(mock_logfire_instance: MockLogfire) -> None:
+    """Strict push fails on an undeclared `{{field}}`; nothing is applied."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}}, code={{secret_code}}',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+
+    assert provider.push_variables([var], strict=True, yes=True) is False
+    assert provider.get_all_variables_config().variables == {}
+
+
+def test_push_non_strict_warns_undeclared_template_field(
+    mock_logfire_instance: MockLogfire, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Non-strict push applies but warns on an undeclared `{{field}}` (renders empty at runtime)."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = TemplateVariable[str, Inputs](
+        name='prompt',
+        default='Hi {{user_name}}, code={{secret_code}}',
+        type=str,
+        inputs_type=Inputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+
+    assert provider.push_variables([var], strict=False, yes=True) is True
+    out = capsys.readouterr().out
+    assert 'template field' in out.lower() and 'secret_code' in out
+    assert 'synced successfully' not in out
+
+
+def test_format_diff_reference_cycles() -> None:
+    """Cycles render under a distinct blocking section, separate from missing-ref warnings."""
+    diff = VariableDiff(
+        changes=[],
+        orphaned_server_variables=[],
+        reference_errors=['Reference cycle detected: a -> b -> a'],
+        reference_cycles=['Reference cycle detected: a -> b -> a'],
+    )
+
+    output = _format_diff(diff)
+
+    assert 'Reference cycles' in output
+    assert 'a -> b -> a' in output
+
+
 def test_validation_report_format_reference_and_description_warnings() -> None:
     """Validation reports include informational reference and description warnings."""
     report = ValidationReport(
@@ -571,6 +690,45 @@ def test_push_variables_strict_fails_with_reference_errors(mock_logfire_instance
 
     assert provider.push_variables([var], strict=True, yes=True) is False
     assert provider.get_all_variables_config().variables == {}
+
+
+def test_push_variables_blocks_cycle_even_non_strict(mock_logfire_instance: MockLogfire) -> None:
+    """A cyclic reference blocks the push even in non-strict mode — it can never resolve."""
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+    var = Variable[str](
+        name='prompt',
+        default='@{prompt}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+
+    assert provider.push_variables([var], strict=False, yes=True) is False
+    # Nothing was applied — a known-broken cyclic variable is not published.
+    assert provider.get_all_variables_config().variables == {}
+
+
+def test_push_variables_warns_but_applies_missing_ref_non_strict(
+    mock_logfire_instance: MockLogfire, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A missing (non-cyclic) reference is a non-strict warning; the push still applies.
+
+    Unlike a cycle, a missing reference may legitimately resolve in another codebase/environment,
+    so non-strict push applies it — but surfaces a prominent warning and does *not* advertise a
+    clean "synced successfully".
+    """
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+    var = Variable[str](
+        name='prompt',
+        default='Hello @{missing}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+
+    assert provider.push_variables([var], strict=False, yes=True) is True
+    out = capsys.readouterr().out
+    assert 'Warning' in out and 'missing' in out
+    assert 'synced successfully' not in out
+    assert 'prompt' in provider.get_all_variables_config().variables
 
 
 def test_variable_diff_has_changes_true() -> None:

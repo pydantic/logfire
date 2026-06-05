@@ -255,7 +255,14 @@ print(render('{{greeting}}', {'greeting': 'Hello, {{name}}!', 'name': 'Alice'}))
 Because resolution walks an arbitrary graph, two failure modes need explicit handling: cycles (`A → @{B}@`, `B → @{A}@`) and deep chains. Both are caught at two layers:
 
 - **Push / sync time** — `logfire.variables_validate()` reports reference errors and cycles; `logfire.variables_push(strict=True)` fails instead of applying an invalid configuration. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a cycle whose midpoint is a server-only variable is still detected. This is the loud-by-default path.
-- **Runtime** — if an invalid composition slips through (e.g. a server value changed between validation and the next resolve), `Variable.get()` catches the cycle (via a visited-set) or depth overflow (`MAX_COMPOSITION_DEPTH = 20`) and falls back to the variable's *code default* with a `RuntimeWarning`. The exception is recorded on `ResolvedVariable.exception` and the resolution reason becomes `'other_error'` so callers can detect and react. The same fallback applies when a `@{ref}@` points at a variable that doesn't exist at runtime — this differs from a missing `{{field}}` (Handlebars' empty-string substitution); composition treats unresolvable references as a real failure.
+- **Runtime** — if an invalid composition slips through (e.g. a server value changed between validation and the next resolve), `Variable.get()` catches the cycle (via a visited-set) or depth overflow (`MAX_COMPOSITION_DEPTH = 20`) and falls back to the variable's *code default* with a `RuntimeWarning`. The exception is recorded on `ResolvedVariable.exception` and the resolution reason becomes `'other_error'` so callers can detect and react.
+
+A `@{ref}@` that points at a variable that doesn't exist (or whose value can't be decoded) at runtime is treated as a **soft** failure, not a fatal one: the literal `@{ref}@` text is left in place, the rest of the value still renders, and the partially-composed value is returned with its normal resolution reason — the whole value is *not* discarded for the code default. A `RuntimeWarning` names the unresolved reference, and the corresponding `ComposedReference` in `composed_from` carries its `error` with `fatal=False`, so the miss is observable without losing the good parts. Only cycles and depth overflow (`fatal=True`) trigger the code-default fallback described above.
+
+!!! note "An unresolved `@{ref}@` stays visible — deliberately unlike a missing `{{field}}`"
+    This is an intentional difference from standard Handlebars. A missing `{{field}}` renders as an **empty string** (`{{nope}}` → ``), but an unresolved `@{ref}@` is left **literally in the output** (`@{nope}@` → `@{nope}@`).
+
+    The two cases aren't equivalent. A `{{field}}` is a per-request input that is often legitimately optional, whereas a `@{ref}@` points at *another managed variable that is supposed to exist* — a missing one is a configuration error (a typo, or a fragment that hasn't been created yet). Leaving the literal makes that error **loud and in-band**: a broken `@{safety_rules}@` shows up verbatim in the resolved prompt and in your traces, instead of the safety fragment silently disappearing into a clean-looking-but-wrong prompt. For composed prompt fragments — especially safety- or policy-relevant ones — a visible failure is far safer than a silent omission that only surfaces in a warning. (If you need the value to be valid even when a reference is missing, give the referencing variable a complete code default; resolution falls back to it for cycles and depth overflows, and you can detect the soft case via `composed_from`.)
 
 ```python
 import warnings
@@ -280,5 +287,29 @@ with warnings.catch_warnings(record=True) as caught:
         print(resolved.reason, isinstance(resolved.exception, VariableCompositionError))
         #> other_error True
     print(any('composition failed' in str(w.message) for w in caught))
+    #> True
+```
+
+A reference to a variable that simply doesn't exist is a **soft** failure by contrast: the literal `@{ref}@` is kept and the value is still returned, just with a warning.
+
+```python
+import warnings
+
+import logfire
+
+logfire.configure()
+
+greeting = logfire.var('greeting_with_missing_ref', type=str, default='Hello @{absent_name}@, welcome!')
+
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter('always')
+    with greeting.get() as resolved:
+        # The value is kept — the unresolved reference is left in place, not discarded.
+        print(resolved.value)
+        #> Hello @{absent_name}@, welcome!
+        # The miss is recorded as a non-fatal entry in composed_from.
+        print(resolved.composed_from[0].name, resolved.composed_from[0].fatal)
+        #> absent_name False
+    print(any('unresolved composition reference' in str(w.message) for w in caught))
     #> True
 ```

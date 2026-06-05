@@ -195,14 +195,14 @@ class Variable(Generic[T_co]):
         *value* (or the result of calling it as a `ResolveFunction`) instead
         of consulting the provider or code default.
 
-        ## Composition is skipped
+        ## Composition still applies
 
-        Overrides do **not** participate in `@{ref}@` composition: *value*
-        is treated as the user's literal choice and is returned as-is, not
-        as a template to expand. If you override with the string
-        `'hi @{user}@'`, the `@{user}@` is *not* substituted — the result
-        is the literal string. Use composition by leaving the override off
-        and letting the default / provider value drive resolution.
+        Overrides **do** participate in `@{ref}@` composition: *value* runs
+        through the same compose → render → deserialize pipeline as a stored
+        value, so it can stand in for a candidate stored value (e.g. during
+        iterative optimization) and resolve identically to how it would once
+        pushed. If you override with the string `'hi @{user}@'`, the
+        `@{user}@` *is* expanded against the live provider/config.
 
         ## Template rendering still applies to TemplateVariable
 
@@ -270,14 +270,15 @@ class Variable(Generic[T_co]):
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
             # Top-level context-override fast path: handled here, before
-            # `_lookup_serialized` even sees the name. Overrides do not
-            # participate in `@{ref}@` composition (their value is the user's
-            # literal choice), and the round-trip through dump_json /
-            # validate_json that `_lookup_serialized` would otherwise perform
-            # silently drops any value that isn't JSON-serializable. Restore
-            # the pre-#1951 behaviour: if the override serializes, take the
-            # render path; if it doesn't, return the typed Python value
-            # verbatim.
+            # `_lookup_serialized` even sees the name. The override runs
+            # through the same compose (`@{ref}@`) → render (`{{}}`) →
+            # deserialize pipeline as a stored value (see
+            # `_resolve_context_override`), and the round-trip through
+            # dump_json / validate_json that `_lookup_serialized` would
+            # otherwise perform silently drops any value that isn't
+            # JSON-serializable. Restore the pre-#1951 behaviour: if the
+            # override serializes, take the compose/render path; if it
+            # doesn't, return the typed Python value verbatim.
             context_overrides = _VARIABLE_OVERRIDES.get()
             if context_overrides is not None and self.name in context_overrides:
                 return self._resolve_context_override(
@@ -321,7 +322,21 @@ class Variable(Generic[T_co]):
             try:
                 default = self._get_default_cached(targeting_key, attributes)
             except Exception:
+                # The code default itself failed (e.g. a callable default raised), so there is
+                # genuinely nothing left to fall back to. Warn loudly and return None rather than
+                # swallowing both errors: this is the most fundamental failure mode (the
+                # last-resort default is broken), yet it was previously the one fallback path
+                # that stayed silent while composition/render/validation failures all warned.
+                # (When the default *is* usable we don't warn here: that path is reached for any
+                # unexpected internal error and already signals via reason='other_error' + the
+                # carried exception, and warning would double up with an inner warning that a
+                # `filterwarnings=error` config turns into the very exception caught here.)
                 default = cast('T_co', None)
+                warnings.warn(
+                    f"Variable '{self.name}' could not be resolved and its code default raised; returning None: {e}",
+                    category=RuntimeWarning,
+                    stacklevel=2,
+                )
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _resolve_context_override(
@@ -472,9 +487,11 @@ class Variable(Generic[T_co]):
                 self.name,
                 resolve_ref,
             )
-            if composition_error := _first_composition_error(composed):
+            if fatal_error := _first_fatal_composition_error(composed):
+                # Cycles / depth overflow are structural failures — the value can't be
+                # meaningfully composed — so discard it and fall back to the code default.
                 return self._fallback_to_default(
-                    exception=VariableCompositionError(composition_error),
+                    exception=VariableCompositionError(fatal_error),
                     failure_stage='composition',
                     targeting_key=targeting_key,
                     attributes=attributes,
@@ -489,6 +506,21 @@ class Variable(Generic[T_co]):
                 attributes=attributes,
                 serialized_result=serialized_result,
                 composed=composed,
+            )
+
+        # Soft, per-reference failures (a missing/unresolvable `@{ref}@`, or a referenced
+        # variable with a malformed value) are NOT fatal: composition leaves the literal
+        # `@{ref}@` text in place and the rest of the value still renders. Keep the
+        # partially-composed value rather than discarding the whole thing for the code
+        # default, but warn so the unexpanded reference isn't silent (the per-reference
+        # detail is also carried on `composed_from`).
+        if unresolved_names := _unresolved_reference_names(composed):
+            warnings.warn(
+                f"Variable '{self.name}' left unresolved composition reference(s) unexpanded: "
+                f'{", ".join(repr(n) for n in unresolved_names)}. '
+                'The literal @{...}@ text is preserved in the resolved value.',
+                category=RuntimeWarning,
+                stacklevel=2,
             )
 
         # Apply render_fn (template rendering) if provided
@@ -511,7 +543,16 @@ class Variable(Generic[T_co]):
             if span:  # pragma: no branch
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_value)
-            reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+            # Reaching here means `_deserialize` returned an exception, i.e. the
+            # fetched/composed/rendered value could not be deserialized to the declared
+            # type. Report this uniformly as 'validation_error' regardless of whether the
+            # failure surfaced as a pydantic `ValidationError` or as a `ValueError`/`TypeError`
+            # raised inside a custom validator: the distinction hinges on a non-obvious pydantic
+            # detail (it wraps `ValueError`/`AssertionError` but not `TypeError`), and splitting
+            # the machine-readable reason on it contradicts the "value failed validation" warning
+            # below and the documented meaning of `validation_error` ("the serialized value
+            # failed deserialization").
+            reason: str = 'validation_error'
             # A value was fetched/composed/rendered but failed validation. Warn before falling
             # back to the code default, mirroring the composition/render failure warnings so the
             # substitution isn't silent (the asymmetry Alex flagged on #1954).
@@ -889,14 +930,36 @@ def get_template_inputs_schema(variable: Variable[Any]) -> dict[str, Any] | None
     return None
 
 
-def _first_composition_error(composed: list[ComposedReference]) -> str | None:
-    """Return the first nested composition error, if any."""
+def _first_fatal_composition_error(composed: list[ComposedReference]) -> str | None:
+    """Return the first *fatal* nested composition error (cycle / depth overflow), if any.
+
+    Soft, per-reference failures (a missing/unresolvable reference, or a referenced variable
+    with a malformed value) are deliberately ignored here: composition leaves the literal
+    `@{ref}@` text in place for those, so the partially-composed value is still usable and
+    should not trigger a wholesale fallback to the code default.
+    """
     for ref in composed:
-        if ref.error is not None:
+        if ref.error is not None and ref.fatal:
             return ref.error
-        if nested_error := _first_composition_error(ref.composed_from):
+        if nested_error := _first_fatal_composition_error(ref.composed_from):
             return nested_error
     return None
+
+
+def _unresolved_reference_names(composed: list[ComposedReference]) -> list[str]:
+    """Return the names of references that failed *softly* (left unexpanded), in order, deduped."""
+    names: list[str] = []
+    seen: set[str] = set()
+
+    def _walk(refs: list[ComposedReference]) -> None:
+        for ref in refs:
+            if ref.error is not None and not ref.fatal and ref.name not in seen:
+                seen.add(ref.name)
+                names.append(ref.name)
+            _walk(ref.composed_from)
+
+    _walk(composed)
+    return names
 
 
 @contextmanager

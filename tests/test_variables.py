@@ -1712,7 +1712,10 @@ class TestVariable:
             result = var.get()
         assert result.value == TypeErrorModel(value=0)
         assert isinstance(result.exception, TypeError)
-        assert result.reason == 'other_error'
+        # A validator raising TypeError is still a deserialization failure, so the reason
+        # matches the "value failed validation" warning (rather than splitting on whether
+        # pydantic wrapped the error into a ValidationError).
+        assert result.reason == 'validation_error'
         assert result.label == 'default'
         assert result.version == 1
 
@@ -1781,7 +1784,7 @@ class TestVariable:
                 )
 
         assert type_error_result.value == TypeErrorModel(value=0)
-        assert type_error_result.reason == 'other_error'
+        assert type_error_result.reason == 'validation_error'
         assert isinstance(type_error_result.exception, TypeError)
 
     def test_render_fn_applies_to_code_default(self, config_kwargs: dict[str, Any]):
@@ -1835,7 +1838,8 @@ class TestVariable:
 
         var = lf.var(name='unconfigured', default=bad_default, type=str)
 
-        result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
+        with pytest.warns(RuntimeWarning, match='could not be resolved and its code default raised'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
 
         assert result.reason == 'other_error'
         assert result.exception is default_error

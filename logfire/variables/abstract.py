@@ -275,6 +275,8 @@ class VariableChange:
     server_description: str | None = None
     description_differs: bool = False  # True if descriptions differ (for warning)
     template_inputs_schema: dict[str, Any] | None = None  # JSON Schema for template inputs
+    value_schema_changed: bool = False  # True if the value's JSON schema changed (for 'update_schema')
+    inputs_schema_changed: bool = False  # True if the template-inputs schema changed (for 'update_schema')
 
 
 @dataclass
@@ -284,7 +286,16 @@ class VariableDiff:
     changes: list[VariableChange]
     orphaned_server_variables: list[str]  # Variables on server not in local code
     reference_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    """Warnings about variable references (non-existent refs, cycles, etc.)."""
+    """All reference problems (non-existent refs *and* cycles)."""
+    reference_cycles: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """The subset of `reference_errors` that are cycles.
+
+    Cycles are unconditionally unresolvable (no environment can satisfy `A -> B -> A`), so a
+    push blocks on them even in non-strict mode — unlike a missing reference, which may
+    legitimately resolve in another codebase/environment and is only a warning in non-strict.
+    """
+    template_field_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """`{{field}}` references that aren't declared in a template variable's inputs schema."""
 
     @property
     def has_changes(self) -> bool:
@@ -336,7 +347,11 @@ class ValidationReport:
     description_differences: list[DescriptionDifference]
     """List of variables where local and server descriptions differ."""
     reference_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    """Errors found while checking `@{variable}@` references (missing refs, cycles, etc.)."""
+    """Errors found while checking `@{variable}@` references (missing refs *and* cycles)."""
+    reference_cycles: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """The subset of `reference_errors` that are cycles (always-fatal, vs. possibly-resolvable missing refs)."""
+    template_field_errors: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """`{{field}}` references that aren't declared in a template variable's inputs schema."""
 
     @property
     def has_errors(self) -> bool:
@@ -346,7 +361,12 @@ class ValidationReport:
     @property
     def is_valid(self) -> bool:
         """Return False if there are validation errors, missing variables, or reference errors."""
-        return len(self.errors) == 0 and len(self.variables_not_on_server) == 0 and len(self.reference_errors) == 0
+        return (
+            len(self.errors) == 0
+            and len(self.variables_not_on_server) == 0
+            and len(self.reference_errors) == 0
+            and len(self.template_field_errors) == 0
+        )
 
     def format(self, *, colors: bool = True) -> str:
         """Format the validation report for human-readable output.
@@ -410,9 +430,20 @@ class ValidationReport:
             for error in self.reference_errors:
                 lines.append(f'  {red}✗ {error}{reset}')
 
+        # Show template field errors
+        if self.template_field_errors:
+            lines.append(f'\n{red}=== Template field errors ==={reset}')
+            for error in self.template_field_errors:
+                lines.append(f'  {red}✗ {error}{reset}')
+
         # Summary line
         if not self.is_valid:
-            issue_count = variables_with_errors + len(self.variables_not_on_server) + len(self.reference_errors)
+            issue_count = (
+                variables_with_errors
+                + len(self.variables_not_on_server)
+                + len(self.reference_errors)
+                + len(self.template_field_errors)
+            )
             lines.append(f'\n{red}Validation failed: {issue_count} issue(s) found.{reset}')
         else:
             lines.append(f'\n{green}Validation passed: All {self.variables_checked} variable(s) are valid.{reset}')
@@ -545,8 +576,12 @@ def _check_type_label_compatibility(
 def _check_reference_errors(
     variables: Sequence[Variable[object]],
     server_config: VariablesConfig,
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     """Check for reference errors: non-existent refs and cycles.
+
+    Returns ``(all_errors, cycles)`` where ``all_errors`` lists every problem (missing
+    references followed by cycles) and ``cycles`` is the cycle subset. Callers block on
+    cycles unconditionally but treat missing references as non-strict warnings.
 
     Walks the full composition graph starting from each locally-registered
     variable, transitively following `@{ref}@` edges into server-only
@@ -645,11 +680,68 @@ def _check_reference_errors(
         return cycles
 
     cycles = _detect_cycles(ref_graph)
+    cycle_messages: list[str] = []
     for cycle in cycles:
         cycle_str = ' -> '.join(cycle)
-        warnings_list.append(f'Reference cycle detected: {cycle_str}')
+        message = f'Reference cycle detected: {cycle_str}'
+        warnings_list.append(message)
+        cycle_messages.append(message)
 
-    return warnings_list
+    return warnings_list, cycle_messages
+
+
+def _check_template_field_errors(
+    variables: Sequence[Variable[object]],
+    server_config: VariablesConfig,
+) -> list[str]:
+    """Check that every `{{field}}` reference is declared in the template's inputs schema.
+
+    For each local template variable, validates the `{{field}}` references in its values — and in
+    the values reachable through `@{ref}@` composition — against its declared
+    `template_inputs_schema`. An undeclared field renders to an empty string at runtime
+    (Handlebars' missing-field behaviour), so surfacing it at push / validate time turns a silent
+    footgun into a loud, actionable error.
+    """
+    from logfire.variables.config import LabeledValue
+    from logfire.variables.template_validation import validate_template_composition
+    from logfire.variables.variable import get_template_inputs_schema, is_resolve_function
+
+    locals_by_name = {v.name: v for v in variables}
+
+    def get_all_serialized_values(name: str) -> dict[str | None, str]:
+        """Return ``{label_or_None: serialized_json}`` for *name* (None key = latest version)."""
+        values: dict[str | None, str] = {}
+        server_var = server_config.variables.get(name)
+        if server_var is not None:
+            for label, labeled in server_var.labels.items():
+                if isinstance(labeled, LabeledValue):
+                    values[label] = labeled.serialized_value
+            if server_var.latest_version is not None:
+                values[None] = server_var.latest_version.serialized_value
+        # Include the local code default too, so a brand-new template variable (no server values
+        # yet) is still validated against its declared inputs.
+        local = locals_by_name.get(name)
+        if local is not None and not is_resolve_function(local.default):
+            try:
+                values['code_default'] = local.type_adapter.dump_json(local.default).decode('utf-8')
+            except Exception:
+                pass
+        return values
+
+    errors: list[str] = []
+    for variable in variables:
+        schema = get_template_inputs_schema(variable)
+        if schema is None:
+            continue  # not a template variable — nothing to check
+        result = validate_template_composition(variable.name, schema, get_all_serialized_values)
+        for issue in result.issues:
+            field_ref = '{{' + issue.field_name + '}}'
+            label_str = 'latest' if issue.found_in_label is None else repr(issue.found_in_label)
+            errors.append(
+                f"Variable '{variable.name}': template field {field_ref!r} is not declared in its "
+                f"template inputs schema (found in '{issue.found_in_variable}', label {label_str})."
+            )
+    return errors
 
 
 def _compute_diff(
@@ -725,6 +817,8 @@ def _compute_diff(
                         server_description=server_description,
                         description_differs=description_differs,
                         template_inputs_schema=template_inputs_schema,
+                        value_schema_changed=schema_changed,
+                        inputs_schema_changed=template_inputs_schema_changed,
                     )
                 )
             else:
@@ -746,9 +840,16 @@ def _compute_diff(
     orphaned = [name for name in server_config.variables.keys() if name not in local_names]
 
     # Check for reference errors (non-existent refs, cycles)
-    reference_errors = _check_reference_errors(variables, server_config)
+    reference_errors, reference_cycles = _check_reference_errors(variables, server_config)
+    template_field_errors = _check_template_field_errors(variables, server_config)
 
-    return VariableDiff(changes=changes, orphaned_server_variables=orphaned, reference_errors=reference_errors)
+    return VariableDiff(
+        changes=changes,
+        orphaned_server_variables=orphaned,
+        reference_errors=reference_errors,
+        reference_cycles=reference_cycles,
+        template_field_errors=template_field_errors,
+    )
 
 
 def _format_diff(diff: VariableDiff) -> str:
@@ -774,7 +875,18 @@ def _format_diff(diff: VariableDiff) -> str:
     if updates:
         lines.append(f'\n{ANSI_YELLOW}=== Variables to UPDATE (schema changed) ==={ANSI_RESET}')
         for change in updates:
-            lines.append(f'  {ANSI_YELLOW}~ {change.name}{ANSI_RESET}')
+            # Distinguish what actually changed: the value's JSON schema, the template-inputs
+            # schema, or both — so a template-inputs-only change doesn't read as "(schema changed)"
+            # for the value type.
+            if change.value_schema_changed and change.inputs_schema_changed:
+                detail = ' (value + template inputs schema)'
+            elif change.inputs_schema_changed:
+                detail = ' (template inputs schema)'
+            elif change.value_schema_changed:
+                detail = ' (value schema)'
+            else:
+                detail = ''
+            lines.append(f'  {ANSI_YELLOW}~ {change.name}{detail}{ANSI_RESET}')
             if change.incompatible_labels:
                 lines.append(f'    {ANSI_RED}Warning: Incompatible label values:{ANSI_RESET}')
                 for compat in change.incompatible_labels:
@@ -811,11 +923,25 @@ def _format_diff(diff: VariableDiff) -> str:
             lines.append(f'    Local:  {local_desc}')
             lines.append(f'    Server: {server_desc}')
 
-    # Show reference errors
-    if diff.reference_errors:
+    # Show reference problems. Cycles always block the push, so they're rendered as red
+    # errors (matching `ValidationReport.format`); missing references are non-blocking in
+    # non-strict mode, so they're rendered as yellow warnings.
+    cycle_set = set(diff.reference_cycles)
+    reference_warnings = [e for e in diff.reference_errors if e not in cycle_set]
+    if reference_warnings:
         lines.append(f'\n{ANSI_YELLOW}=== Reference errors ==={ANSI_RESET}')
-        for warning in diff.reference_errors:
+        for warning in reference_warnings:
             lines.append(f'  {ANSI_YELLOW}⚠ {warning}{ANSI_RESET}')
+    if diff.reference_cycles:
+        lines.append(f'\n{ANSI_RED}=== Reference cycles (block the push) ==={ANSI_RESET}')
+        for cycle in diff.reference_cycles:
+            lines.append(f'  {ANSI_RED}✗ {cycle}{ANSI_RESET}')
+
+    # Show template field errors (undeclared `{{field}}` references).
+    if diff.template_field_errors:
+        lines.append(f'\n{ANSI_YELLOW}=== Template field errors ==={ANSI_RESET}')
+        for error in diff.template_field_errors:
+            lines.append(f'  {ANSI_YELLOW}⚠ {error}{ANSI_RESET}')
 
     return '\n'.join(lines)
 
@@ -1288,12 +1414,53 @@ class VariableProvider(ABC):
         # Show diff
         print(_format_diff(diff))
 
+        # Cycles are unconditionally unresolvable (no environment satisfies `A -> B -> A`),
+        # so block them even in non-strict mode. Missing references, by contrast, may
+        # legitimately resolve in another codebase/environment, so they only hard-fail under
+        # strict and are otherwise surfaced as a warning below.
+        if diff.reference_cycles:
+            print(
+                f'\n{ANSI_RED}Error: reference cycle(s) detected.\n'
+                f'A cyclic reference can never resolve, so this is blocked even without strict=True. '
+                f'Fix the cycle before pushing.{ANSI_RESET}'
+            )
+            return False
+
+        # `reference_errors` here is missing-reference-only (cycles returned above).
         if diff.reference_errors and strict:
             print(
                 f'\n{ANSI_RED}Error: Reference errors found.\n'
                 f'Fix these references or set strict=False to proceed anyway.{ANSI_RESET}'
             )
             return False
+        elif diff.reference_errors:
+            # Non-strict: don't block (the reference may exist elsewhere), but surface the
+            # problem as a prominent trailing warning rather than only inside the diff body
+            # (parity with the incompatible-labels warning below), so it isn't lost before the
+            # success line.
+            count = len(diff.reference_errors)
+            print(
+                f'\n{ANSI_YELLOW}Warning: {count} reference(s) point at variable(s) not found in '
+                f'this push (see above). The affected variables will not resolve until those '
+                f'exist; re-run with strict=True to block on this.{ANSI_RESET}'
+            )
+
+        # Undeclared `{{field}}` references: strict blocks, non-strict warns (the field renders
+        # to an empty string at runtime).
+        if diff.template_field_errors and strict:
+            print(
+                f'\n{ANSI_RED}Error: Template field errors found.\n'
+                f'Declare these fields in the template inputs schema or set strict=False to '
+                f'proceed anyway.{ANSI_RESET}'
+            )
+            return False
+        elif diff.template_field_errors:
+            count = len(diff.template_field_errors)
+            print(
+                f'\n{ANSI_YELLOW}Warning: {count} template field(s) are not declared in the '
+                f'template inputs schema (see above). They will render to an empty string at '
+                f'runtime; re-run with strict=True to block on this.{ANSI_RESET}'
+            )
 
         # Check for incompatible label values across all change types
         incompatible_changes = [c for c in diff.changes if c.incompatible_labels]
@@ -1341,7 +1508,16 @@ class VariableProvider(ABC):
             print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}')
             return False
 
-        print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
+        # Don't claim a clean "synced successfully" when warnings were applied alongside the
+        # changes (unresolved references, undeclared template fields, or incompatible label
+        # values in non-strict mode).
+        if diff.reference_errors or diff.template_field_errors or incompatible_changes:
+            print(
+                f'\n{ANSI_YELLOW}Done — changes applied, but with warnings above '
+                f'(see the Reference errors / incompatible label sections).{ANSI_RESET}'
+            )
+        else:
+            print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
         return True
 
     def validate_variables(
@@ -1422,7 +1598,8 @@ class VariableProvider(ABC):
                     )
 
         # Check for reference errors
-        reference_errors = _check_reference_errors(variables, server_config)
+        reference_errors, reference_cycles = _check_reference_errors(variables, server_config)
+        template_field_errors = _check_template_field_errors(variables, server_config)
 
         return ValidationReport(
             errors=errors,
@@ -1430,6 +1607,8 @@ class VariableProvider(ABC):
             variables_not_on_server=variables_not_on_server,
             description_differences=description_differences,
             reference_errors=reference_errors,
+            reference_cycles=reference_cycles,
+            template_field_errors=template_field_errors,
         )
 
     # --- Variable Types API ---

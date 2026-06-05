@@ -80,6 +80,16 @@ class ComposedReference:
     """How the referenced variable was resolved."""
     error: str | None = None
     """Error message if the reference could not be expanded."""
+    fatal: bool = False
+    """Whether *error* is a fatal composition failure.
+
+    Fatal failures (a cycle or depth overflow) are structural — the value can't be
+    meaningfully composed at all — so a consumer should discard the value and fall back.
+    Non-fatal failures (an unresolved/missing reference, or a referenced variable with a
+    malformed value) are *soft*: the literal `@{ref}@` text is left in place and the rest
+    of the value still renders, so the partially-composed value is usable. Always `False`
+    when *error* is `None`.
+    """
     composed_from: list[ComposedReference] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     """Nested references that were expanded within this reference."""
 
@@ -213,6 +223,8 @@ def expand_references(
                 )
                 raw_value = json.loads(expanded_serialized)
             except VariableCompositionError as e:
+                # A cycle or depth overflow within the referenced value: this is a
+                # structural (fatal) failure, not a benign missing reference.
                 composed.append(
                     ComposedReference(
                         name=ref_name,
@@ -221,6 +233,7 @@ def expand_references(
                         version=ref_version,
                         reason=ref_reason,
                         error=str(e),
+                        fatal=True,
                     )
                 )
                 unresolved_names.add(ref_name)
