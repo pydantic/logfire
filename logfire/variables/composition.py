@@ -10,8 +10,8 @@ field reads, block helpers (including with dotted or sub-expression headers like
 Meanwhile, any `{{runtime}}` placeholders are preserved untouched for later
 template rendering.
 
-The composition logic is shared between the SDK (client-side expansion) and the
-backend OFREP endpoint (server-side expansion).
+The composition logic is pure and backend-safe, so server-side evaluation paths
+can reuse it when they need the same expansion semantics as SDK resolution.
 """
 
 from __future__ import annotations

@@ -799,16 +799,7 @@ class Variable(Generic[T_co]):
                 }
                 if result.composed_from:
                     attrs['composed_from'] = json.dumps(
-                        [
-                            {
-                                'name': c.name,
-                                'version': c.version,
-                                'label': c.label,
-                                'reason': c.reason,
-                                'error': c.error,
-                            }
-                            for c in result.composed_from
-                        ]
+                        [_serialize_composed_reference(c) for c in result.composed_from]
                     )
                 span.set_attributes(attrs)
                 if result.exception:
@@ -933,6 +924,20 @@ def get_template_inputs_schema(variable: Variable[Any]) -> dict[str, Any] | None
     if isinstance(variable, TemplateVariable):
         return variable.get_template_inputs_schema()
     return None
+
+
+def _serialize_composed_reference(ref: ComposedReference) -> dict[str, Any]:
+    """Serialize a composition reference for OTel span attributes."""
+    data: dict[str, Any] = {
+        'name': ref.name,
+        'version': ref.version,
+        'label': ref.label,
+        'reason': ref.reason,
+        'error': ref.error,
+    }
+    if ref.composed_from:
+        data['composed_from'] = [_serialize_composed_reference(c) for c in ref.composed_from]
+    return data
 
 
 def _first_fatal_composition_error(composed: list[ComposedReference]) -> str | None:

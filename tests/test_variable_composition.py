@@ -1009,6 +1009,35 @@ class TestCompositionIntegration:
         assert composed_data[0]['version'] == 1
         assert composed_data[0]['label'] == 'production'
 
+    def test_span_attributes_include_nested_composition_chain(
+        self, config_kwargs: dict[str, Any], exporter: TestExporter
+    ):
+        """Span attributes include nested composed_from entries, matching the resolution result."""
+        variables_config = _make_variables_config(
+            leaf='"LEAF"',
+            middle='"middle wraps @{leaf}@"',
+            main='"top: @{middle}@"',
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='main', default='fallback', type=str)
+        exporter.clear()
+
+        result = var.get()
+        assert result.value == 'top: middle wraps LEAF'
+        assert result.composed_from[0].composed_from[0].name == 'leaf'
+
+        resolve_spans = [s for s in exporter.exported_spans if s.name == 'Resolve variable main']
+        attrs = dict(resolve_spans[-1].attributes or {})
+        composed_from_json = attrs.get('composed_from')
+        assert isinstance(composed_from_json, str)
+        composed_data = json.loads(composed_from_json)
+
+        assert composed_data[0]['name'] == 'middle'
+        assert composed_data[0]['composed_from'][0]['name'] == 'leaf'
+        assert composed_data[0]['composed_from'][0]['version'] == 1
+
     def test_span_attributes_without_composition(self, config_kwargs: dict[str, Any], exporter: TestExporter):
         """Span attributes do NOT include composed_from when no composition occurs."""
         variables_config = _make_variables_config(
