@@ -22,9 +22,9 @@ class ProxyLoggerProvider(LoggerProvider):
 
     provider: LoggerProvider
 
-    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet)  # pyright: ignore[reportUnknownVariableType]
+    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet['ProxyLogger'])
     lock: Lock = dataclasses.field(default_factory=Lock)
-    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set[str])
     min_level: int = 0
 
     def get_logger(
