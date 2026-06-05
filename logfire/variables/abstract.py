@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     import logfire
     from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
+    from logfire.variables.template_validation import TemplateFieldIssue
     from logfire.variables.variable import Variable
 
 # ANSI color codes for terminal output
@@ -294,8 +295,15 @@ class VariableDiff:
     push blocks on them even in non-strict mode — unlike a missing reference, which may
     legitimately resolve in another codebase/environment and is only a warning in non-strict.
     """
-    template_field_errors: list[str] = field(default_factory=list[str])
-    """`{{field}}` references that aren't declared in a template variable's inputs schema."""
+    template_field_issues: list[TemplateFieldIssue] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Template `{{field}}` references that don't match a TemplateVariable's declared `inputs_type`.
+
+    Covers both locally-declared code defaults and server-stored label values
+    (so a server template authored against an older schema flags a mismatch
+    against the local `inputs_type`). Composition `@{ref}@` chains are
+    followed; an incompatible reference in a chained-in variable shows the
+    composition path that led to it.
+    """
 
     @property
     def has_changes(self) -> bool:
@@ -350,8 +358,8 @@ class ValidationReport:
     """Errors found while checking `@{variable}@` references (missing refs *and* cycles)."""
     reference_cycles: list[str] = field(default_factory=list[str])
     """The subset of `reference_errors` that are cycles (always-fatal, vs. possibly-resolvable missing refs)."""
-    template_field_errors: list[str] = field(default_factory=list[str])
-    """`{{field}}` references that aren't declared in a template variable's inputs schema."""
+    template_field_issues: list[TemplateFieldIssue] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Template `{{field}}` references that don't match a TemplateVariable's declared `inputs_type`."""
 
     @property
     def has_errors(self) -> bool:
@@ -365,7 +373,7 @@ class ValidationReport:
             len(self.errors) == 0
             and len(self.variables_not_on_server) == 0
             and len(self.reference_errors) == 0
-            and len(self.template_field_errors) == 0
+            and len(self.template_field_issues) == 0
         )
 
     def format(self, *, colors: bool = True) -> str:
@@ -430,11 +438,20 @@ class ValidationReport:
             for error in self.reference_errors:
                 lines.append(f'  {red}✗ {error}{reset}')
 
-        # Show template field errors
-        if self.template_field_errors:
-            lines.append(f'\n{red}=== Template field errors ==={reset}')
-            for error in self.template_field_errors:
-                lines.append(f'  {red}✗ {error}{reset}')
+        # Show template-field issues
+        if self.template_field_issues:
+            lines.append(f'\n{red}=== Template field issues ==={reset}')
+            for issue in self.template_field_issues:
+                location = issue.found_in_variable
+                if issue.found_in_label is not None:
+                    location += f' (label: {issue.found_in_label})'
+                chain = ''
+                if issue.reference_path:
+                    chain = f' via @{{{"} -> @{".join(issue.reference_path)}}}@'
+                lines.append(
+                    f'  {red}✗ {{{{{issue.field_name}}}}} in {location}{chain}'
+                    f' is not declared in the inputs_type schema{reset}'
+                )
 
         # Summary line
         if not self.is_valid:
@@ -442,7 +459,7 @@ class ValidationReport:
                 variables_with_errors
                 + len(self.variables_not_on_server)
                 + len(self.reference_errors)
-                + len(self.template_field_errors)
+                + len(self.template_field_issues)
             )
             lines.append(f'\n{red}Validation failed: {issue_count} issue(s) found.{reset}')
         else:
@@ -571,6 +588,75 @@ def _check_type_label_compatibility(
                 )
             )
     return incompatible
+
+
+def _collect_template_field_issues(
+    variables: Sequence[Variable[object]],
+    server_config: VariablesConfig,
+) -> list[TemplateFieldIssue]:
+    """Validate `{{field}}` references in every TemplateVariable against its declared schema.
+
+    For each `TemplateVariable`, walks the composition graph and checks
+    every template string — in the local code default, in any server-stored
+    label value, and in any referenced variable's values — against the
+    variable's `inputs_type` JSON schema. Mismatches are returned as
+    `TemplateFieldIssue` entries.
+
+    Covers both push-time goals D and E in #1950: D wires the existing
+    composition-aware validator into the sync path; E surfaces the case
+    where a server-stored template was authored against an older schema
+    that's incompatible with the current local `inputs_type`.
+
+    """
+    from logfire.variables.template_validation import validate_template_composition
+    from logfire.variables.variable import TemplateVariable, is_resolve_function
+
+    issues: list[TemplateFieldIssue] = []
+    locals_by_name = {v.name: v for v in variables}
+
+    def get_all_serialized_values(name: str) -> dict[str | None, str]:
+        """Return ``{label_or_None: serialized_json}`` for every value *name* can serve.
+
+        Each server label is resolved through its ref chain (`follow_ref`), so `LabelRef`
+        labels — including refs to the reserved ``latest`` / ``code_default`` targets — are
+        followed and keyed by the label's own name. That way a template issue is reported
+        against the label that actually serves the offending value. The latest version is
+        keyed ``'latest'``, and the local code default is keyed ``None`` ("the value served
+        when the rollout routes to ``code_default`` or selects no label").
+
+        The code default is always included when present, independent of any server value:
+        the runtime can serve it even when a ``latest_version`` exists (empty rollout /
+        100%-code-default), so it must be validated too. ``'latest'`` and ``None`` can't
+        collide with a server label — ``latest`` is a reserved label name (see `LabelRef`)
+        and ``None`` is not a string.
+        """
+        result: dict[str | None, str] = {}
+        server_var = server_config.variables.get(name)
+        if server_var is not None:
+            for label, labeled in server_var.labels.items():
+                serialized, _ = server_var.follow_ref(labeled)
+                if serialized is not None:
+                    result[label] = serialized
+            if server_var.latest_version is not None:
+                result.setdefault('latest', server_var.latest_version.serialized_value)
+        local_var = locals_by_name.get(name)
+        if local_var is not None and not is_resolve_function(local_var.default):
+            try:
+                result[None] = local_var.type_adapter.dump_json(local_var.default).decode('utf-8')
+            except Exception:  # pragma: no cover
+                # Defensive: a registered variable's default normally serializes against its own
+                # type adapter. If it somehow doesn't, skip validating it rather than crash the push.
+                pass
+        return result
+
+    for variable in variables:
+        if not isinstance(variable, TemplateVariable):
+            continue
+        schema = variable.get_template_inputs_schema()
+        result = validate_template_composition(variable.name, schema, get_all_serialized_values)
+        issues.extend(result.issues)
+
+    return issues
 
 
 def _check_reference_errors(
@@ -713,76 +799,6 @@ def _check_reference_errors(
     return warnings_list, cycle_messages
 
 
-def _check_template_field_errors(
-    variables: Sequence[Variable[object]],
-    server_config: VariablesConfig,
-) -> list[str]:
-    """Check that every `{{field}}` reference is declared in the template's inputs schema.
-
-    For each local template variable, validates the `{{field}}` references in its values — and in
-    the values reachable through `@{ref}@` composition — against its declared
-    `template_inputs_schema`. An undeclared field renders to an empty string at runtime
-    (Handlebars' missing-field behaviour), so surfacing it at push / validate time turns a silent
-    footgun into a loud, actionable error.
-    """
-    from logfire.variables.config import LabeledValue
-    from logfire.variables.template_validation import validate_template_composition
-    from logfire.variables.variable import get_template_inputs_schema, is_resolve_function
-
-    locals_by_name = {v.name: v for v in variables}
-
-    def get_all_serialized_values(name: str) -> dict[str | None, str]:
-        """Return ``{label_or_None: serialized_json}`` for *name* (None key = latest version)."""
-        values: dict[str | None, str] = {}
-
-        local = locals_by_name.get(name)
-        local_default_serialized: str | None = None
-        if local is not None and not is_resolve_function(local.default):
-            try:
-                local_default_serialized = local.type_adapter.dump_json(local.default).decode('utf-8')
-            except Exception:
-                local_default_serialized = None
-
-        server_var = server_config.variables.get(name)
-        if server_var is not None:
-            for label, labeled in server_var.labels.items():
-                if isinstance(labeled, LabeledValue):
-                    values[label] = labeled.serialized_value
-                elif labeled.ref == 'code_default':
-                    # The label serves the local code default; attribute issues to this label too.
-                    if local_default_serialized is not None:
-                        values[label] = local_default_serialized
-                else:
-                    # 'latest' or an alias to another label — follow it so a `{{field}}` issue is
-                    # attributed to the user-facing label that serves the value, not just the
-                    # underlying version.
-                    serialized, _version = server_var.follow_ref(labeled)
-                    if serialized is not None:
-                        values[label] = serialized
-            if server_var.latest_version is not None:
-                values[None] = server_var.latest_version.serialized_value
-        # Include the local code default too, so a brand-new template variable (no server values
-        # yet) is still validated against its declared inputs.
-        if local_default_serialized is not None:
-            values['code_default'] = local_default_serialized
-        return values
-
-    errors: list[str] = []
-    for variable in variables:
-        schema = get_template_inputs_schema(variable)
-        if schema is None:
-            continue  # not a template variable — nothing to check
-        result = validate_template_composition(variable.name, schema, get_all_serialized_values)
-        for issue in result.issues:
-            field_ref = '{{' + issue.field_name + '}}'
-            label_str = 'latest' if issue.found_in_label is None else repr(issue.found_in_label)
-            errors.append(
-                f"Variable '{variable.name}': template field {field_ref!r} is not declared in its "
-                f"template inputs schema (found in '{issue.found_in_variable}', label {label_str})."
-            )
-    return errors
-
-
 def _compute_diff(
     variables: Sequence[Variable[object]],
     server_config: VariablesConfig,
@@ -880,14 +896,19 @@ def _compute_diff(
 
     # Check for reference errors (non-existent refs, cycles)
     reference_errors, reference_cycles = _check_reference_errors(variables, server_config)
-    template_field_errors = _check_template_field_errors(variables, server_config)
+
+    # Check template variables' `{{field}}` references against their declared
+    # `inputs_type` JSON schemas (D + E in #1950): catches both local code
+    # defaults with mismatched fields and server-stored templates authored
+    # against an older schema.
+    template_field_issues = _collect_template_field_issues(variables, server_config)
 
     return VariableDiff(
         changes=changes,
         orphaned_server_variables=orphaned,
         reference_errors=reference_errors,
         reference_cycles=reference_cycles,
-        template_field_errors=template_field_errors,
+        template_field_issues=template_field_issues,
     )
 
 
@@ -976,11 +997,21 @@ def _format_diff(diff: VariableDiff) -> str:
         for cycle in diff.reference_cycles:
             lines.append(f'  {ANSI_RED}✗ {cycle}{ANSI_RESET}')
 
-    # Show template field errors (undeclared `{{field}}` references).
-    if diff.template_field_errors:
-        lines.append(f'\n{ANSI_YELLOW}=== Template field errors ==={ANSI_RESET}')
-        for error in diff.template_field_errors:
-            lines.append(f'  {ANSI_YELLOW}⚠ {error}{ANSI_RESET}')
+    # Show template-field issues: {{field}} references that don't match the
+    # template variable's declared inputs schema.
+    if diff.template_field_issues:
+        lines.append(f'\n{ANSI_YELLOW}=== Template field issues ==={ANSI_RESET}')
+        for issue in diff.template_field_issues:
+            location = issue.found_in_variable
+            if issue.found_in_label is not None:
+                location += f' (label: {issue.found_in_label})'
+            chain = ''
+            if issue.reference_path:
+                chain = f' via @{{{"} -> @{".join(issue.reference_path)}}}@'
+            lines.append(
+                f'  {ANSI_YELLOW}⚠ {{{{{issue.field_name}}}}} in {location}{chain}'
+                f' is not declared in the inputs_type schema{ANSI_RESET}'
+            )
 
     return '\n'.join(lines)
 
@@ -1491,21 +1522,21 @@ class VariableProvider(ABC):
                 f'exist; re-run with strict=True to block on this.{ANSI_RESET}'
             )
 
-        # Undeclared `{{field}}` references: strict blocks, non-strict warns (the field renders
-        # to an empty string at runtime).
-        if diff.template_field_errors and strict:
+        # Undeclared/mismatched `{{field}}` references: strict blocks, non-strict warns (an
+        # undeclared field renders to an empty string at runtime).
+        if diff.template_field_issues and strict:
             print(
-                f'\n{ANSI_RED}Error: Template field errors found.\n'
-                f'Declare these fields in the template inputs schema or set strict=False to '
-                f'proceed anyway.{ANSI_RESET}'
+                f'\n{ANSI_RED}Error: Template field issues found.\n'
+                f'Fix the template `{{{{field}}}}` references or update the variable inputs_type, '
+                f'or set strict=False to proceed anyway.{ANSI_RESET}'
             )
             return False
-        elif diff.template_field_errors:
-            count = len(diff.template_field_errors)
+        elif diff.template_field_issues:
+            count = len(diff.template_field_issues)
             print(
-                f'\n{ANSI_YELLOW}Warning: {count} template field(s) are not declared in the '
-                f'template inputs schema (see above). They will render to an empty string at '
-                f'runtime; re-run with strict=True to block on this.{ANSI_RESET}'
+                f'\n{ANSI_YELLOW}Warning: {count} template field issue(s) found (see above). '
+                f'Undeclared fields render to an empty string at runtime; re-run with strict=True '
+                f'to block on this.{ANSI_RESET}'
             )
 
         # Check for incompatible label values across all change types
@@ -1557,7 +1588,7 @@ class VariableProvider(ABC):
         # Don't claim a clean "synced successfully" when warnings were applied alongside the
         # changes (unresolved references, undeclared template fields, or incompatible label
         # values in non-strict mode).
-        if diff.reference_errors or diff.template_field_errors or incompatible_changes:
+        if diff.reference_errors or diff.template_field_issues or incompatible_changes:
             print(
                 f'\n{ANSI_YELLOW}Done — changes applied, but with warnings above '
                 f'(see the Reference errors / incompatible label sections).{ANSI_RESET}'
@@ -1645,7 +1676,9 @@ class VariableProvider(ABC):
 
         # Check for reference errors
         reference_errors, reference_cycles = _check_reference_errors(variables, server_config)
-        template_field_errors = _check_template_field_errors(variables, server_config)
+
+        # Validate template variables' `{{field}}` references against their schemas.
+        template_field_issues = _collect_template_field_issues(variables, server_config)
 
         return ValidationReport(
             errors=errors,
@@ -1654,7 +1687,7 @@ class VariableProvider(ABC):
             description_differences=description_differences,
             reference_errors=reference_errors,
             reference_cycles=reference_cycles,
-            template_field_errors=template_field_errors,
+            template_field_issues=template_field_issues,
         )
 
     # --- Variable Types API ---

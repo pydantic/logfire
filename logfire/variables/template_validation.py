@@ -44,7 +44,7 @@ class TemplateFieldIssue:
     found_in_variable: str
     """Name of the variable whose value contains this field reference."""
     found_in_label: str | None
-    """Label of the value where the field was found, or `None` for the latest version."""
+    """Label of the value where the field was found, or `None` for the code default."""
     reference_path: list[str]
     """Composition path from the root variable to `found_in_variable`."""
 
@@ -116,7 +116,8 @@ def validate_template_composition(
         variable_name: Name of the template variable to validate.
         template_inputs_schema: JSON Schema describing the expected template inputs.
         get_all_serialized_values: Function that returns `{label_or_none: serialized_json}`
-            for any variable name.  `None` key represents the latest version.
+            for any variable name. Each key is the label that serves that value; the
+            `None` key is the code default, and `'latest'` is the latest version.
 
     Returns:
         A :class:`TemplateValidationResult` with any issues found.

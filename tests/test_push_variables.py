@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
+from inline_snapshot import snapshot
 from pydantic import BaseModel
 
 import logfire
@@ -27,6 +28,7 @@ from logfire.variables.abstract import (
 )
 from logfire.variables.config import LabeledValue, LabelRef, LatestVersion, Rollout, VariableConfig, VariablesConfig
 from logfire.variables.local import LocalVariableProvider
+from logfire.variables.template_validation import TemplateFieldIssue
 from logfire.variables.variable import TemplateVariable, Variable
 
 
@@ -225,18 +227,111 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
     assert diff.has_changes is True
 
 
-def test_compute_diff_template_inputs_schema_change(mock_logfire_instance: MockLogfire) -> None:
+def test_compute_diff_template_field_issues_local_default() -> None:
+    """A local code default that references an undeclared input field surfaces as a template_field_issue."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{nickname}}!',  # nickname is not in Inputs
+        type=str,
+        inputs_type=Inputs,
+    )
+    server_config = VariablesConfig(variables={})
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.template_field_issues) == 1
+    issue = diff.template_field_issues[0]
+    assert issue.field_name == 'nickname'
+    assert issue.found_in_variable == 'prompt'
+    # `None` label key represents the code default in
+    # `validate_template_composition`'s contract.
+    assert issue.found_in_label is None
+
+
+def test_compute_diff_template_field_issues_server_label() -> None:
+    """Server-stored label values are validated against the local inputs_type schema."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{user_name}}!',  # local default is fine
+        type=str,
+        inputs_type=Inputs,
+    )
+    # Server has a label value authored against an older schema that included
+    # `nickname` — now incompatible with the local Inputs declaration.
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={
+                    'type': 'object',
+                    'properties': {'user_name': {'type': 'string'}, 'nickname': {'type': 'string'}},
+                    'required': ['user_name'],
+                },
+                labels={'production': LabeledValue(version=1, serialized_value='"Hi {{nickname}}!"')},
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    field_names = {issue.field_name for issue in diff.template_field_issues}
+    labels = {issue.found_in_label for issue in diff.template_field_issues}
+    assert 'nickname' in field_names
+    assert 'production' in labels
+
+
+def test_compute_diff_template_field_issues_follow_composition() -> None:
+    """A `{{field}}` reference inside a composed-in fragment is reported with the composition path."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    # `prompt` composes in `fragment`, which references {{nickname}} (not declared).
+    prompt = logfire.template_var(
+        name='prompt',
+        default='Greeting: @{fragment}@',
+        type=str,
+        inputs_type=Inputs,
+    )
+    fragment = logfire.var(
+        name='fragment',
+        default='Hi {{nickname}}!',
+        type=str,
+    )
+    server_config = VariablesConfig(variables={})
+
+    diff = _compute_diff([prompt, fragment], server_config)
+
+    assert any(
+        issue.field_name == 'nickname'
+        and issue.found_in_variable == 'fragment'
+        and issue.reference_path == ['fragment']
+        for issue in diff.template_field_issues
+    )
+
+
+def test_compute_diff_template_inputs_schema_change() -> None:
     """A template inputs schema change is pushed even if the value schema is unchanged."""
 
     class NewInputs(BaseModel):
         user_name: str
 
-    var = TemplateVariable[str, NewInputs](
+    var = logfire.template_var(
         name='prompt',
         default='Hello {{user_name}}',
         type=str,
         inputs_type=NewInputs,
-        logfire_instance=mock_logfire_instance,  # type: ignore
     )
     server_config = VariablesConfig(
         variables={
@@ -562,119 +657,6 @@ def test_format_diff_reference_errors() -> None:
     assert 'missing' in output
 
 
-def test_validate_flags_undeclared_template_field(mock_logfire_instance: MockLogfire) -> None:
-    """`validate_variables` flags a `{{field}}` not declared in the template inputs schema."""
-
-    class Inputs(BaseModel):
-        user_name: str
-
-    var = TemplateVariable[str, Inputs](
-        name='prompt',
-        default='Hi {{user_name}}, code={{secret_code}}',
-        type=str,
-        inputs_type=Inputs,
-        logfire_instance=mock_logfire_instance,  # type: ignore
-    )
-    provider = LocalVariableProvider(VariablesConfig(variables={}))
-
-    report = provider.validate_variables([var])
-
-    assert report.is_valid is False
-    assert any('secret_code' in e for e in report.template_field_errors)
-    assert 'Template field errors' in report.format(colors=False)
-
-
-def test_validate_flags_undeclared_template_field_through_composition(
-    mock_logfire_instance: MockLogfire,
-) -> None:
-    """An undeclared `{{field}}` in a composed `@{fragment}@` is flagged against the prompt's schema."""
-
-    class Inputs(BaseModel):
-        user_name: str
-
-    # A server-side fragment whose value contains a field not in the prompt's inputs schema.
-    server_config = VariablesConfig(
-        variables={
-            'fragment': VariableConfig(
-                name='fragment',
-                json_schema={'type': 'string'},
-                labels={'production': LabeledValue(version=1, serialized_value='"extra {{bonus}}"')},
-                rollout=Rollout(labels={}),
-                overrides=[],
-            )
-        }
-    )
-    prompt = TemplateVariable[str, Inputs](
-        name='prompt',
-        default='Hi {{user_name}} @{fragment}@',
-        type=str,
-        inputs_type=Inputs,
-        logfire_instance=mock_logfire_instance,  # type: ignore
-    )
-    provider = LocalVariableProvider(server_config)
-
-    report = provider.validate_variables([prompt])
-
-    assert report.is_valid is False
-    assert any('bonus' in e for e in report.template_field_errors)
-
-
-def test_validate_attributes_template_field_to_label_ref(mock_logfire_instance: MockLogfire) -> None:
-    """E2: a `{{field}}` issue is attributed to the user-facing label that *refs* the value.
-
-    A `LabelRef` (here `production` -> latest) used to be skipped during collection, so the issue
-    was only attributed to `latest`. Following the ref now also reports it against `production`.
-    """
-
-    class Inputs(BaseModel):
-        user_name: str
-
-    server_config = VariablesConfig(
-        variables={
-            'prompt': VariableConfig(
-                name='prompt',
-                json_schema={'type': 'string'},
-                labels={'production': LabelRef(ref='latest')},
-                latest_version=LatestVersion(version=1, serialized_value='"Hi {{user_name}}, {{bad_field}}"'),
-                rollout=Rollout(labels={'production': 1.0}),
-                overrides=[],
-            )
-        }
-    )
-    prompt = TemplateVariable[str, Inputs](
-        name='prompt',
-        default='Hi {{user_name}}',
-        type=str,
-        inputs_type=Inputs,
-        logfire_instance=mock_logfire_instance,  # type: ignore
-    )
-    provider = LocalVariableProvider(server_config)
-
-    report = provider.validate_variables([prompt])
-
-    assert report.is_valid is False
-    assert any('bad_field' in e and "label 'production'" in e for e in report.template_field_errors)
-
-
-def test_push_strict_blocks_undeclared_template_field(mock_logfire_instance: MockLogfire) -> None:
-    """Strict push fails on an undeclared `{{field}}`; nothing is applied."""
-
-    class Inputs(BaseModel):
-        user_name: str
-
-    var = TemplateVariable[str, Inputs](
-        name='prompt',
-        default='Hi {{user_name}}, code={{secret_code}}',
-        type=str,
-        inputs_type=Inputs,
-        logfire_instance=mock_logfire_instance,  # type: ignore
-    )
-    provider = LocalVariableProvider(VariablesConfig(variables={}))
-
-    assert provider.push_variables([var], strict=True, yes=True) is False
-    assert provider.get_all_variables_config().variables == {}
-
-
 def test_push_non_strict_warns_undeclared_template_field(
     mock_logfire_instance: MockLogfire, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -799,6 +781,285 @@ def test_push_variables_warns_but_applies_missing_ref_non_strict(
     assert 'Warning' in out and 'missing' in out
     assert 'synced successfully' not in out
     assert 'prompt' in provider.get_all_variables_config().variables
+
+
+def test_format_diff_template_field_issues() -> None:
+    """Template field issues are shown in the formatted diff, with label and composition path when present."""
+    diff = VariableDiff(
+        changes=[],
+        orphaned_server_variables=[],
+        template_field_issues=[
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='prompt',
+                found_in_label=None,
+                reference_path=[],
+            ),
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='fragment',
+                found_in_label='production',
+                reference_path=['fragment'],
+            ),
+        ],
+    )
+
+    output = _format_diff(diff)
+
+    assert 'Template field issues' in output
+    assert '{{nickname}} in prompt' in output
+    assert '{{nickname}} in fragment (label: production) via @{fragment}@' in output
+
+
+def test_validation_report_format_template_field_issues() -> None:
+    """ValidationReport.format() includes a section for template_field_issues with label and composition path."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=1,
+        variables_not_on_server=[],
+        description_differences=[],
+        template_field_issues=[
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='prompt',
+                found_in_label=None,
+                reference_path=[],
+            ),
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='fragment',
+                found_in_label='production',
+                reference_path=['fragment'],
+            ),
+        ],
+    )
+
+    output = report.format(colors=False)
+
+    assert 'Template field issues' in output
+    assert '{{nickname}} in prompt' in output
+    assert '{{nickname}} in fragment (label: production) via @{fragment}@' in output
+    assert 'Validation failed' in output
+    assert report.is_valid is False
+
+
+def test_push_variables_strict_fails_with_template_field_issues() -> None:
+    """Strict push fails when template field issues are present, leaving the provider unchanged."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{nickname}}!',  # nickname is not in Inputs
+        type=str,
+        inputs_type=Inputs,
+    )
+
+    assert provider.push_variables([var], strict=True, yes=True) is False
+    assert provider.get_all_variables_config().variables == {}
+
+
+def test_compute_diff_template_field_issues_skips_label_refs() -> None:
+    """LabelRef entries in server labels are skipped when collecting serialized values for validation."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{user_name}}!',
+        type=str,
+        inputs_type=Inputs,
+    )
+    # `staging` is a LabelRef pointing at `production` — only the LabeledValue should be
+    # walked when checking template fields.
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                labels={
+                    'production': LabeledValue(version=1, serialized_value='"Hi {{user_name}}!"'),
+                    'staging': LabelRef(version=1, ref='production'),
+                },
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert diff.template_field_issues == []
+
+
+def test_compute_diff_template_field_issues_tolerates_unserializable_composed_ref():
+    """A composed-in variable with an unserializable default doesn't crash template-field validation."""
+
+    # `fragment.default = object()` is not JSON-serializable; the walker should swallow
+    # the dump_json error and continue.
+    fragment = logfire.var(
+        name='fragment',
+        default=object(),
+        type=object,
+    )
+    # Fragment lives on the server so `_compute_diff` skips its serialize-default path;
+    # we want `_collect_template_field_issues` to be the one that exercises dump_json.
+    server_config = VariablesConfig(
+        variables={
+            'fragment': VariableConfig(
+                name='fragment',
+                json_schema={},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([fragment], server_config)
+
+    # No crash — the fragment's default is silently skipped, no template issues surface from it.
+    assert diff == snapshot(
+        VariableDiff(
+            changes=[VariableChange(name='fragment', change_type='no_change')],
+            orphaned_server_variables=[],
+        )
+    )
+
+
+def test_compute_diff_template_field_issues_from_latest_version() -> None:
+    """A server `latest_version` value (without label coverage) is validated against the local inputs_type."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{user_name}}!',
+        type=str,
+        inputs_type=Inputs,
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+                latest_version=LatestVersion(version=1, serialized_value='"Hi {{nickname}}!"'),
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    field_names = {issue.field_name for issue in diff.template_field_issues}
+    labels = {issue.found_in_label for issue in diff.template_field_issues}
+    assert 'nickname' in field_names
+    assert 'latest' in labels  # latest_version is keyed under the reserved 'latest' label
+
+
+def test_compute_diff_template_field_issues_code_default_with_latest_version() -> None:
+    """The local code default is validated even when the server has a `latest_version`.
+
+    Regression test for the case where both competed for the `None` key: the code default
+    used to be dropped whenever a `latest_version` existed, so an invalid code default slipped
+    past push validation — even though it can still be served at runtime (empty rollout /
+    `code_default` routing). The code default is now keyed `None` independently.
+    """
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{local_missing}}!',  # invalid: references an undeclared field
+        type=str,
+        inputs_type=Inputs,
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+                latest_version=LatestVersion(version=1, serialized_value='"Hi {{user_name}}!"'),  # valid
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    issues = {(issue.field_name, issue.found_in_label) for issue in diff.template_field_issues}
+    assert ('local_missing', None) in issues  # code default validated under None despite latest_version
+
+
+def test_compute_diff_template_field_issues_label_ref_reported_against_label() -> None:
+    """A `LabelRef` is followed and the issue is reported against the label that serves the value."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hi {{user_name}}!',  # valid local default
+        type=str,
+        inputs_type=Inputs,
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'user_name': {'type': 'string'}}},
+                # production pinned to latest; fallback routes to the code default (resolves to None)
+                labels={'production': LabelRef(ref='latest'), 'fallback': LabelRef(ref='code_default')},
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+                latest_version=LatestVersion(version=2, serialized_value='"Hi {{nickname}}!"'),  # invalid
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    issues = {(issue.field_name, issue.found_in_label) for issue in diff.template_field_issues}
+    # The invalid latest value is served via the `production` ref and reported against that label
+    # (previously LabelRefs were skipped entirely), as well as the reserved 'latest' key. The
+    # `fallback` label refs the code default and resolves to None, so it contributes no value.
+    assert ('nickname', 'production') in issues
+    assert ('nickname', 'latest') in issues
+    assert 'fallback' not in {label for _, label in issues}
+
+
+def test_compute_diff_template_field_issues_skips_resolve_function_default() -> None:
+    """A template variable whose code default is a resolve function isn't statically validated."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    def make_default(targeting_key: str | None, attributes: Any) -> str:
+        return 'Hi {{user_name}}!'
+
+    var = logfire.template_var(
+        name='prompt',
+        default=make_default,
+        type=str,
+        inputs_type=Inputs,
+    )
+
+    # No server config and a dynamic (resolve-function) default: nothing to validate statically.
+    diff = _compute_diff([var], VariablesConfig(variables={}))
+    assert diff.template_field_issues == []
 
 
 def test_variable_diff_has_changes_true() -> None:
