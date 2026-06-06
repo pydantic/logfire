@@ -453,12 +453,21 @@ class TestFindReferences:
         assert errors == []
 
     def test_deeply_nested_value_does_not_recurse(self):
-        """A deeply nested decoded value is walked iteratively (no RecursionError on push/validate)."""
+        """The decoded-value walk is iterative, so an arbitrarily deep structure doesn't RecursionError.
+
+        This exercises the walk on the already-decoded value directly — the part this module is
+        responsible for keeping total. We deliberately don't round-trip through ``json.dumps`` /
+        ``json.loads`` here: json's own encode/decode is recursive with a much shallower limit (it
+        overflows around depth ~1000 on CPython 3.10/3.11, where this test would otherwise fail in
+        setup rather than in the code under test).
+        """
+        from logfire.variables.composition import _walk_references
+
         nested: Any = '@{x}@'
         for _ in range(5000):
             nested = [nested]
-        refs, errors = find_references_and_errors(json.dumps(nested))
-        assert refs == ['x']
+        refs, errors = _walk_references(nested)
+        assert refs == {'x'}
         assert errors == []
 
 
