@@ -738,6 +738,34 @@ class TestResolvedVariable:
             baggage = logfire.get_baggage()
             assert baggage == snapshot({'logfire.variables.no_version_var': '<code_default>'})
 
+    def test_latest_ref_without_version_reports_code_default_metadata(self, config_kwargs: dict[str, Any]):
+        """A 100% latest rollout falls back to the code default until the first version exists."""
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'latest_before_v1': VariableConfig(
+                        name='latest_before_v1',
+                        labels={'latest': LabelRef(ref='latest')},
+                        rollout=Rollout(labels={'latest': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='latest_before_v1', default='default', type=str)
+        details = var.get()
+
+        assert details.value == 'default'
+        assert details.reason == 'code_default'
+        assert details.label is None
+        assert details.version is None
+
+        with details:
+            baggage = logfire.get_baggage()
+            assert baggage == snapshot({'logfire.variables.latest_before_v1': '<code_default>'})
+
     def test_context_manager_returns_self(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='cm_return_test', default='default', type=str)

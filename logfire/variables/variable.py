@@ -471,8 +471,8 @@ class Variable(Generic[T_co]):
                 return ResolvedVariable(
                     name=name,
                     value=serialized_default,
-                    label=provider_result.label,
-                    version=provider_result.version,
+                    label=None,
+                    version=None,
                     reason='code_default',
                     exception=provider_result.exception,
                 )
@@ -729,8 +729,8 @@ class Variable(Generic[T_co]):
             name=self.name,
             value=self._get_default_cached(targeting_key, attributes),
             exception=serialized_result.exception,
-            label=serialized_result.label,
-            version=serialized_result.version,
+            label=None,
+            version=None,
             reason='code_default',
         )
 

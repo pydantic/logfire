@@ -1315,8 +1315,10 @@ class VariableProvider(ABC):
     ) -> bool:
         """Push a VariablesConfig to this provider.
 
-        This method pushes a complete VariablesConfig (including labels and rollouts)
-        to the provider. It's useful for:
+        This method pushes a VariablesConfig (including labels and rollouts) to the
+        provider. For remote providers, version records are created from label
+        entries with inline serialized values; `latest_version` is pull/read state
+        derived by the server and is not pushed directly. It's useful for:
         - Pushing configs generated or modified locally
         - Pushing configs read from files
         - Partial updates (merge mode) or full replacement (replace mode)

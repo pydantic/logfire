@@ -343,9 +343,16 @@ from logfire.variables import VariablesConfig
 # Read the edited config
 config = VariablesConfig.model_validate_json(Path('variables.json').read_text())
 
-# Sync to the server (including labels and versions)
+# Sync to the server (including label assignments and inline label values)
 logfire.variables_push_config(config)
 ```
+
+For remote providers, `latest_version` is read-side state derived by the
+server. To create or update versions programmatically, add `LabeledValue`
+entries under `labels`; the server creates version records from their
+`serialized_value` fields and computes `latest_version` from the stored
+versions. Editing only `latest_version` in a local config file is ignored by
+`variables_push_config()`.
 
 **Push modes:**
 
