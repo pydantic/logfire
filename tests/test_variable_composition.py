@@ -452,6 +452,15 @@ class TestFindReferences:
         assert refs == ['a', 'b']
         assert errors == []
 
+    def test_deeply_nested_value_does_not_recurse(self):
+        """A deeply nested decoded value is walked iteratively (no RecursionError on push/validate)."""
+        nested: Any = '@{x}@'
+        for _ in range(5000):
+            nested = [nested]
+        refs, errors = find_references_and_errors(json.dumps(nested))
+        assert refs == ['x']
+        assert errors == []
+
 
 # =============================================================================
 # Tests for Handlebars-compatible @{}@ block helpers

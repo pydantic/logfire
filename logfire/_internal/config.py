@@ -356,11 +356,16 @@ class CodeSource:
 
 
 TemplateMismatchPolicy = Literal['warn', 'error', 'ignore']
-"""How `TemplateVariable.get(inputs)` reacts to a `{{field}}` reference that
-the runtime `inputs` does not satisfy.
+"""How `TemplateVariable.get(inputs)` reacts when the resolved (post-composition)
+template references a `{{field}}` not declared in the variable's `inputs_type`.
+
+The check is static — it compares the template's `{{field}}` references against
+the `inputs_type` JSON schema, not against the values in a particular `inputs`
+object. (An undeclared field renders to the empty string at runtime, so this
+turns a silent footgun into a configurable signal.)
 
 - `'warn'` (default): emit a `RuntimeWarning` and render the template anyway
-  (missing fields substitute as the empty string, matching default Handlebars
+  (undeclared fields substitute as the empty string, matching default Handlebars
   behaviour).
 - `'error'`: raise `TemplateInputsMismatchError` instead of rendering.
 - `'ignore'`: render silently, no warning.

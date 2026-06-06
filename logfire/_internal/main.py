@@ -2674,9 +2674,9 @@ class Logfire:
             inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
                 template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
             description: Optional human-readable description of what the variable controls.
-            template_mismatch_policy: How to react when `get(inputs)` is called with inputs that
-                don't satisfy a `{{field}}` reference in the resolved template. `'warn'` emits a
-                `RuntimeWarning` and renders the missing field as the empty string;
+            template_mismatch_policy: How to react when the resolved (post-composition) template
+                references a `{{field}}` not declared in `inputs_type`. `'warn'` emits a
+                `RuntimeWarning` and renders the undeclared field as the empty string;
                 `'error'` raises `TemplateInputsMismatchError`; `'ignore'` renders silently.
                 Defaults to inheriting from `VariablesOptions` / `LocalVariablesOptions`
                 (which default to `'warn'`). Pass an explicit value to override the

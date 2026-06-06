@@ -11,6 +11,7 @@ from typing_extensions import TypeAliasType
 
 from logfire._internal.config import (
     LocalVariablesOptions as LocalVariablesOptions,
+    TemplateMismatchPolicy as TemplateMismatchPolicy,
     VariablesOptions as VariablesOptions,
 )
 from logfire.variables.abstract import ResolvedVariable
@@ -33,6 +34,7 @@ __all__ = (
     'LocalVariablesOptions',
     'Rollout',
     'RolloutOverride',
+    'TemplateMismatchPolicy',
     'ValueDoesNotEqual',
     'ValueDoesNotMatchRegex',
     'ValueEquals',

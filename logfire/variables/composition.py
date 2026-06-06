@@ -351,7 +351,12 @@ def _walk_references(value: Any) -> tuple[set[str], list[str]]:
     refs: set[str] = set()
     errors: list[str] = []
 
-    def _walk(v: Any) -> None:
+    # Iterative walk (explicit stack) rather than recursion: the decoded value comes from arbitrary
+    # server config and can nest arbitrarily deep, which would otherwise raise RecursionError out of
+    # push / validate / resolve.
+    stack: list[Any] = [value]
+    while stack:
+        v = stack.pop()
         if isinstance(v, str):
             if has_references(v):
                 try:
@@ -367,13 +372,9 @@ def _walk_references(value: Any) -> tuple[set[str], list[str]]:
                     # as a parse error instead of crashing dependency discovery.
                     errors.append(f'value {v!r} could not be parsed as a composition template: {e}')
         elif isinstance(v, dict):
-            for val in v.values():  # pyright: ignore[reportUnknownVariableType]
-                _walk(val)
+            stack.extend(v.values())  # pyright: ignore[reportUnknownArgumentType]
         elif isinstance(v, list):
-            for item in v:  # pyright: ignore[reportUnknownVariableType]
-                _walk(item)
-
-    _walk(value)
+            stack.extend(v)  # pyright: ignore[reportUnknownArgumentType]
     return refs, errors
 
 

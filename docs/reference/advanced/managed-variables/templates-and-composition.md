@@ -116,6 +116,37 @@ When a template variable is pushed to Logfire (via `logfire.variables_push()`), 
 
 For example, if your `inputs_type` declares `user_name: str` and `is_premium: bool`, but a version value references `{{unknown_field}}`, the validation will flag this as an error.
 
+#### Render-time mismatch policy
+
+Push-time validation is a pre-flight check. At **render time**, `TemplateVariable.get(inputs)` can also react when the resolved (post-composition) template references a `{{field}}` not declared in `inputs_type` — an undeclared field otherwise renders to the empty string (matching Handlebars). The behaviour is controlled by `template_mismatch_policy`:
+
+- `'warn'` (default) — emit a `RuntimeWarning` and render anyway (undeclared fields become empty strings).
+- `'error'` — raise `TemplateInputsMismatchError` instead of rendering.
+- `'ignore'` — render silently, no warning.
+
+Set it per-variable on [`template_var()`][logfire.Logfire.template_var], or per-Logfire-instance on `VariablesOptions` / `LocalVariablesOptions`. The variable-level value wins when set — even when it *relaxes* the instance setting; otherwise the instance setting applies, falling back to `'warn'`.
+
+```py skip-run="true" skip-reason="requires-pydantic-handlebars"
+from pydantic import BaseModel
+
+import logfire
+
+logfire.configure()
+
+
+class PromptInputs(BaseModel):
+    user_name: str
+
+
+# Fail loudly instead of silently rendering an undeclared `{{field}}` as empty.
+prompt = logfire.template_var(
+    'system_prompt',
+    default='Hello {{user_name}}',
+    inputs_type=PromptInputs,
+    template_mismatch_policy='error',
+)
+```
+
 ## Variable Composition {#variable-composition}
 
 **Composition** lets a variable's value reference other variables using `@{variable_name}@` syntax. When the variable is resolved, `@{ref}@` references are expanded by looking up the referenced variable and substituting its value.

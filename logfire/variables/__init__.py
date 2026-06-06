@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         LocalVariablesOptions,
         Rollout,
         RolloutOverride,
+        TemplateMismatchPolicy,
         ValueDoesNotEqual,
         ValueDoesNotMatchRegex,
         ValueEquals,
@@ -83,6 +84,7 @@ __all__ = [
     'ComposedReference',
     'ResolutionReason',
     'SyncMode',
+    'TemplateMismatchPolicy',
     'ValidationReport',
     # Exceptions
     'TemplateInputsMismatchError',
@@ -114,6 +116,7 @@ def __getattr__(name: str):
         LocalVariablesOptions,
         Rollout,
         RolloutOverride,
+        TemplateMismatchPolicy,
         ValueDoesNotEqual,
         ValueDoesNotMatchRegex,
         ValueEquals,

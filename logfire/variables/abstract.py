@@ -447,7 +447,7 @@ class ValidationReport:
                     location += f' (label: {issue.found_in_label})'
                 chain = ''
                 if issue.reference_path:
-                    chain = f' via @{{{"} -> @{".join(issue.reference_path)}}}@'
+                    chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
                 lines.append(
                     f'  {red}✗ {{{{{issue.field_name}}}}} in {location}{chain}'
                     f' is not declared in the inputs_type schema{reset}'
@@ -649,12 +649,22 @@ def _collect_template_field_issues(
                 pass
         return result
 
+    # `validate_template_composition` dedups within a single root's walk, but the same shared
+    # fragment reached from several template roots would otherwise be reported once per root. Dedup
+    # across roots on the issue identity (field / variable / label) so the count and the printed
+    # lines aren't inflated by how many variables happen to compose the bad fragment.
+    seen: set[tuple[str, str, str | None]] = set()
     for variable in variables:
         if not isinstance(variable, TemplateVariable):
             continue
         schema = variable.get_template_inputs_schema()
         result = validate_template_composition(variable.name, schema, get_all_serialized_values)
-        issues.extend(result.issues)
+        for issue in result.issues:
+            key = (issue.field_name, issue.found_in_variable, issue.found_in_label)
+            if key in seen:
+                continue
+            seen.add(key)
+            issues.append(issue)
 
     return issues
 
@@ -1007,7 +1017,7 @@ def _format_diff(diff: VariableDiff) -> str:
                 location += f' (label: {issue.found_in_label})'
             chain = ''
             if issue.reference_path:
-                chain = f' via @{{{"} -> @{".join(issue.reference_path)}}}@'
+                chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
             lines.append(
                 f'  {ANSI_YELLOW}⚠ {{{{{issue.field_name}}}}} in {location}{chain}'
                 f' is not declared in the inputs_type schema{ANSI_RESET}'

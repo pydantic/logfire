@@ -321,6 +321,25 @@ def test_compute_diff_template_field_issues_follow_composition() -> None:
     )
 
 
+def test_compute_diff_template_field_issues_deduped_across_roots() -> None:
+    """A shared bad fragment composed by multiple template roots is reported once, not per root."""
+
+    class Inputs(BaseModel):
+        user_name: str
+
+    prompt_a = logfire.template_var(name='prompt_a', default='A: @{shared_fragment}@', type=str, inputs_type=Inputs)
+    prompt_b = logfire.template_var(name='prompt_b', default='B: @{shared_fragment}@', type=str, inputs_type=Inputs)
+    fragment = logfire.var(name='shared_fragment', default='Hi {{nickname}}!', type=str)
+    server_config = VariablesConfig(variables={})
+
+    diff = _compute_diff([prompt_a, prompt_b, fragment], server_config)
+
+    nickname_issues = [
+        i for i in diff.template_field_issues if i.field_name == 'nickname' and i.found_in_variable == 'shared_fragment'
+    ]
+    assert len(nickname_issues) == 1
+
+
 def test_compute_diff_template_inputs_schema_change() -> None:
     """A template inputs schema change is pushed even if the value schema is unchanged."""
 
@@ -809,6 +828,30 @@ def test_format_diff_template_field_issues() -> None:
     assert 'Template field issues' in output
     assert '{{nickname}} in prompt' in output
     assert '{{nickname}} in fragment (label: production) via @{fragment}@' in output
+
+
+def test_format_diff_template_field_issues_multi_hop_chain() -> None:
+    """A multi-hop composition path renders each ref as a complete @{...}@ token.
+
+    Regression: the chain f-string used to drop the interior closing '@' (e.g. '@{mid} -> @{leaf}@').
+    """
+    diff = VariableDiff(
+        changes=[],
+        orphaned_server_variables=[],
+        template_field_issues=[
+            TemplateFieldIssue(
+                field_name='nickname',
+                found_in_variable='leaf',
+                found_in_label=None,
+                reference_path=['mid', 'leaf'],
+            ),
+        ],
+    )
+
+    output = _format_diff(diff)
+
+    assert 'via @{mid}@ -> @{leaf}@' in output
+    assert '@{mid} ->' not in output  # the old malformed (missing-'@') form
 
 
 def test_validation_report_format_template_field_issues() -> None:
