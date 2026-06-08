@@ -2553,6 +2553,11 @@ class Logfire:
                     'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
                     '`type` must be provided to specify the variable value type.'
                 )
+            if default is None:
+                raise TypeError(
+                    'When `default` is None, `type` must be provided (e.g. `type=Optional[int]`); '
+                    'the variable value type cannot be inferred from a None default.'
+                )
             tp = cast(Type[T], default.__class__)  # noqa UP006
         else:
             tp = type

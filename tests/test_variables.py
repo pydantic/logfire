@@ -4799,6 +4799,19 @@ class TestVarResolveFunctionWithoutType:
             lf.var(name='my_var', default=resolver)
 
 
+class TestVarNoneDefaultWithoutType:
+    """Test that var() raises when default is None but type is not provided."""
+
+    def test_none_default_without_type(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+
+        with pytest.raises(TypeError, match='`type` must be provided'):
+            lf.var(name='none_var', default=None)
+
+        var = lf.var(name='optional_var', type=int | None, default=None)  # pyright: ignore[reportArgumentType]
+        assert var.get().value is None
+
+
 class TestVarDuplicateName:
     """Test that var() raises when registering a variable with a duplicate name."""
 
