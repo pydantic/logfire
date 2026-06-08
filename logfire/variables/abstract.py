@@ -686,7 +686,7 @@ class VariableProvider(ABC):
 
         labeled_value = config.labels.get(label)
         if labeled_value is None:
-            return ResolvedVariable(name=variable_name, value=None, reason='resolved')
+            return ResolvedVariable(name=variable_name, value=None, reason='missing_config')
 
         serialized, version = config.follow_ref(labeled_value)
         return ResolvedVariable(
@@ -694,7 +694,7 @@ class VariableProvider(ABC):
             value=serialized,
             label=label,
             version=version,
-            reason='resolved',
+            reason='resolved' if serialized is not None else 'missing_config',
         )
 
     def refresh(self, force: bool = False):
