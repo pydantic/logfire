@@ -1504,23 +1504,23 @@ class LogfireConfig(_LogfireConfigData):
         This is used internally and should not be called by users of the SDK.
 
         If no provider has been explicitly configured (i.e. `variables=` was not passed to
-        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
-        will be lazily created on the first call.
+        `configure()`), but `configure()` has been called and a `LOGFIRE_API_KEY` is available,
+        a `LogfireRemoteVariableProvider` will be lazily created on the first call.
 
         Returns:
             The variable provider.
         """
         provider = self._variable_provider
-        if isinstance(provider, NoOpVariableProvider) and self.variables is None:
+        if self._initialized and isinstance(provider, NoOpVariableProvider) and self.variables is None:
             provider = self._lazy_init_variable_provider()
         return provider
 
     def _lazy_init_variable_provider(self) -> VariableProvider:
         """Attempt to lazily initialize a remote variable provider.
 
-        This is called when no explicit `variables=` option was passed to `configure()`,
-        but the user may have a `LOGFIRE_API_KEY` set in the environment. If so, we
-        create a `LogfireRemoteVariableProvider` with default options.
+        This is called after `configure()` when no explicit `variables=` option was passed,
+        but the user may have a `LOGFIRE_API_KEY` set in the environment. If so, we create a
+        `LogfireRemoteVariableProvider` with default options.
         """
         with self._lock:
             # Double-check after acquiring lock
