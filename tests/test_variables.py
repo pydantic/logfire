@@ -1095,6 +1095,30 @@ class TestLogfireRemoteVariableProvider:
             # 30% of 10000ms = 3000ms = 3.0s for SSE
             mock_sse.join.assert_called_once_with(timeout=3.0)
 
+    def test_at_fork_reinit_does_not_restart_after_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        provider._started = True
+        provider._shutdown = True
+        mock_thread_cls = unittest.mock.MagicMock()
+        mock_start_sse = unittest.mock.MagicMock()
+        monkeypatch.setattr(remote_module.threading, 'Thread', mock_thread_cls)
+        monkeypatch.setattr(provider, '_start_sse_listener', mock_start_sse)
+
+        provider._at_fork_reinit()
+
+        assert provider._shutdown is True
+        mock_thread_cls.assert_not_called()
+        mock_start_sse.assert_not_called()
+
     def test_refresh_with_force(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1842,11 +1866,47 @@ class TestVariable:
         monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', failing_get)
 
         var = lf.var(name='unconfigured', default=bad_default, type=str)
-        with pytest.warns(RuntimeWarning, match='code default raised'):
+        with pytest.warns(RuntimeWarning) as warnings:
             result = var.get()
         assert result.value is None
         assert result.reason == 'other_error'
         assert result.exception is provider_error
+        messages = [str(warning.message) for warning in warnings]
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
+        assert not any('returning None: missing' in message for message in messages)
+
+    def test_get_calls_failing_default_once_on_validation_error(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'invalid_var': VariableConfig(
+                        name='invalid_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='"bad"')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        calls = 0
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> int:
+            nonlocal calls
+            calls += 1
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='invalid_var', default=bad_default, type=int)
+        with pytest.warns(RuntimeWarning) as warnings:
+            result = var.get()
+
+        assert calls == 1
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+        messages = [str(warning.message) for warning in warnings]
+        assert any('value failed validation' in message for message in messages)
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)

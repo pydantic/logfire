@@ -292,13 +292,15 @@ class Variable(Generic[T_co]):
                         if span:  # pragma: no branch
                             span.set_attribute('invalid_serialized_label', serialized_result.label)
                             span.set_attribute('invalid_serialized_value', serialized_result.value)
-                        default = self._get_default(targeting_key, attributes)
+                        default, default_exc = self._get_default_or_exception(
+                            targeting_key, attributes, fallback_exception=value_or_exc
+                        )
                         self._warn_validation_fallback(value_or_exc)
                         return ResolvedVariable(
                             name=self.name,
                             value=default,
-                            exception=value_or_exc,
-                            reason='validation_error',
+                            exception=default_exc or value_or_exc,
+                            reason='other_error' if default_exc is not None else 'validation_error',
                             label=serialized_result.label,
                             version=serialized_result.version,
                         )
@@ -314,10 +316,20 @@ class Variable(Generic[T_co]):
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
+                default, default_exc = self._get_default_or_exception(
+                    targeting_key, attributes, fallback_exception=serialized_result.exception
+                )
+                if default_exc is not None:
+                    return ResolvedVariable(
+                        name=self.name,
+                        value=default,
+                        exception=default_exc,
+                        reason='other_error',
+                    )
                 # Provider had no value; surface that the code default was used.
                 return ResolvedVariable(
                     name=self.name,
-                    value=self._get_default(targeting_key, attributes),
+                    value=default,
                     exception=serialized_result.exception,
                     label=None,
                     version=None,
@@ -330,13 +342,15 @@ class Variable(Generic[T_co]):
                 if span:  # pragma: no branch
                     span.set_attribute('invalid_serialized_label', serialized_result.label)
                     span.set_attribute('invalid_serialized_value', serialized_result.value)
-                default = self._get_default(targeting_key, attributes)
+                default, default_exc = self._get_default_or_exception(
+                    targeting_key, attributes, fallback_exception=value_or_exc
+                )
                 self._warn_validation_fallback(value_or_exc)
                 return ResolvedVariable(
                     name=self.name,
                     value=default,
-                    exception=value_or_exc,
-                    reason='validation_error',
+                    exception=default_exc or value_or_exc,
+                    reason='other_error' if default_exc is not None else 'validation_error',
                     label=serialized_result.label,
                     version=serialized_result.version,
                 )
@@ -353,13 +367,7 @@ class Variable(Generic[T_co]):
             if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
-            try:
-                default = self._get_default(targeting_key, attributes)
-            except Exception:
-                default = cast('T_co', None)
-                _emit_resolution_warning(
-                    f"Variable '{self.name}' could not be resolved and its code default raised; returning None: {e}"
-                )
+            default, _ = self._get_default_or_exception(targeting_key, attributes, fallback_exception=e)
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _get_default(
@@ -369,6 +377,22 @@ class Variable(Generic[T_co]):
             return self.default(targeting_key, merged_attributes)
         else:
             return self.default
+
+    def _get_default_or_exception(
+        self,
+        targeting_key: str | None,
+        merged_attributes: Mapping[str, Any] | None,
+        *,
+        fallback_exception: Exception | None,
+    ) -> tuple[T_co, Exception | None]:
+        try:
+            return self._get_default(targeting_key, merged_attributes), None
+        except Exception as default_exc:
+            cause = f' while handling {fallback_exception.__class__.__name__}' if fallback_exception is not None else ''
+            _emit_resolution_warning(
+                f"Variable '{self.name}' code default raised{cause}; returning None: {default_exc}"
+            )
+            return cast('T_co', None), default_exc
 
     def _warn_validation_fallback(self, error: Exception) -> None:
         detail: object = (
