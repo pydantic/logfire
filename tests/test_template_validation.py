@@ -307,6 +307,24 @@ class TestValidateTemplateComposition:
         # No fields to report as issues — the cycle just stops traversal
         assert isinstance(result, TemplateValidationResult)
 
+    def test_recursion_error_during_walk_is_caught(self, monkeypatch: pytest.MonkeyPatch):
+        """A RecursionError raised while walking the composition graph is swallowed, not propagated.
+
+        The graph comes from arbitrary server config and can nest deeper than Python's recursion
+        limit, which would otherwise raise out of validation. We trigger the error deterministically
+        (a real overflow happens right at the recursion limit, where the coverage tracer itself has no
+        stack left to record the handler) so the catch path is exercised reliably.
+        """
+
+        def boom(_serialized: str) -> list[str]:
+            raise RecursionError('maximum recursion depth exceeded')
+
+        monkeypatch.setattr('logfire.variables.template_validation.extract_template_strings', boom)
+        get_values = _make_get_all_serialized({'my_var': {None: '"{{x}}"'}})
+        result = validate_template_composition('my_var', {'properties': {}}, get_values)
+        assert isinstance(result, TemplateValidationResult)
+        assert result.issues == []
+
     def test_no_template_fields(self):
         """Variable with no {{}} fields produces no issues."""
         schema = {'properties': {'name': {'type': 'string'}}}

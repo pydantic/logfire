@@ -3,6 +3,7 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -20,6 +21,7 @@ from logfire.variables.abstract import (
     VariableDiff,
     _apply_changes,
     _check_label_compatibility,
+    _check_reference_errors,
     _check_type_label_compatibility,
     _compute_diff,
     _format_diff,
@@ -386,6 +388,42 @@ def test_compute_diff_template_inputs_schema_change() -> None:
     assert updated_schema is not None
     assert 'user_name' in updated_schema['properties']
     assert 'old_name' not in updated_schema['properties']
+
+
+def test_compute_diff_value_and_inputs_schema_change() -> None:
+    """When both the value schema and the template-inputs schema change, the diff labels both precisely."""
+
+    class NewInputs(BaseModel):
+        user_name: str
+
+    var = logfire.template_var(
+        name='prompt',
+        default='Hello {{user_name}}',
+        type=str,
+        inputs_type=NewInputs,
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                # Both differ from the local variable: the value type (int vs str) and the inputs schema.
+                json_schema={'type': 'integer'},
+                template_inputs_schema={'type': 'object', 'properties': {'old_name': {'type': 'string'}}},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.changes) == 1
+    change = diff.changes[0]
+    assert change.value_schema_changed is True
+    assert change.inputs_schema_changed is True
+    # Both schemas changed, so the diff says so rather than picking one or printing a generic message.
+    assert '(value + template inputs schema)' in _format_diff(diff)
 
 
 def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> None:
@@ -800,6 +838,66 @@ def test_push_variables_warns_but_applies_missing_ref_non_strict(
     assert 'Warning' in out and 'missing' in out
     assert 'synced successfully' not in out
     assert 'prompt' in provider.get_all_variables_config().variables
+
+
+def test_push_variables_strict_fails_with_missing_reference(
+    mock_logfire_instance: MockLogfire, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A missing (non-cyclic) reference is a hard error under strict and applies nothing.
+
+    Non-strict only warns (the ref may resolve elsewhere); strict treats it as a blocking error — a
+    different path from the unconditional cycle block above.
+    """
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+    var = Variable[str](
+        name='prompt',
+        default='Hello @{missing}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+
+    assert provider.push_variables([var], strict=True, yes=True) is False
+    out = capsys.readouterr().out
+    assert 'Reference errors found' in out
+    assert provider.get_all_variables_config().variables == {}
+
+
+def test_check_reference_errors_recursion_limit(mock_logfire_instance: MockLogfire) -> None:
+    """A reference chain deeper than the recursion limit is surfaced as a clean error, not a crash.
+
+    Cycle detection walks the assembled graph with a recursive DFS; an arbitrarily deep `@{ref}@`
+    chain from server config would otherwise raise RecursionError out of push / validate. The chain
+    is sized off the live limit so it overflows regardless of any ambient `setrecursionlimit`.
+    """
+    depth = sys.getrecursionlimit() + 500
+    # Local seed a0 -> a1; a1..a{depth-1} are server-only links; a{depth} terminates the chain.
+    seed = Variable[str](
+        name='a0',
+        default='@{a1}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    variables: dict[str, VariableConfig] = {}
+    for i in range(1, depth):
+        variables[f'a{i}'] = VariableConfig(
+            name=f'a{i}',
+            latest_version=LatestVersion(version=1, serialized_value=f'"@{{a{i + 1}}}@"'),
+            labels={},
+            rollout=Rollout(labels={}),
+            overrides=[],
+        )
+    variables[f'a{depth}'] = VariableConfig(
+        name=f'a{depth}',
+        latest_version=LatestVersion(version=1, serialized_value='"leaf"'),
+        labels={},
+        rollout=Rollout(labels={}),
+        overrides=[],
+    )
+    server_config = VariablesConfig(variables=variables)
+
+    errors, cycles = _check_reference_errors([seed], server_config)
+    assert any('too deeply nested' in message for message in errors)
+    assert any('too deeply nested' in message for message in cycles)
 
 
 def test_format_diff_template_field_issues() -> None:
