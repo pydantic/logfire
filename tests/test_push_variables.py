@@ -323,8 +323,13 @@ def test_compute_diff_template_field_issues_follow_composition() -> None:
     )
 
 
-def test_compute_diff_template_field_issues_deduped_across_roots() -> None:
-    """A shared bad fragment composed by multiple template roots is reported once, not per root."""
+def test_compute_diff_template_field_issues_reported_per_root() -> None:
+    """A shared bad fragment composed by multiple template roots is reported once *per root*.
+
+    Each root that composes the fragment is a distinct problem (the fragment is incompatible
+    with each root's own `inputs_type`), so the issue must not be deduped down to a single line
+    that hides which roots are affected — it carries `root_variable` to disambiguate.
+    """
 
     class Inputs(BaseModel):
         user_name: str
@@ -339,7 +344,8 @@ def test_compute_diff_template_field_issues_deduped_across_roots() -> None:
     nickname_issues = [
         i for i in diff.template_field_issues if i.field_name == 'nickname' and i.found_in_variable == 'shared_fragment'
     ]
-    assert len(nickname_issues) == 1
+    assert len(nickname_issues) == 2
+    assert {i.root_variable for i in nickname_issues} == {'prompt_a', 'prompt_b'}
 
 
 def test_compute_diff_template_inputs_schema_change() -> None:
@@ -911,12 +917,14 @@ def test_format_diff_template_field_issues() -> None:
                 found_in_variable='prompt',
                 found_in_label=None,
                 reference_path=[],
+                root_variable='prompt',
             ),
             TemplateFieldIssue(
                 field_name='nickname',
                 found_in_variable='fragment',
                 found_in_label='production',
                 reference_path=['fragment'],
+                root_variable='prompt',
             ),
         ],
     )
@@ -924,8 +932,13 @@ def test_format_diff_template_field_issues() -> None:
     output = _format_diff(diff)
 
     assert 'Template field issues' in output
-    assert '{{nickname}} in prompt' in output
-    assert '{{nickname}} in fragment (label: production) via @{fragment}@' in output
+    # A field directly in the root variable's own value.
+    assert "prompt: {{nickname}} is not declared in prompt's inputs_type schema" in output
+    # A field reached through composition names the root, the fragment it was found in, and the path.
+    assert (
+        'prompt: {{nickname}} found in fragment (label: production) via @{fragment}@ '
+        "is not declared in prompt's inputs_type schema"
+    ) in output
 
 
 def test_format_diff_template_field_issues_multi_hop_chain() -> None:
@@ -942,6 +955,7 @@ def test_format_diff_template_field_issues_multi_hop_chain() -> None:
                 found_in_variable='leaf',
                 found_in_label=None,
                 reference_path=['mid', 'leaf'],
+                root_variable='top',
             ),
         ],
     )
@@ -965,12 +979,14 @@ def test_validation_report_format_template_field_issues() -> None:
                 found_in_variable='prompt',
                 found_in_label=None,
                 reference_path=[],
+                root_variable='prompt',
             ),
             TemplateFieldIssue(
                 field_name='nickname',
                 found_in_variable='fragment',
                 found_in_label='production',
                 reference_path=['fragment'],
+                root_variable='prompt',
             ),
         ],
     )
@@ -978,8 +994,11 @@ def test_validation_report_format_template_field_issues() -> None:
     output = report.format(colors=False)
 
     assert 'Template field issues' in output
-    assert '{{nickname}} in prompt' in output
-    assert '{{nickname}} in fragment (label: production) via @{fragment}@' in output
+    assert "prompt: {{nickname}} is not declared in prompt's inputs_type schema" in output
+    assert (
+        'prompt: {{nickname}} found in fragment (label: production) via @{fragment}@ '
+        "is not declared in prompt's inputs_type schema"
+    ) in output
     assert 'Validation failed' in output
     assert report.is_valid is False
 

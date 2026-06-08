@@ -13,104 +13,8 @@ from logfire.variables.template_validation import (
     TemplateValidationResult,
     detect_composition_cycles,
     extract_template_strings,
-    find_template_fields,
     validate_template_composition,
 )
-
-# =============================================================================
-# find_template_fields
-# =============================================================================
-
-
-class TestFindTemplateFields:
-    def test_simple_field(self):
-        assert find_template_fields('Hello {{name}}!') == {'name'}
-
-    def test_multiple_fields(self):
-        result = find_template_fields('{{greeting}} {{name}}, age {{age}}')
-        assert result == {'greeting', 'name', 'age'}
-
-    def test_duplicate_fields(self):
-        """Duplicate fields produce a single entry in the set."""
-        result = find_template_fields('{{name}} and {{name}} again')
-        assert result == {'name'}
-
-    def test_empty_string(self):
-        assert find_template_fields('') == set()
-
-    def test_no_templates(self):
-        assert find_template_fields('Hello world, no templates here') == set()
-
-    def test_ignores_block_helpers(self):
-        """{{#if condition}} is a single block; not matched as {{identifier}}."""
-        result = find_template_fields('{{#if condition}}yes{{/if}}')
-        # The entire {{#if condition}} has # after {{ so it doesn't match
-        assert result == set()
-
-    def test_block_helper_hash_excluded(self):
-        """{{#if}} has a # prefix so the identifier doesn't start with [a-zA-Z_]."""
-        result = find_template_fields('{{#if}}content{{/if}}')
-        assert 'if' not in result
-        assert result == set()
-
-    def test_closing_tag_excluded(self):
-        """{{/if}} has a / prefix so it won't match."""
-        result = find_template_fields('{{/if}}')
-        assert result == set()
-
-    def test_partial_excluded(self):
-        """{{> partial}} has a > prefix so it won't match."""
-        result = find_template_fields('{{> myPartial}}')
-        assert result == set()
-
-    def test_comment_excluded(self):
-        """{{! comment}} has a ! prefix so it won't match."""
-        result = find_template_fields('{{! this is a comment}}')
-        assert result == set()
-
-    def test_triple_stache_not_matched(self):
-        """{{{raw}}} — the outer braces don't form a valid {{identifier}} match."""
-        # {{{raw}}} is 3 opening braces + raw + 3 closing braces
-        # The regex looks for {{ identifier }}, so {{{ would have an extra { before the identifier
-        result = find_template_fields('{{{raw}}}')
-        # The regex matches {{raw}} inside {{{raw}}}, leaving extra braces.
-        # Actually {{ raw }} is a valid match embedded in {{{ raw }}}
-        # Let's just verify empirically.
-        assert 'raw' in result  # {{raw}} is still matched within {{{raw}}}
-
-    def test_field_with_spaces(self):
-        """Spaces inside {{ field }} are allowed by the regex."""
-        result = find_template_fields('{{ name }}')
-        assert result == {'name'}
-
-    def test_field_with_underscore(self):
-        result = find_template_fields('{{user_name}}')
-        assert result == {'user_name'}
-
-    def test_dotted_path(self):
-        result = find_template_fields('{{user.name}} {{ account.plan.tier }}')
-        assert result == {'user.name', 'account.plan.tier'}
-
-    def test_field_with_digits(self):
-        result = find_template_fields('{{item1}}')
-        assert result == {'item1'}
-
-    def test_field_starting_with_underscore(self):
-        result = find_template_fields('{{_private}}')
-        assert result == {'_private'}
-
-    def test_mixed_valid_and_invalid(self):
-        """Valid {{field}} mixed with helpers and partials."""
-        text = '{{name}} {{#if active}}{{role}}{{/if}} {{> footer}} {{! ignored}}'
-        result = find_template_fields(text)
-        assert 'name' in result
-        assert 'role' in result
-        # Helpers, closing tags, partials, and comments should not appear
-        assert '#if' not in result
-        assert '/if' not in result
-        assert '> footer' not in result
-        assert '! ignored' not in result
-
 
 # =============================================================================
 # extract_template_strings
@@ -601,11 +505,13 @@ class TestTemplateFieldIssue:
             found_in_variable='prompt',
             found_in_label='production',
             reference_path=['snippet', 'prompt'],
+            root_variable='root',
         )
         assert issue.field_name == 'user_name'
         assert issue.found_in_variable == 'prompt'
         assert issue.found_in_label == 'production'
         assert issue.reference_path == ['snippet', 'prompt']
+        assert issue.root_variable == 'root'
 
     def test_none_label(self):
         issue = TemplateFieldIssue(
@@ -613,6 +519,7 @@ class TestTemplateFieldIssue:
             found_in_variable='v',
             found_in_label=None,
             reference_path=[],
+            root_variable='v',
         )
         assert issue.found_in_label is None
 
@@ -628,6 +535,7 @@ class TestTemplateValidationResult:
             found_in_variable='v',
             found_in_label=None,
             reference_path=[],
+            root_variable='v',
         )
         result = TemplateValidationResult(issues=[issue])
         assert len(result.issues) == 1

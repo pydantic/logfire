@@ -18,6 +18,7 @@ from logfire.variables.composition import (
     ComposedReference,
     VariableCompositionError,
     expand_references,
+    find_references,
 )
 
 if TYPE_CHECKING:
@@ -172,6 +173,29 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
         warnings.warn(message, category=RuntimeWarning, stacklevel=stacklevel)
     except Exception:
         pass
+
+
+# Stage of the resolution pipeline that a `_ResolveAttempt` failed at. Drives both
+# the fallback warning text and the resulting `ResolutionReason` ('validation' maps
+# to 'validation_error', everything else to 'other_error').
+_FailureStage = str  # 'composition' | 'template rendering' | 'validation'
+
+
+@dataclass
+class _ResolveAttempt:
+    """Outcome of a single compose -> render -> deserialize attempt.
+
+    `ok=True` carries the successful `result`. `ok=False` carries the
+    `exception` and the pipeline `stage` that failed, which the caller uses to
+    decide how to fall back (e.g. a `'composition'` failure on the code default
+    triggers a non-strict retry).
+    """
+
+    ok: bool
+    result: ResolvedVariable[Any] | None = None
+    exception: Exception | None = None
+    stage: _FailureStage = ''
+    composed: list[ComposedReference] = field(default_factory=list['ComposedReference'])
 
 
 class Variable(Generic[T_co]):
@@ -338,18 +362,49 @@ class Variable(Generic[T_co]):
                     serialized_result=serialized_result,
                 )
 
-            result = self._expand_and_deserialize(
-                serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
+            if serialized_result.reason == 'code_default':
+                # The lookup chain already fell through to the (serializable) code
+                # default. Compose it the lenient way (strict, then non-strict, then
+                # raw) — there's nothing further to fall back to.
+                return self._resolve_code_default_value(
+                    serialized_result.value,
+                    provider,
+                    targeting_key,
+                    attributes,
+                    span,
+                    render_fn,
+                    trigger_exc=None,
+                    trigger_stage='',
+                    label=None,
+                    version=None,
+                    provider_exception=serialized_result.exception,
+                )
+
+            # A provider (or label-specific) value: compose it strictly, so any
+            # unresolved `@{ref}@`/`@{ref.field}@` (or cycle/parse/depth) falls back
+            # to the code default rather than rendering empty in place.
+            attempt = self._try_resolve(
+                serialized_result, provider, targeting_key, attributes, span, render_fn, strict=True
             )
-            # Preserve the lookup-tier signal: if the value came from the code
-            # default (via `_lookup_serialized`) rather than the provider, we
-            # promote the success reason from 'resolved' to 'code_default' and
-            # carry the provider's exception through so callers can surface it.
-            if serialized_result.reason == 'code_default' and result.reason == 'resolved':
-                result.reason = 'code_default'
-            if result.exception is None and serialized_result.exception is not None:
-                result.exception = serialized_result.exception
-            return result
+            if attempt.ok:
+                result = cast('ResolvedVariable[T_co]', attempt.result)
+                if result.exception is None and serialized_result.exception is not None:
+                    result.exception = serialized_result.exception
+                return result
+            return self._resolve_code_default_value(
+                self._get_serialized_default(targeting_key, attributes),
+                provider,
+                targeting_key,
+                attributes,
+                span,
+                render_fn,
+                trigger_exc=attempt.exception,
+                trigger_stage=attempt.stage,
+                trigger_composed=attempt.composed,
+                label=serialized_result.label,
+                version=serialized_result.version,
+                provider_exception=serialized_result.exception,
+            )
 
         except TemplateInputsMismatchError:
             # The `'error'` template_mismatch_policy explicitly opts into a
@@ -405,14 +460,29 @@ class Variable(Generic[T_co]):
 
         provider = self.logfire_instance.config.get_variable_provider()
         serialized_result = ResolvedVariable[str | None](name=self.name, value=serialized, reason='context_override')
-        result = self._expand_and_deserialize(
-            serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
+        # Compose the override strictly (it stands in for a candidate provider value), so a
+        # missing reference falls back to the code default just as a stored value would.
+        attempt = self._try_resolve(
+            serialized_result, provider, targeting_key, attributes, span, render_fn, strict=True
         )
-        # Preserve the override provenance on success; on failure keep the pipeline's fallback
-        # (code default with a validation_error/other_error reason and a warning).
-        if result.reason == 'resolved':
+        if attempt.ok:
+            result = cast('ResolvedVariable[T_co]', attempt.result)
             result.reason = 'context_override'
-        return result
+            return result
+        return self._resolve_code_default_value(
+            self._get_serialized_default(targeting_key, attributes),
+            provider,
+            targeting_key,
+            attributes,
+            span,
+            render_fn,
+            trigger_exc=attempt.exception,
+            trigger_stage=attempt.stage,
+            trigger_composed=attempt.composed,
+            label=None,
+            version=None,
+            provider_exception=None,
+        )
 
     def _lookup_serialized(
         self,
@@ -476,7 +546,7 @@ class Variable(Generic[T_co]):
         # can surface the original exception/reason.
         return provider_result
 
-    def _expand_and_deserialize(
+    def _try_resolve(
         self,
         serialized_result: ResolvedVariable[str | None],
         provider: VariableProvider,
@@ -484,23 +554,21 @@ class Variable(Generic[T_co]):
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
         render_fn: _RenderFunction | None = None,
-    ) -> ResolvedVariable[T_co]:
-        """Expand @{references}@ in a serialized value, optionally render templates, then deserialize.
+        *,
+        strict: bool,
+    ) -> _ResolveAttempt:
+        """Attempt one compose -> render -> deserialize pass over a serialized value.
 
-        Handles composition between the provider fetch and Pydantic deserialization.
-        When render_fn is provided, it is applied after composition and before deserialization.
+        Composition runs in *strict* mode when `strict=True`: an unresolved
+        `@{ref}@`/`@{ref.field}@` raises rather than rendering empty, so the
+        caller can fall back. On any failure this returns an unsuccessful
+        `_ResolveAttempt` (with the failing stage) rather than falling back
+        itself — the caller decides what to do. `render_fn` (template `{{}}`
+        rendering) is applied after composition and is always non-strict.
         """
         assert serialized_result.value is not None
-
         serialized_value = serialized_result.value
-        composed: list[ComposedReference] = []
 
-        # Always run through `expand_references`, even when no `@{ref}@` tags
-        # are present: it's also responsible for unescaping `\@{...}@` →
-        # `@{...}@`. Gating on `has_references` produced inconsistent
-        # observable behaviour where an escaped-only value (e.g.
-        # `r'\@{baz}@'`) kept its backslash, but the same escape combined
-        # with a real reference correctly produced the literal `@{baz}@`.
         def resolve_ref(
             ref_name: str,
         ) -> tuple[str | None, str | None, int | None, ResolutionReason]:
@@ -515,135 +583,181 @@ class Variable(Generic[T_co]):
             )
             return (ref_result.value, ref_result.label, ref_result.version, ref_result.reason)
 
+        composed: list[ComposedReference] = []
+        # Always run through `expand_references`, even when no `@{ref}@` tags
+        # are present: it's also responsible for unescaping `\@{...}@` →
+        # `@{...}@`. Gating on `has_references` produced inconsistent
+        # observable behaviour where an escaped-only value (e.g.
+        # `r'\@{baz}@'`) kept its backslash, but the same escape combined
+        # with a real reference correctly produced the literal `@{baz}@`.
         try:
             serialized_value, composed = expand_references(
                 serialized_value,
                 self.name,
                 resolve_ref,
+                strict=strict,
             )
             if fatal_error := _first_fatal_composition_error(composed):
                 # Cycles / depth overflow are structural failures — the value can't be
-                # meaningfully composed — so discard it and fall back to the code default.
-                return self._fallback_to_default(
+                # meaningfully composed at all, in either strictness mode. Carry `composed`
+                # so the fall-back result can surface the failure chain in `composed_from`.
+                return _ResolveAttempt(
+                    ok=False,
                     exception=VariableCompositionError(fatal_error),
-                    failure_stage='composition',
-                    targeting_key=targeting_key,
-                    attributes=attributes,
-                    serialized_result=serialized_result,
+                    stage='composition',
                     composed=composed,
                 )
         except (VariableCompositionError, HandlebarsError, AssertionError) as e:
             # VariableCompositionError: cycle/depth overflow raised by expand_references.
-            # HandlebarsError / AssertionError: a malformed (`@{#if x}@`) or reserved-name
-            # (`@{true}@`) value that makes pydantic-handlebars raise while parsing/rendering —
-            # the reserved-name case surfaces as a bare AssertionError. Treat all as a composition
-            # failure and fall back to the code default (with a warning) rather than letting it
-            # escape to the broad `except` in `_resolve` as a silent `other_error`.
-            return self._fallback_to_default(
-                exception=e,
-                failure_stage='composition',
-                targeting_key=targeting_key,
-                attributes=attributes,
-                serialized_result=serialized_result,
-                composed=composed,
-            )
+            # HandlebarsError: an unresolved reference under strict mode, or a malformed
+            # (`@{#if x}@`) value; AssertionError: a reserved name (`@{true}@`). All are
+            # composition failures the caller turns into a code-default fall back.
+            return _ResolveAttempt(ok=False, exception=e, stage='composition')
 
-        # Soft, per-reference failures (a missing/unresolvable `@{ref}@`, or a referenced
-        # variable with a malformed value) are NOT fatal: composition leaves the literal
-        # `@{ref}@` text in place and the rest of the value still renders. Keep the
-        # partially-composed value rather than discarding the whole thing for the code
-        # default, but warn so the unexpanded reference isn't silent (the per-reference
-        # detail is also carried on `composed_from`).
-        if unresolved_names := _unresolved_reference_names(composed):
-            _emit_resolution_warning(
-                f"Variable '{self.name}' left unresolved composition reference(s) unexpanded: "
-                f'{", ".join(repr(n) for n in unresolved_names)}. '
-                'The literal @{...}@ text is preserved in the resolved value.'
-            )
-
-        # Apply render_fn (template rendering) if provided
+        # Apply render_fn (template rendering) if provided. Note: a
+        # `TemplateInputsMismatchError` from the `'error'` policy is intentionally
+        # not caught here — it propagates to the caller as a loud failure.
         if render_fn is not None:
             try:
                 serialized_value = render_fn(serialized_value)
             except (HandlebarsError, ValueError, TypeError) as e:
-                return self._fallback_to_default(
-                    exception=e,
-                    failure_stage='template rendering',
-                    targeting_key=targeting_key,
-                    attributes=attributes,
-                    serialized_result=serialized_result,
-                    composed=composed,
-                )
+                return _ResolveAttempt(ok=False, exception=e, stage='template rendering')
 
-        # Deserialize the (possibly expanded/rendered) value
+        # Deserialize the (possibly expanded/rendered) value.
         value_or_exc = self._deserialize(serialized_value)
         if isinstance(value_or_exc, Exception):
             if span:  # pragma: no branch
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_value)
-            # Reaching here means `_deserialize` returned an exception, i.e. the
-            # fetched/composed/rendered value could not be deserialized to the declared
-            # type. Report this uniformly as 'validation_error' regardless of whether the
-            # failure surfaced as a pydantic `ValidationError` or as a `ValueError`/`TypeError`
-            # raised inside a custom validator: the distinction hinges on a non-obvious pydantic
-            # detail (it wraps `ValueError`/`AssertionError` but not `TypeError`), and splitting
-            # the machine-readable reason on it contradicts the "value failed validation" warning
-            # below and the documented meaning of `validation_error` ("the serialized value
-            # failed deserialization").
-            reason: str = 'validation_error'
-            # A value was fetched/composed/rendered but failed validation. Warn before falling
-            # back to the code default, mirroring the composition/render failure warnings so the
-            # substitution isn't silent (the asymmetry Alex flagged on #1954).
-            self._warn_validation_fallback(value_or_exc)
+            return _ResolveAttempt(ok=False, exception=value_or_exc, stage='validation')
+
+        return _ResolveAttempt(
+            ok=True,
+            result=ResolvedVariable(
+                name=self.name,
+                value=value_or_exc,
+                label=serialized_result.label,
+                version=serialized_result.version,
+                reason='resolved',
+                composed_from=composed,
+            ),
+        )
+
+    def _resolve_code_default_value(
+        self,
+        serialized_default: str | None,
+        provider: VariableProvider,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        render_fn: _RenderFunction | None,
+        *,
+        trigger_exc: Exception | None,
+        trigger_stage: _FailureStage,
+        trigger_composed: list[ComposedReference] | None = None,
+        label: str | None,
+        version: int | None,
+        provider_exception: Exception | None,
+    ) -> ResolvedVariable[T_co]:
+        """Resolve via the code default: compose strict, then non-strict, then raw.
+
+        The code default is the lenient last resort, so an unresolved `@{ref}@`
+        *within it* renders as an empty string (non-strict) rather than failing —
+        there is nowhere further to fall back to. A structural failure (cycle /
+        depth / parse) even under non-strict, or a render/validation failure,
+        falls back to the raw, uncomposed default value.
+
+        `trigger_exc`/`trigger_stage` describe the provider/override failure that
+        triggered this fall back, or are `None` when the code default is itself
+        the primary resolved value. When set, the result carries that provenance
+        (`reason`, `exception`, and the original `label`/`version`).
+        """
+        if trigger_exc is not None:
+            self._warn_fallback(trigger_stage, trigger_exc)
+
+        if serialized_default is None:
+            # The code default isn't JSON-serializable (e.g. an arbitrary Python object or a
+            # callable returning one), so there's nothing to compose — return it verbatim.
             return ResolvedVariable(
                 name=self.name,
                 value=self._get_default_cached(targeting_key, attributes),
-                exception=value_or_exc,
-                reason=reason,
-                label=serialized_result.label,
-                version=serialized_result.version,
-                composed_from=composed,
+                exception=trigger_exc if trigger_exc is not None else provider_exception,
+                reason=self._fallback_reason(trigger_stage) if trigger_exc is not None else 'code_default',
+                label=label,
+                version=version,
             )
 
-        return ResolvedVariable(
-            name=self.name,
-            value=value_or_exc,
-            label=serialized_result.label,
-            version=serialized_result.version,
-            reason='resolved',
-            composed_from=composed,
-        )
+        default_result = ResolvedVariable[str | None](name=self.name, value=serialized_default, reason='code_default')
+        # Compose the code default strictly first; if a reference within it is unresolved,
+        # re-compose non-strict so the missing reference renders as an empty string.
+        attempt = self._try_resolve(default_result, provider, targeting_key, attributes, span, render_fn, strict=True)
+        if not attempt.ok and attempt.stage == 'composition':
+            attempt = self._try_resolve(
+                default_result, provider, targeting_key, attributes, span, render_fn, strict=False
+            )
+            if attempt.ok:
+                _emit_resolution_warning(
+                    f"Variable '{self.name}' code default has unresolved composition reference(s); "
+                    'rendering them as empty strings.'
+                )
 
-    def _fallback_to_default(
-        self,
-        *,
-        exception: Exception,
-        failure_stage: str,
-        targeting_key: str | None,
-        attributes: Mapping[str, Any] | None,
-        serialized_result: ResolvedVariable[str | None],
-        composed: list[ComposedReference],
-    ) -> ResolvedVariable[T_co]:
-        """Fall back to the code default and warn after a composition or render failure.
+        if attempt.ok:
+            result = cast('ResolvedVariable[T_co]', attempt.result)
+            if trigger_exc is not None:
+                result.reason = self._fallback_reason(trigger_stage)
+                result.exception = trigger_exc
+                result.label = label
+                result.version = version
+                # Surface why the original value was discarded (e.g. the cycle chain), rather
+                # than the code default's own (here, successful) composition tree.
+                if trigger_composed:
+                    result.composed_from = trigger_composed
+            else:
+                result.reason = 'code_default'
+                result.label = None
+                result.version = None
+                if result.exception is None and provider_exception is not None:
+                    result.exception = provider_exception
+            return result
 
-        *failure_stage* identifies which step in the pipeline failed so the
-        warning text is accurate: composition (`@{ref}@` expansion) and
-        template rendering (`{{...}}` against `inputs`) reach this fallback
-        through different branches and shouldn't all surface as
-        "composition failed".
-        """
-        _emit_resolution_warning(
-            f"Variable '{self.name}' {failure_stage} failed; falling back to code default: {exception}"
-        )
+        # The code default failed even non-strict (a cycle/parse/depth error, or a
+        # render/validation failure) — return the raw, uncomposed default value.
+        final_exc = trigger_exc if trigger_exc is not None else attempt.exception
+        final_stage = trigger_stage if trigger_exc is not None else attempt.stage
+        if trigger_exc is None and final_exc is not None:
+            self._warn_fallback(final_stage, final_exc, code_default=True)
         return ResolvedVariable(
             name=self.name,
             value=self._get_default_cached(targeting_key, attributes),
-            exception=exception,
-            reason='other_error',
-            label=serialized_result.label,
-            version=serialized_result.version,
-            composed_from=composed,
+            exception=final_exc,
+            reason=self._fallback_reason(final_stage),
+            label=label,
+            version=version,
+            composed_from=trigger_composed or [],
         )
+
+    @staticmethod
+    def _fallback_reason(stage: _FailureStage) -> ResolutionReason:
+        """Map a failing pipeline stage to the resolution reason for the fallback."""
+        return 'validation_error' if stage == 'validation' else 'other_error'
+
+    def _warn_fallback(self, stage: _FailureStage, exception: Exception, *, code_default: bool = False) -> None:
+        """Warn that resolution fell back after a failure at *stage*.
+
+        *stage* identifies which step failed (composition / template rendering /
+        validation) so the message is accurate. A validation failure uses the
+        richer `_warn_validation_fallback` formatting.
+        """
+        if stage == 'validation':
+            self._warn_validation_fallback(exception)
+        elif code_default:
+            _emit_resolution_warning(
+                f"Variable '{self.name}' code default {stage} failed; returning the raw default: {exception}"
+            )
+        else:
+            _emit_resolution_warning(
+                f"Variable '{self.name}' {stage} failed; falling back to code default: {exception}"
+            )
 
     def _get_default(
         self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
@@ -1050,20 +1164,55 @@ def _first_fatal_composition_error(composed: list[ComposedReference]) -> str | N
     return None
 
 
-def _unresolved_reference_names(composed: list[ComposedReference]) -> list[str]:
-    """Return the names of references that failed *softly* (left unexpanded), in order, deduped."""
-    names: list[str] = []
-    seen: set[str] = set()
+def _static_composition_refs(variable: Variable[Any]) -> set[str]:
+    """Return the `@{ref}@` names in *variable*'s code default, or empty for a non-static default.
 
-    def _walk(refs: list[ComposedReference]) -> None:
-        for ref in refs:
-            if ref.error is not None and not ref.fatal and ref.name not in seen:
-                seen.add(ref.name)
-                names.append(ref.name)
-            _walk(ref.composed_from)
+    Only inspects a static (non-callable, JSON-serializable) default — a callable default can't
+    be introspected at declaration time without invoking it, which would be inappropriate here.
+    """
+    if is_resolve_function(variable.default):
+        return set()
+    try:
+        serialized = variable.type_adapter.dump_json(variable.default).decode('utf-8')
+    except (ValueError, TypeError, RuntimeError):
+        return set()
+    return set(find_references(serialized))
 
-    _walk(composed)
-    return names
+
+def warn_on_template_inputs_composition_mismatch(
+    registry: Mapping[str, Variable[Any]], variable: Variable[Any]
+) -> None:
+    """Warn when a variable *without* `inputs_type` composes one *with* `inputs_type`.
+
+    Composing a `template_var()` (which declares template inputs) into a plain `var()` is almost
+    always a mistake: the plain variable has no inputs, so the composed template's placeholders
+    can never receive values when resolved through it. This is checked at declaration time, in
+    both directions, so the order in which the two variables are declared doesn't matter. Only
+    static (non-callable) code defaults are inspected.
+    """
+
+    def _warn(plain_name: str, template_name: str) -> None:
+        warnings.warn(
+            f'Variable {plain_name!r} composes template variable {template_name!r}, but {plain_name!r} '
+            f'has no inputs_type of its own, so the composed template placeholders cannot receive '
+            f'inputs when {plain_name!r} is resolved. Declare {plain_name!r} with template_var() and a '
+            f'compatible inputs_type if you intend to render it, or remove the reference.',
+            category=RuntimeWarning,
+            stacklevel=3,
+        )
+
+    if not isinstance(variable, TemplateVariable):
+        # A plain variable being declared: does it compose an already-registered template var?
+        for ref_name in _static_composition_refs(variable):
+            if isinstance(registry.get(ref_name), TemplateVariable):
+                _warn(variable.name, ref_name)
+    else:
+        # A template variable being declared: does an already-registered plain var compose it?
+        for other in registry.values():
+            if other is variable or isinstance(other, TemplateVariable):
+                continue
+            if variable.name in _static_composition_refs(other):
+                _warn(other.name, variable.name)
 
 
 @contextmanager

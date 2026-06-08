@@ -223,6 +223,21 @@ class TestTemplateVariable:
         resolved = var.get(Inputs(name='Alice'))
         assert resolved.value == 'Hello Alice!'
 
+    def test_dataclass_inputs_type(self, config_kwargs: dict[str, Any]):
+        """A dataclass `inputs_type` works end-to-end: schema generation and get(inputs) rendering."""
+        from dataclasses import dataclass
+
+        @dataclass
+        class Inputs:
+            name: str
+
+        lf = _make_lf(_simple_config('greeting', json.dumps('Hello {{name}}!')), config_kwargs)
+        var = lf.template_var('greeting', type=str, default='default', inputs_type=Inputs)
+        # The derived template_inputs_schema reflects the dataclass fields...
+        assert 'name' in var.get_template_inputs_schema()['properties']
+        # ...and get(inputs) renders against a dataclass instance.
+        assert var.get(Inputs(name='Alice')).value == 'Hello Alice!'
+
     def test_invalid_name_error(self, config_kwargs: dict[str, Any]):
         """template_var() applies the same Python identifier name validation as var()."""
 
@@ -495,11 +510,24 @@ class TestRenderSerializedString:
         assert json.loads(result) == 'Hello Alice!'
 
     def test_inputs_invalid_type_raises(self):
-        """A non-dict / non-Mapping / non-model input raises TypeError."""
+        """An input that doesn't serialize to a mapping raises TypeError."""
         from logfire.variables.abstract import render_serialized_string
 
-        with pytest.raises(TypeError, match='Expected a dict, Mapping, or Pydantic model'):
+        with pytest.raises(TypeError, match='mapping is required for a template context'):
             render_serialized_string('"x"', 42)
+
+    def test_inputs_dataclass(self):
+        """A dataclass input is serialized to a context via pydantic (arbitrary inputs_type)."""
+        from dataclasses import dataclass
+
+        from logfire.variables.abstract import render_serialized_string
+
+        @dataclass
+        class Inputs:
+            name: str
+
+        result = render_serialized_string('"Hello {{name}}!"', Inputs(name='Alice'))
+        assert json.loads(result) == 'Hello Alice!'
 
     def test_nested_dict_input_is_walked(self):
         """Nested dict values in inputs are walked by `_wrap_safe_value`."""

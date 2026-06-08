@@ -65,15 +65,22 @@ def ensure_handlebars_available() -> None:
 
 
 @cache
-def get_environment() -> HandlebarsEnvironment:
+def get_environment(strict: bool = False) -> HandlebarsEnvironment:
     """Return a cached `HandlebarsEnvironment` configured for `@{...}@` composition.
 
     Uses non-default delimiters so the composition pass leaves any
     `{{...}}` runtime placeholders in the template as plain content; a
     subsequent render pass with the default delimiters consumes those.
+
+    When *strict* is `True`, the environment raises `HandlebarsRuntimeError`
+    for any `@{ref}@` (or dotted `@{ref.field}@`) that doesn't resolve, rather
+    than rendering it as an empty string. Composition uses the strict
+    environment for provider/override values (so a missing reference triggers a
+    fall back to the code default) and the non-strict one for the code default
+    itself (the lenient last resort, where a missing reference renders empty).
     """
     return _pydantic_handlebars().HandlebarsEnvironment(
-        open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM
+        open_delim=COMPOSITION_OPEN_DELIM, close_delim=COMPOSITION_CLOSE_DELIM, strict=strict
     )
 
 
@@ -98,7 +105,7 @@ def get_safe_string_cls() -> type[str]:
 
 
 @lru_cache(maxsize=1024)
-def compile_composition_template(source: str) -> CompiledTemplate:
+def compile_composition_template(source: str, strict: bool = False) -> CompiledTemplate:
     """Return a cached `CompiledTemplate` for *source* under composition delimiters.
 
     Managed-variable values are typically stable across many resolutions, so
@@ -106,8 +113,11 @@ def compile_composition_template(source: str) -> CompiledTemplate:
     every `get()` call. 1024 is large enough for any realistic number of
     distinct templates in a single process while staying bounded for
     long-running workers. Same rationale for `compile_runtime_template`.
+
+    *strict* selects the strict vs non-strict composition environment (see
+    `get_environment`); the two are cached separately.
     """
-    return get_environment().compile(source)
+    return get_environment(strict).compile(source)
 
 
 @lru_cache(maxsize=1024)

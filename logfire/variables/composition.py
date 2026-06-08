@@ -17,7 +17,6 @@ can reuse it when they need the same expansion semantics as SDK resolution.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -43,18 +42,6 @@ __all__ = (
 # need a variable-width lookbehind we can't portably write on 3.10/3.11, and
 # is unnecessary now that the renderer is the single source of truth.
 _HAS_OPEN_DELIM = '@{'
-
-# Interpolation-reference matcher used by the unresolved-reference protection
-# helpers. An unresolved name is left ABSENT from the render context so it is
-# falsy in control positions (`@{#if name}@` takes the else branch), matching
-# standard Handlebars. That alone would make a bare or dotted *interpolation*
-# (`@{name}@` / `@{name.field}@`) render to an empty string, so each such
-# interpolation is replaced with a sentinel pre-render and restored afterwards
-# to keep its literal source text visible. Block/helper tags (`@{#if name}@`,
-# `@{else}@`, `@{/if}@`, …) deliberately do not match, so they render with the
-# name absent (falsy). The dotted suffix is optional so bare `@{name}@` matches
-# too.
-_INTERP_REF_TEXT = re.compile(r'(?<!\\)@\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\}@')
 
 
 MAX_COMPOSITION_DEPTH = 20
@@ -96,11 +83,12 @@ class ComposedReference:
     Fatal failures (a cycle or depth overflow) are structural — the value can't be
     meaningfully composed at all — so a consumer should discard the value and fall back.
     Non-fatal failures (an unresolved/missing reference, or a referenced variable with a
-    malformed value) are *soft*: an unresolved reference is treated as missing — its bare
-    `@{ref}@` / `@{ref.field}@` interpolation is left in place as literal text, while in a
-    control position (`@{#if ref}@`, `@{#each ref}@`) it reads as falsy like standard
-    Handlebars — and the rest of the value still renders, so the partially-composed value
-    is usable. Always `False` when *error* is `None`.
+    malformed value) are *soft*: under non-strict composition the missing reference renders
+    as an empty string (interpolation) or falsy (control position), exactly like standard
+    Handlebars, and the rest of the value still renders, so the partially-composed value is
+    usable. (Under *strict* composition the renderer raises instead, before any
+    `ComposedReference` is returned — strict callers learn of the miss from the exception.)
+    Always `False` when *error* is `None`.
     """
 
 
@@ -128,6 +116,7 @@ def expand_references(
     variable_name: str,
     resolve_fn: ResolveFn,
     *,
+    strict: bool = False,
     _visited: tuple[str, ...] = (),
     _depth: int = 0,
 ) -> tuple[str, list[ComposedReference]]:
@@ -144,6 +133,12 @@ def expand_references(
         variable_name: Name of the variable being expanded (for cycle detection).
         resolve_fn: Function that resolves a variable name to
             (serialized_value, label, version, reason).
+        strict: When `True`, an unresolved `@{ref}@` / `@{ref.field}@` raises
+            `HandlebarsRuntimeError` instead of rendering as an empty string.
+            The SDK composes provider/override values strictly (so a missing
+            reference falls back to the code default) and the code default
+            non-strictly (the lenient last resort). Nested expansions inherit
+            this flag.
         _visited: Internal - ordered variable names in the current expansion chain.
         _depth: Internal - current recursion depth.
 
@@ -153,6 +148,7 @@ def expand_references(
     Raises:
         VariableCompositionError: If max depth is exceeded.
         VariableCompositionCycleError: If a circular reference is detected.
+        HandlebarsRuntimeError: Under *strict*, if a reference is unresolved.
     """
     if _depth > MAX_COMPOSITION_DEPTH:
         raise VariableCompositionError(
@@ -184,7 +180,6 @@ def expand_references(
 
     # Resolve each unique variable name and recursively expand nested references.
     context: dict[str, Any] = {}
-    unresolved_names: set[str] = set()
 
     for ref_name in all_ref_names:
         ref_serialized, ref_label, ref_version, ref_reason = resolve_fn(ref_name)
@@ -200,7 +195,6 @@ def expand_references(
                     error=f"Referenced variable '{ref_name}' could not be resolved.",
                 )
             )
-            unresolved_names.add(ref_name)
             continue
 
         # JSON-decode the referenced value.
@@ -217,7 +211,6 @@ def expand_references(
                     error=f"Referenced variable '{ref_name}' has a non-JSON serialized value.",
                 )
             )
-            unresolved_names.add(ref_name)
             continue
 
         # Recursively expand references within the resolved value.
@@ -228,6 +221,7 @@ def expand_references(
                     ref_serialized,
                     ref_name,
                     resolve_fn,
+                    strict=strict,
                     _visited=visited,
                     _depth=_depth + 1,
                 )
@@ -246,7 +240,6 @@ def expand_references(
                         fatal=True,
                     )
                 )
-                unresolved_names.add(ref_name)
                 continue
 
         # Build the ComposedReference for this variable.
@@ -269,14 +262,22 @@ def expand_references(
 
         context[ref_name] = raw_value
 
-    # Unresolved names are intentionally left ABSENT from `context`: Handlebars
-    # then treats them as falsy/missing in control positions — `@{#if missing}@`
-    # takes the else branch, `@{#each missing}@` renders empty — matching
-    # standard Handlebars semantics rather than silently selecting a branch.
-    # Their bare/dotted *interpolation* occurrences are preserved as literal
-    # `@{name}@` text by `_render_value` (sentinel-protect), so a missing
-    # reference stays visible in the output.
-    rendered = _render_value(decoded, context, unresolved_names)
+    # A fatal nested failure (a cycle or depth overflow) means the value can't be
+    # meaningfully composed, so skip rendering and return the un-rendered value with the
+    # `composed` tree intact. The caller discards the value and falls back, but inspects
+    # `composed` for the failure attribution. Skipping the render also avoids a *strict*
+    # render raising `HandlebarsRuntimeError` on the now-absent cyclic key, which would
+    # otherwise mask the structural error behind a generic missing-reference one.
+    if _has_fatal_composition_error(composed):
+        return serialized_value, composed
+
+    # Unresolved names are intentionally left ABSENT from `context`. Under
+    # non-strict rendering Handlebars then treats them as missing — `@{name}@`
+    # interpolation renders as an empty string and `@{#if name}@` takes the
+    # else branch — matching standard Handlebars. Under *strict* rendering the
+    # renderer raises `HandlebarsRuntimeError` for the missing key instead, so
+    # the caller can fall back to the code default.
+    rendered = _render_value(decoded, context, strict=strict)
 
     # ensure_ascii=False so non-ASCII characters survive as themselves in the serialized result
     # rather than being \u-escaped — the decoded value is identical either way, but consumers that
@@ -309,6 +310,16 @@ def find_references(serialized_value: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _has_fatal_composition_error(composed: list[ComposedReference]) -> bool:
+    """Return whether *composed* (recursively) contains a fatal failure (cycle / depth overflow)."""
+    for ref in composed:
+        if ref.error is not None and ref.fatal:
+            return True
+        if _has_fatal_composition_error(ref.composed_from):
+            return True
+    return False
 
 
 def _safe_json_load(serialized_value: str) -> Any:
@@ -394,16 +405,15 @@ def find_references_and_errors(serialized_value: str) -> tuple[list[str], list[s
     return sorted(refs), errors
 
 
-def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str]) -> Any:
+def _render_value(value: Any, context: dict[str, Any], *, strict: bool) -> Any:
     """Recursively walk a decoded JSON value, rendering strings through Handlebars.
 
-    Unresolved variable names are absent from *context*, so the renderer treats
-    them as falsy/missing — `@{#if missing}@` takes the else branch and a
-    missing name in a control/helper position renders empty, matching standard
-    Handlebars. To keep an unresolved *interpolation* visible, its bare and
-    dotted occurrences (`@{name}@` / `@{name.field}@`) are sentinel-protected
-    before rendering and restored afterwards, so their literal source survives
-    rather than rendering empty.
+    Unresolved variable names are absent from *context*. Under non-strict
+    rendering the renderer treats them as missing — `@{name}@` renders empty
+    and `@{#if name}@` takes the else branch, matching standard Handlebars.
+    Under *strict* rendering the renderer instead raises
+    `HandlebarsRuntimeError`, which the caller turns into a fall back to the
+    code default.
     Strings without any composition delimiter pass straight through; strings
     that contain `@{` (escaped or not) route through the renderer, which
     handles the backslash-parity escape rule.
@@ -413,48 +423,12 @@ def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str
             return value
         from logfire.variables.reference_syntax import render_once
 
-        protected_value, protected_refs = _protect_unresolved_interpolations(value, unresolved_names)
-        rendered = render_once(protected_value, context)
-        return _restore_unresolved_refs(rendered, protected_refs)
+        return render_once(value, context, strict=strict)
     if isinstance(value, dict):
         return {
-            k: _render_value(v, context, unresolved_names)
+            k: _render_value(v, context, strict=strict)
             for k, v in value.items()  # pyright: ignore[reportUnknownVariableType]
         }
     if isinstance(value, list):
-        return [_render_value(v, context, unresolved_names) for v in value]  # pyright: ignore[reportUnknownVariableType]
-    return value
-
-
-def _protect_unresolved_interpolations(value: str, unresolved_names: set[str]) -> tuple[str, dict[str, str]]:
-    """Replace unresolved-name interpolation tags with sentinels before Handlebars rendering.
-
-    Unresolved names are left out of the render context so they read as falsy
-    in control positions (`@{#if name}@` takes the else branch). That alone
-    would make a bare or dotted *interpolation* (`@{name}@` / `@{name.field}@`)
-    render to an empty string, so we substitute a sentinel for each such
-    interpolation pre-render and restore it after, keeping the literal source
-    visible. Block/helper tags (`@{#if name}@`, `@{#each name}@`, …) are
-    intentionally not matched, so they render with the name absent (falsy).
-    """
-    if not unresolved_names:
-        return value, {}
-
-    protected_refs: dict[str, str] = {}
-
-    def replace(match: re.Match[str]) -> str:
-        full_ref = match.group(1)
-        if full_ref.split('.')[0] not in unresolved_names:
-            return match.group(0)
-        sentinel = f'\x00logfire-unresolved-ref-{len(protected_refs)}-{id(value)}\x00'
-        protected_refs[sentinel] = match.group(0)
-        return sentinel
-
-    return _INTERP_REF_TEXT.sub(replace, value), protected_refs
-
-
-def _restore_unresolved_refs(value: str, protected_refs: dict[str, str]) -> str:
-    """Restore unresolved reference sentinels after Handlebars rendering."""
-    for sentinel, ref in protected_refs.items():
-        value = value.replace(sentinel, ref)
+        return [_render_value(v, context, strict=strict) for v in value]  # pyright: ignore[reportUnknownVariableType]
     return value

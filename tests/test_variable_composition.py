@@ -198,10 +198,10 @@ class TestExpandReferences:
         assert depth_error_found, 'Expected depth limit error somewhere in the chain'
 
     def test_unresolvable_reference(self):
-        """References to non-existent variables are left unexpanded."""
+        """Under non-strict composition a missing reference renders as an empty string."""
         resolve_fn = _make_resolve_fn({})
         expanded, composed = expand_references('"Hello @{nonexistent}@"', 'my_var', resolve_fn)
-        assert expanded == '"Hello @{nonexistent}@"'
+        assert expanded == '"Hello "'
         assert len(composed) == 1
         assert composed[0].name == 'nonexistent'
         assert composed[0].value is None
@@ -209,43 +209,51 @@ class TestExpandReferences:
         assert composed[0].error is not None
         assert composed[0].fatal is False  # an unresolved reference is a soft (non-fatal) failure
 
+    def test_unresolvable_reference_strict_raises(self):
+        """Under strict composition a missing reference raises instead of rendering empty."""
+        from logfire.variables._handlebars import HandlebarsError
+
+        resolve_fn = _make_resolve_fn({})
+        with pytest.raises(HandlebarsError):
+            expand_references('"Hello @{nonexistent}@"', 'my_var', resolve_fn, strict=True)
+
     def test_unresolvable_dotted_reference(self):
-        """Dotted references to non-existent variables are left unexpanded."""
+        """A missing dotted reference also renders empty (non-strict)."""
         resolve_fn = _make_resolve_fn({})
         expanded, composed = expand_references('"Hello @{nonexistent.field}@"', 'my_var', resolve_fn)
-        assert expanded == '"Hello @{nonexistent.field}@"'
+        assert expanded == '"Hello "'
         assert len(composed) == 1
         assert composed[0].name == 'nonexistent'
         assert composed[0].value is None
         assert composed[0].reason == 'unrecognized_variable'
 
-    def test_unresolvable_dotted_reference_preserves_resolved_refs(self):
-        """Protecting unresolved dotted refs doesn't block other references in the same value."""
+    def test_unresolvable_dotted_reference_alongside_resolved_ref(self):
+        """A missing dotted ref renders empty without blocking other refs in the same value."""
         resolve_fn = _make_resolve_fn({'known': '"there"'})
         expanded, composed = expand_references('"Hi @{known}@ @{missing.field}@"', 'my_var', resolve_fn)
-        assert expanded == '"Hi there @{missing.field}@"'
+        assert expanded == '"Hi there "'
         assert {ref.name for ref in composed} == {'known', 'missing'}
 
     def test_unresolvable_simple_and_dotted_reference_same_base(self):
-        """Simple and dotted unresolved refs for the same base are both preserved."""
+        """Simple and dotted unresolved refs for the same base both render empty (non-strict)."""
         resolve_fn = _make_resolve_fn({})
         expanded, composed = expand_references('"@{missing}@ @{missing.field}@"', 'my_var', resolve_fn)
-        assert expanded == '"@{missing}@ @{missing.field}@"'
+        assert expanded == '" "'
         assert len(composed) == 1
         assert composed[0].name == 'missing'
 
     def test_resolved_dotted_ref_alongside_unresolved_simple_ref(self):
-        """A dotted ref whose base resolves is rendered even when another ref is unresolved."""
+        """A dotted ref whose base resolves is rendered; a missing simple ref renders empty."""
         resolve_fn = _make_resolve_fn({'known': '{"field": "v"}'})
         expanded, composed = expand_references('"@{known.field}@ @{missing}@"', 'my_var', resolve_fn)
-        assert expanded == '"v @{missing}@"'
+        assert expanded == '"v "'
         assert {ref.name for ref in composed} == {'known', 'missing'}
 
     def test_none_value_reference(self):
-        """References to variables with None value are left unexpanded."""
+        """References to variables that don't resolve render empty (non-strict)."""
         resolve_fn = _make_resolve_fn({'missing': None})
         expanded, composed = expand_references('"Hello @{missing}@"', 'my_var', resolve_fn)
-        assert expanded == '"Hello @{missing}@"'
+        assert expanded == '"Hello "'
         assert len(composed) == 1
         assert composed[0].value is None
 
@@ -380,10 +388,10 @@ class TestExpandReferences:
         assert composed == []
 
     def test_invalid_json_reference(self):
-        """References to values with invalid JSON are left unexpanded."""
+        """A reference to a value with invalid JSON renders empty (non-strict)."""
         resolve_fn = _make_resolve_fn({'bad': 'not json at all'})
         expanded, composed = expand_references('"@{bad}@"', 'my_var', resolve_fn)
-        assert expanded == '"@{bad}@"'
+        assert expanded == '""'
         assert len(composed) == 1
         assert composed[0].error is not None
         assert 'non-JSON' in composed[0].error
@@ -595,13 +603,13 @@ class TestBlockHelpers:
         expanded, _ = expand_references('"@{#each items}@x@{/each}@"', 'my_var', resolve_fn)
         assert json.loads(expanded) == ''
 
-    def test_missing_ref_interpolation_preserved_alongside_falsy_block(self):
-        """A missing ref stays literal when interpolated, but is falsy in a control position."""
+    def test_missing_ref_interpolation_empty_alongside_falsy_block(self):
+        """A missing ref renders empty when interpolated and is falsy in a control position (non-strict)."""
         resolve_fn = _make_resolve_fn({'name': None})
         expanded, composed = expand_references(
             '"Hi @{name}@! @{#if name}@VIP@{else}@guest@{/if}@ tail=@{name.title}@"', 'my_var', resolve_fn
         )
-        assert json.loads(expanded) == 'Hi @{name}@! guest tail=@{name.title}@'
+        assert json.loads(expanded) == 'Hi ! guest tail='
         assert len(composed) == 1
         assert composed[0].name == 'name'
         assert composed[0].fatal is False
@@ -895,7 +903,7 @@ class TestCompositionIntegration:
         """A malformed `@{...}@` stored value falls back to the code default instead of crashing (A3).
 
         `@{#if x}@` (unclosed) makes pydantic-handlebars raise while rendering during resolution;
-        `_expand_and_deserialize` catches it and routes to the code-default fallback with a warning,
+        `_try_resolve` catches it and routes to the code-default fallback with a warning,
         carrying the real parse error on `.exception` rather than letting it escape uncaught.
         """
         from logfire.variables._handlebars import HandlebarsError
@@ -918,7 +926,7 @@ class TestCompositionIntegration:
         Regression for #1954 r3287513610 — when the code-default tier
         supplies the value AND composition then fails, both the
         serialize step (in `_lookup_serialized` → `_get_serialized_default`)
-        and the fallback step (in `_fallback_to_default`) previously
+        and the fallback step (in `_resolve_code_default_value`) previously
         invoked the callable, doubling side effects. With `_DEFAULT_CACHE`
         in place the callable is invoked once per `get()`.
         """
@@ -1015,14 +1023,14 @@ class TestCompositionIntegration:
         assert len(result.composed_from) == 1
         assert result.composed_from[0].composed_from[0].error == 'Circular reference detected: a -> b -> a'
 
-    def test_nonexistent_reference_left_unexpanded_with_warning(self, config_kwargs: dict[str, Any]):
-        """A missing `@{ref}@` is left unexpanded (partial render) with a warning, not discarded.
+    def test_nonexistent_reference_in_provider_value_falls_back_to_code_default(self, config_kwargs: dict[str, Any]):
+        """A missing `@{ref}@` in a provider value falls back to the code default.
 
-        Unlike a cycle / depth overflow (fatal, falls back to the code default), an
-        unresolvable reference is *soft*: the literal `@{nonexistent}@` text is kept and the
-        rest of the value renders. The composed value is preserved (not swapped for the
-        unrelated code default), a RuntimeWarning names the reference, and `composed_from`
-        records the per-reference error.
+        Provider/stored values are composed in strict mode, so an unresolvable reference is
+        treated like any other composition failure: the value is discarded and resolution
+        falls back to the variable's code default, with a RuntimeWarning naming the reference.
+        (Contrast `test_code_default_with_unresolved_reference_renders_empty`, where the
+        *code default* is the lenient last resort and a missing reference renders empty.)
         """
         variables_config = _make_variables_config(
             main='"Hello @{nonexistent}@"',
@@ -1031,18 +1039,12 @@ class TestCompositionIntegration:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='main', default='fallback', type=str)
-        with pytest.warns(RuntimeWarning, match='unresolved composition reference'):
+        with pytest.warns(RuntimeWarning, match='composition failed; falling back to code default'):
             result = var.get()
-        assert result.value == 'Hello @{nonexistent}@'  # partial render: literal kept, not the code default
-        assert result.reason == 'resolved'
-        assert result.exception is None
-        # The unresolved reference is recorded as a non-fatal error.
-        assert len(result.composed_from) == 1
-        assert result.composed_from[0].name == 'nonexistent'
-        assert result.composed_from[0].value is None
-        assert result.composed_from[0].fatal is False
-        assert result.composed_from[0].error is not None
-        assert 'nonexistent' in result.composed_from[0].error
+        assert result.value == 'fallback'  # discarded the broken provider value for the code default
+        assert result.reason == 'other_error'
+        assert result.exception is not None
+        assert 'nonexistent' in str(result.exception)
 
     def test_non_string_reference_expanded(self, config_kwargs: dict[str, Any]):
         """Non-string variables are now expanded via Handlebars."""
@@ -1373,8 +1375,8 @@ class TestCompositionIntegration:
             assert result.value == 'hello code_default_opaque'
             assert result.composed_from[0].reason == 'code_default'
 
-    def test_unresolved_when_registered_code_default_also_fails(self, config_kwargs: dict[str, Any]):
-        """If both provider and the referenced variable's code default fail, ref is left unexpanded."""
+    def test_provider_value_falls_back_when_referenced_default_unserializable(self, config_kwargs: dict[str, Any]):
+        """If a `@{ref}@` resolves to nothing (its code default can't serialize), fall back."""
         variables_config = VariablesConfig(
             variables={
                 'parent': VariableConfig(
@@ -1393,15 +1395,14 @@ class TestCompositionIntegration:
         lf.var(name='opaque', default=object(), type=object)
         parent = lf.var(name='parent', default='fallback', type=str)
 
-        with pytest.warns(RuntimeWarning, match='unresolved composition reference'):
+        with pytest.warns(RuntimeWarning, match='composition failed; falling back to code default'):
             result = parent.get()
-        # The reference is unresolved (no value source produced JSON), but that's a soft
-        # failure: the literal `@{opaque}@` is left in place and the provider value is kept.
-        assert result.value == 'hello @{opaque}@'
-        assert result.reason == 'resolved'
-        assert result.composed_from[0].name == 'opaque'
-        assert result.composed_from[0].fatal is False
-        assert result.composed_from[0].error is not None
+        # `@{opaque}@` produced no JSON value from any tier, so the strict provider value
+        # fails composition and resolution falls back to parent's own code default.
+        assert result.value == 'fallback'
+        assert result.reason == 'other_error'
+        assert result.exception is not None
+        assert 'opaque' in str(result.exception)
 
 
 class TestCodeDefaultSerializationFailures:
@@ -1415,23 +1416,26 @@ class TestCodeDefaultSerializationFailures:
         sentinel = object()
         var = lf.var(name='opaque', default=sentinel, type=object)
         result = var.get()
-        # `_get_serialized_default` returned None; `_resolve_serialized_default` short-circuited
-        # and the plain Python default flows through.
+        # `_get_serialized_default` returned None, so composition is skipped and the plain
+        # Python default flows through.
         assert result.value is sentinel
         assert result.reason == 'code_default'
 
-    def test_code_default_with_unresolved_reference_left_unexpanded(self, config_kwargs: dict[str, Any]):
-        """A code default that references a missing variable keeps the literal `@{ref}@`."""
+    def test_code_default_with_unresolved_reference_renders_empty(self, config_kwargs: dict[str, Any]):
+        """A code default that references a missing variable renders the reference as empty.
+
+        The code default is the lenient last resort: when its strict composition fails, it is
+        re-composed non-strict so the unresolvable `@{nonexistent}@` becomes an empty string
+        (there is nothing further to fall back to). The value still comes from the code-default
+        tier, so the reason stays 'code_default'.
+        """
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
-        # Reference an unknown variable in the code default — the missing reference is soft,
-        # so the literal `@{nonexistent}@` is left in place rather than discarding the value.
-        # The value still comes from the code-default tier, so the reason stays 'code_default'.
         var = lf.var(name='main', default='hello @{nonexistent}@', type=str)
-        with pytest.warns(RuntimeWarning, match='unresolved composition reference'):
+        with pytest.warns(RuntimeWarning, match='code default has unresolved composition reference'):
             result = var.get()
-        assert result.value == 'hello @{nonexistent}@'
+        assert result.value == 'hello '
         assert result.reason == 'code_default'
 
 
@@ -1461,3 +1465,45 @@ class TestCompositionExceptions:
                 _make_resolve_fn({}),
                 _depth=21,
             )
+
+
+class _Inputs(BaseModel):
+    name: str
+
+
+class TestTemplateIntoPlainCompositionWarning:
+    """A variable without inputs_type that composes a template variable warns at declaration time."""
+
+    def test_plain_var_composing_template_var_warns(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        lf.template_var(name='bar', default='Hi {{name}}', type=str, inputs_type=_Inputs)
+        with pytest.warns(RuntimeWarning, match="'foo' composes template variable 'bar'"):
+            lf.var(name='foo', default='Greeting: @{bar}@', type=str)
+
+    def test_warns_regardless_of_declaration_order(self, config_kwargs: dict[str, Any]):
+        # The plain variable is declared *first*, before the template variable exists; the warning
+        # still fires when the template variable is later declared (the check runs in both directions).
+        lf = logfire.configure(**config_kwargs)
+        lf.var(name='foo', default='Greeting: @{bar}@', type=str)
+        with pytest.warns(RuntimeWarning, match="'foo' composes template variable 'bar'"):
+            lf.template_var(name='bar', default='Hi {{name}}', type=str, inputs_type=_Inputs)
+
+    def test_template_var_composing_template_var_does_not_warn(self, config_kwargs: dict[str, Any]):
+        import warnings as _warnings
+
+        lf = logfire.configure(**config_kwargs)
+        lf.template_var(name='bar', default='Hi {{name}}', type=str, inputs_type=_Inputs)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter('always')
+            lf.template_var(name='foo', default='Greeting: @{bar}@', type=str, inputs_type=_Inputs)
+        assert not [w for w in caught if 'composes template variable' in str(w.message)]
+
+    def test_plain_var_composing_plain_var_does_not_warn(self, config_kwargs: dict[str, Any]):
+        import warnings as _warnings
+
+        lf = logfire.configure(**config_kwargs)
+        lf.var(name='bar', default='there', type=str)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter('always')
+            lf.var(name='foo', default='Hi @{bar}@', type=str)
+        assert not [w for w in caught if 'composes template variable' in str(w.message)]

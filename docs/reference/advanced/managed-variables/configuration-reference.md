@@ -134,10 +134,9 @@ def test_premium_config_handling():
 
 #### Overrides and composition
 
-Overrides take precedence over both the provider value and the code default. When the override value is JSON-serializable, it runs through the **same `@{ref}@` composition → `{{}}` rendering → deserialization pipeline as a stored value**, so an override resolves identically to how it would once pushed. Two consequences worth knowing:
+A JSON-serializable override runs through the same `@{ref}@` composition → `{{}}` rendering → deserialization pipeline as a stored value, so it resolves identically to how it would once pushed — making it a faithful stand-in for a candidate value when iterating (e.g. during optimization).
 
-- **`@{ref}@` composition applies to overrides.** Overriding with `'Hi @{user}@'` expands `@{user}@` against the live config, just like a stored value. This makes an override a faithful stand-in for a candidate stored value — useful when iterating on a value (e.g. during optimization) before pushing it.
-- **Template rendering still happens for `TemplateVariable` overrides**, as long as the override value is JSON-serializable. Overriding with `'Hi {{name}}'` and calling `get(Inputs(name='Alice'))` returns `'Hi Alice'`. An override that *isn't* JSON-serializable (e.g. an arbitrary Python object) skips the compose/render pass and comes back exactly as passed — useful for `Variable[SomeClass]` where the value is a typed Python object rather than a template string.
+The case worth calling out is a **non-serializable** override. If the value can't be dumped to JSON through the variable's type adapter — an arbitrary Python object on a `Variable[SomeClass]`, a live client, a model instance — it's returned exactly as passed, with `reason='context_override'` and no round-trip at all. That's deliberate: such a value has no string form, so there's nothing to compose, render, or re-validate. The trade-off is that any `@{ref}@` or `{{...}}` *inside* a non-serializable override is left untouched, since there's no serialized form to run the engine against.
 
 ```python
 import logfire

@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 
 from logfire.variables._handlebars import compile_runtime_template, get_safe_string_cls
 
@@ -159,26 +159,49 @@ class ResolvedVariable(Generic[T_co]):
 
 
 def _inputs_to_context(inputs: Any) -> dict[str, Any]:
-    """Convert inputs (Pydantic model, dict, or Mapping) to a template context dict.
+    """Convert template `inputs` to a context dict for Handlebars rendering.
+
+    Accepts whatever the variable's declared `inputs_type` might be, since
+    `template_var()` allows any `TypeAdapter`-supported type: a Pydantic `BaseModel`
+    (via `model_dump()`), a `dict`/`Mapping`, a dataclass, a `TypedDict` instance, an
+    attrs class, etc. Anything that isn't already a model or mapping is run through
+    pydantic's general `to_jsonable_python` serialization, mirroring how the value's
+    own `template_inputs_schema` is derived. `None` yields an empty context.
 
     Args:
-        inputs: Template context values. Can be a Pydantic `BaseModel` (uses `model_dump()`),
-            a `dict`, or any `Mapping`. If `None`, returns an empty dict.
+        inputs: Template context values.
 
     Returns:
         A dict suitable for use as a Handlebars template context.
 
     Raises:
-        TypeError: If inputs is not a supported type.
+        TypeError: If inputs can't be serialized to a mapping context.
     """
     if inputs is None:
         return {}
-    elif hasattr(inputs, 'model_dump'):
+    if hasattr(inputs, 'model_dump'):
         return inputs.model_dump()
-    elif isinstance(inputs, Mapping):
+    if isinstance(inputs, Mapping):
         return dict(inputs)  # pyright: ignore[reportUnknownArgumentType]
-    else:
-        raise TypeError(f'Expected a dict, Mapping, or Pydantic model for render inputs, got {type(inputs).__name__}')
+
+    # Fall back to pydantic's general serialization so dataclasses / TypedDict instances /
+    # attrs classes / etc. work as inputs (matching the arbitrary `inputs_type` the SDK allows).
+    from pydantic_core import to_jsonable_python
+
+    try:
+        dumped = to_jsonable_python(inputs)
+    except Exception as e:
+        raise TypeError(
+            f'Could not serialize render inputs of type {type(inputs).__name__!r} to a template '
+            'context; pass a Pydantic model, dataclass, TypedDict, dict/Mapping, or another '
+            'pydantic-serializable object.'
+        ) from e
+    if isinstance(dumped, dict):
+        return cast('dict[str, Any]', dumped)
+    raise TypeError(
+        f'Render inputs of type {type(inputs).__name__!r} serialized to {type(dumped).__name__!r}, '
+        'but a mapping is required for a template context.'
+    )
 
 
 def render_serialized_string(serialized_json: str, inputs: Any) -> str:
@@ -442,16 +465,7 @@ class ValidationReport:
         if self.template_field_issues:
             lines.append(f'\n{red}=== Template field issues ==={reset}')
             for issue in self.template_field_issues:
-                location = issue.found_in_variable
-                if issue.found_in_label is not None:
-                    location += f' (label: {issue.found_in_label})'
-                chain = ''
-                if issue.reference_path:
-                    chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
-                lines.append(
-                    f'  {red}✗ {{{{{issue.field_name}}}}} in {location}{chain}'
-                    f' is not declared in the inputs_type schema{reset}'
-                )
+                lines.append(f'  {red}✗ {_describe_template_field_issue(issue)}{reset}')
 
         # Summary line
         if not self.is_valid:
@@ -590,6 +604,32 @@ def _check_type_label_compatibility(
     return incompatible
 
 
+def _describe_template_field_issue(issue: TemplateFieldIssue) -> str:
+    """Render a `TemplateFieldIssue` as a single human-readable line.
+
+    Names the *validated* template variable (`root_variable`) whose `inputs_type` schema the
+    field was checked against, and — when the field lives in a different, composed fragment —
+    where it was actually found and the `@{ref}@` chain that reached it. This keeps the
+    attribution unambiguous: a shared fragment can be valid on its own yet incompatible with a
+    particular root that composes it.
+    """
+    if issue.found_in_variable == issue.root_variable and not issue.reference_path:
+        # The field is directly in the root template variable's own value.
+        where = ''
+    else:
+        location = issue.found_in_variable
+        if issue.found_in_label is not None:
+            location += f' (label: {issue.found_in_label})'
+        chain = ''
+        if issue.reference_path:
+            chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
+        where = f' found in {location}{chain}'
+    return (
+        f'{issue.root_variable}: {{{{{issue.field_name}}}}}{where} '
+        f"is not declared in {issue.root_variable}'s inputs_type schema"
+    )
+
+
 def _collect_template_field_issues(
     variables: Sequence[Variable[object]],
     server_config: VariablesConfig,
@@ -649,18 +689,19 @@ def _collect_template_field_issues(
                 pass
         return result
 
-    # `validate_template_composition` dedups within a single root's walk, but the same shared
-    # fragment reached from several template roots would otherwise be reported once per root. Dedup
-    # across roots on the issue identity (field / variable / label) so the count and the printed
-    # lines aren't inflated by how many variables happen to compose the bad fragment.
-    seen: set[tuple[str, str, str | None]] = set()
+    # `validate_template_composition` dedups within a single root's walk. Across roots, the issue
+    # identity must include `root_variable`: the same shared fragment can be incompatible with
+    # several distinct template roots' schemas, and each of those roots is a separate problem to
+    # report. Keying on (field / found-in variable / label) *without* the root would collapse those
+    # into one line, hiding which template variable(s) are actually broken by composing the fragment.
+    seen: set[tuple[str, str, str, str | None]] = set()
     for variable in variables:
         if not isinstance(variable, TemplateVariable):
             continue
         schema = variable.get_template_inputs_schema()
         result = validate_template_composition(variable.name, schema, get_all_serialized_values)
         for issue in result.issues:
-            key = (issue.field_name, issue.found_in_variable, issue.found_in_label)
+            key = (issue.root_variable, issue.field_name, issue.found_in_variable, issue.found_in_label)
             if key in seen:
                 continue
             seen.add(key)
@@ -1012,16 +1053,7 @@ def _format_diff(diff: VariableDiff) -> str:
     if diff.template_field_issues:
         lines.append(f'\n{ANSI_YELLOW}=== Template field issues ==={ANSI_RESET}')
         for issue in diff.template_field_issues:
-            location = issue.found_in_variable
-            if issue.found_in_label is not None:
-                location += f' (label: {issue.found_in_label})'
-            chain = ''
-            if issue.reference_path:
-                chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
-            lines.append(
-                f'  {ANSI_YELLOW}⚠ {{{{{issue.field_name}}}}} in {location}{chain}'
-                f' is not declared in the inputs_type schema{ANSI_RESET}'
-            )
+            lines.append(f'  {ANSI_YELLOW}⚠ {_describe_template_field_issue(issue)}{ANSI_RESET}')
 
     return '\n'.join(lines)
 

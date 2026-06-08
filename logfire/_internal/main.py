@@ -2598,6 +2598,10 @@ class Logfire:
         )
         self._variables[name] = variable
 
+        from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
+
+        warn_on_template_inputs_composition_mismatch(self._variables, variable)
+
         return variable
 
     @overload
@@ -2730,6 +2734,10 @@ class Logfire:
             template_mismatch_policy=template_mismatch_policy,
         )
         self._variables[name] = variable
+
+        from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
+
+        warn_on_template_inputs_composition_mismatch(self._variables, variable)
 
         return variable
 

@@ -13,7 +13,6 @@ Used by both the SDK and the backend for pre-write validation.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -27,27 +26,30 @@ __all__ = (
     'validate_template_composition',
     'detect_composition_cycles',
     'extract_template_strings',
-    'find_template_fields',
 )
-
-# Matches {{identifier}} and {{path.to.identifier}} Handlebars variable references.
-# Excludes block helpers ({{#if}}), closing tags ({{/if}}), partials ({{> name}}),
-# and comments ({{! text}}).
-TEMPLATE_FIELD_PATTERN = re.compile(r'\{\{\s*([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*\}\}')
 
 
 @dataclass
 class TemplateFieldIssue:
-    """A `{{field}}` reference that doesn't match the variable's `template_inputs_schema`."""
+    """A `{{field}}` reference that doesn't match a template variable's `template_inputs_schema`."""
 
     field_name: str
     """The template field name (e.g., `user_name` from `{{user_name}}`)."""
     found_in_variable: str
-    """Name of the variable whose value contains this field reference."""
+    """Name of the variable whose value literally contains this field reference."""
     found_in_label: str | None
     """Label of the value where the field was found, or `None` for the code default."""
     reference_path: list[str]
     """Composition path from the root variable to `found_in_variable`."""
+    root_variable: str
+    """Name of the `TemplateVariable` whose `inputs_type` schema was applied.
+
+    The field is checked against *this* variable's schema, so when `found_in_variable`
+    differs from `root_variable` the offending fragment is valid on its own and only
+    incompatible because `root_variable` composes it. Naming the root makes the
+    attribution unambiguous (the issue is "`root_variable` composes a fragment whose
+    `{{field}}` isn't in `root_variable`'s inputs", not "`found_in_variable` is broken").
+    """
 
 
 @dataclass
@@ -55,21 +57,6 @@ class TemplateValidationResult:
     """Result of template composition validation."""
 
     issues: list[TemplateFieldIssue] = field(default_factory=list[TemplateFieldIssue])
-
-
-def find_template_fields(text: str) -> set[str]:
-    """Find all `{{field}}` or `{{path.to.field}}` references in a string.
-
-    This is an **approximate**, regex-based helper: it does not parse Handlebars, so it
-    over-matches brace-adjacent forms such as triple-stache raw output (`{{{raw}}}` → `{'raw'}`)
-    and composition-adjacent text (`@{{x}}@` → `{'x'}`). The authoritative check used by
-    push / validate is AST-based (`check_template_compatibility`); prefer that for correctness and
-    treat this helper's output as a superset hint.
-
-    Returns:
-        Set of field names found in the text.
-    """
-    return set(TEMPLATE_FIELD_PATTERN.findall(text))
 
 
 def extract_template_strings(serialized_json: str) -> list[str]:
@@ -151,6 +138,7 @@ def validate_template_composition(
                             found_in_variable=name,
                             found_in_label=label,
                             reference_path=list(path),
+                            root_variable=variable_name,
                         )
                     )
 
