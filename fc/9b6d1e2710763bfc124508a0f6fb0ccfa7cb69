@@ -1,0 +1,23 @@
+docs/reference/advanced/managed-variables/remote.md
+  s_a992c1e2114f56::t_ce782c046b57aa 23
+tests/test_variables.py
+  s_a992c1e2114f56::t_e01d04224669c9 21,5134-5142
+logfire/_internal/config.py
+  s_a992c1e2114f56::t_fd2849e69c692a 1507-1508,1514,1521-1523
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "fc9b6d1e2710763bfc124508a0f6fb0ccfa7cb69",
+  "prompts": {},
+  "sessions": {
+    "s_a992c1e2114f56": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea78b-1be2-7800-8819-e389180b23b5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
