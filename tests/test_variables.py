@@ -20,7 +20,7 @@ from requests import Session
 import logfire
 from logfire._internal.config import LocalVariablesOptions, VariablesOptions
 from logfire.testing import TestExporter
-from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
+from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider, VariableWriteError
 from logfire.variables.config import (
     KeyIsNotPresent,
     KeyIsPresent,
@@ -937,6 +937,32 @@ class TestLogfireRemoteVariableProvider:
             finally:
                 provider.shutdown()
 
+    def test_network_failure_marks_attempted_fetch(self) -> None:
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                with pytest.warns(RuntimeWarning, match='Error retrieving variables'):
+                    result = provider.get_serialized_value('test_var')
+                assert result.value is None
+                assert provider._has_attempted_fetch is True
+                assert request_mocker.call_count == 1
+
+                provider.get_serialized_value('test_var')
+                assert request_mocker.call_count == 1
+            finally:
+                provider.shutdown()
+
     def test_get_serialized_value_missing_config_no_block(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1061,6 +1087,38 @@ class TestLogfireRemoteVariableProvider:
                 provider.refresh(force=True)
                 result = provider.get_serialized_value('test_var')
                 assert result.reason == 'unrecognized_variable'
+            finally:
+                provider.shutdown()
+
+    def test_refresh_force_fetches_even_when_lock_appears_busy(self) -> None:
+        from datetime import datetime, timezone
+
+        class FakeLock:
+            def locked(self) -> bool:
+                return True
+
+            def __enter__(self) -> None:
+                return None
+
+            def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+                return None
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                provider._last_fetched_at = datetime.now(tz=timezone.utc)
+                provider._refresh_lock = FakeLock()  # type: ignore[assignment]
+                provider.refresh(force=True)
+                assert request_mocker.call_count == 1
             finally:
                 provider.shutdown()
 
@@ -2522,6 +2580,29 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 request_body = post_adapter.last_request.json()
                 assert request_body['aliases'] == ['old_name', 'legacy_name']
                 assert request_body['example'] == '"example_value"'
+            finally:
+                provider.shutdown()
+
+    def test_variable_types_network_error_raises_write_error(self) -> None:
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.get('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        request_mocker.post('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to list variable types'):
+                    provider.list_variable_types()
+                with pytest.raises(VariableWriteError, match='Failed to upsert variable type'):
+                    provider.upsert_variable_type(VariableTypeConfig(name='t', json_schema={'type': 'string'}))
             finally:
                 provider.shutdown()
 

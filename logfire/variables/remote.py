@@ -113,6 +113,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._pid = os.getpid()
 
     def _at_fork_reinit(self):  # pragma: no cover
+        # If shutdown() ran before the fork, the child would otherwise inherit
+        # _shutdown=True and its freshly started worker/SSE threads would exit.
+        self._shutdown = False
+        self._shutdown_timeout_exceeded = False
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
         self._session_lock = threading.Lock()
@@ -219,9 +223,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
                         continue
 
-                    # Connected successfully, reset delay
+                    # Do not reset the backoff until data arrives. A stream
+                    # that returns 200 and immediately closes is not healthy.
                     self._sse_connected = True
-                    reconnect_delay = 1.0
 
                     # Process SSE events
                     for line in response.iter_lines(decode_unicode=True):
@@ -237,6 +241,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
+                            reconnect_delay = 1.0
                             data_str = line[5:].strip()
                             try:
                                 event_data = json.loads(data_str)
@@ -249,6 +254,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                             except (json.JSONDecodeError, TypeError):
                                 # Invalid JSON, ignore
                                 pass
+
+                self._sse_connected = False
+                if not self._shutdown:
+                    self._wait_for_reconnect(reconnect_delay)
+                    reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
 
             except Exception:
                 # Connection error, will retry
@@ -295,10 +305,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             force: If True, fetch configuration even if the polling interval hasn't elapsed.
         """
-        if self._refresh_lock.locked():  # pragma: no cover
-            # If we're already fetching, we'll get a new value, so no need to force
-            force = False
-
         # Note: Eventually we may want to rework the client and server implementations to use a NotModifiedResponse
         #  to reduce the amount of overhead from polling. We could also use a websocket/SSE to get real time updates
         #  when the user makes changes.
@@ -320,6 +326,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             except Exception as e:
                 # Catch all request/HTTP/JSON exceptions (ConnectionError, Timeout, UnexpectedResponse,
                 # JSONDecodeError, etc.) to prevent crashing the user's application on failures.
+                self._has_attempted_fetch = True
                 self._log_error('Error retrieving variables', e)
                 return
 
@@ -621,7 +628,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'), timeout=self._timeout)
                 UnexpectedResponse.raise_for_status(response)
                 types_data = response.json()
-        except UnexpectedResponse as e:
+        except (UnexpectedResponse, RequestException) as e:
             raise VariableWriteError(f'Failed to list variable types: {e}') from e
         result: dict[str, VariableTypeConfig] = {}
         for type_data in types_data:
@@ -664,7 +671,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     urljoin(self._base_url, '/v1/variable-types/'), json=body, timeout=self._timeout
                 )
                 UnexpectedResponse.raise_for_status(response)
-        except UnexpectedResponse as e:
+        except (UnexpectedResponse, RequestException) as e:
             raise VariableWriteError(f'Failed to upsert variable type: {e}') from e
 
         return config
