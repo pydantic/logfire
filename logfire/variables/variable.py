@@ -1,12 +1,13 @@
 from __future__ import annotations as _annotations
 
 import inspect
+import warnings
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from importlib.util import find_spec
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast
 
 from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
@@ -115,6 +116,13 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
         return required_positional <= 2 and total_positional >= 2
 
 
+def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
+    try:
+        warnings.warn(message, category=RuntimeWarning, stacklevel=stacklevel)
+    except Exception:
+        pass
+
+
 class Variable(Generic[T_co]):
     """A managed variable that can be resolved dynamically based on configuration."""
 
@@ -157,11 +165,11 @@ class Variable(Generic[T_co]):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
 
-    def _deserialize(self, serialized_value: str) -> T_co | Exception:
+    def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError | TypeError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
         try:
             return self.type_adapter.validate_json(serialized_value)
-        except Exception as e:
+        except (ValidationError, ValueError, TypeError) as e:
             return e
 
     @contextmanager
@@ -285,12 +293,12 @@ class Variable(Generic[T_co]):
                             span.set_attribute('invalid_serialized_label', serialized_result.label)
                             span.set_attribute('invalid_serialized_value', serialized_result.value)
                         default = self._get_default(targeting_key, attributes)
-                        reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+                        self._warn_validation_fallback(value_or_exc)
                         return ResolvedVariable(
                             name=self.name,
                             value=default,
                             exception=value_or_exc,
-                            reason=reason,
+                            reason='validation_error',
                             label=serialized_result.label,
                             version=serialized_result.version,
                         )
@@ -323,12 +331,12 @@ class Variable(Generic[T_co]):
                     span.set_attribute('invalid_serialized_label', serialized_result.label)
                     span.set_attribute('invalid_serialized_value', serialized_result.value)
                 default = self._get_default(targeting_key, attributes)
-                reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+                self._warn_validation_fallback(value_or_exc)
                 return ResolvedVariable(
                     name=self.name,
                     value=default,
                     exception=value_or_exc,
-                    reason=reason,
+                    reason='validation_error',
                     label=serialized_result.label,
                     version=serialized_result.version,
                 )
@@ -345,7 +353,13 @@ class Variable(Generic[T_co]):
             if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
-            default = self._get_default(targeting_key, attributes)
+            try:
+                default = self._get_default(targeting_key, attributes)
+            except Exception:
+                default = cast('T_co', None)
+                _emit_resolution_warning(
+                    f"Variable '{self.name}' could not be resolved and its code default raised; returning None: {e}"
+                )
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _get_default(
@@ -355,6 +369,14 @@ class Variable(Generic[T_co]):
             return self.default(targeting_key, merged_attributes)
         else:
             return self.default
+
+    def _warn_validation_fallback(self, error: Exception) -> None:
+        detail: object = (
+            error.errors(include_input=False, include_url=False) if isinstance(error, ValidationError) else error
+        )
+        _emit_resolution_warning(
+            f"Variable '{self.name}' value failed validation; falling back to code default: {detail}"
+        )
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         from logfire._internal.config import LocalVariablesOptions, VariablesOptions
@@ -393,7 +415,10 @@ class Variable(Generic[T_co]):
         # Get the serialized default value as an example (if not a function)
         example: str | None = None
         if not is_resolve_function(self.default):
-            example = self.type_adapter.dump_json(self.default).decode('utf-8')
+            try:
+                example = self.type_adapter.dump_json(self.default).decode('utf-8')
+            except (ValueError, TypeError, RuntimeError):
+                example = None
 
         return VariableConfig(
             name=self.name,

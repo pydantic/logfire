@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 import requests_mock as requests_mock_module
 from inline_snapshot import snapshot
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 from requests import Session
 
 import logfire
@@ -1750,13 +1750,48 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
-        details = var.get()
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            details = var.get()
         # Falls back to default when validation fails
         assert details.value == 999
         assert details.exception is not None
         assert details.reason == 'validation_error'
         assert details.label == 'default'
         assert details.version == 1
+
+    def test_get_details_with_validator_type_error(self, config_kwargs: dict[str, Any]):
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'type_error_var': VariableConfig(
+                        name='type_error_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='{"value": 1}')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            result = var.get()
+        assert result.value == TypeErrorModel(value=0)
+        assert isinstance(result.exception, TypeError)
+        assert result.reason == 'validation_error'
+        assert result.label == 'default'
+        assert result.version == 1
 
     def test_get_uses_default_when_no_config(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
@@ -1787,6 +1822,30 @@ class TestVariable:
         result = var.get()
         assert result.value == 'my_default'
         assert result.reason == 'code_default'
+        assert result.exception is provider_error
+
+    def test_get_warns_when_default_function_fails(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def failing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            raise provider_error
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', failing_get)
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning, match='code default raised'):
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
         assert result.exception is provider_error
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
@@ -3848,6 +3907,13 @@ class TestVariableToConfig:
         config = var.to_config()
         assert config.name == 'func_var'
         # Example should be None when default is a function
+        assert config.example is None
+
+    def test_to_config_with_unserializable_default(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='opaque', type=object, default=object())
+        config = var.to_config()
+        assert config.name == 'opaque'
         assert config.example is None
 
 
