@@ -72,7 +72,10 @@ class LocalVariableProvider(VariableProvider):
         Returns:
             A VariablesConfig containing all variable configurations.
         """
-        return self._config
+        with self._lock:
+            # Return a deep copy under the lock so callers that iterate the config
+            # get a stable snapshot while concurrent writes mutate the provider.
+            return self._config.model_copy(deep=True)
 
     def create_variable(self, config: VariableConfig) -> VariableConfig:
         """Create a new variable configuration.

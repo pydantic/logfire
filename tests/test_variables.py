@@ -870,6 +870,23 @@ class TestLocalVariableProvider:
         assert result.value is None
         assert result.reason == 'resolved'
 
+    def test_get_all_variables_config_returns_isolated_snapshot(self, simple_config: VariablesConfig):
+        provider = LocalVariableProvider(simple_config)
+        snapshot = provider.get_all_variables_config()
+        assert set(snapshot.variables) == {'test_var'}
+
+        provider.create_variable(
+            VariableConfig(
+                name='added',
+                labels={'default': LabeledValue(version=1, serialized_value='"v"')},
+                rollout=Rollout(labels={'default': 1.0}),
+                overrides=[],
+            )
+        )
+
+        assert set(snapshot.variables) == {'test_var'}
+        assert set(provider.get_all_variables_config().variables) == {'test_var', 'added'}
+
 
 # =============================================================================
 # Test LogfireRemoteVariableProvider (using requests-mock)
