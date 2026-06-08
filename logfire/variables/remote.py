@@ -117,18 +117,19 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._pid = os.getpid()
 
     def _at_fork_reinit(self):  # pragma: no cover
-        # Reset shutdown state: if shutdown() ran before the fork, the child would otherwise inherit
-        # _shutdown=True and its freshly-started worker/SSE threads would exit immediately, silently
-        # leaving the child polling-less with a stale config.
-        self._shutdown = False
-        self._shutdown_timeout_exceeded = False
+        was_shutdown = self._shutdown
+        if not was_shutdown:
+            # Reset shutdown-timeout state only for active providers. If shutdown()
+            # ran before the fork, keep `_shutdown=True` so the child does not
+            # restart worker/SSE threads using a session the parent already closed.
+            self._shutdown_timeout_exceeded = False
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
         self._session_lock = threading.Lock()
         self._worker_awaken = threading.Event()
         self._force_refresh_event = threading.Event()
         # Only restart threads if we were started before the fork
-        if self._started:
+        if self._started and not was_shutdown:
             self._worker_thread = threading.Thread(
                 name='LogfireRemoteProvider',
                 target=self._worker,

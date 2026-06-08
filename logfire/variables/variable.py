@@ -359,7 +359,7 @@ class Variable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             try:
                 default = self._get_default_cached(targeting_key, attributes)
-            except Exception:
+            except Exception as default_exc:
                 # The code default itself failed (e.g. a callable default raised), so there is
                 # genuinely nothing left to fall back to. Warn loudly and return None rather than
                 # swallowing both errors: this is the most fundamental failure mode (the
@@ -371,7 +371,8 @@ class Variable(Generic[T_co]):
                 # `filterwarnings=error` config turns into the very exception caught here.)
                 default = cast('T_co', None)
                 _emit_resolution_warning(
-                    f"Variable '{self.name}' could not be resolved and its code default raised; returning None: {e}"
+                    f"Variable '{self.name}' could not be resolved and its code default raised; "
+                    f'returning None: {default_exc}'
                 )
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 

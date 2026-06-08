@@ -1110,6 +1110,30 @@ class TestLogfireRemoteVariableProvider:
             # 30% of 10000ms = 3000ms = 3.0s for SSE
             mock_sse.join.assert_called_once_with(timeout=3.0)
 
+    def test_at_fork_reinit_does_not_restart_after_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        provider._started = True
+        provider._shutdown = True
+        mock_thread_cls = unittest.mock.MagicMock()
+        mock_start_sse = unittest.mock.MagicMock()
+        monkeypatch.setattr(remote_module.threading, 'Thread', mock_thread_cls)
+        monkeypatch.setattr(provider, '_start_sse_listener', mock_start_sse)
+
+        provider._at_fork_reinit()
+
+        assert provider._shutdown is True
+        mock_thread_cls.assert_not_called()
+        mock_start_sse.assert_not_called()
+
     def test_refresh_with_force(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1928,6 +1952,33 @@ class TestVariable:
 
         assert result.reason == 'other_error'
         assert result.exception is default_error
+
+    def test_get_warns_when_default_function_fails(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def failing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            raise provider_error
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', failing_get)
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning) as warnings:
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert result.exception is provider_error
+        messages = [str(warning.message) for warning in warnings]
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
+        assert not any('returning None: missing' in message for message in messages)
 
     def test_get_preserves_provider_exception_when_using_code_default(
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
