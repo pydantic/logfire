@@ -212,6 +212,7 @@
         "items": [
           { "label": "Overview", "slug": "reference/advanced/managed-variables/index" },
           { "label": "UI Guide", "slug": "reference/advanced/managed-variables/ui" },
+          { "label": "Templates & Composition", "slug": "reference/advanced/managed-variables/templates-and-composition" },
           { "label": "A/B Testing", "slug": "reference/advanced/managed-variables/ab-testing" },
           { "label": "Targeting", "slug": "reference/advanced/managed-variables/targeting" },
           { "label": "Remote Variables", "slug": "reference/advanced/managed-variables/remote" },
