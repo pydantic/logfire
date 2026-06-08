@@ -1875,6 +1875,20 @@ class TestVariable:
         assert any('code default raised' in message and 'default failed' in message for message in messages)
         assert not any('returning None: missing' in message for message in messages)
 
+    def test_get_warns_when_missing_config_default_function_fails(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning, match='code default raised'):
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+
     def test_get_calls_failing_default_once_on_validation_error(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(
             config=VariablesConfig(
