@@ -993,7 +993,7 @@ class TestLogfireRemoteVariableProvider:
             )
             try:
                 # First resolve triggers a blocking refresh that fails (logged as a RuntimeWarning
-                # since no logfire instance is bound) -- but the attempt must still be recorded.
+                # since no logfire instance is bound) — but the attempt must still be recorded.
                 with pytest.warns(RuntimeWarning, match='Error retrieving variables'):
                     result = provider.get_serialized_value('test_var')
                 assert result.value is None
@@ -2778,34 +2778,6 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             finally:
                 provider.shutdown()
 
-    def test_variable_types_network_error_raises_write_error(self) -> None:
-        """list/upsert variable types surface network errors as VariableWriteError (D4).
-
-        Regression: these two methods caught only UnexpectedResponse, so a raw
-        ConnectionError/Timeout (a RequestException) leaked out, unlike create/update/delete.
-        """
-        from requests.exceptions import ConnectionError as RequestsConnectionError
-
-        from logfire.variables.config import VariableTypeConfig
-
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
-        request_mocker.get('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
-        request_mocker.post('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
-        with request_mocker:
-            provider = LogfireRemoteVariableProvider(
-                base_url=REMOTE_BASE_URL,
-                token=REMOTE_TOKEN,
-                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
-            )
-            try:
-                with pytest.raises(VariableWriteError, match='Failed to list variable types'):
-                    provider.list_variable_types()
-                with pytest.raises(VariableWriteError, match='Failed to upsert variable type'):
-                    provider.upsert_variable_type(VariableTypeConfig(name='t', json_schema={'type': 'string'}))
-            finally:
-                provider.shutdown()
-
     def test_create_variable_already_exists(self) -> None:
         from logfire.variables.abstract import VariableAlreadyExistsError
 
@@ -2851,6 +2823,34 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 )
                 with pytest.raises(VariableWriteError, match='Failed to create variable'):
                     provider.create_variable(config)
+            finally:
+                provider.shutdown()
+
+    def test_variable_types_network_error_raises_write_error(self) -> None:
+        """list/upsert variable types surface network errors as VariableWriteError (D4).
+
+        Regression: these two methods caught only UnexpectedResponse, so a raw
+        ConnectionError/Timeout (a RequestException) leaked out, unlike create/update/delete.
+        """
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.get('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        request_mocker.post('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to list variable types'):
+                    provider.list_variable_types()
+                with pytest.raises(VariableWriteError, match='Failed to upsert variable type'):
+                    provider.upsert_variable_type(VariableTypeConfig(name='t', json_schema={'type': 'string'}))
             finally:
                 provider.shutdown()
 
@@ -5395,7 +5395,7 @@ class TestGetSerializedValueForLabelNotFound:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'nonexistent')
         assert result.value is None
-        # The variable exists but the label doesn't -- reported as missing_config, not 'resolved'.
+        # The variable exists but the label doesn't — reported as missing_config, not 'resolved'.
         assert result.reason == 'missing_config'
 
 

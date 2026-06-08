@@ -686,6 +686,8 @@ class VariableProvider(ABC):
 
         labeled_value = config.labels.get(label)
         if labeled_value is None:
+            # The variable exists but this label doesn't. `reason='resolved'` with value=None was
+            # misleading (resolved implies a usable value); report missing_config instead.
             return ResolvedVariable(name=variable_name, value=None, reason='missing_config')
 
         serialized, version = config.follow_ref(labeled_value)
@@ -694,6 +696,9 @@ class VariableProvider(ABC):
             value=serialized,
             label=label,
             version=version,
+            # A ref that resolves to nothing (e.g. a `code_default` ref the server can't supply) is
+            # not a successful resolution — surface missing_config so callers/baggage aren't told a
+            # value was used when it wasn't.
             reason='resolved' if serialized is not None else 'missing_config',
         )
 
