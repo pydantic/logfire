@@ -115,6 +115,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def _at_fork_reinit(self):  # pragma: no cover
         was_shutdown = self._shutdown
         if not was_shutdown:
+            # Reset shutdown-timeout state only for active providers. If shutdown()
+            # ran before the fork, keep `_shutdown=True` so the child does not
+            # restart worker/SSE threads using a session the parent already closed.
             self._shutdown_timeout_exceeded = False
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
@@ -222,8 +225,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
                         continue
 
-                    # Do not reset the backoff until data arrives. A stream
-                    # that returns 200 and immediately closes is not healthy.
+                    # Connection opened. Do NOT reset the backoff here: a connection that returns
+                    # 200 but then immediately closes would otherwise reset the delay every loop and
+                    # reconnect in a tight busy loop. The delay is reset only once we actually
+                    # receive data (below), which proves the stream is healthy.
                     self._sse_connected = True
 
                     # Process SSE events
@@ -240,6 +245,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
+                            # We're actually receiving data -- the connection is healthy, so reset
+                            # the reconnect backoff.
                             reconnect_delay = 1.0
                             data_str = line[5:].strip()
                             try:
@@ -254,6 +261,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
                                 # Invalid JSON, ignore
                                 pass
 
+                # The stream ended cleanly (e.g. a proxy/load-balancer max-lifetime close). Back off
+                # before reconnecting rather than immediately reopening in a tight loop.
                 self._sse_connected = False
                 if not self._shutdown:
                     self._wait_for_reconnect(reconnect_delay)
@@ -304,6 +313,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             force: If True, fetch configuration even if the polling interval hasn't elapsed.
         """
+        # Note: we intentionally do NOT downgrade `force` to False when a refresh is already in
+        # flight. An in-flight fetch may have *started before* a just-committed write (create/update/
+        # delete each call refresh(force=True) afterwards), so reusing its result could leave a stale
+        # cache until the next poll. A forced call instead waits for the lock and then fetches fresh,
+        # guaranteeing read-after-write at the cost of at most one extra request.
         # Note: Eventually we may want to rework the client and server implementations to use a NotModifiedResponse
         #  to reduce the amount of overhead from polling. We could also use a websocket/SSE to get real time updates
         #  when the user makes changes.
@@ -325,6 +339,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
             except Exception as e:
                 # Catch all request/HTTP/JSON exceptions (ConnectionError, Timeout, UnexpectedResponse,
                 # JSONDecodeError, etc.) to prevent crashing the user's application on failures.
+                # Mark that we've attempted a fetch even on failure: otherwise `_has_attempted_fetch`
+                # stays False and every `get_serialized_value` call blocks on a fresh `refresh()`
+                # (when `block_before_first_resolve` is set) while the server is unreachable, despite
+                # the background worker already polling.
                 self._has_attempted_fetch = True
                 self._log_error('Error retrieving variables', e)
                 return
@@ -628,6 +646,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 UnexpectedResponse.raise_for_status(response)
                 types_data = response.json()
         except (UnexpectedResponse, RequestException) as e:
+            # Match create/update/delete: surface network/HTTP/JSON failures as the documented
+            # VariableWriteError rather than leaking raw requests exceptions (ConnectionError,
+            # Timeout, JSONDecodeError on response.json(), ...).
             raise VariableWriteError(f'Failed to list variable types: {e}') from e
         result: dict[str, VariableTypeConfig] = {}
         for type_data in types_data:
@@ -671,6 +692,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 )
                 UnexpectedResponse.raise_for_status(response)
         except (UnexpectedResponse, RequestException) as e:
+            # Match create/update/delete: surface network/HTTP failures as VariableWriteError
+            # rather than leaking raw requests exceptions.
             raise VariableWriteError(f'Failed to upsert variable type: {e}') from e
 
         return config

@@ -37,6 +37,15 @@ T_co = TypeVar('T_co', covariant=True)
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
 
+# Per-`get()`-call cache for the code-default value. Keyed by `id(variable)`.
+# Lets `_get_default_cached` short-circuit when the same callable default
+# would otherwise be invoked twice in one resolution. Each entry is
+# `(ok: bool, value_or_exception: Any)`: successful invocations cache the
+# returned value; raising invocations cache the exception so re-entry
+# re-raises without re-invoking the callable. Set up by `Variable._resolve`
+# at the top of the call and reset when it returns.
+_DEFAULT_CACHE: ContextVar[dict[int, tuple[bool, Any]] | None] = ContextVar('_DEFAULT_CACHE', default=None)
+
 
 @dataclass
 class _TargetingContextData:
@@ -117,6 +126,16 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
 
 
 def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
+    """Emit a non-fatal resolution warning without letting it abort or corrupt resolution.
+
+    Resolution is *filter-independent*: a ``-W error`` / ``filterwarnings=error`` config would
+    otherwise turn one of these informational ``RuntimeWarning``s into an exception, which the
+    broad fallback ``except`` in ``_resolve`` then catches -- replacing the correctly-computed
+    ``ResolvedVariable`` (whose ``reason``/``exception`` already carry the real signal) with a
+    bogus ``reason='other_error'`` and the ``RuntimeWarning`` as its exception. Suppressing the
+    escalation here guarantees callers always get the structured result regardless of the active
+    warning filter; the warning is still shown whenever the filter permits.
+    """
     try:
         warnings.warn(message, category=RuntimeWarning, stacklevel=stacklevel)
     except Exception:
@@ -248,7 +267,7 @@ class Variable(Generic[T_co]):
                 # Try to JSON serialize the value; if that fails, fall back to string representation.
                 try:
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
-                except Exception:
+                except (ValueError, TypeError, RuntimeError):
                     serialized_value = repr(result.value)
                 span.set_attributes(
                     {
@@ -272,6 +291,23 @@ class Variable(Generic[T_co]):
         span: logfire.LogfireSpan | None,
         label: str | None = None,
     ) -> ResolvedVariable[T_co]:
+        # `_DEFAULT_CACHE` memoises the code-default value across every
+        # `_get_default_cached` call inside this `get()` invocation, so a
+        # callable default isn't re-invoked when a downstream fallback path also
+        # needs it. Both values and exceptions are cached.
+        cache_token = _DEFAULT_CACHE.set({})
+        try:
+            return self._resolve_inner(targeting_key, attributes, span, label)
+        finally:
+            _DEFAULT_CACHE.reset(cache_token)
+
+    def _resolve_inner(
+        self,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        label: str | None,
+    ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
             if (context_overrides := _VARIABLE_OVERRIDES.get()) is not None and self.name in context_overrides:
@@ -292,15 +328,12 @@ class Variable(Generic[T_co]):
                         if span:  # pragma: no branch
                             span.set_attribute('invalid_serialized_label', serialized_result.label)
                             span.set_attribute('invalid_serialized_value', serialized_result.value)
-                        default, default_exc = self._get_default_or_exception(
-                            targeting_key, attributes, fallback_exception=value_or_exc
-                        )
                         self._warn_validation_fallback(value_or_exc)
                         return ResolvedVariable(
                             name=self.name,
-                            value=default,
-                            exception=default_exc or value_or_exc,
-                            reason='other_error' if default_exc is not None else 'validation_error',
+                            value=self._get_default_cached(targeting_key, attributes),
+                            exception=value_or_exc,
+                            reason='validation_error',
                             label=serialized_result.label,
                             version=serialized_result.version,
                         )
@@ -316,25 +349,7 @@ class Variable(Generic[T_co]):
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
-                default, default_exc = self._get_default_or_exception(
-                    targeting_key, attributes, fallback_exception=serialized_result.exception
-                )
-                if default_exc is not None:
-                    return ResolvedVariable(
-                        name=self.name,
-                        value=default,
-                        exception=default_exc,
-                        reason='other_error',
-                    )
-                # Provider had no value; surface that the code default was used.
-                return ResolvedVariable(
-                    name=self.name,
-                    value=default,
-                    exception=serialized_result.exception,
-                    label=None,
-                    version=None,
-                    reason='code_default',
-                )
+                return self._resolve_code_default(targeting_key, attributes, serialized_result=serialized_result)
 
             # Deserialize - returns T | Exception
             value_or_exc = self._deserialize(serialized_result.value)
@@ -342,15 +357,12 @@ class Variable(Generic[T_co]):
                 if span:  # pragma: no branch
                     span.set_attribute('invalid_serialized_label', serialized_result.label)
                     span.set_attribute('invalid_serialized_value', serialized_result.value)
-                default, default_exc = self._get_default_or_exception(
-                    targeting_key, attributes, fallback_exception=value_or_exc
-                )
                 self._warn_validation_fallback(value_or_exc)
                 return ResolvedVariable(
                     name=self.name,
-                    value=default,
-                    exception=default_exc or value_or_exc,
-                    reason='other_error' if default_exc is not None else 'validation_error',
+                    value=self._get_default_cached(targeting_key, attributes),
+                    exception=value_or_exc,
+                    reason='validation_error',
                     label=serialized_result.label,
                     version=serialized_result.version,
                 )
@@ -367,7 +379,14 @@ class Variable(Generic[T_co]):
             if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
-            default, _ = self._get_default_or_exception(targeting_key, attributes, fallback_exception=e)
+            try:
+                default = self._get_default_cached(targeting_key, attributes)
+            except Exception as default_exc:
+                default = cast('T_co', None)
+                _emit_resolution_warning(
+                    f"Variable '{self.name}' could not be resolved and its code default raised; "
+                    f'returning None: {default_exc}'
+                )
             return ResolvedVariable(name=self.name, value=default, exception=e, reason='other_error')
 
     def _get_default(
@@ -378,21 +397,62 @@ class Variable(Generic[T_co]):
         else:
             return self.default
 
-    def _get_default_or_exception(
+    def _get_default_cached(
+        self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
+    ) -> T_co:
+        """Return the code default, memoised for the duration of one `_resolve` call.
+
+        Avoids re-invoking a callable default twice when the same `get()`
+        consults it on multiple fallback paths. Both successful values and
+        raised exceptions are cached -- a callable that raises on first
+        invocation re-raises (without re-invoking) on subsequent calls, so a
+        failing default doesn't get called multiple times either. Outside a
+        `_resolve` call the cache is not set and this is a direct passthrough to
+        `_get_default`.
+        """
+        cache = _DEFAULT_CACHE.get()
+        if cache is None:  # pragma: no cover
+            # Defensive: every production call site is inside `_resolve`, which
+            # sets the cache. Falling back to a direct compute keeps the helper
+            # safe if someone reaches in from an unexpected entry point in the
+            # future.
+            return self._get_default(targeting_key, merged_attributes)
+        key = id(self)
+        if key not in cache:
+            try:
+                cache[key] = (True, self._get_default(targeting_key, merged_attributes))
+            except Exception as e:
+                cache[key] = (False, e)
+        ok, payload = cache[key]
+        if ok:
+            return cast('T_co', payload)
+        raise cast('Exception', payload)
+
+    def _get_serialized_default(
+        self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
+    ) -> str | None:
+        """Return the code default serialized as JSON, or None if serialization fails."""
+        try:
+            default = self._get_default_cached(targeting_key, merged_attributes)
+            return self.type_adapter.dump_json(default).decode('utf-8')
+        except (ValueError, TypeError, RuntimeError):
+            return None
+
+    def _resolve_code_default(
         self,
         targeting_key: str | None,
-        merged_attributes: Mapping[str, Any] | None,
-        *,
-        fallback_exception: Exception | None,
-    ) -> tuple[T_co, Exception | None]:
-        try:
-            return self._get_default(targeting_key, merged_attributes), None
-        except Exception as default_exc:
-            cause = f' while handling {fallback_exception.__class__.__name__}' if fallback_exception is not None else ''
-            _emit_resolution_warning(
-                f"Variable '{self.name}' code default raised{cause}; returning None: {default_exc}"
-            )
-            return cast('T_co', None), default_exc
+        attributes: Mapping[str, Any] | None,
+        serialized_result: ResolvedVariable[str | None],
+    ) -> ResolvedVariable[T_co]:
+        """Build a ResolvedVariable from the registered code default."""
+        return ResolvedVariable(
+            name=self.name,
+            value=self._get_default_cached(targeting_key, attributes),
+            exception=serialized_result.exception,
+            label=None,
+            version=None,
+            reason='code_default',
+        )
 
     def _warn_validation_fallback(self, error: Exception) -> None:
         detail: object = (
@@ -436,13 +496,11 @@ class Variable(Generic[T_co]):
         # Get JSON schema from the type adapter
         json_schema = self.type_adapter.json_schema()
 
-        # Get the serialized default value as an example (if not a function)
+        # Get the serialized default value as an example (if not a function). Use
+        # `_get_serialized_default`, which tolerates a non-serializable default by returning None.
         example: str | None = None
         if not is_resolve_function(self.default):
-            try:
-                example = self.type_adapter.dump_json(self.default).decode('utf-8')
-            except (ValueError, TypeError, RuntimeError):
-                example = None
+            example = self._get_serialized_default()
 
         return VariableConfig(
             name=self.name,

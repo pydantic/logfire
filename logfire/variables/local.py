@@ -73,8 +73,10 @@ class LocalVariableProvider(VariableProvider):
             A VariablesConfig containing all variable configurations.
         """
         with self._lock:
-            # Return a deep copy under the lock so callers that iterate the config
-            # get a stable snapshot while concurrent writes mutate the provider.
+            # Return a deep copy under the lock so callers (push diff / validation iterate
+            # `variables.items()`) get a stable snapshot. Without this, a concurrent
+            # create/update/delete_variable mutating `self._config.variables` in place can raise
+            # "dictionary changed size during iteration".
             return self._config.model_copy(deep=True)
 
     def create_variable(self, config: VariableConfig) -> VariableConfig:
