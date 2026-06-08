@@ -59,11 +59,6 @@ def _pydantic_handlebars() -> ModuleType:
     return pydantic_handlebars
 
 
-def ensure_handlebars_available() -> None:
-    """Raise a helpful error if pydantic-handlebars is unavailable."""
-    _pydantic_handlebars()
-
-
 @cache
 def get_environment(strict: bool = False) -> HandlebarsEnvironment:
     """Return a cached `HandlebarsEnvironment` configured for `@{...}@` composition.

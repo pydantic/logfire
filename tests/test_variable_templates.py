@@ -49,28 +49,48 @@ def _simple_config(name: str, serialized_value: str) -> VariablesConfig:
 
 
 def test_import_logfire_without_pydantic_handlebars():
-    """pydantic-handlebars is optional unless a Handlebars feature is used."""
+    """`import logfire` works without pydantic-handlebars; *using* managed variables requires it."""
     root = Path(__file__).parents[1]
     env = os.environ.copy()
     env['PYTHONPATH'] = f'{root}{os.pathsep}{env.get("PYTHONPATH", "")}'
     code = textwrap.dedent(
         """
         import builtins
+        import importlib.util
 
         real_import = builtins.__import__
+        real_find_spec = importlib.util.find_spec
 
+        # Simulate `pydantic-handlebars` being absent: it's neither findable (the eager
+        # dependency check uses find_spec) nor importable (the lazy parser import).
         def blocked_import(name, globals=None, locals=None, fromlist=(), level=0):
             if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
                 raise ModuleNotFoundError(f'No module named {name!r}', name=name)
             return real_import(name, globals, locals, fromlist, level)
 
+        def blocked_find_spec(name, *args, **kwargs):
+            if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
+                return None
+            return real_find_spec(name, *args, **kwargs)
+
         builtins.__import__ = blocked_import
+        importlib.util.find_spec = blocked_find_spec
 
         import logfire
         from logfire.variables.abstract import render_serialized_string
 
+        # The bulk of the SDK keeps working: import succeeds and the methods are available.
         assert logfire.var
-        assert logfire.var('plain_var', type=str, default='Hello')
+        assert logfire.template_var
+
+        # But *using* managed variables requires the `logfire[variables]` extra, checked
+        # eagerly at declaration so a missing dependency is a clear error, not a silent fallback.
+        try:
+            logfire.var('plain_var', type=str, default='Hello')
+        except ImportError as exc:
+            assert 'pydantic-handlebars' in str(exc)
+        else:
+            raise AssertionError('var should require pydantic-handlebars')
 
         try:
             logfire.template_var('template_var', type=str, default='Hello {{name}}', inputs_type=dict)

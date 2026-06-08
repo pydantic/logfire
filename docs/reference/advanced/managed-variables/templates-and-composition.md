@@ -5,13 +5,13 @@ Managed variables can contain **Handlebars templates** (`{{placeholder}}`) and *
 This is especially useful for AI applications where prompts are built from reusable fragments and personalized with request-specific data.
 
 !!! note "Install the variables extra"
-    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra:
+    Managed variables require the `logfire[variables]` extra (which installs `pydantic` and `pydantic-handlebars`):
 
     ```bash
     pip install 'logfire[variables]'
     ```
 
-    Without this extra, `logfire.template_var()` raises an error immediately so your application does not silently use an unrendered template.
+    `logfire.var()` and `logfire.template_var()` raise an `ImportError` immediately if the extra is missing, so a missing dependency is a clear error rather than, e.g., a composition value silently falling back to its code default. Plain `import logfire` and the rest of the SDK keep working without it.
 
 ## Template Variables
 

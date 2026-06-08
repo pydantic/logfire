@@ -2555,7 +2555,10 @@ class Logfire:
                 (requires `type` to be set explicitly).
             description: Optional human-readable description of what the variable controls.
         """
+        from logfire.variables import ensure_variables_dependencies
         from logfire.variables.variable import Variable, is_resolve_function
+
+        ensure_variables_dependencies()
 
         if type is None:
             if is_resolve_function(default):
@@ -2688,7 +2691,10 @@ class Logfire:
         """
         import re
 
+        from logfire.variables import ensure_variables_dependencies
         from logfire.variables.variable import TemplateVariable, is_resolve_function
+
+        ensure_variables_dependencies()
 
         if type is None:
             if is_resolve_function(default):
@@ -2719,10 +2725,6 @@ class Logfire:
             raise ValueError(
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
             )
-
-        from logfire.variables._handlebars import ensure_handlebars_available
-
-        ensure_handlebars_available()
 
         variable = TemplateVariable[T, InputsT](
             name,

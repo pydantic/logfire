@@ -117,8 +117,8 @@ With managed variables, you can iterate safely in production:
 
 For AI applications, variables often contain prompt templates with placeholders that get filled in at runtime. **Template variables** support this natively with Handlebars `{{placeholder}}` syntax:
 
-!!! note "Install the variables extra for templates"
-    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra.
+!!! note "Install the variables extra"
+    Managed variables require the `logfire[variables]` extra (which installs `pydantic` and `pydantic-handlebars`). `logfire.var()` / `logfire.template_var()` raise an `ImportError` if it's missing; plain `import logfire` keeps working without it.
 
     ```bash
     pip install 'logfire[variables]'
