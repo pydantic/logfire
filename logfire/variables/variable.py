@@ -387,10 +387,10 @@ class Variable(Generic[T_co]):
                 serialized_result, provider, targeting_key, attributes, span, render_fn, strict=True
             )
             if attempt.ok:
-                result = cast('ResolvedVariable[T_co]', attempt.result)
-                if result.exception is None and serialized_result.exception is not None:
-                    result.exception = serialized_result.exception
-                return result
+                # A provider/label value carries no exception of its own (providers don't attach
+                # one to a value that's present); the provider-error cases all return value=None
+                # and flow through the code-default path below, which surfaces the exception.
+                return cast('ResolvedVariable[T_co]', attempt.result)
             return self._resolve_code_default_value(
                 self._get_serialized_default(targeting_key, attributes),
                 provider,

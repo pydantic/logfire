@@ -530,11 +530,18 @@ class TestRenderSerializedString:
         assert json.loads(result) == 'Hello Alice!'
 
     def test_inputs_invalid_type_raises(self):
-        """An input that doesn't serialize to a mapping raises TypeError."""
+        """An input that serializes to a non-mapping raises TypeError."""
         from logfire.variables.abstract import render_serialized_string
 
         with pytest.raises(TypeError, match='mapping is required for a template context'):
             render_serialized_string('"x"', 42)
+
+    def test_inputs_unserializable_raises(self):
+        """An input that pydantic can't serialize at all raises a guiding TypeError."""
+        from logfire.variables.abstract import render_serialized_string
+
+        with pytest.raises(TypeError, match='Could not serialize render inputs'):
+            render_serialized_string('"x"', object())
 
     def test_inputs_dataclass(self):
         """A dataclass input is serialized to a context via pydantic (arbitrary inputs_type)."""

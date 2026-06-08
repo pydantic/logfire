@@ -1484,6 +1484,9 @@ class TestTemplateIntoPlainCompositionWarning:
         # The plain variable is declared *first*, before the template variable exists; the warning
         # still fires when the template variable is later declared (the check runs in both directions).
         lf = logfire.configure(**config_kwargs)
+        # An unrelated plain var that does NOT compose the template var — the reverse-direction scan
+        # must skip it without warning.
+        lf.var(name='unrelated', default='nothing to see here', type=str)
         lf.var(name='foo', default='Greeting: @{bar}@', type=str)
         with pytest.warns(RuntimeWarning, match="'foo' composes template variable 'bar'"):
             lf.template_var(name='bar', default='Hi {{name}}', type=str, inputs_type=_Inputs)

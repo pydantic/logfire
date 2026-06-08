@@ -613,16 +613,16 @@ def _describe_template_field_issue(issue: TemplateFieldIssue) -> str:
     attribution unambiguous: a shared fragment can be valid on its own yet incompatible with a
     particular root that composes it.
     """
-    if issue.found_in_variable == issue.root_variable and not issue.reference_path:
-        # The field is directly in the root template variable's own value.
+    # An empty reference_path means the field is in the root variable's own value (a non-empty
+    # path is only ever built by following `@{ref}@`s away from the root), so it's the
+    # direct-vs-composed discriminator.
+    if not issue.reference_path:
         where = ''
     else:
         location = issue.found_in_variable
         if issue.found_in_label is not None:
             location += f' (label: {issue.found_in_label})'
-        chain = ''
-        if issue.reference_path:
-            chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
+        chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
         where = f' found in {location}{chain}'
     return (
         f'{issue.root_variable}: {{{{{issue.field_name}}}}}{where} '
@@ -689,23 +689,17 @@ def _collect_template_field_issues(
                 pass
         return result
 
-    # `validate_template_composition` dedups within a single root's walk. Across roots, the issue
-    # identity must include `root_variable`: the same shared fragment can be incompatible with
-    # several distinct template roots' schemas, and each of those roots is a separate problem to
-    # report. Keying on (field / found-in variable / label) *without* the root would collapse those
-    # into one line, hiding which template variable(s) are actually broken by composing the fragment.
-    seen: set[tuple[str, str, str, str | None]] = set()
+    # `validate_template_composition` already dedups within each root's walk, and every issue it
+    # returns carries that root's name, so issues from different roots are inherently distinct.
+    # No cross-root dedup is applied: a shared fragment incompatible with several roots is a
+    # separate problem for each root and is reported once per affected root (deliberately *not*
+    # collapsed into one line, which would hide which template variable(s) are actually broken).
     for variable in variables:
         if not isinstance(variable, TemplateVariable):
             continue
         schema = variable.get_template_inputs_schema()
         result = validate_template_composition(variable.name, schema, get_all_serialized_values)
-        for issue in result.issues:
-            key = (issue.root_variable, issue.field_name, issue.found_in_variable, issue.found_in_label)
-            if key in seen:
-                continue
-            seen.add(key)
-            issues.append(issue)
+        issues.extend(result.issues)
 
     return issues
 
