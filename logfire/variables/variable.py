@@ -1,9 +1,8 @@
 from __future__ import annotations as _annotations
 
 import inspect
-import json
 import warnings
-from collections.abc import Callable, Generator, Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -66,8 +65,7 @@ _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_O
 
 # Per-`get()`-call cache for the code-default value. Keyed by `id(variable)`.
 # Lets `_get_default_cached` short-circuit when the same callable default
-# would otherwise be invoked twice in one resolution (once to feed
-# composition, then again on a fallback path). Each entry is
+# would otherwise be invoked twice in one resolution. Each entry is
 # `(ok: bool, value_or_exception: Any)`: successful invocations cache the
 # returned value; raising invocations cache the exception so re-entry
 # re-raises without re-invoking the callable. Set up by `Variable._resolve`
@@ -93,6 +91,12 @@ class ResolveFunction(Protocol[T_co]):
 
     def __call__(self, targeting_key: str | None, attributes: Mapping[str, Any] | None) -> T_co:
         """Resolve the variable value given a targeting key and attributes."""
+        raise NotImplementedError  # pragma: no cover
+
+
+class _RenderFunction(Protocol):
+    def __call__(self, serialized_json: str, /) -> str:
+        """Render a serialized JSON value before deserialization."""
         raise NotImplementedError  # pragma: no cover
 
 
@@ -158,7 +162,7 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
 
     Resolution is *filter-independent*: a ``-W error`` / ``filterwarnings=error`` config would
     otherwise turn one of these informational ``RuntimeWarning``s into an exception, which the
-    broad fallback ``except`` in ``_resolve`` then catches — replacing the correctly-computed
+    broad fallback ``except`` in ``_resolve`` then catches -- replacing the correctly-computed
     ``ResolvedVariable`` (whose ``reason``/``exception`` already carry the real signal) with a
     bogus ``reason='other_error'`` and the ``RuntimeWarning`` as its exception. Suppressing the
     escalation here guarantees callers always get the structured result regardless of the active
@@ -279,13 +283,12 @@ class Variable(Generic[T_co]):
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
         label: str | None = None,
-        render_fn: Callable[[str], str] | None = None,
+        render_fn: _RenderFunction | None = None,
     ) -> ResolvedVariable[T_co]:
         # `_DEFAULT_CACHE` memoises the code-default value across every
         # `_get_default_cached` call inside this `get()` invocation, so a
-        # callable default isn't re-invoked when the code-default tier
-        # supplies the value AND a downstream step (composition expansion,
-        # template render, deserialization) falls back to it.
+        # callable default isn't re-invoked when a downstream fallback path also
+        # needs it. Both values and exceptions are cached.
         cache_token = _DEFAULT_CACHE.set({})
         try:
             return self._resolve_inner(targeting_key, attributes, span, label, render_fn)
@@ -298,7 +301,7 @@ class Variable(Generic[T_co]):
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
         label: str | None,
-        render_fn: Callable[[str], str] | None,
+        render_fn: _RenderFunction | None,
     ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
@@ -360,15 +363,6 @@ class Variable(Generic[T_co]):
             try:
                 default = self._get_default_cached(targeting_key, attributes)
             except Exception as default_exc:
-                # The code default itself failed (e.g. a callable default raised), so there is
-                # genuinely nothing left to fall back to. Warn loudly and return None rather than
-                # swallowing both errors: this is the most fundamental failure mode (the
-                # last-resort default is broken), yet it was previously the one fallback path
-                # that stayed silent while composition/render/validation failures all warned.
-                # (When the default *is* usable we don't warn here: that path is reached for any
-                # unexpected internal error and already signals via reason='other_error' + the
-                # carried exception, and warning would double up with an inner warning that a
-                # `filterwarnings=error` config turns into the very exception caught here.)
                 default = cast('T_co', None)
                 _emit_resolution_warning(
                     f"Variable '{self.name}' could not be resolved and its code default raised; "
@@ -382,7 +376,7 @@ class Variable(Generic[T_co]):
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
-        render_fn: Callable[[str], str] | None,
+        render_fn: _RenderFunction | None,
     ) -> ResolvedVariable[T_co]:
         """Return a resolution for the top-level context override.
 
@@ -489,7 +483,7 @@ class Variable(Generic[T_co]):
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
-        render_fn: Callable[[str], str] | None = None,
+        render_fn: _RenderFunction | None = None,
     ) -> ResolvedVariable[T_co]:
         """Expand @{references}@ in a serialized value, optionally render templates, then deserialize.
 
@@ -600,17 +594,7 @@ class Variable(Generic[T_co]):
             # A value was fetched/composed/rendered but failed validation. Warn before falling
             # back to the code default, mirroring the composition/render failure warnings so the
             # substitution isn't silent (the asymmetry Alex flagged on #1954).
-            # Format ValidationError via .errors() with input/url stripped so we don't leak
-            # validated input values into the warning text (the rest of the exception detail
-            # remains available on ResolvedVariable.exception).
-            warned_detail = (
-                value_or_exc.errors(include_input=False, include_url=False)
-                if isinstance(value_or_exc, ValidationError)
-                else value_or_exc
-            )
-            _emit_resolution_warning(
-                f"Variable '{self.name}' value failed validation; falling back to code default: {warned_detail}"
-            )
+            self._warn_validation_fallback(value_or_exc)
             return ResolvedVariable(
                 name=self.name,
                 value=self._get_default_cached(targeting_key, attributes),
@@ -675,21 +659,19 @@ class Variable(Generic[T_co]):
         """Return the code default, memoised for the duration of one `_resolve` call.
 
         Avoids re-invoking a callable default twice when the same `get()`
-        consults it for the code-default tier (to feed composition) and then
-        again on a fallback path (composition failure, render failure,
-        deserialization failure). Both successful values and raised
-        exceptions are cached — a callable that raises on first invocation
-        re-raises (without re-invoking) on subsequent calls, so a failing
-        default doesn't get called multiple times either. Outside a
-        `_resolve` call the cache is not set and this is a direct
-        passthrough to `_get_default`.
+        consults it on multiple fallback paths. Both successful values and
+        raised exceptions are cached -- a callable that raises on first
+        invocation re-raises (without re-invoking) on subsequent calls, so a
+        failing default doesn't get called multiple times either. Outside a
+        `_resolve` call the cache is not set and this is a direct passthrough to
+        `_get_default`.
         """
         cache = _DEFAULT_CACHE.get()
         if cache is None:  # pragma: no cover
-            # Defensive: every production call site is inside `_resolve`,
-            # which sets the cache. Falling back to a direct compute keeps
-            # the helper safe if someone reaches in from an unexpected
-            # entry point in the future.
+            # Defensive: every production call site is inside `_resolve`, which
+            # sets the cache. Falling back to a direct compute keeps the helper
+            # safe if someone reaches in from an unexpected entry point in the
+            # future.
             return self._get_default(targeting_key, merged_attributes)
         key = id(self)
         if key not in cache:
@@ -718,14 +700,7 @@ class Variable(Generic[T_co]):
         attributes: Mapping[str, Any] | None,
         serialized_result: ResolvedVariable[str | None],
     ) -> ResolvedVariable[T_co]:
-        """Build a ResolvedVariable from the registered code default.
-
-        Reached when `_lookup_serialized` could not produce a serialized value at
-        any tier (typically because the code default could not be JSON-serialized
-        for the composition/render pipeline). Returns the deserialized default
-        directly; composition and rendering are skipped because there is no
-        serialized form to operate on.
-        """
+        """Build a ResolvedVariable from the registered code default."""
         return ResolvedVariable(
             name=self.name,
             value=self._get_default_cached(targeting_key, attributes),
@@ -733,6 +708,14 @@ class Variable(Generic[T_co]):
             label=None,
             version=None,
             reason='code_default',
+        )
+
+    def _warn_validation_fallback(self, error: Exception) -> None:
+        detail: object = (
+            error.errors(include_input=False, include_url=False) if isinstance(error, ValidationError) else error
+        )
+        _emit_resolution_warning(
+            f"Variable '{self.name}' value failed validation; falling back to code default: {detail}"
         )
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
@@ -770,9 +753,7 @@ class Variable(Generic[T_co]):
         json_schema = self.type_adapter.json_schema()
 
         # Get the serialized default value as an example (if not a function). Use
-        # `_get_serialized_default`, which tolerates a non-serializable default by returning None —
-        # building a config (e.g. for variables_push) shouldn't crash where resolution would simply
-        # yield no example.
+        # `_get_serialized_default`, which tolerates a non-serializable default by returning None.
         example: str | None = None
         if not is_resolve_function(self.default):
             example = self._get_serialized_default()
@@ -792,7 +773,7 @@ class Variable(Generic[T_co]):
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         label: str | None,
-        render_fn: Callable[[str], str] | None = None,
+        render_fn: _RenderFunction | None = None,
     ) -> ResolvedVariable[T_co]:
         """Common get() logic: resolve targeting key, open span, call _resolve, record attributes."""
         merged_attributes = self._get_merged_attributes(attributes)
@@ -836,6 +817,8 @@ class Variable(Generic[T_co]):
                     'reason': result.reason,
                 }
                 if result.composed_from:
+                    import json
+
                     attrs['composed_from'] = json.dumps(
                         [_serialize_composed_reference(c) for c in result.composed_from]
                     )

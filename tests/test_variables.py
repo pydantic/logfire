@@ -1828,93 +1828,7 @@ class TestVariable:
         assert result.label == 'default'
         assert result.version == 1
 
-    def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
-        from logfire.variables.variable import get_template_inputs_schema
-
-        lf = logfire.configure(**config_kwargs)
-
-        var = lf.var(name='plain_var', default='default', type=str)
-
-        assert not hasattr(var, 'get_template_inputs_schema')
-        assert get_template_inputs_schema(var) is None
-
-    def test_render_fn_applies_to_provider_value(
-        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
-    ):
-        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
-        lf = logfire.configure(**config_kwargs)
-
-        var = lf.var(name='string_var', default='default_value', type=str)
-        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
-
-        assert result.value == 'rendered'
-        assert result.reason == 'resolved'
-
-    def test_render_fn_applies_to_context_override(
-        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
-    ):
-        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
-        lf = logfire.configure(**config_kwargs)
-
-        var = lf.var(name='string_var', default='default_value', type=str)
-
-        with var.override('overridden'):
-            result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
-
-        assert result.value == 'rendered'
-        assert result.reason == 'context_override'
-
-        int_var = lf.var(name='int_var', default=0, type=int)
-
-        with int_var.override(1):
-            with pytest.warns(RuntimeWarning, match='value failed validation'):
-                invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
-
-        assert invalid.value == 0
-        assert invalid.reason == 'validation_error'
-        assert isinstance(invalid.exception, ValidationError)
-
-        class TypeErrorModel(BaseModel):
-            value: int
-
-            @field_validator('value')
-            @classmethod
-            def fail_for_one(cls, value: int) -> int:
-                if value == 1:
-                    raise TypeError('validator exploded')
-                return value
-
-        type_error_var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
-
-        with type_error_var.override(TypeErrorModel(value=0)):
-            with pytest.warns(RuntimeWarning, match='value failed validation'):
-                type_error_result = type_error_var._get_result_and_record_span(
-                    None, None, None, render_fn=lambda _: '{"value": 1}'
-                )
-
-        assert type_error_result.value == TypeErrorModel(value=0)
-        assert type_error_result.reason == 'validation_error'
-        assert isinstance(type_error_result.exception, TypeError)
-
-    def test_render_fn_applies_to_code_default(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
-        lf = logfire.configure(**config_kwargs)
-
-        var = lf.var(name='unconfigured', default='my_default', type=str)
-        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
-
-        assert result.value == 'rendered_default'
-        assert result.reason == 'code_default'
-
-        invalid_var = lf.var(name='unconfigured_int', default=0, type=int)
-        with pytest.warns(RuntimeWarning, match='value failed validation'):
-            invalid = invalid_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
-
-        assert invalid.value == 0
-        assert invalid.reason == 'validation_error'
-        assert isinstance(invalid.exception, ValidationError)
-
-    def test_render_fn_preserves_provider_exception_when_using_code_default(
+    def test_get_preserves_provider_exception_when_using_code_default(
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
@@ -1931,27 +1845,10 @@ class TestVariable:
         monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
 
         var = lf.var(name='unconfigured', default='my_default', type=str)
-        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
-        assert result.value == 'rendered_default'
+        result = var.get()
+        assert result.value == 'my_default'
         assert result.reason == 'code_default'
         assert result.exception is provider_error
-
-    def test_render_fn_reports_default_function_failure(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
-        lf = logfire.configure(**config_kwargs)
-
-        default_error = RuntimeError('default failed')
-
-        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
-            raise default_error
-
-        var = lf.var(name='unconfigured', default=bad_default, type=str)
-
-        with pytest.warns(RuntimeWarning, match='could not be resolved and its code default raised'):
-            result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
-
-        assert result.reason == 'other_error'
-        assert result.exception is default_error
 
     def test_get_warns_when_default_function_fails(
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
@@ -1980,27 +1877,52 @@ class TestVariable:
         assert any('code default raised' in message and 'default failed' in message for message in messages)
         assert not any('returning None: missing' in message for message in messages)
 
-    def test_get_preserves_provider_exception_when_using_code_default(
-        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-    ):
+    def test_get_warns_when_missing_config_default_function_fails(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
-        provider_error = RuntimeError('missing')
 
-        def missing_get(
-            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
-        ) -> ResolvedVariable[str | None]:
-            return ResolvedVariable(
-                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning, match='code default raised'):
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+
+    def test_get_calls_failing_default_once_on_validation_error(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'invalid_var': VariableConfig(
+                        name='invalid_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='"bad"')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
             )
+        )
+        lf = logfire.configure(**config_kwargs)
+        calls = 0
 
-        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> int:
+            nonlocal calls
+            calls += 1
+            raise RuntimeError('default failed')
 
-        var = lf.var(name='unconfigured', default='my_default', type=str)
-        result = var.get()
-        assert result.value == 'my_default'
-        assert result.reason == 'code_default'
-        assert result.exception is provider_error
+        var = lf.var(name='invalid_var', default=bad_default, type=int)
+        with pytest.warns(RuntimeWarning) as warnings:
+            result = var.get()
+
+        assert calls == 1
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+        messages = [str(warning.message) for warning in warnings]
+        assert any('value failed validation' in message for message in messages)
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
@@ -2167,6 +2089,152 @@ class TestVariable:
         spans = exporter.exported_spans
         resolve_spans = [s for s in spans if s.name.startswith('Resolve variable')]
         assert len(resolve_spans) == 0
+
+
+class TestVariableRenderPipeline:
+    @pytest.fixture
+    def variables_config(self) -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'string_var': VariableConfig(
+                    name='string_var',
+                    labels={'default': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'default': 1.0}),
+                    overrides=[],
+                ),
+                'int_var': VariableConfig(
+                    name='int_var',
+                    labels={'default': LabeledValue(version=1, serialized_value='42')},
+                    rollout=Rollout(labels={'default': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+
+    def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.variable import get_template_inputs_schema
+
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='plain_var', default='default', type=str)
+
+        assert not hasattr(var, 'get_template_inputs_schema')
+        assert get_template_inputs_schema(var) is None
+
+    def test_render_fn_applies_to_provider_value(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'resolved'
+
+    def test_render_fn_applies_to_context_override(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+
+        with var.override('overridden'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'context_override'
+
+        int_var = lf.var(name='int_var', default=0, type=int)
+
+        with int_var.override(1):
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'validation_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        type_error_var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+
+        with type_error_var.override(TypeErrorModel(value=0)):
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                type_error_result = type_error_var._get_result_and_record_span(
+                    None, None, None, render_fn=lambda _: '{"value": 1}'
+                )
+
+        assert type_error_result.value == TypeErrorModel(value=0)
+        assert type_error_result.reason == 'validation_error'
+        assert isinstance(type_error_result.exception, TypeError)
+
+    def test_render_fn_applies_to_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+
+        invalid_var = lf.var(name='unconfigured_int', default=0, type=int)
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            invalid = invalid_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'validation_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+    def test_render_fn_preserves_provider_exception_when_using_code_default(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def missing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            return ResolvedVariable(
+                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+            )
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+        assert result.exception is provider_error
+
+    def test_render_fn_reports_default_function_failure(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        default_error = RuntimeError('default failed')
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise default_error
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+
+        with pytest.warns(RuntimeWarning, match='could not be resolved and its code default raised'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
+
+        assert result.reason == 'other_error'
+        assert result.exception is default_error
 
 
 # =============================================================================
