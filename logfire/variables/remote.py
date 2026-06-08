@@ -245,8 +245,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
-                            # We're actually receiving data -- the connection is healthy, so reset
-                            # the reconnect backoff.
                             reconnect_delay = 1.0
                             data_str = line[5:].strip()
                             try:

@@ -20,7 +20,7 @@ from requests import Session
 import logfire
 from logfire._internal.config import LocalVariablesOptions, VariablesOptions
 from logfire.testing import TestExporter
-from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider, VariableWriteError
+from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
     KeyIsNotPresent,
     KeyIsPresent,
@@ -999,7 +999,6 @@ class TestLogfireRemoteVariableProvider:
                 assert result.value is None
                 assert provider._has_attempted_fetch is True
                 assert request_mocker.call_count == 1
-
                 # A second resolve must NOT issue another blocking refresh now that we've attempted once.
                 provider.get_serialized_value('test_var')
                 assert request_mocker.call_count == 1
@@ -2834,6 +2833,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
         """
         from requests.exceptions import ConnectionError as RequestsConnectionError
 
+        from logfire.variables.abstract import VariableWriteError
         from logfire.variables.config import VariableTypeConfig
 
         request_mocker = requests_mock_module.Mocker()
