@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.36.0] (2026-06-09)
+
+* Composition and templating with native handlebars by @alexmojaki in [#1954](https://github.com/pydantic/logfire/pull/1954)
+* Add `pylf_v\d+_` pattern to default scrubbing patterns by @alexmojaki in [#1993](https://github.com/pydantic/logfire/pull/1993)
+* Require `logfire.configure()` before lazy remote variables by @alexmojaki in [#2002](https://github.com/pydantic/logfire/pull/2002)
+
 ## [v4.35.0] (2026-06-02)
 
 * Add support for new `/v2/query` endoint by @Viicos in [#1897](https://github.com/pydantic/logfire/pull/1897)
@@ -1174,3 +1180,4 @@ First release from new repo!
 [v4.33.0]: https://github.com/pydantic/logfire/compare/v4.32.1...v4.33.0
 [v4.34.0]: https://github.com/pydantic/logfire/compare/v4.33.0...v4.34.0
 [v4.35.0]: https://github.com/pydantic/logfire/compare/v4.34.0...v4.35.0
+[v4.36.0]: https://github.com/pydantic/logfire/compare/v4.35.0...v4.36.0
