@@ -26,7 +26,7 @@ def main() -> None:
     for package in ('pytest', 'pydantic', 'httpx'):
         assert_not_available(package)
 
-    logfire.configure(send_to_logfire=False, console=False)
+    logfire.configure(send_to_logfire=False)
     logfire.info('minimal install info', answer=42)
     with logfire.span('minimal install span', answer=42):
         logfire.debug('inside minimal install span')
