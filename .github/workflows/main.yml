@@ -52,13 +52,10 @@ jobs:
           version: "0.11.1"
           enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
-      - name: Build logfire wheel
-        run: uv build --wheel --out-dir dist-minimal
-
       - name: Install only logfire
         run: |
-          uv venv --python 3.12 .minimal-venv
-          uv pip install --python .minimal-venv dist-minimal/logfire-*.whl
+          uv venv --python 3.14 .minimal-venv
+          uv pip install --python .minimal-venv .
 
       - name: Smoke test minimal install
         run: |
