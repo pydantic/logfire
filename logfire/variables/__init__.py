@@ -2,7 +2,6 @@
 # ruff: noqa: F401
 from __future__ import annotations as _annotations
 
-from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 from logfire.variables.abstract import (
@@ -108,13 +107,14 @@ def ensure_variables_dependencies() -> None:
     """
     # Keep this in sync with the `variables` optional-dependency group in pyproject.toml
     try:
+        import pydantic
         import pydantic_handlebars
-    except ModuleNotFoundError:
+    except ImportError as e:
         raise ImportError(
-            'Using managed variables requires the `pydantic_handlebars` package.\n'
+            'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages.\n'
             'You can install this with:\n'
             "    pip install 'logfire[variables]'"
-        ) from None
+        ) from e
 
 
 def __getattr__(name: str):
