@@ -27,6 +27,10 @@ def assert_import_error(label: str, func: Callable[[], object]) -> None:
         raise AssertionError(f'{label} should fail without its extra dependencies')
 
 
+class NotJsonSerializable:
+    """A simple object for exercising non-JSON attribute handling."""
+
+
 def main() -> None:
     """Smoke-test core logfire APIs in a minimal installation."""
     for package in ('pytest', 'pydantic', 'httpx'):
@@ -47,8 +51,9 @@ def main() -> None:
         assert_not_available(package)
 
     logfire.configure(send_to_logfire=False)
-    logfire.info('minimal install info', answer=42)
-    with logfire.span('minimal install span', answer=42):
+    not_json_serializable = NotJsonSerializable()
+    logfire.info('minimal install info', answer=42, not_json_serializable=not_json_serializable)
+    with logfire.span('minimal install span', answer=42, not_json_serializable=not_json_serializable):
         logfire.debug('inside minimal install span')
 
     counter = logfire.metric_counter('minimal_install_counter')
