@@ -17,12 +17,13 @@ def assert_not_available(package: str) -> None:
         raise AssertionError(f'{package} should not be installed')
 
 
-def assert_import_error(label: str, func: Callable[[], object]) -> None:
+def assert_import_error(label: str, func: Callable[[], object], expected_message: str) -> None:
     """Assert that an optional feature fails without its extra dependencies."""
     try:
         func()
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if expected_message not in str(exc):
+            raise AssertionError(f'{label} raised an unexpected error message: {exc}') from exc
     else:
         raise AssertionError(f'{label} should fail without its extra dependencies')
 
@@ -41,11 +42,27 @@ def main() -> None:
     for package in ('pytest', 'pydantic', 'httpx'):
         assert_not_available(package)
 
-    assert_import_error('testing helpers', lambda: import_module('logfire.testing'))
-    assert_import_error('query client', lambda: import_module('logfire.query_client'))
-    assert_import_error('datasets client', lambda: import_module('logfire.experimental.api_client'))
-    assert_import_error('managed variable imports', lambda: getattr(import_module('logfire.variables'), 'Variable'))
-    assert_import_error('managed variable usage', lambda: logfire.var('minimal_install_flag', default=False))
+    assert_import_error('testing helpers', lambda: import_module('logfire.testing'), "No module named 'pytest'")
+    assert_import_error(
+        'query client',
+        lambda: import_module('logfire.query_client'),
+        'httpx is required to use the Logfire query clients',
+    )
+    assert_import_error(
+        'datasets client',
+        lambda: import_module('logfire.experimental.api_client'),
+        "No module named 'pydantic'",
+    )
+    assert_import_error(
+        'managed variable imports',
+        lambda: getattr(import_module('logfire.variables'), 'Variable'),
+        'Using managed variables requires the `pydantic` package',
+    )
+    assert_import_error(
+        'managed variable usage',
+        lambda: logfire.var('minimal_install_flag', default=False),
+        "No module named 'pydantic'",
+    )
 
     for package in ('pytest', 'pydantic', 'httpx'):
         assert_not_available(package)
