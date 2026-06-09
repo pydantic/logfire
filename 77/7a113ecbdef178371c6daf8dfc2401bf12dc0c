@@ -1,0 +1,20 @@
+tests/test_variable_composition.py
+  h_d9dd17644dded9 13,214,484-485,487-498
+logfire/variables/_handlebars.py
+  h_d9dd17644dded9 5,29,39
+logfire/variables/template_validation.py
+  h_d9dd17644dded9 20-21
+logfire/variables/__init__.py
+  h_d9dd17644dded9 110-112,114,117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "777a113ecbdef178371c6daf8dfc2401bf12dc0c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
