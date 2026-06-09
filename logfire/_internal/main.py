@@ -2556,9 +2556,10 @@ class Logfire:
             description: Optional human-readable description of what the variable controls.
         """
         from logfire.variables import ensure_variables_dependencies
-        from logfire.variables.variable import Variable, is_resolve_function
 
         ensure_variables_dependencies()
+
+        from logfire.variables.variable import Variable, is_resolve_function
 
         if type is None:
             if is_resolve_function(default):
@@ -2692,9 +2693,10 @@ class Logfire:
         import re
 
         from logfire.variables import ensure_variables_dependencies
-        from logfire.variables.variable import TemplateVariable, is_resolve_function
 
         ensure_variables_dependencies()
+
+        from logfire.variables.variable import TemplateVariable, is_resolve_function
 
         if type is None:
             if is_resolve_function(default):
