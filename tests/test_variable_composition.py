@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-import builtins
 import json
+import sys
 from typing import Any
 
 import pytest
@@ -481,17 +481,14 @@ class TestFindReferences:
         assert errors == []
 
 
-def test_pydantic_and_handlebars_unavailable(monkeypatch: pytest.MonkeyPatch):
-    real_import = builtins.__import__
+def test_pydantic_unavailable(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setitem(sys.modules, 'pydantic', None)
+    with pytest.raises(ImportError):
+        logfire.var('foo', default='bar')
 
-    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name.startswith('pydantic'):
-            raise ModuleNotFoundError(f'No module named {name!r}', name=name)
-        return real_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(builtins, '__import__', blocked_import)
-    import logfire
-
+def test_pydantic_handlebars_unavailable(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setitem(sys.modules, 'pydantic_handlebars', None)
     with pytest.raises(ImportError):
         logfire.var('foo', default='bar')
 
