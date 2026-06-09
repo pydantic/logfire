@@ -1,0 +1,14 @@
+logfire/variables/composition.py
+  h_d9dd17644dded9 425-427
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "411dcb4855dae8934fe543db3b63bf90aeb5881b",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
