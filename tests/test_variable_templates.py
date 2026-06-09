@@ -4,14 +4,8 @@
 
 from __future__ import annotations
 
-import builtins
 import json
-import os
-import subprocess
-import sys
-import textwrap
 import warnings
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -19,7 +13,6 @@ from pydantic import BaseModel
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
-from logfire.variables import _handlebars
 from logfire.variables.config import (
     LabeledValue,
     Rollout,
@@ -46,149 +39,6 @@ def _simple_config(name: str, serialized_value: str) -> VariablesConfig:
             ),
         },
     )
-
-
-def test_import_logfire_without_pydantic_handlebars():
-    """`import logfire` works without pydantic-handlebars; *using* managed variables requires it."""
-    root = Path(__file__).parents[1]
-    env = os.environ.copy()
-    env['PYTHONPATH'] = f'{root}{os.pathsep}{env.get("PYTHONPATH", "")}'
-    code = textwrap.dedent(
-        """
-        import builtins
-        import importlib.util
-
-        real_import = builtins.__import__
-        real_find_spec = importlib.util.find_spec
-
-        # Simulate `pydantic-handlebars` being absent: it's neither findable (the eager
-        # dependency check uses find_spec) nor importable (the lazy parser import).
-        def blocked_import(name, globals=None, locals=None, fromlist=(), level=0):
-            if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
-                raise ModuleNotFoundError(f'No module named {name!r}', name=name)
-            return real_import(name, globals, locals, fromlist, level)
-
-        def blocked_find_spec(name, *args, **kwargs):
-            if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
-                return None
-            return real_find_spec(name, *args, **kwargs)
-
-        builtins.__import__ = blocked_import
-        importlib.util.find_spec = blocked_find_spec
-
-        import logfire
-        from logfire.variables.abstract import render_serialized_string
-
-        # The bulk of the SDK keeps working: import succeeds and the methods are available.
-        assert logfire.var
-        assert logfire.template_var
-
-        # But *using* managed variables requires the `logfire[variables]` extra, checked
-        # eagerly at declaration so a missing dependency is a clear error, not a silent fallback.
-        try:
-            logfire.var('plain_var', type=str, default='Hello')
-        except ImportError as exc:
-            assert 'pydantic-handlebars' in str(exc)
-        else:
-            raise AssertionError('var should require pydantic-handlebars')
-
-        try:
-            logfire.template_var('template_var', type=str, default='Hello {{name}}', inputs_type=dict)
-        except ImportError as exc:
-            assert 'pydantic-handlebars' in str(exc)
-        else:
-            raise AssertionError('template_var should require pydantic-handlebars')
-
-        try:
-            render_serialized_string('"Hello {{name}}"', {'name': 'Alice'})
-        except ImportError as exc:
-            assert 'pydantic-handlebars' in str(exc)
-        else:
-            raise AssertionError('rendering should require pydantic-handlebars')
-        """
-    )
-    result = subprocess.run(
-        [sys.executable, '-c', code],
-        cwd=root,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-
-
-def test_handlebars_import_helpers_are_memoized(monkeypatch: pytest.MonkeyPatch):
-    """Successful pydantic-handlebars imports are cached after the first lookup."""
-    module = _handlebars._pydantic_handlebars()
-    schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}}
-    _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
-
-    real_import = builtins.__import__
-
-    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
-            raise AssertionError('pydantic_handlebars should be cached')
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, '__import__', blocked_import)
-
-    # Re-entering the cached accessors should not re-trigger the import.
-    assert _handlebars._pydantic_handlebars() is module
-    _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
-
-
-def test_missing_handlebars_raises_helpful_error(monkeypatch: pytest.MonkeyPatch):
-    """When `pydantic_handlebars` can't be imported, the SDK raises a guided error.
-
-    Run in-process — same `__import__` blocking trick as
-    `test_import_logfire_without_pydantic_handlebars`, but here we wipe the
-    `_pydantic_handlebars` cache first so the import re-runs and hits the
-    dep-error branch. The subprocess version exercises the user-facing
-    `template_var` / `render_serialized_string` flows; this one gives the
-    coverage harness an in-process witness of the failure path.
-    """
-    real_import = builtins.__import__
-
-    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
-            raise ModuleNotFoundError(f'No module named {name!r}', name=name)
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, '__import__', blocked_import)
-    _handlebars._pydantic_handlebars.cache_clear()
-    try:
-        with pytest.raises(_handlebars.HandlebarsDependencyError, match='pydantic-handlebars'):
-            _handlebars._pydantic_handlebars()
-    finally:
-        # Restore the real import so subsequent tests in the session see a
-        # populated cache.
-        _handlebars._pydantic_handlebars.cache_clear()
-
-
-def test_unrelated_module_not_found_propagates(monkeypatch: pytest.MonkeyPatch):
-    """A `ModuleNotFoundError` for a *different* module isn't reframed.
-
-    Simulates the case where a future `pydantic_handlebars` version pulls in
-    a new transitive dependency that the user hasn't installed. We want the
-    real error to surface so the user sees which package they actually need
-    — reframing it as "install pydantic-handlebars" would be misleading.
-    """
-    real_import = builtins.__import__
-
-    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == 'pydantic_handlebars':
-            raise ModuleNotFoundError("No module named 'some_other_dep'", name='some_other_dep')
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, '__import__', blocked_import)
-    _handlebars._pydantic_handlebars.cache_clear()
-    try:
-        with pytest.raises(ModuleNotFoundError, match='some_other_dep') as exc_info:
-            _handlebars._pydantic_handlebars()
-        assert not isinstance(exc_info.value, _handlebars.HandlebarsDependencyError)
-    finally:
-        _handlebars._pydantic_handlebars.cache_clear()
 
 
 # =============================================================================

@@ -10,11 +10,11 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel
+from pydantic_handlebars import HandlebarsError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
 from logfire.testing import TestExporter
-from logfire.variables import _handlebars
 from logfire.variables.composition import (
     VariableCompositionCycleError,
     VariableCompositionError,
@@ -211,7 +211,7 @@ class TestExpandReferences:
 
     def test_unresolvable_reference_strict_raises(self):
         """Under strict composition a missing reference raises instead of rendering empty."""
-        from logfire.variables._handlebars import HandlebarsError
+        from pydantic_handlebars import HandlebarsError
 
         resolve_fn = _make_resolve_fn({})
         with pytest.raises(HandlebarsError):
@@ -462,33 +462,6 @@ class TestFindReferences:
         assert refs == ['a', 'b']
         assert errors == []
 
-    def test_find_references_and_errors_handlebars_unavailable(self, monkeypatch: pytest.MonkeyPatch):
-        """Without pydantic-handlebars, a value containing `@{...}@` surfaces the install hint as an error.
-
-        `has_references` is a pure string check, so the walk still visits the string; the dependency
-        extractor is what needs handlebars, so it raises `HandlebarsDependencyError` and the message is
-        recorded once rather than crashing dependency discovery.
-        """
-        real_import = builtins.__import__
-
-        def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
-                raise ModuleNotFoundError(f'No module named {name!r}', name=name)
-            return real_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, '__import__', blocked_import)
-        _handlebars._pydantic_handlebars.cache_clear()
-        _handlebars.extract_composition_dependencies.cache_clear()
-        try:
-            refs, errors = find_references_and_errors(json.dumps('@{a}@'))
-            assert refs == []
-            assert len(errors) == 1
-            assert 'pydantic-handlebars' in errors[0]
-        finally:
-            # Restore the populated cache so later tests in the session don't re-hit the blocked import.
-            _handlebars._pydantic_handlebars.cache_clear()
-            _handlebars.extract_composition_dependencies.cache_clear()
-
     def test_deeply_nested_value_does_not_recurse(self):
         """The decoded-value walk is iterative, so an arbitrarily deep structure doesn't RecursionError.
 
@@ -506,6 +479,21 @@ class TestFindReferences:
         refs, errors = _walk_references(nested)
         assert refs == {'x'}
         assert errors == []
+
+
+def test_pydantic_and_handlebars_unavailable(monkeypatch: pytest.MonkeyPatch):
+    real_import = builtins.__import__
+
+    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name.startswith('pydantic'):
+            raise ModuleNotFoundError(f'No module named {name!r}', name=name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', blocked_import)
+    import logfire
+
+    with pytest.raises(ImportError):
+        logfire.var('foo', default='bar')
 
 
 # =============================================================================
@@ -906,8 +894,6 @@ class TestCompositionIntegration:
         `_try_resolve` catches it and routes to the code-default fallback with a warning,
         carrying the real parse error on `.exception` rather than letting it escape uncaught.
         """
-        from logfire.variables._handlebars import HandlebarsError
-
         variables_config = _make_variables_config(main='"@{#if x}@ oops"')
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)

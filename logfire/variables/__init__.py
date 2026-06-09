@@ -106,15 +106,15 @@ def ensure_variables_dependencies() -> None:
     default. Plain `import logfire` and the rest of the SDK keep working without the extra, so
     this must only run on *use*, never at module-import time.
     """
-    # Keep this in sync with the `variables` optional-dependency group in pyproject.toml. Each
-    # entry is (import module name, pip distribution name) — they differ for pydantic-handlebars.
-    for module_name, distribution_name in (('pydantic', 'pydantic'), ('pydantic_handlebars', 'pydantic-handlebars')):
-        if not find_spec(module_name):  # pragma: no cover
-            raise ImportError(
-                f'Using managed variables requires the `{distribution_name}` package.\n'
-                'You can install this with:\n'
-                "    pip install 'logfire[variables]'"
-            )
+    # Keep this in sync with the `variables` optional-dependency group in pyproject.toml
+    try:
+        import pydantic_handlebars
+    except ModuleNotFoundError:
+        raise ImportError(
+            'Using managed variables requires the `pydantic_handlebars` package.\n'
+            'You can install this with:\n'
+            "    pip install 'logfire[variables]'"
+        ) from None
 
 
 def __getattr__(name: str):
