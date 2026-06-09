@@ -25,11 +25,12 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
+pydantic-core = false
 pydantic-graph = false
 pydantic-ai-slim = false
 pydantic-evals = false
 pydantic = false
-pydantic-core = false
+pydantic-handlebars = false
 
 [manifest]
 members = [
@@ -2296,6 +2297,7 @@ system-metrics = [
 ]
 variables = [
     { name = "pydantic" },
+    { name = "pydantic-handlebars" },
 ]
 wsgi = [
     { name = "opentelemetry-instrumentation-wsgi" },
@@ -2372,6 +2374,7 @@ dev = [
     { name = "pydantic" },
     { name = "pydantic-ai-slim" },
     { name = "pydantic-evals" },
+    { name = "pydantic-handlebars" },
     { name = "pymongo" },
     { name = "pymysql" },
     { name = "pyright" },
@@ -2437,6 +2440,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'datasets'", specifier = ">=2" },
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "pydantic-evals", marker = "extra == 'datasets'", specifier = ">=1.0.0" },
+    { name = "pydantic-handlebars", marker = "extra == 'variables'", specifier = ">=0.2.1" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "starlette", marker = "extra == 'gateway'", specifier = ">=0.37.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
@@ -2514,6 +2518,7 @@ dev = [
     { name = "pydantic", specifier = ">=2.11.0" },
     { name = "pydantic-ai-slim", specifier = ">=0.0.39" },
     { name = "pydantic-evals", specifier = ">=1.0.0" },
+    { name = "pydantic-handlebars", specifier = ">=0.2.1" },
     { name = "pymongo", specifier = ">=4.10.1" },
     { name = "pymysql", specifier = ">=1.1.1" },
     { name = "pyright", specifier = "!=1.1.407" },
@@ -4617,6 +4622,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/05/a4/ae7e8d2b411c7f060b8710062964271bff2fc470bf9d28b32a2c78c51c60/pydantic_graph-1.104.0.tar.gz", hash = "sha256:fbaa7d2eff41c32c987e9b3751d99c27bb9e0172a72e561774139c739b01a2d7", size = 62581, upload-time = "2026-05-29T04:52:37.291Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/dd/a5e51dcbf02d212edc02172e3761fcfe974eb931489e2f62932dd817172f/pydantic_graph-1.104.0-py3-none-any.whl", hash = "sha256:09f962be494b1b2855e748b0bae116797cdbd4194834af61b4591048ab0fba35", size = 80099, upload-time = "2026-05-29T04:52:30.818Z" },
+]
+
+[[package]]
+name = "pydantic-handlebars"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/73/e55a1fe1a8788a5fa82d9209e796f4111e28f2d2fecab7173aa6d80516ad/pydantic_handlebars-0.2.1.tar.gz", hash = "sha256:d4124cfbf7d6e3bded9331a08ccccf6f29f3e3a93665b35b5d6061650aeeb49f", size = 176949, upload-time = "2026-05-25T01:24:38.354Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/11/364bc401f1d8fdb3947079fc43ffdfbfc9132d065981a03a95d2e87440c4/pydantic_handlebars-0.2.1-py3-none-any.whl", hash = "sha256:c713427d6498cf4b66814447d54753a2748f8a8d3a9f00c194192ddb3df61e52", size = 50476, upload-time = "2026-05-25T01:24:37.104Z" },
 ]
 
 [[package]]

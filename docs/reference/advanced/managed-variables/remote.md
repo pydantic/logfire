@@ -262,6 +262,10 @@ The `ValidationReport` provides detailed information about validation results:
 | `variables_checked` | Number of variables that were validated |
 | `variables_not_on_server` | Names of local variables not found on the server |
 | `description_differences` | Variables where local and server descriptions differ |
+| `reference_errors` | `@{variable}@` reference problems (missing references and cycles) |
+| `reference_cycles` | The subset of `reference_errors` that are cycles (always blocking) |
+| `template_field_issues` | Template `{{field}}` references that don't match a `TemplateVariable`'s declared `inputs_type` |
+| `is_valid` | `False` if there are validation errors, missing variables, reference errors, or template field issues |
 | `format()` | Returns a human-readable string of the validation results |
 
 This is useful in CI/CD pipelines to catch configuration drift where someone may have edited a version value in the UI that no longer matches your expected type.
@@ -339,9 +343,16 @@ from logfire.variables import VariablesConfig
 # Read the edited config
 config = VariablesConfig.model_validate_json(Path('variables.json').read_text())
 
-# Sync to the server (including labels and versions)
+# Sync to the server (including label assignments and inline label values)
 logfire.variables_push_config(config)
 ```
+
+For remote providers, `latest_version` is read-side state derived by the
+server. To create or update versions programmatically, add `LabeledValue`
+entries under `labels`; the server creates version records from their
+`serialized_value` fields and computes `latest_version` from the stored
+versions. Editing only `latest_version` in a local config file is ignored by
+`variables_push_config()`.
 
 **Push modes:**
 

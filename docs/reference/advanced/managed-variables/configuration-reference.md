@@ -14,7 +14,8 @@
 | `json_schema` | JSON Schema for validation (optional) |
 | `description` | Human-readable description (optional) |
 | `aliases` | Alternative names that resolve to this variable (optional, for migrations) |
-| `example` | JSON-serialized example value, used as template in UI (optional) |
+| `example` | JSON-serialized example value, used as starting point when creating versions in the UI (optional) |
+| `template_inputs_schema` | JSON Schema for template `{{placeholder}}` inputs (optional, set automatically when template inputs are declared via `logfire.template_var()`) |
 
 **LabeledValue** — A label with an inline serialized value:
 
@@ -129,6 +130,30 @@ def test_premium_config_handling():
             assert config.value.model == 'openai:gpt-4o'
 
     # Back to normal after context exits
+```
+
+#### Overrides and composition
+
+A JSON-serializable override runs through the same `@{ref}@` composition → `{{}}` rendering → deserialization pipeline as a stored value, so it resolves identically to how it would once pushed — making it a faithful stand-in for a candidate value when iterating (e.g. during optimization).
+
+The case worth calling out is a **non-serializable** override. If the value can't be dumped to JSON through the variable's type adapter — an arbitrary Python object on a `Variable[SomeClass]`, a live client, a model instance — it's returned exactly as passed, with `reason='context_override'` and no round-trip at all. That's deliberate: such a value has no string form, so there's nothing to compose, render, or re-validate. The trade-off is that any `@{ref}@` or `{{...}}` *inside* a non-serializable override is left untouched, since there's no serialized form to run the engine against.
+
+```python
+import logfire
+
+logfire.configure()
+
+logfire.var('user', type=str, default='Alice')
+greeting = logfire.var('greeting', type=str, default='Hello, @{user}@!')
+
+# Without an override: composition expands @{user}@.
+print(greeting.get().value)
+#> Hello, Alice!
+
+# Override composes too — @{user}@ is expanded against the live config.
+with greeting.override('Hi @{user}@'):
+    print(greeting.get().value)
+    #> Hi Alice
 ```
 
 ### Dynamic Override Functions

@@ -34,12 +34,14 @@ class NotJsonSerializable:
 
 def main() -> None:
     """Smoke-test core logfire APIs in a minimal installation."""
-    for package in ('pytest', 'pydantic', 'httpx'):
+    optional_packages = ('pytest', 'pydantic', 'pydantic_handlebars', 'httpx')
+
+    for package in optional_packages:
         assert_not_available(package)
 
     import logfire
 
-    for package in ('pytest', 'pydantic', 'httpx'):
+    for package in optional_packages:
         assert_not_available(package)
 
     assert_import_error('testing helpers', lambda: import_module('logfire.testing'), "No module named 'pytest'")
@@ -56,15 +58,15 @@ def main() -> None:
     assert_import_error(
         'managed variable imports',
         lambda: getattr(import_module('logfire.variables'), 'Variable'),
-        'Using managed variables requires the `pydantic` package',
+        'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
     )
     assert_import_error(
         'managed variable usage',
         lambda: logfire.var('minimal_install_flag', default=False),
-        "No module named 'pydantic'",
+        'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
     )
 
-    for package in ('pytest', 'pydantic', 'httpx'):
+    for package in optional_packages:
         assert_not_available(package)
 
     logfire.configure(send_to_logfire=False)
