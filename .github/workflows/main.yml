@@ -38,6 +38,64 @@ jobs:
         env:
           SKIP: no-commit-to-branch
 
+  minimal-install:
+    name: test minimal install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57  # v8.0.0
+        with:
+          version: "0.11.1"
+          enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
+
+      - name: Build logfire wheel
+        run: uv build --wheel --out-dir dist-minimal
+
+      - name: Install only logfire
+        run: |
+          uv venv --python 3.12 .minimal-venv
+          uv pip install --python .minimal-venv dist-minimal/logfire-*.whl
+
+      - name: Smoke test minimal install
+        run: |
+          cd "$(mktemp -d)"
+          "$GITHUB_WORKSPACE/.minimal-venv/bin/python" - <<'PY'
+          from importlib import metadata, util
+
+          def assert_not_available(package: str) -> None:
+              if util.find_spec(package) is not None:
+                  raise AssertionError(f'{package} should not be importable')
+
+              try:
+                  metadata.version(package)
+              except metadata.PackageNotFoundError:
+                  pass
+              else:
+                  raise AssertionError(f'{package} should not be installed')
+
+          for package in ('pytest', 'pydantic', 'httpx'):
+              assert_not_available(package)
+
+          import logfire
+
+          for package in ('pytest', 'pydantic', 'httpx'):
+              assert_not_available(package)
+
+          logfire.configure(send_to_logfire=False, console=False, inspect_arguments=False)
+          logfire.info('minimal install info', answer=42)
+          with logfire.span('minimal install span', answer=42):
+              logfire.debug('inside minimal install span')
+
+          counter = logfire.metric_counter('minimal_install_counter')
+          counter.add(1)
+          assert logfire.force_flush()
+          assert logfire.shutdown()
+          PY
+
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
     # Use Depot 4-core runners for maintainer PRs (faster CPUs/more cores)
@@ -171,7 +229,7 @@ jobs:
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [ lint, test, coverage, test-pyodide ]
+    needs: [ lint, minimal-install, test, coverage, test-pyodide ]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
