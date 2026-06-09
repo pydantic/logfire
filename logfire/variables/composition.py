@@ -421,9 +421,10 @@ def _render_value(value: Any, context: dict[str, Any], *, strict: bool) -> Any:
     if isinstance(value, str):
         if not has_references(value):
             return value
-        from logfire.variables.reference_syntax import render_once
 
-        return render_once(value, context, strict=strict)
+        from logfire.variables._handlebars import compile_composition_template
+
+        return compile_composition_template(value, strict).render(context)
     if isinstance(value, dict):
         return {
             k: _render_value(v, context, strict=strict)
