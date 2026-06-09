@@ -13,7 +13,6 @@ from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
-from logfire.variables._handlebars import HandlebarsError
 from logfire.variables.composition import (
     ComposedReference,
     VariableCompositionError,
@@ -566,6 +565,8 @@ class Variable(Generic[T_co]):
         itself — the caller decides what to do. `render_fn` (template `{{}}`
         rendering) is applied after composition and is always non-strict.
         """
+        from pydantic_handlebars import HandlebarsError
+
         assert serialized_result.value is not None
         serialized_value = serialized_result.value
 
@@ -1101,7 +1102,8 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
         `'warn'` emits a `RuntimeWarning`. (`'ignore'` callers never reach
         this path.)
         """
-        from logfire.variables._handlebars import check_template_compatibility
+        from pydantic_handlebars import check_template_compatibility
+
         from logfire.variables.template_validation import extract_template_strings
 
         templates = extract_template_strings(serialized_value)

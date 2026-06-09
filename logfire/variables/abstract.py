@@ -4,12 +4,10 @@ import json
 import warnings
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
-
-from logfire.variables._handlebars import compile_runtime_template, get_safe_string_cls
 
 SyncMode = Literal['merge', 'replace']
 
@@ -218,39 +216,40 @@ def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     Returns:
         The rendered JSON string.
     """
-    safe_string_cls = get_safe_string_cls()
     context = _inputs_to_context(inputs)
 
     # Wrap all string values in SafeString to disable HTML escaping.
     # For prompt/config templates (not HTML), escaping is undesirable.
-    context = _wrap_safe_context(context, safe_string_cls)
+    context = _wrap_safe_context(context)
 
     # Decode the serialized JSON, render string values, then re-encode.
     # We can't render the raw JSON directly because substituted values
     # might contain JSON-special characters (e.g., double quotes) that
     # would make the resulting JSON invalid.
     decoded = json.loads(serialized_json)
-    rendered_value = _render_json_value(decoded, compile_runtime_template, context)
+    rendered_value = _render_json_value(decoded, context)
     return json.dumps(rendered_value)
 
 
-def _wrap_safe_context(context: dict[str, Any], safe_string_cls: type[str]) -> dict[str, Any]:
+def _wrap_safe_context(context: dict[str, Any]) -> dict[str, Any]:
     """Recursively wrap all string values in SafeString to disable HTML escaping."""
-    return {k: _wrap_safe_value(v, safe_string_cls) for k, v in context.items()}
+    return {k: _wrap_safe_value(v) for k, v in context.items()}
 
 
-def _wrap_safe_value(value: Any, safe_string_cls: type[str]) -> Any:
+def _wrap_safe_value(value: Any) -> Any:
     """Wrap a single value: strings become SafeString, dicts/lists are recursed."""
+    from pydantic_handlebars import SafeString
+
     if isinstance(value, str):
-        return safe_string_cls(value)
+        return SafeString(value)
     if isinstance(value, dict):
-        return _wrap_safe_context(value, safe_string_cls)  # pyright: ignore[reportUnknownArgumentType]
+        return _wrap_safe_context(value)  # pyright: ignore[reportUnknownArgumentType]
     if isinstance(value, list):
-        return [_wrap_safe_value(item, safe_string_cls) for item in value]  # pyright: ignore[reportUnknownVariableType]
+        return [_wrap_safe_value(item) for item in value]  # pyright: ignore[reportUnknownVariableType]
     return value
 
 
-def _render_json_value(value: Any, compile_template: Callable[[str], Any], context: dict[str, Any]) -> Any:
+def _render_json_value(value: Any, context: dict[str, Any]) -> Any:
     """Recursively render Handlebars templates in a decoded JSON value.
 
     Only string values are rendered; dicts and lists are walked recursively.
@@ -259,14 +258,16 @@ def _render_json_value(value: Any, compile_template: Callable[[str], Any], conte
     importing here) keeps the recursion cheap and makes the cache hit on
     repeated identical sources.
     """
+    from logfire.variables._handlebars import compile_runtime_template
+
     if isinstance(value, str):
         if '{{' not in value:
             return value
-        return compile_template(value).render(context)
+        return compile_runtime_template(value).render(context)
     if isinstance(value, dict):
-        return {k: _render_json_value(v, compile_template, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+        return {k: _render_json_value(v, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, list):
-        return [_render_json_value(item, compile_template, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
+        return [_render_json_value(item, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
     # Numbers, booleans, None pass through unchanged
     return value
 

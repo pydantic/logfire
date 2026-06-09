@@ -357,7 +357,7 @@ def _walk_references(value: Any) -> tuple[set[str], list[str]]:
     push / validate / resolve), the offending string is recorded as a parse
     error and contributes no references.
     """
-    from logfire.variables._handlebars import HandlebarsDependencyError, extract_composition_dependencies
+    from logfire.variables._handlebars import extract_composition_dependencies
 
     refs: set[str] = set()
     errors: list[str] = []
@@ -372,11 +372,6 @@ def _walk_references(value: Any) -> tuple[set[str], list[str]]:
             if has_references(v):
                 try:
                     refs.update(extract_composition_dependencies(v))
-                except HandlebarsDependencyError as e:
-                    # pydantic-handlebars isn't installed, so `@{...}@` composition can't be parsed
-                    # at all. Surface the clear install hint rather than a misleading "could not be
-                    # parsed" message (which would otherwise appear once per composition value).
-                    errors.append(str(e))
                 except Exception as e:
                     # `extract_dependencies` raises HandlebarsError on malformed templates and a
                     # bare AssertionError on reserved names, so catch broadly. The value is recorded
