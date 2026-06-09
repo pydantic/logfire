@@ -18,7 +18,7 @@ from pydantic import BaseModel, ValidationError, field_validator
 from requests import Session
 
 import logfire
-from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+from logfire._internal.config import LocalVariablesOptions, LogfireConfig, VariablesOptions
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -5615,6 +5615,16 @@ class TestVariableGetWithExplicitLabel:
 
 class TestLazyVariableProviderInit:
     """Tests for lazy initialization of the variable provider when LOGFIRE_API_KEY is set."""
+
+    def test_no_lazy_init_before_configure(self) -> None:
+        """LOGFIRE_API_KEY alone should not enable remote variables before configure()."""
+        config = LogfireConfig()
+
+        with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+            provider = config.get_variable_provider()
+
+        assert isinstance(provider, NoOpVariableProvider)
+        assert isinstance(config._variable_provider, NoOpVariableProvider)
 
     def test_lazy_init_when_api_key_set(self, config_kwargs: dict[str, Any]) -> None:
         """When LOGFIRE_API_KEY is set but variables= is not passed, get_variable_provider()
