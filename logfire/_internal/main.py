@@ -292,6 +292,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         try:
+            attributes = attributes.copy()
             msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
