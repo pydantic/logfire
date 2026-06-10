@@ -880,6 +880,23 @@ def test_log_non_scalar_args(
     assert json.loads(s.attributes['logfire.json_schema'])['properties']['var'] == json_schema  # type: ignore
 
 
+def test_log_non_finite_scalar_float_args(exporter: TestExporter) -> None:
+    logfire.info(
+        'test message',
+        nan=float('nan'),
+        pos_inf=float('inf'),
+        neg_inf=float('-inf'),
+        finite=1.5,
+    )
+
+    attributes = exporter.exported_spans[0].attributes
+    assert attributes
+    assert attributes['nan'] == 'nan'
+    assert attributes['pos_inf'] == 'inf'
+    assert attributes['neg_inf'] == '-inf'
+    assert attributes['finite'] == 1.5
+
+
 class SABase(MappedAsDataclass, DeclarativeBase):
     pass
 
