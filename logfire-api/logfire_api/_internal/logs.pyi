@@ -11,9 +11,9 @@ from weakref import WeakSet
 class ProxyLoggerProvider(LoggerProvider):
     """A logger provider that wraps another internal logger provider allowing it to be re-assigned."""
     provider: LoggerProvider
-    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet)
+    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet['ProxyLogger'])
     lock: Lock = dataclasses.field(default_factory=Lock)
-    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set[str])
     min_level: int = ...
     def get_logger(self, name: str, version: str | None = None, schema_url: str | None = None, attributes: _ExtendedAttributes | None = None) -> Logger: ...
     def set_min_level(self, min_level: int) -> None: ...

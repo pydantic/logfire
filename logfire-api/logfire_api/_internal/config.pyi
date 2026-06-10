@@ -81,8 +81,8 @@ class PydanticPlugin:
     This class is deprecated for external use. Use `logfire.instrument_pydantic()` instead.
     """
     record: PydanticPluginRecordValues = ...
-    include: set[str] = field(default_factory=set)
-    exclude: set[str] = field(default_factory=set)
+    include: set[str] = field(default_factory=set[str])
+    exclude: set[str] = field(default_factory=set[str])
 
 @dataclass
 class MetricsOptions:
@@ -99,6 +99,8 @@ class CodeSource:
     revision: str
     root_path: str = ...
 
+TemplateMismatchPolicy: Incomplete
+
 @dataclass
 class VariablesOptions:
     """Configuration for managed variables using the Logfire remote API.
@@ -112,6 +114,7 @@ class VariablesOptions:
     include_resource_attributes_in_context: bool = ...
     include_baggage_in_context: bool = ...
     instrument: bool = ...
+    template_mismatch_policy: TemplateMismatchPolicy = ...
     def __post_init__(self) -> None: ...
 
 @dataclass
@@ -125,6 +128,7 @@ class LocalVariablesOptions:
     include_resource_attributes_in_context: bool = ...
     include_baggage_in_context: bool = ...
     instrument: bool = ...
+    template_mismatch_policy: TemplateMismatchPolicy = ...
 
 class DeprecatedKwargs(TypedDict): ...
 
@@ -286,8 +290,8 @@ class LogfireConfig(_LogfireConfigData):
         This is used internally and should not be called by users of the SDK.
 
         If no provider has been explicitly configured (i.e. `variables=` was not passed to
-        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
-        will be lazily created on the first call.
+        `configure()`), but `configure()` has been called and a `LOGFIRE_API_KEY` is available,
+        a `LogfireRemoteVariableProvider` will be lazily created on the first call.
 
         Returns:
             The variable provider.
