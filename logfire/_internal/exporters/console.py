@@ -285,8 +285,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         for k, value_code in arguments.items():
             highlighted = Syntax(value_code, 'python', background_color='default').highlight(value_code)
-            if not value_code.endswith('\n'):
-                highlighted.right_crop(1)
+            highlighted.plain = highlighted.plain[: len(value_code)]
 
             out = Text()
             for i, line in enumerate(highlighted.split('\n', allow_blank=True)):
