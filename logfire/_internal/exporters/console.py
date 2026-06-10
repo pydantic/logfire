@@ -18,7 +18,6 @@ from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from rich.columns import Columns
 from rich.console import Console, Group
 from rich.syntax import Syntax
 from rich.text import Text
@@ -284,25 +283,27 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Print logfire arguments in color using rich, particularly with syntax highlighting."""
         assert self._console is not None
 
-        chunks: list[Columns] = []
+        syntax = Syntax('', 'python', background_color='default')
         for k, value_code in arguments.items():
-            key = Text(f'{k}=', style='blue')
-            value = Syntax(value_code, 'python', background_color='default')
-            barrier = Text(('│ \n' * (value_code.count('\n') + 1))[:-1], style='blue')
-            chunks.append(
-                Columns(
-                    (
-                        # Don't have a column for empty indent_str as it will still take space
-                        *[indent_str] * bool(indent_str),
-                        barrier,
-                        key,
-                        value,
-                    ),
-                    padding=(0, 0),
-                )
-            )
+            # Rich adds a trailing newline when highlighting code without one.
+            # Append our own so cropping removes only that generated newline,
+            # preserving original trailing newlines and expanded tabs.
+            highlighted = syntax.highlight(f'{value_code}\n')
+            highlighted.right_crop(1)
 
-        self._console.print(Group(*chunks))
+            out = Text()
+            for i, line in enumerate(highlighted.split('\n', allow_blank=True)):
+                if i:
+                    out.append('\n')
+                out.append(indent_str)
+                out.append('│ ', style='blue')
+                if i == 0:
+                    out.append(f'{k}=', style='blue')
+                else:
+                    out.append(' ' * (len(k) + 1))
+                out.append_text(line)
+
+            self._console.print(out)
 
     def _print_arguments_plain(self, arguments: dict[str, Any], indent_str: str) -> None:
         """Print logfire arguments without color using the built-in `print` function."""
