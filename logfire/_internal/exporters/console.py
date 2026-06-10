@@ -284,15 +284,23 @@ class SimpleConsoleSpanExporter(SpanExporter):
         assert self._console is not None
 
         for k, value_code in arguments.items():
-            value_lines = value_code.splitlines() or ['']
-            prefix = Text.assemble((indent_str, ''), ('│ ', 'blue'), (f'{k}=', 'blue'))
-            self._console.print(prefix, end='')
-            self._console.print(Syntax(value_lines[0], 'python', background_color='default'))
+            highlighted = Syntax(value_code, 'python', background_color='default').highlight(value_code)
+            if not value_code.endswith('\n'):
+                highlighted.right_crop(1)
 
-            prefix = Text.assemble((indent_str, ''), ('│ ', 'blue'), (' ' * (len(k) + 1), ''))
-            for line in value_lines[1:]:
-                self._console.print(prefix, end='')
-                self._console.print(Syntax(line, 'python', background_color='default'))
+            out = Text()
+            for i, line in enumerate(highlighted.split('\n', allow_blank=True)):
+                if i:
+                    out.append('\n')
+                out.append(indent_str)
+                out.append('│ ', style='blue')
+                if i == 0:
+                    out.append(f'{k}=', style='blue')
+                else:
+                    out.append(' ' * (len(k) + 1))
+                out.append_text(line)
+
+            self._console.print(out)
 
     def _print_arguments_plain(self, arguments: dict[str, Any], indent_str: str) -> None:
         """Print logfire arguments without color using the built-in `print` function."""
