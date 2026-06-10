@@ -18,7 +18,6 @@ from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from rich.columns import Columns
 from rich.console import Console, Group
 from rich.syntax import Syntax
 from rich.text import Text
@@ -284,25 +283,16 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Print logfire arguments in color using rich, particularly with syntax highlighting."""
         assert self._console is not None
 
-        chunks: list[Columns] = []
         for k, value_code in arguments.items():
-            key = Text(f'{k}=', style='blue')
-            value = Syntax(value_code, 'python', background_color='default')
-            barrier = Text(('│ \n' * (value_code.count('\n') + 1))[:-1], style='blue')
-            chunks.append(
-                Columns(
-                    (
-                        # Don't have a column for empty indent_str as it will still take space
-                        *[indent_str] * bool(indent_str),
-                        barrier,
-                        key,
-                        value,
-                    ),
-                    padding=(0, 0),
-                )
-            )
+            value_lines = value_code.splitlines() or ['']
+            prefix = Text.assemble((indent_str, ''), ('│ ', 'blue'), (f'{k}=', 'blue'))
+            self._console.print(prefix, end='')
+            self._console.print(Syntax(value_lines[0], 'python', background_color='default'))
 
-        self._console.print(Group(*chunks))
+            prefix = Text.assemble((indent_str, ''), ('│ ', 'blue'), (' ' * (len(k) + 1), ''))
+            for line in value_lines[1:]:
+                self._console.print(prefix, end='')
+                self._console.print(Syntax(line, 'python', background_color='default'))
 
     def _print_arguments_plain(self, arguments: dict[str, Any], indent_str: str) -> None:
         """Print logfire arguments without color using the built-in `print` function."""
