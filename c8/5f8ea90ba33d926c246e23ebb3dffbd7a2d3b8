@@ -1,0 +1,19 @@
+logfire/_internal/exporters/console.py
+  s_dd15bd794f2da2::t_56cef35809cfd7 288-290
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c85f8ea90ba33d926c246e23ebb3dffbd7a2d3b8",
+  "prompts": {},
+  "sessions": {
+    "s_dd15bd794f2da2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb12b-c239-7f53-8b4a-568302aafede",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
