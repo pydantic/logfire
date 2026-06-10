@@ -178,6 +178,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             id='list',
         ),
         pytest.param(
+            [float('nan'), float('inf'), float('-inf')],
+            '[nan, inf, -inf]',
+            '["nan","inf","-inf"]',
+            {'type': 'array'},
+            id='list_non_finite_floats',
+        ),
+        pytest.param(
             [],
             '[]',
             '[]',
