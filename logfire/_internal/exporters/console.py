@@ -285,6 +285,9 @@ class SimpleConsoleSpanExporter(SpanExporter):
 
         syntax = Syntax('', 'python', background_color='default')
         for k, value_code in arguments.items():
+            # Rich adds a trailing newline when highlighting code without one.
+            # Append our own so cropping removes only that generated newline,
+            # preserving original trailing newlines and expanded tabs.
             highlighted = syntax.highlight(f'{value_code}\n')
             highlighted.right_crop(1)
 
