@@ -268,9 +268,9 @@ class PydanticPlugin:
     * `failure`: Send metrics for all validations and traces only for validation failures.
     * `metrics`: Send only metrics.
     """
-    include: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
+    include: set[str] = field(default_factory=set[str])
     """By default, third party modules are not instrumented. This option allows you to include specific modules."""
-    exclude: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
+    exclude: set[str] = field(default_factory=set[str])
     """Exclude specific modules from instrumentation."""
 
 
@@ -355,6 +355,33 @@ class CodeSource:
     """
 
 
+TemplateMismatchPolicy = Literal['warn', 'error', 'ignore']
+"""How `TemplateVariable.get(inputs)` reacts when the resolved (post-composition)
+template references a `{{field}}` not declared in the variable's `inputs_type`.
+
+The check is static — it compares the template's `{{field}}` references against
+the `inputs_type` JSON schema, not against the values in a particular `inputs`
+object. (An undeclared field renders to the empty string at runtime, so this
+turns a silent footgun into a configurable signal.)
+
+- `'warn'` (default): emit a `RuntimeWarning` and render the template anyway
+  (undeclared fields substitute as the empty string, matching default Handlebars
+  behaviour).
+- `'error'`: raise `TemplateInputsMismatchError` instead of rendering.
+- `'ignore'`: render silently, no warning.
+
+Configurable at three levels, with the variable-level value winning when set
+(`None` means "inherit from the surrounding options"):
+
+1. Per-variable via `template_var()`'s `template_mismatch_policy` argument —
+   variable-level wins, even when relaxing. Plain `var()` doesn't render
+   `{{...}}` templates and so doesn't accept the policy.
+2. Per-Logfire-instance via `VariablesOptions.template_mismatch_policy` or
+   `LocalVariablesOptions.template_mismatch_policy`.
+3. Falls back to `'warn'` when nothing is set.
+"""
+
+
 @dataclass
 class VariablesOptions:
     """Configuration for managed variables using the Logfire remote API.
@@ -379,6 +406,12 @@ class VariablesOptions:
     """Whether to include OpenTelemetry baggage when resolving variables."""
     instrument: bool = True
     """Whether to create spans when resolving variables."""
+    template_mismatch_policy: TemplateMismatchPolicy = 'warn'
+    """How to react when a `TemplateVariable`'s `{{field}}` references something its
+    `inputs_type` doesn't declare. See `TemplateMismatchPolicy` for the full semantics.
+
+    Overridden per-variable by the matching argument on `template_var()`.
+    """
 
     def __post_init__(self):
         interval_seconds = (
@@ -409,6 +442,12 @@ class LocalVariablesOptions:
     """Whether to include OpenTelemetry baggage when resolving variables."""
     instrument: bool = True
     """Whether to create spans when resolving variables."""
+    template_mismatch_policy: TemplateMismatchPolicy = 'warn'
+    """How to react when a `TemplateVariable`'s `{{field}}` references something its
+    `inputs_type` doesn't declare. See `TemplateMismatchPolicy` for the full semantics.
+
+    Overridden per-variable by the matching argument on `template_var()`.
+    """
 
 
 class DeprecatedKwargs(TypedDict):
@@ -1504,23 +1543,23 @@ class LogfireConfig(_LogfireConfigData):
         This is used internally and should not be called by users of the SDK.
 
         If no provider has been explicitly configured (i.e. `variables=` was not passed to
-        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
-        will be lazily created on the first call.
+        `configure()`), but `configure()` has been called and a `LOGFIRE_API_KEY` is available,
+        a `LogfireRemoteVariableProvider` will be lazily created on the first call.
 
         Returns:
             The variable provider.
         """
         provider = self._variable_provider
-        if isinstance(provider, NoOpVariableProvider) and self.variables is None:
+        if self._initialized and isinstance(provider, NoOpVariableProvider) and self.variables is None:
             provider = self._lazy_init_variable_provider()
         return provider
 
     def _lazy_init_variable_provider(self) -> VariableProvider:
         """Attempt to lazily initialize a remote variable provider.
 
-        This is called when no explicit `variables=` option was passed to `configure()`,
-        but the user may have a `LOGFIRE_API_KEY` set in the environment. If so, we
-        create a `LogfireRemoteVariableProvider` with default options.
+        This is called after `configure()` when no explicit `variables=` option was passed,
+        but the user may have a `LOGFIRE_API_KEY` set in the environment. If so, we create a
+        `LogfireRemoteVariableProvider` with default options.
         """
         with self._lock:
             # Double-check after acquiring lock
@@ -1637,9 +1676,11 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     else:  # pragma: no cover
         token_count = len(config.token)
 
-    logfire_instance.info(
+    logfire_instance.log(
+        'info',
         'Logfire configured',
-        **{  # type: ignore
+        console_log=False,
+        attributes={
             ATTRIBUTES_CONFIG: {
                 'local': local,
                 'send_to_logfire': config.send_to_logfire,
