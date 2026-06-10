@@ -1676,9 +1676,11 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     else:  # pragma: no cover
         token_count = len(config.token)
 
-    logfire_instance.info(
+    logfire_instance.log(
+        'info',
         'Logfire configured',
-        **{  # type: ignore
+        console_log=False,
+        attributes={
             ATTRIBUTES_CONFIG: {
                 'local': local,
                 'send_to_logfire': config.send_to_logfire,

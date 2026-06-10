@@ -1755,6 +1755,7 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                             'logfire.package_versions': {'type': 'object'},
                         },
                     },
+                    'logfire.disable_console_log': True,
                 },
             }
         ]
