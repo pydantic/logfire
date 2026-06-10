@@ -283,9 +283,10 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Print logfire arguments in color using rich, particularly with syntax highlighting."""
         assert self._console is not None
 
+        syntax = Syntax('', 'python', background_color='default')
         for k, value_code in arguments.items():
-            highlighted = Syntax(value_code, 'python', background_color='default').highlight(value_code)
-            highlighted.plain = highlighted.plain[: len(value_code)]
+            highlighted = syntax.highlight(f'{value_code}\n')
+            highlighted.right_crop(1)
 
             out = Text()
             for i, line in enumerate(highlighted.split('\n', allow_blank=True)):

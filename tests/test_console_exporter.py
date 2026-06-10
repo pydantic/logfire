@@ -989,6 +989,16 @@ def test_console_exporter_rich_long_argument_not_truncated() -> None:
     assert f"x='{long_value}'" in plain_output
 
 
+def test_console_exporter_rich_argument_preserves_expanded_tab() -> None:
+    out = io.StringIO()
+    exporter = SimpleConsoleSpanExporter(output=out, verbose=True, colors='always', include_timestamp=False)
+
+    exporter._print_arguments_rich({'x': '\t'}, '')
+
+    plain_output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', out.getvalue())
+    assert plain_output == '│ x=    \n'
+
+
 def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
     logfire.configure(
         send_to_logfire=False,
