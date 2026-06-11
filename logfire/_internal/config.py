@@ -2158,9 +2158,9 @@ def _os_resource_attributes() -> dict[str, str]:
     """`os.type` / `os.version` matching OTel's `OsResourceDetector`."""
     os_type = platform.system().lower()
     os_version = platform.release()
-    if os_type == 'windows':
+    if os_type == 'windows':  # pragma: no cover
         os_version = platform.version()
-    elif os_type == 'sunos':
+    elif os_type == 'sunos':  # pragma: no cover
         os_type = 'solaris'
         os_version = platform.version()
     return {'os.type': os_type, 'os.version': os_version}
