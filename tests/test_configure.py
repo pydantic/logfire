@@ -832,7 +832,7 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
                         'os.type': IsStr(),
-                        'os.description': IsStr(),
+                        'os.version': IsStr(),
                         'process.pid': 1234,
                     }
                 },
@@ -883,7 +883,7 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
                         'os.type': IsStr(),
-                        'os.description': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
@@ -935,7 +935,7 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
                         'os.type': IsStr(),
-                        'os.description': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
@@ -946,25 +946,27 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
 def test_host_and_os_resource_attributes_populated_by_default(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ) -> None:
-    """`host.*` and `os.*` are pre-populated on the resource so the Hosts page
-    works without the customer setting
-    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=otel,host,os`. Values come from
-    `socket.gethostname()` / `platform.machine()` / `platform.system()` /
-    `platform.platform()`, mirroring what OTel's `_HostResourceDetector` and
-    `OsResourceDetector` would emit (with `os.description` substituted for
-    `os.version` so the Hosts page OS column has a useful label).
+    """`host.*` and `os.*` are pre-populated with the same values OTel's
+    `_HostResourceDetector` and `OsResourceDetector` would emit, so the Hosts
+    page works without the customer enabling the experimental detector env var.
     """
     import platform
     import socket
 
-    configure(**config_kwargs)
+    # Hermetic: an inherited `OTEL_RESOURCE_ATTRIBUTES` from the runner shell
+    # would override our defaults and make this test pass spuriously.
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop('OTEL_RESOURCE_ATTRIBUTES', None)
+        configure(**config_kwargs)
     logfire.info('test')
 
     resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
     assert resource_attrs['host.name'] == socket.gethostname()
     assert resource_attrs['host.arch'] == platform.machine()
     assert resource_attrs['os.type'] == platform.system().lower()
-    assert resource_attrs['os.description'] == platform.platform()
+    assert resource_attrs['os.version'] == (
+        platform.version() if platform.system().lower() in ('windows', 'sunos') else platform.release()
+    )
 
 
 def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
@@ -976,9 +978,7 @@ def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
     """
     with patch.dict(
         os.environ,
-        {
-            'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch,os.type=plan9,os.description=Plan 9 from Bell Labs'
-        },
+        {'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch,os.type=plan9,os.version=4'},
     ):
         configure(**config_kwargs)
     logfire.info('test')
@@ -987,7 +987,7 @@ def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
     assert resource_attrs['host.name'] == 'my-explicit-host'
     assert resource_attrs['host.arch'] == 'my-arch'
     assert resource_attrs['os.type'] == 'plan9'
-    assert resource_attrs['os.description'] == 'Plan 9 from Bell Labs'
+    assert resource_attrs['os.version'] == '4'
 
 
 def test_config_serializable():
@@ -2177,7 +2177,7 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
                         'os.type': IsStr(),
-                        'os.description': IsStr(),
+                        'os.version': IsStr(),
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -2232,7 +2232,7 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
                         'os.type': IsStr(),
-                        'os.description': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -2289,7 +2289,7 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
                         'os.type': IsStr(),
-                        'os.description': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',

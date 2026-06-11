@@ -1059,8 +1059,7 @@ class LogfireConfig(_LogfireConfigData):
                 'host.name': socket.gethostname(),
                 'host.arch': platform.machine(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/os/
-                'os.type': platform.system().lower(),
-                'os.description': platform.platform(),
+                **_os_resource_attributes(),
             }
             if self.code_source:
                 otel_resource_attributes.update(
@@ -2153,6 +2152,18 @@ def get_runtime_version() -> str:
     if version_info.releaselevel == 'final' and not version_info.serial:
         return '.'.join(map(str, version_info[:3]))
     return '.'.join(map(str, version_info))  # pragma: no cover
+
+
+def _os_resource_attributes() -> dict[str, str]:
+    """`os.type` / `os.version` matching OTel's `OsResourceDetector`."""
+    os_type = platform.system().lower()
+    os_version = platform.release()
+    if os_type == 'windows':
+        os_version = platform.version()
+    elif os_type == 'sunos':
+        os_type = 'solaris'
+        os_version = platform.version()
+    return {'os.type': os_type, 'os.version': os_version}
 
 
 class LogfireNotConfiguredWarning(UserWarning):
