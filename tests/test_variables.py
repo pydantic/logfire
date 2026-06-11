@@ -4529,6 +4529,27 @@ class TestOnChangeCallbacks:
         assert changes == ['world']
         assert 'side_var' in lf._variables
 
+    def test_variables_clear_stops_notifications(self, config_kwargs: dict[str, Any]):
+        """After variables_clear(), provider changes no longer notify anything."""
+        config = VariablesConfig(variables={'my_var': single_label_config('my_var', '"hello"')})
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+        assert isinstance(provider, LocalVariableProvider)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pragma: no cover  # pyright: ignore[reportUnusedFunction]
+            changes.append('changed')
+
+        lf.variables_clear()
+        provider.update_variable('my_var', single_label_config('my_var', '"world"'))
+
+        assert changes == []
+
     def test_no_duplicate_notifications_after_clear_and_redefine(self, config_kwargs: dict[str, Any]):
         """variables_clear() followed by re-registration must not duplicate notifications."""
         config = VariablesConfig(variables={'my_var': single_label_config('my_var', '"hello"')})
