@@ -238,7 +238,10 @@
     "items": [
       { "label": "Overview", "slug": "reference/advanced/prompt-management/index" },
       { "label": "Core Concepts", "slug": "reference/advanced/prompt-management/concepts" },
+      { "label": "UI Guide", "slug": "reference/advanced/prompt-management/ui" },
       { "label": "Writing Templates", "slug": "reference/advanced/prompt-management/templates" },
+      { "label": "Prompt Composition Walkthrough", "slug": "reference/advanced/prompt-management/composition-walkthrough" },
+      { "label": "Promote and Roll Out Prompts", "slug": "reference/advanced/prompt-management/promotion-and-rollouts" },
       { "label": "Test Prompts", "slug": "reference/advanced/prompt-management/scenarios" },
       { "label": "Use Prompts in Your Application", "slug": "reference/advanced/prompt-management/application" },
       { "label": "Template Reference", "slug": "reference/advanced/prompt-management/template-reference" },
