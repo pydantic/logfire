@@ -27,12 +27,12 @@ Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard
 
 By default, the metrics produced by `instrument_system_metrics` don't say anything about the machine they come from,
 such as the `host.name` resource attribute that the Logfire UI uses to associate metrics with a host.
-To include this information, pass [resource detectors][logfire.AdvancedOptions.resource_detectors] to `logfire.configure()`:
+To include this information, pass resource detectors to [`logfire.configure()`][logfire.configure]:
 
 ```py
 import logfire
 
-logfire.configure(advanced=logfire.AdvancedOptions(resource_detectors=['os', 'host']))
+logfire.configure(resource_detectors=['os', 'host'])
 
 logfire.instrument_system_metrics()
 ```
@@ -41,7 +41,7 @@ This sets the `host.name`, `host.arch`, `os.type`, and `os.version` resource att
 using the `host` and `os` detectors provided by the OpenTelemetry SDK.
 Alternatively, you can set the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable to `os,host`
 before `logfire.configure()` is called, or set specific values directly with e.g.
-`logfire.AdvancedOptions(resource_attributes={'host.name': 'my-host'})`
+`logfire.configure(resource_attributes={'host.name': 'my-host'})`
 or the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
 
 ## Configuration

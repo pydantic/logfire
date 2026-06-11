@@ -935,7 +935,7 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
 
 
 def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
-    config_kwargs['advanced'].resource_attributes = {'host.name': 'my-host', 'custom.thing': 'from-kwarg'}
+    config_kwargs['resource_attributes'] = {'host.name': 'my-host', 'custom.thing': 'from-kwarg'}
     with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-env'}):
         configure(**config_kwargs)
 
@@ -952,7 +952,7 @@ def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], expo
 
 
 def test_resource_detectors_by_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
-    config_kwargs['advanced'].resource_detectors = ['os', 'host']
+    config_kwargs['resource_detectors'] = ['os', 'host']
     configure(**config_kwargs)
 
     logfire.info('test1')
@@ -974,7 +974,7 @@ def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: Tes
         def detect(self) -> Resource:
             return Resource({'custom.thing': 'detected', 'service.version': 'detected-version'})
 
-    config_kwargs['advanced'].resource_detectors = [MyDetector()]
+    config_kwargs['resource_detectors'] = [MyDetector()]
     configure(**config_kwargs, service_version='explicit-version')
 
     logfire.info('test1')
@@ -990,7 +990,7 @@ def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: Tes
 
 
 def test_resource_detector_unknown_name(config_kwargs: dict[str, Any]) -> None:
-    config_kwargs['advanced'].resource_detectors = ['nonexistent-detector']
+    config_kwargs['resource_detectors'] = ['nonexistent-detector']
     with pytest.raises(ValueError, match="No resource detector named 'nonexistent-detector'"):
         configure(**config_kwargs)
 

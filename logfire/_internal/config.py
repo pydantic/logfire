@@ -244,30 +244,6 @@ class AdvancedOptions:
     Raise from the hook to abort the calling code path.
     """
 
-    resource_attributes: Mapping[str, Any] = dataclasses.field(default_factory=dict[str, Any])
-    """Additional resource attributes to include in the OpenTelemetry resource, e.g. `{'host.name': 'my-host'}`.
-
-    These take precedence over attributes produced by `resource_detectors`,
-    and can be overridden by the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
-    """
-
-    resource_detectors: Sequence[ResourceDetector | str] = ()
-    """OpenTelemetry resource detectors to run when building the resource.
-
-    Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
-    `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
-    `'os'`, `'host'`, and `'process'`, and other packages can register additional detectors.
-
-    For example, `resource_detectors=['os', 'host']` sets the `os.type`, `os.version`, `host.name`,
-    and `host.arch` resource attributes. Setting `host.name` on metrics produced by
-    [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]
-    makes this machine appear in the Hosts view in the Logfire UI.
-
-    Attributes set explicitly elsewhere (e.g. by `resource_attributes`, the `OTEL_RESOURCE_ATTRIBUTES`
-    environment variable, or detectors named in the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment
-    variable) take precedence over attributes produced by these detectors.
-    """
-
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
             return self.base_url
@@ -488,6 +464,8 @@ def configure(
     service_name: str | None = None,
     service_version: str | None = None,
     environment: str | None = None,
+    resource_attributes: Mapping[str, Any] | None = None,
+    resource_detectors: Sequence[ResourceDetector | str] | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
@@ -536,6 +514,26 @@ def configure(
             resource attribute. Useful for filtering within projects in the Logfire UI.
 
             Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
+
+        resource_attributes: Additional
+            [resource attributes](https://opentelemetry.io/docs/concepts/resources/) to include on all telemetry,
+            e.g. `{'host.name': 'my-host'}`. These take precedence over attributes produced by `resource_detectors`,
+            and can be overridden by the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+
+        resource_detectors: OpenTelemetry resource detectors to run when building the resource.
+
+            Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
+            `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
+            `'os'`, `'host'`, and `'process'`, and other packages can register additional detectors.
+
+            For example, `resource_detectors=['os', 'host']` sets the `os.type`, `os.version`, `host.name`,
+            and `host.arch` resource attributes. Setting `host.name` on metrics produced by
+            [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]
+            makes this machine appear in the Hosts view in the Logfire UI.
+
+            Attributes set explicitly elsewhere (e.g. by `resource_attributes`, the `OTEL_RESOURCE_ATTRIBUTES`
+            environment variable, or detectors named in the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment
+            variable) take precedence over attributes produced by these detectors.
 
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, include_tags=True, verbose=False)`.
@@ -697,6 +695,8 @@ def configure(
             service_name=service_name,
             service_version=service_version,
             environment=environment,
+            resource_attributes=resource_attributes,
+            resource_detectors=resource_detectors,
             console=console,
             metrics=metrics,
             config_dir=Path(config_dir) if config_dir else None,
@@ -762,6 +762,12 @@ class _LogfireConfigData:
     environment: str | None
     """The environment this service is running in."""
 
+    resource_attributes: Mapping[str, Any]
+    """Additional resource attributes to include on all telemetry."""
+
+    resource_detectors: Sequence[ResourceDetector | str]
+    """OpenTelemetry resource detectors (instances or entry point names) to run when building the resource."""
+
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output."""
 
@@ -809,6 +815,8 @@ class _LogfireConfigData:
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
+        resource_attributes: Mapping[str, Any] | None,
+        resource_detectors: Sequence[ResourceDetector | str] | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -834,6 +842,8 @@ class _LogfireConfigData:
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
+        self.resource_attributes = dict(resource_attributes or {})
+        self.resource_detectors = list(resource_detectors or ())
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
@@ -946,6 +956,8 @@ class LogfireConfig(_LogfireConfigData):
         service_name: str | None = None,
         service_version: str | None = None,
         environment: str | None = None,
+        resource_attributes: Mapping[str, Any] | None = None,
+        resource_detectors: Sequence[ResourceDetector | str] | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
@@ -976,6 +988,8 @@ class LogfireConfig(_LogfireConfigData):
             service_name=service_name,
             service_version=service_version,
             environment=environment,
+            resource_attributes=resource_attributes,
+            resource_detectors=resource_detectors,
             console=console,
             config_dir=config_dir,
             data_dir=data_dir,
@@ -1013,6 +1027,8 @@ class LogfireConfig(_LogfireConfigData):
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
+        resource_attributes: Mapping[str, Any] | None,
+        resource_detectors: Sequence[ResourceDetector | str] | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -1037,6 +1053,8 @@ class LogfireConfig(_LogfireConfigData):
                 service_name,
                 service_version,
                 environment,
+                resource_attributes,
+                resource_detectors,
                 console,
                 config_dir,
                 data_dir,
@@ -1089,7 +1107,7 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
-            otel_resource_attributes.update(self.advanced.resource_attributes)
+            otel_resource_attributes.update(self.resource_attributes)
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
             if otel_resource_attributes_from_env:
                 for _field in otel_resource_attributes_from_env.split(','):
@@ -1103,10 +1121,10 @@ class LogfireConfig(_LogfireConfigData):
 
             resource = Resource.create(otel_resource_attributes)
 
-            if self.advanced.resource_detectors:
+            if self.resource_detectors:
                 detectors = [
                     detector if isinstance(detector, ResourceDetector) else _load_resource_detector(detector)
-                    for detector in self.advanced.resource_detectors
+                    for detector in self.resource_detectors
                 ]
                 # `resource` is merged on top so that everything above
                 # (explicit attributes and detectors from `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`)
