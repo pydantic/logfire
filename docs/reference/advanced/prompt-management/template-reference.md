@@ -7,11 +7,11 @@ description: "The authoritative grammar used by Logfire Prompt Management templa
 
 This page is the canonical specification for the template grammar used by Prompt Management.
 
-Most prompt authors only need variable substitution and a few standard Handlebars block helpers. Scenario-specific additions, such as `@{prompt}@`, are collected later on this page.
+Most prompt authors only need variable substitution and a few standard Handlebars block helpers. Prompt Management also supports `@{variable_name}@` composition references for reusable fragments. Scenario-specific additions, such as `@{prompt}@`, are collected later on this page.
 
 ## Grammar at a glance
 
-The supported grammar is **standard Handlebars** with the default helper set. Prompt Management also adds one non-Handlebars convention used only in scenario messages: the `@{prompt}@` alias.
+The supported grammar is **standard Handlebars** with the default helper set. Prompt Management also adds composition references with `@{variable_name}@` and one convention used only in scenario messages: the `@{prompt}@` alias.
 
 ### Mustache expressions
 
@@ -36,9 +36,38 @@ Prompt Management enables the standard Handlebars block helpers.
 | `{{lookup obj key}}` | Look up a field by computed key |
 | `{{log value}}` | Log to server (no output; useful during debugging) |
 
+## Composition references
+
+Composition references use `@{...}@` delimiters and are expanded before normal
+Handlebars rendering.
+
+| Form | Meaning |
+|---|---|
+| `@{support_safety_rules}@` | Insert the resolved value of a managed variable |
+| `@{support_brand_profile.product}@` | Insert a field from a structured managed variable |
+| `@{prompt__support_style}@` | Insert another prompt through its backing managed variable |
+
+The composition pass uses managed-variable resolution, so labels, rollouts,
+targeting, and aliases apply. Missing or invalid composition references are
+reported as validation errors when the prompt is previewed or run.
+
+To render a literal composition reference, escape the opening delimiter:
+
+```handlebars
+\@{support_safety_rules}@
+```
+
+See the [Prompt composition walkthrough](./composition-walkthrough.md) for a
+complete example.
+
 ## Rendering order for prompt templates
 
-Prompt templates render against the current variable set using standard Handlebars rules.
+Prompt templates render in two passes:
+
+1. Expand `@{...}@` composition references against the current managed-variable
+   configuration.
+2. Render the resulting template against the current `{{...}}` variable set using
+   standard Handlebars rules.
 
 ## Scenario-only additions
 
@@ -56,14 +85,16 @@ Scenarios reuse the same grammar, but the testing surface adds a few extra rules
 
 ```mermaid
 flowchart TD
-    A[Prompt template] -->|Handlebars render with scenario variables| B[Rendered prompt]
-    C[Scenario message] -->|Handlebars render with scenario variables| D[Rendered message]
-    B -.inject.-> D
-    D -->|Replace every literal @{prompt}@ with Rendered prompt| E[Final message sent to model]
+    A[Prompt template] -->|Expand composition refs| B[Composed prompt template]
+    B -->|Render Handlebars with scenario variables| C[Rendered prompt]
+    D[Scenario message] -->|Preserve prompt alias; expand other composition refs| E[Composed scenario message]
+    E -->|Render Handlebars with scenario variables| F[Rendered scenario message]
+    C -.inject.-> F
+    F -->|Replace literal prompt alias with rendered prompt| G[Final message sent to model]
 ```
 
-1. The **prompt template** is rendered through Handlebars against the scenario's variables, producing the *rendered prompt*.
-2. For each **scenario message** (and every templated field within it — text content, tool-call args, tool-return content), the message is rendered through Handlebars against the same scenario variables.
+1. The **prompt template** expands composition references, then renders through Handlebars against the scenario's variables, producing the *rendered prompt*.
+2. For each **scenario message** (and every templated field within it — text content, tool-call args, tool-return content), Logfire preserves the scenario-only `@{prompt}@` alias, expands other composition references, and renders through Handlebars against the same scenario variables.
 3. Finally, every literal occurrence of `@{prompt}@` in the rendered message is replaced with the rendered prompt from step 1.
 
 This order matters: the prompt template never sees `@{prompt}@` as a payload, and scenario messages never see un-rendered Handlebars from the prompt template.
@@ -101,8 +132,17 @@ Rendering errors fall into a small set of categories:
 
 ## Compatibility with the SDK
 
-The Logfire SDK returns the raw template string, so your application renders it locally before passing the result to your model.
+Use `logfire.template_var()` when you want the SDK to render prompt templates
+with typed runtime inputs. It resolves the prompt variable, expands `@{...}@`
+composition references, renders the remaining `{{...}}` placeholders, and
+returns the final prompt text.
 
-If your application uses simple substitution, stick to flat `{{variable}}` references. If you want to use dotted paths or block helpers, use a renderer that supports the same Handlebars features documented here.
+If you fetch the prompt with `logfire.var()` instead, the SDK returns the
+post-composition template string. Your application then renders the remaining
+`{{...}}` placeholders locally before passing the result to your model.
+
+If your application renders manually and uses simple substitution, stick to flat
+`{{variable}}` references. If you want to use dotted paths or block helpers, use
+a renderer that supports the same Handlebars features documented here.
 
 See [Use Prompts in Your Application](./application.md) for the current integration workflow.

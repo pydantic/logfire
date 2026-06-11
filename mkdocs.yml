@@ -242,7 +242,10 @@ nav:
           - Prompt Management:
               - Overview: reference/advanced/prompt-management/index.md
               - Core Concepts: reference/advanced/prompt-management/concepts.md
+              - UI Guide: reference/advanced/prompt-management/ui.md
               - Writing Templates: reference/advanced/prompt-management/templates.md
+              - Prompt Composition Walkthrough: reference/advanced/prompt-management/composition-walkthrough.md
+              - Promote and Roll Out Prompts: reference/advanced/prompt-management/promotion-and-rollouts.md
               - Test Prompts: reference/advanced/prompt-management/scenarios.md
               - Use Prompts in Your Application: reference/advanced/prompt-management/application.md
               - Template Reference: reference/advanced/prompt-management/template-reference.md
