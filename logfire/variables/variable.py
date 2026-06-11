@@ -304,21 +304,32 @@ class Variable(Generic[T_co]):
     def on_change(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register a callback to be called when this variable's configuration changes.
 
-        The callback fires when this variable's own provider configuration changes, and
-        also when the configuration of any variable it (transitively) composes via
-        `@{ref}@` references changes — in either case the value this variable resolves
-        to may have changed.
+        The callback fires when the resolution-relevant parts of this variable's provider
+        configuration change (its labels, rollout, overrides, latest version, or aliases —
+        not metadata like its description), and also when the configuration of any variable
+        it (transitively) composes via `@{ref}@` references changes — in either case the
+        value this variable resolves to may have changed.
 
-        The callback receives no arguments. Call `variable.get()` inside the callback
-        to see the new value. Callbacks may run on the provider's polling thread, so
-        they should be fast and non-blocking.
+        Callbacks must be **idempotent**: a configuration change does not necessarily change
+        the value *you* resolve to (e.g. a change to a label this variable's rollout never
+        serves, or to a value only served for other targeting keys, still fires). Treat the
+        callback as "re-read and reconcile", not "the value definitely changed".
 
-        Can be used as a decorator:
+        The callback receives no arguments; call `variable.get()` inside it to see the
+        current value. Callbacks may run on the provider's polling thread, so they should be
+        fast and non-blocking, and they should not create, update, or delete variables
+        (which would re-enter change notification). Exceptions raised by the callback are
+        logged, not raised.
+
+        The callback is *not* invoked for the provider's initial load of remote
+        configuration. To also reconcile once at startup, call your handler yourself after
+        registering it — `on_change` returns the callback to make that easy:
 
             @my_var.on_change
             def handle_change():
-                new_value = my_var.get().value
-                invalidate_cache()
+                refresh_cache(my_var.get().value)
+
+            handle_change()  # reconcile once at startup
 
         Args:
             callback: A no-argument callable to invoke when the variable's config changes.
@@ -331,7 +342,9 @@ class Variable(Generic[T_co]):
 
     def _notify_change(self) -> None:
         """Fire all registered on_change callbacks, logging (not raising) their exceptions."""
-        for callback in self._on_change_callbacks:
+        # Snapshot: notification runs on the provider's polling thread, and a concurrent
+        # `on_change()` registration shouldn't affect the in-flight dispatch.
+        for callback in list(self._on_change_callbacks):
             try:
                 callback()
             except Exception as e:

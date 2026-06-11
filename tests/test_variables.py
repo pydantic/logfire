@@ -4427,6 +4427,108 @@ class TestOnChangeCallbacks:
         assert a_changes == ['a_changed']
         assert b_changes == ['b_changed']
 
+    def test_metadata_only_update_does_not_fire(self, config_kwargs: dict[str, Any]):
+        """Changing only metadata (e.g. the description) does not fire on_change."""
+        config = VariablesConfig(variables={'my_var': single_label_config('my_var', '"hello"')})
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+        assert isinstance(provider, LocalVariableProvider)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pragma: no cover  # pyright: ignore[reportUnusedFunction]
+            changes.append('changed')
+
+        updated = single_label_config('my_var', '"hello"')
+        updated.description = 'a new description'
+        updated.json_schema = {'type': 'string'}
+        provider.update_variable('my_var', updated)
+
+        assert changes == []
+
+    def test_identical_config_update_does_not_fire(self, config_kwargs: dict[str, Any]):
+        """update_variable with an identical config does not fire on_change."""
+        config = VariablesConfig(variables={'my_var': single_label_config('my_var', '"hello"')})
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+        assert isinstance(provider, LocalVariableProvider)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pragma: no cover  # pyright: ignore[reportUnusedFunction]
+            changes.append('changed')
+
+        provider.update_variable('my_var', single_label_config('my_var', '"hello"'))
+
+        assert changes == []
+
+    def test_on_change_fires_for_unserved_label_change(self, config_kwargs: dict[str, Any]):
+        """A change to a label the rollout never serves still fires (callbacks must be idempotent).
+
+        Pins the deliberately conservative contract: notifications mean "the config changed,
+        re-read and reconcile", not "the value you resolve to definitely changed".
+        """
+
+        def two_label_config(unserved_value: str) -> VariableConfig:
+            return VariableConfig(
+                name='my_var',
+                labels={
+                    'served': LabeledValue(version=1, serialized_value='"served"'),
+                    'unserved': LabeledValue(version=2, serialized_value=unserved_value),
+                },
+                rollout=Rollout(labels={'served': 1.0}),
+                overrides=[],
+            )
+
+        config = VariablesConfig(variables={'my_var': two_label_config('"unserved"')})
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+        assert isinstance(provider, LocalVariableProvider)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pyright: ignore[reportUnusedFunction]
+            changes.append(my_var.get().value)
+
+        provider.update_variable('my_var', two_label_config('"unserved v2"'))
+
+        # The callback fired even though the served value didn't change.
+        assert changes == ['served']
+
+    def test_callback_can_register_variable_during_dispatch(self, config_kwargs: dict[str, Any]):
+        """A callback registering a new variable doesn't break the in-flight dispatch."""
+        config = VariablesConfig(variables={'my_var': single_label_config('my_var', '"hello"')})
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+        assert isinstance(provider, LocalVariableProvider)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pyright: ignore[reportUnusedFunction]
+            lf.var('side_var', default='side', type=str)
+            changes.append(my_var.get().value)
+
+        provider.update_variable('my_var', single_label_config('my_var', '"world"'))
+
+        assert changes == ['world']
+        assert 'side_var' in lf._variables
+
     def test_no_duplicate_notifications_after_clear_and_redefine(self, config_kwargs: dict[str, Any]):
         """variables_clear() followed by re-registration must not duplicate notifications."""
         config = VariablesConfig(variables={'my_var': single_label_config('my_var', '"hello"')})
@@ -4509,6 +4611,45 @@ class TestOnChangeComposition:
         provider.update_variable('c', single_label_config('c', '"c2"'))
 
         assert sorted(changes) == ['a', 'b', 'c']
+
+    def test_on_change_fires_for_reference_in_unserved_label(self, config_kwargs: dict[str, Any]):
+        """Composition edges are conservative: a reference in an unserved label still counts.
+
+        Determining whether a reference is actually served would require evaluating rollout
+        weights per targeting key, so any reference in any label (or the latest version)
+        creates an edge, and callbacks are expected to be idempotent.
+        """
+        config = VariablesConfig(
+            variables={
+                'greeting': VariableConfig(
+                    name='greeting',
+                    labels={
+                        'served': LabeledValue(version=1, serialized_value='"plain"'),
+                        'unserved': LabeledValue(version=2, serialized_value='"@{name}@!"'),
+                    },
+                    rollout=Rollout(labels={'served': 1.0}),
+                    overrides=[],
+                ),
+                'name': single_label_config('name', '"hello"'),
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+        assert isinstance(provider, LocalVariableProvider)
+
+        greeting = lf.var('greeting', default='default', type=str)
+
+        changes: list[str] = []
+
+        @greeting.on_change
+        def on_change():  # pyright: ignore[reportUnusedFunction]
+            changes.append(greeting.get().value)
+
+        provider.update_variable('name', single_label_config('name', '"goodbye"'))
+
+        # The callback fired even though the served value didn't change.
+        assert changes == ['plain']
 
     def test_on_change_fires_for_latest_version_composition(self, config_kwargs: dict[str, Any]):
         """A reference appearing in a variable's latest_version counts as a composition edge."""
@@ -4755,6 +4896,54 @@ class TestRemoteProviderChangeDetection:
                 provider.refresh(force=True)
                 provider.refresh(force=True)
                 assert changed_vars == []  # No changes
+            finally:
+                provider.shutdown()
+
+    def test_no_notification_for_metadata_only_change(self):
+        """Metadata-only changes (e.g. description) between fetches do not notify."""
+        request_mocker = requests_mock_module.Mocker()
+        responses: list[dict[str, Any]] = [
+            {
+                'json': {
+                    'variables': {
+                        'my_var': {
+                            'name': 'my_var',
+                            'labels': {'v1': {'version': 1, 'serialized_value': '"same"'}},
+                            'rollout': {'labels': {'v1': 1.0}},
+                            'overrides': [],
+                            'description': 'old description',
+                        }
+                    }
+                }
+            },
+            {
+                'json': {
+                    'variables': {
+                        'my_var': {
+                            'name': 'my_var',
+                            'labels': {'v1': {'version': 1, 'serialized_value': '"same"'}},
+                            'rollout': {'labels': {'v1': 1.0}},
+                            'overrides': [],
+                            'description': 'new description',
+                        }
+                    }
+                }
+            },
+        ]
+        request_mocker.get('http://localhost:8000/v1/variables/', responses)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                changed_vars: list[set[str]] = []
+                provider.add_on_config_change(lambda names: changed_vars.append(names))
+
+                provider.refresh(force=True)
+                provider.refresh(force=True)
+                assert changed_vars == []
             finally:
                 provider.shutdown()
 

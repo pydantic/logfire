@@ -1120,6 +1120,17 @@ def _update_variable_schema(
     print(f'  {ANSI_YELLOW}Updated schema: {change.name}{ANSI_RESET}')
 
 
+# Fields of `VariableConfig` that affect what a variable resolves to. Metadata-only fields
+# (description, json_schema, example, type_name, template_inputs_schema) are excluded so that
+# e.g. editing a variable's description in the UI doesn't fire change notifications.
+_RESOLUTION_FIELDS: set[str] = {'name', 'labels', 'rollout', 'overrides', 'latest_version', 'aliases'}
+
+
+def resolution_relevant_config_changed(old: VariableConfig, new: VariableConfig) -> bool:
+    """Whether the parts of a variable's config that affect resolution differ between *old* and *new*."""
+    return old.model_dump(include=_RESOLUTION_FIELDS) != new.model_dump(include=_RESOLUTION_FIELDS)
+
+
 def changed_config_keys(*configs: VariableConfig) -> set[str]:
     """All names a change to the given config(s) can be observed under: the name plus any aliases.
 
@@ -1162,7 +1173,9 @@ class VariableProvider(ABC):
         can't break other callbacks (or crash a provider's polling thread).
         """
         if self._on_config_change_callbacks and changed_names:
-            for callback in self._on_config_change_callbacks:
+            # Snapshot: notification runs on the provider's polling thread, and a concurrent
+            # registration on another thread shouldn't affect the in-flight dispatch.
+            for callback in list(self._on_config_change_callbacks):
                 try:
                     callback(changed_names)
                 except Exception:

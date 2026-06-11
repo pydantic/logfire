@@ -2758,14 +2758,18 @@ class Logfire:
         (transitively) compose a changed variable via `@{ref}@` references — then fires each
         affected variable's callbacks.
         """
-        if not self._variables:
+        # Snapshot the registry: dispatch runs on the provider's polling thread, and a
+        # concurrent `var()` on another thread mutating the dict mid-iteration would
+        # otherwise raise (losing the rest of this change cycle's notifications).
+        variables = dict(self._variables)
+        if not variables:
             return
 
         from logfire.variables.variable import expand_config_changes
 
         provider_config = self.config.get_variable_provider().get_all_variables_config()
-        for name in sorted(expand_config_changes(changed_names, provider_config, self._variables)):
-            self._variables[name]._notify_change()  # pyright: ignore[reportPrivateUsage]
+        for name in sorted(expand_config_changes(changed_names, provider_config, variables)):
+            variables[name]._notify_change()  # pyright: ignore[reportPrivateUsage]
 
     def variables_clear(self) -> None:
         """Clear all registered variables from this Logfire instance.

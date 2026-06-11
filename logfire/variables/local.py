@@ -10,6 +10,7 @@ from logfire.variables.abstract import (
     VariableNotFoundError,
     VariableProvider,
     changed_config_keys,
+    resolution_relevant_config_changed,
 )
 from logfire.variables.config import VariableConfig, VariablesConfig
 
@@ -119,7 +120,8 @@ class LocalVariableProvider(VariableProvider):
             old_config = self._config.variables[name]
             self._config.variables[name] = config
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
-        self._notify_config_change(changed_config_keys(old_config, config))
+        if resolution_relevant_config_changed(old_config, config):
+            self._notify_config_change(changed_config_keys(old_config, config))
         return config
 
     def delete_variable(self, name: str) -> None:

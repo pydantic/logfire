@@ -1606,7 +1606,9 @@ class LogfireConfig(_LogfireConfigData):
 
     def _notify_variables_change_listeners(self, changed_names: set[str]) -> None:
         """Dispatch a provider's config-change notification to all registered listeners."""
-        for listener in self._variables_change_listeners:
+        # Snapshot: dispatch runs on the provider's polling thread, and a concurrent
+        # registration on another thread shouldn't affect the in-flight dispatch.
+        for listener in list(self._variables_change_listeners):
             try:
                 listener(changed_names)
             except Exception:

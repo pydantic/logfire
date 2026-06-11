@@ -26,6 +26,7 @@ from logfire.variables.abstract import (
     VariableProvider,
     VariableWriteError,
     changed_config_keys,
+    resolution_relevant_config_changed,
 )
 from logfire.variables.config import (
     KeyIsNotPresent,
@@ -365,7 +366,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     for name in all_names:
                         old_var = old_config.variables.get(name)
                         new_var = new_config.variables.get(name)
-                        if old_var != new_var:
+                        if old_var is None or new_var is None or resolution_relevant_config_changed(old_var, new_var):
                             changed |= changed_config_keys(*(c for c in (old_var, new_var) if c is not None))
             except ValidationError as e:
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
