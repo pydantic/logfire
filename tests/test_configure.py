@@ -829,6 +829,8 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
                         'process.pid': 1234,
                     }
                 },
@@ -876,6 +878,8 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
                     }
                 },
             }
@@ -924,11 +928,47 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
                     }
                 },
             }
         ]
     )
+
+
+def test_host_resource_attributes_populated_by_default(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    """`host.name` and `host.arch` are pre-populated on the resource so the
+    Hosts page works without the customer setting
+    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=otel,host`. Values come from
+    `socket.gethostname()` and `platform.machine()`, mirroring what OTel's
+    `_HostResourceDetector` would do.
+    """
+    import platform
+    import socket
+
+    configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == socket.gethostname()
+    assert resource_attrs['host.arch'] == platform.machine()
+
+
+def test_otel_resource_attributes_env_var_overrides_host_defaults(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`OTEL_RESOURCE_ATTRIBUTES` wins over the pre-populated `host.name`
+    so customers whose `socket.gethostname()` is useless (e.g. random
+    container IDs) can override it cleanly.
+    """
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch'}):
+        configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == 'my-explicit-host'
+    assert resource_attrs['host.arch'] == 'my-arch'
 
 
 def test_config_serializable():
@@ -2115,6 +2155,8 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -2166,6 +2208,8 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -2219,6 +2263,8 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',

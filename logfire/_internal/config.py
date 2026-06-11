@@ -5,7 +5,9 @@ import dataclasses
 import functools
 import json
 import os
+import platform
 import re
+import socket
 import sys
 import time
 import warnings
@@ -1051,6 +1053,16 @@ class LogfireConfig(_LogfireConfigData):
                 'process.runtime.name': sys.implementation.name,
                 'process.runtime.version': get_runtime_version(),
                 'process.runtime.description': sys.version,
+                # https://opentelemetry.io/docs/specs/semconv/resource/host/
+                # Same values OTel's `_HostResourceDetector` would produce, but always
+                # set — without these, Logfire's Hosts page silently filters out every
+                # row from a customer who hasn't opted into the (still-experimental)
+                # `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=otel,host` env var. Symmetric
+                # with how `process.runtime.*` is pre-populated above rather than
+                # waiting for `ProcessResourceDetector` to be enabled. Overridable via
+                # the `OTEL_RESOURCE_ATTRIBUTES` env-var pass below.
+                'host.name': socket.gethostname(),
+                'host.arch': platform.machine(),
             }
             if self.code_source:
                 otel_resource_attributes.update(
