@@ -831,6 +831,8 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'process.runtime.description': sys.version,
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.description': IsStr(),
                         'process.pid': 1234,
                     }
                 },
@@ -880,6 +882,8 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'process.runtime.description': sys.version,
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.description': IsStr(),
                     }
                 },
             }
@@ -930,6 +934,8 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'process.runtime.description': sys.version,
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.description': IsStr(),
                     }
                 },
             }
@@ -937,12 +943,16 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
     )
 
 
-def test_host_resource_attributes_populated_by_default(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
-    """`host.name` and `host.arch` are pre-populated on the resource so the
-    Hosts page works without the customer setting
-    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=otel,host`. Values come from
-    `socket.gethostname()` and `platform.machine()`, mirroring what OTel's
-    `_HostResourceDetector` would do.
+def test_host_and_os_resource_attributes_populated_by_default(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`host.*` and `os.*` are pre-populated on the resource so the Hosts page
+    works without the customer setting
+    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=otel,host,os`. Values come from
+    `socket.gethostname()` / `platform.machine()` / `platform.system()` /
+    `platform.platform()`, mirroring what OTel's `_HostResourceDetector` and
+    `OsResourceDetector` would emit (with `os.description` substituted for
+    `os.version` so the Hosts page OS column has a useful label).
     """
     import platform
     import socket
@@ -953,22 +963,31 @@ def test_host_resource_attributes_populated_by_default(config_kwargs: dict[str, 
     resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
     assert resource_attrs['host.name'] == socket.gethostname()
     assert resource_attrs['host.arch'] == platform.machine()
+    assert resource_attrs['os.type'] == platform.system().lower()
+    assert resource_attrs['os.description'] == platform.platform()
 
 
-def test_otel_resource_attributes_env_var_overrides_host_defaults(
+def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ) -> None:
-    """`OTEL_RESOURCE_ATTRIBUTES` wins over the pre-populated `host.name`
+    """`OTEL_RESOURCE_ATTRIBUTES` wins over the pre-populated `host.*` / `os.*`
     so customers whose `socket.gethostname()` is useless (e.g. random
-    container IDs) can override it cleanly.
+    container IDs) can override cleanly.
     """
-    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch'}):
+    with patch.dict(
+        os.environ,
+        {
+            'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch,os.type=plan9,os.description=Plan 9 from Bell Labs'
+        },
+    ):
         configure(**config_kwargs)
     logfire.info('test')
 
     resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
     assert resource_attrs['host.name'] == 'my-explicit-host'
     assert resource_attrs['host.arch'] == 'my-arch'
+    assert resource_attrs['os.type'] == 'plan9'
+    assert resource_attrs['os.description'] == 'Plan 9 from Bell Labs'
 
 
 def test_config_serializable():
@@ -2157,6 +2176,8 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.description': sys.version,
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.description': IsStr(),
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -2210,6 +2231,8 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.description': sys.version,
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.description': IsStr(),
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -2265,6 +2288,8 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'process.runtime.description': sys.version,
                         'host.name': IsStr(),
                         'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.description': IsStr(),
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
