@@ -10,7 +10,7 @@ import sys
 import time
 import warnings
 import weakref
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -51,7 +51,7 @@ from opentelemetry.sdk.metrics import (
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -242,6 +242,30 @@ class AdvancedOptions:
     ```
 
     Raise from the hook to abort the calling code path.
+    """
+
+    resource_attributes: Mapping[str, Any] = dataclasses.field(default_factory=dict[str, Any])
+    """Additional resource attributes to include in the OpenTelemetry resource, e.g. `{'host.name': 'my-host'}`.
+
+    These take precedence over attributes produced by `resource_detectors`,
+    and can be overridden by the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+    """
+
+    resource_detectors: Sequence[ResourceDetector | str] = ()
+    """OpenTelemetry resource detectors to run when building the resource.
+
+    Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
+    `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
+    `'os'`, `'host'`, and `'process'`, and other packages can register additional detectors.
+
+    For example, `resource_detectors=['os', 'host']` sets the `os.type`, `os.version`, `host.name`,
+    and `host.arch` resource attributes. Setting `host.name` on metrics produced by
+    [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]
+    makes this machine appear in the Hosts view in the Logfire UI.
+
+    Attributes set explicitly elsewhere (e.g. by `resource_attributes`, the `OTEL_RESOURCE_ATTRIBUTES`
+    environment variable, or detectors named in the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment
+    variable) take precedence over attributes produced by these detectors.
     """
 
     def generate_base_url(self, token: str) -> str:
@@ -1065,6 +1089,7 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
+            otel_resource_attributes.update(self.advanced.resource_attributes)
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
             if otel_resource_attributes_from_env:
                 for _field in otel_resource_attributes_from_env.split(','):
@@ -1077,6 +1102,16 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
             resource = Resource.create(otel_resource_attributes)
+
+            if self.advanced.resource_detectors:
+                detectors = [
+                    detector if isinstance(detector, ResourceDetector) else _load_resource_detector(detector)
+                    for detector in self.advanced.resource_detectors
+                ]
+                # `resource` is merged on top so that everything above
+                # (explicit attributes and detectors from `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`)
+                # takes precedence over these detectors, matching the semantics of `Resource.create`.
+                resource = get_aggregated_resources(detectors, Resource.get_empty()).merge(resource)
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
@@ -2136,6 +2171,20 @@ def sanitize_project_name(name: str) -> str:
 
 def default_project_name():
     return sanitize_project_name(os.path.basename(os.getcwd()))
+
+
+def _load_resource_detector(name: str) -> ResourceDetector:
+    """Load a resource detector registered under the `opentelemetry_resource_detector` entry point group.
+
+    This is the same entry point group used by the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable.
+    """
+    from importlib.metadata import entry_points
+
+    for entry_point in entry_points(group='opentelemetry_resource_detector', name=name.strip()):
+        return entry_point.load()()
+    raise ValueError(
+        f'No resource detector named {name!r} found in the `opentelemetry_resource_detector` entry point group.'
+    )
 
 
 def get_runtime_version() -> str:

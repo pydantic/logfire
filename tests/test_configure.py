@@ -4,6 +4,8 @@ import dataclasses
 import json
 import os
 import pickle
+import platform
+import socket
 import subprocess
 import sys
 import threading
@@ -33,6 +35,7 @@ from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource, ResourceDetector
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
@@ -929,6 +932,67 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
             }
         ]
     )
+
+
+def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    config_kwargs['advanced'].resource_attributes = {'host.name': 'my-host', 'custom.thing': 'from-kwarg'}
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-env'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'host.name': 'my-host',
+            # The OTEL_RESOURCE_ATTRIBUTES environment variable takes precedence over the kwarg.
+            'custom.thing': 'from-env',
+        }
+    )
+
+
+def test_resource_detectors_by_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    config_kwargs['advanced'].resource_detectors = ['os', 'host']
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes == IsPartialDict(
+        {
+            'os.type': platform.system().lower(),
+            'host.name': socket.gethostname(),
+            'host.arch': platform.machine(),
+        }
+    )
+    assert 'os.version' in attributes
+
+
+def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    class MyDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'custom.thing': 'detected', 'service.version': 'detected-version'})
+
+    config_kwargs['advanced'].resource_detectors = [MyDetector()]
+    configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'custom.thing': 'detected',
+            # Explicitly set attributes take precedence over detectors.
+            'service.version': 'explicit-version',
+        }
+    )
+
+
+def test_resource_detector_unknown_name(config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['advanced'].resource_detectors = ['nonexistent-detector']
+    with pytest.raises(ValueError, match="No resource detector named 'nonexistent-detector'"):
+        configure(**config_kwargs)
 
 
 def test_config_serializable():
