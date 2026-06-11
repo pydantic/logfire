@@ -25,6 +25,7 @@ from logfire.variables.abstract import (
     VariableNotFoundError,
     VariableProvider,
     VariableWriteError,
+    changed_config_keys,
 )
 from logfire.variables.config import (
     KeyIsNotPresent,
@@ -323,6 +324,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         # Note: Eventually we may want to rework the client and server implementations to use a NotModifiedResponse
         #  to reduce the amount of overhead from polling. We could also use a websocket/SSE to get real time updates
         #  when the user makes changes.
+        changed: set[str] = set()
         with self._refresh_lock:  # Make at most one request at a time
             if (
                 not force
@@ -350,13 +352,30 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 return
 
             try:
+                old_config = self._config
                 new_config = VariablesConfig.model_validate(variables_config_data)
                 self._config = new_config
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
+
+                # Detect which variables' configs changed since the previous fetch. The first
+                # fetch (old_config is None) is not a "change" — variables are only beginning
+                # to resolve against the provider at that point.
+                if old_config is not None:
+                    all_names = set(old_config.variables) | set(new_config.variables)
+                    for name in all_names:
+                        old_var = old_config.variables.get(name)
+                        new_var = new_config.variables.get(name)
+                        if old_var != new_var:
+                            changed |= changed_config_keys(*(c for c in (old_var, new_var) if c is not None))
             except ValidationError as e:
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:
                 self._has_attempted_fetch = True
+
+        # Notify outside the refresh lock: callbacks may resolve variables or even trigger
+        # another refresh, which would deadlock on the (non-reentrant) lock otherwise.
+        if changed:
+            self._notify_config_change(changed)
 
     def get_serialized_value(
         self,

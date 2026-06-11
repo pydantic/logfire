@@ -9,6 +9,7 @@ from logfire.variables.abstract import (
     VariableAlreadyExistsError,
     VariableNotFoundError,
     VariableProvider,
+    changed_config_keys,
 )
 from logfire.variables.config import VariableConfig, VariablesConfig
 
@@ -96,6 +97,7 @@ class LocalVariableProvider(VariableProvider):
                 raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
             self._config.variables[config.name] = config
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
+        self._notify_config_change(changed_config_keys(config))
         return config
 
     def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
@@ -114,8 +116,10 @@ class LocalVariableProvider(VariableProvider):
         with self._lock:
             if name not in self._config.variables:
                 raise VariableNotFoundError(f"Variable '{name}' not found")
+            old_config = self._config.variables[name]
             self._config.variables[name] = config
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
+        self._notify_config_change(changed_config_keys(old_config, config))
         return config
 
     def delete_variable(self, name: str) -> None:
@@ -130,5 +134,6 @@ class LocalVariableProvider(VariableProvider):
         with self._lock:
             if name not in self._config.variables:
                 raise VariableNotFoundError(f"Variable '{name}' not found")
-            del self._config.variables[name]
+            old_config = self._config.variables.pop(name)
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
+        self._notify_config_change(changed_config_keys(old_config))

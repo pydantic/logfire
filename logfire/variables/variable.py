@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 import inspect
 import warnings
-from collections.abc import Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -23,7 +23,7 @@ from logfire.variables.composition import (
 if TYPE_CHECKING:
     from logfire._internal.config import TemplateMismatchPolicy
     from logfire.variables.abstract import VariableProvider
-    from logfire.variables.config import VariableConfig
+    from logfire.variables.config import VariableConfig, VariablesConfig
 
 if find_spec('anyio') is not None:  # pragma: no branch
     # Use anyio for running sync functions on separate threads in an event loop if it is available
@@ -239,6 +239,7 @@ class Variable(Generic[T_co]):
         self._variable_registry = logfire_instance._variables  # pyright: ignore[reportPrivateUsage]
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
+        self._on_change_callbacks: list[Callable[[], None]] = []
 
     def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError | TypeError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
@@ -299,6 +300,47 @@ class Variable(Generic[T_co]):
     def refresh_sync(self, force: bool = False):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
+
+    def on_change(self, callback: Callable[[], None]) -> Callable[[], None]:
+        """Register a callback to be called when this variable's configuration changes.
+
+        The callback fires when this variable's own provider configuration changes, and
+        also when the configuration of any variable it (transitively) composes via
+        `@{ref}@` references changes — in either case the value this variable resolves
+        to may have changed.
+
+        The callback receives no arguments. Call `variable.get()` inside the callback
+        to see the new value. Callbacks may run on the provider's polling thread, so
+        they should be fast and non-blocking.
+
+        Can be used as a decorator:
+
+            @my_var.on_change
+            def handle_change():
+                new_value = my_var.get().value
+                invalidate_cache()
+
+        Args:
+            callback: A no-argument callable to invoke when the variable's config changes.
+
+        Returns:
+            The callback (for use as a decorator).
+        """
+        self._on_change_callbacks.append(callback)
+        return callback
+
+    def _notify_change(self) -> None:
+        """Fire all registered on_change callbacks, logging (not raising) their exceptions."""
+        for callback in self._on_change_callbacks:
+            try:
+                callback()
+            except Exception as e:
+                self.logfire_instance.error(
+                    'Error in on_change callback for variable {name}: {error}',
+                    name=self.name,
+                    error=str(e),
+                    _exc_info=e,
+                )
 
     def _resolve(
         self,
@@ -1179,6 +1221,70 @@ def _static_composition_refs(variable: Variable[Any]) -> set[str]:
     except (ValueError, TypeError, RuntimeError):
         return set()
     return set(find_references(serialized))
+
+
+def expand_config_changes(
+    changed_names: set[str],
+    config: VariablesConfig,
+    registry: Mapping[str, Variable[Any]],
+) -> set[str]:
+    """Expand provider-level config changes to the registered variables that are effectively changed.
+
+    A registered variable is effectively changed when its own config changed, or when it
+    (transitively) composes a changed variable via `@{ref}@` references — whether those
+    references appear in its server-stored values (any label or the latest version) or in
+    its code default. Changed names and reference names are normalized through the config's
+    alias map, so a variable registered (or referenced) under an alias still matches; for
+    names no longer in the config (e.g. a deleted variable), providers include the old
+    aliases in `changed_names` directly.
+
+    Args:
+        changed_names: Names (and aliases) of variables whose provider configs changed.
+        config: The provider's current (post-change) configuration.
+        registry: The registered variables, keyed by their registered name.
+
+    Returns:
+        The subset of `registry` keys whose variables are effectively changed.
+    """
+    from logfire.variables.config import LabeledValue
+
+    def canonical(name: str) -> str:
+        variable_config = config._get_variable_config(name)  # pyright: ignore[reportPrivateUsage]
+        return variable_config.name if variable_config is not None else name
+
+    # Composition edges: canonical variable name -> canonical names of the variables it references.
+    # Edges only change when the source variable's own config (or code default) changes, and a
+    # changed variable is in the closure regardless of its edges, so building the graph from the
+    # new config alone is sufficient.
+    edges: dict[str, set[str]] = {}
+
+    def add_refs(node: str, serialized_value: str) -> None:
+        refs = find_references(serialized_value)
+        if refs:
+            edges.setdefault(node, set()).update(canonical(ref) for ref in refs)
+
+    for variable_config in config.variables.values():
+        for labeled_value in variable_config.labels.values():
+            if isinstance(labeled_value, LabeledValue):
+                add_refs(variable_config.name, labeled_value.serialized_value)
+        if variable_config.latest_version is not None:
+            add_refs(variable_config.name, variable_config.latest_version.serialized_value)
+
+    # The code default participates in resolution (and composition through it) too, so its
+    # references count as edges even for variables with no server-side values.
+    for name, variable in registry.items():
+        for ref in _static_composition_refs(variable):
+            edges.setdefault(canonical(name), set()).add(canonical(ref))
+
+    # Reverse reachability to a fixpoint: anything that composes a changed variable is changed too.
+    closure = {canonical(name) for name in changed_names} | set(changed_names)
+    while True:
+        additions = {node for node, refs in edges.items() if node not in closure and refs & closure}
+        if not additions:
+            break
+        closure |= additions
+
+    return {name for name in registry if canonical(name) in closure}
 
 
 def warn_on_template_inputs_composition_mismatch(

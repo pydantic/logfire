@@ -4,7 +4,7 @@ import json
 import warnings
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
@@ -1120,8 +1120,55 @@ def _update_variable_schema(
     print(f'  {ANSI_YELLOW}Updated schema: {change.name}{ANSI_RESET}')
 
 
+def changed_config_keys(*configs: VariableConfig) -> set[str]:
+    """All names a change to the given config(s) can be observed under: the name plus any aliases.
+
+    Providers pass both the old and the new config of a changed variable (where available),
+    so consumers matching a `@{ref}@` (or a registration) against an alias still see the
+    change even after the alias is removed, e.g. by deleting the variable.
+    """
+    keys: set[str] = set()
+    for config in configs:
+        keys.add(config.name)
+        keys.update(config.aliases or ())
+    return keys
+
+
 class VariableProvider(ABC):
     """Abstract base class for variable value providers."""
+
+    _on_config_change_callbacks: list[Callable[[set[str]], None]] | None = None
+
+    def add_on_config_change(self, callback: Callable[[set[str]], None]) -> None:
+        """Register a callback to be called when variable configurations change.
+
+        Registration is idempotent: adding the same callback (by equality) twice has no
+        effect, so callers can safely re-register e.g. each time a variable is defined.
+
+        Args:
+            callback: Called with the set of variable names whose configs changed.
+                The set includes any aliases of the changed variables, so consumers can
+                match changes against names that reference a variable via an alias.
+        """
+        if self._on_config_change_callbacks is None:
+            self._on_config_change_callbacks = []
+        if callback not in self._on_config_change_callbacks:
+            self._on_config_change_callbacks.append(callback)
+
+    def _notify_config_change(self, changed_names: set[str]) -> None:
+        """Notify all registered callbacks about changed variables.
+
+        Exceptions raised by a callback are caught and logged so one failing callback
+        can't break other callbacks (or crash a provider's polling thread).
+        """
+        if self._on_config_change_callbacks and changed_names:
+            for callback in self._on_config_change_callbacks:
+                try:
+                    callback(changed_names)
+                except Exception:
+                    import logging
+
+                    logging.getLogger('logfire').exception('Error in on_config_change callback')
 
     @abstractmethod
     def get_serialized_value(

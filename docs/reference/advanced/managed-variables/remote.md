@@ -393,3 +393,32 @@ merged = server_config.merge(local_config)
 |--------|-------------|
 | `config.merge(other)` | Merge with another config (other takes precedence) |
 | `VariablesConfig.from_variables(vars)` | Create minimal config from Variable instances |
+
+## Change Notifications
+
+You can register callbacks that fire when a variable's configuration changes:
+
+```python skip="true"
+feature_enabled = logfire.var('feature_enabled', default=False)
+
+
+@feature_enabled.on_change
+def on_feature_change():
+    new_value = feature_enabled.get().value
+    logfire.info('feature_enabled changed to {new_value}', new_value=new_value)
+    invalidate_cache()
+```
+
+Key points:
+
+- Callbacks run on the provider's polling thread — keep them fast and non-blocking
+- Callbacks receive no arguments; call `variable.get()` to see the new value
+- Multiple callbacks can be registered on the same variable
+- Exceptions in callbacks are caught and logged (they don't crash the polling thread)
+- For local providers, callbacks fire on `create_variable`, `update_variable`, and `delete_variable`
+
+Change notifications are composition-aware: when a variable's configuration changes, callbacks
+also fire for every registered variable that (transitively) references it via
+[`@{ref}@` composition](templates-and-composition.md) — whether the reference appears in a
+server-stored value or in the variable's code default — since the composed value those
+variables resolve to may have changed even though their own configuration didn't.
