@@ -39,10 +39,24 @@ logfire.instrument_system_metrics()
 
 This sets the `host.name`, `host.arch`, `os.type`, and `os.version` resource attributes on all telemetry,
 using the `host` and `os` detectors provided by the OpenTelemetry SDK.
-Alternatively, you can set the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable to `os,host`
-before `logfire.configure()` is called, or set specific values directly with e.g.
-`logfire.configure(resource_attributes={'host.name': 'my-host'})`
-or the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+
+To set attribute values yourself, e.g. to use a more meaningful host name than the one detected,
+use the `resource_attributes` argument, which takes precedence over detectors:
+
+```py
+import logfire
+
+logfire.configure(
+    resource_detectors=['os', 'host'],
+    resource_attributes={'host.name': 'my-meaningful-host-name'},
+)
+
+logfire.instrument_system_metrics()
+```
+
+The `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` and `OTEL_RESOURCE_ATTRIBUTES` environment variables can be
+used in the same way, e.g. `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=os,host`. If set, the environment
+variables take precedence over the corresponding `logfire.configure()` arguments.
 
 ## Configuration
 
