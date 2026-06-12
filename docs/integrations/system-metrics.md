@@ -60,9 +60,10 @@ logfire.configure(
 logfire.instrument_system_metrics()
 ```
 
-These can also be set via environment variables: `resource_attributes` via `LOGFIRE_RESOURCE_ATTRIBUTES`
-(a comma-separated `key=value` list) and `resource_detectors` via `LOGFIRE_RESOURCE_DETECTORS` (a
-comma-separated list of names). The standard OpenTelemetry `OTEL_RESOURCE_ATTRIBUTES` and
+These can also be set via environment variables — `LOGFIRE_RESOURCE_ATTRIBUTES` (a comma-separated
+`key=value` list) and `LOGFIRE_RESOURCE_DETECTORS` (a comma-separated list of names) — or in `pyproject.toml`
+under `[tool.logfire]` (e.g. `resource_attributes = {"datacenter.region" = "eu-west-1"}` and
+`resource_detectors = ["process"]`). The standard OpenTelemetry `OTEL_RESOURCE_ATTRIBUTES` and
 `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables are also honoured.
 
 Explicit `logfire.configure()` settings take precedence over detected attributes, which take precedence
