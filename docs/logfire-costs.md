@@ -82,7 +82,7 @@ tuning is via [sampling](how-to-guides/sampling.md).
 Unless you are under the [Growth or Enterprise plan](https://pydantic.dev/pricing),
 data older than **30 days** is pruned.
 If you need longer retention we recommend writing to both Logfire and a long-term storage
-such as AWS S3. We have a [guide on how to back up data to S3](how-to-guides/otel-collector/otel-collector-overview.md#back-up-data-in-aws-s3).
+such as AWS S3. We have a [guide on how to back up data to S3](how-to-guides/otel-collector/s3-backup.md).
 You can also use the Query API which allows you to run SQL queries
 and treat Logfire as an analytical database. You're then free to save this data to a storage
 of your choice (S3, GCS etc.)
