@@ -170,7 +170,7 @@ Learn more about the [Pydantic Plugin here](integrations/pydantic.md).
 
 Because **Pydantic Logfire** is built on [OpenTelemetry](https://opentelemetry.io/), you can
 use a wealth of existing tooling and infrastructure, including
-[instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html). Logfire also supports cross-language data integration and data export to any OpenTelemetry-compatible backend or proxy.
+[instrumentation for many common Python packages](https://opentelemetry-python-contrib.readthedocs.io/en/latest/index.html). Logfire also works with OpenTelemetry SDKs in languages such as Node.js, Rust, and Go, and can export to backends such as Jaeger or Grafana Tempo. See [Alternative Clients](how-to-guides/alternative-clients.md) and [Alternative Backends](how-to-guides/alternative-backends.md).
 
 For example, we can instrument a simple FastAPI app with just 2 lines of code:
 

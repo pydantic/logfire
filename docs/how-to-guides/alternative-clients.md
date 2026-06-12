@@ -6,7 +6,7 @@ description: "Guide on how to use the standard OpenTelemetry SDK to export Node.
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs
 in many languages to export to the **Logfire** backend, including those outside our
-[first-class supported languages](../languages.md). Depending on your SDK, you may need to set only
+[first-class supported languages](../languages.md) (e.g., Go, Ruby, or any other language with an OpenTelemetry SDK). Depending on your SDK, you may need to set only
 these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
 
 - `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for both traces and metrics, or:
