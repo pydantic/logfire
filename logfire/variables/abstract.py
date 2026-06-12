@@ -138,16 +138,17 @@ class ResolvedVariable(Generic[T_co]):
         self._exit_stack.__enter__()
 
         import logfire
+        from logfire._internal.constants import ATTRIBUTES_VARIABLES_PREFIX
 
         baggage_entries: dict[str, str] = {
-            f'logfire.variables.{self.name}': self.label or '<code_default>',
+            f'{ATTRIBUTES_VARIABLES_PREFIX}{self.name}': self.label or '<code_default>',
         }
         # Propagate the version alongside the label so downstream spans can be
         # filtered or grouped by `(label, version)` directly. Only set when a
         # version actually resolved — code-default resolutions have version=None
         # and shouldn't add a baggage entry whose value would be misleading.
         if self.version is not None:
-            baggage_entries[f'logfire.variables.{self.name}.version'] = str(self.version)
+            baggage_entries[f'{ATTRIBUTES_VARIABLES_PREFIX}{self.name}.version'] = str(self.version)
         self._exit_stack.enter_context(logfire.set_baggage(**baggage_entries))
 
         return self

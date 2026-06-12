@@ -112,6 +112,22 @@ ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.pendi
 ATTRIBUTES_TAGS_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.tags'
 """The key within OTEL attributes where logfire puts tags."""
 
+ATTRIBUTES_VARIABLES_PREFIX = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.variables.'
+"""Prefix of the per-variable baggage/attribute keys set while a managed variable resolution is in scope.
+
+Each resolved variable contributes `logfire.variables.<name> = <label>` and, when a versioned
+value resolved, `logfire.variables.<name>.version = <version>`.
+"""
+
+ATTRIBUTES_VARIABLES_USED_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.variables_used'
+"""Attribute holding the sorted array of managed variable names in scope when a span started.
+
+Derived from the `logfire.variables.<name>` baggage entries. Emitting the names as an
+array attribute *value* (rather than only as per-variable attribute *keys*) lets the
+backend query "spans that used variable X" without enumerating every possible key, and
+makes the predicate indexable for file pruning.
+"""
+
 ATTRIBUTES_MESSAGE_TEMPLATE_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.msg_template'
 """The message template for a log."""
 

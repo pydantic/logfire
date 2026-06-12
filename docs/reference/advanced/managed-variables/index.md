@@ -226,6 +226,12 @@ The recommended pattern is to use the variable's `.get()` method as a context ma
 
 When using the Logfire SDK, baggage values are automatically added as attributes to all downstream spans. This means any spans created inside the context manager will be tagged with which label and version was used, making it easy to filter and compare behavior in the Logfire UI.
 
+Concretely, spans created inside the context manager get:
+
+- `logfire.variables.<name>`: the selected label (or `<code_default>` when no label was selected)
+- `logfire.variables.<name>.version`: the resolved version, when a versioned value was used
+- `logfire.variables_used`: an array of the names of all variables currently in scope, so you can efficiently query for spans that used a given variable without knowing every possible attribute key
+
 ```python skip="true"
 from pydantic_ai import Agent
 

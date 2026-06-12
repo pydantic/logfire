@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from opentelemetry import baggage, context
 from opentelemetry.sdk.trace import Span, SpanProcessor
 
+from .constants import ATTRIBUTES_VARIABLES_PREFIX, ATTRIBUTES_VARIABLES_USED_KEY
 from .json_encoder import logfire_json_dumps
 
 __all__ = (
@@ -87,8 +88,15 @@ class NoForceFlushSpanProcessor(SpanProcessor):
 class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
         existing_attrs = span.attributes or {}
-        attrs: dict[str, str] = {}
+        attrs: dict[str, str | list[str]] = {}
+        variable_names: list[str] = []
         for k, v in baggage.get_all(parent_context).items():
+            if k.startswith(ATTRIBUTES_VARIABLES_PREFIX):
+                name = k[len(ATTRIBUTES_VARIABLES_PREFIX) :]
+                # Variable names can't contain dots, so a dotted suffix is a companion
+                # entry like `logfire.variables.<name>.version`, not a variable itself.
+                if '.' not in name:
+                    variable_names.append(name)
             if not isinstance(v, str):
                 # Since this happens for every span, don't try converting to string, which could be expensive.
                 warnings.warn(
@@ -106,4 +114,11 @@ class DirectBaggageAttributesSpanProcessor(NoForceFlushSpanProcessor):
                     continue
                 k = 'baggage_conflict.' + k
             attrs[k] = v
+        if variable_names:
+            # Also emit the variable names as a single array-valued attribute: querying
+            # "spans that used variable X" by *value* doesn't require enumerating every
+            # possible `logfire.variables.<name>` key, and array element values can be
+            # indexed for file pruning where JSON key-existence checks cannot.
+            variable_names.sort()
+            attrs[ATTRIBUTES_VARIABLES_USED_KEY] = variable_names
         span.set_attributes(attrs)
