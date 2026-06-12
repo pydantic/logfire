@@ -989,16 +989,42 @@ def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: Tes
     )
 
 
-def test_resource_detectors_string(config_kwargs: dict[str, Any]) -> None:
+def test_resource_detectors_string(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A bare string is coerced to a single-element list rather than being iterated character by character.
     config_kwargs['resource_detectors'] = 'host'
-    with pytest.raises(TypeError, match=r"Did you mean `resource_detectors=\['host'\]`\?"):
-        configure(**config_kwargs)
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'host.name': socket.gethostname()})
 
 
 def test_resource_detector_unknown_name(config_kwargs: dict[str, Any]) -> None:
     config_kwargs['resource_detectors'] = ['nonexistent-detector']
     with pytest.raises(ValueError, match="No resource detector named 'nonexistent-detector'"):
         configure(**config_kwargs)
+
+
+def test_resource_detectors_take_precedence_over_env_var_detectors(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    class HostNameDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'host.name': 'from-kwarg-detector'})
+
+    config_kwargs['resource_detectors'] = [HostNameDetector()]
+    with patch.dict(os.environ, {'OTEL_EXPERIMENTAL_RESOURCE_DETECTORS': 'host'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    # `resource_detectors` takes precedence over `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
+    assert attributes['host.name'] == 'from-kwarg-detector'
+    # The env var detector still contributes attributes that the kwarg detector doesn't override.
+    assert attributes['host.arch'] == platform.machine()
 
 
 def test_config_serializable():

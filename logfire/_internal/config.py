@@ -844,11 +844,9 @@ class _LogfireConfigData:
         self.environment = param_manager.load_param('environment', environment)
         self.resource_attributes = dict(resource_attributes or {})
         if isinstance(resource_detectors, str):
-            # Prevent e.g. `resource_detectors='host'` from being treated as `['h', 'o', 's', 't']`.
-            raise TypeError(
-                '`resource_detectors` must be a sequence of detector names and/or `ResourceDetector` instances, '
-                f'not a string. Did you mean `resource_detectors=[{resource_detectors!r}]`?'
-            )
+            # A bare string satisfies `Sequence[str]` statically but would be iterated character by
+            # character, so coerce e.g. `resource_detectors='host'` to `['host']`.
+            resource_detectors = [resource_detectors]
         self.resource_detectors = list(resource_detectors or ())
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
@@ -1093,13 +1091,15 @@ class LogfireConfig(_LogfireConfigData):
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
                 RESOURCE_ATTRIBUTES_VERSION: VERSION,
-                'service.name': self.service_name,
                 'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
                 'process.runtime.name': sys.implementation.name,
                 'process.runtime.version': get_runtime_version(),
                 'process.runtime.description': sys.version,
             }
+            if self.service_name:
+                # When unset, `Resource.create` below applies its own `unknown_service` default.
+                otel_resource_attributes['service.name'] = self.service_name
             if self.code_source:
                 otel_resource_attributes.update(
                     {
@@ -1125,17 +1125,23 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            resource = Resource.create(otel_resource_attributes)
+            # Build the resource in layers of increasing precedence. `Resource.create({})` applies
+            # OTel's default attributes plus any detectors from `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`
+            # and `OTEL_RESOURCE_ATTRIBUTES`; these have the lowest precedence.
+            resource = Resource.create({})
 
             if self.resource_detectors:
                 detectors = [
                     detector if isinstance(detector, ResourceDetector) else _load_resource_detector(detector)
                     for detector in self.resource_detectors
                 ]
-                # `resource` is merged on top so that everything above
-                # (explicit attributes and detectors from `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`)
-                # takes precedence over these detectors, matching the semantics of `Resource.create`.
-                resource = get_aggregated_resources(detectors, Resource.get_empty()).merge(resource)
+                # Detectors passed explicitly via `resource_detectors` take precedence over those from
+                # `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`, but not over the explicit attributes merged below.
+                resource = resource.merge(get_aggregated_resources(detectors, Resource.get_empty()))
+
+            # Explicit attributes (logfire's own, the `resource_attributes` argument, and
+            # `OTEL_RESOURCE_ATTRIBUTES`) take precedence over everything detected above.
+            resource = resource.merge(Resource(otel_resource_attributes))
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,

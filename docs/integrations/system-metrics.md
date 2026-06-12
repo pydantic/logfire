@@ -58,8 +58,10 @@ logfire.instrument_system_metrics()
 ```
 
 The `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` and `OTEL_RESOURCE_ATTRIBUTES` environment variables can be
-used in the same way, e.g. `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=os,host`. If set, the environment
-variables take precedence over the corresponding `logfire.configure()` arguments.
+used in the same way, e.g. `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=os,host`. Explicitly set attributes
+always take precedence over detected ones, so the order of precedence from highest to lowest is:
+`OTEL_RESOURCE_ATTRIBUTES`, the `resource_attributes` argument, the `resource_detectors` argument, then
+`OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
 
 ## Configuration
 
