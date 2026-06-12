@@ -843,6 +843,12 @@ class _LogfireConfigData:
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
         self.resource_attributes = dict(resource_attributes or {})
+        if isinstance(resource_detectors, str):
+            # Prevent e.g. `resource_detectors='host'` from being treated as `['h', 'o', 's', 't']`.
+            raise TypeError(
+                '`resource_detectors` must be a sequence of detector names and/or `ResourceDetector` instances, '
+                f'not a string. Did you mean `resource_detectors=[{resource_detectors!r}]`?'
+            )
         self.resource_detectors = list(resource_detectors or ())
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)

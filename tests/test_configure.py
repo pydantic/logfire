@@ -989,6 +989,12 @@ def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: Tes
     )
 
 
+def test_resource_detectors_string(config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['resource_detectors'] = 'host'
+    with pytest.raises(TypeError, match=r"Did you mean `resource_detectors=\['host'\]`\?"):
+        configure(**config_kwargs)
+
+
 def test_resource_detector_unknown_name(config_kwargs: dict[str, Any]) -> None:
     config_kwargs['resource_detectors'] = ['nonexistent-detector']
     with pytest.raises(ValueError, match="No resource detector named 'nonexistent-detector'"):
