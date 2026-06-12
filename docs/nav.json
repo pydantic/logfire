@@ -169,6 +169,11 @@
     "label": "Observe & Investigate",
     "items": [
       { "label": "Live View", "slug": "guides/web-ui/live" },
+      { "label": "Services", "slug": "guides/web-ui/services" },
+      { "label": "Hosts", "slug": "guides/web-ui/hosts" },
+      { "label": "Kubernetes", "slug": "guides/web-ui/kubernetes" },
+      { "label": "LLMs", "slug": "guides/web-ui/llms" },
+      { "label": "Metrics Explorer", "slug": "guides/web-ui/metrics-explorer" },
       { "label": "LLM Panels", "slug": "guides/web-ui/llm-panels" },
       { "label": "Dashboards", "slug": "guides/web-ui/dashboards" },
       { "label": "SQL Explorer", "slug": "guides/web-ui/explore" },
