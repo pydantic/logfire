@@ -14,3 +14,6 @@ These SDKs offer a streamlined developer experience.
 
 You can check our [Alternative Clients](how-to-guides/alternative-clients.md) section to see how
 you can send data to Logfire from other languages.
+
+Building with an AI agent framework? See [Agent Frameworks](integrations/agent-frameworks/index.md) for
+guides on sending telemetry to Logfire from popular frameworks in Python, TypeScript, Go, Rust, and .NET.
