@@ -525,12 +525,12 @@ def configure(
 
             Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
             `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
-            `'os'`, `'host'`, and `'process'`, and other packages can register additional detectors.
+            `'os'`, `'host'`, and `'process'`, and other packages can register additional detectors. The special
+            name `'*'` runs every registered detector.
 
-            For example, `resource_detectors=['os', 'host']` sets the `os.type`, `os.version`, `host.name`,
-            and `host.arch` resource attributes. Setting `host.name` on metrics produced by
-            [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]
-            makes this machine appear in the Hosts view in the Logfire UI.
+            For example, `resource_detectors=['process']` adds process attributes such as `process.command` and
+            `process.owner`. An unknown name (or a detector that fails to load) emits a warning and is skipped
+            rather than raising, so a typo can't crash the application.
 
             Attributes set explicitly via `logfire.configure()` (e.g. `service_name`, `service_version`,
             `resource_attributes`) take precedence over these detectors, which in turn take precedence over the
@@ -1141,13 +1141,11 @@ class LogfireConfig(_LogfireConfigData):
                 resource = Resource({'service.version': self.service_version}).merge(resource)
 
             if self.resource_detectors:
-                detectors = [
-                    detector if isinstance(detector, ResourceDetector) else _load_resource_detector(detector)
-                    for detector in self.resource_detectors
-                ]
-                # Detectors passed explicitly via `resource_detectors` take precedence over those from
-                # `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`, but not over the explicit attributes merged below.
-                resource = resource.merge(get_aggregated_resources(detectors, Resource.get_empty()))
+                detectors = _load_resource_detectors(self.resource_detectors)
+                if detectors:
+                    # Detectors passed explicitly via `resource_detectors` take precedence over those from
+                    # `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`, but not over the explicit attributes merged below.
+                    resource = resource.merge(get_aggregated_resources(detectors, Resource.get_empty()))
 
             # Explicit `logfire.configure()` attributes (logfire's own plus the `resource_attributes`
             # argument) take precedence over everything detected above, including the env vars
@@ -2214,18 +2212,50 @@ def default_project_name():
     return sanitize_project_name(os.path.basename(os.getcwd()))
 
 
-def _load_resource_detector(name: str) -> ResourceDetector:
-    """Load a resource detector registered under the `opentelemetry_resource_detector` entry point group.
+def _load_resource_detectors(detectors: Sequence[ResourceDetector | str]) -> list[ResourceDetector]:
+    """Load resource detectors from a mix of `ResourceDetector` instances and entry-point names.
 
-    This is the same entry point group used by the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable.
+    Names are looked up in the `opentelemetry_resource_detector` entry point group — the same group used by the
+    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable. The special name `'*'` expands to every
+    registered detector except `'otel'` (whose `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME` handling is already
+    applied by `Resource.create`), matching the env var.
+
+    Unknown names, or detectors that fail to load, emit a warning and are skipped rather than raising, so that a
+    typo can never crash the application — matching OpenTelemetry's tolerant handling of the env var.
     """
     from importlib.metadata import entry_points
 
-    for entry_point in entry_points(group='opentelemetry_resource_detector', name=name.strip()):
-        return entry_point.load()()
-    raise ValueError(
-        f'No resource detector named {name!r} found in the `opentelemetry_resource_detector` entry point group.'
-    )
+    result: list[ResourceDetector] = []
+    for detector in detectors:
+        if isinstance(detector, ResourceDetector):
+            result.append(detector)
+            continue
+        name = detector.strip()
+        if name == '*':
+            for entry_point in entry_points(group='opentelemetry_resource_detector'):
+                if entry_point.name != 'otel':
+                    _load_resource_detector_entry_point(entry_point, result)
+            continue
+        matching = list(entry_points(group='opentelemetry_resource_detector', name=name))
+        if not matching:
+            warn_at_user_stacklevel(
+                f'Skipping unknown resource detector {name!r}: it is not registered in the '
+                '`opentelemetry_resource_detector` entry point group.',
+                category=LogfireConfigWarning,
+            )
+            continue
+        _load_resource_detector_entry_point(matching[0], result)
+    return result
+
+
+def _load_resource_detector_entry_point(entry_point: Any, result: list[ResourceDetector]) -> None:
+    try:
+        result.append(entry_point.load()())
+    except Exception as exc:  # pragma: no cover
+        warn_at_user_stacklevel(
+            f'Failed to load resource detector {entry_point.name!r}: {exc}',
+            category=LogfireConfigWarning,
+        )
 
 
 def get_runtime_version() -> str:
@@ -2237,3 +2267,7 @@ def get_runtime_version() -> str:
 
 class LogfireNotConfiguredWarning(UserWarning):
     pass
+
+
+class LogfireConfigWarning(UserWarning):
+    """Warning emitted for non-fatal configuration problems, e.g. an unknown resource detector name."""

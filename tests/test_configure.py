@@ -57,6 +57,7 @@ from logfire._internal.config import (
     CodeSource,
     ConsoleOptions,
     LogfireConfig,
+    LogfireConfigWarning,
     LogfireCredentials,
     VariablesOptions,
     get_base_url_from_token,
@@ -1002,10 +1003,40 @@ def test_resource_detectors_string(config_kwargs: dict[str, Any], exporter: Test
     assert span['resource']['attributes'] == IsPartialDict({'host.name': socket.gethostname()})
 
 
-def test_resource_detector_unknown_name(config_kwargs: dict[str, Any]) -> None:
-    config_kwargs['resource_detectors'] = ['nonexistent-detector']
-    with pytest.raises(ValueError, match="No resource detector named 'nonexistent-detector'"):
+def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # An unknown detector name warns and is skipped rather than raising, so a typo can't crash the app.
+    config_kwargs['resource_detectors'] = ['nonexistent-detector', 'host']
+    with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
         configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    # The valid detector alongside the unknown one is still applied.
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes']['host.name'] == socket.gethostname()
+
+
+def test_resource_detector_unknown_name_in_env_var(config_kwargs: dict[str, Any]) -> None:
+    # The env var follows the same tolerant semantics as OTEL_EXPERIMENTAL_RESOURCE_DETECTORS.
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'nonexistent-detector'}):
+        with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
+            configure(**config_kwargs)
+
+
+def test_resource_detectors_wildcard(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # `'*'` expands to every registered detector (except `'otel'`), matching the OTel env var.
+    config_kwargs['resource_detectors'] = ['*']
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    # From the `host`/`os` detectors:
+    assert attributes['host.name'] == socket.gethostname()
+    assert attributes['os.type'] == platform.system().lower()
+    # From the `process` detector:
+    assert 'process.runtime.name' in attributes
 
 
 def test_resource_detectors_take_precedence_over_env_var_detectors(

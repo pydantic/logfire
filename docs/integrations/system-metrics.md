@@ -23,31 +23,34 @@ logfire.instrument_system_metrics()
 
 Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard', and select 'Basic System Metrics (Logfire)' from the dropdown.
 
-## Host information
+## Resource attributes
 
-By default, the metrics produced by `instrument_system_metrics` don't say anything about the machine they come from,
-such as the `host.name` resource attribute that the Logfire UI uses to associate metrics with a host.
-To include this information, pass resource detectors to [`logfire.configure()`][logfire.configure]:
+By default, the metrics produced by `instrument_system_metrics` don't say much about the machine or process
+they come from. You can attach extra [resource attributes](https://opentelemetry.io/docs/concepts/resources/)
+to all telemetry by passing resource detectors to [`logfire.configure()`][logfire.configure]:
 
 ```py
 import logfire
 
-logfire.configure(resource_detectors=['os', 'host'])
+logfire.configure(resource_detectors=['process'])
 
 logfire.instrument_system_metrics()
 ```
 
-This sets the `host.name`, `host.arch`, `os.type`, and `os.version` resource attributes on all telemetry,
-using the `host` and `os` detectors provided by the OpenTelemetry SDK.
+This uses the `process` detector provided by the OpenTelemetry SDK to set attributes such as `process.command`,
+`process.command_args`, and `process.owner`. The SDK also provides the `os` and `host` detectors — the latter
+sets `host.name`, which the Logfire UI uses to associate telemetry with a host in the Hosts view — and the
+special name `'*'` runs every registered detector. An unknown detector name emits a warning and is skipped
+rather than raising.
 
-To set attribute values yourself, e.g. to use a more meaningful host name than the one detected,
-or to add custom attributes, use the `resource_attributes` argument, which takes precedence over detectors:
+To set attribute values yourself, or to add custom attributes, use the `resource_attributes` argument, which
+takes precedence over detectors:
 
 ```py
 import logfire
 
 logfire.configure(
-    resource_detectors=['os', 'host'],
+    resource_detectors=['process'],
     resource_attributes={
         'host.name': 'my-meaningful-host-name',
         'datacenter.region': 'eu-west-1',
