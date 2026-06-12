@@ -2603,6 +2603,7 @@ class Logfire:
             description=description,
         )
         self._variables[name] = variable
+        self._config.add_variables_change_listener(self._on_variables_config_change)
 
         from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
 
@@ -2740,12 +2741,35 @@ class Logfire:
             template_mismatch_policy=template_mismatch_policy,
         )
         self._variables[name] = variable
+        self._config.add_variables_change_listener(self._on_variables_config_change)
 
         from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
 
         warn_on_template_inputs_composition_mismatch(self._variables, variable)
 
         return variable
+
+    def _on_variables_config_change(self, changed_names: set[str]) -> None:
+        """Dispatch variable config changes to registered variables' on_change callbacks.
+
+        Registered with this instance's `LogfireConfig` (which wires it to every provider it
+        creates) the first time a variable is defined. Expands the directly-changed names to
+        every registered variable that is *effectively* changed — including variables that
+        (transitively) compose a changed variable via `@{ref}@` references — then fires each
+        affected variable's callbacks.
+        """
+        # Snapshot the registry: dispatch runs on the provider's polling thread, and a
+        # concurrent `var()` on another thread mutating the dict mid-iteration would
+        # otherwise raise (losing the rest of this change cycle's notifications).
+        variables = dict(self._variables)
+        if not variables:
+            return
+
+        from logfire.variables.variable import expand_config_changes
+
+        provider_config = self.config.get_variable_provider().get_all_variables_config()
+        for name in sorted(expand_config_changes(changed_names, provider_config, variables)):
+            variables[name]._notify_change()  # pyright: ignore[reportPrivateUsage]
 
     def variables_clear(self) -> None:
         """Clear all registered variables from this Logfire instance.
