@@ -121,7 +121,7 @@ logfire auth
     ```
 
     !!! info ""
-        Running this command stores a Write Token used by the SDK to send data to a file in the current directory, at `.logfire/logfire_credentials.json`
+        The SDK reads `LOGFIRE_TOKEN` directly from the environment. If you configure a project with `logfire projects use` instead, the CLI writes credentials to `.logfire/logfire_credentials.json` in the current directory.
 
     3. Write some basic logs in your Python app
 

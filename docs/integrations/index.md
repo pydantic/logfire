@@ -29,12 +29,12 @@ If a package you are using is not listed in this documentation, please let us kn
 
 **Logfire** has documented integrations with many technologies, including:
 
-- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic
+- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, Google Gen AI, LangChain, LlamaIndex, Mirascope, LiteLLM, DSPy, MCP, Claude Agent SDK, Magentic
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
 - _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
 - _HTTP Clients_: HTTPX, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
-- _Logging Libraries_: Standard Library Logging, Loguru, Structlog
+- _Logging Libraries_: Standard Library Logging, Loguru, Structlog, `print()`
 - _Testing_: Pytest
 - and more, such as Stripe, AWS Lambda, and system metrics.
 
@@ -52,19 +52,24 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Asyncpg](databases/asyncpg.md)           | Database                | [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg]                                                                                                   |
 | [BigQuery](databases/bigquery.md)         | Database                | N/A (built in, no config needed)                                                                                                                                       |
 | [Celery](event-streams/celery.md)         | Task Queue              | [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery]                                                                                                     |
+| [Claude Agent SDK](llms/claude-agent-sdk.md) | AI Framework         | [`logfire.instrument_claude_agent_sdk()`][logfire.Logfire.instrument_claude_agent_sdk]                                                                                 |
 | [Django](web-frameworks/django.md)        | Web Framework           | [`logfire.instrument_django()`][logfire.Logfire.instrument_django]                                                                                                     |
+| [DSPy](llms/dspy.md)                      | AI Framework            | [`logfire.instrument_dspy()`][logfire.Logfire.instrument_dspy]                                                                                                         |
 | [FastAPI](web-frameworks/fastapi.md)      | Web Framework           | [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi]                                                                                                   |
 | [FastStream](event-streams/faststream.md) | Task Queue              | N/A (built in, config needed)                                                                                                                                          |
 | [Flask](web-frameworks/flask.md)          | Web Framework           | [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask]                                                                                                       |
+| [Google Gen AI](llms/google-genai.md)     | AI                      | [`logfire.instrument_google_genai()`][logfire.Logfire.instrument_google_genai]                                                                                         |
 | [HTTPX](http-clients/httpx.md)            | HTTP Client             | [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]                                                                                                       |
 | [LangChain](llms/langchain.md)            | AI Framework            | N/A (built-in OpenTelemetry support)                                                                                                                                   |
 | [LlamaIndex](llms/llamaindex.md)          | AI Framework            | N/A (requires LlamaIndex OpenTelemetry package)                                                                                                                        |
-| [LiteLLM](llms/litellm.md)                | AI Gateway              | N/A (requires LiteLLM callback setup)                                                                                                                                  |
+| [LiteLLM](llms/litellm.md)                | AI Gateway              | [`logfire.instrument_litellm()`][logfire.Logfire.instrument_litellm]                                                                                                   |
 | [Loguru](loguru.md)                       | Logging                 | See documentation                                                                                                                                                      |
 | [Magentic](llms/magentic.md)              | AI Framework            | N/A (built-in Logfire support)                                                                                                                                         |
 | [Mirascope](llms/mirascope.md)            | AI Framework            | N/A (use mirascope `@with_logfire` decorator)                                                                                                                          |
+| [MCP](llms/mcp.md)                        | AI Framework            | [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp]                                                                                                           |
 | [MySQL](databases/mysql.md)               | Database                | [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql]                                                                                                       |
-| [OpenAI](llms/openai.md)                  | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai]                                                                                                     |
+| [OpenAI](llms/openai.md)                  | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai], [`logfire.instrument_openai_agents()`][logfire.Logfire.instrument_openai_agents]                   |
+| [Print](print.md)                         | Logging                 | [`logfire.instrument_print()`][logfire.Logfire.instrument_print]                                                                                                       |
 | [Psycopg](databases/psycopg.md)           | Database                | [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg]                                                                                                   |
 | [Pytest](pytest.md)                       | Testing                 | N/A (built-in plugin, use `pytest --logfire`)                                                                                                                          |
 | [PyMongo](databases/pymongo.md)           | Database                | [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo]                                                                                                   |

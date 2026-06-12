@@ -14,7 +14,7 @@ Both Logfire and Langfuse help you observe AI/LLM applications, but they take fu
 | **Python Support** | First-class (Pydantic team) | Good |
 | **Non-AI Tracing** | Full support | Limited |
 | **LLM Features** | Token tracking, costs, panels | Token tracking, costs, evals, prompt mgmt |
-| **OpenTelemetry** | Native | Export support |
+| **OpenTelemetry** | Native | Native SDK / OTLP ingestion |
 
 *Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
@@ -45,7 +45,7 @@ This matters because AI applications don't exist in isolation. They call APIs, q
 
 ### Query Language — Essential for Agentic Coding
 
-**Langfuse** uses a custom UI and API for querying data.
+**Langfuse** uses a custom UI and API for querying data, with OpenTelemetry-based ingestion support for traces.
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 

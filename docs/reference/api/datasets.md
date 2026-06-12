@@ -16,10 +16,10 @@ For usage examples, see the [SDK Guide](../../evaluate/datasets/sdk.md).
 | Method | Description |
 |--------|-------------|
 | `list_datasets()` | List all datasets in the project. |
-| `get_dataset(id_or_name, input_type, output_type, metadata_type, *, include_cases)` | Get a dataset, optionally as a typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. Pass `include_cases=False` to get metadata only. |
+| `get_dataset(id_or_name, input_type, output_type, metadata_type, *, include_cases, custom_evaluator_types, custom_report_evaluator_types)` | Get a dataset, optionally as a typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. Pass `include_cases=False` to get metadata only. Custom evaluator type arguments are used when deserializing hosted evaluator specs. |
 | `push_dataset(dataset, *, name, description, on_case_conflict)` | Publish a local [`pydantic_evals.Dataset`][pydantic_evals.Dataset] to hosted storage. Creates or updates the hosted dataset, infers schemas from typed `Dataset[...]` generics when available, uploads all cases, and returns metadata only. |
-| `create_dataset(name, *, input_type, output_type, metadata_type, description)` | Create a new dataset. Types are converted to JSON schemas automatically. |
-| `update_dataset(id_or_name, *, name, input_type, output_type, metadata_type, description)` | Update a dataset's metadata or schemas. |
+| `create_dataset(name, *, input_type, output_type, metadata_type, description, evaluators, report_evaluators)` | Create a new dataset. Types are converted to JSON schemas automatically, and evaluator instances are serialized to hosted evaluator specs. |
+| `update_dataset(id_or_name, *, name, input_type, output_type, metadata_type, description, evaluators, report_evaluators)` | Update a dataset's metadata, schemas, or dataset/report evaluators. Pass `None` for evaluator arguments to clear hosted evaluators. |
 | `delete_dataset(id_or_name)` | Delete a dataset and all its cases. |
 | `list_cases(dataset_id_or_name)` | List all cases in a dataset. |
 | `get_case(dataset_id_or_name, case_id)` | Get a specific case. |
@@ -27,7 +27,7 @@ For usage examples, see the [SDK Guide](../../evaluate/datasets/sdk.md).
 | `update_case(dataset_id_or_name, case_id, *, name, inputs, expected_output, metadata, evaluators)` | Update an existing case. |
 | `delete_case(dataset_id_or_name, case_id)` | Delete a case. |
 
-`push_dataset(...)` rejects dataset-level `evaluators` and `report_evaluators` for now, because hosted datasets do not store them yet. Case-level evaluators are still uploaded with their cases.
+`push_dataset(...)` uploads case-level evaluators with their cases, and uploads dataset-level `evaluators` and `report_evaluators` on the hosted dataset itself. Each push overwrites the hosted dataset/report evaluator values to match the local [`pydantic_evals.Dataset`][pydantic_evals.Dataset].
 
 An async version, `AsyncLogfireAPIClient`, provides the same methods as async coroutines.
 

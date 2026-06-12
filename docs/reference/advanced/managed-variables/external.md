@@ -8,7 +8,7 @@ There are two fundamentally different ways to read managed variables, and the ch
 
 ### Pull-Based (Logfire SDK)
 
-When you use `logfire.variable.get()` (or the `.get()` method on a variable created with `logfire.var()`), the SDK **pulls the full variable configuration** from the server and evaluates it locally:
+When you call `.get()` on a variable created with `logfire.var()`, the SDK **pulls the full variable configuration** from the server and evaluates it locally:
 
 1. The SDK fetches all variable definitions, versions, labels, and rollout rules in a single request
 2. A background thread polls for updates (or listens via SSE)
@@ -26,7 +26,7 @@ The OFREP endpoints take a different approach — every evaluation is a **server
 2. The server evaluates the variable using the context and returns only the resolved value
 3. The client never sees the full configuration, other versions, or rollout rules
 
-This is less efficient (one network request per evaluation or batch), but the full configuration is **never exposed** to the client. A client would have to brute-force individual keys to discover what variables exist.
+This is less efficient (one network request per evaluation or batch), but the full configuration is **never exposed** to the client. Single-flag evaluation returns only the requested variable's resolved value, while bulk evaluation returns resolved values for the variables the token is allowed to access.
 
 **Requires:** `project:read_variables` or `project:read_external_variables` scope.
 
@@ -46,7 +46,7 @@ By default, variables are **internal** — they are only accessible with an API 
 | `project:write_variables` | Create, update, and delete variables and variable types |
 
 !!! warning "API key scope and SDK access"
-    An API key with only the `project:read_external_variables` scope **cannot be used with `logfire.variable.get()`** or any of the pull-based SDK variable methods. The SDK's pull-based approach requires `project:read_variables` because it fetches the full configuration. The `project:read_external_variables` scope only grants access to the OFREP evaluation endpoints.
+    An API key with only the `project:read_external_variables` scope **cannot be used with `.get()` on variables created with `logfire.var()`** or any of the pull-based SDK variable methods. The SDK's pull-based approach requires `project:read_variables` because it fetches the full configuration. The `project:read_external_variables` scope only grants access to the OFREP evaluation endpoints.
 
 ### Setting a Variable as External
 
@@ -58,7 +58,7 @@ You can set a variable as external in the Logfire UI when creating a variable (v
 import httpx
 
 httpx.post(
-    'https://logfire-api.pydantic.dev/v1/variables/bulk/',
+    'https://api-us.pydantic.dev/v1/variables/bulk/',  # or https://api-eu.pydantic.dev for EU projects
     headers={'Authorization': 'Bearer YOUR_API_KEY'},
     json=[
         {
@@ -82,12 +82,14 @@ httpx.post(
 
 Logfire exposes managed variables via the OpenFeature Remote Evaluation Protocol (OFREP). These endpoints evaluate variables as feature flags using a targeting context.
 
-**Endpoints (API base URL + paths):**
+**Endpoints (regional API base URL + paths):**
 
 ```text
-POST /v1/ofrep/v1/evaluate/flags/{key}
-POST /v1/ofrep/v1/evaluate/flags
+POST https://api-us.pydantic.dev/v1/ofrep/v1/evaluate/flags/{key}
+POST https://api-us.pydantic.dev/v1/ofrep/v1/evaluate/flags
 ```
+
+Use `https://api-eu.pydantic.dev` instead for EU-region projects. The same `/v1/ofrep/v1/...` paths are also available on your regional Logfire app host.
 
 **Request body (single or bulk):**
 
@@ -103,7 +105,7 @@ POST /v1/ofrep/v1/evaluate/flags
 
 - `targetingKey` is required and is used for deterministic rollout selection.
 - Any additional fields in `context` become attributes for conditional rules.
-- The OFREP response maps labels to the `variant` field for compatibility with OpenFeature clients.
+- The OFREP response maps the selected label or target to the `variant` field for compatibility with OpenFeature clients. For example, the variant can be a label such as `production`, the automatic `latest` target, or `null` when no remote value is resolved.
 
 **Caching (bulk endpoint):**
 
@@ -114,9 +116,9 @@ These endpoints require an API key with the `project:read_variables` or `project
 
 ### Response Behavior
 
-When the server resolves a variable successfully, the OFREP response includes the resolved `value`, a `variant` (the label name), and `reason: "TARGETING_MATCH"`.
+When the server resolves a variable successfully, the OFREP response includes the resolved `value`, a `variant`, and a `reason` such as `"STATIC"`, `"SPLIT"`, or `"TARGETING_MATCH"`.
 
-When no value can be resolved — either because the variable has no versions, or because no label matches the evaluation context (e.g., rollout weights sum to less than 1.0 and no latest version fallback exists) — the server returns:
+When no remote value can be resolved — for example, because the variable has no versions yet or routing selects **Code default** — the server returns:
 
 ```json
 {

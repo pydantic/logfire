@@ -68,7 +68,7 @@ Once created, you can edit the dataset to add a description and define schemas.
 From the dataset detail page, click **Edit** to modify the dataset's configuration. The edit form has two sections:
 
 - **General**: Name and description.
-- **Schemas**: Define JSON schemas for inputs, expected outputs, and metadata. Use the **Generate schema** toggle to have Pydantic AI create schemas from a natural language description of your data shape.
+- **Schemas**: Define JSON schemas for inputs, expected outputs, and metadata. Use the **Generate schema** action to have Pydantic AI create schemas from a natural language description of your data shape.
 
 ## Managing Cases
 
@@ -134,11 +134,13 @@ This preserves a link back to the source trace, so you always know where a test 
 From the dataset detail page, click **Export** to download the dataset in one of two formats:
 
 - **JSON**: Raw JSON representation of all cases.
-- **pydantic-evals**: A YAML format compatible with `pydantic_evals.Dataset.from_file()`.
+- **Python (pydantic-evals)**: JSON in the pydantic-evals-compatible `{name, cases, evaluators, report_evaluators}` shape, suitable for loading with `pydantic_evals.Dataset.from_dict()`.
 
 ## What's Next?
 
 Once you have cases in a dataset, you can:
+
+- Add dataset-level or report-level evaluators from the dataset detail page's **Evaluators** tab.
 
 - Run evaluations against it — see [Running Evaluations](evaluations.md).
 - View and compare experiment results — see [Evals: Datasets & Experiments](../../guides/web-ui/evals.md#viewing-experiments).

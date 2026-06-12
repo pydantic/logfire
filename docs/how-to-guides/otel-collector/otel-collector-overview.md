@@ -124,7 +124,7 @@ Then you can point the collector at a tool like Jaeger, `otel-tui`, or Grafana T
 
 ## Collecting system logs
 
-This example shows how you can use the OpenTelemetry collector to collect systems logs (logs on stdoutt/stderr) from Kubernetes and send them to Logfire.
+This example shows how you can use the OpenTelemetry collector to collect system logs (logs on stdout/stderr) from Kubernetes and send them to Logfire.
 This may be useful as part of a migration to Logfire if you aren't able to immediately edit all of the applications to install the Logfire SDK, although the data you receive won't be as rich as it would be from tracing with the Logfire SDK.
 
 This relatively simple example is enough in many cases to replace existing systems like ElasticSearch, Loki or Splunk.
@@ -383,7 +383,7 @@ spec:
           name: otel-collector-config
 ```
 
-Apply this configuration via `kubectl apply -f otel-collector.yaml`.
+Apply this configuration via `kubectl apply -f collector.yaml`.
 
 You should now see logs from the `plain-app` and `json-app` in your Logfire dashboard!
 
@@ -443,7 +443,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: otel-collector
-    namespace: otel-collector
+    namespace: default
 roleRef:
   kind: ClusterRole
   name: otel-collector
@@ -473,42 +473,43 @@ data:
           http:
             endpoint: "0.0.0.0:4318"
     processors:
-      # by default the connection IP is used to match data with k8s object
-      # when using, for example, a daemonset to send logs to a gateway
-      # you can use `pod_association` to configure which fields to use for matching.
-      pod_association:
-        - sources:
-            - from: resource_attribute
-              name: k8s.pod.uid
-      # If you're using a namespaced RBAC, you'll need to set this filter
-      # filter:
-      #   namespace: default
-      extract:
-        metadata:
-          # the cluster's UID won't be set with the namespaced configuration
-          - k8s.cluster.uid
-          - k8s.pod.name
-          - k8s.pod.uid
-          - k8s.deployment.name
-          - k8s.namespace.name
-          - k8s.node.name
-          - k8s.pod.start_time
-          - k8s.replicaset.name
-          - k8s.replicaset.uid
-          - k8s.daemonset.name
-          - k8s.daemonset.uid
-          - k8s.job.name
-          - k8s.job.uid
-          - k8s.cronjob.name
-          - k8s.statefulset.name
-          - k8s.statefulset.uid
-          - container.image.name
-          - container.image.tag
-          - container.id
-          - k8s.container.name
-          - container.image.name
-          - container.image.tag
-          - container.id
+      k8sattributes:
+        # by default the connection IP is used to match data with k8s object
+        # when using, for example, a daemonset to send logs to a gateway
+        # you can use `pod_association` to configure which fields to use for matching.
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.uid
+        # If you're using a namespaced RBAC, you'll need to set this filter
+        # filter:
+        #   namespace: default
+        extract:
+          metadata:
+            # the cluster's UID won't be set with the namespaced configuration
+            - k8s.cluster.uid
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.namespace.name
+            - k8s.node.name
+            - k8s.pod.start_time
+            - k8s.replicaset.name
+            - k8s.replicaset.uid
+            - k8s.daemonset.name
+            - k8s.daemonset.uid
+            - k8s.job.name
+            - k8s.job.uid
+            - k8s.cronjob.name
+            - k8s.statefulset.name
+            - k8s.statefulset.uid
+            - container.image.name
+            - container.image.tag
+            - container.id
+            - k8s.container.name
+            - container.image.name
+            - container.image.tag
+            - container.id
     exporters:
       debug:
       otlphttp:

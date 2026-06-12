@@ -22,16 +22,17 @@ When you create a public trace link, anyone with access to the link can view the
 
 ![Private button](../../images/public-traces/private-button.png)
 
-4. Configure the link expiration
+4. Enter an optional title and choose when the link expires: **3 days**, **1 week**, **1 month**, or **Never**
 5. Click **Create** to generate the shareable link
 
 ## Managing Public Traces
 
-All public trace links are managed in the **Shared Traces** section under Project Settings. From here you can:
+All public trace links are managed in **Settings** → **Project** → **Public traces**. From here you can:
 
 - View all active public links with their trace/span IDs
 - See creation dates and expiration times
 - Copy existing public links
+- Rename public links
 - Delete public links when no longer needed
 
 ## Security Considerations

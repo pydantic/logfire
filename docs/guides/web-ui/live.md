@@ -10,15 +10,15 @@ The live view is useful for watching what's going on within your application in 
 
 ## SQL search pane
 
-To search the live view, click `Search your spans` (keyboard shortcut `/`), this opens the search pane:
+To search the live view, click `Search & filter with SQL...` (keyboard shortcut `/`), this opens the search pane:
 
 ![Search box](../../images/guide/live-view-search.png)
 
 ### SQL Search
 
 For confident SQL users, write your queries directly here. For devs who want a bit of help,
-try the new [Pydantic AI](https://pydantic.dev/docs/ai/overview/) feature which generates a SQL query based on your prompt.
-You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
+try **Generate SQL with AI**, which generates a SQL query based on your prompt.
+You can also review the fields available and populate your SQL automatically using the `Filter by...` list, see more on this below.
 
 **WHERE clause**
 As the greyed out `SELECT * FROM RECORDS WHERE` implies, you're searching inside the `WHERE` clause of a SQL query.
@@ -29,7 +29,7 @@ Note: you can run more complex queries on the [explore screen](explore.md)
 
 The records table fields are documented in the [SQL reference](../../reference/sql.md).
 
-You can search for any of them in the `Reference` list:
+You can search for any of them in the `Filter by...` list:
 
 ![Search box reference](../../images/guide/live-view-reference.png)
 
@@ -37,19 +37,19 @@ If you're not sure where to start, scroll down to the `Start here` for beginner-
 
 ![Search box start here](../../images/guide/live-view-start-here.png)
 
-### Ask in Language -> Get SQL
+### Generate SQL with AI
 
 Write your question in your native language, and the model will convert that question to a SQL query.
 
 ![Search box natural language](../../images/guide/live-view-natural-language.png)
 
-This is useful if you're not confident with SQL and/or can't quite remember how to format more complicated clauses. You have the option to create a completely new query with `Get new SQL`, or (if you have some SQL already) modify the existing query with `Modify existing SQL`.
+This is useful if you're not confident with SQL and/or can't quite remember how to format more complicated clauses. Open `Generate SQL with AI`, describe what you want to search for, and use `Include existing SQL code` if you want the AI to modify or build on the SQL already in the editor.
 
 Under the hood this feature uses an LLM running with [Pydantic AI](https://github.com/pydantic/pydantic-ai).
 
-### Reference
+### Filter by
 
-Reference: A list of pre-populated query clauses. Clicking any of the clauses will populate the SQL editor, and (where applicable) you can choose a value from the autopopulated dropdown.
+`Filter by...`: A list of pre-populated query clauses. Clicking any of the clauses will populate the SQL editor, and (where applicable) you can choose a value from the autopopulated dropdown.
 
 This list gives you a powerful way to rapidly generate the query you need, while simultaneously
 learning more about all the ways you can search your data. Clicking multiple clauses will add them

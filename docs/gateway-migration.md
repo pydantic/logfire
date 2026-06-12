@@ -3,19 +3,19 @@ title: "Migrating from Pydantic AI Gateway"
 description: "How to migrate from the legacy gateway.pydantic.dev to the AI Gateway on Pydantic Logfire."
 ---
 
-# Pydantic AI Gateway is Moving to Pydantic Logfire
+# Pydantic AI Gateway Has Moved to Pydantic Logfire
 
-We're consolidating the AI Gateway into Logfire. This means [gateway.pydantic.dev](https://gateway.pydantic.dev/) is being deprecated, and the gateway is now managed through your Logfire account.
+The AI Gateway has moved into Logfire. The legacy [gateway.pydantic.dev](https://gateway.pydantic.dev/) platform has reached end of life, and the gateway is now managed through your Logfire account.
 
 ## Shutdown Timeline
 
 | Date | Event |
 |------|-------|
-| **15 March 2026** | Self-service refunds available in the legacy gateway platform |
+| **15 March 2026** | Self-service refunds became available in the legacy gateway platform |
 | **13 April 2026 at 3pm UTC** | Legacy gateway fully shut down (end of life) |
-| **By end of April 2026** | Automatic refunds processed for any remaining balances |
+| **By end of April 2026** | Automatic refunds were processed for any remaining balances |
 
-**Please migrate before 13 April 2026.** If you need help, email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
+If you still need help after the shutdown, email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
 
 ## Why We Made This Change
 
@@ -32,9 +32,7 @@ Moving the gateway into Logfire unlocks a number of improvements:
 
 ### What happens to my current balance?
 
-From **15 March 2026**, you can request a refund of your remaining balance via the button in the [legacy gateway platform](https://gateway.pydantic.dev). The refund will be issued to the original payment method you used.
-
-If you do not request a refund manually, any outstanding credits will be refunded automatically before the end of April 2026.
+Self-service refunds became available on **15 March 2026** in the [legacy gateway platform](https://gateway.pydantic.dev). Any outstanding credits that were not requested manually were scheduled for automatic refund before the end of April 2026.
 
 ### Do I need to create a new account?
 

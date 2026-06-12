@@ -7,11 +7,11 @@ description: Learn how to connect Logfire to any backend that supports OpenTelem
 **Logfire** uses the OpenTelemetry standard. This means that you can configure the SDK to export to any backend that supports OpenTelemetry.
 
 The easiest way is to set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable to a URL that points to your backend.
-This will be used as a base, and the SDK will append `/v1/traces` and `/v1/metrics` to the URL to send traces and metrics, respectively.
+This will be used as a base, and the SDK will append `/v1/traces`, `/v1/metrics`, and `/v1/logs` to the URL to send traces, metrics, and logs, respectively.
 
 Alternatively, you can use the `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` and `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`
 environment variables to specify the URLs for traces, metrics and logs separately.
-These URLs should include the full path, including `/v1/traces` and `/v1/metrics`.
+These URLs should include the full path, including `/v1/traces`, `/v1/metrics`, or `/v1/logs`.
 
 !!! note
     The data will be encoded using **Protobuf** (not JSON) and sent over **HTTP** (not gRPC).
@@ -66,6 +66,6 @@ And this is how a more "complex" trace would look like:
 ![Jaeger complete trace](../images/guide/jaeger-complete-trace-view.png)
 ## Other environment variables
 
-If `OTEL_TRACES_EXPORTER` and/or `OTEL_METRICS_EXPORTER` are set to any non-empty value other than `otlp`, then **Logfire** will ignore the corresponding `OTEL_EXPORTER_OTLP_*` variables. This is because **Logfire** doesn't support other exporters, so we assume that the environment variables are intended to be used by something else. Normally you don't need to worry about this, and you don't need to set these variables at all unless you want to prevent **Logfire** from setting up these exporters.
+If `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`, and/or `OTEL_LOGS_EXPORTER` are set to any non-empty value other than `otlp`, then **Logfire** will ignore the corresponding `OTEL_EXPORTER_OTLP_*` variables. This is because **Logfire** doesn't support other exporters, so we assume that the environment variables are intended to be used by something else. Normally you don't need to worry about this, and you don't need to set these variables at all unless you want to prevent **Logfire** from setting up these exporters.
 
 See the [OpenTelemetry documentation](https://opentelemetry-python.readthedocs.io/en/latest/exporter/otlp/otlp.html) for information about the other headers you can set, such as `OTEL_EXPORTER_OTLP_HEADERS`.

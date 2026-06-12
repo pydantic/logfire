@@ -6,7 +6,7 @@ This guide shows how to set up a **JavaScript/TypeScript web application** using
 
 ## Prerequisites
 
-1. **Create your variables** in the Logfire UI (Settings > Variables) and mark them as **external** — see [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
+1. **Create your variables** in the Logfire UI (**Runtime > Managed Variables**) and mark them as **External** — see [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
 2. **Create an API key** with the `project:read_external_variables` scope — this restricted scope is safe to use in client-side code since it only exposes variables you've explicitly marked as external
 
 ## Installation
@@ -40,16 +40,18 @@ import { OFREPWebProvider } from '@openfeature/ofrep-web-provider'
 import { OpenFeature } from '@openfeature/web-sdk'
 
 const LOGFIRE_API_KEY = 'your-api-key'  // project:read_external_variables scope
-const LOGFIRE_API_HOST = 'logfire-api.pydantic.dev'  // or your self-hosted API host
+const LOGFIRE_API_HOST = 'api-us.pydantic.dev'  // use api-eu.pydantic.dev for EU projects
 
 const provider = new OFREPWebProvider({
-  baseUrl: `https://${LOGFIRE_API_HOST}/v1/ofrep/v1`,
+  // The OFREP provider appends /ofrep/v1/... to this base URL.
+  baseUrl: `https://${LOGFIRE_API_HOST}/v1`,
   fetchImplementation: (input, init) =>
     fetch(input, {
       ...init,
       headers: {
         ...Object.fromEntries(new Headers(init?.headers).entries()),
         Authorization: `Bearer ${LOGFIRE_API_KEY}`,
+        'Content-Type': 'application/json',
       },
     }),
 })
@@ -159,15 +161,16 @@ import { OFREPWebProvider } from '@openfeature/ofrep-web-provider'
 import { OpenFeature } from '@openfeature/web-sdk'
 
 // Initialize once at app startup
-function initFeatureFlags(apiKey: string, apiHost: string) {
+function initFeatureFlags(apiKey: string, apiHost = 'api-us.pydantic.dev') {
   const provider = new OFREPWebProvider({
-    baseUrl: `https://${apiHost}/v1/ofrep/v1`,
+    baseUrl: `https://${apiHost}/v1`,
     fetchImplementation: (input, init) =>
       fetch(input, {
         ...init,
         headers: {
           ...Object.fromEntries(new Headers(init?.headers).entries()),
           Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
         },
       }),
   })
@@ -206,11 +209,11 @@ OpenFeature provides SDKs and OFREP providers for many languages. You can use th
 
 See the [OpenFeature ecosystem page](https://openfeature.dev/ecosystem) for a full list.
 
-The OFREP endpoint format is the same regardless of client:
+The OFREP endpoint format is the same regardless of client. Use `https://api-eu.pydantic.dev` instead for EU-region projects:
 
 ```
-POST https://<your-api-host>/v1/ofrep/v1/evaluate/flags/{flag_key}
-POST https://<your-api-host>/v1/ofrep/v1/evaluate/flags
+POST https://api-us.pydantic.dev/v1/ofrep/v1/evaluate/flags/{flag_key}
+POST https://api-us.pydantic.dev/v1/ofrep/v1/evaluate/flags
 ```
 
 Both endpoints accept a JSON body with a `context` object containing `targetingKey` and any additional targeting attributes:

@@ -6,8 +6,7 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 **Logfire** provides public APIs that allow you to programmatically manage your organizations, projects, and other resources. To access these APIs, you'll need to create an **API key**.
 
 !!! info "Public APIs"
-    API keys are for accessing the Logfire platform APIs, _not_ for sending telemetry data (traces, logs, metrics).
-    To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md).
+    API keys are primarily for accessing the Logfire platform APIs. Project-scoped API keys can also be granted OTLP scopes for telemetry ingestion or Query API access. Existing [write tokens](../../how-to-guides/create-write-tokens.md) remain supported for sending telemetry.
 
 !!! tip "What you can do"
     **Available to all plans:**
@@ -19,6 +18,9 @@ description: "Guide on how to create API keys and use them to call Logfire publi
     - **Dashboards**: Create, list, update, and delete dashboards
     - **Notification channels**: Create, list, update, and delete notification destinations (Slack, webhooks, etc.)
     - **Variables**: Create, read, and update project variables
+    - **External variables**: Evaluate variables marked as external through OFREP
+    - **OTLP**: Send telemetry data and query OTLP data with project-scoped keys
+    - **Gateway proxy**: Proxy AI model requests through a specific project gateway
 
     **Enterprise / Self-hosted only:**{ .enterprise }
 
@@ -66,21 +68,16 @@ Organization and project admins can choose whether to create a personal or non-p
 ## API Key Scopes
 
 When creating an API key, set the scope to define which actions the key can perform.
-Available scopes depend on whether you're creating an organization or project API key:
+Available scopes depend on whether you're creating an organization or project API key. In the UI, organization keys can optionally apply to all projects or to one selected project. Project keys are always tied to the project where you create them. Some scopes, including OTLP and gateway proxy scopes, require a single project and cannot be granted to personal API keys:
 
-| Scope                                | Organization API Key | Project API Key |
-| ------------------------------------ | -------------------- | --------------- |
-| Organization management              | ✓                    | —               |
-| Notification channels                | ✓                    | —               |
-| Audit logs                           | ✓                    | —               |
-| SCIM provisioning                    | ✓                    | —               |
-| Billing usage                        | ✓                    | —               |
-| Project settings                     | ✓                    | ✓               |
-| Write tokens management              | ✓                    | ✓               |
-| Read tokens management               | ✓                    | ✓               |
-| Alerts management                    | ✓                    | ✓               |
-| Dashboards management                | ✓                    | ✓               |
-| Variables management                 | ✓                    | ✓               |
+| Scope prefix / scope                                | Organization API Key | Project API Key |
+| ---------------------------------------------------- | -------------------- | --------------- |
+| `organization:*` organization management scopes       | ✓                    | —               |
+| `project:*` project settings and resource scopes      | ✓                    | ✓               |
+| `project:read_variables` / `project:write_variables` | ✓                    | ✓               |
+| `project:read_external_variables`                    | ✓                    | ✓               |
+| `project:read_otlp` / `project:write_otlp`           | ✓                    | ✓               |
+| `project:gateway_proxy`                              | ✓                    | ✓               |
 
 !!! info
     Select only the scopes your application needs to follow the principle of least privilege.

@@ -36,7 +36,7 @@ for a certain amount of time.
 
 ## Create the Alert
 
-Go to [your alerts tab](https://logfire.pydantic.dev/-/redirect/latest-project/alerts/) and click on "New Alert".
+Go to **Notify** → **Alerts** in your project and click **New Alert**.
 Then add the following query to the alert:
 
 ```sql
@@ -54,8 +54,8 @@ WHERE
 
 This query will return `backend is down` if the `/health` endpoint on the `'backend'` service is not called.
 
-On the "Alert Parameters", we want to be notified as soon as possible, so we should execute the query `"every minute"`,
-include rows from `"the last minute"`, and notify us if `"the query's results change"`.
+On the "Alert Parameters", we want to be notified as soon as possible, so we should set **Run the query** to `every minute`,
+**Include rows from** to `the last minute`, and **Notify me when** to `the query's results change`.
 
 Then you need to set up a channel to send this notification, which can be a Slack channel or a webhook.
 See more about it on the [alerts documentation](../guides/web-ui/alerts.md).

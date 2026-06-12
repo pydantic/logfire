@@ -9,7 +9,7 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 | **Primary Focus**    | AI observability for agents and apps                           | ML model monitoring                                             |
 | **Strength**         | AI + application tracing                                       | Drift detection, model performance                              |
 | **Non-AI Tracing**   | Full support                                                   | Limited                                                         |
-| **Language Support** | Python, JS/TS, Rust (SDKs) + any OTel                          | Python-focused                                                  |
+| **Language Support** | Python, JS/TS, Rust (SDKs) + any OTel                          | Python and JS SDKs + OTLP                                       |
 | **Evals**            | Integrated web-UI - Code-based via `pydantic-evals` | Integrated web-UI - Code-based via external library |
 | **Pricing**          | Per-span ($2/million)*                                         | Usage-based                                                     |
 | **Setup**            | 3 lines of code                                                | OTel-based (several lines of code)                              |
@@ -73,7 +73,7 @@ logfire.instrument_openai()
 
 Three lines, and you're observing AI calls with full application context.
 
-**Arize Phoenix** requires more configuration, especially for non-AI instrumentation.
+**Arize Phoenix** is OpenTelemetry-based, but Logfire provides more opinionated shortcuts for application and AI instrumentation in one SDK.
 
 ### Query Interface — Essential for Agentic Coding
 
@@ -86,7 +86,7 @@ Three lines, and you're observing AI calls with full application context.
 
 When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. With proprietary interfaces, it's constrained to anticipated queries.
 
-**Arize Phoenix** has its own query interface optimized for ML metrics but less flexible for ad-hoc analysis.
+**Arize Phoenix** has query tools optimized for ML and trace workflows, but Logfire exposes a PostgreSQL-compatible SQL interface for ad-hoc analysis.
 
 ## Complementary Use
 

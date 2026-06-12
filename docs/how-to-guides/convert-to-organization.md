@@ -5,8 +5,8 @@ description: Convert your Logfire Personal account to an Organization account. B
 # How to Convert a Personal Account to an Organization
 
 Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale.
-Converting to an organization requires selecting a [paid plan](https://pydantic.dev/pricing). You will have _5 days_ to chose a plan once you
-converted your account, before the organization gets locked.
+Converting to an organization requires selecting a [paid plan](https://pydantic.dev/pricing). You will have _5 days_ to choose a plan once you
+convert your account, before the organization gets locked.
 
 ---
 

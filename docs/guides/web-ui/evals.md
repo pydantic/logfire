@@ -34,9 +34,10 @@ Click a dataset name to open its detail page. The page has tabs for:
 
 - **Experiments** --- all evaluation runs against this dataset
 - **Cases** --- test cases (editable for hosted datasets)
-- **Schema** --- input, output, and metadata schemas
+- **Evaluators** --- dataset-level and report-level evaluators for hosted datasets
+- **Schemas** --- input, output, and metadata schemas
 
-The header shows the dataset name, experiment count, case count, and aggregate pass rate. Use the **Export** button to download cases, the **Edit** button to modify the dataset, or the **`<> SDK`** button to view code snippets for working with this dataset programmatically.
+The header shows the dataset name, experiment count, case count, and aggregate pass rate. Use the **Export** button to download cases as JSON, the **Edit** button to modify the dataset, or the **Push dataset from code** snippet to view code for working with this dataset programmatically.
 
 If the dataset has no experiments yet, the empty state walks you through the setup: define your schema, add test cases, then run your first experiment from code.
 
@@ -50,6 +51,8 @@ Click any experiment row to see detailed results including:
 - **Assertion results** --- pass/fail status for each evaluator
 - **Performance metrics** --- duration, token usage, and custom scores
 - **Evaluation scores** --- detailed scoring from all evaluators
+
+Hosted datasets also include an **Evaluators** tab where you can manage dataset-level and report-level evaluators. To add evaluators to a specific case, edit that case from the **Cases** tab.
 
 ## Comparing Experiments
 
