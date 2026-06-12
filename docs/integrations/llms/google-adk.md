@@ -66,7 +66,7 @@ tool call nested as a timeline.
     ADK attaches prompt and response text to spans only when you opt in. Set these environment variables
     before running for the richest traces:
 
-    ```python
+    ```python skip="true"
     import os
 
     os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
@@ -81,7 +81,7 @@ tool call nested as a timeline.
     pip install openinference-instrumentation-google-adk
     ```
 
-    ```python
+    ```python skip="true"
     from openinference.instrumentation.google_adk import GoogleADKInstrumentor
 
     GoogleADKInstrumentor().instrument()  # after logfire.configure()
