@@ -38,7 +38,6 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
-    OTEL_RESOURCE_ATTRIBUTES,
 )
 from opentelemetry.sdk.metrics import (
     Counter,
@@ -517,8 +516,10 @@ def configure(
 
         resource_attributes: Additional
             [resource attributes](https://opentelemetry.io/docs/concepts/resources/) to include on all telemetry,
-            e.g. `{'host.name': 'my-host'}`. These take precedence over attributes produced by `resource_detectors`,
-            and can be overridden by the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+            e.g. `{'host.name': 'my-host'}`. These take precedence over attributes produced by `resource_detectors`
+            and over the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+
+            Defaults to the `LOGFIRE_RESOURCE_ATTRIBUTES` environment variable (a comma-separated `key=value` list).
 
         resource_detectors: OpenTelemetry resource detectors to run when building the resource.
 
@@ -531,9 +532,11 @@ def configure(
             [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]
             makes this machine appear in the Hosts view in the Logfire UI.
 
-            Attributes set explicitly elsewhere (e.g. by `resource_attributes`, the `OTEL_RESOURCE_ATTRIBUTES`
-            environment variable, or detectors named in the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment
-            variable) take precedence over attributes produced by these detectors.
+            Attributes set explicitly via `logfire.configure()` (e.g. `service_name`, `service_version`,
+            `resource_attributes`) take precedence over these detectors, which in turn take precedence over the
+            `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables.
+
+            Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
 
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, include_tags=True, verbose=False)`.
@@ -842,7 +845,8 @@ class _LogfireConfigData:
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
-        self.resource_attributes = dict(resource_attributes or {})
+        self.resource_attributes = dict(param_manager.load_param('resource_attributes', resource_attributes) or {})
+        resource_detectors = param_manager.load_param('resource_detectors', resource_detectors)
         if isinstance(resource_detectors, str):
             # A bare string satisfies `Sequence[str]` statically but would be iterated character by
             # character, so coerce e.g. `resource_detectors='host'` to `['host']`.
@@ -942,9 +946,13 @@ class _LogfireConfigData:
             metrics = MetricsOptions()
         self.metrics = metrics
 
+        # Whether `service_version` was auto-detected from git rather than set explicitly. An explicit
+        # version takes precedence over `OTEL_RESOURCE_ATTRIBUTES`, but the git-hash fallback does not.
+        self._service_version_from_git = False
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
+                self._service_version_from_git = True
             except Exception:
                 # many things could go wrong here, e.g. git is not installed, etc.
                 # ignore them
@@ -1109,26 +1117,28 @@ class LogfireConfig(_LogfireConfigData):
                 )
                 if self.code_source.root_path:
                     otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
-            if self.service_version:
+            if self.service_version and not self._service_version_from_git:
+                # The git-hash fallback is applied lower down so it doesn't override env vars.
                 otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
             otel_resource_attributes.update(self.resource_attributes)
-            otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
-            if otel_resource_attributes_from_env:
-                for _field in otel_resource_attributes_from_env.split(','):
-                    key, value = _field.split('=', maxsplit=1)
-                    otel_resource_attributes[key.strip()] = value.strip()
             if (
                 RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL in otel_resource_attributes
                 and RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION in otel_resource_attributes
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            # Build the resource in layers of increasing precedence. `Resource.create({})` applies
-            # OTel's default attributes plus any detectors from `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`
-            # and `OTEL_RESOURCE_ATTRIBUTES`; these have the lowest precedence.
+            # Build the resource from lowest to highest precedence:
+            #   1. OTel's default attributes plus the env vars `OTEL_RESOURCE_ATTRIBUTES` and
+            #      `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` (both applied by `Resource.create`).
+            #   2. The `resource_detectors` argument.
+            #   3. Explicit `logfire.configure()` attributes (logfire's own plus `resource_attributes`).
+            # The git-hash `service.version` is only a fallback, so it sits below everything else —
+            # in particular it must not override an explicit `service.version` from `OTEL_RESOURCE_ATTRIBUTES`.
             resource = Resource.create({})
+            if self.service_version and self._service_version_from_git:
+                resource = Resource({'service.version': self.service_version}).merge(resource)
 
             if self.resource_detectors:
                 detectors = [
@@ -1139,8 +1149,9 @@ class LogfireConfig(_LogfireConfigData):
                 # `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`, but not over the explicit attributes merged below.
                 resource = resource.merge(get_aggregated_resources(detectors, Resource.get_empty()))
 
-            # Explicit attributes (logfire's own, the `resource_attributes` argument, and
-            # `OTEL_RESOURCE_ATTRIBUTES`) take precedence over everything detected above.
+            # Explicit `logfire.configure()` attributes (logfire's own plus the `resource_attributes`
+            # argument) take precedence over everything detected above, including the env vars
+            # `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
             resource = resource.merge(Resource(otel_resource_attributes))
 
             # Set service instance ID to a random UUID if it hasn't been set already.

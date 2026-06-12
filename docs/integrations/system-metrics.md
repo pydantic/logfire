@@ -57,11 +57,15 @@ logfire.configure(
 logfire.instrument_system_metrics()
 ```
 
-The `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` and `OTEL_RESOURCE_ATTRIBUTES` environment variables can be
-used in the same way, e.g. `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=os,host`. Explicitly set attributes
-always take precedence over detected ones, so the order of precedence from highest to lowest is:
-`OTEL_RESOURCE_ATTRIBUTES`, the `resource_attributes` argument, the `resource_detectors` argument, then
-`OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
+These can also be set via environment variables: `resource_attributes` via `LOGFIRE_RESOURCE_ATTRIBUTES`
+(a comma-separated `key=value` list) and `resource_detectors` via `LOGFIRE_RESOURCE_DETECTORS` (a
+comma-separated list of names). The standard OpenTelemetry `OTEL_RESOURCE_ATTRIBUTES` and
+`OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables are also honoured.
+
+Explicit `logfire.configure()` settings take precedence over detected attributes, which take precedence
+over the standard OpenTelemetry environment variables. The order of precedence from highest to lowest is:
+`resource_attributes` (and explicit `service_name`/`service_version`/`environment`), the `resource_detectors`
+argument, then the `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables.
 
 ## Configuration
 

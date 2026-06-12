@@ -919,7 +919,9 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
-                        'service.name': 'banana',
+                        # `OTEL_SERVICE_NAME` takes priority over `service.name` in `OTEL_RESOURCE_ATTRIBUTES`,
+                        # matching OpenTelemetry's own semantics.
+                        'service.name': 'potato',
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
                         'logfire.version': VERSION,
@@ -945,8 +947,8 @@ def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], expo
     assert span['resource']['attributes'] == IsPartialDict(
         {
             'host.name': 'my-host',
-            # The OTEL_RESOURCE_ATTRIBUTES environment variable takes precedence over the kwarg.
-            'custom.thing': 'from-env',
+            # The explicit `resource_attributes` kwarg takes precedence over the OTEL_RESOURCE_ATTRIBUTES env var.
+            'custom.thing': 'from-kwarg',
         }
     )
 
@@ -1025,6 +1027,72 @@ def test_resource_detectors_take_precedence_over_env_var_detectors(
     assert attributes['host.name'] == 'from-kwarg-detector'
     # The env var detector still contributes attributes that the kwarg detector doesn't override.
     assert attributes['host.arch'] == platform.machine()
+
+
+def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(
+        os.environ,
+        {
+            'LOGFIRE_RESOURCE_ATTRIBUTES': 'custom.thing=from-logfire-env,other=value',
+            'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-otel-env',
+        },
+    ):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['other'] == 'value'
+    # LOGFIRE_RESOURCE_ATTRIBUTES (a `logfire.configure()` source) takes precedence over OTEL_RESOURCE_ATTRIBUTES.
+    assert attributes['custom.thing'] == 'from-logfire-env'
+
+
+def test_resource_detectors_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'os,host'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['host.name'] == socket.gethostname()
+    assert attributes['os.type'] == platform.system().lower()
+
+
+def test_resource_attributes_and_detectors_from_pyproject_toml(
+    config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: Path
+) -> None:
+    (tmp_path / 'pyproject.toml').write_text(
+        """
+        [tool.logfire]
+        resource_attributes = {"custom.thing" = "from-file"}
+        resource_detectors = ["host"]
+        """
+    )
+
+    configure(**config_kwargs, config_dir=tmp_path)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['custom.thing'] == 'from-file'
+    assert attributes['host.name'] == socket.gethostname()
+
+
+def test_explicit_service_version_takes_precedence_over_otel_resource_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    # An explicit `service_version` beats OTEL_RESOURCE_ATTRIBUTES; the git-hash fallback does not
+    # (see `test_otel_otel_resource_attributes_env_var`).
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'service.version=from-env'}):
+        configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes']['service.version'] == 'explicit-version'
 
 
 def test_config_serializable():
