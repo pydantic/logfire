@@ -633,8 +633,8 @@ def test_messages_stream_text_block_none() -> None:
         usage=Usage(input_tokens=25, output_tokens=55),
     )
     state = AnthropicMessageStreamState()
-    state._message = message
-    state._chunk_count = 1
+    setattr(state, '_message', message)
+    setattr(state, '_chunk_count', 1)
 
     assert state.get_response_data() == snapshot({'combined_chunk_content': 'Visible text', 'chunk_count': 1})
     assert convert_response_to_semconv(message) == snapshot(
