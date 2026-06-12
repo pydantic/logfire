@@ -617,6 +617,35 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
     )
 
 
+def test_messages_stream_text_block_none() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import (
+        AnthropicMessageStreamState,
+        convert_response_to_semconv,
+    )
+
+    message = Message.model_construct(
+        id='test_id',
+        content=[TextBlock.model_construct(text=None, type='text'), TextBlock(text='Visible text', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=25, output_tokens=55),
+    )
+    state = AnthropicMessageStreamState()
+    state._message = message
+    state._chunk_count = 1
+
+    assert state.get_response_data() == snapshot({'combined_chunk_content': 'Visible text', 'chunk_count': 1})
+    assert convert_response_to_semconv(message) == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [{'citations': None, 'text': None, 'type': 'text'}, {'type': 'text', 'content': 'Visible text'}],
+            'finish_reason': 'end_turn',
+        }
+    )
+
+
 async def test_async_messages_stream(
     instrumented_async_client: anthropic.AsyncAnthropic, exporter: TestExporter
 ) -> None:
