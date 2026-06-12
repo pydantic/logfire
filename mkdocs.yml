@@ -120,6 +120,9 @@ nav:
               - Suppress Spans and Metrics: how-to-guides/suppress.md
               - OpenTelemetry Collector:
                   - Overview: how-to-guides/otel-collector/otel-collector-overview.md
+                  - Host Monitoring: how-to-guides/otel-collector/host-monitoring.md
+                  - Kubernetes Monitoring: how-to-guides/otel-collector/kubernetes-monitoring.md
+                  - Back up to AWS S3: how-to-guides/otel-collector/s3-backup.md
                   - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
           - Integrations:
               - Integrations: integrations/index.md
