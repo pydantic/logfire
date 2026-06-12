@@ -89,7 +89,18 @@ def test_get_user_token_empty_credentials(tmp_path: Path) -> None:
 
     token_collection = UserTokenCollection(empty_auth_file)
     with inline_snapshot.extra.raises(
-        snapshot('LogfireConfigError: You are not logged into Logfire. Please run `logfire auth` to authenticate.')
+        snapshot("""\
+LogfireConfigError:
+
+
+Hey, looks like you don't have Pydantic Logfire configured yet.
+
+If you're running this locally, we recommend running `uv run logfire auth`.
+
+Or you could get a write token for a specific project and set the `LOGFIRE_TOKEN` environment variable.
+
+See https://pydantic.dev/docs/logfire/get-started for more details.\
+""")
     ):
         token_collection.get_token()
 

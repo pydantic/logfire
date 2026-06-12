@@ -25,9 +25,9 @@ class ProxyTracerProvider(TracerProvider):
     """A tracer provider that wraps another internal tracer provider allowing it to be re-assigned."""
     provider: TracerProvider
     config: LogfireConfig
-    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
+    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary['_ProxyTracer', Callable[[], Tracer]])
     lock: Lock = field(default_factory=Lock)
-    suppressed_scopes: set[str] = field(default_factory=set)
+    suppressed_scopes: set[str] = field(default_factory=set[str])
     def set_provider(self, provider: SDKTracerProvider) -> None: ...
     def suppress_scopes(self, *scopes: str) -> None: ...
     def get_tracer(self, instrumenting_module_name: str, *args: Any, is_span_tracer: bool = True, **kwargs: Any) -> _ProxyTracer: ...
