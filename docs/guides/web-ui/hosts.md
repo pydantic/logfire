@@ -17,7 +17,7 @@ You'll find Hosts in the project sidebar, between **Services** and **Kubernetes*
 
 Each row is a host, with at-a-glance columns:
 
-- **Status** — live, stale or down, based on how recently the host's metrics arrived.
+- **Status** — `live` if the host emitted a sample in the last minute, `stale` between 1 and 5 minutes, `down` once it's been over 5 minutes since the last sample.
 - **OS** and architecture.
 - **CPU** with an inline sparkline.
 - **Memory** (percent or bytes depending on what the collector reports).
@@ -115,3 +115,13 @@ docker run --rm \
 ```
 
 The Hosts page populates within about a minute. To collect metrics from the host (not the container), bind-mount the host's filesystem at `/hostfs` and set `root_path: /hostfs` in the receiver block.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---------|--------------|
+| Host doesn't appear in the inventory | Metrics arrived without a `host.id` (or `host.name`). Add the `system` (and any cloud) detector to your collector's `resourcedetection` processor. |
+| Same physical host shows up twice | Two sources are reporting different `host.id` values — for example the SDK reports the container ID while the Collector reports the machine ID. Pick one source per host, or set `host.id` explicitly. |
+| Every replica of a containerised collector appears as one fake host | `host.id` is being read from inside the container (so every replica reports the same value). Bind-mount the host's filesystem and set `root_path: /hostfs` so `resourcedetection`'s `system` detector reads the real machine ID. |
+| All hosts went `stale` at the same moment | The collector restarted, or a network blip is blocking exports. The page is just a window on what arrived — confirm with the collector's own logs. |
+| Kubernetes node appears as both a host *and* a node, but with different names | `host.name` does not match `k8s.node.name`. Set both from the downward API (`spec.nodeName`) so they dedup correctly. See [Hosts that are Kubernetes nodes](#hosts-that-are-kubernetes-nodes). |

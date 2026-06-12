@@ -134,3 +134,18 @@ openai.OpenAI().chat.completions.create(
 ```
 
 Refresh the LLMs page — a row for `gpt-4o-mini` (provider `openai`) should appear within a minute. For other instrumentations, the [LLM Panels guide](llm-panels.md#supported-instrumentations) has the per-provider list.
+
+## Slicing by environment, agent or user
+
+The inventory groups rows by `(provider, model)`. Beyond the text search at the top, there are no dropdowns for filtering by environment, agent or user *on this page yet*. For per-environment, per-agent, per-user, per-feature or per-tenant breakdowns, query the `records` table directly in the [SQL Explorer](explore.md) — every GenAI span carries the `gen_ai.*` attributes alongside `deployment.environment.name` and any custom resource attributes you've set, so you can slice cost, latency or token usage by whatever dimension matters.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---------|--------------|
+| Model row is missing | The span has no provider attribute (`gen_ai.system` or `gen_ai.provider.name`) and no `gen_ai.request.model`. Use one of the [supported instrumentations](#supported-instrumentations), or set the attributes manually if you're rolling your own. |
+| Row shows under `(unknown)` provider | The provider attribute is missing while `gen_ai.request.model` is set. The page falls back to `(unknown)` rather than dropping the call. |
+| Tokens or Cost columns are 0 | Streaming is closing the span on the first chunk, so the final `gen_ai.usage.{input,output}_tokens` attributes never land on the span. See [Streaming gotchas](#streaming-gotchas). |
+| Truncated rate is 0% even though responses are being cut off | Missing `gen_ai.response.finish_reasons` array on the span (or the legacy singular `gen_ai.response.finish_reason` is being emitted — the LLMs page reads the plural form). |
+| Tool-call rate is 0% on a model you know calls tools | Instrumentation isn't recording tool-call attributes on the LLM span. The [supported instrumentations](#supported-instrumentations) all do this; custom ones may not. |
+| Average per-model latency dropped after enabling the Collector | The Collector is tail-sampling out non-error spans, so the page is averaging only the errored calls. Either disable tail sampling or sample independently of the `gen_ai.*` pipeline. |

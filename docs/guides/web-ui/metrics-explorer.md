@@ -34,7 +34,17 @@ Each card has:
 - **View SQL** — opens a dialog with the exact SQL that produced the chart. Copy it for a dashboard, or send it to a teammate.
 - **Open in Explore** — drops you into the [SQL Explorer](explore.md) with that query already populated, so you can extend it.
 
-Aggregations default sensibly by metric kind — averages for gauges, sums for sum-typed metrics, with the rest available from the dropdown.
+Aggregations default sensibly by metric kind, with the rest available from the dropdown:
+
+| Metric kind | Default aggregation | Available in the dropdown |
+|-------------|---------------------|---------------------------|
+| Gauge | `avg` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
+| Sum (counter) | `sum` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
+| Histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
+| Exponential histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
+
+!!! note "Percentiles on histograms"
+    The wizard does not expose `p50`/`p95`/`p99` directly on histogram-typed metrics today — pre-aggregated histograms (e.g. `http.server.request.duration` from OTel SDK instrumentations) report `avg`, `min`, `max`, `count` and `sum` in the wizard. For percentiles over a histogram, switch to the [SQL Explorer](explore.md) and use the histogram bucket columns; the **Open in Explore** button on every card hands you a query you can extend.
 
 ## When the wizard isn't enough
 
@@ -80,3 +90,13 @@ logfire.metric_counter('hello.requests').add(1)
 ```
 
 Refresh the Metrics view — `hello` appears in **Recently active** and as its own namespace (the name has a dot). The full Python SDK metric API is in [Add Metrics](../onboarding-checklist/add-metrics.md).
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---------|--------------|
+| Metric appears in the catalog but the chart is empty | The metric stopped reporting within the current window — the wizard hides metrics with no recent data, but the catalog entry remains. Widen the time picker. |
+| Custom metric lands in **Everything else** instead of its own namespace | The metric name has no dot (e.g. `requests_total` instead of `app.requests.total`). The grouping is structural — give the name a dotted prefix to create a namespace. |
+| Step 1 shows no namespaces at all | The project hasn't received any metric samples yet. The wizard reads from `metrics`-table data; if you're sending only spans, no namespaces will appear here. |
+| Two metric sources show up under `system.*` with overlapping series | The SDK's [system-metrics integration](../../integrations/system-metrics.md) and an OpenTelemetry Collector running `hostmetricsreceiver` are both running on the same host. See the [double-counting note](#how-the-data-flows-in). |
+| Promoting a dimension shows fewer series than the cardinality card claimed | The chart truncates after a fixed number of series. For full breakdowns of a high-cardinality dimension, jump into the [SQL Explorer](explore.md) via the **Open in Explore** button on the card. |

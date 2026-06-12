@@ -28,7 +28,7 @@ Below the cards, six tabs let you browse by level:
 | **Clusters** | One row per cluster, with pod / namespace / node counts and total restarts in the window. |
 | **Nodes** | One row per node, with cluster, CPU + sparkline, memory, ready status, and pod count. |
 | **Namespaces** | Pod count, CPU and memory usage, restart count. |
-| **Workloads** | Workload name and kind, namespace, desired vs ready replicas, CPU, memory, restarts. |
+| **Workloads** | Workload name and kind, namespace, cluster, pod count, available-vs-desired replicas, restarts. |
 | **Pods** | Status pill (Running / Pending / Failed / Succeeded / Unknown), restart count, CPU, memory, ready state. |
 | **Images** | Container image digest, the workloads using it, and total deployed size. |
 
@@ -96,3 +96,17 @@ Data starts flowing within a minute or two of the daemon pods reaching `Ready`. 
 For the full per-piece breakdown (RBAC, both collector configs, the `k8sattributes` processor's pod_association chain, and a kind walkthrough), see the [Kubernetes monitoring](../../how-to-guides/otel-collector/kubernetes-monitoring.md) how-to-guide. For an end-to-end article including a real application sending traces and unified dashboards, see [Full-stack Kubernetes observability with Logfire](https://pydantic.dev/articles/kubernetes-cluster-observability-logfire).
 
 If you have not set anything up yet, the empty state on each tab has a **Set up** button that deep-links to the relevant page of the add-data wizard.
+
+## Where Kubernetes events surface today
+
+The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, OOMKills, image pull failures, deployment progress) into log records via the `k8sobjects` receiver and ships them to your project. There is no dedicated **Events** tab in the Kubernetes view yet — to read them, open the [Live View](live.md) and filter on the relevant pod, namespace or `k8s.*` attribute, or query the `records` table directly in the [SQL Explorer](explore.md). Watch this space — an events feed in the Kubernetes view is in our backlog.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---------|--------------|
+| Clusters tab is empty or shows `pods: 0` | The cluster-scope collector (or the chart's `clusterMetrics` preset) is not running, or `k8s_cluster` is missing from the metrics pipeline. |
+| Nodes tab CPU and memory columns are blank | `kubeletstats` is running with the default `metric_groups: [container, pod]`. Add `node` to the list (the chart preset includes it by default). |
+| Pod row has no traces to drill into | The `k8sattributes` processor is not on the trace pipeline, so spans never get `k8s.pod.name` etc. attached. The chart wires this in by default; if you assembled the setup by hand, see [Kubernetes monitoring](../../how-to-guides/otel-collector/kubernetes-monitoring.md#what-k8sattributesprocessor-actually-does). |
+| Cluster metrics appear duplicated across nodes | `k8s_cluster` is running on every replica without `k8s_leader_elector`. The chart configures the elector; from-scratch setups must add it. |
+| Two clusters collide as one row in the **Clusters** tab | Both clusters report the same `k8s.cluster.name`. Set a unique `clusterName` on each via the chart's top-level `clusterName:` value or the `resource/cluster` processor in a hand-rolled setup. |

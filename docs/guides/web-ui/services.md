@@ -83,3 +83,13 @@ python -c "import logfire; logfire.configure(); logfire.info('hi')"
 ```
 
 Refresh the Services page — `cart` should appear within a minute or two. For broader instrumentation paths (FastAPI, Django, gRPC, OTel Collector), see the [Onboarding Checklist](../onboarding-checklist/integrate.md).
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---------|--------------|
+| Service doesn't appear in the inventory | No `service.name` resource attribute on the spans, or the project hasn't received any span yet. Both the Python and TypeScript SDKs set `service.name` for you; if you send raw OTLP, set it explicitly. |
+| The row shows under `(unknown)` | Same as above — `service.name` is the row key. |
+| One service appears as two rows | `service.name` differs across replicas (e.g. one carries a hostname suffix). Pin it via `OTEL_SERVICE_NAME` or the SDK's `service_name` argument so every replica reports the same string. |
+| An edge between two services is missing from the topology | Either no span actually crossed that service boundary in the window, or tail sampling dropped the spans that did. The graph reads from real cross-boundary spans, not from a configured topology. |
+| Counts are way lower than expected | Head or tail sampling is dropping spans before they reach Logfire. RED metrics on this page count what arrived, not what was emitted. |
