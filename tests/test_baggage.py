@@ -157,6 +157,42 @@ def _get_simplified_spans(exporter: TestExporter) -> list[dict[str, Any]]:
     ]
 
 
+def test_variables_baggage_derives_variables_used_attribute(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    with logfire.set_baggage(
+        **{
+            # Deliberately unsorted to check the derived array is sorted.
+            'logfire.variables.var_b': 'production',
+            # `.version` companion entries are not variables and must be excluded.
+            'logfire.variables.var_b.version': '3',
+            'logfire.variables.var_a': '<code_default>',
+            'unrelated': 'x',
+        }
+    ):
+        with logfire.span('span'):
+            pass
+
+    [span] = [s for s in exporter.exported_spans_as_dict() if s['attributes']['logfire.span_type'] == 'span']
+    attrs = span['attributes']
+    assert list(attrs['logfire.variables_used']) == ['var_a', 'var_b']
+    # The per-variable entries are still copied through as usual.
+    assert attrs['logfire.variables.var_a'] == '<code_default>'
+    assert attrs['logfire.variables.var_b'] == 'production'
+    assert attrs['logfire.variables.var_b.version'] == '3'
+
+
+def test_no_variables_baggage_no_variables_used_attribute(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+    with logfire.set_baggage(a='1'):
+        with logfire.span('span'):
+            pass
+
+    [span] = [s for s in exporter.exported_spans_as_dict() if s['attributes']['logfire.span_type'] == 'span']
+    assert 'logfire.variables_used' not in span['attributes']
+
+
 def test_baggage_scrubbed(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['add_baggage_to_attributes'] = True
     logfire.configure(**config_kwargs)

@@ -698,6 +698,31 @@ class TestResolvedVariable:
         baggage_after = logfire.get_baggage()
         assert 'logfire.variables.context_test_var' not in baggage_after
 
+    def test_context_manager_sets_variables_used_span_attribute(
+        self, config_kwargs: dict[str, Any], exporter: TestExporter
+    ):
+        config_kwargs['add_baggage_to_attributes'] = True
+        lf = logfire.configure(**config_kwargs)
+
+        var_b = lf.var(name='used_var_b', default='default', type=str)
+        var_a = lf.var(name='used_var_a', default='default', type=str)
+
+        with var_b.get(), var_a.get():
+            with lf.span('inside'):
+                pass
+        with lf.span('outside'):
+            pass
+
+        spans = {s['name']: s for s in exporter.exported_spans_as_dict()}
+        inside_attrs = spans['inside']['attributes']
+        # Per-variable keys are still present, and the names are aggregated
+        # (sorted) into the array-valued `logfire.variables_used` attribute.
+        assert inside_attrs['logfire.variables.used_var_a'] == '<code_default>'
+        assert inside_attrs['logfire.variables.used_var_b'] == '<code_default>'
+        assert list(inside_attrs['logfire.variables_used']) == ['used_var_a', 'used_var_b']
+        # Spans outside any variable resolution context don't get the attribute.
+        assert 'logfire.variables_used' not in spans['outside']['attributes']
+
     def test_context_manager_sets_label_in_baggage(self, config_kwargs: dict[str, Any]):
         variables_config = VariablesConfig(
             variables={
