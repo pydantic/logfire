@@ -59,7 +59,7 @@ exporter = OTLPSpanExporter(
 
 ## Example with NodeJS
 
-> See also our [JS/TS SDK](https://github.com/pydantic/logfire-js) which supports many JS environments, including NodeJS, web browsers, and Cloudflare Workers.
+> See also our [JS/TS SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) which supports many JS environments, including NodeJS, web browsers, and Cloudflare Workers.
 
 Create a `main.js` file containing the following:
 

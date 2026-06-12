@@ -49,6 +49,7 @@ DEFAULT_PATTERNS = [
     'social[._ -]?security',
     'credit[._ -]?card',
     'logfire[._ -]?token',
+    r'pylf_v\d+_',
     *[
         # Require these to be surrounded by word boundaries or underscores,
         # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
@@ -140,6 +141,7 @@ class BaseScrubber(ABC):
         'http.target',
         'http.route',
         'db.statement',
+        'db.query.text',
         'db.plan',
         'fastapi.route.name',
         'fastapi.route.operation_id',

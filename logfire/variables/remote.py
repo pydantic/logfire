@@ -74,6 +74,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
         block_before_first_resolve = options.block_before_first_resolve
         polling_interval = options.polling_interval
 
+        # NB: endpoints are joined with absolute paths (urljoin(base_url, '/v1/...')), so any path
+        # prefix on base_url is discarded — base_url must be an origin (scheme://host[:port]) with no
+        # path component. This holds for the standard regional URLs; path-prefixed reverse-proxy
+        # deployments would need relative joins instead.
         self._base_url = base_url
         self._token = token
         self._server_response_hook = server_response_hook
@@ -113,13 +117,19 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._pid = os.getpid()
 
     def _at_fork_reinit(self):  # pragma: no cover
+        was_shutdown = self._shutdown
+        if not was_shutdown:
+            # Reset shutdown-timeout state only for active providers. If shutdown()
+            # ran before the fork, keep `_shutdown=True` so the child does not
+            # restart worker/SSE threads using a session the parent already closed.
+            self._shutdown_timeout_exceeded = False
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
         self._session_lock = threading.Lock()
         self._worker_awaken = threading.Event()
         self._force_refresh_event = threading.Event()
         # Only restart threads if we were started before the fork
-        if self._started:
+        if self._started and not was_shutdown:
             self._worker_thread = threading.Thread(
                 name='LogfireRemoteProvider',
                 target=self._worker,
@@ -219,9 +229,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
                         continue
 
-                    # Connected successfully, reset delay
+                    # Connection opened. Do NOT reset the backoff here: a connection that returns
+                    # 200 but then immediately closes would otherwise reset the delay every loop and
+                    # reconnect in a tight busy loop. The delay is reset only once we actually
+                    # receive data (below), which proves the stream is healthy.
                     self._sse_connected = True
-                    reconnect_delay = 1.0
 
                     # Process SSE events
                     for line in response.iter_lines(decode_unicode=True):
@@ -237,6 +249,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
+                            reconnect_delay = 1.0
                             data_str = line[5:].strip()
                             try:
                                 event_data = json.loads(data_str)
@@ -249,6 +262,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
                             except (json.JSONDecodeError, TypeError):
                                 # Invalid JSON, ignore
                                 pass
+
+                # The stream ended cleanly (e.g. a proxy/load-balancer max-lifetime close). Back off
+                # before reconnecting rather than immediately reopening in a tight loop.
+                self._sse_connected = False
+                if not self._shutdown:
+                    self._wait_for_reconnect(reconnect_delay)
+                    reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
 
             except Exception:
                 # Connection error, will retry
@@ -295,10 +315,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             force: If True, fetch configuration even if the polling interval hasn't elapsed.
         """
-        if self._refresh_lock.locked():  # pragma: no cover
-            # If we're already fetching, we'll get a new value, so no need to force
-            force = False
-
+        # Note: we intentionally do NOT downgrade `force` to False when a refresh is already in
+        # flight. An in-flight fetch may have *started before* a just-committed write (create/update/
+        # delete each call refresh(force=True) afterwards), so reusing its result could leave a stale
+        # cache until the next poll. A forced call instead waits for the lock and then fetches fresh,
+        # guaranteeing read-after-write at the cost of at most one extra request.
         # Note: Eventually we may want to rework the client and server implementations to use a NotModifiedResponse
         #  to reduce the amount of overhead from polling. We could also use a websocket/SSE to get real time updates
         #  when the user makes changes.
@@ -320,6 +341,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
             except Exception as e:
                 # Catch all request/HTTP/JSON exceptions (ConnectionError, Timeout, UnexpectedResponse,
                 # JSONDecodeError, etc.) to prevent crashing the user's application on failures.
+                # Mark that we've attempted a fetch even on failure: otherwise `_has_attempted_fetch`
+                # stays False and every `get_serialized_value` call blocks on a fresh `refresh()`
+                # (when `block_before_first_resolve` is set) while the server is unreachable, despite
+                # the background worker already polling.
+                self._has_attempted_fetch = True
                 self._log_error('Error retrieving variables', e)
                 return
 
@@ -356,7 +382,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             self.refresh()
 
         if self._config is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='missing_config')
+            return ResolvedVariable(name=variable_name, value=None, reason='missing_config')
 
         return self._config.resolve_serialized_value(variable_name, targeting_key, attributes)
 
@@ -554,6 +580,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if config.example is not None:
             body['example'] = config.example
 
+        if config.template_inputs_schema is not None:
+            body['template_inputs_schema'] = config.template_inputs_schema
+
         # Include labels if present
         if config.labels:
             body['labels'] = {
@@ -621,7 +650,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'), timeout=self._timeout)
                 UnexpectedResponse.raise_for_status(response)
                 types_data = response.json()
-        except UnexpectedResponse as e:
+        except (UnexpectedResponse, RequestException) as e:
+            # Match create/update/delete: surface network/HTTP/JSON failures as the documented
+            # VariableWriteError rather than leaking raw requests exceptions (ConnectionError,
+            # Timeout, JSONDecodeError on response.json(), ...).
             raise VariableWriteError(f'Failed to list variable types: {e}') from e
         result: dict[str, VariableTypeConfig] = {}
         for type_data in types_data:
@@ -664,7 +696,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     urljoin(self._base_url, '/v1/variable-types/'), json=body, timeout=self._timeout
                 )
                 UnexpectedResponse.raise_for_status(response)
-        except UnexpectedResponse as e:
+        except (UnexpectedResponse, RequestException) as e:
+            # Match create/update/delete: surface network/HTTP failures as VariableWriteError
+            # rather than leaking raw requests exceptions.
             raise VariableWriteError(f'Failed to upsert variable type: {e}') from e
 
         return config

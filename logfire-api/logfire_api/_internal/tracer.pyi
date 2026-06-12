@@ -25,9 +25,9 @@ class ProxyTracerProvider(TracerProvider):
     """A tracer provider that wraps another internal tracer provider allowing it to be re-assigned."""
     provider: TracerProvider
     config: LogfireConfig
-    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
+    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary['_ProxyTracer', Callable[[], Tracer]])
     lock: Lock = field(default_factory=Lock)
-    suppressed_scopes: set[str] = field(default_factory=set)
+    suppressed_scopes: set[str] = field(default_factory=set[str])
     def set_provider(self, provider: SDKTracerProvider) -> None: ...
     def suppress_scopes(self, *scopes: str) -> None: ...
     def get_tracer(self, instrumenting_module_name: str, *args: Any, is_span_tracer: bool = True, **kwargs: Any) -> _ProxyTracer: ...
@@ -113,4 +113,7 @@ def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float 
 @handle_internal_errors
 def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False, callback: ExceptionCallback | None = None) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
+
+original_format_exception: Incomplete
+
 def set_exception_status(span: trace_api.Span, exception: BaseException): ...

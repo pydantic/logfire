@@ -3,11 +3,25 @@ import path from 'path'
 import assert from 'assert'
 import {loadPyodide} from 'pyodide'
 
+const stdout = []
+const stderr = []
+
+function dumpCapturedOutput() {
+    console.error('captured stdout:', stdout.join(''))
+    console.error('captured stderr:', stderr.join(''))
+}
+
+function fail(error) {
+    dumpCapturedOutput()
+    console.error(error)
+    process.exitCode = 1
+}
+
+process.on('uncaughtException', fail)
+process.on('unhandledRejection', fail)
 
 async function runTest() {
     const wheelPath = await findWheel(path.join(path.resolve(import.meta.dirname, '..'), 'dist'));
-    const stdout = []
-    const stderr = []
     const pyodide = await loadPyodide({
 
         stdout: (msg) => {
@@ -54,4 +68,4 @@ async function findWheel(dist_dir) {
     }
 }
 
-runTest()
+runTest().catch(fail)

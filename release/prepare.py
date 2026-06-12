@@ -74,7 +74,8 @@ def update_history(new_version: str, notes: str) -> None:
         sys.exit(1)
 
     new_chunk = f'{title}\n\n{notes}\n\n'
-    updated_content = re.sub(r'(# Release Notes\n\n)', rf'\1{new_chunk}', history_content)
+    marker = '# Release Notes\n\n'
+    updated_content = history_content.replace(marker, marker + new_chunk, 1)
     history_path.write_text(updated_content)
 
     last_tag = get_last_tag()

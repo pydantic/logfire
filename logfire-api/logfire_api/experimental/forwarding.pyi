@@ -1,7 +1,8 @@
 import logfire
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from starlette.requests import Request
+from starlette.responses import Response
 
 __all__ = ['ForwardExportRequestResponse', 'forward_export_request', 'logfire_proxy']
 
@@ -12,31 +13,13 @@ class ForwardExportRequestResponse:
     headers: Mapping[str, str]
     content: bytes
 
-def forward_export_request(*, path: str, headers: Mapping[str, str], body: bytes | None, logfire_instance: logfire.Logfire | None = None) -> ForwardExportRequestResponse:
+def forward_export_request(*, path: str, headers: Mapping[str, str], body: bytes, logfire_instance: logfire.Logfire | None = None, max_body_size: int = ...) -> ForwardExportRequestResponse:
     """Forward an export request to the Logfire API.
 
-    Note: If the provided logfire instance is configured with multiple tokens,
-    only the first token will be used for the proxy request.
+    See the Logfire.forward_export_request method for more details.
     """
-async def logfire_proxy(request: Any, *, logfire_instance: logfire.Logfire | None = None, max_body_size: int = ...) -> Any:
+async def logfire_proxy(request: Request, *, logfire_instance: logfire.Logfire | None = None, max_body_size: int = ...) -> Response:
     """A Starlette/FastAPI handler to proxy requests to Logfire.
 
-    This is useful for proxying requests from a browser to Logfire,
-    to avoid exposing your write token in the browser.
-
-    Note: If the provided logfire instance is configured with multiple tokens,
-    only the first token will be used for the proxy request.
-
-    **Security Note**: This endpoint is unauthenticated unless you protect it.
-    Any client capable of reaching this endpoint can send telemetry data to your Logfire project.
-    In production, ensure you have appropriate protections in place (e.g. CORS policies,
-    rate limiting, or upstream authentication/dependency injection).
-
-    Args:
-        request: The Starlette/FastAPI Request object.
-        logfire_instance: The Logfire instance to use. If not provided, the default instance is used.
-        max_body_size: The maximum allowed request body size in bytes. Defaults to 50MB.
-
-    Returns:
-        A Starlette/FastAPI Response object.
+    See the Logfire.forward_export_request_starlette method for more details.
     """

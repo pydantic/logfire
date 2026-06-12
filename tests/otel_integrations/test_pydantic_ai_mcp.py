@@ -3,7 +3,6 @@
 
 import asyncio
 import os
-import sys
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -28,7 +27,6 @@ except Exception:
 
 
 pytestmark = [
-    pytest.mark.skipif(sys.version_info < (3, 10), reason='MCP requires Python 3.10 or higher'),
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
     ),
@@ -65,7 +63,7 @@ async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
             async def client_streams(self):
                 yield client_streams
 
-        agent = Agent('openai:gpt-4o', toolsets=[MyMCPServer()])
+        agent = Agent('openai-chat:gpt-4o', toolsets=[MyMCPServer()])
         async with agent:
             agent.set_mcp_sampling_model()
             result = await agent.run('tell a joke about socks')

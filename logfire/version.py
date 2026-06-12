@@ -1,5 +1,5 @@
 """Version information for logfire package."""
 
-import importlib_metadata
+from importlib.metadata import version
 
-VERSION = importlib_metadata.version('logfire')
+VERSION = version('logfire')
