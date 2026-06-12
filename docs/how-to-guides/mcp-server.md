@@ -188,7 +188,6 @@ The table below lists the full tool set for the `/mcp` endpoint.
 
 !!! note
     The tools visible to a given client depend on the token scopes granted to that client.
-    If `/mcp/codemod` is enabled, that endpoint also provides `exec` and `help` tools.
 
 | Tool family | What it does | Common tool names |
 | --- | --- | --- |
