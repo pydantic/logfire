@@ -10,7 +10,7 @@ import sys
 import time
 import warnings
 import weakref
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -38,7 +38,6 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
-    OTEL_RESOURCE_ATTRIBUTES,
 )
 from opentelemetry.sdk.metrics import (
     Counter,
@@ -51,7 +50,7 @@ from opentelemetry.sdk.metrics import (
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -464,6 +463,8 @@ def configure(
     service_name: str | None = None,
     service_version: str | None = None,
     environment: str | None = None,
+    resource_attributes: Mapping[str, Any] | None = None,
+    resource_detectors: Sequence[ResourceDetector | str] | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
@@ -512,6 +513,30 @@ def configure(
             resource attribute. Useful for filtering within projects in the Logfire UI.
 
             Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
+
+        resource_attributes: Additional
+            [resource attributes](https://opentelemetry.io/docs/concepts/resources/) to include on all telemetry,
+            e.g. `{'host.name': 'my-host'}`. These take precedence over attributes produced by `resource_detectors`
+            and over the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+
+            Defaults to the `LOGFIRE_RESOURCE_ATTRIBUTES` environment variable (a comma-separated `key=value` list).
+
+        resource_detectors: OpenTelemetry resource detectors to run when building the resource.
+
+            Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
+            `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
+            `'os'`, `'host'`, and `'process'`, and other packages can register additional detectors. The special
+            name `'*'` runs every registered detector.
+
+            For example, `resource_detectors=['process']` adds process attributes such as `process.command` and
+            `process.owner`. An unknown name (or a detector that fails to load) emits a warning and is skipped
+            rather than raising, so a typo can't crash the application.
+
+            Attributes set explicitly via `logfire.configure()` (e.g. `service_name`, `service_version`,
+            `resource_attributes`) take precedence over these detectors, which in turn take precedence over the
+            `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables.
+
+            Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
 
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, include_tags=True, verbose=False)`.
@@ -673,6 +698,8 @@ def configure(
             service_name=service_name,
             service_version=service_version,
             environment=environment,
+            resource_attributes=resource_attributes,
+            resource_detectors=resource_detectors,
             console=console,
             metrics=metrics,
             config_dir=Path(config_dir) if config_dir else None,
@@ -738,6 +765,12 @@ class _LogfireConfigData:
     environment: str | None
     """The environment this service is running in."""
 
+    resource_attributes: Mapping[str, Any]
+    """Additional resource attributes to include on all telemetry."""
+
+    resource_detectors: Sequence[ResourceDetector | str]
+    """OpenTelemetry resource detectors (instances or entry point names) to run when building the resource."""
+
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output."""
 
@@ -785,6 +818,8 @@ class _LogfireConfigData:
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
+        resource_attributes: Mapping[str, Any] | None,
+        resource_detectors: Sequence[ResourceDetector | str] | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -810,6 +845,13 @@ class _LogfireConfigData:
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
+        self.resource_attributes = dict(param_manager.load_param('resource_attributes', resource_attributes) or {})
+        resource_detectors = param_manager.load_param('resource_detectors', resource_detectors)
+        if isinstance(resource_detectors, str):
+            # A bare string satisfies `Sequence[str]` statically but would be iterated character by
+            # character, so coerce e.g. `resource_detectors='host'` to `['host']`.
+            resource_detectors = [resource_detectors]
+        self.resource_detectors = list(resource_detectors or ())
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
@@ -904,9 +946,13 @@ class _LogfireConfigData:
             metrics = MetricsOptions()
         self.metrics = metrics
 
+        # Whether `service_version` was auto-detected from git rather than set explicitly. An explicit
+        # version takes precedence over `OTEL_RESOURCE_ATTRIBUTES`, but the git-hash fallback does not.
+        self._service_version_from_git = False
         if self.service_version is None:
             try:
                 self.service_version = get_git_revision_hash()
+                self._service_version_from_git = True
             except Exception:
                 # many things could go wrong here, e.g. git is not installed, etc.
                 # ignore them
@@ -922,6 +968,8 @@ class LogfireConfig(_LogfireConfigData):
         service_name: str | None = None,
         service_version: str | None = None,
         environment: str | None = None,
+        resource_attributes: Mapping[str, Any] | None = None,
+        resource_detectors: Sequence[ResourceDetector | str] | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
@@ -952,6 +1000,8 @@ class LogfireConfig(_LogfireConfigData):
             service_name=service_name,
             service_version=service_version,
             environment=environment,
+            resource_attributes=resource_attributes,
+            resource_detectors=resource_detectors,
             console=console,
             config_dir=config_dir,
             data_dir=data_dir,
@@ -989,6 +1039,8 @@ class LogfireConfig(_LogfireConfigData):
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
+        resource_attributes: Mapping[str, Any] | None,
+        resource_detectors: Sequence[ResourceDetector | str] | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -1013,6 +1065,8 @@ class LogfireConfig(_LogfireConfigData):
                 service_name,
                 service_version,
                 environment,
+                resource_attributes,
+                resource_detectors,
                 console,
                 config_dir,
                 data_dir,
@@ -1045,13 +1099,15 @@ class LogfireConfig(_LogfireConfigData):
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
                 RESOURCE_ATTRIBUTES_VERSION: VERSION,
-                'service.name': self.service_name,
                 'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
                 'process.runtime.name': sys.implementation.name,
                 'process.runtime.version': get_runtime_version(),
                 'process.runtime.description': sys.version,
             }
+            if self.service_name:
+                # When unset, `Resource.create` below applies its own `unknown_service` default.
+                otel_resource_attributes['service.name'] = self.service_name
             if self.code_source:
                 otel_resource_attributes.update(
                     {
@@ -1061,22 +1117,40 @@ class LogfireConfig(_LogfireConfigData):
                 )
                 if self.code_source.root_path:
                     otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
-            if self.service_version:
+            if self.service_version and not self._service_version_from_git:
+                # The git-hash fallback is applied lower down so it doesn't override env vars.
                 otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
-            otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
-            if otel_resource_attributes_from_env:
-                for _field in otel_resource_attributes_from_env.split(','):
-                    key, value = _field.split('=', maxsplit=1)
-                    otel_resource_attributes[key.strip()] = value.strip()
+            otel_resource_attributes.update(self.resource_attributes)
             if (
                 RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL in otel_resource_attributes
                 and RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION in otel_resource_attributes
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            resource = Resource.create(otel_resource_attributes)
+            # Build the resource from lowest to highest precedence:
+            #   1. OTel's default attributes plus the env vars `OTEL_RESOURCE_ATTRIBUTES` and
+            #      `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` (both applied by `Resource.create`).
+            #   2. The `resource_detectors` argument.
+            #   3. Explicit `logfire.configure()` attributes (logfire's own plus `resource_attributes`).
+            # The git-hash `service.version` is only a fallback, so it sits below everything else —
+            # in particular it must not override an explicit `service.version` from `OTEL_RESOURCE_ATTRIBUTES`.
+            resource = Resource.create({})
+            if self.service_version and self._service_version_from_git:
+                resource = Resource({'service.version': self.service_version}).merge(resource)
+
+            if self.resource_detectors:
+                detectors = _load_resource_detectors(self.resource_detectors)
+                if detectors:
+                    # Detectors passed explicitly via `resource_detectors` take precedence over those from
+                    # `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`, but not over the explicit attributes merged below.
+                    resource = resource.merge(get_aggregated_resources(detectors, Resource.get_empty()))
+
+            # Explicit `logfire.configure()` attributes (logfire's own plus the `resource_attributes`
+            # argument) take precedence over everything detected above, including the env vars
+            # `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
+            resource = resource.merge(Resource(otel_resource_attributes))
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
@@ -1699,6 +1773,8 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
                 'service_name': bool(config.service_name),
                 'service_version': bool(config.service_version),
                 'environment': bool(config.environment),
+                'resource_attributes': len(config.resource_attributes),
+                'resource_detectors': len(config.resource_detectors),
                 'additional_span_processors': len(config.additional_span_processors or ()),
             },
             ATTRIBUTES_PACKAGE_VERSIONS: collect_package_info(),
@@ -2138,6 +2214,52 @@ def default_project_name():
     return sanitize_project_name(os.path.basename(os.getcwd()))
 
 
+def _load_resource_detectors(detectors: Sequence[ResourceDetector | str]) -> list[ResourceDetector]:
+    """Load resource detectors from a mix of `ResourceDetector` instances and entry-point names.
+
+    Names are looked up in the `opentelemetry_resource_detector` entry point group — the same group used by the
+    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable. The special name `'*'` expands to every
+    registered detector except `'otel'` (whose `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME` handling is already
+    applied by `Resource.create`), matching the env var.
+
+    Unknown names, or detectors that fail to load, emit a warning and are skipped rather than raising, so that a
+    typo can never crash the application — matching OpenTelemetry's tolerant handling of the env var.
+    """
+    from importlib.metadata import entry_points
+
+    result: list[ResourceDetector] = []
+    for detector in detectors:
+        if isinstance(detector, ResourceDetector):
+            result.append(detector)
+            continue
+        name = detector.strip()
+        if name == '*':
+            for entry_point in entry_points(group='opentelemetry_resource_detector'):
+                if entry_point.name != 'otel':
+                    _load_resource_detector_entry_point(entry_point, result)
+            continue
+        matching = list(entry_points(group='opentelemetry_resource_detector', name=name))
+        if not matching:
+            warn_at_user_stacklevel(
+                f'Skipping unknown resource detector {name!r}: it is not registered in the '
+                '`opentelemetry_resource_detector` entry point group.',
+                category=LogfireConfigWarning,
+            )
+            continue
+        _load_resource_detector_entry_point(matching[0], result)
+    return result
+
+
+def _load_resource_detector_entry_point(entry_point: Any, result: list[ResourceDetector]) -> None:
+    try:
+        result.append(entry_point.load()())
+    except Exception as exc:  # pragma: no cover
+        warn_at_user_stacklevel(
+            f'Failed to load resource detector {entry_point.name!r}: {exc}',
+            category=LogfireConfigWarning,
+        )
+
+
 def get_runtime_version() -> str:
     version_info = sys.implementation.version
     if version_info.releaselevel == 'final' and not version_info.serial:
@@ -2147,3 +2269,7 @@ def get_runtime_version() -> str:
 
 class LogfireNotConfiguredWarning(UserWarning):
     pass
+
+
+class LogfireConfigWarning(UserWarning):
+    """Warning emitted for non-fatal configuration problems, e.g. an unknown resource detector name."""

@@ -23,6 +23,53 @@ logfire.instrument_system_metrics()
 
 Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard', and select 'Basic System Metrics (Logfire)' from the dropdown.
 
+## Resource attributes
+
+By default, the metrics produced by `instrument_system_metrics` don't say much about the machine or process
+they come from. You can attach extra [resource attributes](https://opentelemetry.io/docs/concepts/resources/)
+to all telemetry by passing resource detectors to [`logfire.configure()`][logfire.configure]:
+
+```py
+import logfire
+
+logfire.configure(resource_detectors=['process'])
+
+logfire.instrument_system_metrics()
+```
+
+This uses the `process` detector provided by the OpenTelemetry SDK to set attributes such as `process.command`,
+`process.command_args`, and `process.owner`. The SDK also provides the `os` and `host` detectors — the latter
+sets `host.name`, which the Logfire UI uses to associate telemetry with a host in the Hosts view — and the
+special name `'*'` runs every registered detector. An unknown detector name emits a warning and is skipped
+rather than raising.
+
+To set attribute values yourself, or to add custom attributes, use the `resource_attributes` argument, which
+takes precedence over detectors:
+
+```py
+import logfire
+
+logfire.configure(
+    resource_detectors=['process'],
+    resource_attributes={
+        'host.name': 'my-meaningful-host-name',
+        'datacenter.region': 'eu-west-1',
+    },
+)
+
+logfire.instrument_system_metrics()
+```
+
+These can also be set via environment variables: `resource_attributes` via `LOGFIRE_RESOURCE_ATTRIBUTES`
+(a comma-separated `key=value` list) and `resource_detectors` via `LOGFIRE_RESOURCE_DETECTORS` (a
+comma-separated list of names). The standard OpenTelemetry `OTEL_RESOURCE_ATTRIBUTES` and
+`OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables are also honoured.
+
+Explicit `logfire.configure()` settings take precedence over detected attributes, which take precedence
+over the standard OpenTelemetry environment variables. The order of precedence from highest to lowest is:
+`resource_attributes` (and explicit `service_name`/`service_version`/`environment`), the `resource_detectors`
+argument, then the `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables.
+
 ## Configuration
 
 By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics (Logfire)' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:

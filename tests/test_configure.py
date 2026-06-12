@@ -4,6 +4,8 @@ import dataclasses
 import json
 import os
 import pickle
+import platform
+import socket
 import subprocess
 import sys
 import threading
@@ -33,6 +35,7 @@ from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource, ResourceDetector
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
@@ -54,6 +57,7 @@ from logfire._internal.config import (
     CodeSource,
     ConsoleOptions,
     LogfireConfig,
+    LogfireConfigWarning,
     LogfireCredentials,
     VariablesOptions,
     get_base_url_from_token,
@@ -916,7 +920,9 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
-                        'service.name': 'banana',
+                        # `OTEL_SERVICE_NAME` takes priority over `service.name` in `OTEL_RESOURCE_ATTRIBUTES`,
+                        # matching OpenTelemetry's own semantics.
+                        'service.name': 'potato',
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
                         'logfire.version': VERSION,
@@ -929,6 +935,195 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
             }
         ]
     )
+
+
+def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    config_kwargs['resource_attributes'] = {'host.name': 'my-host', 'custom.thing': 'from-kwarg'}
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-env'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'host.name': 'my-host',
+            # The explicit `resource_attributes` kwarg takes precedence over the OTEL_RESOURCE_ATTRIBUTES env var.
+            'custom.thing': 'from-kwarg',
+        }
+    )
+
+
+def test_resource_detectors_by_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    config_kwargs['resource_detectors'] = ['os', 'host']
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes == IsPartialDict(
+        {
+            'os.type': platform.system().lower(),
+            'host.name': socket.gethostname(),
+            'host.arch': platform.machine(),
+        }
+    )
+    assert 'os.version' in attributes
+
+
+def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    class MyDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'custom.thing': 'detected', 'service.version': 'detected-version'})
+
+    config_kwargs['resource_detectors'] = [MyDetector()]
+    configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'custom.thing': 'detected',
+            # Explicitly set attributes take precedence over detectors.
+            'service.version': 'explicit-version',
+        }
+    )
+
+
+def test_resource_detectors_string(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A bare string is coerced to a single-element list rather than being iterated character by character.
+    config_kwargs['resource_detectors'] = 'host'
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'host.name': socket.gethostname()})
+
+
+def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # An unknown detector name warns and is skipped rather than raising, so a typo can't crash the app.
+    config_kwargs['resource_detectors'] = ['nonexistent-detector', 'host']
+    with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    # The valid detector alongside the unknown one is still applied.
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes']['host.name'] == socket.gethostname()
+
+
+def test_resource_detector_unknown_name_in_env_var(config_kwargs: dict[str, Any]) -> None:
+    # The env var follows the same tolerant semantics as OTEL_EXPERIMENTAL_RESOURCE_DETECTORS.
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'nonexistent-detector'}):
+        with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
+            configure(**config_kwargs)
+
+
+def test_resource_detectors_wildcard(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # `'*'` expands to every registered detector (except `'otel'`), matching the OTel env var.
+    config_kwargs['resource_detectors'] = ['*']
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    # From the `host`/`os` detectors:
+    assert attributes['host.name'] == socket.gethostname()
+    assert attributes['os.type'] == platform.system().lower()
+    # From the `process` detector:
+    assert 'process.runtime.name' in attributes
+
+
+def test_resource_detectors_take_precedence_over_env_var_detectors(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    class HostNameDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'host.name': 'from-kwarg-detector'})
+
+    config_kwargs['resource_detectors'] = [HostNameDetector()]
+    with patch.dict(os.environ, {'OTEL_EXPERIMENTAL_RESOURCE_DETECTORS': 'host'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    # `resource_detectors` takes precedence over `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
+    assert attributes['host.name'] == 'from-kwarg-detector'
+    # The env var detector still contributes attributes that the kwarg detector doesn't override.
+    assert attributes['host.arch'] == platform.machine()
+
+
+def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(
+        os.environ,
+        {
+            'LOGFIRE_RESOURCE_ATTRIBUTES': 'custom.thing=from-logfire-env,other=value',
+            'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-otel-env',
+        },
+    ):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['other'] == 'value'
+    # LOGFIRE_RESOURCE_ATTRIBUTES (a `logfire.configure()` source) takes precedence over OTEL_RESOURCE_ATTRIBUTES.
+    assert attributes['custom.thing'] == 'from-logfire-env'
+
+
+def test_resource_detectors_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'os,host'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['host.name'] == socket.gethostname()
+    assert attributes['os.type'] == platform.system().lower()
+
+
+def test_resource_attributes_and_detectors_from_pyproject_toml(
+    config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: Path
+) -> None:
+    (tmp_path / 'pyproject.toml').write_text(
+        """
+        [tool.logfire]
+        resource_attributes = {"custom.thing" = "from-file"}
+        resource_detectors = ["host"]
+        """
+    )
+
+    configure(**config_kwargs, config_dir=tmp_path)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['custom.thing'] == 'from-file'
+    assert attributes['host.name'] == socket.gethostname()
+
+
+def test_explicit_service_version_takes_precedence_over_otel_resource_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    # An explicit `service_version` beats OTEL_RESOURCE_ATTRIBUTES; the git-hash fallback does not
+    # (see `test_otel_otel_resource_attributes_env_var`).
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'service.version=from-env'}):
+        configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes']['service.version'] == 'explicit-version'
 
 
 def test_config_serializable():
@@ -1745,6 +1940,8 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'service_name': False,
                         'service_version': True,
                         'environment': False,
+                        'resource_attributes': 0,
+                        'resource_detectors': 0,
                         'additional_span_processors': 1,
                     },
                     'logfire.package_versions': IsPartialDict({'logfire': IsStr()}),
