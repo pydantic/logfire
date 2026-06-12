@@ -2774,3 +2774,10 @@ def test_normalize_token():
     # Tuple input
     assert normalize_token(('token1',)) == 'token1'
     assert normalize_token(('token1', 'token2')) == ['token1', 'token2']
+
+
+def test_host_resource_attributes():
+    # Check that we're copying OTel accurately while avoiding the private import outside tests.
+    from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
+
+    assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes
