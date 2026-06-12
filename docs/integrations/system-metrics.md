@@ -41,14 +41,17 @@ This sets the `host.name`, `host.arch`, `os.type`, and `os.version` resource att
 using the `host` and `os` detectors provided by the OpenTelemetry SDK.
 
 To set attribute values yourself, e.g. to use a more meaningful host name than the one detected,
-use the `resource_attributes` argument, which takes precedence over detectors:
+or to add custom attributes, use the `resource_attributes` argument, which takes precedence over detectors:
 
 ```py
 import logfire
 
 logfire.configure(
     resource_detectors=['os', 'host'],
-    resource_attributes={'host.name': 'my-meaningful-host-name'},
+    resource_attributes={
+        'host.name': 'my-meaningful-host-name',
+        'datacenter.region': 'eu-west-1',
+    },
 )
 
 logfire.instrument_system_metrics()
