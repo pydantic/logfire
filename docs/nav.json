@@ -43,6 +43,9 @@
             "label": "OpenTelemetry Collector",
             "items": [
               { "label": "Overview", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-overview/" },
+              { "label": "Host Monitoring", "link": "/logfire/instrument/opentelemetry-collector/host-monitoring/" },
+              { "label": "Kubernetes Monitoring", "link": "/logfire/instrument/opentelemetry-collector/kubernetes-monitoring/" },
+              { "label": "Back up to AWS S3", "link": "/logfire/instrument/opentelemetry-collector/s3-backup/" },
               { "label": "Advanced Scrubbing", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-scrubbing/" }
             ]
           }
