@@ -82,8 +82,13 @@ export default function proxy(request: NextRequest) {
   const url = request.nextUrl.clone()
 
   if (url.pathname === '/logfire-proxy/v1/traces') {
+    const token = process.env.LOGFIRE_TOKEN
+    if (!token) {
+      return new NextResponse('Logfire token is not configured', { status: 500 })
+    }
+
     const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('Authorization', process.env.LOGFIRE_TOKEN!)
+    requestHeaders.set('Authorization', token)
 
     return NextResponse.rewrite(new URL('https://logfire-api.pydantic.dev/v1/traces'), {
       request: {
@@ -91,6 +96,8 @@ export default function proxy(request: NextRequest) {
       },
     })
   }
+
+  return NextResponse.next()
 }
 
 export const config = {
@@ -98,7 +105,7 @@ export const config = {
 }
 ```
 
-Store `LOGFIRE_TOKEN` server-side only.
+Set `LOGFIRE_TOKEN` server-side to a Logfire write token. It can be the same write token value used in `OTEL_EXPORTER_OTLP_HEADERS`, but it must not use a `NEXT_PUBLIC_` prefix.
 
 Create a client-only component:
 

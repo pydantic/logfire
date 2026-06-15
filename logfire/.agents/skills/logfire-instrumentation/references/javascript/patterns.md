@@ -4,10 +4,13 @@ Use this reference when adding manual spans, logs, function wrappers, error repo
 
 ## Imports
 
-Use the runtime package when it configures the SDK and re-exports the manual API:
+Use the runtime package when it configures the SDK and re-exports the manual API. Choose the package that matches the runtime; do not copy both imports into one file.
 
 ```ts
 import * as logfire from '@pydantic/logfire-node'
+```
+
+```ts
 import * as logfire from '@pydantic/logfire-browser'
 ```
 
