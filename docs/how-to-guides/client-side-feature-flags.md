@@ -223,7 +223,7 @@ context = EvaluationContext(targeting_key='user-123')
 show_new_feature = client.get_boolean_value('show_new_feature', False, evaluation_context=context)
 ```
 
-The provider — like the OpenFeature client in general — evaluates one named flag at a time. To read **every** variable in a single call, `POST` the bulk endpoint directly (there is no bulk method on the client):
+The provider — like the OpenFeature client in general — evaluates one named flag at a time. To read **every** variable in a single call, `POST` the bulk endpoint directly with any HTTP client (there is no bulk method on the client). This example uses [`httpx`](https://www.python-httpx.org/) (`pip install httpx`), which is separate from the OpenFeature packages above:
 
 ```python skip="true"
 import httpx
