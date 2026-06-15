@@ -266,7 +266,7 @@ You can query it using the `->>` operator, similar to the [`attributes`](#attrib
 
 Technically, each call to `logfire.configure()` can create a different set of resource attributes, so it should only be called once if possible.
 
-In the **Logfire** Python SDK, set resource attributes with the `resource_attributes` argument of [`logfire.configure()`][logfire.configure], and run OpenTelemetry [resource detectors](https://opentelemetry.io/docs/languages/python/resources/) via `resource_detectors` on [`AdvancedOptions`][logfire.AdvancedOptions]:
+In the **Logfire** Python SDK, set resource attributes with the `resource_attributes` argument of [`logfire.configure()`][logfire.configure], and run OpenTelemetry [resource detectors](https://opentelemetry.io/docs/concepts/resources/#resource-detectors) via `resource_detectors` on [`AdvancedOptions`][logfire.AdvancedOptions]:
 
 ```python
 import logfire

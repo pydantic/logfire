@@ -247,8 +247,8 @@ class AdvancedOptions:
     """
 
     resource_detectors: Sequence[ResourceDetector | str] | None = None
-    """OpenTelemetry [resource detectors](https://opentelemetry.io/docs/languages/python/resources/) to run
-    when building the resource.
+    """OpenTelemetry [resource detectors](https://opentelemetry.io/docs/concepts/resources/#resource-detectors)
+    to run when building the resource.
 
     Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
     `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
