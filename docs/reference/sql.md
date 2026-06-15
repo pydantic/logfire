@@ -285,12 +285,12 @@ resource_attributes = {"host.name" = "my-host", "datacenter.region" = "eu-west-1
 resource_detectors = ["process"]
 ```
 
-By default Logfire pre-populates `host.*`, `os.*` and `process.runtime.*`, so machines show up in the [Hosts view](../guides/web-ui/hosts.md) out of the box.
+By default Logfire pre-populates `host.*`, `os.*` and `process.runtime.*`; in particular the `host.*` attributes mean machines show up in the [Hosts view](../guides/web-ui/hosts.md) out of the box.
 
 The precedence, from highest to lowest:
 
 1. Attributes set explicitly in `logfire.configure()`: `resource_attributes`, and the dedicated `service_name` / `service_version` / `environment` arguments (which override the same keys set via `resource_attributes`).
-2. The `resource_detectors` argument.
+2. The `resource_detectors` argument (on `AdvancedOptions`).
 3. The standard `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables — also the mechanism used by other OpenTelemetry SDKs, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
 4. Logfire's pre-populated defaults (`host.*`, `os.*`, `process.runtime.*`).
 
