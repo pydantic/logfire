@@ -23,37 +23,19 @@ logfire.instrument_system_metrics()
 
 Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard', and select 'Basic System Metrics (Logfire)' from the dropdown.
 
-## Resource attributes
+## Host information
 
-By default, Logfire pre-populates the `host.name`, `host.arch`, `os.type` and `os.version` resource attributes,
-so the machine running your code shows up in the Hosts view without any extra configuration. The `host.name`
-comes from `socket.gethostname()`; if that isn't meaningful (e.g. a random container ID), override it with
-`resource_attributes` as shown below.
+By default, Logfire sets the `host.name`, `host.arch`, `os.type` and `os.version`
+[resource attributes](https://opentelemetry.io/docs/concepts/resources/) on all telemetry, so the machine
+running your code shows up in the [Hosts view](../guides/web-ui/hosts.md) without any extra configuration.
 
-To attach further [resource attributes](https://opentelemetry.io/docs/concepts/resources/) to all telemetry —
-process information, for example — pass resource detectors to [`logfire.configure()`][logfire.configure]:
-
-```py
-import logfire
-
-logfire.configure(resource_detectors=['process'])
-
-logfire.instrument_system_metrics()
-```
-
-This uses the `process` detector provided by the OpenTelemetry SDK to set attributes such as `process.command`,
-`process.command_args`, and `process.owner`. The SDK also provides the `os` and `host` detectors (which produce
-the same `os.*`/`host.*` attributes already pre-populated above) and the special name `'*'`, which runs every
-registered detector. An unknown detector name emits a warning and is skipped rather than raising.
-
-To set attribute values yourself, or to add custom attributes, use the `resource_attributes` argument, which
-takes precedence over detectors:
+`host.name` comes from `socket.gethostname()`. If that isn't meaningful — for example a random container ID —
+set a clearer value (and any other custom resource attributes) with the `resource_attributes` argument:
 
 ```py
 import logfire
 
 logfire.configure(
-    resource_detectors=['process'],
     resource_attributes={
         'host.name': 'my-meaningful-host-name',
         'datacenter.region': 'eu-west-1',
@@ -63,16 +45,9 @@ logfire.configure(
 logfire.instrument_system_metrics()
 ```
 
-These can also be set via environment variables — `LOGFIRE_RESOURCE_ATTRIBUTES` (a comma-separated
-`key=value` list) and `LOGFIRE_RESOURCE_DETECTORS` (a comma-separated list of names) — or in `pyproject.toml`
-under `[tool.logfire]` (e.g. `resource_attributes = {"datacenter.region" = "eu-west-1"}` and
-`resource_detectors = ["process"]`). The standard OpenTelemetry `OTEL_RESOURCE_ATTRIBUTES` and
-`OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables are also honoured.
-
-Explicit `logfire.configure()` settings take precedence over detected attributes, which take precedence
-over the standard OpenTelemetry environment variables. The order of precedence from highest to lowest is:
-`resource_attributes` (and explicit `service_name`/`service_version`/`environment`), the `resource_detectors`
-argument, then the `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables.
+For the full set of ways to populate resource attributes — extra OpenTelemetry resource detectors (e.g. for
+`process.*` or cloud metadata) and the related environment variables — see the `resource_attributes` and
+`resource_detectors` arguments of [`logfire.configure()`][logfire.configure].
 
 ## Configuration
 
