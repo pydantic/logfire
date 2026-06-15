@@ -268,6 +268,8 @@ Technically, each call to `logfire.configure()` can create a different set of re
 
 In **Logfire** and other OpenTelemetry SDKs, you can set arbitrary resource attributes by setting the `OTEL_RESOURCE_ATTRIBUTES` environment variable to a comma-separated list of key-value pairs, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
 
+With **Logfire** specifically, you can also set them programmatically with the `resource_attributes` argument of [`logfire.configure()`][logfire.configure] (or the `LOGFIRE_RESOURCE_ATTRIBUTES` environment variable, or `pyproject.toml`), and run OpenTelemetry [resource detectors](https://opentelemetry.io/docs/languages/python/resources/) via the `resource_detectors` argument (or `LOGFIRE_RESOURCE_DETECTORS` / the standard `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`). Attributes set explicitly in `logfire.configure()` take precedence over detected attributes, which take precedence over the `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables. By default Logfire pre-populates `host.*`, `os.*` and `process.runtime.*`, so machines show up in the [Hosts view](../guides/web-ui/hosts.md) out of the box.
+
 Metrics and spans/logs produced by the same process will share the same resource attributes, and the `metrics` table has this column as well as many of the others in this section.
 
 All other columns in this section are just convenient aliases for some resource attributes.
