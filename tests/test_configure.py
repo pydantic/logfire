@@ -1140,6 +1140,31 @@ def test_explicit_service_version_takes_precedence_over_otel_resource_attributes
     assert span['resource']['attributes']['service.version'] == 'explicit-version'
 
 
+def test_git_service_version_dropped_on_serialization() -> None:
+    """A git-detected `service_version` is a low-precedence fallback, so `OTEL_RESOURCE_ATTRIBUTES` wins over it
+    (see `test_otel_otel_resource_attributes_env_var`).
+
+    `_service_version_from_git` isn't a dataclass field, so `serialize_config()` would otherwise lose it and a
+    child process would treat the git-hash version as explicit, wrongly overriding `OTEL_RESOURCE_ATTRIBUTES`.
+    So the git-hash value is dropped on serialization, letting the child re-detect it as a fallback. An
+    explicitly-passed `service_version` is kept as-is.
+    """
+    # No explicit `service_version`, so it's auto-detected from git and is a low-precedence fallback.
+    with patch('logfire._internal.config.get_git_revision_hash', return_value='1234567890abcdef'):
+        configure(send_to_logfire=False, console=False)
+    assert GLOBAL_CONFIG.service_version == '1234567890abcdef'
+    serialized = serialize_config()
+    assert serialized is not None
+    # Dropped so the child re-detects it as a fallback rather than treating it as explicit.
+    assert serialized['service_version'] is None
+
+    # An explicit version is preserved across serialization.
+    configure(send_to_logfire=False, console=False, service_version='explicit-version')
+    serialized = serialize_config()
+    assert serialized is not None
+    assert serialized['service_version'] == 'explicit-version'
+
+
 def test_host_and_os_resource_attributes_populated_by_default(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ) -> None:
