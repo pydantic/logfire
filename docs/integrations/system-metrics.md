@@ -44,8 +44,9 @@ logfire.configure(
 logfire.instrument_system_metrics()
 ```
 
-See the `resource_attributes` and `resource_detectors` arguments of [`logfire.configure()`][logfire.configure]
-for the full set of options, including OpenTelemetry resource detectors for `process.*` or cloud metadata.
+To customise further — for example to add OpenTelemetry resource detectors for `process.*` or cloud metadata —
+see the `resource_attributes` argument of [`logfire.configure()`][logfire.configure] and `resource_detectors` on
+[`AdvancedOptions`][logfire.AdvancedOptions].
 
 ## Configuration
 

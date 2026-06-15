@@ -970,7 +970,7 @@ def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], expo
 def test_resource_detectors(detectors: str | list[str], config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     # A list of names, a bare string (coerced to a single-element list), and `'*'` (every registered detector)
     # all run the `process` detector, which adds attributes that aren't pre-populated by default.
-    config_kwargs['resource_detectors'] = detectors
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=detectors)
     configure(**config_kwargs)
 
     logfire.info('test1')
@@ -991,7 +991,7 @@ def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: Tes
         def detect(self) -> Resource:
             return Resource({'custom.thing': 'detected', 'service.version': 'detected-version'})
 
-    config_kwargs['resource_detectors'] = [MyDetector()]
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=[MyDetector()])
     configure(**config_kwargs, service_version='explicit-version')
 
     logfire.info('test1')
@@ -1008,7 +1008,9 @@ def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: Tes
 
 def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     # An unknown detector name warns and is skipped rather than raising, so a typo can't crash the app.
-    config_kwargs['resource_detectors'] = ['nonexistent-detector', 'process']
+    config_kwargs['advanced'] = dataclasses.replace(
+        config_kwargs['advanced'], resource_detectors=['nonexistent-detector', 'process']
+    )
     with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
         configure(**config_kwargs)
 
@@ -1033,7 +1035,7 @@ def test_resource_detectors_take_precedence_over_env_var_detectors(
         def detect(self) -> Resource:
             return Resource({'process.command': 'from-kwarg-detector'})
 
-    config_kwargs['resource_detectors'] = [CommandDetector()]
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=[CommandDetector()])
     with patch.dict(os.environ, {'OTEL_EXPERIMENTAL_RESOURCE_DETECTORS': 'process'}):
         configure(**config_kwargs)
 

@@ -246,6 +246,26 @@ class AdvancedOptions:
     Raise from the hook to abort the calling code path.
     """
 
+    resource_detectors: Sequence[ResourceDetector | str] | None = None
+    """OpenTelemetry resource detectors to run when building the resource.
+
+    Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
+    `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
+    `'os'`, `'host'`, and `'process'` (the `os.*`/`host.*` attributes are already populated by default, so
+    `'process'` is the main one to add), and other packages can register additional detectors. The special
+    name `'*'` runs every registered detector.
+
+    For example, `resource_detectors=['process']` adds process attributes such as `process.command` and
+    `process.owner`. An unknown name (or a detector that fails to load) emits a warning and is skipped
+    rather than raising, so a typo can't crash the application.
+
+    The top-level `resource_attributes` argument (and explicit `service_name`/`service_version`/`environment`)
+    take precedence over these detectors, which in turn take precedence over the `OTEL_RESOURCE_ATTRIBUTES`
+    and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables.
+
+    Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
+    """
+
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
             return self.base_url
@@ -467,7 +487,6 @@ def configure(
     service_version: str | None = None,
     environment: str | None = None,
     resource_attributes: Mapping[str, Any] | None = None,
-    resource_detectors: Sequence[ResourceDetector | str] | None = None,
     console: ConsoleOptions | Literal[False] | None = None,
     config_dir: Path | str | None = None,
     data_dir: Path | str | None = None,
@@ -519,28 +538,10 @@ def configure(
 
         resource_attributes: Additional
             [resource attributes](https://opentelemetry.io/docs/concepts/resources/) to include on all telemetry,
-            e.g. `{'host.name': 'my-host'}`. These take precedence over attributes produced by `resource_detectors`
-            and over the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+            e.g. `{'host.name': 'my-host'}`. These take precedence over attributes produced by resource detectors
+            (see `AdvancedOptions.resource_detectors`) and over the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
 
             Defaults to the `LOGFIRE_RESOURCE_ATTRIBUTES` environment variable (a comma-separated `key=value` list).
-
-        resource_detectors: OpenTelemetry resource detectors to run when building the resource.
-
-            Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
-            `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
-            `'os'`, `'host'`, and `'process'` (the `os.*`/`host.*` attributes are already populated by default, so
-            `'process'` is the main one to add), and other packages can register additional detectors. The special
-            name `'*'` runs every registered detector.
-
-            For example, `resource_detectors=['process']` adds process attributes such as `process.command` and
-            `process.owner`. An unknown name (or a detector that fails to load) emits a warning and is skipped
-            rather than raising, so a typo can't crash the application.
-
-            Attributes set explicitly via `logfire.configure()` (e.g. `service_name`, `service_version`,
-            `resource_attributes`) take precedence over these detectors, which in turn take precedence over the
-            `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables.
-
-            Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
 
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, include_tags=True, verbose=False)`.
@@ -703,7 +704,6 @@ def configure(
             service_version=service_version,
             environment=environment,
             resource_attributes=resource_attributes,
-            resource_detectors=resource_detectors,
             console=console,
             metrics=metrics,
             config_dir=Path(config_dir) if config_dir else None,
@@ -772,9 +772,6 @@ class _LogfireConfigData:
     resource_attributes: Mapping[str, Any]
     """Additional resource attributes to include on all telemetry."""
 
-    resource_detectors: Sequence[ResourceDetector | str]
-    """OpenTelemetry resource detectors (instances or entry point names) to run when building the resource."""
-
     console: ConsoleOptions | Literal[False] | None
     """Options for controlling console output."""
 
@@ -823,7 +820,6 @@ class _LogfireConfigData:
         service_version: str | None,
         environment: str | None,
         resource_attributes: Mapping[str, Any] | None,
-        resource_detectors: Sequence[ResourceDetector | str] | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -850,12 +846,6 @@ class _LogfireConfigData:
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
         self.resource_attributes = dict(param_manager.load_param('resource_attributes', resource_attributes) or {})
-        resource_detectors = param_manager.load_param('resource_detectors', resource_detectors)
-        if isinstance(resource_detectors, str):
-            # A bare string satisfies `Sequence[str]` statically but would be iterated character by
-            # character, so coerce e.g. `resource_detectors='process'` to `['process']`.
-            resource_detectors = [resource_detectors]
-        self.resource_detectors = list(resource_detectors or ())
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
@@ -941,6 +931,14 @@ class _LogfireConfigData:
         advanced.emit_configuration_span = param_manager.load_param(
             'emit_configuration_span', advanced.emit_configuration_span
         )
+        resource_detectors = param_manager.load_param('resource_detectors', advanced.resource_detectors)
+        if isinstance(resource_detectors, str):
+            # A bare string satisfies `Sequence[str]` statically but would be iterated character by
+            # character, so coerce e.g. `resource_detectors='process'` to `['process']`.
+            resource_detectors = [resource_detectors]
+        # Leave `None` as-is (rather than coercing to `[]`) so re-`configure()` still reads the env var /
+        # file config instead of treating an unset value as explicitly empty.
+        advanced.resource_detectors = resource_detectors
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
@@ -961,7 +959,6 @@ class LogfireConfig(_LogfireConfigData):
         service_version: str | None = None,
         environment: str | None = None,
         resource_attributes: Mapping[str, Any] | None = None,
-        resource_detectors: Sequence[ResourceDetector | str] | None = None,
         console: ConsoleOptions | Literal[False] | None = None,
         config_dir: Path | None = None,
         data_dir: Path | None = None,
@@ -993,7 +990,6 @@ class LogfireConfig(_LogfireConfigData):
             service_version=service_version,
             environment=environment,
             resource_attributes=resource_attributes,
-            resource_detectors=resource_detectors,
             console=console,
             config_dir=config_dir,
             data_dir=data_dir,
@@ -1032,7 +1028,6 @@ class LogfireConfig(_LogfireConfigData):
         service_version: str | None,
         environment: str | None,
         resource_attributes: Mapping[str, Any] | None,
-        resource_detectors: Sequence[ResourceDetector | str] | None,
         console: ConsoleOptions | Literal[False] | None,
         config_dir: Path | None,
         data_dir: Path | None,
@@ -1058,7 +1053,6 @@ class LogfireConfig(_LogfireConfigData):
                 service_version,
                 environment,
                 resource_attributes,
-                resource_detectors,
                 console,
                 config_dir,
                 data_dir,
@@ -1150,8 +1144,8 @@ class LogfireConfig(_LogfireConfigData):
                     pass
             resource = Resource(fallback_resource_attributes).merge(resource)
 
-            if self.resource_detectors:
-                detectors = _load_resource_detectors(self.resource_detectors)
+            if self.advanced.resource_detectors:
+                detectors = _load_resource_detectors(self.advanced.resource_detectors)
                 if detectors:
                     # Detectors passed explicitly via `resource_detectors` take precedence over those from
                     # `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`, but not over the explicit attributes merged below.
@@ -1774,7 +1768,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
                 'service_version': bool(config.service_version),
                 'environment': bool(config.environment),
                 'resource_attributes': len(config.resource_attributes),
-                'resource_detectors': len(config.resource_detectors),
+                'resource_detectors': len(config.advanced.resource_detectors or ()),
                 'additional_span_processors': len(config.additional_span_processors or ()),
             },
             ATTRIBUTES_PACKAGE_VERSIONS: collect_package_info(),
