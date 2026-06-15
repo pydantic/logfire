@@ -21,16 +21,15 @@ logfire.configure()
 logfire.instrument_system_metrics()
 ```
 
-Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard', and select 'Basic System Metrics (Logfire)' from the dropdown.
+The machine running your code then shows up automatically in the [Hosts view](../guides/web-ui/hosts.md), which
+charts CPU, memory, load, disk and network per host. For a customisable view, click 'Dashboards' in the top bar,
+click 'New Dashboard', and select 'Basic System Metrics (Logfire)' from the dropdown.
 
-## Host information
+## Customising resource attributes
 
-By default, Logfire sets the `host.name`, `host.arch`, `os.type` and `os.version`
-[resource attributes](https://opentelemetry.io/docs/concepts/resources/) on all telemetry, so the machine
-running your code shows up in the [Hosts view](../guides/web-ui/hosts.md) without any extra configuration.
-
-`host.name` comes from `socket.gethostname()`. If that isn't meaningful — for example a random container ID —
-set a clearer value (and any other custom resource attributes) with the `resource_attributes` argument:
+The Hosts view identifies a machine by its `host.name`, which Logfire takes from `socket.gethostname()`. If that
+isn't meaningful — for example a random container ID — set a clearer value, or add other custom
+[resource attributes](https://opentelemetry.io/docs/concepts/resources/), with the `resource_attributes` argument:
 
 ```py
 import logfire
@@ -45,9 +44,8 @@ logfire.configure(
 logfire.instrument_system_metrics()
 ```
 
-For the full set of ways to populate resource attributes — extra OpenTelemetry resource detectors (e.g. for
-`process.*` or cloud metadata) and the related environment variables — see the `resource_attributes` and
-`resource_detectors` arguments of [`logfire.configure()`][logfire.configure].
+See the `resource_attributes` and `resource_detectors` arguments of [`logfire.configure()`][logfire.configure]
+for the full set of options, including OpenTelemetry resource detectors for `process.*` or cloud metadata.
 
 ## Configuration
 
