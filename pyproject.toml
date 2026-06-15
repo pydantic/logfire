@@ -105,7 +105,9 @@ pytest_logfire = "logfire._internal.integrations.pytest"
 [dependency-groups]
 dev = [
     "httpx >= 0.27.2",
-    "aiohttp >= 3.10.9",
+    # aiohttp 3.14 removed aiohttp.streams.AsyncStreamReaderMixin which vcrpy still references,
+    # breaking all VCR-based tests. https://github.com/kevin1024/vcrpy/issues/995
+    "aiohttp >= 3.10.9, < 3.14",
     "redis >= 5.1.1",
     "pymongo >= 4.10.1",
     "fastapi != 0.124.3, != 0.124.4",
