@@ -21,9 +21,19 @@ logfire.configure()
 logfire.instrument_system_metrics()
 ```
 
-The machine running your code then shows up automatically in the [Hosts view](../guides/web-ui/hosts.md), which
-charts CPU, memory, load, disk and network per host. For a customisable view, click 'Dashboards' in the top bar,
-click 'New Dashboard', and select 'Basic System Metrics (Logfire)' from the dropdown.
+Your metrics then show up in several places in the Logfire UI:
+
+- **[Hosts](../guides/web-ui/hosts.md)** — the machine running your code appears automatically, with CPU, memory,
+  load, disk, network and process-count charts per host.
+- **[Metrics explorer](../guides/web-ui/metrics-explorer.md)** — browse the `system.*` metrics by namespace and
+  break them down by dimension, no SQL required.
+- **[Dashboards](../guides/web-ui/dashboards.md)** — enable the built-in **Basic System Metrics (Logfire)**
+  standard dashboard. Standard dashboards are read-only; to adjust it,
+  [use it as a template](../guides/web-ui/dashboards.md#using-a-standard-dashboard-as-a-template) for a custom
+  dashboard.
+
+You can also query the metrics directly in the [Explore](../guides/web-ui/explore.md) view via the `metrics`
+table (see the [SQL reference](../reference/sql.md)).
 
 ## Customising resource attributes
 

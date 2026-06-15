@@ -247,7 +247,8 @@ class AdvancedOptions:
     """
 
     resource_detectors: Sequence[ResourceDetector | str] | None = None
-    """OpenTelemetry resource detectors to run when building the resource.
+    """OpenTelemetry [resource detectors](https://opentelemetry.io/docs/languages/python/resources/) to run
+    when building the resource.
 
     Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
     `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
@@ -1083,7 +1084,12 @@ class LogfireConfig(_LogfireConfigData):
         otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
+            # `resource_attributes` forms the base of this (highest-precedence) layer; the dedicated arguments
+            # (`service_name`/`service_version`/`environment`, `code_source`) and logfire's own attributes are
+            # applied on top, so a dedicated argument wins over the same key set generically via
+            # `resource_attributes`.
             otel_resource_attributes: dict[str, Any] = {
+                **self.resource_attributes,
                 RESOURCE_ATTRIBUTES_VERSION: VERSION,
                 'process.pid': os.getpid(),
             }
@@ -1103,7 +1109,6 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
-            otel_resource_attributes.update(self.resource_attributes)
             if (
                 RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL in otel_resource_attributes
                 and RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION in otel_resource_attributes

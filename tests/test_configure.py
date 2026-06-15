@@ -966,6 +966,33 @@ def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], expo
     )
 
 
+def test_dedicated_args_take_precedence_over_resource_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    # The dedicated `service_name`/`service_version`/`environment` args win over the same keys set generically
+    # via `resource_attributes`.
+    config_kwargs['resource_attributes'] = {
+        'service.name': 'from-attrs',
+        'service.version': 'from-attrs',
+        'deployment.environment.name': 'from-attrs',
+        'custom.thing': 'from-attrs',
+    }
+    configure(**config_kwargs, service_name='from-arg', service_version='from-arg', environment='from-arg')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'service.name': 'from-arg',
+            'service.version': 'from-arg',
+            'deployment.environment.name': 'from-arg',
+            # A key with no dedicated argument still comes from `resource_attributes`.
+            'custom.thing': 'from-attrs',
+        }
+    )
+
+
 @pytest.mark.parametrize('detectors', [['*'], 'process', ['process']])
 def test_resource_detectors(detectors: str | list[str], config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     # A list of names, a bare string (coerced to a single-element list), and `'*'` (every registered detector)

@@ -266,9 +266,33 @@ You can query it using the `->>` operator, similar to the [`attributes`](#attrib
 
 Technically, each call to `logfire.configure()` can create a different set of resource attributes, so it should only be called once if possible.
 
-In the **Logfire** Python SDK, set resource attributes with the `resource_attributes` argument of [`logfire.configure()`][logfire.configure] (or the `LOGFIRE_RESOURCE_ATTRIBUTES` environment variable, or `pyproject.toml`), and run OpenTelemetry [resource detectors](https://opentelemetry.io/docs/languages/python/resources/) via `resource_detectors` on [`AdvancedOptions`][logfire.AdvancedOptions] (or `LOGFIRE_RESOURCE_DETECTORS`). Attributes set explicitly in `logfire.configure()` take precedence over detected attributes, which take precedence over the environment variables below. By default Logfire pre-populates `host.*`, `os.*` and `process.runtime.*`, so machines show up in the [Hosts view](../guides/web-ui/hosts.md) out of the box.
+In the **Logfire** Python SDK, set resource attributes with the `resource_attributes` argument of [`logfire.configure()`][logfire.configure], and run OpenTelemetry [resource detectors](https://opentelemetry.io/docs/languages/python/resources/) via `resource_detectors` on [`AdvancedOptions`][logfire.AdvancedOptions]:
 
-In other OpenTelemetry SDKs — and in Logfire too — you can set arbitrary resource attributes via the standard `OTEL_RESOURCE_ATTRIBUTES` environment variable, a comma-separated list of key-value pairs, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0` (and run detectors via `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`).
+```python
+import logfire
+
+logfire.configure(
+    resource_attributes={'host.name': 'my-host', 'datacenter.region': 'eu-west-1'},
+    advanced=logfire.AdvancedOptions(resource_detectors=['process']),
+)
+```
+
+Both can also be set via environment variables (`LOGFIRE_RESOURCE_ATTRIBUTES`, a comma-separated `key=value` list, and `LOGFIRE_RESOURCE_DETECTORS`, a comma-separated list of detector names) or in `pyproject.toml`:
+
+```toml
+[tool.logfire]
+resource_attributes = {"host.name" = "my-host", "datacenter.region" = "eu-west-1"}
+resource_detectors = ["process"]
+```
+
+By default Logfire pre-populates `host.*`, `os.*` and `process.runtime.*`, so machines show up in the [Hosts view](../guides/web-ui/hosts.md) out of the box.
+
+The precedence, from highest to lowest:
+
+1. Attributes set explicitly in `logfire.configure()`: `resource_attributes`, and the dedicated `service_name` / `service_version` / `environment` arguments (which override the same keys set via `resource_attributes`).
+2. The `resource_detectors` argument.
+3. The standard `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables — also the mechanism used by other OpenTelemetry SDKs, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
+4. Logfire's pre-populated defaults (`host.*`, `os.*`, `process.runtime.*`).
 
 Metrics and spans/logs produced by the same process will share the same resource attributes, and the `metrics` table has this column as well as many of the others in this section.
 
