@@ -155,7 +155,7 @@ For PydanticAI, each agent run becomes a parent span containing child spans for 
 
 ### Workflow
 
-Always start by reading `package.json` and the relevant JS references for the detected runtime. JavaScript projects are often polyglot within one repo: a Next.js app can need server OpenTelemetry, browser tracing, API route manual spans, and Vercel AI SDK telemetry at the same time.
+Start by reading the project manifest(s) (`package.json` or `deno.json`/`deno.lock`) and the relevant JS references for the detected runtime. JavaScript projects are often polyglot within one repo: a Next.js app can need server OpenTelemetry, browser tracing, API route manual spans, and Vercel AI SDK telemetry at the same time.
 
 Use these references:
 
