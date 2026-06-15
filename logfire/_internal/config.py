@@ -948,18 +948,6 @@ class _LogfireConfigData:
             metrics = MetricsOptions()
         self.metrics = metrics
 
-        # Whether `service_version` was auto-detected from git rather than set explicitly. An explicit
-        # version takes precedence over `OTEL_RESOURCE_ATTRIBUTES`, but the git-hash fallback does not.
-        self._service_version_from_git = False
-        if self.service_version is None:
-            try:
-                self.service_version = get_git_revision_hash()
-                self._service_version_from_git = True
-            except Exception:
-                # many things could go wrong here, e.g. git is not installed, etc.
-                # ignore them
-                pass
-
 
 class LogfireConfig(_LogfireConfigData):
     def __init__(
@@ -1102,10 +1090,6 @@ class LogfireConfig(_LogfireConfigData):
             otel_resource_attributes: dict[str, Any] = {
                 RESOURCE_ATTRIBUTES_VERSION: VERSION,
                 'process.pid': os.getpid(),
-                # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
-                'process.runtime.name': sys.implementation.name,
-                'process.runtime.version': get_runtime_version(),
-                'process.runtime.description': sys.version,
             }
             if self.service_name:
                 # When unset, `Resource.create` below applies its own `unknown_service` default.
@@ -1119,8 +1103,7 @@ class LogfireConfig(_LogfireConfigData):
                 )
                 if self.code_source.root_path:
                     otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
-            if self.service_version and not self._service_version_from_git:
-                # The git-hash fallback is applied lower down so it doesn't override env vars.
+            if self.service_version:
                 otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
@@ -1132,19 +1115,28 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
             # Build the resource from lowest to highest precedence:
-            #   1. Low-precedence fallbacks: the pre-populated `host.*`/`os.*` attributes (so the Hosts
-            #      view works out of the box) and the git-hash `service.version`. These deliberately sit
-            #      below the env vars so an explicit `OTEL_RESOURCE_ATTRIBUTES` (e.g. a meaningful
-            #      `host.name` or `service.version`) still wins.
+            #   1. Low-precedence fallbacks: the common auto-derived attributes (`process.runtime.*`,
+            #      `host.*`, `os.*`, so the Hosts view works out of the box) and the git-hash
+            #      `service.version`. These deliberately sit below the env vars so an explicit
+            #      `OTEL_RESOURCE_ATTRIBUTES` (e.g. a meaningful `host.name` or `service.version`) still wins.
             #   2. OTel's default attributes plus the env vars `OTEL_RESOURCE_ATTRIBUTES` and
             #      `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` (both applied by `Resource.create`).
             #   3. The `resource_detectors` argument.
             #   4. Explicit `logfire.configure()` attributes (logfire's own plus `resource_attributes`).
             resource = Resource.create({})
-            # Always non-empty: `detected_host_os_resource_attributes()` always provides `host.*`/`os.*`.
-            fallback_resource_attributes: dict[str, Any] = dict(detected_host_os_resource_attributes())
-            if self.service_version and self._service_version_from_git:
-                fallback_resource_attributes['service.version'] = self.service_version
+            # Always non-empty: `common_resource_attributes()` always provides `process.runtime.*`/`host.*`/`os.*`.
+            fallback_resource_attributes: dict[str, Any] = dict(common_resource_attributes())
+            if self.service_version is None:
+                # No explicit `service_version`: fall back to the git commit hash. Done here (rather than in
+                # `_load_configuration`, which runs at import) so we only shell out to git when actually
+                # building the resource, and so the fallback stays a low-precedence default that
+                # `OTEL_RESOURCE_ATTRIBUTES` can override (and isn't mistaken for an explicit value, e.g.
+                # when the config is serialized to a child process).
+                try:
+                    fallback_resource_attributes['service.version'] = get_git_revision_hash()
+                except Exception:
+                    # git may be unavailable (not installed, not a repo, etc.); ignore.
+                    pass
             resource = Resource(fallback_resource_attributes).merge(resource)
 
             if self.resource_detectors:
@@ -2275,16 +2267,20 @@ def get_runtime_version() -> str:
 
 
 @functools.cache
-def detected_host_os_resource_attributes() -> dict[str, Any]:
-    """`host.*` and `os.*` attributes, pre-populated as low-precedence resource defaults.
+def common_resource_attributes() -> dict[str, Any]:
+    """Auto-derived `process.runtime.*`, `host.*` and `os.*` attributes, used as low-precedence defaults.
 
-    These let the Logfire Hosts page surface a row without the customer opting into the experimental
-    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` env var or passing `resource_detectors`. They're applied below
-    the env vars (and below the `resource_detectors`/`resource_attributes` configure arguments), so any of
-    those still wins — e.g. a customer whose `socket.gethostname()` is a useless container ID can override
-    `host.name` cleanly.
+    The `host.*`/`os.*` attributes let the Logfire Hosts page surface a row without the customer opting into
+    the experimental `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` env var or passing `resource_detectors`. All of
+    these are applied below the env vars (and below the `resource_detectors`/`resource_attributes` configure
+    arguments), so any of those still wins — e.g. a customer whose `socket.gethostname()` is a useless
+    container ID can override `host.name` cleanly.
     """
     return {
+        # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
+        'process.runtime.name': sys.implementation.name,
+        'process.runtime.version': get_runtime_version(),
+        'process.runtime.description': sys.version,
         # https://opentelemetry.io/docs/specs/semconv/resource/host/
         **host_resource_attributes(),
         # https://opentelemetry.io/docs/specs/semconv/resource/os/

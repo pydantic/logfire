@@ -766,36 +766,37 @@ def test_configure_export_delay() -> None:
     check_delays(exporter, 0.0, 0.1)  # since we set 1ms it should be a very short delay
 
 
-def test_configure_service_version(tmp_path: str) -> None:
-    request_mocker = requests_mock.Mocker()
-    request_mocker.get(
-        'https://logfire-api.pydantic.dev/v1/info',
-        json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
-    )
-
+def test_configure_service_version(config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: str) -> None:
     import subprocess
 
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-    with request_mocker:
-        configure(token='abc2', service_version='1.2.3')
+    def resource_service_version() -> str | None:
+        logfire.info('test')
+        [span] = exporter.exported_spans_as_dict(include_resources=True)
+        exporter.clear()
+        return span['resource']['attributes'].get('service.version')
 
-        assert GLOBAL_CONFIG.service_version == '1.2.3'
+    # Explicit version: stored on the config and used in the resource.
+    configure(service_version='1.2.3', **config_kwargs)
+    assert GLOBAL_CONFIG.service_version == '1.2.3'
+    assert resource_service_version() == '1.2.3'
 
-        configure(token='abc3')
+    # No explicit version: the git commit hash is used in the resource as a low-precedence fallback, but it
+    # isn't stored on the config (so it's never mistaken for an explicit value, e.g. in child processes).
+    configure(**config_kwargs)
+    assert GLOBAL_CONFIG.service_version is None
+    assert resource_service_version() == git_sha
 
-        assert GLOBAL_CONFIG.service_version == git_sha
-
-        dir = os.getcwd()
-
-        try:
-            os.chdir(tmp_path)
-            configure(token='abc4')
-            assert GLOBAL_CONFIG.service_version is None
-        finally:
-            os.chdir(dir)
-
-        wait_for_check_token_thread()
+    # No git available: no `service.version` at all.
+    dir = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        configure(**config_kwargs)
+        assert GLOBAL_CONFIG.service_version is None
+        assert resource_service_version() is None
+    finally:
+        os.chdir(dir)
 
 
 def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
@@ -1140,26 +1141,22 @@ def test_explicit_service_version_takes_precedence_over_otel_resource_attributes
     assert span['resource']['attributes']['service.version'] == 'explicit-version'
 
 
-def test_git_service_version_dropped_on_serialization() -> None:
-    """A git-detected `service_version` is a low-precedence fallback, so `OTEL_RESOURCE_ATTRIBUTES` wins over it
-    (see `test_otel_otel_resource_attributes_env_var`).
-
-    `_service_version_from_git` isn't a dataclass field, so `serialize_config()` would otherwise lose it and a
-    child process would treat the git-hash version as explicit, wrongly overriding `OTEL_RESOURCE_ATTRIBUTES`.
-    So the git-hash value is dropped on serialization, letting the child re-detect it as a fallback. An
-    explicitly-passed `service_version` is kept as-is.
+def test_auto_detected_service_version_not_serialized() -> None:
+    """An auto-detected (git) `service_version` is a low-precedence fallback applied when building the resource,
+    and is never stored on the config. So it serializes as `None`, and a child process re-detects it as a
+    fallback rather than treating it as an explicit value that would override `OTEL_RESOURCE_ATTRIBUTES`. An
+    explicitly-passed `service_version` is stored and serialized as-is.
     """
-    # No explicit `service_version`, so it's auto-detected from git and is a low-precedence fallback.
-    with patch('logfire._internal.config.get_git_revision_hash', return_value='1234567890abcdef'):
-        configure(send_to_logfire=False, console=False)
-    assert GLOBAL_CONFIG.service_version == '1234567890abcdef'
+    # In the logfire repo, the version is auto-detected from git but not stored on the config.
+    configure(send_to_logfire=False, console=False)
+    assert GLOBAL_CONFIG.service_version is None
     serialized = serialize_config()
     assert serialized is not None
-    # Dropped so the child re-detects it as a fallback rather than treating it as explicit.
     assert serialized['service_version'] is None
 
-    # An explicit version is preserved across serialization.
+    # An explicit version is stored and preserved across serialization.
     configure(send_to_logfire=False, console=False, service_version='explicit-version')
+    assert GLOBAL_CONFIG.service_version == 'explicit-version'
     serialized = serialize_config()
     assert serialized is not None
     assert serialized['service_version'] == 'explicit-version'
@@ -2024,7 +2021,7 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'token_count': 0,
                         'api_key': False,
                         'service_name': False,
-                        'service_version': True,
+                        'service_version': False,
                         'environment': False,
                         'resource_attributes': 0,
                         'resource_detectors': 0,

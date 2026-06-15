@@ -74,13 +74,6 @@ def serialize_config() -> dict[str, Any] | None:
         # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
         # which is what we want here!
         config_dict = asdict(GLOBAL_CONFIG)
-        # `_service_version_from_git` (whether `service_version` was auto-detected from git rather than
-        # set explicitly) is not a dataclass field, so `asdict` drops it. Without it, the child process
-        # would treat a git-detected `service_version` as explicitly set and give it precedence over
-        # `OTEL_RESOURCE_ATTRIBUTES` — the opposite of the parent. Drop the value so the child re-detects
-        # it as a low-precedence fallback, keeping parent and child consistent. An explicit version is kept.
-        if getattr(GLOBAL_CONFIG, '_service_version_from_git', False):
-            config_dict['service_version'] = None
         # Verify that the config can be pickled before ProcessPoolExecutor tries to pickle it.
         pickle.dumps(config_dict)
         return config_dict
