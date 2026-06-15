@@ -1076,7 +1076,8 @@ def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: Te
     with patch.dict(
         os.environ,
         {
-            'LOGFIRE_RESOURCE_ATTRIBUTES': 'custom.thing=from-logfire-env,other=value',
+            # The `malformed` item has no `=` and is silently skipped.
+            'LOGFIRE_RESOURCE_ATTRIBUTES': 'custom.thing=from-logfire-env,other=value,malformed',
             'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-otel-env',
         },
     ):
@@ -1087,6 +1088,7 @@ def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: Te
     [span] = exporter.exported_spans_as_dict(include_resources=True)
     attributes = span['resource']['attributes']
     assert attributes['other'] == 'value'
+    assert 'malformed' not in attributes
     # LOGFIRE_RESOURCE_ATTRIBUTES (a `logfire.configure()` source) takes precedence over OTEL_RESOURCE_ATTRIBUTES.
     assert attributes['custom.thing'] == 'from-logfire-env'
 

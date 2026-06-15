@@ -1141,11 +1141,11 @@ class LogfireConfig(_LogfireConfigData):
             #   3. The `resource_detectors` argument.
             #   4. Explicit `logfire.configure()` attributes (logfire's own plus `resource_attributes`).
             resource = Resource.create({})
+            # Always non-empty: `detected_host_os_resource_attributes()` always provides `host.*`/`os.*`.
             fallback_resource_attributes: dict[str, Any] = dict(detected_host_os_resource_attributes())
             if self.service_version and self._service_version_from_git:
                 fallback_resource_attributes['service.version'] = self.service_version
-            if fallback_resource_attributes:
-                resource = Resource(fallback_resource_attributes).merge(resource)
+            resource = Resource(fallback_resource_attributes).merge(resource)
 
             if self.resource_detectors:
                 detectors = _load_resource_detectors(self.resource_detectors)
