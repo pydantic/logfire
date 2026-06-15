@@ -25,9 +25,13 @@ Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard
 
 ## Resource attributes
 
-By default, the metrics produced by `instrument_system_metrics` don't say much about the machine or process
-they come from. You can attach extra [resource attributes](https://opentelemetry.io/docs/concepts/resources/)
-to all telemetry by passing resource detectors to [`logfire.configure()`][logfire.configure]:
+By default, Logfire pre-populates the `host.name`, `host.arch`, `os.type` and `os.version` resource attributes,
+so the machine running your code shows up in the Hosts view without any extra configuration. The `host.name`
+comes from `socket.gethostname()`; if that isn't meaningful (e.g. a random container ID), override it with
+`resource_attributes` as shown below.
+
+To attach further [resource attributes](https://opentelemetry.io/docs/concepts/resources/) to all telemetry —
+process information, for example — pass resource detectors to [`logfire.configure()`][logfire.configure]:
 
 ```py
 import logfire
@@ -38,10 +42,9 @@ logfire.instrument_system_metrics()
 ```
 
 This uses the `process` detector provided by the OpenTelemetry SDK to set attributes such as `process.command`,
-`process.command_args`, and `process.owner`. The SDK also provides the `os` and `host` detectors — the latter
-sets `host.name`, which the Logfire UI uses to associate telemetry with a host in the Hosts view — and the
-special name `'*'` runs every registered detector. An unknown detector name emits a warning and is skipped
-rather than raising.
+`process.command_args`, and `process.owner`. The SDK also provides the `os` and `host` detectors (which produce
+the same `os.*`/`host.*` attributes already pre-populated above) and the special name `'*'`, which runs every
+registered detector. An unknown detector name emits a warning and is skipped rather than raising.
 
 To set attribute values yourself, or to add custom attributes, use the `resource_attributes` argument, which
 takes precedence over detectors:

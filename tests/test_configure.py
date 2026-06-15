@@ -833,6 +833,10 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'process.pid': 1234,
                     }
                 },
@@ -880,6 +884,10 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
@@ -930,6 +938,10 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
@@ -1124,6 +1136,53 @@ def test_explicit_service_version_takes_precedence_over_otel_resource_attributes
 
     [span] = exporter.exported_spans_as_dict(include_resources=True)
     assert span['resource']['attributes']['service.version'] == 'explicit-version'
+
+
+def test_host_and_os_resource_attributes_populated_by_default(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`host.*` and `os.*` are pre-populated with the same values OTel's
+    `_HostResourceDetector` and `OsResourceDetector` would emit, so the Hosts
+    page works without the customer enabling the experimental detector env var.
+    """
+    import platform
+    import socket
+
+    # Hermetic: an inherited `OTEL_RESOURCE_ATTRIBUTES` from the runner shell
+    # would override our defaults and make this test pass spuriously.
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop('OTEL_RESOURCE_ATTRIBUTES', None)
+        configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == socket.gethostname()
+    assert resource_attrs['host.arch'] == platform.machine()
+    assert resource_attrs['os.type'] == platform.system().lower()
+    assert resource_attrs['os.version'] == (
+        platform.version() if platform.system().lower() in ('windows', 'sunos') else platform.release()
+    )
+
+
+def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`OTEL_RESOURCE_ATTRIBUTES` wins over the pre-populated `host.*` / `os.*`
+    so customers whose `socket.gethostname()` is useless (e.g. random
+    container IDs) can override cleanly.
+    """
+    with patch.dict(
+        os.environ,
+        {'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch,os.type=plan9,os.version=4'},
+    ):
+        configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == 'my-explicit-host'
+    assert resource_attrs['host.arch'] == 'my-arch'
+    assert resource_attrs['os.type'] == 'plan9'
+    assert resource_attrs['os.version'] == '4'
 
 
 def test_config_serializable():
@@ -2312,6 +2371,10 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -2363,6 +2426,10 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -2416,6 +2483,10 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
@@ -2900,3 +2971,10 @@ def test_normalize_token():
     # Tuple input
     assert normalize_token(('token1',)) == 'token1'
     assert normalize_token(('token1', 'token2')) == ['token1', 'token2']
+
+
+def test_host_resource_attributes():
+    # Check that we're copying OTel accurately while avoiding the private import outside tests.
+    from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
+
+    assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes

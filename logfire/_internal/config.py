@@ -5,7 +5,9 @@ import dataclasses
 import functools
 import json
 import os
+import platform
 import re
+import socket
 import sys
 import time
 import warnings
@@ -50,7 +52,7 @@ from opentelemetry.sdk.metrics import (
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
-from opentelemetry.sdk.resources import Resource, ResourceDetector, get_aggregated_resources
+from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -1130,15 +1132,20 @@ class LogfireConfig(_LogfireConfigData):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
             # Build the resource from lowest to highest precedence:
-            #   1. OTel's default attributes plus the env vars `OTEL_RESOURCE_ATTRIBUTES` and
+            #   1. Low-precedence fallbacks: the pre-populated `host.*`/`os.*` attributes (so the Hosts
+            #      view works out of the box) and the git-hash `service.version`. These deliberately sit
+            #      below the env vars so an explicit `OTEL_RESOURCE_ATTRIBUTES` (e.g. a meaningful
+            #      `host.name` or `service.version`) still wins.
+            #   2. OTel's default attributes plus the env vars `OTEL_RESOURCE_ATTRIBUTES` and
             #      `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` (both applied by `Resource.create`).
-            #   2. The `resource_detectors` argument.
-            #   3. Explicit `logfire.configure()` attributes (logfire's own plus `resource_attributes`).
-            # The git-hash `service.version` is only a fallback, so it sits below everything else —
-            # in particular it must not override an explicit `service.version` from `OTEL_RESOURCE_ATTRIBUTES`.
+            #   3. The `resource_detectors` argument.
+            #   4. Explicit `logfire.configure()` attributes (logfire's own plus `resource_attributes`).
             resource = Resource.create({})
+            fallback_resource_attributes: dict[str, Any] = dict(detected_host_os_resource_attributes())
             if self.service_version and self._service_version_from_git:
-                resource = Resource({'service.version': self.service_version}).merge(resource)
+                fallback_resource_attributes['service.version'] = self.service_version
+            if fallback_resource_attributes:
+                resource = Resource(fallback_resource_attributes).merge(resource)
 
             if self.resource_detectors:
                 detectors = _load_resource_detectors(self.resource_detectors)
@@ -2265,6 +2272,32 @@ def get_runtime_version() -> str:
     if version_info.releaselevel == 'final' and not version_info.serial:
         return '.'.join(map(str, version_info[:3]))
     return '.'.join(map(str, version_info))  # pragma: no cover
+
+
+@functools.cache
+def detected_host_os_resource_attributes() -> dict[str, Any]:
+    """`host.*` and `os.*` attributes, pre-populated as low-precedence resource defaults.
+
+    These let the Logfire Hosts page surface a row without the customer opting into the experimental
+    `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` env var or passing `resource_detectors`. They're applied below
+    the env vars (and below the `resource_detectors`/`resource_attributes` configure arguments), so any of
+    those still wins — e.g. a customer whose `socket.gethostname()` is a useless container ID can override
+    `host.name` cleanly.
+    """
+    return {
+        # https://opentelemetry.io/docs/specs/semconv/resource/host/
+        **host_resource_attributes(),
+        # https://opentelemetry.io/docs/specs/semconv/resource/os/
+        **OsResourceDetector().detect().attributes,
+    }
+
+
+def host_resource_attributes() -> dict[str, Any]:
+    # See test_host_resource_attributes
+    return {
+        'host.name': socket.gethostname(),
+        'host.arch': platform.machine(),
+    }
 
 
 class LogfireNotConfiguredWarning(UserWarning):
