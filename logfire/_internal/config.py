@@ -16,6 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import timedelta
+from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
@@ -527,7 +528,8 @@ def configure(
 
             Each item is either a `ResourceDetector` instance, or the name of a detector registered under the
             `opentelemetry_resource_detector` entry point group. The `opentelemetry-sdk` package provides the names
-            `'os'`, `'host'`, and `'process'`, and other packages can register additional detectors. The special
+            `'os'`, `'host'`, and `'process'` (the `os.*`/`host.*` attributes are already populated by default, so
+            `'process'` is the main one to add), and other packages can register additional detectors. The special
             name `'*'` runs every registered detector.
 
             For example, `resource_detectors=['process']` adds process attributes such as `process.command` and
@@ -851,7 +853,7 @@ class _LogfireConfigData:
         resource_detectors = param_manager.load_param('resource_detectors', resource_detectors)
         if isinstance(resource_detectors, str):
             # A bare string satisfies `Sequence[str]` statically but would be iterated character by
-            # character, so coerce e.g. `resource_detectors='host'` to `['host']`.
+            # character, so coerce e.g. `resource_detectors='process'` to `['process']`.
             resource_detectors = [resource_detectors]
         self.resource_detectors = list(resource_detectors or ())
         self.data_dir = param_manager.load_param('data_dir', data_dir)
@@ -1116,16 +1118,25 @@ class LogfireConfig(_LogfireConfigData):
 
             # Build the resource from lowest to highest precedence:
             #   1. Low-precedence fallbacks: the common auto-derived attributes (`process.runtime.*`,
-            #      `host.*`, `os.*`, so the Hosts view works out of the box) and the git-hash
-            #      `service.version`. These deliberately sit below the env vars so an explicit
-            #      `OTEL_RESOURCE_ATTRIBUTES` (e.g. a meaningful `host.name` or `service.version`) still wins.
+            #      `host.*`, `os.*`, so the Hosts view works out of the box), a random `service.instance.id`,
+            #      and the git-hash `service.version`. These deliberately sit below the env vars so an explicit
+            #      `OTEL_RESOURCE_ATTRIBUTES` (e.g. a meaningful `host.name` or `service.version`), and any
+            #      resource detector, still wins.
             #   2. OTel's default attributes plus the env vars `OTEL_RESOURCE_ATTRIBUTES` and
             #      `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` (both applied by `Resource.create`).
             #   3. The `resource_detectors` argument.
             #   4. Explicit `logfire.configure()` attributes (logfire's own plus `resource_attributes`).
             resource = Resource.create({})
-            # Always non-empty: `common_resource_attributes()` always provides `process.runtime.*`/`host.*`/`os.*`.
-            fallback_resource_attributes: dict[str, Any] = dict(common_resource_attributes())
+            fallback_resource_attributes: dict[str, Any] = {
+                # Always non-empty: provides `process.runtime.*`/`host.*`/`os.*`.
+                **common_resource_attributes(),
+                # A random `service.instance.id` unless a detector or env var sets one. This attribute is
+                # experimental; the latest released docs are at
+                # https://opentelemetry.io/docs/specs/semconv/resource/#service-experimental and a newer version
+                # is at https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
+                # — both recommend generating a UUID.
+                'service.instance.id': uuid4().hex,
+            }
             if self.service_version is None:
                 # No explicit `service_version`: fall back to the git commit hash. Done here (rather than in
                 # `_load_configuration`, which runs at import) so we only shell out to git when actually
@@ -1150,16 +1161,6 @@ class LogfireConfig(_LogfireConfigData):
             # argument) take precedence over everything detected above, including the env vars
             # `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
             resource = resource.merge(Resource(otel_resource_attributes))
-
-            # Set service instance ID to a random UUID if it hasn't been set already.
-            # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
-            # but doing it here means that resource detectors (checked in Resource.create) get priority.
-            # This attribute is currently experimental. The latest released docs about it are here:
-            # https://opentelemetry.io/docs/specs/semconv/resource/#service-experimental
-            # Currently there's a newer version with some differences here:
-            # https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
-            # Both recommend generating a UUID.
-            resource = Resource({'service.instance.id': uuid4().hex}).merge(resource)
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -2224,8 +2225,6 @@ def _load_resource_detectors(detectors: Sequence[ResourceDetector | str]) -> lis
     Unknown names, or detectors that fail to load, emit a warning and are skipped rather than raising, so that a
     typo can never crash the application — matching OpenTelemetry's tolerant handling of the env var.
     """
-    from importlib.metadata import entry_points
-
     result: list[ResourceDetector] = []
     for detector in detectors:
         if isinstance(detector, ResourceDetector):

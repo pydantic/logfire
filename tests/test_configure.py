@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import dataclasses
+import getpass
 import json
 import os
 import pickle
-import platform
-import socket
 import subprocess
 import sys
 import threading
@@ -967,22 +966,24 @@ def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], expo
     )
 
 
-def test_resource_detectors_by_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
-    config_kwargs['resource_detectors'] = ['os', 'host']
+@pytest.mark.parametrize('detectors', [['*'], 'process', ['process']])
+def test_resource_detectors(detectors: str | list[str], config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A list of names, a bare string (coerced to a single-element list), and `'*'` (every registered detector)
+    # all run the `process` detector, which adds attributes that aren't pre-populated by default.
+    config_kwargs['resource_detectors'] = detectors
     configure(**config_kwargs)
 
     logfire.info('test1')
 
     [span] = exporter.exported_spans_as_dict(include_resources=True)
-    attributes = span['resource']['attributes']
-    assert attributes == IsPartialDict(
+    # The `process` detector adds attributes that aren't pre-populated by default.
+    assert span['resource']['attributes'] == IsPartialDict(
         {
-            'os.type': platform.system().lower(),
-            'host.name': socket.gethostname(),
-            'host.arch': platform.machine(),
+            'process.owner': getpass.getuser(),
+            'process.executable.name': IsStr(),
+            'process.executable.path': IsStr(),
         }
     )
-    assert 'os.version' in attributes
 
 
 def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
@@ -1005,20 +1006,9 @@ def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: Tes
     )
 
 
-def test_resource_detectors_string(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
-    # A bare string is coerced to a single-element list rather than being iterated character by character.
-    config_kwargs['resource_detectors'] = 'host'
-    configure(**config_kwargs)
-
-    logfire.info('test1')
-
-    [span] = exporter.exported_spans_as_dict(include_resources=True)
-    assert span['resource']['attributes'] == IsPartialDict({'host.name': socket.gethostname()})
-
-
 def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     # An unknown detector name warns and is skipped rather than raising, so a typo can't crash the app.
-    config_kwargs['resource_detectors'] = ['nonexistent-detector', 'host']
+    config_kwargs['resource_detectors'] = ['nonexistent-detector', 'process']
     with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
         configure(**config_kwargs)
 
@@ -1026,7 +1016,7 @@ def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter:
 
     # The valid detector alongside the unknown one is still applied.
     [span] = exporter.exported_spans_as_dict(include_resources=True)
-    assert span['resource']['attributes']['host.name'] == socket.gethostname()
+    assert span['resource']['attributes'] == IsPartialDict({'process.owner': getpass.getuser()})
 
 
 def test_resource_detector_unknown_name_in_env_var(config_kwargs: dict[str, Any]) -> None:
@@ -1036,31 +1026,15 @@ def test_resource_detector_unknown_name_in_env_var(config_kwargs: dict[str, Any]
             configure(**config_kwargs)
 
 
-def test_resource_detectors_wildcard(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
-    # `'*'` expands to every registered detector (except `'otel'`), matching the OTel env var.
-    config_kwargs['resource_detectors'] = ['*']
-    configure(**config_kwargs)
-
-    logfire.info('test1')
-
-    [span] = exporter.exported_spans_as_dict(include_resources=True)
-    attributes = span['resource']['attributes']
-    # From the `host`/`os` detectors:
-    assert attributes['host.name'] == socket.gethostname()
-    assert attributes['os.type'] == platform.system().lower()
-    # From the `process` detector:
-    assert 'process.runtime.name' in attributes
-
-
 def test_resource_detectors_take_precedence_over_env_var_detectors(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ) -> None:
-    class HostNameDetector(ResourceDetector):
+    class CommandDetector(ResourceDetector):
         def detect(self) -> Resource:
-            return Resource({'host.name': 'from-kwarg-detector'})
+            return Resource({'process.command': 'from-kwarg-detector'})
 
-    config_kwargs['resource_detectors'] = [HostNameDetector()]
-    with patch.dict(os.environ, {'OTEL_EXPERIMENTAL_RESOURCE_DETECTORS': 'host'}):
+    config_kwargs['resource_detectors'] = [CommandDetector()]
+    with patch.dict(os.environ, {'OTEL_EXPERIMENTAL_RESOURCE_DETECTORS': 'process'}):
         configure(**config_kwargs)
 
     logfire.info('test1')
@@ -1068,9 +1042,9 @@ def test_resource_detectors_take_precedence_over_env_var_detectors(
     [span] = exporter.exported_spans_as_dict(include_resources=True)
     attributes = span['resource']['attributes']
     # `resource_detectors` takes precedence over `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
-    assert attributes['host.name'] == 'from-kwarg-detector'
+    assert attributes['process.command'] == 'from-kwarg-detector'
     # The env var detector still contributes attributes that the kwarg detector doesn't override.
-    assert attributes['host.arch'] == platform.machine()
+    assert attributes['process.owner'] == getpass.getuser()
 
 
 def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
@@ -1095,15 +1069,13 @@ def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: Te
 
 
 def test_resource_detectors_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
-    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'os,host'}):
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'process'}):
         configure(**config_kwargs)
 
     logfire.info('test1')
 
     [span] = exporter.exported_spans_as_dict(include_resources=True)
-    attributes = span['resource']['attributes']
-    assert attributes['host.name'] == socket.gethostname()
-    assert attributes['os.type'] == platform.system().lower()
+    assert span['resource']['attributes'] == IsPartialDict({'process.owner': getpass.getuser()})
 
 
 def test_resource_attributes_and_detectors_from_pyproject_toml(
@@ -1113,7 +1085,7 @@ def test_resource_attributes_and_detectors_from_pyproject_toml(
         """
         [tool.logfire]
         resource_attributes = {"custom.thing" = "from-file"}
-        resource_detectors = ["host"]
+        resource_detectors = ["process"]
         """
     )
 
@@ -1124,7 +1096,7 @@ def test_resource_attributes_and_detectors_from_pyproject_toml(
     [span] = exporter.exported_spans_as_dict(include_resources=True)
     attributes = span['resource']['attributes']
     assert attributes['custom.thing'] == 'from-file'
-    assert attributes['host.name'] == socket.gethostname()
+    assert attributes['process.owner'] == getpass.getuser()
 
 
 def test_explicit_service_version_takes_precedence_over_otel_resource_attributes(
