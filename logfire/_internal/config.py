@@ -2276,6 +2276,7 @@ def common_resource_attributes() -> dict[str, Any]:
     """
     return {
         # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
+        # TODO use ProcessResourceDetector?
         'process.runtime.name': sys.implementation.name,
         'process.runtime.version': get_runtime_version(),
         'process.runtime.description': sys.version,

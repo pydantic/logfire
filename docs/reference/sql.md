@@ -287,12 +287,16 @@ resource_detectors = ["process"]
 
 By default Logfire pre-populates `host.*`, `os.*` and `process.runtime.*`; in particular the `host.*` attributes mean machines show up in the [Hosts view](../guides/web-ui/hosts.md) out of the box.
 
-The precedence, from highest to lowest:
+The precedence, from highest to lowest (each of the first three can be set by the `logfire.configure()` argument, the corresponding `LOGFIRE_*` environment variable, or `pyproject.toml`):
 
-1. Attributes set explicitly in `logfire.configure()`: `resource_attributes`, and the dedicated `service_name` / `service_version` / `environment` arguments (which override the same keys set via `resource_attributes`).
-2. The `resource_detectors` argument (on `AdvancedOptions`).
-3. The standard `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variables — also the mechanism used by other OpenTelemetry SDKs, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
-4. Logfire's pre-populated defaults (`host.*`, `os.*`, `process.runtime.*`).
+1. The dedicated `service_name` / `service_version` / `environment` arguments (`LOGFIRE_SERVICE_NAME` / `LOGFIRE_SERVICE_VERSION` / `LOGFIRE_ENVIRONMENT`).
+2. The `resource_attributes` argument (`LOGFIRE_RESOURCE_ATTRIBUTES`).
+3. The `resource_detectors` argument on `AdvancedOptions` (`LOGFIRE_RESOURCE_DETECTORS`).
+4. The `OTEL_RESOURCE_ATTRIBUTES` environment variable, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=my-service,service.version=1.0.0`.
+5. Resource detectors from the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable.
+6. Logfire's pre-populated defaults (`host.*`, `os.*`, `process.runtime.*`).
+
+Items 4 and 5 are applied by OpenTelemetry's `Resource.create`, so they behave exactly as in any OpenTelemetry SDK — in particular `OTEL_RESOURCE_ATTRIBUTES` takes precedence over the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` detectors.
 
 Metrics and spans/logs produced by the same process will share the same resource attributes, and the `metrics` table has this column as well as many of the others in this section.
 
