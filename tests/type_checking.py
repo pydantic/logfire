@@ -27,3 +27,17 @@ my_template_variable = logfire.template_var(
 )
 assert_type(my_template_variable, TemplateVariable[str, PromptInputs])
 assert_type(my_template_variable.get(PromptInputs(name='Alice')).value, str)
+
+
+# `prompt()` is `var()` specialized to `str`, and `template_prompt()` mirrors `template_var()`.
+my_prompt = logfire.prompt(name='my-prompt', default='Be helpful.')
+assert_type(my_prompt, Variable[str])
+assert_type(my_prompt.get().value, str)
+
+my_template_prompt = logfire.template_prompt(
+    name='my-template-prompt',
+    default='Hello {{name}}',
+    inputs_type=PromptInputs,
+)
+assert_type(my_template_prompt, TemplateVariable[str, PromptInputs])
+assert_type(my_template_prompt.get(PromptInputs(name='Alice')).value, str)

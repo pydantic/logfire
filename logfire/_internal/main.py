@@ -2747,6 +2747,112 @@ class Logfire:
 
         return variable
 
+    def prompt(
+        self,
+        name: str,
+        *,
+        default: str | ResolveFunction[str],
+        description: str | None = None,
+    ) -> Variable[str]:
+        """Define a managed prompt.
+
+        A prompt is a managed string variable holding prompt text. This is `var()` specialized to
+        prompts: the value type is fixed to `str`, and the name is translated to Logfire's prompt
+        convention before the variable is declared. `logfire.prompt('support-agent', ...)` declares
+        the backing variable `prompt__support_agent` -- the `prompt__` prefix is added and hyphens
+        become underscores, matching the naming Logfire's
+        [prompt management](https://logfire.pydantic.dev/docs/reference/advanced/prompt-management/)
+        uses. The return value is a plain `Variable[str]`; resolve it with `.get()` exactly like
+        `var()`.
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+        # declares the managed variable `prompt__support_agent`
+        support = logfire.prompt('support-agent', default='You are a helpful support agent.')
+
+        with support.get(label='production') as resolved:
+            system_prompt = resolved.value
+        ```
+
+        For prompts whose text contains Handlebars `{{placeholder}}` templates that need runtime
+        inputs, use [`template_prompt()`][logfire.Logfire.template_prompt].
+
+        Args:
+            name: The prompt name (e.g. `support-agent`). The backing variable name is derived from
+                it; pass the bare name rather than the `prompt__`-prefixed variable name.
+            default: Default prompt text used when no remote configuration is found. Can also be a
+                callable with `targeting_key` and `attributes` parameters.
+            description: Optional human-readable description of what the prompt controls.
+        """
+        from logfire.variables._prompt import prompt_variable_name
+
+        return self.var(prompt_variable_name(name), type=str, default=default, description=description)
+
+    def template_prompt(
+        self,
+        name: str,
+        *,
+        default: str | ResolveFunction[str],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
+    ) -> TemplateVariable[str, InputsT]:
+        """Define a managed prompt whose text is a Handlebars template.
+
+        This is to [`prompt()`][logfire.Logfire.prompt] what
+        [`template_var()`][logfire.Logfire.template_var] is to [`var()`][logfire.Logfire.var]: the
+        value type is fixed to `str` and the name is translated to Logfire's prompt convention
+        (`prompt__<name>`, hyphens to underscores), but `get(inputs)` renders the Handlebars
+        `{{placeholder}}` markup in the resolved prompt before returning.
+
+        ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
+        from pydantic import BaseModel
+
+        import logfire
+
+        logfire.configure()
+
+
+        class PromptInputs(BaseModel):
+            customer_name: str
+
+
+        support = logfire.template_prompt(
+            'support-agent',
+            default='You are helping {{customer_name}}. Be friendly and concise.',
+            inputs_type=PromptInputs,
+        )
+
+        with support.get(PromptInputs(customer_name='Alice')) as resolved:
+            assert resolved.value == 'You are helping Alice. Be friendly and concise.'
+        ```
+
+        Args:
+            name: The prompt name (e.g. `support-agent`). The backing variable name is derived from
+                it; pass the bare name rather than the `prompt__`-prefixed variable name.
+            default: Default prompt text used when no remote configuration is found. Can also be a
+                callable with `targeting_key` and `attributes` parameters.
+            inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected template
+                inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
+            description: Optional human-readable description of what the prompt controls.
+            template_mismatch_policy: How to react when the resolved prompt references a `{{field}}`
+                not declared in `inputs_type`. See
+                [`template_var()`][logfire.Logfire.template_var] for the full semantics.
+        """
+        from logfire.variables._prompt import prompt_variable_name
+
+        return self.template_var(
+            prompt_variable_name(name),
+            type=str,
+            default=default,
+            inputs_type=inputs_type,
+            description=description,
+            template_mismatch_policy=template_mismatch_policy,
+        )
+
     def variables_clear(self) -> None:
         """Clear all registered variables from this Logfire instance.
 
