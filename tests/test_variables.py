@@ -4804,6 +4804,38 @@ class TestOnChangeComposition:
 
         assert changes == ['changed']
 
+    def test_on_change_fires_for_callable_default_on_unrelated_change(self, config_kwargs: dict[str, Any]):
+        """A variable with a callable code default is treated as composing every variable.
+
+        We can't introspect a callable default's references without invoking user code, so any
+        change at all is assumed to (possibly) affect it. on_change is documented as idempotent,
+        so firing on an unrelated change is acceptable.
+        """
+        config = VariablesConfig(
+            variables={
+                'name': single_label_config('name', '"world"'),
+                'unrelated': single_label_config('unrelated', '"x"'),
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+        assert isinstance(provider, LocalVariableProvider)
+
+        # A callable default — its `@{name}@` reference is only visible at resolution time.
+        dynamic = lf.var('dynamic', default=lambda targeting_key, attributes: 'hi @{name}@', type=str)
+
+        changes: list[str] = []
+
+        @dynamic.on_change
+        def on_dynamic_change():  # pyright: ignore[reportUnusedFunction]
+            changes.append('changed')
+
+        # Changing an entirely unrelated variable still notifies the callable-default variable.
+        provider.update_variable('unrelated', single_label_config('unrelated', '"y"'))
+
+        assert changes == ['changed']
+
 
 class TestReconfigureWithExistingVariables:
     """Change notifications survive reconfiguration."""
@@ -4878,13 +4910,14 @@ class TestRemoteProviderChangeDetection:
                 changed_vars: list[set[str]] = []
                 provider.add_on_config_change(lambda names: changed_vars.append(names))
 
-                # First fetch
+                # First fetch — every variable is reported as changed (it transitions from the
+                # code default to the server value). Notifying here is deliberately eager.
                 provider.refresh(force=True)
-                assert changed_vars == []  # No old config to compare to
+                assert changed_vars == [{'my_var'}]
 
                 # Second fetch — config changed
                 provider.refresh(force=True)
-                assert changed_vars == [{'my_var'}]
+                assert changed_vars == [{'my_var'}, {'my_var'}]
             finally:
                 provider.shutdown()
 
@@ -4914,9 +4947,10 @@ class TestRemoteProviderChangeDetection:
                 changed_vars: list[set[str]] = []
                 provider.add_on_config_change(lambda names: changed_vars.append(names))
 
+                provider.refresh(force=True)  # first fetch notifies (code default -> server value)
+                changed_vars.clear()
                 provider.refresh(force=True)
-                provider.refresh(force=True)
-                assert changed_vars == []  # No changes
+                assert changed_vars == []  # No changes between fetches
             finally:
                 provider.shutdown()
 
@@ -4962,9 +4996,10 @@ class TestRemoteProviderChangeDetection:
                 changed_vars: list[set[str]] = []
                 provider.add_on_config_change(lambda names: changed_vars.append(names))
 
+                provider.refresh(force=True)  # first fetch notifies (code default -> server value)
+                changed_vars.clear()
                 provider.refresh(force=True)
-                provider.refresh(force=True)
-                assert changed_vars == []
+                assert changed_vars == []  # metadata-only edit doesn't notify
             finally:
                 provider.shutdown()
 
@@ -4998,9 +5033,52 @@ class TestRemoteProviderChangeDetection:
                 changed_vars: list[set[str]] = []
                 provider.add_on_config_change(lambda names: changed_vars.append(names))
 
-                provider.refresh(force=True)
-                provider.refresh(force=True)
+                provider.refresh(force=True)  # first fetch notifies (code default -> server value)
+                changed_vars.clear()
+                provider.refresh(force=True)  # variable deleted
                 assert changed_vars == [{'my_var', 'old_alias'}]
+            finally:
+                provider.shutdown()
+
+    def test_first_fetch_notifies_all_variables(self):
+        """The first successful fetch reports every variable as changed (eager notification).
+
+        A variable's resolved value can change at the first fetch (e.g. with
+        block_before_first_resolve=False a get() returns the code default before the server value
+        arrives), so we notify rather than treat the initial load as "no change".
+        """
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'a': {
+                        'name': 'a',
+                        'labels': {'v1': {'version': 1, 'serialized_value': '"a"'}},
+                        'rollout': {'labels': {'v1': 1.0}},
+                        'overrides': [],
+                    },
+                    'b': {
+                        'name': 'b',
+                        'labels': {'v1': {'version': 1, 'serialized_value': '"b"'}},
+                        'rollout': {'labels': {'v1': 1.0}},
+                        'overrides': [],
+                    },
+                }
+            },
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                changed_vars: list[set[str]] = []
+                provider.add_on_config_change(lambda names: changed_vars.append(names))
+
+                provider.refresh(force=True)
+                assert changed_vars == [{'a', 'b'}]
             finally:
                 provider.shutdown()
 
@@ -6624,6 +6702,61 @@ class TestLazyVariableProviderInit:
             assert provider2 is provider1
 
             provider1.shutdown()
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestOnChangePollingLifecycle:
+    """Registering on_change must start (and keep) the background poller running.
+
+    The remote poller is otherwise only started on the first variable resolution, so a program
+    that only registers callbacks (without eagerly resolving) would never get notified.
+    """
+
+    def test_registering_on_change_starts_lazy_poller(self, config_kwargs: dict[str, Any]) -> None:
+        """Registering an on_change callback lazily starts the remote provider, without an eager get()."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker, unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+            lf = logfire.configure(**config_kwargs)
+            # No explicit variables configured: the provider starts out as a no-op.
+            assert isinstance(lf.config._variable_provider, NoOpVariableProvider)
+
+            my_var = lf.var('my_var', default='x', type=str)
+            # Merely defining a variable does not start the poller.
+            assert isinstance(lf.config._variable_provider, NoOpVariableProvider)
+
+            @my_var.on_change
+            def _cb() -> None:  # pyright: ignore[reportUnusedFunction]
+                ...
+
+            # Registering the callback starts the (lazy) remote poller so the callback can fire.
+            provider = lf.config._variable_provider
+            assert isinstance(provider, LogfireRemoteVariableProvider)
+            provider.shutdown()
+
+    def test_on_change_polling_survives_reconfigure(self, config_kwargs: dict[str, Any]) -> None:
+        """After a reconfigure rebuilds the provider, the poller is restarted for existing callbacks."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker, unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+            lf = logfire.configure(**config_kwargs)
+            my_var = lf.var('my_var', default='x', type=str)
+
+            @my_var.on_change
+            def _cb() -> None:  # pyright: ignore[reportUnusedFunction]
+                ...
+
+            provider1 = lf.config._variable_provider
+            assert isinstance(provider1, LogfireRemoteVariableProvider)
+
+            # Reconfigure with no explicit variables: the old provider is shut down and rebuilt.
+            # Because an on_change callback is registered, the poller is restarted rather than
+            # left as a no-op (which would silently stop notifications).
+            lf = logfire.configure(**config_kwargs)
+            provider2 = lf.config._variable_provider
+            assert isinstance(provider2, LogfireRemoteVariableProvider)
+            assert provider2 is not provider1
+            provider2.shutdown()
 
 
 class TestConfigVariablesDictDeserialization:

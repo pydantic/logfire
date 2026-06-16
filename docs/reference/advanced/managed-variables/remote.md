@@ -398,7 +398,9 @@ merged = server_config.merge(local_config)
 
 You can register callbacks that fire when a variable's configuration changes:
 
-```python skip="true"
+```python
+import logfire
+
 feature_enabled = logfire.var('feature_enabled', default=False)
 
 
@@ -406,10 +408,6 @@ feature_enabled = logfire.var('feature_enabled', default=False)
 def on_feature_change():
     new_value = feature_enabled.get().value
     logfire.info('feature_enabled changed to {new_value}', new_value=new_value)
-    invalidate_cache()
-
-
-on_feature_change()  # optionally, reconcile once at startup too
 ```
 
 **What fires a notification:**
@@ -437,5 +435,20 @@ Other key points:
   change notification)
 - Multiple callbacks can be registered on the same variable
 - Exceptions in callbacks are caught and logged (they don't crash the polling thread)
-- The initial load of remote configuration does not fire callbacks; to reconcile once at
-  startup, call your handler directly after registering it (as in the example above)
+- Delivery of the *initial* load of remote configuration is best-effort: the provider may
+  fetch it before your callback is registered, so don't rely on it firing. To reliably
+  reconcile once at startup, call your handler yourself right after registering it:
+
+```python
+import logfire
+
+feature_enabled = logfire.var('feature_enabled', default=False)
+
+
+@feature_enabled.on_change
+def on_feature_change():
+    logfire.info('feature_enabled is now {value}', value=feature_enabled.get().value)
+
+
+on_feature_change()  # reconcile once at startup
+```

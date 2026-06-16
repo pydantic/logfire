@@ -321,8 +321,9 @@ class Variable(Generic[T_co]):
         (which would re-enter change notification). Exceptions raised by the callback are
         logged, not raised.
 
-        The callback is *not* invoked for the provider's initial load of remote
-        configuration. To also reconcile once at startup, call your handler yourself after
+        Delivery of the *initial* load of remote configuration is best-effort: the provider may
+        fetch it before your callback is registered, in which case that first value won't fire a
+        callback. To reliably reconcile once at startup, call your handler yourself after
         registering it — `on_change` returns the callback to make that easy:
 
             @my_var.on_change
@@ -338,6 +339,9 @@ class Variable(Generic[T_co]):
             The callback (for use as a decorator).
         """
         self._on_change_callbacks.append(callback)
+        # Make sure the background poller is running so this callback can actually fire, even if no
+        # variable is ever resolved eagerly (which is otherwise what starts the remote poller).
+        self.logfire_instance._ensure_variable_change_polling()  # pyright: ignore[reportPrivateUsage]
         return callback
 
     def _notify_change(self) -> None:
@@ -1284,8 +1288,19 @@ def expand_config_changes(
             add_refs(variable_config.name, variable_config.latest_version.serialized_value)
 
     # The code default participates in resolution (and composition through it) too, so its
-    # references count as edges even for variables with no server-side values.
+    # references count as edges even for variables with no server-side values. A *callable*
+    # code default is treated as referencing every variable (see `dynamic_default_names`
+    # below) rather than being added to the static edge graph.
+    dynamic_default_names: set[str] = set()
     for name, variable in registry.items():
+        if is_resolve_function(variable.default):
+            # We can't know which variables a callable default composes without invoking user
+            # code, which may be slow, side-effectful, or return different refs per targeting
+            # context. So we conservatively assume it depends on *every* variable: any change
+            # effectively changes it. on_change is documented as idempotent, so firing it on an
+            # unrelated change is acceptable.
+            dynamic_default_names.add(name)
+            continue
         for ref in _static_composition_refs(variable):
             edges.setdefault(canonical(name), set()).add(canonical(ref))
 
@@ -1297,7 +1312,12 @@ def expand_config_changes(
             break
         closure |= additions
 
-    return {name for name in registry if canonical(name) in closure}
+    result = {name for name in registry if canonical(name) in closure}
+    # Any change at all effectively changes a variable with a callable default (it may compose
+    # the changed variable). `changed_names` is always non-empty here, so include them all.
+    if changed_names:
+        result |= dynamic_default_names
+    return result
 
 
 def warn_on_template_inputs_composition_mismatch(

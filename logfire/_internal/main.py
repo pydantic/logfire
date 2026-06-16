@@ -2771,6 +2771,23 @@ class Logfire:
         for name in sorted(expand_config_changes(changed_names, provider_config, variables)):
             variables[name]._notify_change()  # pyright: ignore[reportPrivateUsage]
 
+    def _ensure_variable_change_polling(self) -> None:
+        """Make sure the background poller is running so registered on_change callbacks can fire.
+
+        Called when a variable's `on_change` callback is registered. The remote provider's poller
+        is otherwise started lazily on the first variable resolution, so a program that only
+        registers callbacks (without ever resolving a variable) would never receive notifications.
+        We record the request on the config — so it survives reconfiguration, which rebuilds the
+        provider — and, if configuration has already happened, start the provider now (a no-op for
+        already-running and for no-op/local providers).
+        """
+        self.config._variable_change_polling_requested = True  # pyright: ignore[reportPrivateUsage]
+        if self.config._initialized:  # pyright: ignore[reportPrivateUsage]
+            # For an explicitly-configured provider this is already started; for the lazy-init
+            # remote path this creates and starts it. Returns a no-op provider when there's nothing
+            # to poll (no API key / no variables configured).
+            self.config.get_variable_provider()
+
     def variables_clear(self) -> None:
         """Clear all registered variables from this Logfire instance.
 
@@ -2780,6 +2797,10 @@ class Logfire:
         to ensure a clean state between test cases.
         """
         self._variables.clear()
+        # Clearing removes every on_change callback, so the eager-polling request no longer
+        # applies; reset it so a subsequent reconfigure doesn't keep a poller alive for callbacks
+        # that are gone (and so tests start from a clean state).
+        self.config._variable_change_polling_requested = False  # pyright: ignore[reportPrivateUsage]
 
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
         """Get all variables registered with this Logfire instance."""

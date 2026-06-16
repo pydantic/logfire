@@ -359,15 +359,20 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
 
                 # Detect which variables' configs changed since the previous fetch. The first
-                # fetch (old_config is None) is not a "change" — variables are only beginning
-                # to resolve against the provider at that point.
-                if old_config is not None:
-                    all_names = set(old_config.variables) | set(new_config.variables)
-                    for name in all_names:
-                        old_var = old_config.variables.get(name)
-                        new_var = new_config.variables.get(name)
-                        if old_var is None or new_var is None or resolution_relevant_config_changed(old_var, new_var):
-                            changed |= changed_config_keys(*(c for c in (old_var, new_var) if c is not None))
+                # fetch (old_config is None) is diffed against an empty config, so every variable
+                # is reported as changed: from the user's perspective a variable's resolved value
+                # *can* change at the first fetch — with block_before_first_resolve=False (or after
+                # an initial fetch failure) a get() returns the code default first and the server
+                # value once it arrives. We notify eagerly rather than trying to suppress these
+                # first-fetch transitions; on_change is documented as idempotent ("re-read and
+                # reconcile").
+                previous_variables = old_config.variables if old_config is not None else {}
+                all_names = set(previous_variables) | set(new_config.variables)
+                for name in all_names:
+                    old_var = previous_variables.get(name)
+                    new_var = new_config.variables.get(name)
+                    if old_var is None or new_var is None or resolution_relevant_config_changed(old_var, new_var):
+                        changed |= changed_config_keys(*(c for c in (old_var, new_var) if c is not None))
             except ValidationError as e:
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:

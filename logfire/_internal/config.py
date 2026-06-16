@@ -704,6 +704,13 @@ def configure(
     # are started when first accessed via get_variable_provider().
     if config.variables is not None:
         config.get_variable_provider().start(logfire_instance if config.variables.instrument else None)
+    elif config._variable_change_polling_requested:  # pyright: ignore[reportPrivateUsage]
+        # An on_change callback is registered but no variables were explicitly configured. The
+        # poller would otherwise only start on the first variable resolution, so callbacks would
+        # never fire if nothing is resolved. Trigger lazy provider init (which starts polling) so
+        # on_change works without an eager get(). This also restarts the poller after a reconfigure
+        # rebuilt the provider as a no-op. Does nothing if no API key is available to resolve against.
+        config.get_variable_provider()
 
     return logfire_instance
 
@@ -977,6 +984,12 @@ class LogfireConfig(_LogfireConfigData):
         # Listeners for variable config changes. Held on the config (not the provider) so they
         # survive reconfiguration: each provider this config creates is wired to dispatch here.
         self._variables_change_listeners: list[Callable[[set[str]], None]] = []
+        # Set once any variable's `on_change` callback is registered. on_change is only useful
+        # if the background poller is running, but the poller is otherwise started lazily on the
+        # first variable resolution. This flag lets us start it eagerly when a callback is
+        # registered, and restart it after a reconfigure (which rebuilds the provider). It lives
+        # on the config so it survives reconfiguration.
+        self._variable_change_polling_requested: bool = False
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         self._otlp_forwarding = OTLPForwardingManager([])
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
