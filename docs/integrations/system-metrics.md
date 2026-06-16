@@ -38,25 +38,9 @@ table (see the [SQL reference](../reference/sql.md)).
 ## Customising resource attributes
 
 The Hosts view identifies a machine by its `host.name`, which Logfire takes from `socket.gethostname()`. If that
-isn't meaningful — for example a random container ID — set a clearer value, or add other custom
-[resource attributes](https://opentelemetry.io/docs/concepts/resources/), with the `resource_attributes` argument:
-
-```py
-import logfire
-
-logfire.configure(
-    resource_attributes={
-        'host.name': 'my-meaningful-host-name',
-        'datacenter.region': 'eu-west-1',
-    },
-)
-
-logfire.instrument_system_metrics()
-```
-
-To customise further — for example to add OpenTelemetry resource detectors for `process.*` or cloud metadata —
-see the `resource_attributes` argument of [`logfire.configure()`][logfire.configure] and `resource_detectors` on
-[`AdvancedOptions`][logfire.AdvancedOptions].
+isn't meaningful — for example a random container ID — set a clearer value (or add other resource attributes such
+as `process.*` or cloud metadata). See the [SQL reference](../reference/sql.md#resource-attributes) for how to set
+and query resource attributes.
 
 ## Configuration
 

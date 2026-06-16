@@ -781,10 +781,11 @@ def test_configure_service_version(config_kwargs: dict[str, Any], exporter: Test
     assert GLOBAL_CONFIG.service_version == '1.2.3'
     assert resource_service_version() == '1.2.3'
 
-    # No explicit version: the git commit hash is used in the resource as a low-precedence fallback, but it
-    # isn't stored on the config (so it's never mistaken for an explicit value, e.g. in child processes).
+    # No explicit version: the git commit hash is used in the resource as a low-precedence fallback (so
+    # `OTEL_RESOURCE_ATTRIBUTES` can still override it here), and is stored back on the config so it's reflected
+    # in the configuration span and serialized to child processes.
     configure(**config_kwargs)
-    assert GLOBAL_CONFIG.service_version is None
+    assert GLOBAL_CONFIG.service_version == git_sha
     assert resource_service_version() == git_sha
 
     # No git available: no `service.version` at all.
@@ -970,14 +971,23 @@ def test_dedicated_args_take_precedence_over_resource_attributes(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ) -> None:
     # The dedicated `service_name`/`service_version`/`environment` args win over the same keys set generically
-    # via `resource_attributes`.
+    # via `resource_attributes`, and each override emits a warning.
     config_kwargs['resource_attributes'] = {
         'service.name': 'from-attrs',
         'service.version': 'from-attrs',
         'deployment.environment.name': 'from-attrs',
         'custom.thing': 'from-attrs',
     }
-    configure(**config_kwargs, service_name='from-arg', service_version='from-arg', environment='from-arg')
+    with pytest.warns(LogfireConfigWarning) as warnings:
+        configure(**config_kwargs, service_name='from-arg', service_version='from-arg', environment='from-arg')
+
+    # One warning per dedicated argument that overrode a different `resource_attributes` value; the key with no
+    # dedicated argument (`custom.thing`) doesn't warn.
+    messages = '\n'.join(str(w.message) for w in warnings)
+    assert "The 'service.name' resource attribute is set both via" in messages
+    assert "The 'service.version' resource attribute is set both via" in messages
+    assert "The 'deployment.environment.name' resource attribute is set both via" in messages
+    assert "'custom.thing'" not in messages
 
     logfire.info('test1')
 
@@ -1046,6 +1056,29 @@ def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter:
     # The valid detector alongside the unknown one is still applied.
     [span] = exporter.exported_spans_as_dict(include_resources=True)
     assert span['resource']['attributes'] == IsPartialDict({'process.owner': getpass.getuser()})
+
+
+def test_resource_detector_load_failure(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A registered detector that raises while loading warns and is skipped rather than crashing the app.
+    class FailingEntryPoint:
+        name = 'failing'
+
+        def load(self):
+            def make_detector():
+                raise RuntimeError('boom')
+
+            return make_detector
+
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=['failing'])
+    with patch('logfire._internal.config.entry_points', return_value=[FailingEntryPoint()]):
+        with pytest.warns(LogfireConfigWarning, match="Failed to load resource detector 'failing': boom"):
+            configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    # Configuration still succeeds with the default resource attributes despite the failing detector.
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'process.runtime.name': IsStr()})
 
 
 def test_resource_detector_unknown_name_in_env_var(config_kwargs: dict[str, Any]) -> None:
@@ -1142,18 +1175,21 @@ def test_explicit_service_version_takes_precedence_over_otel_resource_attributes
     assert span['resource']['attributes']['service.version'] == 'explicit-version'
 
 
-def test_auto_detected_service_version_not_serialized() -> None:
-    """An auto-detected (git) `service_version` is a low-precedence fallback applied when building the resource,
-    and is never stored on the config. So it serializes as `None`, and a child process re-detects it as a
-    fallback rather than treating it as an explicit value that would override `OTEL_RESOURCE_ATTRIBUTES`. An
-    explicitly-passed `service_version` is stored and serialized as-is.
+def test_auto_detected_service_version_serialized() -> None:
+    """An auto-detected (git) `service_version` is stored back on the config when the resource is built, so it's
+    reflected in the configuration span and serialized to child processes (which then treat it as an explicit
+    value). An explicitly-passed `service_version` is stored and serialized as-is.
     """
-    # In the logfire repo, the version is auto-detected from git but not stored on the config.
+    import subprocess
+
+    git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
+    # In the logfire repo, the version is auto-detected from git and stored on the config.
     configure(send_to_logfire=False, console=False)
-    assert GLOBAL_CONFIG.service_version is None
+    assert GLOBAL_CONFIG.service_version == git_sha
     serialized = serialize_config()
     assert serialized is not None
-    assert serialized['service_version'] is None
+    assert serialized['service_version'] == git_sha
 
     # An explicit version is stored and preserved across serialization.
     configure(send_to_logfire=False, console=False, service_version='explicit-version')
@@ -2022,7 +2058,7 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'token_count': 0,
                         'api_key': False,
                         'service_name': False,
-                        'service_version': False,
+                        'service_version': True,
                         'environment': False,
                         'resource_attributes': 0,
                         'resource_detectors': 0,

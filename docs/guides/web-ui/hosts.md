@@ -105,7 +105,7 @@ Hosts inside a Kubernetes cluster are recognized as nodes and appear on the [Kub
 
 ### From a Python application
 
-If your workload is a Python app already using Logfire, you can emit system metrics directly from the SDK with [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md) instead of (or alongside) running a collector. Logfire pre-populates the `host.name` resource attribute (overridable via `resource_attributes`), so the app's host shows up here automatically.
+If your workload is a Python app already using Logfire, you can emit system metrics directly from the SDK with [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md) instead of (or alongside) running a collector. Logfire pre-populates the `host.name` resource attribute (overridable via `resource_attributes` — see the [SQL reference](../../reference/sql.md#resource-attributes)), so the app's host shows up here automatically.
 
 ## Run the collector
 
