@@ -52,7 +52,7 @@ Evaluators that emit multiple score keys (a mapping return type) show up as one 
 
 ## Hiding Evaluators
 
-Sometimes the directory ends up cluttered with evaluators you no longer want shown — an old experiment, a Codex-written evaluator from a demo, or a deprecated revision that's still emitting events from a long-running deployment. **Hide rules** let you suppress matching events from the directory without deleting any underlying telemetry.
+Sometimes the directory ends up cluttered with evaluators you no longer want shown — an old experiment, an evaluator left over from a test script, or a deprecated revision that's still emitting events from a long-running deployment. **Hide rules** let you suppress matching events from the directory without deleting any underlying telemetry.
 
 ### Hiding from the Live Monitoring page
 
