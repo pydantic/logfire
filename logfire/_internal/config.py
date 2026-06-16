@@ -5,7 +5,9 @@ import dataclasses
 import functools
 import json
 import os
+import platform
 import re
+import socket
 import sys
 import time
 import warnings
@@ -51,7 +53,7 @@ from opentelemetry.sdk.metrics import (
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import OsResourceDetector, Resource
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -1060,13 +1062,9 @@ class LogfireConfig(_LogfireConfigData):
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
-                RESOURCE_ATTRIBUTES_VERSION: VERSION,
+                **common_resource_attributes(),
                 'service.name': self.service_name,
                 'process.pid': os.getpid(),
-                # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
-                'process.runtime.name': sys.implementation.name,
-                'process.runtime.version': get_runtime_version(),
-                'process.runtime.description': sys.version,
             }
             if self.code_source:
                 otel_resource_attributes.update(
@@ -2187,6 +2185,32 @@ def get_runtime_version() -> str:
     if version_info.releaselevel == 'final' and not version_info.serial:
         return '.'.join(map(str, version_info[:3]))
     return '.'.join(map(str, version_info))  # pragma: no cover
+
+
+@functools.cache
+def common_resource_attributes():
+    return {
+        RESOURCE_ATTRIBUTES_VERSION: VERSION,
+        # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
+        # TODO use ProcessResourceDetector?
+        'process.runtime.name': sys.implementation.name,
+        'process.runtime.version': get_runtime_version(),
+        'process.runtime.description': sys.version,
+        # https://opentelemetry.io/docs/specs/semconv/resource/host/
+        # Pre-populated so the Logfire Hosts page surfaces a row without the
+        # customer opting into `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=otel,host`.
+        **host_resource_attributes(),
+        # https://opentelemetry.io/docs/specs/semconv/resource/os/
+        **OsResourceDetector().detect().attributes,
+    }
+
+
+def host_resource_attributes():
+    # See test_host_resource_attributes
+    return {
+        'host.name': socket.gethostname(),
+        'host.arch': platform.machine(),
+    }
 
 
 class LogfireNotConfiguredWarning(UserWarning):

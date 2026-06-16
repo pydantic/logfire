@@ -61,6 +61,7 @@ CREATE TABLE metrics AS (
     aggregation_temporality public.aggregation_temporality,
     is_monotonic boolean,
     metric_description text,
+    value struct,  -- the data point's value for any metric type; query it with the metric_* functions
     scalar_value double precision,
     histogram_min double precision,
     histogram_max double precision,
@@ -95,6 +96,23 @@ FROM metrics
 WHERE metric_name = 'system.cpu.time'
   AND recorded_timestamp > now() - interval '1 hour'
 ```
+
+The flat columns (`scalar_value`, `histogram_*`, `exp_histogram_*`) hold the raw data of
+each instrument type, but the easiest way to work with metric values is the `value` column
+together with the `metric_*` functions, which work the same way for every metric type:
+
+```sql
+SELECT
+    time_bucket('5 minutes', recorded_timestamp) AS x,
+    metric_quantile(0.95, value) AS p95
+FROM metrics
+WHERE metric_name = 'http.server.duration'
+GROUP BY x
+ORDER BY x
+```
+
+See [Working with metrics](../../how-to-guides/write-dashboard-queries.md#working-with-metrics)
+for the full list of metric functions.
 
 ## Executing Queries
 
