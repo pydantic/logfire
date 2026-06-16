@@ -62,7 +62,7 @@ Each evaluator row (in the expanded directory and on the per-target detail page)
 - **Hide version `vN`** — appears when an `evaluator_version` is recorded; hides only that specific version on this target
 - **Hide data older than now** — hides existing events on this target up to the current timestamp; new events keep arriving as normal. Use this as a "soft reset" after a meaningful change to an evaluator without bumping its version
 
-After clicking, the evaluator disappears from the directory immediately. A banner appears above the directory — `N evaluators hidden — Manage` — linking to the project's **Hidden Evaluators** settings page.
+After clicking, the evaluator disappears from the directory immediately. A banner appears above the directory — `N hide rules active` — with a **Manage** link to the project's **Hidden Evaluators** settings page. The count is of rules, not evaluators, since a single rule can suppress more than one evaluator.
 
 The same overflow menu also includes a **Manage hidden evaluators** entry that takes you to the same page.
 
