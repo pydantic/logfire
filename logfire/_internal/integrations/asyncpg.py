@@ -17,4 +17,5 @@ def instrument_asyncpg(**kwargs: Any) -> None:
 
     See the `Logfire.instrument_asyncpg` method for details.
     """
-    AsyncPGInstrumentor().instrument(**kwargs)
+    capture_parameters = kwargs.pop('capture_parameters', False)
+    AsyncPGInstrumentor(capture_parameters).instrument(**kwargs)

@@ -1,21 +1,27 @@
 from __future__ import annotations as _annotations
 
 import json
-import sys
 import warnings
 from abc import ABC, abstractmethod
+from collections import deque
 from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
+    # Pydantic is pulled in by the `[variables]` extra, not base logfire —
+    # so its imports stay TYPE_CHECKING + function-local. `import logfire`
+    # itself must work without pydantic installed (Pyodide regression
+    # guard, exercised by `pyodide_test/test.mjs`).
     from pydantic import TypeAdapter
 
     import logfire
+    from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
+    from logfire.variables.template_validation import TemplateFieldIssue
     from logfire.variables.variable import Variable
 
 # ANSI color codes for terminal output
@@ -30,6 +36,7 @@ ANSI_GRAY = '\033[90m'
 
 __all__ = (
     'ResolvedVariable',
+    'ResolutionReason',
     'SyncMode',
     'ValidationReport',
     'VariableProvider',
@@ -37,20 +44,33 @@ __all__ = (
     'VariableWriteError',
     'VariableNotFoundError',
     'VariableAlreadyExistsError',
+    'render_serialized_string',
 )
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 
-if not TYPE_CHECKING:  # pragma: no branch
-    if sys.version_info < (3, 10):  # pragma: no cover
-        _dataclass = dataclass
+ResolutionReason = Literal[
+    'resolved',
+    'context_override',
+    'missing_config',
+    'unrecognized_variable',
+    'validation_error',
+    'other_error',
+    'no_provider',
+    'code_default',
+]
+"""Why a variable (or a composed reference) resolved to its final value.
 
-        # Prevent errors when using kw_only with dataclasses in Python<3.10
-        # Note: When we drop support for python 3.9, drop this
-        def dataclass(*args, **kwargs):
-            kwargs.pop('kw_only', None)
-            return _dataclass(*args, **kwargs)
+- `resolved`: provider returned a value that was used as-is.
+- `context_override`: a value set via `Variable.override(...)` was used.
+- `missing_config`: the variable exists on the provider but the targeting/rollout produced no value.
+- `unrecognized_variable`: the provider has no entry for the variable.
+- `validation_error`: the serialized value failed deserialization.
+- `other_error`: composition, rendering or other error during resolution.
+- `no_provider`: no provider is configured.
+- `code_default`: the variable's code-default was used because the provider had no value.
+"""
 
 
 class VariableWriteError(Exception):
@@ -76,17 +96,19 @@ class ResolvedVariable(Generic[T_co]):
     """Details about a variable resolution including value, label, version, and any errors.
 
     This class can be used as a context manager. When used as a context manager, it
-    automatically sets baggage with the variable name and label, enabling downstream
-    spans and logs to be associated with the variable resolution that was active at the time.
+    automatically sets baggage with the variable name, label, and (when applicable)
+    version, enabling downstream spans and logs to be associated with the variable
+    resolution that was active at the time.
 
     Example:
         ```python skip="true"
         my_var = logfire.var(name='my_var', type=str, default='default')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
-            # logfire.variables.my_var = <label> (or '<code_default>' if no label)
+            #   logfire.variables.my_var          = <label> (or '<code_default>' if no label)
+            #   logfire.variables.my_var.version  = <version> (only when a versioned value was resolved)
             value = details.value
-            # Any spans/logs created here will have the baggage attached
+            # Any spans/logs created here will have the baggage attached.
         ```
     """
 
@@ -94,24 +116,20 @@ class ResolvedVariable(Generic[T_co]):
     """The name of the variable."""
     value: T_co
     """The resolved value of the variable."""
-    _reason: Literal[
-        'resolved',
-        'context_override',
-        'missing_config',
-        'unrecognized_variable',
-        'validation_error',
-        'other_error',
-        'no_provider',
-    ]  # we might eventually make this public, but I didn't want to yet
-    """Internal field indicating how the value was resolved."""
-    # Note: I had to put _reason before fields with defaults due to lack of kw_only
-    # Note: When we drop support for python 3.9, move _reason to the end
     label: str | None = None
     """The name of the selected label, if any."""
     version: int | None = None
     """The version number of the resolved value, if any."""
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
+    composed_from: list[ComposedReference] = field(default_factory=list['ComposedReference'])
+    """Variables that were composed into this value via @{reference}@ expansion.
+
+    Each entry is a ComposedReference for a referenced variable, including
+    its label, version, reason, and any nested composed_from entries.
+    """
+    reason: ResolutionReason
+    """How the variable was resolved (see `ResolutionReason` for possible values)."""
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
@@ -121,14 +139,137 @@ class ResolvedVariable(Generic[T_co]):
 
         import logfire
 
-        self._exit_stack.enter_context(
-            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.label or '<code_default>'})
-        )
+        baggage_entries: dict[str, str] = {
+            f'logfire.variables.{self.name}': self.label or '<code_default>',
+        }
+        # Propagate the version alongside the label so downstream spans can be
+        # filtered or grouped by `(label, version)` directly. Only set when a
+        # version actually resolved — code-default resolutions have version=None
+        # and shouldn't add a baggage entry whose value would be misleading.
+        if self.version is not None:
+            baggage_entries[f'logfire.variables.{self.name}.version'] = str(self.version)
+        self._exit_stack.enter_context(logfire.set_baggage(**baggage_entries))
 
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+
+
+def _inputs_to_context(inputs: Any) -> dict[str, Any]:
+    """Convert template `inputs` to a context dict for Handlebars rendering.
+
+    Accepts whatever the variable's declared `inputs_type` might be, since
+    `template_var()` allows any `TypeAdapter`-supported type: a Pydantic `BaseModel`
+    (via `model_dump()`), a `dict`/`Mapping`, a dataclass, a `TypedDict` instance, an
+    attrs class, etc. Anything that isn't already a model or mapping is run through
+    pydantic's general `to_jsonable_python` serialization, mirroring how the value's
+    own `template_inputs_schema` is derived. `None` yields an empty context.
+
+    Args:
+        inputs: Template context values.
+
+    Returns:
+        A dict suitable for use as a Handlebars template context.
+
+    Raises:
+        TypeError: If inputs can't be serialized to a mapping context.
+    """
+    if inputs is None:
+        return {}
+    if hasattr(inputs, 'model_dump'):
+        return inputs.model_dump()
+    if isinstance(inputs, Mapping):
+        return dict(inputs)  # pyright: ignore[reportUnknownArgumentType]
+
+    # Fall back to pydantic's general serialization so dataclasses / TypedDict instances /
+    # attrs classes / etc. work as inputs (matching the arbitrary `inputs_type` the SDK allows).
+    from pydantic_core import to_jsonable_python
+
+    try:
+        dumped = to_jsonable_python(inputs)
+    except Exception as e:
+        raise TypeError(
+            f'Could not serialize render inputs of type {type(inputs).__name__!r} to a template '
+            'context; pass a Pydantic model, dataclass, TypedDict, dict/Mapping, or another '
+            'pydantic-serializable object.'
+        ) from e
+    if isinstance(dumped, dict):
+        return cast('dict[str, Any]', dumped)
+    raise TypeError(
+        f'Render inputs of type {type(inputs).__name__!r} serialized to {type(dumped).__name__!r}, '
+        'but a mapping is required for a template context.'
+    )
+
+
+def render_serialized_string(serialized_json: str, inputs: Any) -> str:
+    """Render Handlebars templates in a serialized JSON string.
+
+    Decodes the JSON, renders all string values containing `{{placeholders}}`
+    using the provided inputs, then re-encodes to JSON.
+
+    Args:
+        serialized_json: A JSON-encoded string potentially containing Handlebars templates.
+        inputs: Template context values. Can be a Pydantic `BaseModel`, `dict`,
+            `Mapping`, or `None`.
+
+    Returns:
+        The rendered JSON string.
+    """
+    context = _inputs_to_context(inputs)
+
+    # Wrap all string values in SafeString to disable HTML escaping.
+    # For prompt/config templates (not HTML), escaping is undesirable.
+    context = _wrap_safe_context(context)
+
+    # Decode the serialized JSON, render string values, then re-encode.
+    # We can't render the raw JSON directly because substituted values
+    # might contain JSON-special characters (e.g., double quotes) that
+    # would make the resulting JSON invalid.
+    decoded = json.loads(serialized_json)
+    rendered_value = _render_json_value(decoded, context)
+    return json.dumps(rendered_value)
+
+
+def _wrap_safe_context(context: dict[str, Any]) -> dict[str, Any]:
+    """Recursively wrap all string values in SafeString to disable HTML escaping."""
+    return {k: _wrap_safe_value(v) for k, v in context.items()}
+
+
+def _wrap_safe_value(value: Any) -> Any:
+    """Wrap a single value: strings become SafeString, dicts/lists are recursed."""
+    from pydantic_handlebars import SafeString
+
+    if isinstance(value, str):
+        return SafeString(value)
+    if isinstance(value, dict):
+        return _wrap_safe_context(value)  # pyright: ignore[reportUnknownArgumentType]
+    if isinstance(value, list):
+        return [_wrap_safe_value(item) for item in value]  # pyright: ignore[reportUnknownVariableType]
+    return value
+
+
+def _render_json_value(value: Any, context: dict[str, Any]) -> Any:
+    """Recursively render Handlebars templates in a decoded JSON value.
+
+    Only string values are rendered; dicts and lists are walked recursively.
+    *compile_template* is the LRU-cached compile helper from
+    `_handlebars.compile_runtime_template` — passing it in (rather than
+    importing here) keeps the recursion cheap and makes the cache hit on
+    repeated identical sources.
+    """
+    from logfire.variables._handlebars import compile_runtime_template
+
+    if isinstance(value, str):
+        if '{{' not in value:
+            return value
+        return compile_runtime_template(value).render(context)
+    if isinstance(value, dict):
+        return {k: _render_json_value(v, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+    if isinstance(value, list):
+        return [_render_json_value(item, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
+    # Numbers, booleans, None pass through unchanged
+    return value
 
 
 # --- Dataclasses for push/validate operations ---
@@ -158,6 +299,9 @@ class VariableChange:
     local_description: str | None = None
     server_description: str | None = None
     description_differs: bool = False  # True if descriptions differ (for warning)
+    template_inputs_schema: dict[str, Any] | None = None  # JSON Schema for template inputs
+    value_schema_changed: bool = False  # True if the value's JSON schema changed (for 'update_schema')
+    inputs_schema_changed: bool = False  # True if the template-inputs schema changed (for 'update_schema')
 
 
 @dataclass
@@ -166,6 +310,24 @@ class VariableDiff:
 
     changes: list[VariableChange]
     orphaned_server_variables: list[str]  # Variables on server not in local code
+    reference_errors: list[str] = field(default_factory=list[str])
+    """All reference problems (non-existent refs *and* cycles)."""
+    reference_cycles: list[str] = field(default_factory=list[str])
+    """The subset of `reference_errors` that are cycles.
+
+    Cycles are unconditionally unresolvable (no environment can satisfy `A -> B -> A`), so a
+    push blocks on them even in non-strict mode — unlike a missing reference, which may
+    legitimately resolve in another codebase/environment and is only a warning in non-strict.
+    """
+    template_field_issues: list[TemplateFieldIssue] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Template `{{field}}` references that don't match a TemplateVariable's declared `inputs_type`.
+
+    Covers both locally-declared code defaults and server-stored label values
+    (so a server template authored against an older schema flags a mismatch
+    against the local `inputs_type`). Composition `@{ref}@` chains are
+    followed; an incompatible reference in a chained-in variable shows the
+    composition path that led to it.
+    """
 
     @property
     def has_changes(self) -> bool:
@@ -216,6 +378,12 @@ class ValidationReport:
     """Names of variables that exist locally but not on the server."""
     description_differences: list[DescriptionDifference]
     """List of variables where local and server descriptions differ."""
+    reference_errors: list[str] = field(default_factory=list[str])
+    """Errors found while checking `@{variable}@` references (missing refs *and* cycles)."""
+    reference_cycles: list[str] = field(default_factory=list[str])
+    """The subset of `reference_errors` that are cycles (always-fatal, vs. possibly-resolvable missing refs)."""
+    template_field_issues: list[TemplateFieldIssue] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Template `{{field}}` references that don't match a TemplateVariable's declared `inputs_type`."""
 
     @property
     def has_errors(self) -> bool:
@@ -224,8 +392,13 @@ class ValidationReport:
 
     @property
     def is_valid(self) -> bool:
-        """Return False if there are any validation errors or any variables not defined in the (possibly remote) config."""
-        return len(self.errors) == 0 and len(self.variables_not_on_server) == 0
+        """Return False if there are validation errors, missing variables, or reference errors."""
+        return (
+            len(self.errors) == 0
+            and len(self.variables_not_on_server) == 0
+            and len(self.reference_errors) == 0
+            and len(self.template_field_issues) == 0
+        )
 
     def format(self, *, colors: bool = True) -> str:
         """Format the validation report for human-readable output.
@@ -265,7 +438,11 @@ class ValidationReport:
 
         variables_with_errors = len({e.variable_name for e in self.errors})
         valid_count = self.variables_checked - variables_with_errors - len(self.variables_not_on_server)
-        if valid_count > 0:
+        # Only advertise "Valid" when the report as a whole is valid. Otherwise
+        # a partial pass (per-variable type checks succeeded but reference /
+        # template-field errors exist) emits the contradictory pair
+        # "=== Valid (N variables) ===" + "=== Reference errors ===".
+        if valid_count > 0 and self.is_valid:
             lines.append(f'\n{green}=== Valid ({valid_count} variables) ==={reset}')
 
         # Show description differences as informational warnings
@@ -279,10 +456,27 @@ class ValidationReport:
                 lines.append(f'    Local:  {local_desc}')
                 lines.append(f'    Server: {server_desc}')
 
+        # Show reference errors
+        if self.reference_errors:
+            lines.append(f'\n{red}=== Reference errors ==={reset}')
+            for error in self.reference_errors:
+                lines.append(f'  {red}✗ {error}{reset}')
+
+        # Show template-field issues
+        if self.template_field_issues:
+            lines.append(f'\n{red}=== Template field issues ==={reset}')
+            for issue in self.template_field_issues:
+                lines.append(f'  {red}✗ {_describe_template_field_issue(issue)}{reset}')
+
         # Summary line
         if not self.is_valid:
-            error_count = variables_with_errors + len(self.variables_not_on_server)
-            lines.append(f'\n{red}Validation failed: {error_count} error(s) found.{reset}')
+            issue_count = (
+                variables_with_errors
+                + len(self.variables_not_on_server)
+                + len(self.reference_errors)
+                + len(self.template_field_issues)
+            )
+            lines.append(f'\n{red}Validation failed: {issue_count} issue(s) found.{reset}')
         else:
             lines.append(f'\n{green}Validation passed: All {self.variables_checked} variable(s) are valid.{reset}')
 
@@ -411,6 +605,246 @@ def _check_type_label_compatibility(
     return incompatible
 
 
+def _describe_template_field_issue(issue: TemplateFieldIssue) -> str:
+    """Render a `TemplateFieldIssue` as a single human-readable line.
+
+    Names the *validated* template variable (`root_variable`) whose `inputs_type` schema the
+    field was checked against, and — when the field lives in a different, composed fragment —
+    where it was actually found and the `@{ref}@` chain that reached it. This keeps the
+    attribution unambiguous: a shared fragment can be valid on its own yet incompatible with a
+    particular root that composes it.
+    """
+    # An empty reference_path means the field is in the root variable's own value (a non-empty
+    # path is only ever built by following `@{ref}@`s away from the root), so it's the
+    # direct-vs-composed discriminator.
+    if not issue.reference_path:
+        where = ''
+    else:
+        location = issue.found_in_variable
+        if issue.found_in_label is not None:
+            location += f' (label: {issue.found_in_label})'
+        chain = ' via ' + ' -> '.join(f'@{{{ref}}}@' for ref in issue.reference_path)
+        where = f' found in {location}{chain}'
+    return (
+        f'{issue.root_variable}: {{{{{issue.field_name}}}}}{where} '
+        f"is not declared in {issue.root_variable}'s inputs_type schema"
+    )
+
+
+def _collect_template_field_issues(
+    variables: Sequence[Variable[object]],
+    server_config: VariablesConfig,
+) -> list[TemplateFieldIssue]:
+    """Validate `{{field}}` references in every TemplateVariable against its declared schema.
+
+    For each `TemplateVariable`, walks the composition graph and checks
+    every template string — in the local code default, in any server-stored
+    label value, and in any referenced variable's values — against the
+    variable's `inputs_type` JSON schema. Mismatches are returned as
+    `TemplateFieldIssue` entries.
+
+    Covers both push-time goals D and E in #1950: D wires the existing
+    composition-aware validator into the sync path; E surfaces the case
+    where a server-stored template was authored against an older schema
+    that's incompatible with the current local `inputs_type`.
+
+    """
+    from logfire.variables.template_validation import validate_template_composition
+    from logfire.variables.variable import TemplateVariable, is_resolve_function
+
+    issues: list[TemplateFieldIssue] = []
+    locals_by_name = {v.name: v for v in variables}
+
+    def get_all_serialized_values(name: str) -> dict[str | None, str]:
+        """Return ``{label_or_None: serialized_json}`` for every value *name* can serve.
+
+        Each server label is resolved through its ref chain (`follow_ref`), so `LabelRef`
+        labels — including refs to the reserved ``latest`` / ``code_default`` targets — are
+        followed and keyed by the label's own name. That way a template issue is reported
+        against the label that actually serves the offending value. The latest version is
+        keyed ``'latest'``, and the local code default is keyed ``None`` ("the value served
+        when the rollout routes to ``code_default`` or selects no label").
+
+        The code default is always included when present, independent of any server value:
+        the runtime can serve it even when a ``latest_version`` exists (empty rollout /
+        100%-code-default), so it must be validated too. ``'latest'`` and ``None`` can't
+        collide with a server label — ``latest`` is a reserved label name (see `LabelRef`)
+        and ``None`` is not a string.
+        """
+        result: dict[str | None, str] = {}
+        server_var = server_config.variables.get(name)
+        if server_var is not None:
+            for label, labeled in server_var.labels.items():
+                serialized, _ = server_var.follow_ref(labeled)
+                if serialized is not None:
+                    result[label] = serialized
+            if server_var.latest_version is not None:
+                result.setdefault('latest', server_var.latest_version.serialized_value)
+        local_var = locals_by_name.get(name)
+        if local_var is not None and not is_resolve_function(local_var.default):
+            try:
+                result[None] = local_var.type_adapter.dump_json(local_var.default).decode('utf-8')
+            except Exception:  # pragma: no cover
+                # Defensive: a registered variable's default normally serializes against its own
+                # type adapter. If it somehow doesn't, skip validating it rather than crash the push.
+                pass
+        return result
+
+    # `validate_template_composition` already dedups within each root's walk, and every issue it
+    # returns carries that root's name, so issues from different roots are inherently distinct.
+    # No cross-root dedup is applied: a shared fragment incompatible with several roots is a
+    # separate problem for each root and is reported once per affected root (deliberately *not*
+    # collapsed into one line, which would hide which template variable(s) are actually broken).
+    for variable in variables:
+        if not isinstance(variable, TemplateVariable):
+            continue
+        schema = variable.get_template_inputs_schema()
+        result = validate_template_composition(variable.name, schema, get_all_serialized_values)
+        issues.extend(result.issues)
+
+    return issues
+
+
+def _check_reference_errors(
+    variables: Sequence[Variable[object]],
+    server_config: VariablesConfig,
+) -> tuple[list[str], list[str]]:
+    """Check for reference errors: non-existent refs and cycles.
+
+    Returns ``(all_errors, cycles)`` where ``all_errors`` lists every problem (missing
+    references followed by cycles) and ``cycles`` is the cycle subset. Callers block on
+    cycles unconditionally but treat missing references as non-strict warnings.
+
+    Walks the full composition graph starting from each locally-registered
+    variable, transitively following `@{ref}@` edges into server-only
+    variables — so a missing reference reachable only through a chain that
+    passes through a server-only node still surfaces, as does a cycle whose
+    midpoints are server-only.
+
+    `VariablesConfig` is treated as self-contained for substitution: any
+    `@{name}@` whose `name` isn't in either the local registration set or
+    `server_config` is reported as a non-existent reference, the same way
+    a registration miss is.
+    """
+    from logfire.variables.composition import find_references_and_errors
+    from logfire.variables.config import LabeledValue
+    from logfire.variables.variable import is_resolve_function
+
+    warnings_list: list[str] = []
+
+    all_names: set[str] = {v.name for v in variables} | set(server_config.variables.keys())
+    locals_by_name = {v.name: v for v in variables}
+
+    def _refs_of(name: str) -> set[str]:
+        """Collect refs from every serialized value reachable for *name*.
+
+        That's the local code default (if registered locally) plus every
+        labeled server value plus the `latest_version`. A malformed `@{...}@`
+        value is recorded as a reference error (rather than crashing the walk),
+        and a local default that can't be serialized is skipped — we want the
+        walker to keep going either way.
+        """
+        refs: set[str] = set()
+
+        def _record(serialized: str) -> None:
+            found, errors = find_references_and_errors(serialized)
+            refs.update(found)
+            for err in errors:
+                warnings_list.append(f"Variable '{name}': {err}")
+
+        local = locals_by_name.get(name)
+        if local is not None and not is_resolve_function(local.default):
+            try:
+                serialized_default = local.type_adapter.dump_json(local.default).decode('utf-8')
+            except (ValueError, TypeError, RuntimeError):
+                # Only the local default's *serialization* can fail here; reference parsing is
+                # handled (and never raises) inside `_record`. Skip an unserializable default and
+                # keep walking the rest of the graph.
+                serialized_default = None
+            if serialized_default is not None:
+                _record(serialized_default)
+        server_var = server_config.variables.get(name)
+        if server_var is not None:
+            for labeled in server_var.labels.values():
+                if isinstance(labeled, LabeledValue):
+                    _record(labeled.serialized_value)
+            if server_var.latest_version is not None:
+                _record(server_var.latest_version.serialized_value)
+        return refs
+
+    # BFS the composition graph from every local variable in declaration
+    # order. Each node we visit contributes its outgoing edges to
+    # `ref_graph` and, if any point at an unknown name, a
+    # non-existent-reference warning. Visited names are gated on `seen` so
+    # a shared sub-tree is walked once.
+    ref_graph: dict[str, set[str]] = {}
+    seen: set[str] = set()
+    frontier: deque[str] = deque(v.name for v in variables)
+    while frontier:
+        current = frontier.popleft()
+        if current in seen:
+            continue
+        seen.add(current)
+        refs = _refs_of(current)
+        if refs:
+            ref_graph[current] = refs
+        for ref in refs:
+            if ref not in all_names:
+                warnings_list.append(f"Variable '{current}' references '@{{{ref}}}@' which does not exist.")
+            elif ref not in seen:
+                frontier.append(ref)
+
+    # Cycle detection on the assembled graph. Because the graph includes
+    # nodes reached transitively through server-only variables, cycles
+    # whose midpoints are server-only are now caught too.
+    def _detect_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
+        cycles: list[list[str]] = []
+        visited: set[str] = set()
+        in_stack: set[str] = set()
+        path: list[str] = []
+
+        def dfs(node: str) -> None:
+            if node in in_stack:
+                cycle_start = path.index(node)
+                cycles.append(path[cycle_start:] + [node])
+                return
+            if node in visited:
+                return
+            visited.add(node)
+            in_stack.add(node)
+            path.append(node)
+            for neighbor in graph.get(node, set()):
+                dfs(neighbor)
+            path.pop()
+            in_stack.remove(node)
+
+        for node in graph:
+            if node not in visited:
+                dfs(node)
+        return cycles
+
+    cycle_messages: list[str] = []
+    try:
+        cycles = _detect_cycles(ref_graph)
+    except RecursionError:
+        # The reference graph comes from arbitrary server config and can exceed Python's recursion
+        # limit; surface a clean, blocking error instead of crashing with a RecursionError.
+        cycles = []
+        message = (
+            'Reference graph is too deeply nested to validate for cycles; '
+            'check for an extremely long or circular @{ref}@ chain.'
+        )
+        warnings_list.append(message)
+        cycle_messages.append(message)
+    for cycle in cycles:
+        cycle_str = ' -> '.join(cycle)
+        message = f'Reference cycle detected: {cycle_str}'
+        warnings_list.append(message)
+        cycle_messages.append(message)
+
+    return warnings_list, cycle_messages
+
+
 def _compute_diff(
     variables: Sequence[Variable[object]],
     server_config: VariablesConfig,
@@ -432,6 +866,10 @@ def _compute_diff(
         local_description = variable.description
         server_var = server_config.variables.get(variable.name)
 
+        from logfire.variables.variable import get_template_inputs_schema
+
+        template_inputs_schema = get_template_inputs_schema(variable)
+
         if server_var is None:
             # New variable - needs to be created
             default_serialized = _get_default_serialized(variable)
@@ -442,6 +880,7 @@ def _compute_diff(
                     local_schema=local_schema,
                     initial_value=default_serialized,
                     local_description=local_description,
+                    template_inputs_schema=template_inputs_schema,
                 )
             )
         else:
@@ -454,6 +893,9 @@ def _compute_diff(
             server_normalized = json.dumps(server_schema, sort_keys=True) if server_schema else '{}'
 
             schema_changed = local_normalized != server_normalized
+            local_template_inputs_normalized = json.dumps(template_inputs_schema, sort_keys=True)
+            server_template_inputs_normalized = json.dumps(server_var.template_inputs_schema, sort_keys=True)
+            template_inputs_schema_changed = local_template_inputs_normalized != server_template_inputs_normalized
 
             # Check if description differs (for warning purposes)
             # Normalize: treat None and empty string as equivalent
@@ -461,7 +903,7 @@ def _compute_diff(
             server_desc_normalized = server_description or None
             description_differs = local_desc_normalized != server_desc_normalized
 
-            if schema_changed:
+            if schema_changed or template_inputs_schema_changed:
                 # Schema changed - check label value compatibility
                 incompatible = _check_all_label_compatibility(variable, server_var)
 
@@ -475,6 +917,9 @@ def _compute_diff(
                         local_description=local_description,
                         server_description=server_description,
                         description_differs=description_differs,
+                        template_inputs_schema=template_inputs_schema,
+                        value_schema_changed=schema_changed,
+                        inputs_schema_changed=template_inputs_schema_changed,
                     )
                 )
             else:
@@ -495,7 +940,22 @@ def _compute_diff(
     # Find orphaned server variables (on server but not in local code)
     orphaned = [name for name in server_config.variables.keys() if name not in local_names]
 
-    return VariableDiff(changes=changes, orphaned_server_variables=orphaned)
+    # Check for reference errors (non-existent refs, cycles)
+    reference_errors, reference_cycles = _check_reference_errors(variables, server_config)
+
+    # Check template variables' `{{field}}` references against their declared
+    # `inputs_type` JSON schemas (D + E in #1950): catches both local code
+    # defaults with mismatched fields and server-stored templates authored
+    # against an older schema.
+    template_field_issues = _collect_template_field_issues(variables, server_config)
+
+    return VariableDiff(
+        changes=changes,
+        orphaned_server_variables=orphaned,
+        reference_errors=reference_errors,
+        reference_cycles=reference_cycles,
+        template_field_issues=template_field_issues,
+    )
 
 
 def _format_diff(diff: VariableDiff) -> str:
@@ -521,7 +981,18 @@ def _format_diff(diff: VariableDiff) -> str:
     if updates:
         lines.append(f'\n{ANSI_YELLOW}=== Variables to UPDATE (schema changed) ==={ANSI_RESET}')
         for change in updates:
-            lines.append(f'  {ANSI_YELLOW}~ {change.name}{ANSI_RESET}')
+            # Distinguish what actually changed: the value's JSON schema, the template-inputs
+            # schema, or both — so a template-inputs-only change doesn't read as "(schema changed)"
+            # for the value type.
+            if change.value_schema_changed and change.inputs_schema_changed:
+                detail = ' (value + template inputs schema)'
+            elif change.inputs_schema_changed:
+                detail = ' (template inputs schema)'
+            elif change.value_schema_changed:
+                detail = ' (value schema)'
+            else:
+                detail = ''
+            lines.append(f'  {ANSI_YELLOW}~ {change.name}{detail}{ANSI_RESET}')
             if change.incompatible_labels:
                 lines.append(f'    {ANSI_RED}Warning: Incompatible label values:{ANSI_RESET}')
                 for compat in change.incompatible_labels:
@@ -558,6 +1029,27 @@ def _format_diff(diff: VariableDiff) -> str:
             lines.append(f'    Local:  {local_desc}')
             lines.append(f'    Server: {server_desc}')
 
+    # Show reference problems. Cycles always block the push, so they're rendered as red
+    # errors (matching `ValidationReport.format`); missing references are non-blocking in
+    # non-strict mode, so they're rendered as yellow warnings.
+    cycle_set = set(diff.reference_cycles)
+    reference_warnings = [e for e in diff.reference_errors if e not in cycle_set]
+    if reference_warnings:
+        lines.append(f'\n{ANSI_YELLOW}=== Reference errors ==={ANSI_RESET}')
+        for warning in reference_warnings:
+            lines.append(f'  {ANSI_YELLOW}⚠ {warning}{ANSI_RESET}')
+    if diff.reference_cycles:
+        lines.append(f'\n{ANSI_RED}=== Reference cycles (block the push) ==={ANSI_RESET}')
+        for cycle in diff.reference_cycles:
+            lines.append(f'  {ANSI_RED}✗ {cycle}{ANSI_RESET}')
+
+    # Show template-field issues: {{field}} references that don't match the
+    # template variable's declared inputs schema.
+    if diff.template_field_issues:
+        lines.append(f'\n{ANSI_YELLOW}=== Template field issues ==={ANSI_RESET}')
+        for issue in diff.template_field_issues:
+            lines.append(f'  {ANSI_YELLOW}⚠ {_describe_template_field_issue(issue)}{ANSI_RESET}')
+
     return '\n'.join(lines)
 
 
@@ -591,6 +1083,7 @@ def _create_variable(
         overrides=[],
         json_schema=change.local_schema,
         example=change.initial_value,  # Store the code default as an example for the UI
+        template_inputs_schema=change.template_inputs_schema,
     )
 
     provider.create_variable(config)
@@ -620,6 +1113,7 @@ def _update_variable_schema(
         rollout=existing.rollout,
         overrides=existing.overrides,
         json_schema=change.local_schema,
+        template_inputs_schema=change.template_inputs_schema,
     )
 
     provider.update_variable(change.name, config)
@@ -671,11 +1165,13 @@ class VariableProvider(ABC):
         """
         config = self.get_variable_config(variable_name)
         if config is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='unrecognized_variable')
+            return ResolvedVariable(name=variable_name, value=None, reason='unrecognized_variable')
 
         labeled_value = config.labels.get(label)
         if labeled_value is None:
-            return ResolvedVariable(name=variable_name, value=None, _reason='resolved')
+            # The variable exists but this label doesn't. `reason='resolved'` with value=None was
+            # misleading (resolved implies a usable value); report missing_config instead.
+            return ResolvedVariable(name=variable_name, value=None, reason='missing_config')
 
         serialized, version = config.follow_ref(labeled_value)
         return ResolvedVariable(
@@ -683,7 +1179,10 @@ class VariableProvider(ABC):
             value=serialized,
             label=label,
             version=version,
-            _reason='resolved',
+            # A ref that resolves to nothing (e.g. a `code_default` ref the server can't supply) is
+            # not a successful resolution — surface missing_config so callers/baggage aren't told a
+            # value was used when it wasn't.
+            reason='resolved' if serialized is not None else 'missing_config',
         )
 
     def refresh(self, force: bool = False):
@@ -843,8 +1342,10 @@ class VariableProvider(ABC):
     ) -> bool:
         """Push a VariablesConfig to this provider.
 
-        This method pushes a complete VariablesConfig (including labels and rollouts)
-        to the provider. It's useful for:
+        This method pushes a VariablesConfig (including labels and rollouts) to the
+        provider. For remote providers, version records are created from label
+        entries with inline serialized values; `latest_version` is pull/read state
+        derived by the server and is not pushed directly. It's useful for:
         - Pushing configs generated or modified locally
         - Pushing configs read from files
         - Partial updates (merge mode) or full replacement (replace mode)
@@ -979,6 +1480,8 @@ class VariableProvider(ABC):
         self.refresh(force=True)
         return self.get_all_variables_config()
 
+    # TODO(next major): consider making strict=True the default and requiring an explicit
+    #  opt-out for pushes that publish missing refs or undeclared template fields.
     def push_variables(
         self,
         variables: Sequence[Variable[object]],
@@ -998,7 +1501,8 @@ class VariableProvider(ABC):
             variables: Variable instances to push.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas
+                or any reference errors are found.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1025,6 +1529,54 @@ class VariableProvider(ABC):
 
         # Show diff
         print(_format_diff(diff))
+
+        # Cycles are unconditionally unresolvable (no environment satisfies `A -> B -> A`),
+        # so block them even in non-strict mode. Missing references, by contrast, may
+        # legitimately resolve in another codebase/environment, so they only hard-fail under
+        # strict and are otherwise surfaced as a warning below.
+        if diff.reference_cycles:
+            print(
+                f'\n{ANSI_RED}Error: reference cycle(s) detected.\n'
+                f'A cyclic reference can never resolve, so this is blocked even without strict=True. '
+                f'Fix the cycle before pushing.{ANSI_RESET}'
+            )
+            return False
+
+        # `reference_errors` here is missing-reference-only (cycles returned above).
+        if diff.reference_errors and strict:
+            print(
+                f'\n{ANSI_RED}Error: Reference errors found.\n'
+                f'Fix these references or set strict=False to proceed anyway.{ANSI_RESET}'
+            )
+            return False
+        elif diff.reference_errors:
+            # Non-strict: don't block (the reference may exist elsewhere), but surface the
+            # problem as a prominent trailing warning rather than only inside the diff body
+            # (parity with the incompatible-labels warning below), so it isn't lost before the
+            # success line.
+            count = len(diff.reference_errors)
+            print(
+                f'\n{ANSI_YELLOW}Warning: {count} reference(s) point at variable(s) not found in '
+                f'this push (see above). The affected variables will not resolve until those '
+                f'exist; re-run with strict=True to block on this.{ANSI_RESET}'
+            )
+
+        # Undeclared/mismatched `{{field}}` references: strict blocks, non-strict warns (an
+        # undeclared field renders to an empty string at runtime).
+        if diff.template_field_issues and strict:
+            print(
+                f'\n{ANSI_RED}Error: Template field issues found.\n'
+                f'Fix the template `{{{{field}}}}` references or update the variable inputs_type, '
+                f'or set strict=False to proceed anyway.{ANSI_RESET}'
+            )
+            return False
+        elif diff.template_field_issues:
+            count = len(diff.template_field_issues)
+            print(
+                f'\n{ANSI_YELLOW}Warning: {count} template field issue(s) found (see above). '
+                f'Undeclared fields render to an empty string at runtime; re-run with strict=True '
+                f'to block on this.{ANSI_RESET}'
+            )
 
         # Check for incompatible label values across all change types
         incompatible_changes = [c for c in diff.changes if c.incompatible_labels]
@@ -1072,7 +1624,16 @@ class VariableProvider(ABC):
             print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}')
             return False
 
-        print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
+        # Don't claim a clean "synced successfully" when warnings were applied alongside the
+        # changes (unresolved references, undeclared template fields, or incompatible label
+        # values in non-strict mode).
+        if diff.reference_errors or diff.template_field_issues or incompatible_changes:
+            print(
+                f'\n{ANSI_YELLOW}Done — changes applied, but with warnings above '
+                f'(see the Reference errors / incompatible label sections).{ANSI_RESET}'
+            )
+        else:
+            print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
         return True
 
     def validate_variables(
@@ -1152,11 +1713,20 @@ class VariableProvider(ABC):
                         )
                     )
 
+        # Check for reference errors
+        reference_errors, reference_cycles = _check_reference_errors(variables, server_config)
+
+        # Validate template variables' `{{field}}` references against their schemas.
+        template_field_issues = _collect_template_field_issues(variables, server_config)
+
         return ValidationReport(
             errors=errors,
             variables_checked=len(variables),
             variables_not_on_server=variables_not_on_server,
             description_differences=description_differences,
+            reference_errors=reference_errors,
+            reference_cycles=reference_cycles,
+            template_field_issues=template_field_issues,
         )
 
     # --- Variable Types API ---
@@ -1413,7 +1983,7 @@ class NoOpVariableProvider(VariableProvider):
         Returns:
             A ResolvedVariable with value=None.
         """
-        return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+        return ResolvedVariable(name=variable_name, value=None, reason='no_provider')
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Return None for all variable lookups.

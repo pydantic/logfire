@@ -4,9 +4,9 @@ import copy
 import json
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 import typing_extensions
 from opentelemetry._logs import LogRecord
@@ -15,19 +15,21 @@ from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 
 from .constants import (
+    ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NAME_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_LOGGING_NAME,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_PACKAGE_VERSIONS,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT,
-    RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
+    RESOURCE_ATTRIBUTES_VERSION,
 )
 from .integrations.llm_providers import semconv as gen_ai_semconv
 from .stack_info import STACK_INFO_KEYS
@@ -47,6 +49,7 @@ DEFAULT_PATTERNS = [
     'social[._ -]?security',
     'credit[._ -]?card',
     'logfire[._ -]?token',
+    r'pylf_v\d+_',
     *[
         # Require these to be surrounded by word boundaries or underscores,
         # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
@@ -123,7 +126,9 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SAMPLE_RATE_KEY,
         ATTRIBUTES_LOGGING_NAME,
         ATTRIBUTES_SCRUBBED_KEY,
-        RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
+        ATTRIBUTES_CONFIG,
+        ATTRIBUTES_PACKAGE_VERSIONS,
+        RESOURCE_ATTRIBUTES_VERSION,
         *STACK_INFO_KEYS,
         'exception.stacktrace',
         'exception.type',
@@ -136,6 +141,7 @@ class BaseScrubber(ABC):
         'http.target',
         'http.route',
         'db.statement',
+        'db.query.text',
         'db.plan',
         'fastapi.route.name',
         'fastapi.route.operation_id',

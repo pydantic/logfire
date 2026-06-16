@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from random import Random
-from typing import Callable
 
 
 def ulid(random: Random, ms_timestamp_generator: Callable[[], int]) -> int:

@@ -1,5 +1,5 @@
 from _typeshed import Incomplete
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from opentelemetry import context
 from opentelemetry.sdk.trace import Span, SpanProcessor
@@ -9,7 +9,7 @@ __all__ = ['get_baggage', 'set_baggage']
 get_baggage: Incomplete
 
 @contextmanager
-def set_baggage(**values: str) -> Iterator[None]:
+def set_baggage(**values: str) -> Generator[None]:
     '''Context manager that attaches key/value pairs as OpenTelemetry baggage to the current context.
 
     See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.

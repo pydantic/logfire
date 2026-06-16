@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache, wraps
-from typing import Any, Callable
+from typing import Any
 from weakref import WeakKeyDictionary
 
 import fastapi.routing

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import functools
 import json
+import traceback
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import opentelemetry.trace as trace_api
@@ -55,9 +57,11 @@ class ProxyTracerProvider(TracerProvider):
 
     provider: TracerProvider
     config: LogfireConfig
-    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)  # pyright: ignore[reportUnknownVariableType]
+    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(
+        default_factory=WeakKeyDictionary['_ProxyTracer', Callable[[], Tracer]]
+    )
     lock: Lock = field(default_factory=Lock)
-    suppressed_scopes: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
+    suppressed_scopes: set[str] = field(default_factory=set[str])
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
         with self.lock:
@@ -480,6 +484,20 @@ def record_exception(
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+
+
+original_format_exception = traceback.format_exception
+
+
+@functools.wraps(original_format_exception)
+def _patched_format_exception(*args: Any, **kwargs: Any):
+    try:
+        return original_format_exception(*args, **kwargs)
+    except Exception as exc:
+        return [f'Formatting stacktrace failed: {type(exc).__name__}: {exc}\n']
+
+
+traceback.format_exception = _patched_format_exception
 
 
 def set_exception_status(span: trace_api.Span, exception: BaseException):

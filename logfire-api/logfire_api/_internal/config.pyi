@@ -1,33 +1,36 @@
-import atexit
 import dataclasses
+import functools
 import requests
 from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback as ExceptionCallback
 from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token
-from .constants import LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
+from .constants import ATTRIBUTES_CONFIG as ATTRIBUTES_CONFIG, ATTRIBUTES_PACKAGE_VERSIONS as ATTRIBUTES_PACKAGE_VERSIONS, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL, RESOURCE_ATTRIBUTES_VERSION as RESOURCE_ATTRIBUTES_VERSION
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, ConsoleLogExporter as ConsoleLogExporter, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper as CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper as MainLogProcessorWrapper
-from .exporters.otlp import BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter, OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter
+from .exporters.otlp import BodySizeCheckingOTLPSpanExporter as BodySizeCheckingOTLPSpanExporter, OTLPExporterHttpSession as OTLPExporterHttpSession, QuietLogExporter as QuietLogExporter, QuietSpanExporter as QuietSpanExporter, RetryFewerSpansSpanExporter as RetryFewerSpansSpanExporter, cleanup_disk_retryers as cleanup_disk_retryers
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper as CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper as MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
+from .forwarding import OTLPForwardingManager as OTLPForwardingManager
 from .integrations.executors import instrument_executors as instrument_executors
 from .logs import ProxyLoggerProvider as ProxyLoggerProvider
 from .main import Logfire as Logfire
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
+from .server_response import ServerResponseCallback as ServerResponseCallback, install_logfire_response_hook as install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
 from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN as PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS as REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
+from logfire._internal.collect_system_info import collect_package_info as collect_package_info
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
@@ -40,7 +43,7 @@ from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Literal, TextIO, TypedDict
+from typing import Any, ClassVar, Literal, TextIO, TypedDict
 from typing_extensions import Self, Unpack
 
 CREDENTIALS_FILENAME: str
@@ -68,6 +71,8 @@ class AdvancedOptions:
     ns_timestamp_generator: Callable[[], int] = ...
     log_record_processors: Sequence[LogRecordProcessor] = ...
     exception_callback: ExceptionCallback | None = ...
+    emit_configuration_span: bool | None = ...
+    server_response_hook: ServerResponseCallback | None = ...
     def generate_base_url(self, token: str) -> str: ...
 
 @dataclass
@@ -77,8 +82,8 @@ class PydanticPlugin:
     This class is deprecated for external use. Use `logfire.instrument_pydantic()` instead.
     """
     record: PydanticPluginRecordValues = ...
-    include: set[str] = field(default_factory=set)
-    exclude: set[str] = field(default_factory=set)
+    include: set[str] = field(default_factory=set[str])
+    exclude: set[str] = field(default_factory=set[str])
 
 @dataclass
 class MetricsOptions:
@@ -95,6 +100,8 @@ class CodeSource:
     revision: str
     root_path: str = ...
 
+TemplateMismatchPolicy: Incomplete
+
 @dataclass
 class VariablesOptions:
     """Configuration for managed variables using the Logfire remote API.
@@ -108,6 +115,7 @@ class VariablesOptions:
     include_resource_attributes_in_context: bool = ...
     include_baggage_in_context: bool = ...
     instrument: bool = ...
+    template_mismatch_policy: TemplateMismatchPolicy = ...
     def __post_init__(self) -> None: ...
 
 @dataclass
@@ -121,6 +129,7 @@ class LocalVariablesOptions:
     include_resource_attributes_in_context: bool = ...
     include_baggage_in_context: bool = ...
     instrument: bool = ...
+    template_mismatch_policy: TemplateMismatchPolicy = ...
 
 class DeprecatedKwargs(TypedDict): ...
 
@@ -250,6 +259,8 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             Whether the flush of spans was successful.
         """
+    def shutdown(self, timeout_millis: int = 30000, flush: bool = True) -> bool:
+        """Shut down variables, forwarding, traces, logs, and metrics."""
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
 
@@ -280,8 +291,8 @@ class LogfireConfig(_LogfireConfigData):
         This is used internally and should not be called by users of the SDK.
 
         If no provider has been explicitly configured (i.e. `variables=` was not passed to
-        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
-        will be lazily created on the first call.
+        `configure()`), but `configure()` has been called and a `LOGFIRE_API_KEY` is available,
+        a `LogfireRemoteVariableProvider` will be lazily created on the first call.
 
         Returns:
             The variable provider.
@@ -289,8 +300,15 @@ class LogfireConfig(_LogfireConfigData):
     def warn_if_not_initialized(self, message: str): ...
     def suppress_scopes(self, *scopes: str) -> None: ...
 
-@atexit.register
+@handle_internal_errors
+def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *, local: bool) -> None:
+    """Emit a span describing the active Logfire configuration and installed packages.
+
+    Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
+    non-sensitive configuration fields.
+    """
 def exit_open_spans() -> None: ...
+def shutdown_otlp_forwarding(timeout_millis: int = 30000) -> None: ...
 
 original_os_exit: Incomplete
 
@@ -393,5 +411,8 @@ def sanitize_project_name(name: str) -> str:
     """Convert `name` to a string suitable for the `requested_project_name` API parameter."""
 def default_project_name(): ...
 def get_runtime_version() -> str: ...
+@functools.cache
+def common_resource_attributes(): ...
+def host_resource_attributes(): ...
 
 class LogfireNotConfiguredWarning(UserWarning): ...

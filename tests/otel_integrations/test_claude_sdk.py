@@ -10,6 +10,29 @@ from inline_snapshot import snapshot
 from logfire._internal.exporters.processor_wrapper import _transform_langsmith_span_attributes  # type: ignore
 
 
+def test_transform_langsmith_span_uses_completion_model_for_request_model():
+    assert _transform_langsmith_span_attributes(
+        {'logfire.span_type': 'span'},
+        {
+            'gen_ai.completion': {
+                'llm_output': {
+                    'model_name': 'claude-sonnet-4-5-20250929',
+                },
+            },
+        },
+    ) == (
+        {
+            'logfire.span_type': 'span',
+        },
+        {
+            'gen_ai.response.model': 'claude-sonnet-4-5-20250929',
+            'gen_ai.request.model': 'claude-sonnet-4-5-20250929',
+            'gen_ai.system': 'anthropic',
+            'gen_ai.provider.name': 'anthropic',
+        },
+    )
+
+
 # Testing this properly is too much of a pain, we'd need to create a clever mock transport or something.
 # Can't use VCR because the HTTP requests happen in a different claude process.
 # Testing _transform_langsmith_span_attributes covers the actual relevant changes.

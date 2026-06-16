@@ -7,7 +7,7 @@ This guide shows how to set up a **JavaScript/TypeScript web application** using
 ## Prerequisites
 
 1. **Create your variables** in the Logfire UI (Settings > Variables) and mark them as **external** — see [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
-2. **Create an API key** with the `project:read_external_variables` scope — this restricted scope is safe to use in client-side code since it only exposes variables you've explicitly marked as external
+2. **Create an API key** with the `project:read_external_variables` scope — expand the **Advanced** section of the API key form and select just this scope (the one-click presets bundle it into broader access) by selecting the "Read external managed variables within a project via OFREP" item under the "Variables" section. This restricted scope is safe to use in client-side code since it only exposes variables you've explicitly marked as external
 
 ## Installation
 
@@ -43,15 +43,17 @@ const LOGFIRE_API_KEY = 'your-api-key'  // project:read_external_variables scope
 const LOGFIRE_API_HOST = 'logfire-api.pydantic.dev'  // or your self-hosted API host
 
 const provider = new OFREPWebProvider({
-  baseUrl: `https://${LOGFIRE_API_HOST}/v1/ofrep/v1`,
-  fetchImplementation: (input, init) =>
-    fetch(input, {
-      ...init,
-      headers: {
-        ...Object.fromEntries(new Headers(init?.headers).entries()),
-        Authorization: `Bearer ${LOGFIRE_API_KEY}`,
-      },
-    }),
+  // The provider appends `/ofrep/v1/evaluate/flags` itself, so this is the `/v1` root.
+  baseUrl: `https://${LOGFIRE_API_HOST}/v1`,
+  fetchImplementation: (input, init) => {
+    // Keep the headers the provider already set (it sends `Content-Type:
+    // application/json`, which the endpoint requires) and add the API key.
+    const headers = new Headers(input instanceof Request ? input.headers : undefined)
+    new Headers(init?.headers).forEach((value, key) => headers.set(key, value))
+    headers.set('Authorization', `Bearer ${LOGFIRE_API_KEY}`)
+    headers.set('Content-Type', 'application/json')
+    return fetch(input, { ...init, headers })
+  },
 })
 
 OpenFeature.setProvider(provider)
@@ -161,15 +163,14 @@ import { OpenFeature } from '@openfeature/web-sdk'
 // Initialize once at app startup
 function initFeatureFlags(apiKey: string, apiHost: string) {
   const provider = new OFREPWebProvider({
-    baseUrl: `https://${apiHost}/v1/ofrep/v1`,
-    fetchImplementation: (input, init) =>
-      fetch(input, {
-        ...init,
-        headers: {
-          ...Object.fromEntries(new Headers(init?.headers).entries()),
-          Authorization: `Bearer ${apiKey}`,
-        },
-      }),
+    baseUrl: `https://${apiHost}/v1`,
+    fetchImplementation: (input, init) => {
+      const headers = new Headers(input instanceof Request ? input.headers : undefined)
+      new Headers(init?.headers).forEach((value, key) => headers.set(key, value))
+      headers.set('Authorization', `Bearer ${apiKey}`)
+      headers.set('Content-Type', 'application/json')
+      return fetch(input, { ...init, headers })
+    },
   })
   OpenFeature.setProvider(provider)
 }
@@ -193,12 +194,55 @@ function getFeatureFlags() {
 }
 ```
 
+## Python
+
+!!! note "Most Python services should use the Logfire SDK instead"
+    OFREP exists to evaluate variables from **untrusted** environments. If you're shipping a Python **application to untrusted end users** (a desktop/CLI app, an on-device agent), use OFREP as shown below so the full variable configuration is never exposed. For a **trusted backend** you control, skip all of this and use the pull-based [`logfire.var()`](../reference/advanced/managed-variables/index.md) — it evaluates locally with no per-flag network round-trip, and is the recommended path.
+
+OpenFeature for Python is two separate installs — the core SDK and the OFREP provider:
+
+```bash
+pip install openfeature-sdk openfeature-provider-ofrep
+```
+
+```python skip="true"
+from openfeature import api
+from openfeature.contrib.provider.ofrep import OFREPProvider
+from openfeature.evaluation_context import EvaluationContext
+
+# base_url is the `/v1` root; the provider appends `/ofrep/v1/evaluate/flags/{key}`.
+api.set_provider(
+    OFREPProvider(
+        base_url='https://logfire-api.pydantic.dev/v1',  # or your self-hosted API host
+        headers_factory=lambda: {'Authorization': 'Bearer YOUR_API_KEY'},
+    )
+)
+client = api.get_client()
+context = EvaluationContext(targeting_key='user-123')
+
+show_new_feature = client.get_boolean_value('show_new_feature', False, evaluation_context=context)
+```
+
+The provider — like the OpenFeature client in general — evaluates one named flag at a time. To read **every** variable in a single call, `POST` the bulk endpoint directly with any HTTP client (there is no bulk method on the client). This example uses [`httpx`](https://www.python-httpx.org/) (`pip install httpx`), which is separate from the OpenFeature packages above:
+
+```python skip="true"
+import httpx
+
+response = httpx.post(
+    'https://logfire-api.pydantic.dev/v1/ofrep/v1/evaluate/flags',
+    headers={'Authorization': 'Bearer YOUR_API_KEY'},
+    json={'context': {'targetingKey': 'user-123'}},
+)
+flags = response.json()['flags']  # [{'key', 'value', 'variant', 'reason'}, ...]
+```
+
 ## Other Languages and Platforms
 
 OpenFeature provides SDKs and OFREP providers for many languages. You can use the same Logfire OFREP endpoint with any of them:
 
 | Platform | SDK | OFREP Provider |
 |----------|-----|---------------|
+| Python | [`openfeature-sdk`](https://pypi.org/project/openfeature-sdk/) | [`openfeature-provider-ofrep`](https://pypi.org/project/openfeature-provider-ofrep/) |
 | JavaScript (Web) | [`@openfeature/web-sdk`](https://www.npmjs.com/package/@openfeature/web-sdk) | [`@openfeature/ofrep-web-provider`](https://www.npmjs.com/package/@openfeature/ofrep-web-provider) |
 | JavaScript (Server) | [`@openfeature/server-sdk`](https://www.npmjs.com/package/@openfeature/server-sdk) | [`@openfeature/ofrep-provider`](https://www.npmjs.com/package/@openfeature/ofrep-provider) |
 | Kotlin / Android | [OpenFeature Kotlin SDK](https://openfeature.dev/docs/reference/technologies/client/kotlin) | [OFREP Provider](https://github.com/open-feature/kotlin-sdk-contrib) |

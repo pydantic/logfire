@@ -20,7 +20,7 @@ import inline_snapshot.extra
 import pytest
 import requests.exceptions
 import requests_mock
-from dirty_equals import IsStr
+from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from opentelemetry._logs import get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
@@ -46,6 +46,7 @@ from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
+import logfire._internal.config as config_module
 from logfire import configure, propagate
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
@@ -73,6 +74,7 @@ from logfire._internal.exporters.processor_wrapper import (
 )
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
+from logfire._internal.forwarding import OTLPForwardingManager
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
@@ -80,6 +82,7 @@ from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter
+from logfire.version import VERSION
 
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
 
@@ -581,6 +584,105 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
 
 
+def test_logfire_config_reconfigure_replaces_forwarding_manager() -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    previous_manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(previous_manager, OTLPForwardingManager)
+    assert previous_manager.has_destinations() is False
+
+    logfire.configure(send_to_logfire=False, console=False, metrics=False)
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(manager, OTLPForwardingManager)
+    assert manager is not previous_manager
+    assert previous_manager.closed is True
+    assert manager.has_destinations() is False
+
+
+def test_forwarding_destinations_registered_from_active_logfire_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    configure(
+        token=['pylf_v1_us_token1', 'pylf_v1_us_token2', 'pylf_v1_eu_token3'],
+        send_to_logfire=True,
+        console=False,
+        metrics=False,
+    )
+    wait_for_check_token_thread()
+    manager = GLOBAL_CONFIG._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+
+    assert set(manager.pipelines) == {'https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev'}
+    assert manager.pipelines['https://logfire-us.pydantic.dev'].tokens == [
+        'pylf_v1_us_token1',
+        'pylf_v1_us_token2',
+    ]
+    assert manager.pipelines['https://logfire-eu.pydantic.dev'].tokens == ['pylf_v1_eu_token3']
+
+
+def test_forwarding_destinations_not_registered_when_send_to_logfire_false() -> None:
+    logfire.configure(token='pylf_v1_us_token', send_to_logfire=False, console=False, metrics=False)
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+
+    manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+    assert manager.has_destinations() is False
+
+
+def test_shutdown_otlp_forwarding_closes_local_forwarding_managers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    local_logfires = [
+        logfire.configure(local=True, token='pylf_v1_us_token1', send_to_logfire=True, console=False, metrics=False),
+        logfire.configure(local=True, token='pylf_v1_eu_token2', send_to_logfire=True, console=False, metrics=False),
+    ]
+    wait_for_check_token_thread()
+    managers = [local_logfire.config._otlp_forwarding for local_logfire in local_logfires]  # pyright: ignore[reportPrivateUsage]
+
+    try:
+        assert all(manager.has_destinations() for manager in managers)
+
+        config_module.shutdown_otlp_forwarding(100)
+
+        assert all(manager.closed for manager in managers)
+        assert all(pipeline.closed for manager in managers for pipeline in manager.pipelines.values())
+    finally:
+        for local_logfire in local_logfires:
+            local_logfire.shutdown(flush=False)
+
+
+@pytest.mark.parametrize('flush', [False, True])
+def test_logfire_shutdown_closes_providers(monkeypatch: pytest.MonkeyPatch, flush: bool) -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    variable_provider = mock.Mock()
+    otlp_forwarding = mock.Mock()
+    otlp_forwarding.shutdown.return_value = True
+    tracer_provider = mock.Mock()
+    logger_provider = mock.Mock()
+    meter_provider = mock.Mock()
+    monkeypatch.setattr(config, '_variable_provider', variable_provider)
+    monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
+    monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+    monkeypatch.setattr(config, '_logger_provider', logger_provider)
+    monkeypatch.setattr(config, '_meter_provider', meter_provider)
+
+    assert logfire.shutdown(timeout_millis=1000, flush=flush) is True
+
+    forwarding_timeout = otlp_forwarding.shutdown.call_args.args[0]
+    otlp_forwarding.shutdown.assert_called_once_with(forwarding_timeout, drain_queued=flush)
+    if flush:
+        tracer_provider.force_flush.assert_called_once()
+        logger_provider.force_flush.assert_called_once()
+        meter_provider.force_flush.assert_called_once()
+    else:
+        tracer_provider.force_flush.assert_not_called()
+        logger_provider.force_flush.assert_not_called()
+        meter_provider.force_flush.assert_not_called()
+    tracer_provider.shutdown.assert_called_once()
+    logger_provider.shutdown.assert_called_once()
+    meter_provider.shutdown.assert_called_once()
+
+
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     assert isinstance(processor, BatchSpanProcessor)
     try:
@@ -722,10 +824,15 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'potato',
                         'service.version': '1.2.3',
+                        'logfire.version': VERSION,
                         'service.instance.id': '00000000000000000000000000000000',
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'process.pid': 1234,
                     }
                 },
@@ -768,10 +875,15 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'service.name': 'banana',
                         'service.version': '1.2.3',
                         'service.instance.id': 'instance_id',
+                        'logfire.version': VERSION,
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
@@ -815,15 +927,67 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'service.name': 'banana',
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
+                        'logfire.version': VERSION,
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                     }
                 },
             }
         ]
     )
+
+
+def test_host_and_os_resource_attributes_populated_by_default(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`host.*` and `os.*` are pre-populated with the same values OTel's
+    `_HostResourceDetector` and `OsResourceDetector` would emit, so the Hosts
+    page works without the customer enabling the experimental detector env var.
+    """
+    import platform
+    import socket
+
+    # Hermetic: an inherited `OTEL_RESOURCE_ATTRIBUTES` from the runner shell
+    # would override our defaults and make this test pass spuriously.
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop('OTEL_RESOURCE_ATTRIBUTES', None)
+        configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == socket.gethostname()
+    assert resource_attrs['host.arch'] == platform.machine()
+    assert resource_attrs['os.type'] == platform.system().lower()
+    assert resource_attrs['os.version'] == (
+        platform.version() if platform.system().lower() in ('windows', 'sunos') else platform.release()
+    )
+
+
+def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    """`OTEL_RESOURCE_ATTRIBUTES` wins over the pre-populated `host.*` / `os.*`
+    so customers whose `socket.gethostname()` is useless (e.g. random
+    container IDs) can override cleanly.
+    """
+    with patch.dict(
+        os.environ,
+        {'OTEL_RESOURCE_ATTRIBUTES': 'host.name=my-explicit-host,host.arch=my-arch,os.type=plan9,os.version=4'},
+    ):
+        configure(**config_kwargs)
+    logfire.info('test')
+
+    resource_attrs = exporter.exported_spans_as_dict(include_resources=True)[0]['resource']['attributes']
+    assert resource_attrs['host.name'] == 'my-explicit-host'
+    assert resource_attrs['host.arch'] == 'my-arch'
+    assert resource_attrs['os.type'] == 'plan9'
+    assert resource_attrs['os.version'] == '4'
 
 
 def test_config_serializable():
@@ -1565,7 +1729,7 @@ def test_initialize_credentials_from_token_unreachable():
         UserWarning,
         match="Logfire API is unreachable, you may have trouble sending data. Error: Invalid URL '/v1/info': No scheme supplied.",
     ):
-        LogfireConfig(advanced=logfire.AdvancedOptions(base_url=''))._initialize_credentials_from_token('some-token')  # type: ignore
+        LogfireConfig(advanced=logfire.AdvancedOptions(base_url='foo'))._initialize_credentials_from_token('some-token')  # type: ignore
 
 
 def test_initialize_credentials_from_token_invalid_token():
@@ -1595,6 +1759,72 @@ def test_initialize_credentials_from_token_unhealthy():
 def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     logfire.configure(send_to_logfire=False)
     assert not caplog.messages
+
+
+def test_configuration_span_not_emitted_by_default(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(**config_kwargs)
+    assert not exporter.exported_spans_as_dict()
+
+
+def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['advanced'].emit_configuration_span = True
+    configure(**config_kwargs)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Logfire configured',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'Logfire configured',
+                    'logfire.msg': 'Logfire configured',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_configuration_span_emitted_when_opted_in',
+                    'code.lineno': 123,
+                    'logfire.config': {
+                        'local': False,
+                        'send_to_logfire': False,
+                        'console_enabled': False,
+                        'scrubbing_enabled': True,
+                        'inspect_arguments': True,
+                        'min_level': 0,
+                        'add_baggage_to_attributes': False,
+                        'distributed_tracing': True,
+                        'head_sample_rate': 1.0,
+                        'tail_sampling_enabled': False,
+                        'code_source_set': False,
+                        'variables_set': False,
+                        'token_count': 0,
+                        'api_key': False,
+                        'service_name': False,
+                        'service_version': True,
+                        'environment': False,
+                        'additional_span_processors': 1,
+                    },
+                    'logfire.package_versions': IsPartialDict({'logfire': IsStr()}),
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.config': {'type': 'object'},
+                            'logfire.package_versions': {'type': 'object'},
+                        },
+                    },
+                    'logfire.disable_console_log': True,
+                },
+            }
+        ]
+    )
+
+
+def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('LOGFIRE_EMIT_CONFIGURATION_SPAN', '1')
+    configure(send_to_logfire=False, console=False, inspect_arguments=False)
+    assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
@@ -1938,11 +2168,16 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
+                        'logfire.version': VERSION,
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -1988,11 +2223,16 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
+                        'logfire.version': VERSION,
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -2040,11 +2280,16 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
+                        'logfire.version': VERSION,
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
                         'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
                         'process.runtime.description': sys.version,
+                        'host.name': IsStr(),
+                        'host.arch': IsStr(),
+                        'os.type': IsStr(),
+                        'os.version': IsStr(),
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
@@ -2529,3 +2774,10 @@ def test_normalize_token():
     # Tuple input
     assert normalize_token(('token1',)) == 'token1'
     assert normalize_token(('token1', 'token2')) == ['token1', 'token2']
+
+
+def test_host_resource_attributes():
+    # Check that we're copying OTel accurately while avoiding the private import outside tests.
+    from opentelemetry.sdk.resources import _HostResourceDetector  # pyright: ignore[reportPrivateUsage]
+
+    assert config_module.host_resource_attributes() == _HostResourceDetector().detect().attributes

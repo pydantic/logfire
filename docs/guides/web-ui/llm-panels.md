@@ -77,6 +77,14 @@ logfire.info(
 
 We are actively engaged with the OpenTelemetry community to improve the GenAI specification, so expect more instrumentations to be fully supported in the future.
 
+### How costs are calculated
+
+Costs are calculated from [`genai-prices`](https://github.com/pydantic/genai-prices), an open dataset of provider and model pricing.
+
+For the Pydantic AI, OpenAI, and Anthropic instrumentations, if `genai-prices` is installed locally, it will try to use it to calculate a cost. If it succeeds, it will be attached to the span as the attribute `operation.cost`. This attribute is always used in the Logfire UI when present. This is typically more accurate because it takes into account details like cached tokens. If you're using one of these instrumentations, make sure that `genai-prices` is installed (it's only installed automatically by Pydantic AI) and either update it regularly or use [`UpdatePrices`](https://github.com/pydantic/genai-prices/tree/main/packages/python#updateprices) to ensure you have prices for the latest models.
+
+If `operation.cost` isn't present on the span, then the Logfire UI will use `genai-prices` to calculate a cost based on the other span attributes, particularly the input and output tokens. This may be less accurate because it doesn't have access to details like cached tokens, but it will still give you a rough estimate of the cost. The UI automatically uses the latest data in `genai-prices`, even if it hasn't been released, but there might be some delay due to browser caching. The calculated cost will only be visible in the UI and can't be queried with SQL.
+
 ## Example LLM panel views
 
 ### Single‑prompt calls

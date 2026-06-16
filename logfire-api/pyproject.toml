@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire-api"
-version = "4.32.1"
+version = "4.37.0"
 description = "Shim for the Logfire SDK which does nothing unless Logfire is installed"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
@@ -19,7 +19,7 @@ authors = [
 dependencies = []
 readme = "README.md"
 license = "MIT"
-requires-python = ">= 3.8"
+requires-python = ">=3.10"
 
 [tool.uv]
 managed = true

@@ -76,6 +76,7 @@ logfire.instrument_system_metrics({
     'process.cpu.time': ['user', 'system'],
     'process.cpu.utilization': None,
     'process.cpu.core_utilization': None,
+    'process.disk.io': ['read', 'write'],
     'process.memory.usage': None,
     'process.memory.virtual': None,
     'process.thread.count': None,

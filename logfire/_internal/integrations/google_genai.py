@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Any
+from typing import Any, TypeAlias
 
 from opentelemetry._logs import Logger, LoggerProvider, LogRecord
 from opentelemetry.trace import get_current_span
-from typing_extensions import TypeAlias
 
 import logfire
 from logfire._internal.utils import handle_internal_errors, safe_repr

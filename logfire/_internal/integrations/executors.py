@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import pickle
+from collections.abc import Callable
 from dataclasses import asdict
 from functools import partial, wraps
-from typing import Any, Callable
+from typing import Any
 
 from logfire.propagate import ContextCarrier, attach_context, get_context
 

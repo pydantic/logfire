@@ -5,18 +5,20 @@ import dataclasses
 import functools
 import json
 import os
+import platform
 import re
+import socket
 import sys
 import time
 import warnings
 import weakref
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -51,7 +53,7 @@ from opentelemetry.sdk.metrics import (
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
-from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.resources import OsResourceDetector, Resource
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
@@ -62,6 +64,7 @@ from typing_extensions import Self, Unpack, assert_type
 
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -73,12 +76,15 @@ from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
+    ATTRIBUTES_CONFIG,
+    ATTRIBUTES_PACKAGE_VERSIONS,
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
+    RESOURCE_ATTRIBUTES_VERSION,
     LevelName,
 )
 from .exporters.console import (
@@ -102,10 +108,12 @@ from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWr
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
+from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
+from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
@@ -176,6 +184,8 @@ class AdvancedOptions:
     base_url: str | None = None
     """Base URL for the Logfire API.
 
+    Defaults to the `LOGFIRE_BASE_URL` environment variable.
+
     If not set, Logfire will infer the base URL from the token (which contains information about the region).
     """
 
@@ -199,6 +209,41 @@ class AdvancedOptions:
     Note: When using `ProcessPoolExecutor`, this callback must be defined at the module level
     (not as a local function) to be picklable. Local functions will be excluded from the
     serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
+    """
+
+    emit_configuration_span: bool | None = None
+    """If `True`, emit a `Logfire configured` log after `logfire.configure()` containing
+    installed package versions and a curated set of non-sensitive configuration flags.
+
+    Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN` environment variable, or `False`.
+
+    This log and configuration is experimental and may be modified or removed.
+    """
+
+    server_response_hook: ServerResponseCallback | None = None
+    """Optional callback invoked for every HTTP response received from the Logfire API.
+
+    This is experimental and may be modified or removed.
+
+    This applies to OTLP exports, credential / project initialisation, and the remote
+    variables provider. The default surfaces the `X-Logfire-Warning` header as a
+    `LogfireServerWarning`.
+
+    Setting this replaces the default; pass `lambda response: None` to opt out entirely.
+
+    Example usage:
+
+    ```python skip-run="true" skip-reason="needs metric/logfire setup"
+    from logfire.types import ServerResponseCallbackHelper
+
+    def hook(helper: ServerResponseCallbackHelper):
+        my_metric.inc(helper.response.status_code)
+        helper.default_hook()  # call this to keep the default warning behavior
+
+    logfire.configure(advanced=AdvancedOptions(server_response_hook=hook))
+    ```
+
+    Raise from the hook to abort the calling code path.
     """
 
     def generate_base_url(self, token: str) -> str:
@@ -225,9 +270,9 @@ class PydanticPlugin:
     * `failure`: Send metrics for all validations and traces only for validation failures.
     * `metrics`: Send only metrics.
     """
-    include: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
+    include: set[str] = field(default_factory=set[str])
     """By default, third party modules are not instrumented. This option allows you to include specific modules."""
-    exclude: set[str] = field(default_factory=set)  # pyright: ignore[reportUnknownVariableType]
+    exclude: set[str] = field(default_factory=set[str])
     """Exclude specific modules from instrumentation."""
 
 
@@ -312,6 +357,33 @@ class CodeSource:
     """
 
 
+TemplateMismatchPolicy = Literal['warn', 'error', 'ignore']
+"""How `TemplateVariable.get(inputs)` reacts when the resolved (post-composition)
+template references a `{{field}}` not declared in the variable's `inputs_type`.
+
+The check is static — it compares the template's `{{field}}` references against
+the `inputs_type` JSON schema, not against the values in a particular `inputs`
+object. (An undeclared field renders to the empty string at runtime, so this
+turns a silent footgun into a configurable signal.)
+
+- `'warn'` (default): emit a `RuntimeWarning` and render the template anyway
+  (undeclared fields substitute as the empty string, matching default Handlebars
+  behaviour).
+- `'error'`: raise `TemplateInputsMismatchError` instead of rendering.
+- `'ignore'`: render silently, no warning.
+
+Configurable at three levels, with the variable-level value winning when set
+(`None` means "inherit from the surrounding options"):
+
+1. Per-variable via `template_var()`'s `template_mismatch_policy` argument —
+   variable-level wins, even when relaxing. Plain `var()` doesn't render
+   `{{...}}` templates and so doesn't accept the policy.
+2. Per-Logfire-instance via `VariablesOptions.template_mismatch_policy` or
+   `LocalVariablesOptions.template_mismatch_policy`.
+3. Falls back to `'warn'` when nothing is set.
+"""
+
+
 @dataclass
 class VariablesOptions:
     """Configuration for managed variables using the Logfire remote API.
@@ -336,6 +408,12 @@ class VariablesOptions:
     """Whether to include OpenTelemetry baggage when resolving variables."""
     instrument: bool = True
     """Whether to create spans when resolving variables."""
+    template_mismatch_policy: TemplateMismatchPolicy = 'warn'
+    """How to react when a `TemplateVariable`'s `{{field}}` references something its
+    `inputs_type` doesn't declare. See `TemplateMismatchPolicy` for the full semantics.
+
+    Overridden per-variable by the matching argument on `template_var()`.
+    """
 
     def __post_init__(self):
         interval_seconds = (
@@ -366,6 +444,12 @@ class LocalVariablesOptions:
     """Whether to include OpenTelemetry baggage when resolving variables."""
     instrument: bool = True
     """Whether to create spans when resolving variables."""
+    template_mismatch_policy: TemplateMismatchPolicy = 'warn'
+    """How to react when a `TemplateVariable`'s `{{field}}` references something its
+    `inputs_type` doesn't declare. See `TemplateMismatchPolicy` for the full semantics.
+
+    Overridden per-variable by the matching argument on `template_var()`.
+    """
 
 
 class DeprecatedKwargs(TypedDict):
@@ -583,33 +667,38 @@ def configure(
         config = LogfireConfig()
     else:
         config = GLOBAL_CONFIG
-    config.configure(
-        send_to_logfire=send_to_logfire,
-        token=token,
-        api_key=api_key,
-        service_name=service_name,
-        service_version=service_version,
-        environment=environment,
-        console=console,
-        metrics=metrics,
-        config_dir=Path(config_dir) if config_dir else None,
-        data_dir=Path(data_dir) if data_dir else None,
-        additional_span_processors=additional_span_processors,
-        scrubbing=scrubbing,
-        inspect_arguments=inspect_arguments,
-        min_level=min_level,
-        sampling=sampling,
-        add_baggage_to_attributes=add_baggage_to_attributes,
-        code_source=code_source,
-        variables=variables,
-        distributed_tracing=distributed_tracing,
-        advanced=advanced,
-    )
+    try:
+        config.configure(
+            send_to_logfire=send_to_logfire,
+            token=token,
+            api_key=api_key,
+            service_name=service_name,
+            service_version=service_version,
+            environment=environment,
+            console=console,
+            metrics=metrics,
+            config_dir=Path(config_dir) if config_dir else None,
+            data_dir=Path(data_dir) if data_dir else None,
+            additional_span_processors=additional_span_processors,
+            scrubbing=scrubbing,
+            inspect_arguments=inspect_arguments,
+            min_level=min_level,
+            sampling=sampling,
+            add_baggage_to_attributes=add_baggage_to_attributes,
+            code_source=code_source,
+            variables=variables,
+            distributed_tracing=distributed_tracing,
+            advanced=advanced,
+        )
+    except LogfireConfigError as e:
+        raise e.with_traceback(None)
 
     if local:
         logfire_instance = Logfire(config=config)
     else:
         logfire_instance = DEFAULT_LOGFIRE_INSTANCE
+
+    emit_configuration_span(config, logfire_instance, local=local)
 
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
@@ -803,7 +892,11 @@ class _LogfireConfigData:
             if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # pyright: ignore[reportUnknownArgumentType]  # pragma: no branch
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # pyright: ignore[reportUnknownArgumentType]
         elif advanced is None:
-            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
+            advanced = AdvancedOptions()
+        advanced.base_url = param_manager.load_param('base_url', advanced.base_url)
+        advanced.emit_configuration_span = param_manager.load_param(
+            'emit_configuration_span', advanced.emit_configuration_span
+        )
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
@@ -884,6 +977,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        self._otlp_forwarding = OTLPForwardingManager([])
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -948,18 +1042,13 @@ class LogfireConfig(_LogfireConfigData):
             return
 
         emscripten = platform_is_emscripten()
+        otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
+                **common_resource_attributes(),
                 'service.name': self.service_name,
                 'process.pid': os.getpid(),
-                # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
-                'process.runtime.name': sys.implementation.name,
-                'process.runtime.version': get_runtime_version(),
-                'process.runtime.description': sys.version,
-                # Having this giant blob of data associated with every span/metric causes various problems so it's
-                # disabled for now, but we may want to re-enable something like it in the future
-                # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
             if self.code_source:
                 otel_resource_attributes.update(
@@ -1078,7 +1167,7 @@ class LogfireConfig(_LogfireConfigData):
                     # If we don't have tokens or credentials from a file,
                     # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    client = LogfireClient.from_url(self.advanced.base_url)
+                    client = LogfireClient.from_url(self.advanced.base_url, self.advanced.server_response_hook)
                     credentials = LogfireCredentials.initialize_project(client=client)
                     credentials.write_creds_file(self.data_dir)
 
@@ -1127,8 +1216,10 @@ class LogfireConfig(_LogfireConfigData):
                     # Create exporters for each token
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
+                        otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
+                        install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
@@ -1305,6 +1396,7 @@ class LogfireConfig(_LogfireConfigData):
                     base_url=base_url,
                     token=self.api_key,
                     options=self.variables,
+                    server_response_hook=self.advanced.server_response_hook,
                 )
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
@@ -1334,6 +1426,15 @@ class LogfireConfig(_LogfireConfigData):
             atexit.unregister(exit_open_spans)
             atexit.register(exit_open_spans)
 
+            atexit.unregister(shutdown_otlp_forwarding)
+            atexit.register(shutdown_otlp_forwarding)
+
+            previous_otlp_forwarding = self._otlp_forwarding
+            self._otlp_forwarding = OTLPForwardingManager(
+                otlp_forwarding_destinations,
+                server_response_hook=self.advanced.server_response_hook,
+            )
+            previous_otlp_forwarding.shutdown(0, drain_queued=False)
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
@@ -1363,7 +1464,46 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
+        # TODO: Combine non-tracer flush results into the returned status in a follow-up.
+        self._otlp_forwarding.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
+
+    def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
+        """Shut down variables, forwarding, traces, logs, and metrics."""
+        start = time.monotonic()
+
+        def remaining_ms() -> int:
+            return max(0, int(timeout_millis - (time.monotonic() - start) * 1000))
+
+        complete = True
+        self._variable_provider.shutdown(timeout_millis=remaining_ms())
+        remaining = remaining_ms()
+
+        forwarding_shutdown_result = self._otlp_forwarding.shutdown(remaining, drain_queued=flush)
+        complete = complete and forwarding_shutdown_result
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._tracer_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._tracer_provider.shutdown()
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._logger_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._logger_provider.shutdown()
+        remaining = remaining_ms()
+
+        if flush and remaining:
+            self._meter_provider.force_flush(remaining)
+            remaining = remaining_ms()
+
+        self._meter_provider.shutdown(remaining)
+
+        return remaining_ms() > 0 and complete
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
@@ -1401,23 +1541,23 @@ class LogfireConfig(_LogfireConfigData):
         This is used internally and should not be called by users of the SDK.
 
         If no provider has been explicitly configured (i.e. `variables=` was not passed to
-        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
-        will be lazily created on the first call.
+        `configure()`), but `configure()` has been called and a `LOGFIRE_API_KEY` is available,
+        a `LogfireRemoteVariableProvider` will be lazily created on the first call.
 
         Returns:
             The variable provider.
         """
         provider = self._variable_provider
-        if isinstance(provider, NoOpVariableProvider) and self.variables is None:
+        if self._initialized and isinstance(provider, NoOpVariableProvider) and self.variables is None:
             provider = self._lazy_init_variable_provider()
         return provider
 
     def _lazy_init_variable_provider(self) -> VariableProvider:
         """Attempt to lazily initialize a remote variable provider.
 
-        This is called when no explicit `variables=` option was passed to `configure()`,
-        but the user may have a `LOGFIRE_API_KEY` set in the environment. If so, we
-        create a `LogfireRemoteVariableProvider` with default options.
+        This is called after `configure()` when no explicit `variables=` option was passed,
+        but the user may have a `LOGFIRE_API_KEY` set in the environment. If so, we create a
+        `LogfireRemoteVariableProvider` with default options.
         """
         with self._lock:
             # Double-check after acquiring lock
@@ -1437,6 +1577,7 @@ class LogfireConfig(_LogfireConfigData):
                 base_url=base_url,
                 token=api_key,
                 options=options,
+                server_response_hook=self.advanced.server_response_hook,
             )
             self._variable_provider = provider
             provider.start(Logfire(config=self))
@@ -1453,7 +1594,9 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
+        session = requests.Session()
+        install_logfire_response_hook(session, self.advanced.server_response_hook)
+        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -1513,6 +1656,54 @@ class LogfireConfig(_LogfireConfigData):
         self._logger_provider.suppress_scopes(*scopes)
 
 
+@handle_internal_errors
+def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *, local: bool) -> None:
+    """Emit a span describing the active Logfire configuration and installed packages.
+
+    Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
+    non-sensitive configuration fields.
+    """
+    if not config.advanced.emit_configuration_span:
+        return
+
+    sampling = config.sampling
+    if isinstance(config.token, str):  # pragma: no cover
+        token_count = 1
+    elif config.token is None:
+        token_count = 0
+    else:  # pragma: no cover
+        token_count = len(config.token)
+
+    logfire_instance.log(
+        'info',
+        'Logfire configured',
+        console_log=False,
+        attributes={
+            ATTRIBUTES_CONFIG: {
+                'local': local,
+                'send_to_logfire': config.send_to_logfire,
+                'console_enabled': bool(config.console),
+                'scrubbing_enabled': bool(config.scrubbing),
+                'inspect_arguments': config.inspect_arguments,
+                'min_level': config.min_level,
+                'add_baggage_to_attributes': config.add_baggage_to_attributes,
+                'distributed_tracing': config.distributed_tracing,
+                'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
+                'tail_sampling_enabled': sampling.tail is not None,
+                'code_source_set': config.code_source is not None,
+                'variables_set': config.variables is not None,
+                'token_count': token_count,
+                'api_key': bool(config.api_key),
+                'service_name': bool(config.service_name),
+                'service_version': bool(config.service_version),
+                'environment': bool(config.environment),
+                'additional_span_processors': len(config.additional_span_processors or ()),
+            },
+            ATTRIBUTES_PACKAGE_VERSIONS: collect_package_info(),
+        },
+    )
+
+
 # Global list to track all LogfireConfig instances for cleanup on exit
 _LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
 
@@ -1528,6 +1719,18 @@ def exit_open_spans():  # pragma: no cover
         # Interpreter shutdown may trigger another call to .end(),
         # which would log a warning "Calling end() on an ended span."
         span.end = lambda *_, **__: None  # pyright: ignore[reportUnknownLambdaType]
+
+
+def shutdown_otlp_forwarding(timeout_millis: int = 30_000) -> None:
+    deadline = time.monotonic() + timeout_millis / 1000
+    for config_ref in list(_LOGFIRE_CONFIG_INSTANCES):
+        config = config_ref()
+        if config is None:
+            continue
+
+        manager = config._otlp_forwarding  # pyright: ignore[reportPrivateUsage]
+        remaining_millis = max(0, int((deadline - time.monotonic()) * 1000))
+        manager.shutdown(remaining_millis, drain_queued=True)
 
 
 # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
@@ -1938,6 +2141,32 @@ def get_runtime_version() -> str:
     if version_info.releaselevel == 'final' and not version_info.serial:
         return '.'.join(map(str, version_info[:3]))
     return '.'.join(map(str, version_info))  # pragma: no cover
+
+
+@functools.cache
+def common_resource_attributes():
+    return {
+        RESOURCE_ATTRIBUTES_VERSION: VERSION,
+        # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
+        # TODO use ProcessResourceDetector?
+        'process.runtime.name': sys.implementation.name,
+        'process.runtime.version': get_runtime_version(),
+        'process.runtime.description': sys.version,
+        # https://opentelemetry.io/docs/specs/semconv/resource/host/
+        # Pre-populated so the Logfire Hosts page surfaces a row without the
+        # customer opting into `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS=otel,host`.
+        **host_resource_attributes(),
+        # https://opentelemetry.io/docs/specs/semconv/resource/os/
+        **OsResourceDetector().detect().attributes,
+    }
+
+
+def host_resource_attributes():
+    # See test_host_resource_attributes
+    return {
+        'host.name': socket.gethostname(),
+        'host.arch': platform.machine(),
+    }
 
 
 class LogfireNotConfiguredWarning(UserWarning):

@@ -10,6 +10,7 @@ from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
 from .auth import UserToken, UserTokenCollection
+from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .utils import UnexpectedResponse
 
 UA_HEADER = f'logfire/{VERSION}'
@@ -29,18 +30,29 @@ class LogfireClient:
 
     Args:
         user_token: The user token to use when authenticating against the API.
+        server_response_hook: Optional override for the API response hook (see
+            `AdvancedOptions.server_response_hook`).
     """
 
-    def __init__(self, user_token: UserToken) -> None:
+    def __init__(
+        self,
+        user_token: UserToken,
+        server_response_hook: ServerResponseCallback | None = None,
+    ) -> None:
         if user_token.is_expired:
             raise RuntimeError('The provided user token is expired')
         self.base_url = user_token.base_url
         self._token = user_token.token
         self._session = Session()
         self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
+        install_logfire_response_hook(self._session, server_response_hook)
 
     @classmethod
-    def from_url(cls, base_url: str | None) -> Self:
+    def from_url(
+        cls,
+        base_url: str | None,
+        server_response_hook: ServerResponseCallback | None = None,
+    ) -> Self:
         """Create a client from the provided base URL.
 
         Args:
@@ -48,8 +60,13 @@ class LogfireClient:
                 the user into selecting a token from the token collection (or, if only one available,
                 use it directly). The token collection will be created from the `~/.logfire/default.toml`
                 file (or an empty one if no such file exists).
+            server_response_hook: Optional override for the API response hook (see
+                `AdvancedOptions.server_response_hook`).
         """
-        return cls(user_token=UserTokenCollection().get_token(base_url))
+        return cls(
+            user_token=UserTokenCollection().get_token(base_url),
+            server_response_hook=server_response_hook,
+        )
 
     def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
         response = self._session.get(urljoin(self.base_url, endpoint), params=params)

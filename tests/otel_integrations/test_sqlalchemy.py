@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -37,7 +37,7 @@ class AuthRecord(Base):
 
 
 @contextmanager
-def sqlite_engine(path: Path) -> Iterator[Engine]:
+def sqlite_engine(path: Path) -> Generator[Engine]:
     path.unlink(missing_ok=True)
     engine = create_engine(f'sqlite:///{path}')
     try:
@@ -249,7 +249,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': 'PRAGMA read_uncommitted',
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': 'PRAGMA read_uncommitted',
                 },
             },
@@ -279,7 +278,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': 'PRAGMA main.table_info("auth_records") … 000000000000002-0000000000000005-01\'*/',
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': "PRAGMA main.table_info(\"auth_records\") /*db_driver='pysqlite',traceparent='00-00000000000000000000000000000002-0000000000000005-01'*/",
                 },
             },
@@ -310,7 +308,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': 'PRAGMA temp.table_info("auth_records") … 000000000000004-0000000000000009-01\'*/',
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': "PRAGMA temp.table_info(\"auth_records\") /*db_driver='pysqlite',traceparent='00-00000000000000000000000000000004-0000000000000009-01'*/",
                 },
             },
@@ -341,7 +338,6 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'logfire.span_type': 'span',
                     'logfire.msg': "CREATE TABLE auth_records ( id INTEGER … 000000000000006-000000000000000d-01'*/",
                     'db.system': 'sqlite',
-                    'db.name': '',
                     'db.statement': """\
 
 CREATE TABLE auth_records (
@@ -389,7 +385,7 @@ CREATE TABLE auth_records (
 
 
 @contextmanager
-def sqlite_async_engine(path: Path) -> Iterator[AsyncEngine]:
+def sqlite_async_engine(path: Path) -> Generator[AsyncEngine]:
     path.unlink(missing_ok=True)
     engine = create_async_engine(f'sqlite+aiosqlite:///{path}')
     try:
@@ -418,7 +414,26 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
             await session.delete(record)
             await session.commit()
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    for span in spans:
+        attributes = span['attributes']
+        if 'db.statement' not in attributes:
+            continue
+
+        # SQLAlchemy async spans may include the database path in the span name and db attributes.
+        db_name = attributes.pop('db.name', None)
+        db_operation = attributes.pop('db.operation', None)
+        if db_name is None:
+            assert db_operation is None
+            continue
+
+        assert isinstance(db_name, str)
+        assert isinstance(span['name'], str)
+        assert span['name'].endswith(f' {db_name}')
+        assert db_operation == span['name']
+        span['name'] = span['name'][: -(len(db_name) + 1)]
+
+    assert spans == snapshot(
         [
             {
                 'name': 'connect',
@@ -435,7 +450,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 },
             },
             {
-                'name': IsStr(regex=r'PRAGMA .*test_(engine|engines)\.db$'),
+                'name': 'PRAGMA',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
@@ -445,12 +460,10 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'PRAGMA main.table_info("auth_records")',
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
                 },
             },
             {
-                'name': IsStr(regex=r'PRAGMA .*test_(engine|engines)\.db$'),
+                'name': 'PRAGMA',
                 'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'parent': None,
                 'start_time': 5000000000,
@@ -460,12 +473,10 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
                 },
             },
             {
-                'name': IsStr(regex=r'CREATE .*test_(engine|engines)\.db$'),
+                'name': 'CREATE',
                 'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
                 'parent': None,
                 'start_time': 7000000000,
@@ -475,8 +486,6 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)\n)',
                     'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                     'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
                 },
             },
             {
@@ -494,7 +503,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 },
             },
             {
-                'name': IsStr(regex=r'select .*test_(engine|engines)\.db$'),
+                'name': 'select',
                 'context': {'trace_id': 6, 'span_id': 11, 'is_remote': False},
                 'parent': None,
                 'start_time': 11000000000,
@@ -504,12 +513,10 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'select * from auth_records',
                     'db.statement': 'select * from auth_records',
                     'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
                 },
             },
             {
-                'name': IsStr(regex=r'INSERT .*test_(engine|engines)\.db$'),
+                'name': 'INSERT',
                 'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
@@ -519,8 +526,6 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
                 },
             },
             {
@@ -538,7 +543,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 },
             },
             {
-                'name': IsStr(regex=r'SELECT .*test_(engine|engines)\.db$'),
+                'name': 'SELECT',
                 'context': {'trace_id': 9, 'span_id': 17, 'is_remote': False},
                 'parent': None,
                 'start_time': 17000000000,
@@ -550,12 +555,10 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
 SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?\
 """,
                     'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
                 },
             },
             {
-                'name': IsStr(regex=r'DELETE .*test_(engine|engines)\.db$'),
+                'name': 'DELETE',
                 'context': {'trace_id': 10, 'span_id': 19, 'is_remote': False},
                 'parent': None,
                 'start_time': 19000000000,
@@ -565,8 +568,6 @@ SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_n
                     'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
-                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
-                    'db.operation': IsStr(),
                 },
             },
         ]

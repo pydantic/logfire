@@ -2,14 +2,15 @@ from __future__ import annotations as _annotations
 
 import os
 import sys
-from collections.abc import Sequence
+import typing
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Literal, TypeVar, Union
+from types import UnionType
+from typing import Any, Literal, TypeVar, get_args, get_origin
 
 from opentelemetry.sdk.environment_variables import OTEL_SERVICE_NAME
-from typing_extensions import get_args, get_origin
 
 from logfire.exceptions import LogfireConfigError
 
@@ -20,13 +21,11 @@ from .utils import read_toml_file
 
 T = TypeVar('T')
 
-slots_true = {'slots': True} if sys.version_info >= (3, 10) else {}
-
 PydanticPluginRecordValues = Literal['off', 'all', 'failure', 'metrics']
 """Possible values for the `pydantic_plugin_record` parameter."""
 
 
-@dataclass(**slots_true)
+@dataclass(slots=True)
 class ConfigParam:
     """A parameter that can be configured for a Logfire instance."""
 
@@ -54,7 +53,7 @@ _send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_VERSION' not in os.e
 """When running under pytest, don't send spans to Logfire by default."""
 
 # fmt: off
-SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=Union[bool, Literal['if-token-present']])
+SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=bool | Literal['if-token-present'])
 """Whether to send spans to Logfire."""
 MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, default=None, tp=LevelName)
 """Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
@@ -107,6 +106,8 @@ BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, de
 """The base URL of the Logfire backend. Primarily for testing purposes."""
 DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
+EMIT_CONFIGURATION_SPAN = ConfigParam(env_vars=['LOGFIRE_EMIT_CONFIGURATION_SPAN'], allow_file_config=True, default=False, tp=bool)
+"""Whether to emit a `Logfire configured` log span after `logfire.configure()`."""
 
 # Instrumentation packages parameters
 HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
@@ -140,6 +141,7 @@ CONFIG_PARAMS = {
     'inspect_arguments': INSPECT_ARGUMENTS,
     'ignore_no_config': IGNORE_NO_CONFIG,
     'distributed_tracing': DISTRIBUTED_TRACING,
+    'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
     'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,
@@ -208,7 +210,7 @@ class ParamManager:
             return value
         if get_origin(tp) is Literal:
             return _check_literal(value, name, tp)
-        if get_origin(tp) is Union:
+        if get_origin(tp) in (typing.Union, UnionType):
             for arg in get_args(tp):
                 try:
                     return self._cast(value, name, arg)

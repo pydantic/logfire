@@ -3,18 +3,17 @@ from .constants import LevelName as LevelName
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues
 from .utils import read_toml_file as read_toml_file
 from _typeshed import Incomplete
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar('T')
-slots_true: Incomplete
 PydanticPluginRecordValues: Incomplete
 
-@dataclass(**slots_true)
+@dataclass(slots=True)
 class ConfigParam:
     """A parameter that can be configured for a Logfire instance."""
     env_vars: list[str]
@@ -54,6 +53,7 @@ INSPECT_ARGUMENTS: Incomplete
 IGNORE_NO_CONFIG: Incomplete
 BASE_URL: Incomplete
 DISTRIBUTED_TRACING: Incomplete
+EMIT_CONFIGURATION_SPAN: Incomplete
 HTTPX_CAPTURE_ALL: Incomplete
 AIOHTTP_CLIENT_CAPTURE_ALL: Incomplete
 CONFIG_PARAMS: Incomplete

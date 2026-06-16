@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import sys
 import warnings
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
@@ -131,6 +132,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     # Variables APIs are intentionally not in logfire-api — users of variables should use the full SDK
     for name in [
         'var',
+        'template_var',
         'variables',
         'variables_clear',
         'variables_get',
@@ -198,17 +200,16 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'instrument_openai_agents')
-    if sys.version_info >= (3, 10):
-        logfire_api.instrument_openai_agents()
+    logfire_api.instrument_openai_agents()
     logfire__all__.remove('instrument_openai_agents')
 
     assert hasattr(logfire_api, 'instrument_pydantic_ai')
-    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.10.0'):
+    if get_version(pydantic_version) >= get_version('2.10.0'):
         logfire_api.instrument_pydantic_ai()
     logfire__all__.remove('instrument_pydantic_ai')
 
     assert hasattr(logfire_api, 'instrument_mcp')
-    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.11.0'):
+    if get_version(pydantic_version) >= get_version('2.11.0'):
         logfire_api.instrument_mcp()
     logfire__all__.remove('instrument_mcp')
 
@@ -223,10 +224,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_google_genai')
     if get_version(pydantic_version) >= get_version('2.7.0'):
-        with warnings.catch_warnings():
-            if sys.version_info[:2] <= (3, 9):
-                warnings.simplefilter('ignore', category=FutureWarning)
-            logfire_api.instrument_google_genai()
+        logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
@@ -243,12 +241,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_dspy')
     if not pydantic_pre_2_5:
-        try:
-            importlib.import_module('openinference.instrumentation.dspy')
-        except ImportError:
-            pass
-        else:
-            logfire_api.instrument_dspy()
+        # DSPy emits deprecation warnings while being instrumented; pytest treats warnings as errors.
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=DeprecationWarning)
+            try:
+                importlib.import_module('openinference.instrumentation.dspy')
+            except ImportError:
+                pass
+            else:
+                logfire_api.instrument_dspy()
     logfire__all__.remove('instrument_dspy')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
@@ -324,6 +325,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'url_from_eval')
     logfire_api.url_from_eval(MagicMock(trace_id='abc', span_id='def'))
     logfire__all__.remove('url_from_eval')
+
+    assert hasattr(logfire_api, 'forward_export_request')
+    logfire_api.forward_export_request(path='/invalid', headers={}, body=b'')
+    logfire__all__.remove('forward_export_request')
+
+    assert hasattr(logfire_api, 'forward_export_request_starlette')
+    request = MagicMock(method='GET', headers={})
+    asyncio.run(logfire_api.forward_export_request_starlette(request))
+    logfire__all__.remove('forward_export_request_starlette')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__

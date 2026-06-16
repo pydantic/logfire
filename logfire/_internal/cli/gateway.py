@@ -1,0 +1,621 @@
+from __future__ import annotations
+
+import argparse
+import asyncio
+import contextlib
+import html
+import json
+import os
+import secrets
+import shutil
+import signal
+import socket
+import tempfile
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal, cast
+from urllib.parse import urlsplit
+
+from rich.console import Console
+from rich.prompt import Prompt
+
+from logfire.exceptions import LogfireConfigError
+
+from .ai_tools import (
+    LOCAL_TOKEN_PLACEHOLDER,
+    AiToolIntegration,
+    ai_tool_names,
+    gateway_template_values,
+    resolve_ai_tool,
+)
+from .gateway_auth import (
+    GATEWAY_CIMD_PATH,
+    CimdOAuthClient,
+    GatewayAuth,
+    GatewayError,
+    OAuthSession,
+    discover_oauth_metadata,
+)
+
+try:
+    import httpx
+    import uvicorn
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse, Response, StreamingResponse
+    from starlette.routing import Route
+except ImportError as exc:
+    raise ImportError(
+        'The `logfire gateway` command requires extra dependencies. Install them with:\n'
+        '  pip install "logfire[gateway]"\n'
+        'or, if using uv:\n'
+        '  uv add "logfire[gateway]"'
+    ) from exc
+
+DEFAULT_PORT = 11465
+DEFAULT_SCOPE = 'project:gateway_proxy'
+OAUTH_CALLBACK_PATH = '/callback'
+
+console = Console(stderr=True)
+
+
+@dataclass(frozen=True)
+class GatewayRegion:
+    backend: str
+    gateway: str
+    client_id: str
+
+
+GATEWAY_REGIONS: dict[str, GatewayRegion] = {
+    'us': GatewayRegion(
+        'https://logfire-us.pydantic.dev',
+        'https://gateway-us.pydantic.dev',
+        'https://logfire.pydantic.dev/clients/logfire-gateway.json',
+    ),
+    'eu': GatewayRegion(
+        'https://logfire-eu.pydantic.dev',
+        'https://gateway-eu.pydantic.dev',
+        'https://logfire.pydantic.dev/clients/logfire-gateway.json',
+    ),
+}
+
+
+@dataclass(frozen=True)
+class GatewayCommandContext:
+    raw_args: list[str]
+    region: str | None
+    logfire_url: str | None
+
+
+@dataclass(frozen=True)
+class GatewayCommand:
+    name: Literal['usage', 'launch', 'serve']
+    args: tuple[str, ...]
+
+
+_HOP_BY_HOP = frozenset(
+    {
+        'connection',
+        'keep-alive',
+        'proxy-authenticate',
+        'proxy-authorization',
+        'te',
+        'trailers',
+        'transfer-encoding',
+        'upgrade',
+        'host',
+        'content-length',
+    }
+)
+_REQUEST_DROP = frozenset({'authorization', 'x-api-key'})
+_RESPONSE_DROP = frozenset({'content-encoding'})
+
+
+def filter_headers(headers: dict[str, str], *, direction: str) -> list[tuple[str, str]]:
+    extra_drop = _REQUEST_DROP if direction == 'request' else _RESPONSE_DROP
+    filtered: list[tuple[str, str]] = []
+    for key, value in headers.items():
+        lower = key.lower()
+        if lower in _HOP_BY_HOP or lower in extra_drop:
+            continue
+        filtered.append((key, value))
+    return filtered
+
+
+@dataclass
+class ProxyState:
+    auth: GatewayAuth
+    client: httpx.AsyncClient
+    gateway: str
+    region: str
+    local_token: str
+
+
+def _is_streaming(body: bytes) -> bool:
+    try:
+        parsed = json.loads(body)
+    except (json.JSONDecodeError, ValueError):
+        return False
+    if not isinstance(parsed, dict):
+        return False
+    parsed_dict = cast(dict[str, Any], parsed)
+    return parsed_dict.get('stream') is True
+
+
+def _local_request_authorized(headers: Any, local_token: str) -> bool:
+    authorization = headers.get('authorization') or ''
+    scheme, _, value = authorization.partition(' ')
+    if scheme.lower() == 'bearer' and secrets.compare_digest(value, local_token):
+        return True
+    api_key = headers.get('x-api-key') or ''
+    return secrets.compare_digest(api_key, local_token)
+
+
+async def _gateway_request(
+    state: ProxyState, method: str, upstream_url: str, headers: dict[str, str], body: bytes
+) -> tuple[int, Any, bytes, str]:
+    response = None
+    response_body = b''
+    for attempt in range(3):
+        token = await state.auth.current_access_token()
+        request_headers = {**headers, 'Authorization': f'Bearer {token}'}
+        response = await state.client.request(method, upstream_url, headers=request_headers, content=body)
+        response_body = await response.aread()
+        if response.status_code != 401:
+            break
+        if attempt == 2 or not await state.auth.recover_after_rejection(use_reauth=attempt >= 1):
+            break
+    if response is None:  # pragma: no cover
+        raise RuntimeError('gateway request was never sent')
+    return response.status_code, response.headers, response_body, response.headers.get('content-type', '')
+
+
+async def _gateway_stream(
+    state: ProxyState, method: str, upstream_url: str, headers: dict[str, str], body: bytes
+) -> Any:
+    for attempt in range(3):
+        token = await state.auth.current_access_token()
+        request_headers = {**headers, 'Authorization': f'Bearer {token}'}
+        request = state.client.build_request(method, upstream_url, headers=request_headers, content=body)
+        response = await state.client.send(request, stream=True)
+        if response.status_code != 401:
+            return response
+        if attempt == 2 or not await state.auth.recover_after_rejection(use_reauth=attempt >= 1):
+            return response
+        await response.aclose()
+    raise RuntimeError('unreachable')  # pragma: no cover
+
+
+async def _handle_proxy(request: Any) -> Any:
+    state: ProxyState = request.app.state.logfire_gateway
+    path = request.url.path
+    if not path.startswith('/proxy/'):
+        return JSONResponse({'error': 'no route', 'path': path}, status_code=404)
+    if not _local_request_authorized(request.headers, state.local_token):
+        return JSONResponse({'error': 'unauthorized'}, status_code=401)
+    body = await request.body()
+    upstream_url = f'{state.gateway.rstrip("/")}{path}'
+    if request.url.query:
+        upstream_url = f'{upstream_url}?{request.url.query}'
+    headers = dict(filter_headers(dict(request.headers), direction='request'))
+
+    if _is_streaming(body):
+        upstream_response = await _gateway_stream(state, request.method, upstream_url, headers, body)
+
+        async def body_iter() -> AsyncIterator[bytes]:
+            try:
+                async for chunk in upstream_response.aiter_bytes():
+                    yield chunk
+            finally:
+                await upstream_response.aclose()
+
+        return StreamingResponse(
+            body_iter(),
+            status_code=upstream_response.status_code,
+            headers=dict(filter_headers(dict(upstream_response.headers), direction='response')),
+            media_type=upstream_response.headers.get('content-type'),
+        )
+
+    status, response_headers, response_body, content_type = await _gateway_request(
+        state, request.method, upstream_url, headers, body
+    )
+    return Response(
+        content=response_body,
+        status_code=status,
+        headers=dict(filter_headers(dict(response_headers), direction='response')),
+        media_type=content_type,
+    )
+
+
+_OAUTH_DONE_HTML = '<!doctype html><title>Logfire Gateway</title><h1>{title}</h1><p>{body}</p>'
+
+
+def _oauth_done_html(title: str, body: str) -> str:
+    return _OAUTH_DONE_HTML.format(title=html.escape(title), body=html.escape(body))
+
+
+async def _handle_oauth_callback(request: Any) -> Any:
+    state: ProxyState = request.app.state.logfire_gateway
+    params = request.query_params
+    result = state.auth.complete_browser_callback(
+        error=params.get('error'),
+        error_description=params.get('error_description'),
+        code=params.get('code'),
+        state=params.get('state'),
+    )
+    return Response(
+        _oauth_done_html(result.title, result.body),
+        status_code=result.status_code,
+        media_type='text/html',
+    )
+
+
+async def _handle_favicon(request: Any) -> Any:
+    return Response(status_code=204)
+
+
+def build_app(state: ProxyState) -> Any:
+    app = Starlette(
+        routes=[
+            Route(OAUTH_CALLBACK_PATH, _handle_oauth_callback, methods=['GET']),
+            Route('/_logfire_gateway/oauth/callback', _handle_oauth_callback, methods=['GET']),
+            Route('/favicon.ico', _handle_favicon, methods=['GET']),
+            Route('/{path:path}', _handle_proxy, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
+        ]
+    )
+    app.state.logfire_gateway = state
+    return app
+
+
+def _pick_port(preferred: int) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind(('127.0.0.1', preferred))
+            return preferred
+        except OSError:
+            sock.bind(('127.0.0.1', 0))
+            return int(sock.getsockname()[1])
+
+
+def _oauth_redirect_uri(port: int) -> str:
+    return f'http://127.0.0.1:{port}{OAUTH_CALLBACK_PATH}'
+
+
+def _gateway_cimd_client_id(base_url: str) -> str:
+    parsed = urlsplit(base_url.rstrip('/'))
+    if parsed.netloc.startswith('logfire-') and parsed.netloc.endswith('.pydantic.dev'):
+        return f'{parsed.scheme}://logfire.pydantic.dev{GATEWAY_CIMD_PATH}'
+    if parsed.netloc.startswith('logfire-') and parsed.netloc.endswith('.pydantic.info'):
+        return f'{parsed.scheme}://logfire.pydantic.info{GATEWAY_CIMD_PATH}'
+    return f'{base_url.rstrip("/")}{GATEWAY_CIMD_PATH}'
+
+
+@contextlib.contextmanager
+def _no_capture_signals() -> Any:
+    # Replaces uvicorn.Server.capture_signals: don't trap SIGINT/SIGTERM so we can
+    # install our own handlers below that actually cancel the OAuth wait.
+    yield
+
+
+async def _await_or_signal(awaitable: Any) -> Any:
+    # Race `awaitable` against SIGINT/SIGTERM. The signal handler resolves a future
+    # we wait on, so we don't depend on CancelledError propagating through nested
+    # asyncio.wait_for calls (which is unreliable on Python 3.10). If a signal arrives
+    # first, cancel the task and raise KeyboardInterrupt for top-level handling.
+    loop = asyncio.get_running_loop()
+    stop: asyncio.Future[None] = loop.create_future()
+
+    def _on_signal() -> None:
+        if not stop.done():
+            stop.set_result(None)
+
+    installed: list[int] = []
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _on_signal)
+        except (NotImplementedError, RuntimeError):
+            continue
+        installed.append(sig)
+
+    task = asyncio.ensure_future(awaitable)
+    try:
+        done, _pending = await asyncio.wait({task, stop}, return_when=asyncio.FIRST_COMPLETED)
+        if stop in done and not task.done():
+            task.cancel()
+            with contextlib.suppress(BaseException):
+                await task
+            raise KeyboardInterrupt
+        return await task
+    finally:
+        if not stop.done():
+            stop.cancel()
+        for sig in installed:
+            with contextlib.suppress(NotImplementedError, RuntimeError):
+                loop.remove_signal_handler(sig)
+
+
+@asynccontextmanager
+async def _authorize_and_serve(
+    *, region: str, backend: str, gateway: str, client_id: str, scope: str, port: int, flow: str
+) -> AsyncGenerator[tuple[ProxyState, str], None]:
+    redirect_uri = _oauth_redirect_uri(port)
+    resource = f'{gateway.rstrip("/")}/proxy'
+    async with httpx.AsyncClient(timeout=30.0) as control_client:
+        metadata = await discover_oauth_metadata(control_client, backend)
+        client = CimdOAuthClient(control_client, metadata, client_id=client_id)
+        session = OAuthSession(client, metadata, resource=resource, scope=scope)
+        auth = GatewayAuth(session, redirect_uri=redirect_uri, flow=flow)
+        async with httpx.AsyncClient(timeout=180.0) as upstream_client:
+            state = ProxyState(
+                auth=auth,
+                client=upstream_client,
+                gateway=gateway.rstrip('/'),
+                region=region,
+                local_token=secrets.token_urlsafe(32),
+            )
+            app = build_app(state)
+            config = uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning', access_log=False)
+            server = uvicorn.Server(config)
+            server.capture_signals = _no_capture_signals
+            server_task = asyncio.create_task(server.serve())
+            for _ in range(100):  # pragma: no branch
+                if server.started or server_task.done():  # pragma: no branch
+                    break
+                await asyncio.sleep(0.05)
+            try:
+                if server_task.done():  # pragma: no branch
+                    await server_task
+                if not server.started:
+                    raise GatewayError(f'Logfire Gateway proxy failed to start on 127.0.0.1:{port}')
+                await _await_or_signal(auth.authorize())
+                yield state, f'http://127.0.0.1:{port}'
+            finally:
+                server.should_exit = True
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(server_task, timeout=5.0)
+
+
+def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str, str]:
+    region_name = args.gateway_region
+    preset = GATEWAY_REGIONS[region_name]
+    backend = (args.logfire_url or preset.backend).rstrip('/')
+    gateway_override = args.gateway_url or os.getenv('LOGFIRE_GATEWAY_URL')
+    if gateway_override:
+        gateway = gateway_override
+    elif backend != preset.backend:
+        gateway = backend
+    else:
+        gateway = preset.gateway
+    client_id = preset.client_id if backend == preset.backend else _gateway_cimd_client_id(backend)
+    return region_name, backend, gateway.rstrip('/'), client_id
+
+
+def _split_extra_args(args: list[str]) -> tuple[list[str], list[str]]:
+    if '--' not in args:
+        return args, []
+    index = args.index('--')
+    return args[:index], args[index + 1 :]
+
+
+def _launch_epilog() -> str:
+    names = ', '.join(sorted(ai_tool_names()))
+    return f'Supported integrations: {names}'
+
+
+def _parse_launch_args(raw: list[str], context: GatewayCommandContext) -> argparse.Namespace:
+    has_gateway_region = any(arg == '--region' or arg.startswith('--region=') for arg in raw)
+    parser = argparse.ArgumentParser(
+        prog='logfire gateway launch',
+        description='Launch an AI coding tool through the Logfire AI Gateway.',
+        epilog=_launch_epilog(),
+    )
+    parser.add_argument('integration', nargs='?', help='integration to launch')
+    parser.add_argument('--model', default=None, help='model to pass to the selected integration')
+    parser.add_argument('--config', action='store_true', help='print the integration configuration without launching')
+    parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+    parser.add_argument('--device-flow', action='store_true', help='use OAuth device flow instead of browser callback')
+    parser.add_argument(
+        '--region', dest='gateway_region', choices=sorted(GATEWAY_REGIONS), default=context.region or 'us'
+    )
+    parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.set_defaults(logfire_url=None if has_gateway_region else context.logfire_url)
+    return parser.parse_args(raw)
+
+
+def _parse_serve_args(raw: list[str], context: GatewayCommandContext) -> argparse.Namespace:
+    has_gateway_region = any(arg == '--region' or arg.startswith('--region=') for arg in raw)
+    parser = argparse.ArgumentParser(
+        prog='logfire gateway serve',
+        description='Run the Logfire AI Gateway local OAuth proxy without launching a child tool.',
+    )
+    parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+    parser.add_argument('--device-flow', action='store_true')
+    parser.add_argument(
+        '--region', dest='gateway_region', choices=sorted(GATEWAY_REGIONS), default=context.region or 'us'
+    )
+    parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.set_defaults(logfire_url=None if has_gateway_region else context.logfire_url)
+    return parser.parse_args(raw)
+
+
+def _interactive_integration() -> str:
+    installed = [name for name in ai_tool_names() if resolve_ai_tool(name).binary_path()]
+    if not installed:
+        console.print('[red]No supported integration binaries were found on PATH.[/]')
+        raise SystemExit(127)
+    return Prompt.ask('Launch which integration?', choices=installed, default=installed[0])
+
+
+def _configure_only(integration: AiToolIntegration, *, region: str, model: str | None) -> None:
+    console.print(f'{integration.display_name} ({integration.name})')
+    console.print(f'  region: {region}')
+    console.print(f'  model: {model or "<tool default>"}')
+    binary = integration.binary_path()
+    console.print(f'  binary: {binary or integration.binary + " (not found)"}')
+    env = integration.build_gateway_env(
+        proxy_base='http://127.0.0.1:PORT',
+        model=model,
+        workdir=Path(tempfile.gettempdir()) / 'logfire-gateway-example',
+        local_token=LOCAL_TOKEN_PLACEHOLDER,
+    )
+    console.print('Environment:')
+    for key, value in env.items():
+        if value:
+            console.print(f'  {key}={value}')
+        else:
+            console.print(f'  unset {key}')
+
+
+def _run_launch(raw: list[str], context: GatewayCommandContext) -> int:
+    pre, extra = _split_extra_args(raw)
+    args = _parse_launch_args(pre, context)
+    integration = resolve_ai_tool(args.integration or _interactive_integration())
+    if args.config:
+        _configure_only(integration, region=args.gateway_region, model=args.model)
+        return 0
+    if integration.binary_path() is None:
+        console.print(f'[red]error:[/] {integration.display_name} binary {integration.binary!r} was not found on PATH.')
+        return 127
+    region, backend, gateway, client_id = _gateway_urls(args)
+    port = _pick_port(args.port)
+    return asyncio.run(
+        _launch_async(
+            integration=integration,
+            extra=extra,
+            region=region,
+            backend=backend,
+            gateway=gateway,
+            client_id=client_id,
+            scope=DEFAULT_SCOPE,
+            port=port,
+            model=args.model,
+            flow='device' if args.device_flow else 'browser',
+        )
+    )
+
+
+async def _launch_async(
+    *,
+    integration: AiToolIntegration,
+    extra: list[str],
+    region: str,
+    backend: str,
+    gateway: str,
+    client_id: str,
+    scope: str,
+    port: int,
+    model: str | None,
+    flow: str,
+) -> int:
+    binary = integration.binary_path()
+    if binary is None:
+        return 127
+    async with _authorize_and_serve(
+        region=region,
+        backend=backend,
+        gateway=gateway,
+        client_id=client_id,
+        scope=scope,
+        port=port,
+        flow=flow,
+    ) as (_state, proxy_base):
+        workdir = Path(tempfile.mkdtemp(prefix='logfire-gateway-'))
+        try:
+            env = integration.build_gateway_env(
+                proxy_base=proxy_base, model=model, workdir=workdir, local_token=_state.local_token
+            )
+            console.print(f'[green]launching[/] {integration.display_name} through Logfire Gateway at {proxy_base}')
+            if integration.notice:
+                console.print(
+                    f'[yellow]note:[/] {integration.notice.format(**gateway_template_values(proxy_base, _state.local_token))}'
+                )
+            process = await asyncio.create_subprocess_exec(binary, *extra, env={**os.environ, **env})
+            return await process.wait()
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+
+
+async def _run_serve_async(args: argparse.Namespace) -> int:
+    region, backend, gateway, client_id = _gateway_urls(args)
+    port = _pick_port(args.port)
+    async with _authorize_and_serve(
+        region=region,
+        backend=backend,
+        gateway=gateway,
+        client_id=client_id,
+        scope=DEFAULT_SCOPE,
+        port=port,
+        flow='device' if args.device_flow else 'browser',
+    ) as (state, proxy_base):
+        console.print()
+        console.print(f'[bold green]Logfire Gateway proxy serving[/] at {proxy_base}')
+        console.print(f'[dim]Forward OpenAI-compatible tools to {proxy_base}/proxy/openai/v1[/]')
+        console.print(f'[dim]Forward Anthropic-compatible tools to {proxy_base}/proxy/anthropic[/]')
+        console.print(f'[dim]Use API key:[/] {state.local_token}')
+        console.print('[dim]Press Ctrl-C to exit[/]')
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except KeyboardInterrupt:
+            return 130
+
+
+def _run_serve(raw: list[str], context: GatewayCommandContext) -> int:
+    args = _parse_serve_args(raw, context)
+    return asyncio.run(_run_serve_async(args))
+
+
+def _gateway_usage() -> None:
+    console.print(
+        'usage: logfire gateway {launch,serve}\n\n'
+        'Run AI coding tools through the Logfire AI Gateway using short-lived OAuth tokens.'
+    )
+
+
+def _is_gateway_usage_request(raw: list[str]) -> bool:
+    return not raw or raw[0] in ('-h', '--help', 'help')
+
+
+def parse_gateway_command(context: GatewayCommandContext) -> GatewayCommand:
+    raw = context.raw_args
+    if _is_gateway_usage_request(raw):
+        return GatewayCommand('usage', ())
+    command, rest = raw[0], raw[1:]
+    if command == 'launch':
+        return GatewayCommand('launch', tuple(rest))
+    if command == 'serve':
+        return GatewayCommand('serve', tuple(rest))
+    # Convenience: `logfire gateway claude` means launch claude.
+    return GatewayCommand('launch', tuple(raw))
+
+
+def execute_gateway_command(command: GatewayCommand, context: GatewayCommandContext) -> int:
+    if command.name == 'usage':
+        _gateway_usage()
+        return 0
+    try:
+        if command.name == 'launch':
+            return _run_launch(list(command.args), context)
+        return _run_serve(list(command.args), context)
+    except (LogfireConfigError, GatewayError) as exc:
+        console.print(f'[red]error:[/] {exc}')
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+
+def parse_gateway(args: argparse.Namespace) -> None:
+    """Run a local OAuth proxy for the Logfire AI Gateway."""
+    context = GatewayCommandContext(
+        raw_args=list(args.gateway_args or []),
+        region=args.region,
+        logfire_url=args.logfire_url,
+    )
+    command = parse_gateway_command(context)
+    code = execute_gateway_command(command, context)
+    if command.name == 'usage':
+        return
+    raise SystemExit(code)

@@ -22,7 +22,7 @@ the same belief as our open source library — that the most powerful tools can 
 
 ## Overview
 
-This page walks through setting up a Python app. For other languages, see the [JavaScript/TypeScript](integrations/javascript/index.md) integration or our [language support](languages.md) page.
+This page walks through setting up a Python app. For other languages, see our [language support](languages.md) page.
 
 1. [Set up Logfire](#logfire)
 2. [Install the SDK](#sdk)
@@ -31,11 +31,12 @@ This page walks through setting up a Python app. For other languages, see the [J
 ## Set up Logfire {#logfire}
 
 1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="\_blank"}
-2. Follow the prompts to create your account
-3. Once logged in, you'll see the **Welcome to Logfire** prompt. Click **Let's go!** to go to the **starter-project** Setup page.
+2. [Pick a region](reference/data-regions.md).
+3. Follow the prompts to create your account.
+4. Once logged in, you'll see the **Welcome to Logfire** prompt. Click **Let's go!** to go to the **starter-project** Setup page.
 
 
-4. You will find how to send data to your **starter-project** there. Also, there are some code snippets to help you get started.
+5. You will find how to send data to your **starter-project** there. Also, there are some code snippets to help you get started.
 
 !!! info ""
     A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.

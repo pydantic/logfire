@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import functools
 import inspect
+from collections.abc import Callable
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cache
-from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import attr
 from aiohttp.client import ClientSession

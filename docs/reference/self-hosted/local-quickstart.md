@@ -1,192 +1,87 @@
 ---
-title: How to set up Logfire instances on Kubernetes
-description: "This guide provides a path for setting up a local Logfire instance on Kubernetes to test, prototype and evaluate Logfire as part of an enterprise trial."
+title: Self-Hosted Logfire Local Quickstart
+description: "Run self-hosted Pydantic Logfire locally with the Helm chart's development values."
 ---
-# Local Quickstart for Enterprise
+# Local Quickstart
 
-This guide provides a fast path for setting up a local Logfire instance on Kubernetes to test, prototype, and evaluate the product
-as part of an enterprise trial.
+Use this path to evaluate a first self-hosted install on a local or test Kubernetes cluster. It uses the Helm chart's `values.dev.yaml` file, which deploys development-grade PostgreSQL, MinIO, and MailDev in the cluster.
 
-For a production setup, including detailed configuration and prerequisites, please refer to our In-Depth [Installation Guide](./installation.md).
-
----
+!!! warning
+    `values.dev.yaml` is only for local evaluation and testing. Do not use it for production deployments.
 
 ## Prerequisites
 
-Before deploying, you will need the following:
+* A Kubernetes cluster, such as Kind, Minikube, or Docker Desktop.
+* Helm.
+* The Logfire image pull key from Pydantic.
 
-- A Logfire Access Key, you'll need to get in contact with [sales@pydantic.dev](mailto:sales@pydantic.dev) to get one. **Remember you need to be on a trial for self-hosted enterprise Logfire to run logfire locally.**
-- A local Kubernetes cluster, we will be using [Kind](https://kind.sigs.k8s.io/) in this example.
-- [Helm](https://helm.sh) CLI installed.
-- (Optional) [Tilt](https://tilt.dev/), as we will provide an optional convenience `Tiltfile` to automate the setup.
+## Install
 
-## Setup
-
-You need to create a local Kubernetes cluster:
+Create the namespace and image pull secret:
 
 ```bash
-kind create cluster
+kubectl create namespace logfire
+kubectl -n logfire create secret docker-registry logfire-image-key \
+  --docker-server=us-docker.pkg.dev \
+  --docker-username=_json_key \
+  --docker-password="$(cat key.json)" \
+  --docker-email=YOUR-EMAIL@example.com
 ```
 
-The [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart) repository needs to be added to Helm:
+Install the chart with the development values file:
 
 ```bash
 helm repo add pydantic https://charts.pydantic.dev/
 helm repo update
+helm pull pydantic/logfire --untar
+helm upgrade --install logfire ./logfire \
+  -f ./logfire/values.dev.yaml \
+  --namespace logfire
 ```
 
-Once the Kubernetes cluster is up and running you need to setup your Logfire Access key as a Kubernetes Secret to be able to pull the images, we'll call that secret `regcred`.
-
-You'll need to replace `<YOUR_EMAIL>` with the email and `<YOUR_SECRET>` with the secret file provided to you by the Pydantic Team:
+Port-forward Logfire:
 
 ```bash
-kubectl create secret docker-registry logfire-image-key \
-  --docker-server=us-docker.pkg.dev \
-  --docker-username=_json_key \
-  --docker-password="$(cat <YOUR_SECRET>)" \
-  --docker-email=<YOUR_EMAIL>
+kubectl -n logfire port-forward svc/logfire-service 8080:8080
 ```
 
-### Installing Logfire
+Open Logfire at `http://localhost:8080`.
 
-You can now install Logfire using the Helm chart, with the development dependencies enabled.
-!!! warning
-    These development services are not suitable for production use. They lack persistence, backup, and security configurations.
+## First Access
 
-Here is a minimal command to run Logfire in development mode, you can customize `adminEmail` if you want to access Logfire's self telemetry, but it's not required:
+On first install, the chart creates the `logfire-meta` organization and stores its frontend access token in a Kubernetes Secret:
 
 ```bash
-helm install logfire pydantic/logfire \
-  --set=adminEmail=my-awesome-email@example.com \
-  --set="imagePullSecrets[0]=logfire-image-key" \
-  --set=dev.deployPostgres=true \
-  --set=dev.deployMinio=true \
-  --set=dev.deployMaildev=true \
-  --set=objectStore.uri=s3://logfire \
-  --set=objectStore.env.AWS_ACCESS_KEY_ID=logfire-minio \
-  --set=objectStore.env.AWS_SECRET_ACCESS_KEY=logfire-minio \
-  --set=objectStore.env.AWS_ENDPOINT=http://logfire-minio:9000 \
-  --set=objectStore.env.AWS_ALLOW_HTTP=true \
-  --set="ingress.hostnames[0]=localhost:8080"
+kubectl -n logfire get secret logfire-meta-frontend-token \
+  -o "jsonpath={.data.logfire-meta-frontend-token}" | base64 -d
 ```
 
-You can refer to the [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart) documentation to check all the supported configurations.
-Also check our [full installation guide](./installation.md) for a complete checklist and a detailed example `values.yaml` to get you started on your production setup.
+Open the meta project with the token:
 
-## Setup with Tilt (Optional)
-
-If you are a [Tilt](https://tilt.dev/) user, you can use this `Tiltfile` to automate the Logfire setup:
-
-```python title="Tiltfile" skip="true" skip-reason="incomplete"
-load('ext://secret', 'secret_yaml_registry')
-load('ext://helm_resource', 'helm_resource', 'helm_repo')
-
-
-update_settings ( max_parallel_updates = 3 , k8s_upsert_timeout_secs = 600 , suppress_unused_image_warnings = None )
-k8s_yaml(secret_yaml_registry("logfire-image-key", flags_dict = {
-    'docker-server': 'us-docker.pkg.dev',
-    'docker-username': '_json_key',
-    'docker-email': os.getenv('LOGFIRE_EMAIL'),
-    'docker-password': read_file(os.getenv('LOGFIRE_KEY_PATH'))
-}))
-
-helm_repo('pydantic', 'https://charts.pydantic.dev/')
-helm_resource('logfire', 'pydantic/logfire', flags=[
-  '--set=adminEmail=' + os.getenv('LOGFIRE_ADMIN_EMAIL'),
-  '--set=imagePullSecrets[0]=logfire-image-key',
-  '--set=dev.deployPostgres=true',
-  '--set=dev.deployMinio=true',
-  '--set=dev.deployMaildev=true',
-  '--set=objectStore.uri=s3://logfire',
-  '--set=objectStore.env.AWS_ACCESS_KEY_ID=logfire-minio',
-  '--set=objectStore.env.AWS_SECRET_ACCESS_KEY=logfire-minio',
-  '--set=objectStore.env.AWS_ENDPOINT=http://logfire-minio:9000',
-  '--set=objectStore.env.AWS_ALLOW_HTTP=true',
-  '--set="ingress.hostnames[0]=localhost:8080"',
-  ],
-  links=[link('http://localhost:1080', 'maildev')],
-)
-k8s_resource(
-  workload='logfire',
-  port_forwards=[
-    port_forward(8080, 8080, name='logfire'),
-  ],
-  extra_pod_selectors=[
-    {'app.kubernetes.io/component': 'logfire-service'},
-  ],
-discovery_strategy='selectors-only',
-)
-
-local_resource(
-  'maildev-portforward',
-  serve_cmd='kubectl port-forward svc/logfire-maildev 1080:1080',
-  deps=['logfire'],
-  allow_parallel=True,
-)
+```text
+http://localhost:8080/logfire-meta/logfire-meta#token=LOGFIRE_META_FRONTEND_TOKEN
 ```
 
-You just need to create a local Kubernetes cluster, for example:
+After you have access, create an invite link from **Settings** > **Invite** and assign the **Admin** organization role.
 
-```bash
-kind create cluster
-```
+## Send Test Data
 
-and running Tilt, configuring the few required parameters using the environment variables:
-
-```bash
-LOGFIRE_EMAIL=<LOGFIRE_EMAIL> \
-LOGFIRE_KEY_PATH="$(pwd)/key.json" \
-LOGFIRE_ADMIN_EMAIL=<ADMIN_EMAIL> \
-tilt up
-```
-
-## Using Logfire
-
-To access your local Logfire installation from you host you'll need to port forward `logfire-service`:
-
-```bash
-kubectl port-forward service/logfire-service 8080:8080
-```
-
-and `logfire-maildev`, for receiving emails and enabling user signups:
-
-```bash
-kubectl port-forward service/logfire-maildev 1080:1080
-```
-
-You are now ready to use Logfire with your browser of choice navigating to `http://localhost:8080/`
-
-You can access the emails for signin up going to `http://localhost:1080`.
-
-After creating your user, your project and your write token, you can start sending data to Logfire in the same fashion as always:
+Create a project and write token, then configure the SDK to use your local endpoint:
 
 ```python
 import logfire
 
 logfire.configure(
+    token='YOUR_LOGFIRE_WRITE_TOKEN',
     advanced=logfire.AdvancedOptions(base_url='http://localhost:8080'),
-    token='__YOUR_LOGFIRE_WRITE_TOKEN__',
 )
 logfire.info('Hello, {place}!', place='World')
 ```
 
 ## Cleanup
 
-In order to cleanup your local environment you can just delete the k8s cluster:
+Delete the local cluster or uninstall the release:
 
 ```bash
-kind delete cluster
+helm -n logfire uninstall logfire
 ```
-
-## Troubleshooting and support
-
-If you encounter issues, we recommend first consulting the [Troubleshooting](./troubleshooting.md) section.
-
-If your issue persists, please open a detailed issue on [Github](https://github.com/pydantic/logfire-helm-chart/issues), including:
-
-* Chart version
-* Kubernetes version
-* A sanitized copy of your ```values.yaml```
-* Relevant logs or error messages
-
-For commercial or enterprise support, contact [our sales team](mailto:sales@pydantic.dev).

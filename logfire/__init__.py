@@ -75,6 +75,8 @@ with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
 url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
+forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
+forward_export_request_starlette = DEFAULT_LOGFIRE_INSTANCE.forward_export_request_starlette
 
 # Logging
 log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -99,6 +101,7 @@ metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counte
 
 # Variables
 var = DEFAULT_LOGFIRE_INSTANCE.var
+template_var = DEFAULT_LOGFIRE_INSTANCE.template_var
 variables_clear = DEFAULT_LOGFIRE_INSTANCE.variables_clear
 variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
 variables_push = DEFAULT_LOGFIRE_INSTANCE.variables_push
@@ -199,6 +202,7 @@ __all__ = (
     'LocalVariablesOptions',
     'variables',
     'var',
+    'template_var',
     'variables_clear',
     'variables_get',
     'variables_push',
@@ -213,4 +217,6 @@ __all__ = (
     'get_context',
     'attach_context',
     'url_from_eval',
+    'forward_export_request',
+    'forward_export_request_starlette',
 )

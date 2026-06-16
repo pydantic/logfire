@@ -4,7 +4,8 @@ import contextlib
 import dataclasses
 import datetime
 import json
-from collections.abc import Mapping, Sequence
+import math
+from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
 from functools import cache, lru_cache
@@ -13,7 +14,7 @@ from itertools import chain
 from pathlib import PosixPath
 from re import Pattern
 from types import GeneratorType
-from typing import Any, Callable
+from typing import Any
 from uuid import UUID
 
 from .utils import JsonValue, safe_repr
@@ -244,7 +245,12 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
 
 def to_json_value(o: Any, seen: set[int]) -> JsonValue:
     try:
-        if isinstance(o, (int, float, str, bool, type(None))):
+        if isinstance(o, (int, str, bool, type(None))):
+            return o
+
+        if isinstance(o, float):
+            if not math.isfinite(o):
+                return str(o)
             return o
 
         if id(o) in seen:
@@ -300,11 +306,13 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
 
 def logfire_json_dumps(obj: Any) -> str:
     try:
-        return json.dumps(obj, default=lambda o: to_json_value(o, set()), separators=(',', ':'), ensure_ascii=False)
+        return json.dumps(
+            obj, default=lambda o: to_json_value(o, set()), separators=(',', ':'), ensure_ascii=False, allow_nan=False
+        )
     except Exception:
         # fallback to eagerly calling to_json_value to take care of object keys which are not strings
         # see https://github.com/pydantic/platform/pull/2045
-        return json.dumps(to_json_value(obj, set()), separators=(',', ':'), ensure_ascii=False)
+        return json.dumps(to_json_value(obj, set()), separators=(',', ':'), ensure_ascii=False, allow_nan=False)
 
 
 def is_sqlalchemy(obj: Any) -> bool:

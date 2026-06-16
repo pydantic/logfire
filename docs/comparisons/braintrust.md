@@ -69,7 +69,7 @@ Different philosophies: Choose based on your team's workflow.
 
 **Braintrust** focuses purely on AI. To instrument non-LLM parts of your application, you need to set up raw OpenTelemetry and send to their OTLP endpoint.
 
-**Logfire** makes all instrumentation easy with first-class [integrations](https://logfire.pydantic.dev/docs/integrations/?utm_source=braintrust_compare_docs):
+**Logfire** makes all instrumentation easy with first-class [integrations](https://pydantic.dev/docs/logfire/integrations/?utm_source=braintrust_compare_docs):
 
 ```python skip="true" skip-reason="incomplete"
 import logfire
