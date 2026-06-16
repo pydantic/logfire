@@ -120,6 +120,9 @@ nav:
               - Suppress Spans and Metrics: how-to-guides/suppress.md
               - OpenTelemetry Collector:
                   - Overview: how-to-guides/otel-collector/otel-collector-overview.md
+                  - Host Monitoring: how-to-guides/otel-collector/host-monitoring.md
+                  - Kubernetes Monitoring: how-to-guides/otel-collector/kubernetes-monitoring.md
+                  - Back up to AWS S3: how-to-guides/otel-collector/s3-backup.md
                   - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
           - Integrations:
               - Integrations: integrations/index.md
@@ -209,6 +212,11 @@ nav:
           - Vercel AI SDK: integrations/javascript/vercel-ai.md
       - Observe & Investigate:
           - Live View: guides/web-ui/live.md
+          - Services: guides/web-ui/services.md
+          - Hosts: guides/web-ui/hosts.md
+          - Kubernetes: guides/web-ui/kubernetes.md
+          - LLMs: guides/web-ui/llms.md
+          - Metrics explorer: guides/web-ui/metrics-explorer.md
           - LLM Panels: guides/web-ui/llm-panels.md
           - Dashboards: guides/web-ui/dashboards.md
           - SQL Explorer: guides/web-ui/explore.md
@@ -242,7 +250,10 @@ nav:
           - Prompt Management:
               - Overview: reference/advanced/prompt-management/index.md
               - Core Concepts: reference/advanced/prompt-management/concepts.md
+              - UI Guide: reference/advanced/prompt-management/ui.md
               - Writing Templates: reference/advanced/prompt-management/templates.md
+              - Prompt Composition Walkthrough: reference/advanced/prompt-management/composition-walkthrough.md
+              - Promote and Roll Out Prompts: reference/advanced/prompt-management/promotion-and-rollouts.md
               - Test Prompts: reference/advanced/prompt-management/scenarios.md
               - Use Prompts in Your Application: reference/advanced/prompt-management/application.md
               - Template Reference: reference/advanced/prompt-management/template-reference.md
@@ -488,6 +499,11 @@ plugins:
           - integrations/javascript/*.md
         Observe & Investigate:
           - guides/web-ui/live.md
+          - guides/web-ui/services.md
+          - guides/web-ui/hosts.md
+          - guides/web-ui/kubernetes.md
+          - guides/web-ui/llms.md
+          - guides/web-ui/metrics-explorer.md
           - guides/web-ui/llm-panels.md
           - guides/web-ui/dashboards.md
           - guides/web-ui/explore.md

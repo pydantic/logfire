@@ -153,66 +153,31 @@ For PydanticAI, each agent run becomes a parent span containing child spans for 
 
 ## JavaScript / TypeScript
 
-### Install
+### Workflow
 
-```bash
-# Node.js
-npm install @pydantic/logfire-node
+Start by reading the project manifest(s) (`package.json` or `deno.json`/`deno.lock`) and the relevant JS references for the detected runtime. JavaScript projects are often polyglot within one repo: a Next.js app can need server OpenTelemetry, browser tracing, API route manual spans, and Vercel AI SDK telemetry at the same time.
 
-# Cloudflare Workers
-npm install @pydantic/logfire-cf-workers logfire
+Use these references:
 
-# Next.js / generic
-npm install logfire
-```
+- [project detection](./references/javascript/project-detection.md): package manager, workspace, runtime, framework, and existing OpenTelemetry detection.
+- [installation and environment](./references/javascript/installation-and-env.md): package matrix, tokens, service metadata, and secret placement.
+- [Node runtime](./references/javascript/node-runtime.md): generic Node, Express, Fastify-style servers, startup preload rules, and shutdown.
+- [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, optional browser proxy, client-only provider, and server component/manual API patterns.
+- [React/browser](./references/javascript/react-browser.md): browser package setup, proxy requirement, React provider, and client error reporting.
+- [Cloudflare and Deno](./references/javascript/cloudflare-and-deno.md): Workers `instrument()` setup, Wrangler secrets, Tail Workers, and Deno OTLP export.
+- [Vercel AI SDK](./references/javascript/ai-sdk.md): enabling `experimental_telemetry` for model calls, tools, streaming, and metadata.
+- [patterns](./references/javascript/patterns.md): current manual API for logs, spans, function instrumentation, errors, tags, baggage, sampling, and scrubbing.
+- [verification](./references/javascript/verification-troubleshooting.md): build checks, smoke tests, local console output, browser network checks, and common missing-trace causes.
 
-### Configure
+### Hard Rules
 
-**Node.js (Express, Fastify, etc.)** - create an `instrumentation.ts` loaded before your app:
-
-```typescript
-import * as logfire from '@pydantic/logfire-node'
-logfire.configure()
-```
-
-Launch with: `node --require ./instrumentation.js app.js`
-
-The SDK auto-instruments common libraries when loaded before the app. Set `LOGFIRE_TOKEN` in your environment or pass `token` to `configure()`.
-
-**Cloudflare Workers** - wrap your handler with `instrument()`:
-
-```typescript
-import { instrument } from '@pydantic/logfire-cf-workers'
-
-export default instrument(handler, {
-  service: { name: 'my-worker', version: '1.0.0' }
-})
-```
-
-**Next.js** - set environment variables for OpenTelemetry export:
-
-```
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-api.pydantic.dev/v1/traces
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=<your-write-token>
-```
-
-### Structured Logging (JS/TS)
-
-```typescript
-// Structured attributes as second argument
-logfire.info('Created user', { user_id: uid })
-logfire.error('Payment failed', { amount: 100, currency: 'USD' })
-
-// Spans
-logfire.span('Processing order', { order_id }, {}, async () => {
-  logfire.info('Processing step completed')
-})
-
-// Error reporting
-logfire.reportError('order processing', error)
-```
-
-Log levels: `trace`, `debug`, `info`, `notice`, `warn`, `error`, `fatal`.
+- Use the runtime package that owns SDK setup: `@pydantic/logfire-node` for Node.js, `@pydantic/logfire-browser` for browser code, `@pydantic/logfire-cf-workers` for Cloudflare Workers, and `logfire` for runtime-agnostic manual spans when OpenTelemetry is already configured.
+- Load Node instrumentation before importing the app or instrumented libraries. Prefer `node --import ./instrumentation.js` for ESM and modern Node; use `--require` only for CommonJS.
+- Never expose a Logfire write token to browser code. Browser traces must go through an authenticated same-origin backend proxy.
+- Use the current span shape: `logfire.span('message {id}', { attributes: { id }, callback: async () => ... })`.
+- Use structured attributes instead of string interpolation when the data should be queryable.
+- For caught errors, use `logfire.reportError(message, error, attributes?, options?)` and then rethrow when preserving behavior matters.
+- Verify with the project's normal typecheck/build/test command and a runtime smoke request. Also check that no `LOGFIRE_TOKEN` or raw write token is present in client-side code or public environment variables.
 
 ---
 

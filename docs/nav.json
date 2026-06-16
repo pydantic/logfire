@@ -39,13 +39,7 @@
           { "label": "Sampling Strategies", "link": "/logfire/instrument/sampling/" },
           { "label": "Scrub Sensitive Data", "link": "/logfire/instrument/scrubbing/" },
           { "label": "Suppress Spans and Metrics", "link": "/logfire/instrument/suppress/" },
-          {
-            "label": "OpenTelemetry Collector",
-            "items": [
-              { "label": "Overview", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-overview/" },
-              { "label": "Advanced Scrubbing", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-scrubbing/" }
-            ]
-          }
+          { "label": "Advanced Scrubbing", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-scrubbing/" }
         ]
       },
       {
@@ -175,6 +169,11 @@
     "label": "Observe & Investigate",
     "items": [
       { "label": "Live View", "slug": "guides/web-ui/live" },
+      { "label": "Services", "slug": "guides/web-ui/services" },
+      { "label": "Hosts", "slug": "guides/web-ui/hosts" },
+      { "label": "Kubernetes", "slug": "guides/web-ui/kubernetes" },
+      { "label": "LLMs", "slug": "guides/web-ui/llms" },
+      { "label": "Metrics Explorer", "slug": "guides/web-ui/metrics-explorer" },
       { "label": "LLM Panels", "slug": "guides/web-ui/llm-panels" },
       { "label": "Dashboards", "slug": "guides/web-ui/dashboards" },
       { "label": "SQL Explorer", "slug": "guides/web-ui/explore" },
@@ -238,7 +237,10 @@
     "items": [
       { "label": "Overview", "slug": "reference/advanced/prompt-management/index" },
       { "label": "Core Concepts", "slug": "reference/advanced/prompt-management/concepts" },
+      { "label": "UI Guide", "slug": "reference/advanced/prompt-management/ui" },
       { "label": "Writing Templates", "slug": "reference/advanced/prompt-management/templates" },
+      { "label": "Prompt Composition Walkthrough", "slug": "reference/advanced/prompt-management/composition-walkthrough" },
+      { "label": "Promote and Roll Out Prompts", "slug": "reference/advanced/prompt-management/promotion-and-rollouts" },
       { "label": "Test Prompts", "slug": "reference/advanced/prompt-management/scenarios" },
       { "label": "Use Prompts in Your Application", "slug": "reference/advanced/prompt-management/application" },
       { "label": "Template Reference", "slug": "reference/advanced/prompt-management/template-reference" },
@@ -252,7 +254,16 @@
       { "label": "Collect Cloud Provider Metrics", "slug": "how-to-guides/cloud-metrics" },
       { "label": "Connect to MCP Server", "slug": "how-to-guides/mcp-server" },
       { "label": "Coding Agent Skills", "slug": "how-to-guides/skills" },
-      { "label": "Export Codex Activity", "slug": "how-to-guides/codex-logfire-exporter" }
+      { "label": "Export Codex Activity", "slug": "how-to-guides/codex-logfire-exporter" },
+      {
+        "label": "OpenTelemetry Collector",
+        "items": [
+          { "label": "Overview", "slug": "how-to-guides/otel-collector/otel-collector-overview" },
+          { "label": "Host Monitoring", "slug": "how-to-guides/otel-collector/host-monitoring" },
+          { "label": "Kubernetes Monitoring", "slug": "how-to-guides/otel-collector/kubernetes-monitoring" },
+          { "label": "Back up to AWS S3", "slug": "how-to-guides/otel-collector/s3-backup" }
+        ]
+      }
     ]
   },
   {

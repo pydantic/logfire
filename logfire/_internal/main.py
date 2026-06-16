@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import inspect
 import json
+import math
 import sys
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
@@ -295,6 +296,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         try:
+            attributes = attributes.copy()
             msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
@@ -3357,7 +3359,11 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
             return str(value)
         else:
             return value
-    elif isinstance(value, (str, bool, float)):
+    elif isinstance(value, float):
+        if not math.isfinite(value):
+            return str(value)
+        return value
+    elif isinstance(value, (str, bool)):
         return value
     else:
         return logfire_json_dumps(value)

@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v4.37.0] (2026-06-12)
+
+* Pre-populate `host.*` and `os.*` resource attributes by @strawgate in [#2013](https://github.com/pydantic/logfire/pull/2013)
+* Handle non-finite floats in JSON encoder by @alexmojaki in [#2009](https://github.com/pydantic/logfire/pull/2009)
+* fix: guard None text in Anthropic TextBlock during streaming by @axelray-dev in [#2017](https://github.com/pydantic/logfire/pull/2017)
+* Avoid truncating rich console arguments by @alexmojaki in [#2008](https://github.com/pydantic/logfire/pull/2008)
+* Disable console logging for the 'Logfire configured' log by @alexmojaki in [#2007](https://github.com/pydantic/logfire/pull/2007)
+
 ## [v4.36.0] (2026-06-09)
 
 * Composition and templating with native handlebars by @alexmojaki in [#1954](https://github.com/pydantic/logfire/pull/1954)
@@ -1181,3 +1189,4 @@ First release from new repo!
 [v4.34.0]: https://github.com/pydantic/logfire/compare/v4.33.0...v4.34.0
 [v4.35.0]: https://github.com/pydantic/logfire/compare/v4.34.0...v4.35.0
 [v4.36.0]: https://github.com/pydantic/logfire/compare/v4.35.0...v4.36.0
+[v4.37.0]: https://github.com/pydantic/logfire/compare/v4.36.0...v4.37.0

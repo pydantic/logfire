@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.36.0"
+version = "4.37.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -205,6 +205,9 @@ format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
+# Until a release with the aiohttp 3.14 compatibility fix is published.
+# https://github.com/kevin1024/vcrpy/issues/995
+vcrpy = { git = "https://github.com/kevin1024/vcrpy", rev = "3ef7682f6cfd708d9514f339ee7973530d46f2fe" }
 
 [tool.uv]
 default-groups = ["dev"]
@@ -309,6 +312,8 @@ filterwarnings = [
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     # kombu using deprecated redis API
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
+    # celery's redis backend uses redis's deprecated `setex` (deprecated in redis-py 8.0)
+    "ignore:Call to deprecated setex.*:DeprecationWarning",
     # OpenTelemetry event logger stuff being used by Pydantic AI
     "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
     # flask.__version__ is deprecated and used by OTel
