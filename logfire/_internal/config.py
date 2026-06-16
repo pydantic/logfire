@@ -2256,23 +2256,21 @@ def _load_resource_detectors(detectors: Sequence[ResourceDetector | str]) -> lis
             continue
         name = detector.strip()
         if name == '*':
-            for entry_point in entry_points(group='opentelemetry_resource_detector'):
-                if entry_point.name != 'otel':
-                    loaded = _load_resource_detector_entry_point(entry_point)
-                    if loaded is not None:
-                        result.append(loaded)
-            continue
-        matching = list(entry_points(group='opentelemetry_resource_detector', name=name))
-        if not matching:
-            warn_at_user_stacklevel(
-                f'Skipping unknown resource detector {name!r}: it is not registered in the '
-                '`opentelemetry_resource_detector` entry point group.',
-                category=LogfireConfigWarning,
-            )
-            continue
-        loaded = _load_resource_detector_entry_point(matching[0])
-        if loaded is not None:
-            result.append(loaded)
+            # Every registered detector except `otel` (its handling is already applied by `Resource.create`).
+            matching = [ep for ep in entry_points(group='opentelemetry_resource_detector') if ep.name != 'otel']
+        else:
+            matching = list(entry_points(group='opentelemetry_resource_detector', name=name))
+            if not matching:
+                warn_at_user_stacklevel(
+                    f'Skipping unknown resource detector {name!r}: it is not registered in the '
+                    '`opentelemetry_resource_detector` entry point group.',
+                    category=LogfireConfigWarning,
+                )
+                continue
+        for entry_point in matching:
+            loaded = _load_resource_detector_entry_point(entry_point)
+            if loaded is not None:
+                result.append(loaded)
     return result
 
 
