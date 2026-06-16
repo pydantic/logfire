@@ -4836,6 +4836,24 @@ class TestOnChangeComposition:
 
         assert changes == ['changed']
 
+    def test_expand_config_changes_empty_changed_names_expands_to_nothing(self, config_kwargs: dict[str, Any]):
+        """An empty change set expands to nothing — not even to callable-default variables.
+
+        Providers only dispatch when `changed_names` is non-empty, but `expand_config_changes`
+        guards against the empty set directly: with nothing changed, a variable whose callable
+        default is treated as "depends on everything" must still not be reported as changed.
+        """
+        from logfire.variables.variable import expand_config_changes
+
+        config = VariablesConfig(variables={'name': single_label_config('name', '"world"')})
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        lf = logfire.configure(**config_kwargs)
+        provider = lf.config.get_variable_provider()
+
+        dynamic = lf.var('dynamic', default=lambda targeting_key, attributes: 'hi @{name}@', type=str)
+
+        assert expand_config_changes(set(), provider.get_all_variables_config(), {'dynamic': dynamic}) == set()
+
 
 class TestReconfigureWithExistingVariables:
     """Change notifications survive reconfiguration."""
@@ -4864,6 +4882,28 @@ class TestReconfigureWithExistingVariables:
         provider2.update_variable('my_var', single_label_config('my_var', '"after_reconfigure"'))
 
         assert changes == ['after_reconfigure']
+
+    def test_on_change_before_configure_records_request_without_starting_provider(self):
+        """Registering on_change before configure() records the polling request but starts nothing.
+
+        The poller can only be created once configuration has happened (configure() rebuilds the
+        provider), so on a not-yet-initialized config we just record the request; configure() then
+        honors it. Registering a callback must not eagerly create a provider in the meantime.
+        """
+        config = LogfireConfig()
+        assert config._initialized is False
+
+        lf = logfire.Logfire(config=config)
+        my_var = lf.var('my_var', default='default', type=str)
+
+        @my_var.on_change
+        def on_change():  # pragma: no cover  # pyright: ignore[reportUnusedFunction]
+            ...
+
+        # The request is recorded for configure() to honor later...
+        assert config._variable_change_polling_requested is True
+        # ...but no provider was created — it's still the initial no-op.
+        assert isinstance(config.get_variable_provider(), NoOpVariableProvider)
 
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
