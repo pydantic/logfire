@@ -12,6 +12,8 @@ from inline_snapshot import snapshot
 from pydantic import BaseModel
 
 import logfire
+from logfire._internal.config import LogfireConfig
+from logfire._internal.main import Logfire
 from logfire.variables.abstract import (
     DescriptionDifference,
     LabelCompatibility,
@@ -50,6 +52,10 @@ class MockLogfire:
 def mock_logfire_instance() -> MockLogfire:
     """Create a mock Logfire instance."""
     return MockLogfire()
+
+
+def make_logfire() -> Logfire:
+    return Logfire(config=LogfireConfig())
 
 
 def test_get_json_schema_bool(mock_logfire_instance: MockLogfire) -> None:
@@ -1253,9 +1259,7 @@ def test_push_variables_no_variables() -> None:
 
 def test_var_registers_variable() -> None:
     """Test that var() registers variables with the logfire instance."""
-    from logfire._internal.main import Logfire
-
-    lf = Logfire()
+    lf = make_logfire()
     assert lf.variables_get() == []
 
     var1 = lf.var(name='test_var_1', default=True, type=bool)
@@ -1269,9 +1273,7 @@ def test_var_registers_variable() -> None:
 
 def test_get_variables_returns_all_registered() -> None:
     """Test that get_variables returns all registered variables."""
-    from logfire._internal.main import Logfire
-
-    lf = Logfire()
+    lf = make_logfire()
     var1 = lf.var(name='feature_a', default=False, type=bool)
     var2 = lf.var(name='feature_b', default='hello', type=str)
     var3 = lf.var(name='feature_c', default=100, type=int)
@@ -1285,9 +1287,7 @@ def test_get_variables_returns_all_registered() -> None:
 
 def test_with_settings_shares_registered_variables() -> None:
     """Variables registered on with_settings() siblings share one config registry."""
-    from logfire._internal.main import Logfire
-
-    lf = Logfire()
+    lf = make_logfire()
     lf2 = lf.with_settings(tags=['other'])
 
     var1 = lf.var(name='feature_a', default=False, type=bool)
@@ -1299,9 +1299,7 @@ def test_with_settings_shares_registered_variables() -> None:
 
 def test_with_settings_duplicate_variable_names_conflict() -> None:
     """Duplicate variable names are rejected across with_settings() siblings."""
-    from logfire._internal.main import Logfire
-
-    lf = Logfire()
+    lf = make_logfire()
     lf2 = lf.with_settings(tags=['other'])
 
     lf.var(name='feature_enabled', default=False, type=bool)
@@ -1311,9 +1309,7 @@ def test_with_settings_duplicate_variable_names_conflict() -> None:
 
 def test_variables_clear_clears_with_settings_siblings() -> None:
     """variables_clear() clears the shared config registry."""
-    from logfire._internal.main import Logfire
-
-    lf = Logfire()
+    lf = make_logfire()
     lf2 = lf.with_settings(tags=['other'])
 
     lf.var(name='feature_a', default=False, type=bool)
