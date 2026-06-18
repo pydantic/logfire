@@ -2785,7 +2785,8 @@ class Logfire:
 
         Args:
             variables: Variable instances to push. If None, all variables
-                registered with this Logfire instance will be pushed.
+                registered with this Logfire instance's config will be pushed, including
+                variables registered on `with_settings()` siblings.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, fail if any existing label values are incompatible with new schemas
@@ -2894,7 +2895,8 @@ class Logfire:
 
         Args:
             variables: Variable instances to validate. If None, all variables
-                registered with this Logfire instance will be validated.
+                registered with this Logfire instance's config will be validated, including
+                variables registered on `with_settings()` siblings.
 
         Returns:
             A ValidationReport containing any errors found. Use `report.is_valid` to check
@@ -2996,7 +2998,9 @@ class Logfire:
         No labels or versions are created - use this to build a template config that can be edited.
 
         Args:
-            variables: Variable instances to include. If None, uses all registered variables.
+            variables: Variable instances to include. If None, uses all variables registered
+                with this Logfire instance's config, including variables registered on
+                `with_settings()` siblings.
 
         Returns:
             A VariablesConfig with minimal configs for each variable.
