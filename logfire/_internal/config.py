@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import timedelta
-from importlib.metadata import EntryPoint, entry_points
+from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
@@ -1093,13 +1093,9 @@ class LogfireConfig(_LogfireConfigData):
         2. OTel's default attributes plus the env vars `OTEL_RESOURCE_ATTRIBUTES` and
            `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` (both applied by `Resource.create`).
         3. The `resource_detectors` argument.
-        4. The explicit `logfire.configure()` attributes (logfire's own, the dedicated `service_name` etc.
-           arguments, and the `resource_attributes` argument).
+        4. The `resource_attributes` argument.
+        5. Other `logfire.configure()` arguments: `service_name`, `service_version`, `environment`, and `code_source`.
         """
-        # An explicit `service_version` is high precedence (applied with the other dedicated arguments below);
-        # the git-hash fallback resolved later is not.
-        explicit_service_version = self.service_version
-
         # The dedicated arguments (`service_name`/`service_version`/`environment`, `code_source`). They're
         # applied on top of `resource_attributes`, so a dedicated argument wins over the same key set generically
         # via `resource_attributes` — warn (in a DRY way) when that actually overrides a different value.
@@ -1107,8 +1103,8 @@ class LogfireConfig(_LogfireConfigData):
         if self.service_name:
             # When unset, `Resource.create` below applies its own `unknown_service` default.
             dedicated_attributes['service.name'] = self.service_name
-        if explicit_service_version:
-            dedicated_attributes['service.version'] = explicit_service_version
+        if self.service_version:
+            dedicated_attributes['service.version'] = self.service_version
         if self.environment:
             dedicated_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
         if self.code_source:
@@ -1137,21 +1133,16 @@ class LogfireConfig(_LogfireConfigData):
         ):
             otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-        resource = Resource.create({})
         fallback_resource_attributes: dict[str, Any] = {
             # Always non-empty: provides `process.runtime.*`/`host.*`/`os.*`.
             **common_resource_attributes(),
-            # A random `service.instance.id` unless a detector or env var sets one. This attribute is
-            # experimental; the latest released docs are at
-            # https://opentelemetry.io/docs/specs/semconv/resource/#service-experimental and a newer version
-            # is at https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
-            # — both recommend generating a UUID.
+            # A random `service.instance.id` unless a detector or env var sets one.
+            # See https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/#service-instance-id
             'service.instance.id': uuid4().hex,
         }
-        if explicit_service_version is None:
-            # No explicit `service_version`: fall back to the git commit hash. Resolved here (rather than in
-            # `_load_configuration`, which runs at import) so we only shell out to git when actually building
-            # the resource. Stored back on `self.service_version` so it's reflected in the configuration span
+        if self.service_version is None:
+            # No explicit `service_version`: fall back to the git commit hash.
+            # Stored back on `self.service_version` so it's reflected in the configuration span
             # and inherited by child processes, but applied via the low-precedence `fallback_resource_attributes`
             # so an explicit `OTEL_RESOURCE_ATTRIBUTES` still wins within this process.
             try:
@@ -1162,7 +1153,7 @@ class LogfireConfig(_LogfireConfigData):
             else:
                 self.service_version = git_hash
                 fallback_resource_attributes['service.version'] = git_hash
-        resource = Resource(fallback_resource_attributes).merge(resource)
+        resource = Resource(fallback_resource_attributes).merge(Resource.create({}))
 
         if self.advanced.resource_detectors:
             detectors = _load_resource_detectors(self.advanced.resource_detectors)
@@ -2268,21 +2259,14 @@ def _load_resource_detectors(detectors: Sequence[ResourceDetector | str]) -> lis
                 )
                 continue
         for entry_point in matching:
-            loaded = _load_resource_detector_entry_point(entry_point)
-            if loaded is not None:
-                result.append(loaded)
+            try:
+                result.append(entry_point.load()())
+            except Exception as exc:
+                warn_at_user_stacklevel(
+                    f'Failed to load resource detector {entry_point.name!r}: {exc}',
+                    category=LogfireConfigWarning,
+                )
     return result
-
-
-def _load_resource_detector_entry_point(entry_point: EntryPoint) -> ResourceDetector | None:
-    try:
-        return entry_point.load()()
-    except Exception as exc:
-        warn_at_user_stacklevel(
-            f'Failed to load resource detector {entry_point.name!r}: {exc}',
-            category=LogfireConfigWarning,
-        )
-        return None
 
 
 def get_runtime_version() -> str:
