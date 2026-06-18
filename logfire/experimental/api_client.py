@@ -84,7 +84,10 @@ _UNSET: Any = object()
 """Sentinel to distinguish 'not provided' from explicit None."""
 
 
-_DATASET_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
+# Mirrors the platform's `DatasetName` Pydantic type. Allows `/` as a namespace separator
+# (e.g. `team-a/support-routing`) so datasets can be grouped by prefix in the Logfire UI; each
+# `/`-delimited segment must start with a letter or digit (no leading, trailing, or repeated slashes).
+_DATASET_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(/[a-zA-Z0-9][a-zA-Z0-9._-]*)*$')
 
 
 def _validate_dataset_name(name: str) -> None:
@@ -92,7 +95,8 @@ def _validate_dataset_name(name: str) -> None:
     if not _DATASET_NAME_RE.match(name):
         raise ValueError(
             f'Invalid dataset name {name!r}. '
-            'Names must start with a letter or digit and contain only letters, digits, dots, hyphens, and underscores.'
+            'Names must start with a letter or digit and contain only letters, digits, dots, hyphens, '
+            'underscores, and `/` (as a namespace separator, e.g. team-a/support-routing).'
         )
 
 
