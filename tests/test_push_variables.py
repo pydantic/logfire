@@ -1253,24 +1253,30 @@ def test_push_variables_no_variables() -> None:
 
 def test_var_registers_variable() -> None:
     """Test that var() registers variables with the logfire instance."""
-    assert logfire.variables_get() == []
+    from logfire._internal.main import Logfire
 
-    var1 = logfire.var(name='test_var_1', default=True, type=bool)
-    assert len(logfire.variables_get()) == 1
-    assert logfire.variables_get()[0] is var1
+    lf = Logfire()
+    assert lf.variables_get() == []
 
-    var2 = logfire.var(name='test_var_2', default=42, type=int)
-    assert len(logfire.variables_get()) == 2
-    assert var2 in logfire.variables_get()
+    var1 = lf.var(name='test_var_1', default=True, type=bool)
+    assert len(lf.variables_get()) == 1
+    assert lf.variables_get()[0] is var1
+
+    var2 = lf.var(name='test_var_2', default=42, type=int)
+    assert len(lf.variables_get()) == 2
+    assert var2 in lf.variables_get()
 
 
 def test_get_variables_returns_all_registered() -> None:
     """Test that get_variables returns all registered variables."""
-    var1 = logfire.var(name='feature_a', default=False, type=bool)
-    var2 = logfire.var(name='feature_b', default='hello', type=str)
-    var3 = logfire.var(name='feature_c', default=100, type=int)
+    from logfire._internal.main import Logfire
 
-    variables = logfire.variables_get()
+    lf = Logfire()
+    var1 = lf.var(name='feature_a', default=False, type=bool)
+    var2 = lf.var(name='feature_b', default='hello', type=str)
+    var3 = lf.var(name='feature_c', default=100, type=int)
+
+    variables = lf.variables_get()
     assert len(variables) == 3
     assert var1 in variables
     assert var2 in variables
