@@ -12,8 +12,6 @@ from inline_snapshot import snapshot
 from pydantic import BaseModel
 
 import logfire
-from logfire._internal.config import LogfireConfig
-from logfire._internal.main import Logfire
 from logfire.variables.abstract import (
     DescriptionDifference,
     LabelCompatibility,
@@ -52,10 +50,6 @@ class MockLogfire:
 def mock_logfire_instance() -> MockLogfire:
     """Create a mock Logfire instance."""
     return MockLogfire()
-
-
-def make_logfire() -> Logfire:
-    return Logfire(config=LogfireConfig())
 
 
 def test_get_json_schema_bool(mock_logfire_instance: MockLogfire) -> None:
@@ -1259,26 +1253,24 @@ def test_push_variables_no_variables() -> None:
 
 def test_var_registers_variable() -> None:
     """Test that var() registers variables with the logfire instance."""
-    lf = make_logfire()
-    assert lf.variables_get() == []
+    assert logfire.variables_get() == []
 
-    var1 = lf.var(name='test_var_1', default=True, type=bool)
-    assert len(lf.variables_get()) == 1
-    assert lf.variables_get()[0] is var1
+    var1 = logfire.var(name='test_var_1', default=True, type=bool)
+    assert len(logfire.variables_get()) == 1
+    assert logfire.variables_get()[0] is var1
 
-    var2 = lf.var(name='test_var_2', default=42, type=int)
-    assert len(lf.variables_get()) == 2
-    assert var2 in lf.variables_get()
+    var2 = logfire.var(name='test_var_2', default=42, type=int)
+    assert len(logfire.variables_get()) == 2
+    assert var2 in logfire.variables_get()
 
 
 def test_get_variables_returns_all_registered() -> None:
     """Test that get_variables returns all registered variables."""
-    lf = make_logfire()
-    var1 = lf.var(name='feature_a', default=False, type=bool)
-    var2 = lf.var(name='feature_b', default='hello', type=str)
-    var3 = lf.var(name='feature_c', default=100, type=int)
+    var1 = logfire.var(name='feature_a', default=False, type=bool)
+    var2 = logfire.var(name='feature_b', default='hello', type=str)
+    var3 = logfire.var(name='feature_c', default=100, type=int)
 
-    variables = lf.variables_get()
+    variables = logfire.variables_get()
     assert len(variables) == 3
     assert var1 in variables
     assert var2 in variables
@@ -1287,37 +1279,34 @@ def test_get_variables_returns_all_registered() -> None:
 
 def test_with_settings_shares_registered_variables() -> None:
     """Variables registered on with_settings() siblings share one config registry."""
-    lf = make_logfire()
-    lf2 = lf.with_settings(tags=['other'])
+    lf2 = logfire.with_settings(tags=['other'])
 
-    var1 = lf.var(name='feature_a', default=False, type=bool)
+    var1 = logfire.var(name='feature_a', default=False, type=bool)
     var2 = lf2.var(name='feature_b', default='hello', type=str)
 
-    assert lf.variables_get() == [var1, var2]
+    assert logfire.variables_get() == [var1, var2]
     assert lf2.variables_get() == [var1, var2]
 
 
 def test_with_settings_duplicate_variable_names_conflict() -> None:
     """Duplicate variable names are rejected across with_settings() siblings."""
-    lf = make_logfire()
-    lf2 = lf.with_settings(tags=['other'])
+    lf2 = logfire.with_settings(tags=['other'])
 
-    lf.var(name='feature_enabled', default=False, type=bool)
+    logfire.var(name='feature_enabled', default=False, type=bool)
     with pytest.raises(ValueError, match="A variable with name 'feature_enabled' has already been registered"):
         lf2.var(name='feature_enabled', default=True, type=bool)
 
 
 def test_variables_clear_clears_with_settings_siblings() -> None:
     """variables_clear() clears the shared config registry."""
-    lf = make_logfire()
-    lf2 = lf.with_settings(tags=['other'])
+    lf2 = logfire.with_settings(tags=['other'])
 
-    lf.var(name='feature_a', default=False, type=bool)
+    logfire.var(name='feature_a', default=False, type=bool)
     lf2.var(name='feature_b', default='hello', type=str)
 
-    lf.variables_clear()
+    logfire.variables_clear()
 
-    assert lf.variables_get() == []
+    assert logfire.variables_get() == []
     assert lf2.variables_get() == []
 
 
