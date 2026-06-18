@@ -128,6 +128,7 @@ if TYPE_CHECKING:
     from typing import TextIO
 
     from logfire.variables import VariablesConfig
+    from logfire.variables.variable import TemplateVariable, Variable
 
     from .main import Logfire
 
@@ -1019,6 +1020,7 @@ class LogfireConfig(_LogfireConfigData):
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         self._otlp_forwarding = OTLPForwardingManager([])
+        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
