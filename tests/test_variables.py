@@ -6756,13 +6756,16 @@ class TestOnChangePollingLifecycle:
         """Registering an on_change callback lazily starts the remote provider, without an eager get()."""
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        logfire.DEFAULT_LOGFIRE_INSTANCE.config._variable_change_polling_requested = False
         with request_mocker, unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
             lf = logfire.configure(**config_kwargs)
             # No explicit variables configured: the provider starts out as a no-op.
+            # (this currently depends on setting _variable_change_polling_requested=False above)
             assert isinstance(lf.config._variable_provider, NoOpVariableProvider)
 
             my_var = lf.var('my_var', default='x', type=str)
             # Merely defining a variable does not start the poller.
+            # TODO maybe it should?
             assert isinstance(lf.config._variable_provider, NoOpVariableProvider)
 
             @my_var.on_change
