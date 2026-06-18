@@ -266,6 +266,8 @@ def _format_package_list(package_names: list[str]) -> str:
     quoted_names = [f'`{name}`' for name in package_names]
     if len(quoted_names) == 1:
         return quoted_names[0]
+    if len(quoted_names) == 2:
+        return f'{quoted_names[0]} and {quoted_names[1]}'
     return f'{", ".join(quoted_names[:-1])}, and {quoted_names[-1]}'
 
 

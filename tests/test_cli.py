@@ -1662,6 +1662,19 @@ def test_get_recommendation_texts_marks_ambiguous_packages():
     ) in recommended
 
 
+def test_get_recommendation_texts_formats_two_ambiguous_packages():
+    recs = {
+        ('opentelemetry-instrumentation-requests', 'requests'),
+        ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+    }
+    recommended, _ = get_recommendation_texts(recs)
+
+    assert (
+        '[*] `requests` and `sqlite3` may not actually be used by your app, '
+        'in which case you can ignore these recommendations'
+    ) in recommended
+
+
 def test_instrument_packages_openai() -> None:
     instrument_packages({'openai'}, {'openai': 'openai'})
 
