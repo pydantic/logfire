@@ -39,6 +39,7 @@ from .semconv import (
     TOOL_DEFINITIONS,
     BlobPart,
     ChatMessage,
+    FilePart,
     InputMessages,
     MessagePart,
     OutputMessage,
@@ -284,22 +285,26 @@ def _convert_content_part(part: object) -> MessagePart:
     part_type = part.get('type', 'unknown')
     if part_type in ('text', 'output_text', 'input_text'):
         return TextPart(type='text', content=part.get('text', ''))
-    elif part_type in ('image_url', 'input_image'):  # pragma: no cover
+    elif part_type in ('image_url', 'input_image'):
         if uri := _media_part_uri(part, 'image_url'):
             return UriPart(type='uri', uri=uri, modality='image')
         if data := part.get('file_data'):
             return BlobPart(type='blob', content=data, modality='image')
+        if file_id := _media_part_file_id(part):
+            return FilePart(type='file', file_id=file_id, modality='image')
     elif part_type == 'input_audio':  # pragma: no cover
         return BlobPart(
             type='blob',
             content=part.get('input_audio', {}).get('data', ''),
             modality='audio',
         )
-    elif part_type == 'input_file':  # pragma: no cover
+    elif part_type == 'input_file':
         if uri := _media_part_uri(part, 'file_url'):
             return UriPart(type='uri', uri=uri, modality='document')
         if data := part.get('file_data'):
             return BlobPart(type='blob', content=data, modality='document')
+        if file_id := _media_part_file_id(part):
+            return FilePart(type='file', file_id=file_id, modality='document')
     else:  # pragma: no cover
         # Return as generic dict for unknown types
         return {**part, 'type': part_type}
@@ -316,10 +321,12 @@ def _media_part_uri(part: dict[str, Any], url_key: str) -> str:
         url = value.get('url')
         if isinstance(url, str):
             return url
-    if isinstance(file_id := part.get('file_id'), str):
-        # Keep file references traceable when the Responses API gives an ID instead of a URL.
-        return f'openai://file/{file_id}'
     return ''
+
+
+def _media_part_file_id(part: dict[str, Any]) -> str:
+    file_id = part.get('file_id')
+    return file_id if isinstance(file_id, str) else ''
 
 
 def convert_responses_inputs_to_semconv(
@@ -808,11 +815,18 @@ def _content_part_to_event(content_item: Any, event_name: str, role: str) -> dic
     if content_type in ('image_url', 'input_image'):
         if uri := _media_part_uri(content_item, 'image_url'):
             return {'event.name': event_name, 'content': uri, 'role': role}
+        if content_item.get('file_data') is not None:
+            return {'event.name': event_name, 'content': '[file_data]', 'role': role}
+        if file_id := _media_part_file_id(content_item):
+            return {'event.name': event_name, 'content': file_id, 'role': role}
     if content_type == 'input_file':
         if uri := _media_part_uri(content_item, 'file_url'):
             return {'event.name': event_name, 'content': uri, 'role': role}
+        if file_id := _media_part_file_id(content_item):
+            return {'event.name': event_name, 'content': file_id, 'role': role}
         if isinstance(filename := content_item.get('filename'), str):
             return {'event.name': event_name, 'content': filename, 'role': role}
         if content_item.get('file_data') is not None:
             return {'event.name': event_name, 'content': '[file_data]', 'role': role}
+        return {'event.name': event_name, 'content': '[file]', 'role': role}
     return None
