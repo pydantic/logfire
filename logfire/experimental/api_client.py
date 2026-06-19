@@ -50,7 +50,6 @@ from __future__ import annotations
 
 import inspect
 import re
-import warnings
 from collections.abc import Sequence
 from datetime import datetime
 from functools import cache
@@ -62,6 +61,7 @@ from pydantic import TypeAdapter, ValidationError
 from typing_extensions import NotRequired, Self, TypedDict
 
 from logfire._internal.config import get_base_url_from_token
+from logfire._internal.stack_info import warn_at_user_stacklevel
 
 try:
     from httpx import AsyncClient, Client, Response, Timeout
@@ -222,7 +222,7 @@ _case_detail_adapter: TypeAdapter[CaseDetail] = TypeAdapter(CaseDetail)
 _exported_dataset_adapter: TypeAdapter[ExportedDataset] = TypeAdapter(ExportedDataset)
 
 
-def _validate_or_warn(adapter: TypeAdapter[ResponseT], data: Any, *, stacklevel: int = 3) -> ResponseT:
+def _validate_or_warn(adapter: TypeAdapter[ResponseT], data: Any) -> ResponseT:
     """Validate an API response, coercing fields (e.g. UUIDs/datetimes) to Python types.
 
     If validation fails — typically because the backend changed the response
@@ -239,12 +239,11 @@ def _validate_or_warn(adapter: TypeAdapter[ResponseT], data: Any, *, stacklevel:
             f'{".".join(str(loc) for loc in err["loc"]) or "(root)"}: {err["msg"]}'
             for err in e.errors(include_input=False, include_url=False)
         )
-        warnings.warn(
+        warn_at_user_stacklevel(
             'Logfire API response did not match the expected schema and was returned unvalidated '
             '(fields such as UUIDs and datetimes were not coerced). This usually means the SDK is '
             f'out of date with the backend; consider upgrading logfire. Validation errors: {error_summary}',
             UserWarning,
-            stacklevel=stacklevel,
         )
         return cast('ResponseT', data)
 
@@ -302,13 +301,11 @@ def _from_dict_compat(
         )
 
     if data.get('report_evaluators'):
-        # Stack: _from_dict_compat -> get_dataset -> user. stacklevel=3 lands on user code.
-        warnings.warn(
+        warn_at_user_stacklevel(
             'Hosted dataset has report_evaluators but the installed pydantic-evals does not '
             'support them. Upgrade to pydantic-evals>=1.58.0 to deserialize report-level evaluators. '
             'Dropping the field for now.',
             UserWarning,
-            stacklevel=3,
         )
     stripped = {k: v for k, v in data.items() if k != 'report_evaluators'}
     return typed_dataset_cls.from_dict(stripped, custom_evaluator_types=list(custom_evaluator_types))
