@@ -314,6 +314,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'inference_geo': None,
                             'input_tokens': 2,
                             'output_tokens': 3,
+                            'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
                         },
@@ -617,6 +618,35 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
     )
 
 
+def test_messages_stream_text_block_none() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import (
+        AnthropicMessageStreamState,
+        convert_response_to_semconv,
+    )
+
+    message = Message.model_construct(
+        id='test_id',
+        content=[TextBlock.model_construct(text=None, type='text'), TextBlock(text='Visible text', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=25, output_tokens=55),
+    )
+    state = AnthropicMessageStreamState()
+    setattr(state, '_message', message)
+    setattr(state, '_chunk_count', 1)
+
+    assert state.get_response_data() == snapshot({'combined_chunk_content': 'Visible text', 'chunk_count': 1})
+    assert convert_response_to_semconv(message) == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [{'citations': None, 'text': None, 'type': 'text'}, {'type': 'text', 'content': 'Visible text'}],
+            'finish_reason': 'end_turn',
+        }
+    )
+
+
 async def test_async_messages_stream(
     instrumented_async_client: anthropic.AsyncAnthropic, exporter: TestExporter
 ) -> None:
@@ -917,6 +947,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                             'inference_geo': None,
                             'input_tokens': 2,
                             'output_tokens': 3,
+                            'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
                         },
@@ -1105,6 +1136,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'inference_geo': None,
                             'input_tokens': 2,
                             'output_tokens': 3,
+                            'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': None,
                         },
@@ -1417,6 +1449,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                             'inference_geo': IsStr(),
                             'input_tokens': IsInt(),
                             'output_tokens': IsInt(),
+                            'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': IsStr(),
                         },
@@ -1950,6 +1983,7 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
                             'input_tokens': 19,
                             'iterations': None,
                             'output_tokens': 14,
+                            'output_tokens_details': None,
                             'server_tool_use': None,
                             'service_tier': 'standard',
                             'speed': None,

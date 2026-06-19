@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import requests
 from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback as ExceptionCallback
@@ -13,6 +14,7 @@ from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWr
 from .exporters.quiet_metrics import QuietMetricExporter as QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendingSpansExporter
 from .exporters.test import TestExporter as TestExporter
+from .forwarding import OTLPForwardingManager as OTLPForwardingManager
 from .integrations.executors import instrument_executors as instrument_executors
 from .logs import ProxyLoggerProvider as ProxyLoggerProvider
 from .main import Logfire as Logfire
@@ -80,8 +82,8 @@ class PydanticPlugin:
     This class is deprecated for external use. Use `logfire.instrument_pydantic()` instead.
     """
     record: PydanticPluginRecordValues = ...
-    include: set[str] = field(default_factory=set)
-    exclude: set[str] = field(default_factory=set)
+    include: set[str] = field(default_factory=set[str])
+    exclude: set[str] = field(default_factory=set[str])
 
 @dataclass
 class MetricsOptions:
@@ -98,6 +100,8 @@ class CodeSource:
     revision: str
     root_path: str = ...
 
+TemplateMismatchPolicy: Incomplete
+
 @dataclass
 class VariablesOptions:
     """Configuration for managed variables using the Logfire remote API.
@@ -111,6 +115,7 @@ class VariablesOptions:
     include_resource_attributes_in_context: bool = ...
     include_baggage_in_context: bool = ...
     instrument: bool = ...
+    template_mismatch_policy: TemplateMismatchPolicy = ...
     def __post_init__(self) -> None: ...
 
 @dataclass
@@ -124,6 +129,7 @@ class LocalVariablesOptions:
     include_resource_attributes_in_context: bool = ...
     include_baggage_in_context: bool = ...
     instrument: bool = ...
+    template_mismatch_policy: TemplateMismatchPolicy = ...
 
 class DeprecatedKwargs(TypedDict): ...
 
@@ -253,6 +259,8 @@ class LogfireConfig(_LogfireConfigData):
         Returns:
             Whether the flush of spans was successful.
         """
+    def shutdown(self, timeout_millis: int = 30000, flush: bool = True) -> bool:
+        """Shut down variables, forwarding, traces, logs, and metrics."""
     def get_tracer_provider(self) -> ProxyTracerProvider:
         """Get a tracer provider from this `LogfireConfig`.
 
@@ -283,8 +291,8 @@ class LogfireConfig(_LogfireConfigData):
         This is used internally and should not be called by users of the SDK.
 
         If no provider has been explicitly configured (i.e. `variables=` was not passed to
-        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
-        will be lazily created on the first call.
+        `configure()`), but `configure()` has been called and a `LOGFIRE_API_KEY` is available,
+        a `LogfireRemoteVariableProvider` will be lazily created on the first call.
 
         Returns:
             The variable provider.
@@ -300,6 +308,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
     non-sensitive configuration fields.
     """
 def exit_open_spans() -> None: ...
+def shutdown_otlp_forwarding(timeout_millis: int = 30000) -> None: ...
 
 original_os_exit: Incomplete
 
@@ -402,5 +411,8 @@ def sanitize_project_name(name: str) -> str:
     """Convert `name` to a string suitable for the `requested_project_name` API parameter."""
 def default_project_name(): ...
 def get_runtime_version() -> str: ...
+@functools.cache
+def common_resource_attributes(): ...
+def host_resource_attributes(): ...
 
 class LogfireNotConfiguredWarning(UserWarning): ...

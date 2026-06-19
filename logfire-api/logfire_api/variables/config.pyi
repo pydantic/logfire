@@ -1,12 +1,12 @@
 import re
 from collections.abc import Mapping, Sequence
-from logfire._internal.config import LocalVariablesOptions as LocalVariablesOptions
+from logfire._internal.config import LocalVariablesOptions as LocalVariablesOptions, TemplateMismatchPolicy as TemplateMismatchPolicy
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import Variable
 from pydantic import BaseModel
 from typing import Any, Literal
 
-__all__ = ['KeyIsNotPresent', 'KeyIsPresent', 'LabeledValue', 'LabelRef', 'LatestVersion', 'LocalVariablesOptions', 'Rollout', 'RolloutOverride', 'ValueDoesNotEqual', 'ValueDoesNotMatchRegex', 'ValueEquals', 'ValueIsIn', 'ValueIsNotIn', 'ValueMatchesRegex', 'VariableConfig', 'VariablesConfig', 'VariableTypeConfig']
+__all__ = ['KeyIsNotPresent', 'KeyIsPresent', 'LabeledValue', 'LabelRef', 'LatestVersion', 'LocalVariablesOptions', 'Rollout', 'RolloutOverride', 'TemplateMismatchPolicy', 'ValueDoesNotEqual', 'ValueDoesNotMatchRegex', 'ValueEquals', 'ValueIsIn', 'ValueIsNotIn', 'ValueMatchesRegex', 'VariableConfig', 'VariablesConfig', 'VariableTypeConfig']
 
 class ValueEquals(BaseModel):
     """Condition that matches when an attribute equals a specific value."""
@@ -76,7 +76,13 @@ class LabeledValue(BaseModel):
     serialized_value: str
 
 class LabelRef(BaseModel):
-    """A label pointing to a version via a reference to another label, 'latest', or 'code_default'."""
+    """A label pointing to a version via a reference to another label, 'latest', or 'code_default'.
+
+    Note: `'latest'` and `'code_default'` are *reserved label names*. The platform rejects
+    user attempts to create labels with these names, so anywhere the SDK treats them as
+    special — `follow_ref` here, and the push-time validation that keys values by label
+    name — it can rely on them being unambiguous (no user-defined label can collide).
+    """
     version: int | None
     ref: str
 
@@ -108,15 +114,16 @@ class RolloutOverride(BaseModel):
 class VariableConfig(BaseModel):
     """Configuration for a single managed variable including labels, versions, and rollout rules."""
     name: VariableName
+    description: str | None
     labels: dict[str, LabeledValue | LabelRef]
     rollout: Rollout
     overrides: list[RolloutOverride]
     latest_version: LatestVersion | None
-    description: str | None
     json_schema: dict[str, Any] | None
     type_name: str | None
     aliases: list[VariableName] | None
     example: str | None
+    template_inputs_schema: dict[str, Any] | None
     def resolve_label(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> str | None:
         """Evaluate rollout rules and return the selected label name.
 
@@ -182,7 +189,7 @@ class VariablesConfig(BaseModel):
         Returns:
             A ResolvedVariable containing the serialized value (or None if not found).
         """
-    def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
+    def get_validation_errors(self, variables: Sequence[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
         """Validate that all variable label values can be deserialized to their expected types.
 
         Args:
@@ -192,7 +199,7 @@ class VariablesConfig(BaseModel):
             A dict mapping variable names to dicts of label names (or None for general errors) to exceptions.
         """
     @staticmethod
-    def from_variables(variables: list[Variable[Any]]) -> VariablesConfig:
+    def from_variables(variables: Sequence[Variable[Any]]) -> VariablesConfig:
         """Create a VariablesConfig from a list of Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.

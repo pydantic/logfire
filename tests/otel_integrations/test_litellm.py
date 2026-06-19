@@ -195,6 +195,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             'completion_tokens_details': IsPartialDict(),
                             'prompt_tokens_details': IsPartialDict(),
                         },
+                        'moderation': None,
                         'service_tier': 'default',
                     },
                     'output.mime_type': 'application/json',

@@ -14,11 +14,11 @@ from typing import Any
 import pytest
 import requests_mock as requests_mock_module
 from inline_snapshot import snapshot
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 from requests import Session
 
 import logfire
-from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+from logfire._internal.config import LocalVariablesOptions, LogfireConfig, VariablesOptions
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -634,7 +634,7 @@ class TestNoOpVariableProvider:
         provider = NoOpVariableProvider()
         result = provider.get_serialized_value('any_variable')
         assert result.value is None
-        assert result._reason == 'no_provider'
+        assert result.reason == 'no_provider'
 
     def test_with_targeting_key_and_attributes(self):
         provider = NoOpVariableProvider()
@@ -662,19 +662,19 @@ class TestNoOpVariableProvider:
 
 class TestResolvedVariable:
     def test_basic_details(self):
-        details = ResolvedVariable(name='test_var', value='test', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', reason='resolved')
         assert details.name == 'test_var'
         assert details.value == 'test'
         assert details.label is None
         assert details.exception is None
 
     def test_with_label(self):
-        details = ResolvedVariable(name='test_var', value='test', label='v1', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', label='v1', reason='resolved')
         assert details.label == 'v1'
 
     def test_with_exception(self):
         error = ValueError('test error')
-        details = ResolvedVariable(name='test_var', value='default', exception=error, _reason='validation_error')
+        details = ResolvedVariable(name='test_var', value='default', exception=error, reason='validation_error')
         assert details.exception is error
 
     def test_context_manager_sets_baggage(self, config_kwargs: dict[str, Any]):
@@ -737,6 +737,34 @@ class TestResolvedVariable:
         with details:
             baggage = logfire.get_baggage()
             assert baggage == snapshot({'logfire.variables.no_version_var': '<code_default>'})
+
+    def test_latest_ref_without_version_reports_code_default_metadata(self, config_kwargs: dict[str, Any]):
+        """A 100% latest rollout falls back to the code default until the first version exists."""
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'latest_before_v1': VariableConfig(
+                        name='latest_before_v1',
+                        labels={'latest': LabelRef(ref='latest')},
+                        rollout=Rollout(labels={'latest': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='latest_before_v1', default='default', type=str)
+        details = var.get()
+
+        assert details.value == 'default'
+        assert details.reason == 'code_default'
+        assert details.label is None
+        assert details.version is None
+
+        with details:
+            baggage = logfire.get_baggage()
+            assert baggage == snapshot({'logfire.variables.latest_before_v1': '<code_default>'})
 
     def test_context_manager_returns_self(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
@@ -837,7 +865,7 @@ class TestLocalVariableProvider:
         result = provider.get_serialized_value('test_var')
         assert result.value == '"default_value"'
         assert result.label == 'default'
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_get_serialized_value_with_override(self, simple_config: VariablesConfig):
         provider = LocalVariableProvider(simple_config)
@@ -852,7 +880,7 @@ class TestLocalVariableProvider:
         provider = LocalVariableProvider(simple_config)
         result = provider.get_serialized_value('unknown_var')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
     def test_rollout_returns_none(self):
         config = VariablesConfig(
@@ -868,7 +896,30 @@ class TestLocalVariableProvider:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value('partial_var')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
+
+    def test_get_all_variables_config_returns_isolated_snapshot(self, simple_config: VariablesConfig):
+        """get_all_variables_config() returns a deep-copied snapshot under the lock.
+
+        Regression test: it used to return the live `self._config`, so a concurrent
+        create/update/delete mutating `variables` in place could raise
+        "dictionary changed size during iteration" in the push/validation walkers.
+        """
+        provider = LocalVariableProvider(simple_config)
+        snapshot = provider.get_all_variables_config()
+        assert set(snapshot.variables) == {'test_var'}
+        provider.create_variable(
+            VariableConfig(
+                name='added',
+                labels={'default': LabeledValue(version=1, serialized_value='"v"')},
+                rollout=Rollout(labels={'default': 1.0}),
+                overrides=[],
+            )
+        )
+        # The previously-returned snapshot is unaffected by the later write...
+        assert set(snapshot.variables) == {'test_var'}
+        # ...while a fresh snapshot reflects it.
+        assert set(provider.get_all_variables_config().variables) == {'test_var', 'added'}
 
 
 # =============================================================================
@@ -920,6 +971,40 @@ class TestLogfireRemoteVariableProvider:
             finally:
                 provider.shutdown()
 
+    def test_network_failure_marks_attempted_fetch(self) -> None:
+        """A failed fetch still marks `_has_attempted_fetch`, so resolves don't block on every call.
+
+        Regression test: the HTTP-failure path used to `return` before setting the flag, so with
+        `block_before_first_resolve` every `get_serialized_value` issued a fresh blocking refresh
+        while the server was unreachable.
+        """
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                # First resolve triggers a blocking refresh that fails (logged as a RuntimeWarning
+                # since no logfire instance is bound) — but the attempt must still be recorded.
+                with pytest.warns(RuntimeWarning, match='Error retrieving variables'):
+                    result = provider.get_serialized_value('test_var')
+                assert result.value is None
+                assert provider._has_attempted_fetch is True
+                assert request_mocker.call_count == 1
+                # A second resolve must NOT issue another blocking refresh now that we've attempted once.
+                provider.get_serialized_value('test_var')
+                assert request_mocker.call_count == 1
+            finally:
+                provider.shutdown()
+
     def test_get_serialized_value_missing_config_no_block(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -939,7 +1024,7 @@ class TestLogfireRemoteVariableProvider:
                 # Without blocking, config might not be fetched yet
                 result = provider.get_serialized_value('test_var')
                 # Should return missing_config if not fetched
-                assert result._reason in ('missing_config', 'resolved', 'unrecognized_variable')
+                assert result.reason in ('missing_config', 'resolved', 'unrecognized_variable')
             finally:
                 provider.shutdown()
 
@@ -975,7 +1060,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 result = provider.get_serialized_value('nonexistent_var')
                 assert result.value is None
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1025,6 +1110,30 @@ class TestLogfireRemoteVariableProvider:
             # 30% of 10000ms = 3000ms = 3.0s for SSE
             mock_sse.join.assert_called_once_with(timeout=3.0)
 
+    def test_at_fork_reinit_does_not_restart_after_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        provider._started = True
+        provider._shutdown = True
+        mock_thread_cls = unittest.mock.MagicMock()
+        mock_start_sse = unittest.mock.MagicMock()
+        monkeypatch.setattr(remote_module.threading, 'Thread', mock_thread_cls)
+        monkeypatch.setattr(provider, '_start_sse_listener', mock_start_sse)
+
+        provider._at_fork_reinit()
+
+        assert provider._shutdown is True
+        mock_thread_cls.assert_not_called()
+        mock_start_sse.assert_not_called()
+
     def test_refresh_with_force(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1043,7 +1152,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 provider.refresh(force=True)
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1081,7 +1190,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 result = provider.get_serialized_value('partial_var')
                 assert result.value is None
-                assert result._reason == 'resolved'
+                assert result.reason == 'resolved'
             finally:
                 provider.shutdown()
 
@@ -1160,7 +1269,7 @@ class TestLogfireRemoteVariableProvider:
                 # since no config has been fetched yet
                 result = provider.get_serialized_value_for_label('test_var', 'production')
                 assert result.value is None
-                assert result._reason == 'unrecognized_variable'
+                assert result.reason == 'unrecognized_variable'
             finally:
                 provider.shutdown()
 
@@ -1302,7 +1411,7 @@ class TestLogfireRemoteVariableProviderErrors:
             try:
                 # The mock returns an error, so config should not be set
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'missing_config'
+                assert result.reason == 'missing_config'
             finally:
                 provider.shutdown()
 
@@ -1325,7 +1434,7 @@ class TestLogfireRemoteVariableProviderErrors:
             try:
                 # The mock returns invalid data, so validation error happens
                 result = provider.get_serialized_value('test_var')
-                assert result._reason == 'missing_config'
+                assert result.reason == 'missing_config'
             finally:
                 provider.shutdown()
 
@@ -1648,19 +1757,172 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
-        details = var.get()
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            details = var.get()
         # Falls back to default when validation fails
         assert details.value == 999
         assert details.exception is not None
-        assert details._reason == 'validation_error'
+        assert details.reason == 'validation_error'
+        assert details.label == 'default'
+        assert details.version == 1
 
     def test_get_uses_default_when_no_config(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='unconfigured', default='my_default', type=str)
-        value = var.get().value
-        assert value == 'my_default'
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+
+    def test_get_calls_function_default_once_when_no_config(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        calls = 0
+
+        def default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            nonlocal calls
+            calls += 1
+            return 'my_default'
+
+        var = lf.var(name='unconfigured', default=default, type=str)
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+        assert calls == 1
+
+    def test_get_preserves_metadata_with_deserialization_type_error(self, config_kwargs: dict[str, Any]):
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'type_error_var': VariableConfig(
+                        name='type_error_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='{"value": 1}')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            result = var.get()
+        assert result.value == TypeErrorModel(value=0)
+        assert isinstance(result.exception, TypeError)
+        # A validator raising TypeError is still a deserialization failure, so the reason
+        # matches the "value failed validation" warning (rather than splitting on whether
+        # pydantic wrapped the error into a ValidationError).
+        assert result.reason == 'validation_error'
+        assert result.label == 'default'
+        assert result.version == 1
+
+    def test_get_preserves_provider_exception_when_using_code_default(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def missing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            return ResolvedVariable(
+                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+            )
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var.get()
+        assert result.value == 'my_default'
+        assert result.reason == 'code_default'
+        assert result.exception is provider_error
+
+    def test_get_warns_when_default_function_fails(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def failing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            raise provider_error
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', failing_get)
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning) as warnings:
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert result.exception is provider_error
+        messages = [str(warning.message) for warning in warnings]
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
+        assert not any('returning None: missing' in message for message in messages)
+
+    def test_get_warns_when_missing_config_default_function_fails(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+        with pytest.warns(RuntimeWarning, match='code default raised'):
+            result = var.get()
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+
+    def test_get_calls_failing_default_once_on_validation_error(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'invalid_var': VariableConfig(
+                        name='invalid_var',
+                        labels={'default': LabeledValue(version=1, serialized_value='"bad"')},
+                        rollout=Rollout(labels={'default': 1.0}),
+                        overrides=[],
+                    )
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        calls = 0
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> int:
+            nonlocal calls
+            calls += 1
+            raise RuntimeError('default failed')
+
+        var = lf.var(name='invalid_var', default=bad_default, type=int)
+        with pytest.warns(RuntimeWarning) as warnings:
+            result = var.get()
+
+        assert calls == 1
+        assert result.value is None
+        assert result.reason == 'other_error'
+        assert isinstance(result.exception, RuntimeError)
+        messages = [str(warning.message) for warning in warnings]
+        assert any('value failed validation' in message for message in messages)
+        assert any('code default raised' in message and 'default failed' in message for message in messages)
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
@@ -1686,6 +1948,29 @@ class TestVariable:
             with var.override('inner'):
                 assert var.get().value == 'inner'
             assert var.get().value == 'outer'
+
+    def test_override_unserializable_value_returned_typed(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        """Top-level overrides return the user's typed Python value, even when it isn't JSON-serializable.
+
+        Regression for #1951 r3287492856 / r3289439477 — the SDK previously
+        round-tripped overrides through `dump_json`/`validate_json`, silently
+        dropping unserializable values back to the provider / code default
+        and leaving callers unaware. Pre-#1951 behaviour was to return the
+        typed object verbatim; this restores that for the no-composition
+        case while still serializing when composition / template rendering
+        needs a string.
+        """
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=object)
+        sentinel = object()
+        with var.override(sentinel):
+            result = var.get()
+            assert result.value is sentinel
+            assert result.reason == 'context_override'
 
     def test_override_with_function(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
@@ -1804,6 +2089,152 @@ class TestVariable:
         spans = exporter.exported_spans
         resolve_spans = [s for s in spans if s.name.startswith('Resolve variable')]
         assert len(resolve_spans) == 0
+
+
+class TestVariableRenderPipeline:
+    @pytest.fixture
+    def variables_config(self) -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'string_var': VariableConfig(
+                    name='string_var',
+                    labels={'default': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'default': 1.0}),
+                    overrides=[],
+                ),
+                'int_var': VariableConfig(
+                    name='int_var',
+                    labels={'default': LabeledValue(version=1, serialized_value='42')},
+                    rollout=Rollout(labels={'default': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+
+    def test_plain_variable_has_no_template_inputs_schema(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.variable import get_template_inputs_schema
+
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='plain_var', default='default', type=str)
+
+        assert not hasattr(var, 'get_template_inputs_schema')
+        assert get_template_inputs_schema(var) is None
+
+    def test_render_fn_applies_to_provider_value(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'resolved'
+
+    def test_render_fn_applies_to_context_override(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+
+        with var.override('overridden'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered"')
+
+        assert result.value == 'rendered'
+        assert result.reason == 'context_override'
+
+        int_var = lf.var(name='int_var', default=0, type=int)
+
+        with int_var.override(1):
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                invalid = int_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'validation_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+        class TypeErrorModel(BaseModel):
+            value: int
+
+            @field_validator('value')
+            @classmethod
+            def fail_for_one(cls, value: int) -> int:
+                if value == 1:
+                    raise TypeError('validator exploded')
+                return value
+
+        type_error_var = lf.var(name='type_error_var', default=TypeErrorModel(value=0), type=TypeErrorModel)
+
+        with type_error_var.override(TypeErrorModel(value=0)):
+            with pytest.warns(RuntimeWarning, match='value failed validation'):
+                type_error_result = type_error_var._get_result_and_record_span(
+                    None, None, None, render_fn=lambda _: '{"value": 1}'
+                )
+
+        assert type_error_result.value == TypeErrorModel(value=0)
+        assert type_error_result.reason == 'validation_error'
+        assert isinstance(type_error_result.exception, TypeError)
+
+    def test_render_fn_applies_to_code_default(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+
+        invalid_var = lf.var(name='unconfigured_int', default=0, type=int)
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            invalid = invalid_var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"not_an_int"')
+
+        assert invalid.value == 0
+        assert invalid.reason == 'validation_error'
+        assert isinstance(invalid.exception, ValidationError)
+
+    def test_render_fn_preserves_provider_exception_when_using_code_default(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        provider_error = RuntimeError('missing')
+
+        def missing_get(
+            variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        ) -> ResolvedVariable[str | None]:
+            return ResolvedVariable(
+                name=variable_name, value=None, exception=provider_error, reason='unrecognized_variable'
+            )
+
+        monkeypatch.setattr(lf.config._variable_provider, 'get_serialized_value', missing_get)
+
+        var = lf.var(name='unconfigured', default='my_default', type=str)
+        result = var._get_result_and_record_span(None, None, None, render_fn=lambda _: '"rendered_default"')
+        assert result.value == 'rendered_default'
+        assert result.reason == 'code_default'
+        assert result.exception is provider_error
+
+    def test_render_fn_reports_default_function_failure(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+
+        default_error = RuntimeError('default failed')
+
+        def bad_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            raise default_error
+
+        var = lf.var(name='unconfigured', default=bad_default, type=str)
+
+        with pytest.warns(RuntimeWarning, match='could not be resolved and its code default raised'):
+            result = var._get_result_and_record_span(None, None, None, render_fn=lambda value: value)
+
+        assert result.reason == 'other_error'
+        assert result.exception is default_error
 
 
 # =============================================================================
@@ -2197,15 +2628,15 @@ class TestLogfireVarIntegration:
         original = lf.config._variable_provider.get_serialized_value
 
         def failing_get(*args: Any, **kwargs: Any) -> ResolvedVariable[str | None]:
-            raise RuntimeError('Provider failed!')
+            raise IndexError('Provider failed!')
 
         lf.config._variable_provider.get_serialized_value = failing_get
 
         var = lf.var(name='failing_var', default='fallback', type=str)
         details = var.get()
         assert details.value == 'fallback'
-        assert details._reason == 'other_error'
-        assert isinstance(details.exception, RuntimeError)
+        assert details.reason == 'other_error'
+        assert isinstance(details.exception, IndexError)
 
         # Restore original
         lf.config._variable_provider.get_serialized_value = original
@@ -2483,6 +2914,41 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             finally:
                 provider.shutdown()
 
+    def test_create_variable_with_template_inputs_schema(self) -> None:
+        """Test creating a template variable sends the template inputs schema."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'template_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                template_inputs_schema = {
+                    'type': 'object',
+                    'properties': {'user_name': {'type': 'string'}},
+                    'required': ['user_name'],
+                }
+                config = VariableConfig(
+                    name='template_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"Hello {{user_name}}"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    description='Template variable',
+                    json_schema={'type': 'string'},
+                    template_inputs_schema=template_inputs_schema,
+                )
+                result = provider.create_variable(config)
+                assert result.name == 'template_var'
+
+                assert post_adapter.last_request is not None
+                request_body = post_adapter.last_request.json()
+                assert request_body['template_inputs_schema'] == template_inputs_schema
+            finally:
+                provider.shutdown()
+
     def test_create_variable_already_exists(self) -> None:
         from logfire.variables.abstract import VariableAlreadyExistsError
 
@@ -2528,6 +2994,35 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 )
                 with pytest.raises(VariableWriteError, match='Failed to create variable'):
                     provider.create_variable(config)
+            finally:
+                provider.shutdown()
+
+    def test_variable_types_network_error_raises_write_error(self) -> None:
+        """list/upsert variable types surface network errors as VariableWriteError (D4).
+
+        Regression: these two methods caught only UnexpectedResponse, so a raw
+        ConnectionError/Timeout (a RequestException) leaked out, unlike create/update/delete.
+        """
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        from logfire.variables.abstract import VariableWriteError
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.get('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        request_mocker.post('http://localhost:8000/v1/variable-types/', exc=RequestsConnectionError('boom'))
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to list variable types'):
+                    provider.list_variable_types()
+                with pytest.raises(VariableWriteError, match='Failed to upsert variable type'):
+                    provider.upsert_variable_type(VariableTypeConfig(name='t', json_schema={'type': 'string'}))
             finally:
                 provider.shutdown()
 
@@ -2849,7 +3344,7 @@ class TestVariablesConfigAliases:
         # Access via alias
         result = config.resolve_serialized_value('old_name')
         assert result.value == '"value"'
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_multiple_aliases(self):
         """Test that multiple aliases resolve correctly."""
@@ -2868,7 +3363,7 @@ class TestVariablesConfigAliases:
         for alias in ['alias1', 'alias2', 'alias3']:
             result = config.resolve_serialized_value(alias)
             assert result.value == '"value"'
-            assert result._reason == 'resolved'
+            assert result.reason == 'resolved'
 
     def test_nonexistent_variable_returns_unrecognized(self):
         """Test that nonexistent variable returns unrecognized."""
@@ -2884,7 +3379,7 @@ class TestVariablesConfigAliases:
         )
         result = config.resolve_serialized_value('nonexistent')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
     def test_direct_name_takes_precedence(self):
         """Test that direct variable name takes precedence over alias lookup."""
@@ -2922,7 +3417,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         result = provider.get_all_variables_config()
@@ -2935,7 +3430,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -2955,7 +3450,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -2975,7 +3470,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not persist variable writes'):
@@ -2994,7 +3489,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_variable_config(self, name: str) -> VariableConfig | None:
                 return self.configs.get(name)
@@ -3449,7 +3944,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -3476,7 +3971,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -3500,7 +3995,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 return VariablesConfig(variables={})
@@ -3525,7 +4020,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -3547,7 +4042,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -3698,6 +4193,18 @@ class TestVariableToConfig:
         config = var.to_config()
         assert config.name == 'func_var'
         # Example should be None when default is a function
+        assert config.example is None
+
+    def test_to_config_with_unserializable_default(self, config_kwargs: dict[str, Any]):
+        """to_config() tolerates a non-serializable default (example=None) instead of raising.
+
+        Resolution already degrades to no example for such a default, so building a config
+        (e.g. for variables_push) must not crash where resolution wouldn't.
+        """
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='opaque', type=object, default=object())
+        config = var.to_config()
+        assert config.name == 'opaque'
         assert config.example is None
 
 
@@ -3853,7 +4360,7 @@ class TestGetSerializedValueForVariantUnknown:
         provider = NoOpVariableProvider()
         result = provider.get_serialized_value_for_label('nonexistent', 'v1')
         assert result.value is None
-        assert result._reason == 'unrecognized_variable'
+        assert result.reason == 'unrecognized_variable'
 
 
 class TestBaseVariableProviderTypesMethods:
@@ -3866,7 +4373,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not support variable types'):
@@ -3880,7 +4387,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not support variable types'):
@@ -3895,7 +4402,7 @@ class TestBaseVariableProviderTypesMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableTypeConfig(name='test_type', json_schema={'type': 'string'})
@@ -3934,9 +4441,10 @@ class TestGetDefaultTypeName:
         from logfire.variables.config import get_default_type_name
 
         # Union types are not `type` instances
-        result = get_default_type_name(Union[int, str])
-        assert isinstance(result, str)
-        assert result  # Should be a non-empty string
+        for type_ in (Union[int, str], int | str):  # noqa: UP007
+            result = get_default_type_name(type_)
+            assert isinstance(result, str)
+            assert result  # Should be a non-empty string
 
 
 class TestGetSourceHint:
@@ -4247,7 +4755,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, VariableTypeConfig]:
                 return dict(self._types)
@@ -4351,7 +4859,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -4375,7 +4883,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, Any]:
                 raise RuntimeError('List failed!')
@@ -4397,7 +4905,7 @@ class TestPushVariableTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, Any]:
                 return {}
@@ -4483,7 +4991,7 @@ class TestPushVariableTypesWithUnchangedTypes:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def list_variable_types(self) -> dict[str, VariableTypeConfig]:
                 return dict(self._types)
@@ -4521,7 +5029,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 return self._variables_config
@@ -4617,7 +5125,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -4939,7 +5447,7 @@ class TestVariablesConfigResolveSerializedValueCodeDefault:
         )
         result = config.resolve_serialized_value('test_var')
         assert result.value is None
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
 
 class TestVariablesConfigValidationErrorsWithLatestVersion:
@@ -5024,7 +5532,9 @@ class TestGetSerializedValueForLabelCodeDefault:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'v1')
         assert result.value is None
-        assert result._reason == 'resolved'
+        # A label that refs code_default (which the provider can't supply a value for) is reported
+        # as missing_config, not a successful 'resolved'.
+        assert result.reason == 'missing_config'
 
 
 class TestGetSerializedValueForLabelNotFound:
@@ -5044,7 +5554,8 @@ class TestGetSerializedValueForLabelNotFound:
         provider = LocalVariableProvider(config)
         result = provider.get_serialized_value_for_label('test_var', 'nonexistent')
         assert result.value is None
-        assert result._reason == 'resolved'
+        # The variable exists but the label doesn't — reported as missing_config, not 'resolved'.
+        assert result.reason == 'missing_config'
 
 
 class TestVariableGetWithExplicitLabel:
@@ -5072,7 +5583,7 @@ class TestVariableGetWithExplicitLabel:
         assert result.value == 'experiment_value'
         assert result.label == 'experiment'
         assert result.version == 2
-        assert result._reason == 'resolved'
+        assert result.reason == 'resolved'
 
     def test_explicit_label_not_found_falls_through(self, config_kwargs: dict[str, Any]):
         variables_config = VariablesConfig(
@@ -5104,6 +5615,16 @@ class TestVariableGetWithExplicitLabel:
 
 class TestLazyVariableProviderInit:
     """Tests for lazy initialization of the variable provider when LOGFIRE_API_KEY is set."""
+
+    def test_no_lazy_init_before_configure(self) -> None:
+        """LOGFIRE_API_KEY alone should not enable remote variables before configure()."""
+        config = LogfireConfig()
+
+        with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+            provider = config.get_variable_provider()
+
+        assert isinstance(provider, NoOpVariableProvider)
+        assert isinstance(config._variable_provider, NoOpVariableProvider)
 
     def test_lazy_init_when_api_key_set(self, config_kwargs: dict[str, Any]) -> None:
         """When LOGFIRE_API_KEY is set but variables= is not passed, get_variable_provider()

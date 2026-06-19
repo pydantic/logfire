@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import inspect
 import json
+import math
 import sys
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
@@ -10,7 +11,6 @@ from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
 from functools import cached_property, partial
-from time import time
 from typing import (  # NOQA UP035
     TYPE_CHECKING,
     Any,
@@ -18,7 +18,6 @@ from typing import (  # NOQA UP035
     Literal,
     Type,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -94,11 +93,13 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
     from starlette.requests import Request
+    from starlette.responses import Response
     from starlette.websockets import WebSocket
     from surrealdb.connections.async_template import AsyncTemplate
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
+    from ..experimental.forwarding import ForwardExportRequestResponse
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
         ResponseHook as AiohttpClientResponseHook,
@@ -120,10 +121,12 @@ if TYPE_CHECKING:
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from ..variables import (
         ResolveFunction,
+        TemplateVariable,
         ValidationReport,
         Variable,
         VariablesConfig,
     )
+    from .config import TemplateMismatchPolicy
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.llm_providers.semconv import SemconvVersion
@@ -139,9 +142,10 @@ if TYPE_CHECKING:
     # 1. It's convenient to pass the result of sys.exc_info() directly
     # 2. It mirrors the exc_info argument of the stdlib logging methods
     # 3. The argument name exc_info is very suggestive of the sys function.
-    ExcInfo = Union[SysExcInfo, BaseException, bool, None]
+    ExcInfo = SysExcInfo | BaseException | bool | None
 
 T = TypeVar('T')
+InputsT = TypeVar('InputsT')
 
 
 class Logfire:
@@ -161,7 +165,7 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
-        self._variables: dict[str, Variable[Any]] = {}
+        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
 
     @property
     def config(self) -> LogfireConfig:
@@ -292,6 +296,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         try:
+            attributes = attributes.copy()
             msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
@@ -953,7 +958,7 @@ class Logfire:
     ) -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://logfire.pydantic.dev/docs/guides/onboarding_checklist/add_auto_tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -2481,39 +2486,7 @@ class Logfire:
         Returns:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
-        start = time()
-
-        def remaining_ms() -> int:
-            return max(0, int(timeout_millis - (time() - start) * 1000))
-
-        self.config.get_variable_provider().shutdown(timeout_millis=remaining_ms())
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._tracer_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._tracer_provider.shutdown()
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        if flush:  # pragma: no branch
-            self._meter_provider.force_flush(remaining)
-            remaining = remaining_ms()
-            if not remaining:  # pragma: no cover
-                return False
-
-        self._meter_provider.shutdown(remaining)
-        remaining = remaining_ms()
-        if not remaining:  # pragma: no cover
-            return False
-
-        return remaining_ms() > 0
+        return self._config.shutdown(timeout_millis=timeout_millis, flush=flush)
 
     @overload
     def var(
@@ -2565,6 +2538,13 @@ class Logfire:
                 ...
         ```
 
+        For variables whose values contain Handlebars `{{placeholder}}` templates that
+        need runtime inputs, we recommend [`template_var()`][logfire.Logfire.template_var]:
+        it renders the templates as part of resolution and gives you a typed
+        `get(inputs)` API. Under the hood it uses `pydantic_handlebars.render`, which
+        you can also call yourself on the resolved value if you need to drive rendering
+        manually.
+
         Args:
             name: Unique identifier for the variable. Must match the name configured in the
                 Logfire UI when using remote variables.
@@ -2577,6 +2557,10 @@ class Logfire:
                 (requires `type` to be set explicitly).
             description: Optional human-readable description of what the variable controls.
         """
+        from logfire.variables import ensure_variables_dependencies
+
+        ensure_variables_dependencies()
+
         from logfire.variables.variable import Variable, is_resolve_function
 
         if type is None:
@@ -2584,6 +2568,11 @@ class Logfire:
                 raise TypeError(
                     'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
                     '`type` must be provided to specify the variable value type.'
+                )
+            if default is None:
+                raise TypeError(
+                    'When `default` is None, `type` must be provided (e.g. `type=Optional[int]`); '
+                    'the variable value type cannot be inferred from a None default.'
                 )
             tp = cast(Type[T], default.__class__)  # noqa UP006
         else:
@@ -2598,32 +2587,183 @@ class Logfire:
                 'not starting with a digit).'
             )
 
+        # Variables are expected to be defined once at import time (single-threaded), so this
+        # check-then-insert is not locked. If you register variables concurrently from multiple
+        # threads, guard your own registration to preserve the uniqueness guarantee.
         if name in self._variables:
             raise ValueError(
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
             )
 
-        variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
+        variable = Variable[T](
+            name,
+            default=default,
+            type=tp,
+            logfire_instance=self,
+            description=description,
+        )
         self._variables[name] = variable
+
+        from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
+
+        warn_on_template_inputs_composition_mismatch(self._variables, variable)
+
+        return variable
+
+    @overload
+    def template_var(
+        self,
+        name: str,
+        *,
+        default: T,
+        inputs_type: type[InputsT],
+        description: str | None = None,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
+    ) -> TemplateVariable[T, InputsT]: ...
+
+    @overload
+    def template_var(
+        self,
+        name: str,
+        *,
+        type: type[T],
+        default: T | ResolveFunction[T],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
+    ) -> TemplateVariable[T, InputsT]: ...
+
+    def template_var(
+        self,
+        name: str,
+        *,
+        type: type[T] | None = None,
+        default: T | ResolveFunction[T],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+        template_mismatch_policy: TemplateMismatchPolicy | None = None,
+    ) -> TemplateVariable[T, InputsT]:
+        """Define a managed template variable with integrated rendering.
+
+        Like `var()`, but `get(inputs)` automatically renders Handlebars `{{placeholder}}`
+        templates in the resolved value before returning. The pipeline is:
+        resolve → compose `@{refs}@` → render `{{}}` → deserialize.
+
+        ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
+        from pydantic import BaseModel
+
+        import logfire
+
+        logfire.configure()
+
+
+        class PromptInputs(BaseModel):
+            user_name: str
+            is_premium: bool = False
+
+
+        prompt = logfire.template_var(
+            'system_prompt',
+            default='Hello {{user_name}}',
+            inputs_type=PromptInputs,
+        )
+
+        with prompt.get(PromptInputs(user_name='Alice')) as resolved:
+            assert resolved.value == 'Hello Alice'
+        ```
+
+        Args:
+            name: Unique identifier for the variable.
+            type: Expected type for validation and JSON schema generation. Can be a primitive
+                type or a Pydantic model. If not provided, the type is inferred from `default`.
+                Required when `default` is a resolve function.
+            default: Default value used when no remote configuration is found.
+                When `type` is not provided, the type is inferred from this value.
+                Can also be a callable with `targeting_key` and `attributes` parameters
+                (requires `type` to be set explicitly).
+            inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected
+                template inputs. Used for type-safe `get(inputs)` calls and JSON schema generation.
+            description: Optional human-readable description of what the variable controls.
+            template_mismatch_policy: How to react when the resolved (post-composition) template
+                references a `{{field}}` not declared in `inputs_type`. `'warn'` emits a
+                `RuntimeWarning` and renders the undeclared field as the empty string;
+                `'error'` raises `TemplateInputsMismatchError`; `'ignore'` renders silently.
+                Defaults to inheriting from `VariablesOptions` / `LocalVariablesOptions`
+                (which default to `'warn'`). Pass an explicit value to override the
+                instance-level policy for this variable only — even to relax it.
+        """
+        import re
+
+        from logfire.variables import ensure_variables_dependencies
+
+        ensure_variables_dependencies()
+
+        from logfire.variables.variable import TemplateVariable, is_resolve_function
+
+        if type is None:
+            if is_resolve_function(default):
+                raise TypeError(
+                    'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
+                    '`type` must be provided to specify the variable value type.'
+                )
+            if default is None:
+                raise TypeError(
+                    'When `default` is None, `type` must be provided (e.g. `type=Optional[int]`); '
+                    'the variable value type cannot be inferred from a None default.'
+                )
+            tp = cast(Type[T], default.__class__)  # noqa UP006
+        else:
+            tp = type
+
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+            raise ValueError(
+                f"Invalid variable name '{name}'. "
+                'Variable names must be valid Python identifiers (letters, digits, and underscores, '
+                'not starting with a digit).'
+            )
+
+        # Variables are expected to be defined once at import time (single-threaded), so this
+        # check-then-insert is not locked. If you register variables concurrently from multiple
+        # threads, guard your own registration to preserve the uniqueness guarantee.
+        if name in self._variables:
+            raise ValueError(
+                f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
+            )
+
+        variable = TemplateVariable[T, InputsT](
+            name,
+            type=tp,
+            default=default,
+            inputs_type=inputs_type,
+            description=description,
+            logfire_instance=self,
+            template_mismatch_policy=template_mismatch_policy,
+        )
+        self._variables[name] = variable
+
+        from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
+
+        warn_on_template_inputs_composition_mismatch(self._variables, variable)
 
         return variable
 
     def variables_clear(self) -> None:
         """Clear all registered variables from this Logfire instance.
 
-        This removes all variables previously registered via [`var()`][logfire.Logfire.var],
+        This removes all variables previously registered via [`var()`][logfire.Logfire.var]
+        or [`template_var()`][logfire.Logfire.template_var],
         allowing them to be re-registered. This is primarily intended for use in tests
         to ensure a clean state between test cases.
         """
         self._variables.clear()
 
-    def variables_get(self) -> list[Variable[Any]]:
+    def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
         """Get all variables registered with this Logfire instance."""
         return list(self._variables.values())
 
     def variables_push(
         self,
-        variables: list[Variable[Any]] | None = None,
+        variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -2644,7 +2784,8 @@ class Logfire:
                 registered with this Logfire instance will be pushed.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas
+                or any reference errors are found.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -2739,7 +2880,7 @@ class Logfire:
 
     def variables_validate(
         self,
-        variables: list[Variable[Any]] | None = None,
+        variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
     ) -> ValidationReport:
         """Validate that provider-side variable label values match local type definitions.
 
@@ -2787,8 +2928,10 @@ class Logfire:
     ) -> bool:  # pragma: no cover
         """Push a VariablesConfig to the configured provider.
 
-        This method pushes a complete VariablesConfig (including labels and rollouts)
-        to the provider. It's useful for:
+        This method pushes a VariablesConfig (including labels and rollouts) to the
+        provider. For remote providers, version records are created from label
+        entries with inline serialized values; `latest_version` is pull/read state
+        derived by the server and is not pushed directly. It's useful for:
         - Pushing configs generated or modified locally
         - Pushing configs read from files
         - Partial updates (merge mode) or full replacement (replace mode)
@@ -2841,7 +2984,7 @@ class Logfire:
 
     def variables_build_config(
         self,
-        variables: list[Variable[Any]] | None = None,
+        variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
     ) -> VariablesConfig:
         """Build a VariablesConfig from registered Variable instances.
 
@@ -2872,6 +3015,80 @@ class Logfire:
         from logfire.variables.config import VariablesConfig
 
         return VariablesConfig.from_variables(variables)
+
+    def forward_export_request(
+        self,
+        *,
+        path: str,
+        headers: Mapping[str, str],
+        body: bytes,
+        max_body_size: int = 50 * 1024 * 1024,
+    ) -> ForwardExportRequestResponse:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is generic and can be used for any web framework.
+        For Starlette/FastAPI, use `forward_export_request_starlette` instead for extra protection and convenience.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            path: one of "/v1/traces", "/v1/metrics", or "/v1/logs"
+            headers: the request headers, as a mapping of header names to values
+            body: the request body, as bytes
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+        """
+        from ..experimental.forwarding import forward_export_request
+
+        return forward_export_request(
+            path=path,
+            headers=headers,
+            body=body,
+            max_body_size=max_body_size,
+            logfire_instance=self,
+        )
+
+    async def forward_export_request_starlette(
+        self,
+        request: Request,
+        *,
+        max_body_size: int = 50 * 1024 * 1024,
+    ) -> Response:
+        """Forward an OpenTelemetry export request to the Logfire backend.
+
+        This method is designed for Starlette/FastAPI.
+        For other web frameworks, use `forward_export_request` instead and adapt the request/response handling as needed.
+
+        This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
+        exposed in the frontend code.
+        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        for more details.
+
+        We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
+
+        Args:
+            request: The Starlette/FastAPI `Request` object.
+            max_body_size: the maximum allowed body size, in bytes.
+                If the body exceeds this size, the response will be a 413, rejecting the payload.
+
+        Returns:
+            A Starlette/FastAPI `Response` object.
+        """
+        from ..experimental.forwarding import logfire_proxy
+
+        return await logfire_proxy(
+            request=request,
+            max_body_size=max_body_size,
+            logfire_instance=self,
+        )
 
 
 class FastLogfireSpan:
@@ -3117,7 +3334,7 @@ class NoopSpan:
         return False
 
 
-AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
+AttributesValueType = TypeVar('AttributesValueType', bound=Any | otel_types.AttributeValue)
 
 
 def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
@@ -3142,7 +3359,11 @@ def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
             return str(value)
         else:
             return value
-    elif isinstance(value, (str, bool, float)):
+    elif isinstance(value, float):
+        if not math.isfinite(value):
+            return str(value)
+        return value
+    elif isinstance(value, (str, bool)):
         return value
     else:
         return logfire_json_dumps(value)

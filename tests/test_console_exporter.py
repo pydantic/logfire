@@ -118,6 +118,17 @@ def test_simple_console_exporter_colors_concise(simple_spans: list[ReadableSpan]
     )
 
 
+def test_simple_console_exporter_colors_always_ignores_no_color(
+    simple_spans: list[ReadableSpan], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('NO_COLOR', '1')
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=False, colors='always').export(simple_spans)
+
+    assert out.getvalue().splitlines()[0].startswith('\x1b[32m')
+
+
 def test_simple_console_exporter_no_colors_verbose(simple_spans: list[ReadableSpan]) -> None:
     out = io.StringIO()
     SimpleConsoleSpanExporter(output=out, verbose=True, colors='never').export(simple_spans)
@@ -441,10 +452,10 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
             '\x1b[32m00:00:01.000\x1b[0m Hello world!',
             '             \x1b[34m│\x1b[0m\x1b[36m test_console_exporter.py:123\x1b[0m info',
             "             \x1b[34m│ \x1b[0m\x1b[34mname=\x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mworld\x1b[0m\x1b[93;49m'\x1b[0m",
-            '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m          ',
+            '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m',
             "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49ma\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m,\x1b[0m",
             "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mb\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m2\x1b[0m\x1b[97;49m,\x1b[0m",
-            '             \x1b[34m│ \x1b[0m  \x1b[97;49m}\x1b[0m          ',
+            '             \x1b[34m│ \x1b[0m  \x1b[97;49m}\x1b[0m',
         ]
     )
 
@@ -949,6 +960,43 @@ def test_truncated_json(capsys: pytest.CaptureFixture[str]) -> None:
                 "│ x='[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1'",
             ]
         )
+
+
+def test_console_exporter_rich_long_argument_not_truncated() -> None:
+    long_value = 'a' * 1000
+    span = ReadableSpan(
+        name='hi',
+        context=trace.SpanContext(trace_id=1, span_id=1, is_remote=False),
+        parent=None,
+        attributes={
+            'logfire.span_type': 'log',
+            'logfire.level_num': 9,
+            'logfire.msg': 'hi',
+            'x': long_value,
+            'logfire.json_schema': json.dumps({'type': 'object', 'properties': {'x': {}}}),
+        },
+        events=[],
+        start_time=NANOSECONDS_PER_SECOND,
+        end_time=NANOSECONDS_PER_SECOND,
+    )
+
+    out = io.StringIO()
+    SimpleConsoleSpanExporter(output=out, verbose=True, colors='always', include_timestamp=False).export([span])
+
+    plain_output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', out.getvalue())
+    assert '…' not in plain_output
+    assert plain_output.count('a') == len(long_value)
+    assert f"x='{long_value}'" in plain_output
+
+
+def test_console_exporter_rich_argument_preserves_expanded_tab() -> None:
+    out = io.StringIO()
+    exporter = SimpleConsoleSpanExporter(output=out, verbose=True, colors='always', include_timestamp=False)
+
+    exporter._print_arguments_rich({'x': '\t'}, '')
+
+    plain_output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', out.getvalue())
+    assert plain_output == '│ x=    \n'
 
 
 def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:

@@ -24,10 +24,6 @@ jobs:
         pydantic-version: [ 'main' ]
         otel-version: [ '1' ]  # i.e. the latest
         include:
-          # Pydantic main no longer supports 3.9, so this is our 3.9 test
-          - python-version: '3.9'
-            pydantic-version: '2.13'
-            otel-version: '1'
           # Pydantic versions
           - python-version: '3.12'
             pydantic-version: '2.4'

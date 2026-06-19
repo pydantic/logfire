@@ -445,6 +445,38 @@ def test_instrument_missing_template_field():
     assert warning.filename.endswith('test_logfire.py'), (warning.filename, warning.lineno)
 
 
+def test_instrument_span_with_args_does_not_mutate_attributes(exporter: TestExporter) -> None:
+    from opentelemetry.util import types as otel_types
+
+    shared_attrs: dict[str, otel_types.AttributeValue] = {'logfire.msg_template': 'hello {a}', 'initial': 'value'}
+
+    # Call the internal method directly
+    with logfire.DEFAULT_LOGFIRE_INSTANCE._instrument_span_with_args(  # type: ignore[reportPrivateUsage]
+        'hello', shared_attrs, {'a': 1}
+    ):
+        pass
+
+    # Assert that the shared_attrs dict was not mutated in-place
+    assert shared_attrs == {'logfire.msg_template': 'hello {a}', 'initial': 'value'}
+
+
+def test_instrument_shared_mutable_attributes(exporter: TestExporter) -> None:
+    @logfire.instrument('hello {kwargs=}')
+    def hello(**kwargs: Any) -> None:
+        pass
+
+    hello(a=1)
+    hello(b=2)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 2
+    # Ensure attributes from the first call do not leak into the second call
+    assert 'a' in spans[0]['attributes']['kwargs']
+    assert 'b' not in spans[0]['attributes']['kwargs']
+    assert 'b' in spans[1]['attributes']['kwargs']
+    assert 'a' not in spans[1]['attributes']['kwargs']
+
+
 def test_span_missing_template_field() -> None:
     with pytest.warns(FormattingFailedWarning, match='The field {foo} is not defined.') as warnings:
         with logfire.span('test {foo}'):
