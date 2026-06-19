@@ -7,8 +7,12 @@ description: "How to write Logfire prompt templates with variables and standard 
 
 A prompt template is a string. At render time, Logfire walks that string with a Handlebars engine and substitutes in the current variables.
 
-!!! note "Your application renders the template at runtime"
-    Prompt Management stores the template, but your application is responsible for substituting runtime variables before sending the rendered prompt to your model client. See [Use Prompts in Your Application](./application.md).
+!!! note "Runtime inputs are supplied by your application"
+    Prompt Management stores the template. In application code, prefer
+    `logfire.template_var()` to substitute runtime variables before sending the
+    rendered prompt to your model client. If you fetch the raw template with
+    `logfire.var()`, your application must render the remaining `{{...}}`
+    placeholders itself. See [Use Prompts in Your Application](./application.md).
 
 If you already know Handlebars, the short version is: Logfire uses the standard Handlebars.js helper set, with no custom helpers enabled by default.
 
@@ -75,6 +79,27 @@ The standard Handlebars block helpers work:
 !!! note "Undefined variables render as empty strings"
     If a template references a variable you did not define (for example, you wrote `{{name}}` but never added a `name` variable), Handlebars renders an empty string rather than raising an error. The editor surfaces the list of variables the template references so you can spot typos before running.
 
+## Reusable fragments
+
+Use `@{variable_name}@` to compose managed-variable values into a prompt before
+the prompt's `{{...}}` placeholders are rendered.
+
+```handlebars
+You are the support assistant for @{support_brand_profile.product}@.
+
+@{support_safety_rules}@
+
+Reply to {{customer_name}} on the {{tier}} plan.
+```
+
+Composition is useful when a fragment should have its own version history,
+targeting, or owner. A prompt can reference regular managed variables such as
+`@{support_safety_rules}@` and other prompts through their backing variable names,
+such as `@{prompt__support_style}@`.
+
+For a full example, see the
+[Prompt composition walkthrough](./composition-walkthrough.md).
+
 ## Scenario-specific rendering
 
 The prompt editor reuses the same template engine for saved test scenarios, including scenario messages, tool-call arguments, and tool-return content.
@@ -98,9 +123,16 @@ If you need transformation logic that is not expressible in plain Handlebars, do
 
 ## Rendering from your application
 
-The Logfire SDK returns the prompt template unchanged, so your application renders it before passing the result to your model client.
+The Logfire SDK can render prompt templates for you with `logfire.template_var()`.
+If you fetch a prompt with `logfire.var()` instead, `.get()` returns the prompt
+template after `@{...}@` composition has been expanded, and your application
+renders the remaining `{{...}}` placeholders before passing the result to your
+model client.
 
-If you want to keep rendering simple in application code, prefer flat variables such as `{{customer_name}}`. If you want to use dotted paths or block helpers, make sure your application uses a renderer that supports the same Handlebars features described here.
+If you want to keep manual rendering simple, prefer flat variables such as
+`{{customer_name}}`. If you want to use dotted paths or block helpers, make sure
+your application uses a renderer that supports the same Handlebars features
+described here.
 
 See [Use Prompts in Your Application](./application.md) for the current integration workflow.
 

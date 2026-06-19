@@ -2,12 +2,14 @@ import logfire
 from _typeshed import Incomplete
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from logfire.variables.composition import ComposedReference
 from logfire.variables.config import VariableConfig, VariableTypeConfig, VariablesConfig
+from logfire.variables.template_validation import TemplateFieldIssue
 from logfire.variables.variable import Variable
 from typing import Any, Generic, TypeVar
 
-__all__ = ['ResolvedVariable', 'ResolutionReason', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError']
+__all__ = ['ResolvedVariable', 'ResolutionReason', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError', 'render_serialized_string']
 
 SyncMode: Incomplete
 T = TypeVar('T')
@@ -46,10 +48,26 @@ class ResolvedVariable(Generic[T_co]):
     label: str | None = ...
     version: int | None = ...
     exception: Exception | None = ...
+    composed_from: list[ComposedReference] = field(default_factory=list['ComposedReference'])
     reason: ResolutionReason
     def __post_init__(self) -> None: ...
     def __enter__(self): ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None: ...
+
+def render_serialized_string(serialized_json: str, inputs: Any) -> str:
+    """Render Handlebars templates in a serialized JSON string.
+
+    Decodes the JSON, renders all string values containing `{{placeholders}}`
+    using the provided inputs, then re-encodes to JSON.
+
+    Args:
+        serialized_json: A JSON-encoded string potentially containing Handlebars templates.
+        inputs: Template context values. Can be a Pydantic `BaseModel`, `dict`,
+            `Mapping`, or `None`.
+
+    Returns:
+        The rendered JSON string.
+    """
 
 @dataclass
 class LabelCompatibility:
@@ -72,12 +90,18 @@ class VariableChange:
     local_description: str | None = ...
     server_description: str | None = ...
     description_differs: bool = ...
+    template_inputs_schema: dict[str, Any] | None = ...
+    value_schema_changed: bool = ...
+    inputs_schema_changed: bool = ...
 
 @dataclass
 class VariableDiff:
     """Represents the diff between local and server variables."""
     changes: list[VariableChange]
     orphaned_server_variables: list[str]
+    reference_errors: list[str] = field(default_factory=list[str])
+    reference_cycles: list[str] = field(default_factory=list[str])
+    template_field_issues: list[TemplateFieldIssue] = field(default_factory=list)
     @property
     def has_changes(self) -> bool:
         """Return True if there are any changes to apply."""
@@ -116,12 +140,15 @@ class ValidationReport:
     variables_checked: int
     variables_not_on_server: list[str]
     description_differences: list[DescriptionDifference]
+    reference_errors: list[str] = field(default_factory=list[str])
+    reference_cycles: list[str] = field(default_factory=list[str])
+    template_field_issues: list[TemplateFieldIssue] = field(default_factory=list)
     @property
     def has_errors(self) -> bool:
         """Return True if there are any validation errors."""
     @property
     def is_valid(self) -> bool:
-        """Return False if there are any validation errors or any variables not defined in the (possibly remote) config."""
+        """Return False if there are validation errors, missing variables, or reference errors."""
     def format(self, *, colors: bool = True) -> str:
         """Format the validation report for human-readable output.
 
@@ -276,8 +303,10 @@ class VariableProvider(ABC):
     def push_config(self, config: VariablesConfig, *, mode: SyncMode = 'merge', dry_run: bool = False, yes: bool = False) -> bool:
         """Push a VariablesConfig to this provider.
 
-        This method pushes a complete VariablesConfig (including labels and rollouts)
-        to the provider. It's useful for:
+        This method pushes a VariablesConfig (including labels and rollouts) to the
+        provider. For remote providers, version records are created from label
+        entries with inline serialized values; `latest_version` is pull/read state
+        derived by the server and is not pushed directly. It's useful for:
         - Pushing configs generated or modified locally
         - Pushing configs read from files
         - Partial updates (merge mode) or full replacement (replace mode)
@@ -313,7 +342,8 @@ class VariableProvider(ABC):
             variables: Variable instances to push.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas
+                or any reference errors are found.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.

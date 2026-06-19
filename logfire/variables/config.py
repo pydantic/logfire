@@ -11,6 +11,7 @@ from typing_extensions import TypeAliasType
 
 from logfire._internal.config import (
     LocalVariablesOptions as LocalVariablesOptions,
+    TemplateMismatchPolicy as TemplateMismatchPolicy,
     VariablesOptions as VariablesOptions,
 )
 from logfire.variables.abstract import ResolvedVariable
@@ -33,6 +34,7 @@ __all__ = (
     'LocalVariablesOptions',
     'Rollout',
     'RolloutOverride',
+    'TemplateMismatchPolicy',
     'ValueDoesNotEqual',
     'ValueDoesNotMatchRegex',
     'ValueEquals',
@@ -205,7 +207,13 @@ class LabeledValue(BaseModel):
 
 
 class LabelRef(BaseModel):
-    """A label pointing to a version via a reference to another label, 'latest', or 'code_default'."""
+    """A label pointing to a version via a reference to another label, 'latest', or 'code_default'.
+
+    Note: `'latest'` and `'code_default'` are *reserved label names*. The platform rejects
+    user attempts to create labels with these names, so anywhere the SDK treats them as
+    special — `follow_ref` here, and the push-time validation that keys values by label
+    name — it can rely on them being unambiguous (no user-defined label can collide).
+    """
 
     version: int | None = None
     """The version number this label points to. None for label-to-label refs or code_default."""
@@ -308,6 +316,12 @@ class VariableConfig(BaseModel):
     """Alternative names that resolve to this variable; useful for name migrations."""
     example: str | None = None
     """JSON-serialized example value from code; used as a template when creating new values in the UI."""
+    template_inputs_schema: dict[str, Any] | None = None
+    """JSON Schema describing the expected template inputs for Handlebars rendering.
+
+    When set, the variable's values can contain {{placeholder}} Handlebars syntax.
+    The schema is derived from the `inputs_type` model passed to `logfire.template_var()`.
+    """
     # NOTE: Context-based targeting_key can be set via targeting_context() from logfire.variables.
     # TODO(DavidM): Consider adding remotely-managed targeting_key_attribute for automatic attribute-based targeting.
 
@@ -528,7 +542,7 @@ class VariablesConfig(BaseModel):
 
         return None
 
-    def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
+    def get_validation_errors(self, variables: Sequence[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
         """Validate that all variable label values can be deserialized to their expected types.
 
         Args:
@@ -561,7 +575,7 @@ class VariablesConfig(BaseModel):
         return errors
 
     @staticmethod
-    def from_variables(variables: list[Variable[Any]]) -> VariablesConfig:
+    def from_variables(variables: Sequence[Variable[Any]]) -> VariablesConfig:
         """Create a VariablesConfig from a list of Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.
@@ -573,7 +587,7 @@ class VariablesConfig(BaseModel):
         Returns:
             A VariablesConfig with minimal configs for each variable.
         """
-        from logfire.variables.variable import is_resolve_function
+        from logfire.variables.variable import get_template_inputs_schema, is_resolve_function
 
         variable_configs: dict[VariableName, VariableConfig] = {}
         for variable in variables:
@@ -585,6 +599,8 @@ class VariablesConfig(BaseModel):
             if not is_resolve_function(variable.default):
                 example = variable.type_adapter.dump_json(variable.default).decode('utf-8')
 
+            template_inputs_schema = get_template_inputs_schema(variable)
+
             config = VariableConfig(
                 name=variable.name,
                 description=variable.description,
@@ -593,6 +609,7 @@ class VariablesConfig(BaseModel):
                 overrides=[],
                 json_schema=json_schema,
                 example=example,
+                template_inputs_schema=template_inputs_schema,
             )
             variable_configs[variable.name] = config
 
