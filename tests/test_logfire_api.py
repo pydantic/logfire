@@ -132,6 +132,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     # Variables APIs are intentionally not in logfire-api — users of variables should use the full SDK
     for name in [
         'var',
+        'template_var',
         'variables',
         'variables_clear',
         'variables_get',

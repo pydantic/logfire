@@ -1,78 +1,21 @@
 # JavaScript Framework Setup
 
-## Node.js (Express, Fastify, etc.)
+This file is a compatibility index for older prompts that ask for the JS framework reference directly. For new instrumentation work, read [project-detection.md](./project-detection.md) first, then the runtime-specific reference.
 
-Create `instrumentation.ts` and load it before your app:
+## Runtime Routing
 
-```typescript
-// instrumentation.ts
-import * as logfire from '@pydantic/logfire-node'
-import 'dotenv/config'
+| Detected project | Primary reference | Runtime package |
+| --- | --- | --- |
+| Express, Fastify, Koa, Hono on Node, scripts, CLIs, workers outside edge runtimes | [node-runtime.md](./node-runtime.md) | `@pydantic/logfire-node` |
+| Next.js server-side tracing | [nextjs.md](./nextjs.md) | `@vercel/otel` plus `logfire` for manual spans |
+| React/Vite/browser tracing | [react-browser.md](./react-browser.md) | `@pydantic/logfire-browser` |
+| Cloudflare Workers | [cloudflare-and-deno.md](./cloudflare-and-deno.md) | `@pydantic/logfire-cf-workers` plus `logfire` |
+| Deno | [cloudflare-and-deno.md](./cloudflare-and-deno.md) | Deno OpenTelemetry plus `npm:logfire` |
+| Vercel AI SDK | [ai-sdk.md](./ai-sdk.md) | Depends on Node or Next.js setup |
 
-logfire.configure()
-```
+## Current Defaults
 
-Launch:
-
-```bash
-node --require ./instrumentation.js app.js
-# or with ts-node:
-npx ts-node --require ./instrumentation.ts app.ts
-```
-
-The SDK auto-instruments common libraries (http, fetch, express, etc.) when loaded before the app via `--require`.
-
-## Cloudflare Workers
-
-```typescript
-import { instrument } from '@pydantic/logfire-cf-workers'
-
-const handler = {
-    async fetch(request: Request, env: Env, ctx: ExecutionContext) {
-        return new Response('Hello')
-    },
-}
-
-export default instrument(handler, {
-    service: { name: 'my-worker', version: '1.0.0' },
-})
-```
-
-Add `LOGFIRE_TOKEN` to `.dev.vars` and enable `nodejs_compat` in `wrangler.toml`:
-
-```toml
-compatibility_flags = ["nodejs_compat"]
-```
-
-## Next.js / Vercel
-
-Set environment variables in `.env.local` or Vercel dashboard:
-
-```bash
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-api.pydantic.dev/v1/traces
-OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=<your-write-token>
-```
-
-Optionally use the `logfire` package for manual spans in server components and API routes:
-
-```typescript
-import * as logfire from 'logfire'
-
-logfire.info('Server action executed', { action: 'createUser' })
-```
-
-## Deno
-
-Deno has built-in OpenTelemetry support. Set environment variables:
-
-```bash
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-api.pydantic.dev/v1/traces
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=<your-write-token>
-```
-
-Run with telemetry enabled:
-
-```bash
-deno run --allow-env --unstable-otel app.ts
-```
+- Use `node --import ./instrumentation.js` for modern Node ESM preload. Use `--require` only for CommonJS.
+- Browser code must send traces to a same-origin backend proxy. Never use `LOGFIRE_TOKEN`, `OTEL_EXPORTER_OTLP_HEADERS`, or write-token literals in browser bundles.
+- Next.js server-side tracing should use `@vercel/otel`; do not use `@pydantic/logfire-node` as the primary Next server setup unless the app has a separate custom Node server.
+- Cloudflare Workers wrap the exported handler with `instrument()` from `@pydantic/logfire-cf-workers`; import manual spans/logs from `logfire`.

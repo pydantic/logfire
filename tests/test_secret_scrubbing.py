@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -549,6 +551,85 @@ def test_word_boundaries(exporter: TestExporter):
                         {'path': ['attributes', 'x', 4], 'matched_substring': 'csrf_'},
                         {'path': ['attributes', 'x', 5], 'matched_substring': 'csrf'},
                         {'path': ['attributes', 'x', 6], 'matched_substring': 'csrf'},
+                    ],
+                },
+            }
+        ]
+    )
+
+
+def test_default_patterns_match_docs():
+    """The default scrubbing patterns are documented, so the docs must be kept in sync with the code.
+
+    The docs list is generated from `DEFAULT_PATTERNS`. If it has drifted, this test rewrites
+    the docs to match (so a local re-run passes) and then fails, like inline-snapshot's fix mode.
+    """
+    from logfire._internal.scrubbing import DEFAULT_PATTERNS
+
+    docs = Path(__file__).parent.parent / 'docs' / 'how-to-guides' / 'scrubbing.md'
+    content = docs.read_text()
+
+    # `repr` of each pattern reproduces exactly how it's written in the docs code block.
+    expected_block = '[\n' + ''.join(f'    {pattern!r},\n' for pattern in DEFAULT_PATTERNS) + ']'
+
+    # Match the ```python [...] ``` block that follows the "default scrubbing patterns" sentence.
+    match = re.search(
+        r'(Here are the default scrubbing patterns:\n+```python\n)(\[.*?\])(\n```)',
+        content,
+        re.DOTALL,
+    )
+    assert match, 'Could not find the default scrubbing patterns code block in the docs'
+
+    if match.group(2) != expected_block:
+        docs.write_text(content[: match.start(2)] + expected_block + content[match.end(2) :])
+        pytest.fail(
+            f'The scrubbing patterns documented in {docs} were out of sync with `DEFAULT_PATTERNS` '
+            'in logfire/_internal/scrubbing.py. The docs have been updated to match; re-run to confirm.'
+        )
+
+
+def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        x=[
+            'pylf_v1_abc123xyz',
+            'pylf_v2_sometoken',
+            'pylf_v10_longerversion',
+            'not_pylf_v1_token',
+            'pylf_v1_',
+        ],
+    )
+    # pylf_v\d+_ pattern matches Logfire API token prefixes.
+    # Tokens like 'pylf_v1_abc123xyz' get scrubbed, but the prefix alone is kept.
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_logfire_token_prefix_scrubbing',
+                    'code.lineno': 123,
+                    'x': [
+                        "[Scrubbed due to 'pylf_v1_']",
+                        "[Scrubbed due to 'pylf_v2_']",
+                        "[Scrubbed due to 'pylf_v10_']",
+                        "[Scrubbed due to 'pylf_v1_']",
+                        'pylf_v1_',
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'x', 0], 'matched_substring': 'pylf_v1_'},
+                        {'path': ['attributes', 'x', 1], 'matched_substring': 'pylf_v2_'},
+                        {'path': ['attributes', 'x', 2], 'matched_substring': 'pylf_v10_'},
+                        {'path': ['attributes', 'x', 3], 'matched_substring': 'pylf_v1_'},
                     ],
                 },
             }

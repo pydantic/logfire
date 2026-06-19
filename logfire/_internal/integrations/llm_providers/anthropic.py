@@ -236,8 +236,9 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
     parts: list[MessagePart] = []
 
     for block in message.content:
-        if isinstance(block, (TextBlock, BetaTextBlock)):
-            parts.append(TextPart(type='text', content=block.text))
+        text = getattr(block, 'text', None)
+        if isinstance(block, (TextBlock, BetaTextBlock)) and text is not None:
+            parts.append(TextPart(type='text', content=text))
         elif isinstance(block, (ToolUseBlock, BetaToolUseBlock)):
             parts.append(
                 make_tool_call_part(
@@ -284,7 +285,11 @@ class AnthropicMessageStreamState(StreamState):
     def get_response_data(self) -> Any:
         if self._message is None:
             return {'combined_chunk_content': '', 'chunk_count': 0}
-        texts = [block.text for block in self._message.content if isinstance(block, (TextBlock, BetaTextBlock))]
+        texts = [
+            text
+            for block in self._message.content
+            if isinstance(block, (TextBlock, BetaTextBlock)) and (text := getattr(block, 'text', None)) is not None
+        ]
         return {'combined_chunk_content': ''.join(texts), 'chunk_count': self._chunk_count}
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:

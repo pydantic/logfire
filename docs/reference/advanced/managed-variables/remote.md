@@ -20,7 +20,7 @@ agent_config = logfire.var(
 ```
 
 !!! tip "Automatic Remote Variables"
-    If `LOGFIRE_API_KEY` is set in your environment, variable APIs will **automatically** use the remote provider without needing `variables=VariablesOptions()` in `configure()`. The first time a variable is resolved, the SDK detects the API key and lazily initializes the remote provider with default options. You only need to pass `variables=VariablesOptions(...)` explicitly if you want to customize options like `polling_interval` or `block_before_first_resolve`.
+    If `LOGFIRE_API_KEY` is set in your environment, variable APIs will **automatically** use the remote provider after `logfire.configure()` is called, without needing `variables=VariablesOptions()` in `configure()`. The first time a variable is resolved after configuration, the SDK detects the API key and lazily initializes the remote provider with default options. You only need to pass `variables=VariablesOptions(...)` explicitly if you want to customize options like `polling_interval` or `block_before_first_resolve`.
 
 !!! note "API Key Required"
     Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `logfire.configure(api_key=...)`. See [External Variables and OFREP](external.md) for details on scopes and accessing variables from client-side applications.
@@ -262,6 +262,10 @@ The `ValidationReport` provides detailed information about validation results:
 | `variables_checked` | Number of variables that were validated |
 | `variables_not_on_server` | Names of local variables not found on the server |
 | `description_differences` | Variables where local and server descriptions differ |
+| `reference_errors` | `@{variable}@` reference problems (missing references and cycles) |
+| `reference_cycles` | The subset of `reference_errors` that are cycles (always blocking) |
+| `template_field_issues` | Template `{{field}}` references that don't match a `TemplateVariable`'s declared `inputs_type` |
+| `is_valid` | `False` if there are validation errors, missing variables, reference errors, or template field issues |
 | `format()` | Returns a human-readable string of the validation results |
 
 This is useful in CI/CD pipelines to catch configuration drift where someone may have edited a version value in the UI that no longer matches your expected type.
@@ -339,9 +343,16 @@ from logfire.variables import VariablesConfig
 # Read the edited config
 config = VariablesConfig.model_validate_json(Path('variables.json').read_text())
 
-# Sync to the server (including labels and versions)
+# Sync to the server (including label assignments and inline label values)
 logfire.variables_push_config(config)
 ```
+
+For remote providers, `latest_version` is read-side state derived by the
+server. To create or update versions programmatically, add `LabeledValue`
+entries under `labels`; the server creates version records from their
+`serialized_value` fields and computes `latest_version` from the stored
+versions. Editing only `latest_version` in a local config file is ignored by
+`variables_push_config()`.
 
 **Push modes:**
 

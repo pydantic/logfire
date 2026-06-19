@@ -1,5 +1,33 @@
 # Release Notes
 
+## [v4.37.0] (2026-06-12)
+
+* Pre-populate `host.*` and `os.*` resource attributes by @strawgate in [#2013](https://github.com/pydantic/logfire/pull/2013)
+* Handle non-finite floats in JSON encoder by @alexmojaki in [#2009](https://github.com/pydantic/logfire/pull/2009)
+* fix: guard None text in Anthropic TextBlock during streaming by @axelray-dev in [#2017](https://github.com/pydantic/logfire/pull/2017)
+* Avoid truncating rich console arguments by @alexmojaki in [#2008](https://github.com/pydantic/logfire/pull/2008)
+* Disable console logging for the 'Logfire configured' log by @alexmojaki in [#2007](https://github.com/pydantic/logfire/pull/2007)
+
+## [v4.36.0] (2026-06-09)
+
+* Composition and templating with native handlebars by @alexmojaki in [#1954](https://github.com/pydantic/logfire/pull/1954)
+* Add `pylf_v\d+_` pattern to default scrubbing patterns by @alexmojaki in [#1993](https://github.com/pydantic/logfire/pull/1993)
+* Require `logfire.configure()` before lazy remote variables by @alexmojaki in [#2002](https://github.com/pydantic/logfire/pull/2002)
+
+## [v4.35.0] (2026-06-02)
+
+* Add support for new `/v2/query` endoint by @Viicos in [#1897](https://github.com/pydantic/logfire/pull/1897)
+
+  This introduces changes to the `LogfireQueryClient` (and its `AsyncLogfireQueryClient` async variant), that are backwards compatible.
+  However, a couple deprecations were introduced:
+  * The `query_json()` method was deprecated. Use `query_json_rows()` instead.
+  * Using the `query_json_rows()` / `query_arrow()` / `query_csv()` methods without providing a `min_timestamp` is deprecated.
+
+  See [the announcement](https://pydantic.dev/changelog/new-query-endpoint) for more details.
+
+* Support OpenTelemetry SDK 1.42 by @alexmojaki in [#1978](https://github.com/pydantic/logfire/pull/1978)
+* Fix token pattern to accept organization IDs for API keys by @Viicos in [#1980](https://github.com/pydantic/logfire/pull/1980)
+
 ## [v4.34.0] (2026-05-26)
 
 * Add `logfire.forward_export_request` and `forward_export_request_starlette` methods by @alexmojaki in [#1974](https://github.com/pydantic/logfire/pull/1974)
@@ -1159,3 +1187,6 @@ First release from new repo!
 [v4.32.1]: https://github.com/pydantic/logfire/compare/v4.32.0...v4.32.1
 [v4.33.0]: https://github.com/pydantic/logfire/compare/v4.32.1...v4.33.0
 [v4.34.0]: https://github.com/pydantic/logfire/compare/v4.33.0...v4.34.0
+[v4.35.0]: https://github.com/pydantic/logfire/compare/v4.34.0...v4.35.0
+[v4.36.0]: https://github.com/pydantic/logfire/compare/v4.35.0...v4.36.0
+[v4.37.0]: https://github.com/pydantic/logfire/compare/v4.36.0...v4.37.0
