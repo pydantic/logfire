@@ -21,7 +21,7 @@ npm install ai @ai-sdk/openai @pydantic/logfire-node zod
 Configure Logfire **first** so the global tracer exists before any `ai` call:
 
 ```typescript title="agent.ts"
-import logfire from '@pydantic/logfire-node';
+import * as logfire from '@pydantic/logfire-node';
 
 logfire.configure({ serviceName: 'vercel-ai-agent' }); // sets the global OTel tracer provider
 

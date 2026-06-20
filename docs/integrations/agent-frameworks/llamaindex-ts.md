@@ -81,10 +81,10 @@ and fetch them at runtime with the [Logfire TypeScript SDK](https://pydantic.dev
 using `defineTemplateVar`:
 
 ```typescript
-import { configure } from '@pydantic/logfire-node';
+import * as logfire from '@pydantic/logfire-node';
 import { defineTemplateVar } from '@pydantic/logfire-node/vars';
 
-configure({ serviceName: 'llamaindex-ts-logfire' });
+logfire.configure({ serviceName: 'llamaindex-ts-logfire' });
 
 const systemPrompt = defineTemplateVar<string, { topic: string }>('prompt__system', {
   default: 'You are a helpful assistant about {{topic}}.',
