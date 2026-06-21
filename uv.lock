@@ -2479,6 +2479,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-pymongo", marker = "extra == 'pymongo'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-redis", marker = "extra == 'redis'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-requests", marker = "extra == 'requests'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-urllib3", marker = "extra == 'urllib3'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-sqlalchemy", marker = "extra == 'sqlalchemy'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-sqlite3", marker = "extra == 'sqlite3'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-starlette", marker = "extra == 'starlette'", specifier = ">=0.42b0" },
@@ -2554,6 +2555,7 @@ dev = [
     { name = "opentelemetry-instrumentation-pymongo", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-redis", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-requests", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-urllib3", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-sqlalchemy", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
@@ -3589,6 +3591,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7b/39/7b14ef15c7c74b0da7d32b449732795a5cf7495897b72fc0b48280b96f50/opentelemetry_instrumentation_requests-0.63b1.tar.gz", hash = "sha256:513fcaa3d93debbdb359c00ce1a137a34a89ee908c51ac43beb7e8c18ac2b3cd", size = 18098, upload-time = "2026-05-21T16:36:46.02Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/18/a5e35fe8c9ad8041b71dd712658589de5d692aaa17d7cbce7f87a5cb0d0f/opentelemetry_instrumentation_requests-0.63b1-py3-none-any.whl", hash = "sha256:935c980a11e33bfd7ed969c741e4bd7c84077045651469f10e163534368d87f7", size = 13378, upload-time = "2026-05-21T16:35:52.166Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-urllib3"
+version = "0.63b1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "opentelemetry-util-http" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/b9/acc5bd0add608cad1abebe9d65c0916bf48c8957c2a6b0b3985ead79830e/opentelemetry_instrumentation_urllib3-0.63b1.tar.gz", hash = "sha256:c4358358f49b7dc42550cd6efbcfbfce3d178b8bf09acf46b62993f5f3ba4a9c", size = 18945, upload-time = "2026-05-21T16:36:46.02Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/92/a9fac2daa2e4d843d6330263d56b18f32a5de43573e6c869da439e84ddf2/opentelemetry_instrumentation_urllib3-0.63b1-py3-none-any.whl", hash = "sha256:241d0a819e614e479ba89d32470dddd94191deb0cb49fa525fa5585022caddbe", size = 13512, upload-time = "2026-05-21T16:36:46.02Z" },
 ]
 
 [[package]]
