@@ -8,12 +8,12 @@ from opentelemetry.sdk.trace import Span
 
 try:
     from opentelemetry.instrumentation.urllib3 import RequestInfo, URLLib3Instrumentor
-except ImportError:
+except ImportError as _err:
     raise RuntimeError(
         '`logfire.instrument_urllib3()` requires the `opentelemetry-instrumentation-urllib3` package.\n'
         'You can install this with:\n'
         "    pip install 'logfire[urllib3]'"
-    )
+    ) from _err
 
 
 def instrument_urllib3(
