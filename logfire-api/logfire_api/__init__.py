@@ -251,7 +251,7 @@ except ImportError:
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
-instrument_urllib3 = DEFAULT_LOGFIRE_INSTANCE.instrument_urllib3
+        instrument_urllib3 = DEFAULT_LOGFIRE_INSTANCE.instrument_urllib3
         instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
         instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
