@@ -7,8 +7,6 @@ import pydantic_ai.models
 import requests
 import urllib3.connectionpool
 import urllib3.response
-from opentelemetry.instrumentation.urllib3 import RequestInfo as Urllib3RequestInfo
-
 from . import async_ as async_
 from ..experimental.forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
@@ -47,6 +45,7 @@ from fastapi import FastAPI
 from flask.app import Flask
 from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
+from opentelemetry.instrumentation.urllib3 import RequestInfo as Urllib3RequestInfo
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
