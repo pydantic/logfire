@@ -132,6 +132,7 @@ dev = [
     "opentelemetry-instrumentation-django>=0.42b0",
     "opentelemetry-instrumentation-httpx>=0.42b0",
     "opentelemetry-instrumentation-requests>=0.42b0",
+    "opentelemetry-instrumentation-urllib3>=0.42b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.42b0",
     "opentelemetry-instrumentation-system-metrics>=0.42b0",
     "opentelemetry-instrumentation-asyncpg>=0.42b0",
