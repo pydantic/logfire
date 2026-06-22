@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import urllib3.connectionpool
-import urllib3.response
 from opentelemetry.sdk.trace import Span
 
 try:
@@ -15,6 +13,10 @@ except ImportError as _err:
         'You can install this with:\n'
         "    pip install 'logfire[urllib3]'"
     ) from _err
+
+if TYPE_CHECKING:
+    import urllib3.connectionpool
+    import urllib3.response
 
 
 def instrument_urllib3(
