@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry.sdk.trace import Span
 
 try:
-    from opentelemetry.instrumentation.urllib3 import RequestInfo, URLLib3Instrumentor
+    from opentelemetry.instrumentation.urllib3 import URLLib3Instrumentor
 except ImportError as _err:
     raise RuntimeError(
         '`logfire.instrument_urllib3()` requires the `opentelemetry-instrumentation-urllib3` package.\n'
@@ -17,6 +17,7 @@ except ImportError as _err:
 if TYPE_CHECKING:
     import urllib3.connectionpool
     import urllib3.response
+    from opentelemetry.instrumentation.urllib3 import RequestInfo
 
 
 def instrument_urllib3(
