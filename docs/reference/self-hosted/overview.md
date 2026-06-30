@@ -13,9 +13,9 @@ Use the [Logfire Helm chart README](https://github.com/pydantic/logfire-helm-cha
 ## Website Docs
 
 * [Local quickstart](./local-quickstart.md): run a first install with the chart's `values.dev.yaml` file.
-* [Production requirements](./installation.md): plan the production values you need before installing the chart.
 * [Architecture](./architecture.md): understand the main services, dependencies, and data flow.
-* [Examples](./examples.md): copy provider-specific authentication snippets into your values file.
+* [Production requirements](./installation.md): plan the production values you need before installing the chart.
+* [Examples](./examples.md): configure SSO connectors and exchange instance-admin tokens.
 * [Troubleshooting](./troubleshooting.md): debug image pull, database, and runtime issues.
 * [Bucket migration](./bucket-migration.md): migrate telemetry object storage buckets.
 * [Usage report](./usage-report.md): generate usage reports for self-hosted deployments.

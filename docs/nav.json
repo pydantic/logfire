@@ -287,9 +287,9 @@
           { "label": "Local Quickstart", "slug": "reference/self-hosted/local-quickstart" },
           { "label": "Architecture", "slug": "reference/self-hosted/architecture" },
           { "label": "Production Requirements", "slug": "reference/self-hosted/installation" },
+          { "label": "Examples", "slug": "reference/self-hosted/examples" },
           { "label": "Troubleshooting", "slug": "reference/self-hosted/troubleshooting" },
           { "label": "Bucket Migration", "slug": "reference/self-hosted/bucket-migration" },
-          { "label": "Examples", "slug": "reference/self-hosted/examples" },
           { "label": "Usage Report", "slug": "reference/self-hosted/usage-report" }
         ]
       }
