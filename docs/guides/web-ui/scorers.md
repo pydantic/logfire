@@ -27,10 +27,9 @@ Because the write-back is an ordinary evaluation event — the exact shape the S
 
 Open the **Agents** page from the project sidebar, click the agent you want to score, and select its **Scorers** tab. Create a scorer with:
 
-- **Name** — identifies the scorer within the agent.
-- **Rubric** — the judging instructions, written in plain language. For example: `Score how helpful, accurate, and concise the assistant response is for the user request. Higher is better.`
-- **Score name** — the evaluator name the scores are recorded under. This is the name you'll see for the scorer on the [Live Evaluations](live-evals.md) page (for example, `Helpfulness`).
-- **Sample rate** — the fraction of matching runs to judge, so you can keep coverage (and cost) proportionate on a busy agent.
+- **Score name** — the evaluator name the scores are recorded under, unique within the agent. This is the name you'll see for the scorer on the [Live Evaluations](live-evals.md) page (for example, `Helpfulness`).
+- **Rubric** — the judging instructions, written in plain language. The judge sees each run's input and output and returns a `0`–`1` score with a reason. For example: `Score how helpful, accurate, and concise the assistant response is for the user request. Higher is better.`
+- **Sample rate** — the percentage of matching runs to judge, so you can keep coverage (and cost) proportionate on a busy agent. The sample is deterministic: the same run is always in or out.
 - **Enabled** — the toggle that turns continuous scoring on. Leave it off while you dry-run (see below), then turn it on and save.
 
 ## Dry-run before you enable
