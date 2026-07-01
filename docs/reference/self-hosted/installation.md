@@ -275,7 +275,7 @@ logfire-dex:
           getUserInfo: true
 ```
 
-For Azure AD, Okta, and more detailed GitHub steps, see [examples](./examples.md).
+For Azure AD, Okta, and more detailed GitHub steps, see the [SSO provider examples](./examples.md#sso-provider-examples).
 
 ## Sizing and Storage
 

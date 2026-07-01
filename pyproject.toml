@@ -155,7 +155,8 @@ dev = [
     "psycopg2-binary >= 2.9.10",
     "asyncpg >= 0.30.0",
     "pymysql >= 1.1.1",
-    "cryptography >= 44.0.0",
+    # >=48.0.1 ships a non-vulnerable OpenSSL (GHSA-537c-gmf6-5ccf).
+    "cryptography >= 48.0.1",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
     "sqlmodel>=0.0.15",
@@ -169,7 +170,9 @@ dev = [
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy>=2.0; python_version < '3.12'",
     "pytest-recording>=0.13.2",
-    "vcrpy>=6",
+    # >=8.2.1 includes the aiohttp 3.14 compatibility fix and a fix for arbitrary
+    # code execution via unsafe YAML deserialization of cassettes (GHSA-rpj2-4hq8-938g).
+    "vcrpy>=8.2.1",
     "uvicorn>=0.30.6",
     "logfire-api",
     "setuptools>=75.3.0",
@@ -182,7 +185,8 @@ dev = [
     "openai-agents[voice]>=0.14.0",
     "pydantic-ai-slim>=0.0.39",
     "pydantic-evals>=1.0.0",
-    "langchain>=0.0.27",
+    # >=1.3.9 fixes path traversal / sandbox escape in file-search middleware and loaders (GHSA-gr75-jv2w-4656).
+    "langchain>=1.3.9",
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
     "opentelemetry-instrumentation-google-genai >= 0.4b0",
@@ -205,9 +209,6 @@ format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
-# Until a release with the aiohttp 3.14 compatibility fix is published.
-# https://github.com/kevin1024/vcrpy/issues/995
-vcrpy = { git = "https://github.com/kevin1024/vcrpy", rev = "3ef7682f6cfd708d9514f339ee7973530d46f2fe" }
 
 [tool.uv]
 default-groups = ["dev"]

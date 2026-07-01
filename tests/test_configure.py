@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import getpass
 import json
 import os
 import pickle
@@ -33,6 +34,7 @@ from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource, ResourceDetector
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
@@ -54,6 +56,7 @@ from logfire._internal.config import (
     CodeSource,
     ConsoleOptions,
     LogfireConfig,
+    LogfireConfigWarning,
     LogfireCredentials,
     VariablesOptions,
     get_base_url_from_token,
@@ -762,36 +765,38 @@ def test_configure_export_delay() -> None:
     check_delays(exporter, 0.0, 0.1)  # since we set 1ms it should be a very short delay
 
 
-def test_configure_service_version(tmp_path: str) -> None:
-    request_mocker = requests_mock.Mocker()
-    request_mocker.get(
-        'https://logfire-api.pydantic.dev/v1/info',
-        json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
-    )
-
+def test_configure_service_version(config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: str) -> None:
     import subprocess
 
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
 
-    with request_mocker:
-        configure(token='abc2', service_version='1.2.3')
+    def resource_service_version() -> str | None:
+        logfire.info('test')
+        [span] = exporter.exported_spans_as_dict(include_resources=True)
+        exporter.clear()
+        return span['resource']['attributes'].get('service.version')
 
-        assert GLOBAL_CONFIG.service_version == '1.2.3'
+    # Explicit version: stored on the config and used in the resource.
+    configure(service_version='1.2.3', **config_kwargs)
+    assert GLOBAL_CONFIG.service_version == '1.2.3'
+    assert resource_service_version() == '1.2.3'
 
-        configure(token='abc3')
+    # No explicit version: the git commit hash is used in the resource as a low-precedence fallback (so
+    # `OTEL_RESOURCE_ATTRIBUTES` can still override it here), and is stored back on the config so it's reflected
+    # in the configuration span and serialized to child processes.
+    configure(**config_kwargs)
+    assert GLOBAL_CONFIG.service_version == git_sha
+    assert resource_service_version() == git_sha
 
-        assert GLOBAL_CONFIG.service_version == git_sha
-
-        dir = os.getcwd()
-
-        try:
-            os.chdir(tmp_path)
-            configure(token='abc4')
-            assert GLOBAL_CONFIG.service_version is None
-        finally:
-            os.chdir(dir)
-
-        wait_for_check_token_thread()
+    # No git available: no `service.version` at all.
+    dir = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        configure(**config_kwargs)
+        assert GLOBAL_CONFIG.service_version is None
+        assert resource_service_version() is None
+    finally:
+        os.chdir(dir)
 
 
 def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
@@ -924,7 +929,9 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
-                        'service.name': 'banana',
+                        # `OTEL_SERVICE_NAME` takes priority over `service.name` in `OTEL_RESOURCE_ATTRIBUTES`,
+                        # matching OpenTelemetry's own semantics.
+                        'service.name': 'potato',
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
                         'logfire.version': VERSION,
@@ -941,6 +948,255 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
             }
         ]
     )
+
+
+def test_resource_attributes_advanced_option(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    config_kwargs['resource_attributes'] = {'host.name': 'my-host', 'custom.thing': 'from-kwarg'}
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-env'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'host.name': 'my-host',
+            # The explicit `resource_attributes` kwarg takes precedence over the OTEL_RESOURCE_ATTRIBUTES env var.
+            'custom.thing': 'from-kwarg',
+        }
+    )
+
+
+def test_dedicated_args_take_precedence_over_resource_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    # The dedicated `service_name`/`service_version`/`environment` args win over the same keys set generically
+    # via `resource_attributes`, and each override emits a warning.
+    config_kwargs['resource_attributes'] = {
+        'service.name': 'from-attrs',
+        'service.version': 'from-attrs',
+        'deployment.environment.name': 'from-attrs',
+        'custom.thing': 'from-attrs',
+    }
+    with pytest.warns(LogfireConfigWarning) as warnings:
+        configure(**config_kwargs, service_name='from-arg', service_version='from-arg', environment='from-arg')
+
+    # One warning per dedicated argument that overrode a different `resource_attributes` value; the key with no
+    # dedicated argument (`custom.thing`) doesn't warn.
+    messages = '\n'.join(str(w.message) for w in warnings)
+    assert "The 'service.name' resource attribute is set both via" in messages
+    assert "The 'service.version' resource attribute is set both via" in messages
+    assert "The 'deployment.environment.name' resource attribute is set both via" in messages
+    assert "'custom.thing'" not in messages
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'service.name': 'from-arg',
+            'service.version': 'from-arg',
+            'deployment.environment.name': 'from-arg',
+            # A key with no dedicated argument still comes from `resource_attributes`.
+            'custom.thing': 'from-attrs',
+        }
+    )
+
+
+@pytest.mark.parametrize('detectors', [['*'], 'process', ['process']])
+def test_resource_detectors(detectors: str | list[str], config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A list of names, a bare string (coerced to a single-element list), and `'*'` (every registered detector)
+    # all run the `process` detector, which adds attributes that aren't pre-populated by default.
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=detectors)
+    configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    # The `process` detector adds attributes that aren't pre-populated by default.
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'process.owner': getpass.getuser(),
+            'process.executable.name': IsStr(),
+            'process.executable.path': IsStr(),
+        }
+    )
+
+
+def test_resource_detector_instance(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    class MyDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'custom.thing': 'detected', 'service.version': 'detected-version'})
+
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=[MyDetector()])
+    configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict(
+        {
+            'custom.thing': 'detected',
+            # Explicitly set attributes take precedence over detectors.
+            'service.version': 'explicit-version',
+        }
+    )
+
+
+def test_resource_detector_unknown_name(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # An unknown detector name warns and is skipped rather than raising, so a typo can't crash the app.
+    config_kwargs['advanced'] = dataclasses.replace(
+        config_kwargs['advanced'], resource_detectors=['nonexistent-detector', 'process']
+    )
+    with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    # The valid detector alongside the unknown one is still applied.
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'process.owner': getpass.getuser()})
+
+
+def test_resource_detector_load_failure(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    # A registered detector that raises while loading warns and is skipped rather than crashing the app.
+    class FailingEntryPoint:
+        name = 'failing'
+
+        def load(self):
+            def make_detector():
+                raise RuntimeError('boom')
+
+            return make_detector
+
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=['failing'])
+    with patch('logfire._internal.config.entry_points', return_value=[FailingEntryPoint()]):
+        with pytest.warns(LogfireConfigWarning, match="Failed to load resource detector 'failing': boom"):
+            configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    # Configuration still succeeds with the default resource attributes despite the failing detector.
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'process.runtime.name': IsStr()})
+
+
+def test_resource_detector_unknown_name_in_env_var(config_kwargs: dict[str, Any]) -> None:
+    # The env var follows the same tolerant semantics as OTEL_EXPERIMENTAL_RESOURCE_DETECTORS.
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'nonexistent-detector'}):
+        with pytest.warns(LogfireConfigWarning, match="Skipping unknown resource detector 'nonexistent-detector'"):
+            configure(**config_kwargs)
+
+
+def test_resource_detectors_take_precedence_over_env_var_detectors(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    class CommandDetector(ResourceDetector):
+        def detect(self) -> Resource:
+            return Resource({'process.command': 'from-kwarg-detector'})
+
+    config_kwargs['advanced'] = dataclasses.replace(config_kwargs['advanced'], resource_detectors=[CommandDetector()])
+    with patch.dict(os.environ, {'OTEL_EXPERIMENTAL_RESOURCE_DETECTORS': 'process'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    # `resource_detectors` takes precedence over `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS`.
+    assert attributes['process.command'] == 'from-kwarg-detector'
+    # The env var detector still contributes attributes that the kwarg detector doesn't override.
+    assert attributes['process.owner'] == getpass.getuser()
+
+
+def test_resource_attributes_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(
+        os.environ,
+        {
+            # The `malformed` item has no `=` and is silently skipped.
+            'LOGFIRE_RESOURCE_ATTRIBUTES': 'custom.thing=from-logfire-env,other=value,malformed',
+            'OTEL_RESOURCE_ATTRIBUTES': 'custom.thing=from-otel-env',
+        },
+    ):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['other'] == 'value'
+    assert 'malformed' not in attributes
+    # LOGFIRE_RESOURCE_ATTRIBUTES (a `logfire.configure()` source) takes precedence over OTEL_RESOURCE_ATTRIBUTES.
+    assert attributes['custom.thing'] == 'from-logfire-env'
+
+
+def test_resource_detectors_env_var(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    with patch.dict(os.environ, {'LOGFIRE_RESOURCE_DETECTORS': 'process'}):
+        configure(**config_kwargs)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes'] == IsPartialDict({'process.owner': getpass.getuser()})
+
+
+def test_resource_attributes_and_detectors_from_pyproject_toml(
+    config_kwargs: dict[str, Any], exporter: TestExporter, tmp_path: Path
+) -> None:
+    (tmp_path / 'pyproject.toml').write_text(
+        """
+        [tool.logfire]
+        resource_attributes = {"custom.thing" = "from-file"}
+        resource_detectors = ["process"]
+        """
+    )
+
+    configure(**config_kwargs, config_dir=tmp_path)
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    attributes = span['resource']['attributes']
+    assert attributes['custom.thing'] == 'from-file'
+    assert attributes['process.owner'] == getpass.getuser()
+
+
+def test_explicit_service_version_takes_precedence_over_otel_resource_attributes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+) -> None:
+    # An explicit `service_version` beats OTEL_RESOURCE_ATTRIBUTES; the git-hash fallback does not
+    # (see `test_otel_otel_resource_attributes_env_var`).
+    with patch.dict(os.environ, {'OTEL_RESOURCE_ATTRIBUTES': 'service.version=from-env'}):
+        configure(**config_kwargs, service_version='explicit-version')
+
+    logfire.info('test1')
+
+    [span] = exporter.exported_spans_as_dict(include_resources=True)
+    assert span['resource']['attributes']['service.version'] == 'explicit-version'
+
+
+def test_auto_detected_service_version_serialized() -> None:
+    """An auto-detected (git) `service_version` is stored back on the config when the resource is built, so it's
+    reflected in the configuration span and serialized to child processes (which then treat it as an explicit
+    value). An explicitly-passed `service_version` is stored and serialized as-is.
+    """
+    import subprocess
+
+    git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
+    # In the logfire repo, the version is auto-detected from git and stored on the config.
+    configure(send_to_logfire=False, console=False)
+    assert GLOBAL_CONFIG.service_version == git_sha
+    serialized = serialize_config()
+    assert serialized is not None
+    assert serialized['service_version'] == git_sha
+
+    # An explicit version is stored and preserved across serialization.
+    configure(send_to_logfire=False, console=False, service_version='explicit-version')
+    assert GLOBAL_CONFIG.service_version == 'explicit-version'
+    serialized = serialize_config()
+    assert serialized is not None
+    assert serialized['service_version'] == 'explicit-version'
 
 
 def test_host_and_os_resource_attributes_populated_by_default(
@@ -1804,6 +2060,8 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'service_name': False,
                         'service_version': True,
                         'environment': False,
+                        'resource_attributes': 0,
+                        'resource_detectors': 0,
                         'additional_span_processors': 1,
                     },
                     'logfire.package_versions': IsPartialDict({'logfire': IsStr()}),
