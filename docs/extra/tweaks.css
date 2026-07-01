@@ -111,3 +111,67 @@ li.md-nav__item>a[href^="#logfire.configure("] {
 .md-search-result mark.ais-Snippet-highlighted {
   color: var(--md-primary-fg-color);
 }
+
+/* Data region selector (docs/javascripts/region-selector.js) */
+.lf-region-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 0.9rem 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  background-color: var(--md-default-bg-color);
+}
+
+/* In the fallback (in-content) position, align with the article text. */
+.md-content__inner .lf-region-selector {
+  margin-left: 0;
+  margin-top: 0.6rem;
+}
+
+.lf-region-selector__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+
+.lf-region-selector__group {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.lf-region-selector__option {
+  cursor: pointer;
+  min-width: 2.6rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--md-default-fg-color--light);
+  background-color: transparent;
+  border: none;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.lf-region-selector__option + .lf-region-selector__option {
+  border-left: 1px solid var(--md-default-fg-color--lighter);
+}
+
+.lf-region-selector__option:hover {
+  color: var(--md-default-fg-color);
+}
+
+.lf-region-selector__option[aria-pressed="true"] {
+  color: #fff;
+  background-color: var(--md-primary-fg-color);
+}
+
+.lf-region-selector__hint {
+  font-size: 0.6rem;
+  color: var(--md-default-fg-color--lighter);
+}

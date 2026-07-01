@@ -27,7 +27,8 @@ This is the easiest way to get started with the Logfire MCP server.
 
 To use the remote MCP server, add the following configuration to your MCP client.
 
-**Choose the endpoint that matches your Logfire data region:**
+Use the **Data region** selector at the top of the "On this page" sidebar to pick your
+Logfire data region — every code example on this page is updated to match:
 
 - **US region** — `https://logfire-us.pydantic.dev/mcp`
 - **EU region** — `https://logfire-eu.pydantic.dev/mcp`
@@ -44,7 +45,7 @@ To use the remote MCP server, add the following configuration to your MCP client
 
 ## Configuration with well-known MCP clients
 
-The examples below use the **US region** endpoint. Replace the URL with `https://logfire-eu.pydantic.dev/mcp` if you are using the EU region.
+The examples below follow the **Data region** selector at the top of the "On this page" sidebar. Switch it to EU if your project lives in the EU region and the endpoints update automatically.
 
 ### Cursor
 
@@ -100,11 +101,11 @@ for more information.
 Install the [Logfire plugin](skills.md#codex) from the Pydantic marketplace. The plugin configures the hosted
 Logfire MCP server automatically — no separate MCP JSON configuration is required.
 
-The Codex plugin currently configures the US endpoint. For EU projects, replace the MCP entry and re-authenticate:
+The Codex plugin currently configures the US endpoint. To point it at the region selected above, replace the MCP entry and re-authenticate:
 
 ```bash
 codex mcp remove logfire
-codex mcp add logfire --url https://logfire-eu.pydantic.dev/mcp
+codex mcp add logfire --url https://logfire-us.pydantic.dev/mcp
 codex mcp login logfire
 ```
 
