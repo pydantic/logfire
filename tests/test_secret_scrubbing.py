@@ -337,6 +337,31 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
     )
 
 
+def test_extra_pattern_redaction_reason_does_not_echo_secret(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    logfire.configure(
+        scrubbing=logfire.ScrubbingOptions(
+            extra_patterns=[r'://[^:@/]+:[^@/]+@'],
+        ),
+        **config_kwargs,
+    )
+
+    secret = 'admin:s3cr3t_pass'
+    logfire.info('connect', config_url=f'postgresql://{secret}@db.internal:5432/mydb')
+
+    span = exporter.exported_spans_as_dict()[0]
+    config_url = span['attributes']['config_url']
+    scrubbed = span['attributes']['logfire.scrubbed']
+
+    assert secret not in config_url
+    assert secret not in scrubbed
+    assert config_url == "[Scrubbed due to '://[^:@/]+:[^@/]+@']"
+    assert scrubbed == IsJson(
+        [{'path': ['attributes', 'config_url'], 'matched_substring': '://[^:@/]+:[^@/]+@'}]
+    )
+
+
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
     os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
     logfire.configure(**config_kwargs)

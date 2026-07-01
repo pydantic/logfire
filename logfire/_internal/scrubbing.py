@@ -205,7 +205,16 @@ class Scrubber(BaseScrubber):
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
         # See ScrubbingOptions for more info on these parameters.
         patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
-        self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        default_patterns_count = len(DEFAULT_PATTERNS)
+        pattern_parts: list[str] = []
+        pattern_reason_by_group: dict[str, str | None] = {}
+        for index, pattern in enumerate(patterns):
+            group_name = f'pattern_{index}'
+            pattern_parts.append(f'(?P<{group_name}>{pattern})')
+            pattern_reason_by_group[group_name] = None if index < default_patterns_count else pattern
+
+        self._pattern = re.compile('|'.join(pattern_parts), re.IGNORECASE | re.DOTALL)
+        self._pattern_reason_by_group = pattern_reason_by_group
         self._callback = callback
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
@@ -246,6 +255,7 @@ class SpanScrubber:
 
     def __init__(self, parent: Scrubber):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._pattern_reason_by_group = parent._pattern_reason_by_group  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.did_scrub = False
@@ -343,8 +353,9 @@ class SpanScrubber:
             return result
         self.did_scrub = True
         matched_substring = match.pattern_match.group(0)
-        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
-        return f'[Scrubbed due to {matched_substring!r}]'
+        reason = self._pattern_reason_by_group.get(match.pattern_match.lastgroup or '', matched_substring) or matched_substring
+        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=reason))
+        return f'[Scrubbed due to {reason!r}]'
 
 
 class MessageValueCleaner:
