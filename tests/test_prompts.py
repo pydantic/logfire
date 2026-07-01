@@ -20,6 +20,7 @@ from logfire.variables.config import (
     VariableConfig,
     VariablesConfig,
 )
+from logfire.variables.local import LocalVariableProvider
 
 
 def _make_lf(variables_config: VariablesConfig, config_kwargs: dict[str, Any]) -> logfire.Logfire:
@@ -56,8 +57,23 @@ class TestPromptVariableName:
             assert prompt_variable_name('prompt__support-agent') == 'prompt__support_agent'
 
     def test_invalid_name_raises(self):
-        with pytest.raises(ValueError, match='invalid variable name'):
+        with pytest.raises(ValueError, match='Invalid prompt slug'):
             prompt_variable_name('has space')
+
+    def test_uppercase_rejected(self):
+        # Backend slugs are always lowercase, so an uppercased slug would silently resolve to a
+        # different variable and fall back to the code default. Reject it loudly instead.
+        with pytest.raises(ValueError, match='Invalid prompt slug'):
+            prompt_variable_name('SupportAgent')
+
+    def test_underscore_rejected(self):
+        # The slug uses hyphens; underscores belong only to the derived backing-variable name.
+        with pytest.raises(ValueError, match='Invalid prompt slug'):
+            prompt_variable_name('support_agent')
+
+    def test_empty_rejected(self):
+        with pytest.raises(ValueError, match='Invalid prompt slug'):
+            prompt_variable_name('')
 
 
 class TestPrompt:
@@ -99,8 +115,12 @@ class TestPrompt:
         assert p.name == 'prompt__warned'
 
     def test_invalid_name_raises(self):
-        with pytest.raises(ValueError, match='invalid variable name'):
+        with pytest.raises(ValueError, match='Invalid prompt slug'):
             logfire.prompt('has space', default='x')
+
+    def test_uppercase_slug_raises(self):
+        with pytest.raises(ValueError, match='Invalid prompt slug'):
+            logfire.prompt('SupportAgent', default='x')
 
 
 class TestTemplatePrompt:
@@ -137,3 +157,113 @@ class TestTemplatePrompt:
         with pytest.warns(UserWarning, match='added automatically'):
             p = logfire.template_prompt('prompt__warned', default='Hi {{name}}', inputs_type=Inputs)
         assert p.name == 'prompt__warned'
+
+
+class TestPushPrompts:
+    """`variables_push()` handles prompts too, routing them through the prompts surface.
+
+    A single push entry point covers everything declared in code — general variables go
+    through the variables API, prompt-backed variables (which the variables API rejects
+    writes to) are created via the prompts API.
+    """
+
+    def test_push_creates_missing_prompt_and_variable(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt('support-agent', default='You are helpful.', description='Support system prompt')
+        var = lf.var(name='plain_var', default='default', type=str)
+
+        result = provider.push_variables([prompt, var], yes=True)
+        assert result is True
+
+        captured = capsys.readouterr()
+        assert '+ support-agent (publishes version 1 from the code default)' in captured.out
+        assert 'Created prompt: support-agent' in captured.out
+        assert 'plain_var' in provider._config.variables
+
+        created = provider._config.variables['prompt__support_agent']
+        assert created.json_schema is None
+        assert created.description == 'Support system prompt'
+        assert created.latest_version is not None
+        assert created.latest_version.serialized_value == json.dumps('You are helpful.')
+        # A fresh prompt serves its latest version, matching platform defaults.
+        assert created.rollout.labels == {'latest': 1.0}
+
+    def test_pushed_prompt_resolves_from_provider(self, config_kwargs: dict[str, Any]):
+        """After a push, `prompt().get()` serves the pushed version, not the code default."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt('greeting', default='Hello from code.')
+        provider.push_variables([prompt], yes=True)
+
+        resolved = provider.get_serialized_value('prompt__greeting')
+        assert resolved.value == json.dumps('Hello from code.')
+        assert resolved.reason == 'resolved'
+
+    def test_push_existing_prompt_untouched(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        provider.create_prompt(slug='support-agent', name='Support agent', template='Server version.')
+
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt('support-agent', default='Different code default.')
+
+        result = provider.push_variables([prompt], yes=True)
+        assert result is False
+
+        captured = capsys.readouterr()
+        assert 'prompt(s) already exist and are left untouched (support-agent)' in captured.out
+        assert 'No changes needed' in captured.out
+        existing = provider._config.variables['prompt__support_agent']
+        assert existing.latest_version is not None
+        assert existing.latest_version.serialized_value == json.dumps('Server version.')
+
+    def test_push_template_prompt_includes_inputs_schema(self, config_kwargs: dict[str, Any]):
+        class Inputs(BaseModel):
+            customer_name: str
+
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.template_prompt('welcome', default='Hi {{customer_name}}!', inputs_type=Inputs)
+
+        result = provider.push_variables([prompt], yes=True)
+        assert result is True
+
+        created = provider._config.variables['prompt__welcome']
+        assert created.template_inputs_schema is not None
+        assert created.template_inputs_schema['properties'] == {
+            'customer_name': {'title': 'Customer Name', 'type': 'string'}
+        }
+
+    def test_push_prompt_function_default_creates_without_version(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        def resolve_fn(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            return 'computed'  # pragma: no cover
+
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt('dynamic', default=resolve_fn)
+
+        result = provider.push_variables([prompt], yes=True)
+        assert result is True
+
+        captured = capsys.readouterr()
+        assert '+ dynamic (no initial version — the code default is a function)' in captured.out
+        created = provider._config.variables['prompt__dynamic']
+        assert created.latest_version is None
+        assert created.rollout.labels == {}
+
+    def test_push_prompts_dry_run(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt('support-agent', default='You are helpful.')
+
+        result = provider.push_variables([prompt], dry_run=True)
+        assert result is True
+
+        captured = capsys.readouterr()
+        assert '+ support-agent' in captured.out
+        assert 'Dry run mode' in captured.out
+        assert provider._config.variables == {}

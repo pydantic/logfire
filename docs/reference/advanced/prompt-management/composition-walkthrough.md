@@ -149,7 +149,9 @@ variables for smaller text fragments and structured facts.
 ## 6. Ship the composed prompt
 
 Save a prompt version and promote it by moving the serving label on the prompt's
-backing managed variable. In application code, fetch the prompt as usual:
+backing managed variable. In application code, fetch the prompt as usual
+(remember prompts resolve via `LOGFIRE_API_KEY`, not the write token — see
+[Use Prompts in Your Application](./application.md#fetch-and-render-the-prompt-from-the-sdk)):
 
 ```python skip="true"
 from pydantic import BaseModel
@@ -165,9 +167,8 @@ class SupportPromptInputs(BaseModel):
     is_urgent: bool
 
 
-prompt_var = logfire.template_var(
-    name='prompt__support_agent',
-    type=str,
+prompt_var = logfire.template_prompt(
+    'support-agent',
     default='',
     inputs_type=SupportPromptInputs,
 )
@@ -183,7 +184,7 @@ with prompt_var.get(
 `prompt_var.get(...)` expands the `@{...}@` references using the current managed
 variable configuration, then renders the remaining `{{...}}` placeholders with
 the request-specific inputs before returning the final prompt text. If you fetch
-the prompt with `logfire.var()` instead, render the remaining Handlebars
+the prompt with `logfire.prompt()` instead, render the remaining Handlebars
 placeholders yourself before sending the final prompt to your model.
 
 ## Rendering order
@@ -198,9 +199,9 @@ For prompt scenarios, Logfire renders in this order:
    placeholders with the same scenario variables.
 4. Replace the scenario-only `@{prompt}@` alias with the rendered prompt.
 
-For application code, `logfire.template_var()` uses the same order: expand
+For application code, `logfire.template_prompt()` uses the same order: expand
 `@{...}@` references during resolution, then render `{{...}}` placeholders with
-the inputs passed to `get(inputs)`. If you use `logfire.var()` to fetch the raw
+the inputs passed to `get(inputs)`. If you use `logfire.prompt()` to fetch the raw
 template, your application is responsible for rendering those remaining
 Handlebars placeholders.
 

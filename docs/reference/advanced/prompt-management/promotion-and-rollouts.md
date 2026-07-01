@@ -47,8 +47,9 @@ To promote v2:
 4. Edit from v2 or assign `production` to v2.
 5. Save the label change.
 
-Application code fetching `prompt__support_agent` with `label='production'`
-receives v2 on the next variable resolution. No redeploy is required.
+Application code fetching the prompt with `logfire.prompt('support-agent')` (or
+`logfire.template_prompt(...)`) and `label='production'` receives v2 on the next
+resolution. No redeploy is required.
 
 ## Canary a prompt version
 
@@ -68,7 +69,9 @@ For example:
 | `canary` | 10% |
 
 Use a stable `targeting_key` when fetching the prompt so users or tenants keep a
-consistent prompt assignment during the test.
+consistent prompt assignment during the test. (Prompts resolve via
+`LOGFIRE_API_KEY`, not the write token — see
+[Use Prompts in Your Application](./application.md#fetch-and-render-the-prompt-from-the-sdk).)
 
 ```python skip="true"
 from pydantic import BaseModel
@@ -83,9 +86,8 @@ class SupportPromptInputs(BaseModel):
     tier: str
 
 
-prompt_var = logfire.template_var(
-    name='prompt__support_agent',
-    type=str,
+prompt_var = logfire.template_prompt(
+    'support-agent',
     default='',
     inputs_type=SupportPromptInputs,
 )

@@ -2757,7 +2757,7 @@ class Logfire:
         """Define a managed prompt.
 
         A prompt is a managed string variable holding prompt text. This is `var()` specialized to
-        prompts: the value type is fixed to `str`, and the name is translated to Logfire's prompt
+        prompts: the value type is fixed to `str`, and the slug is translated to Logfire's prompt
         convention before the variable is declared. `logfire.prompt('support-agent', ...)` declares
         the backing variable `prompt__support_agent` -- the `prompt__` prefix is added and hyphens
         become underscores, matching the naming Logfire's
@@ -2781,15 +2781,17 @@ class Logfire:
         inputs, use [`template_prompt()`][logfire.Logfire.template_prompt].
 
         Args:
-            name: The prompt name (e.g. `support-agent`). The backing variable name is derived from
-                it; pass the bare name rather than the `prompt__`-prefixed variable name.
+            name: The prompt slug, e.g. `support-agent` (the identifier in the prompt's URL). Must be
+                1-100 characters of lowercase letters, digits, and hyphens; the backing variable name
+                is derived from it, so pass the bare slug rather than the `prompt__`-prefixed variable
+                name. Raises `ValueError` if it is not a valid slug.
             default: Default prompt text used when no remote configuration is found. Can also be a
                 callable with `targeting_key` and `attributes` parameters.
             description: Optional human-readable description of what the prompt controls.
         """
         from logfire.variables._prompt import prompt_variable_name
 
-        return self.var(prompt_variable_name(name), type=str, default=default, description=description)
+        return self.var(prompt_variable_name(name, stacklevel=3), type=str, default=default, description=description)
 
     def template_prompt(
         self,
@@ -2804,8 +2806,8 @@ class Logfire:
 
         This is to [`prompt()`][logfire.Logfire.prompt] what
         [`template_var()`][logfire.Logfire.template_var] is to [`var()`][logfire.Logfire.var]: the
-        value type is fixed to `str` and the name is translated to Logfire's prompt convention
-        (`prompt__<name>`, hyphens to underscores), but `get(inputs)` renders the Handlebars
+        value type is fixed to `str` and the slug is translated to Logfire's prompt convention
+        (`prompt__<slug>`, hyphens to underscores), but `get(inputs)` renders the Handlebars
         `{{placeholder}}` markup in the resolved prompt before returning.
 
         ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
@@ -2831,8 +2833,10 @@ class Logfire:
         ```
 
         Args:
-            name: The prompt name (e.g. `support-agent`). The backing variable name is derived from
-                it; pass the bare name rather than the `prompt__`-prefixed variable name.
+            name: The prompt slug, e.g. `support-agent` (the identifier in the prompt's URL). Must be
+                1-100 characters of lowercase letters, digits, and hyphens; the backing variable name
+                is derived from it, so pass the bare slug rather than the `prompt__`-prefixed variable
+                name. Raises `ValueError` if it is not a valid slug.
             default: Default prompt text used when no remote configuration is found. Can also be a
                 callable with `targeting_key` and `attributes` parameters.
             inputs_type: The type (typically a Pydantic `BaseModel`) describing the expected template
@@ -2845,7 +2849,7 @@ class Logfire:
         from logfire.variables._prompt import prompt_variable_name
 
         return self.template_var(
-            prompt_variable_name(name),
+            prompt_variable_name(name, stacklevel=3),
             type=str,
             default=default,
             inputs_type=inputs_type,
@@ -2881,9 +2885,16 @@ class Logfire:
         - Creates new variables that don't exist in the provider
         - Updates JSON schemas for existing variables if they've changed
         - Warns about existing label values that are incompatible with new schemas
+        - Prompts declared with `prompt()` / `template_prompt()` are pushed through the
+          prompts API under the hood: missing prompts are created — publishing a
+          static-string code `default` as version 1, so the prompt is immediately
+          editable on the Prompts page and serves the same content the code default
+          would have — while prompts that already exist are never modified from here
+          (publish new versions on the Prompts page, over MCP, or via the prompts API).
 
         The provider is determined by the Logfire configuration. For remote providers,
-        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
+        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY);
+        pushing needs the `project:write_variables` scope on the API key.
 
         Args:
             variables: Variable instances to push. If None, all variables
