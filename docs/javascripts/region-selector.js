@@ -57,6 +57,9 @@
     var host = hostFor(region);
     var blocks = document.querySelectorAll('.md-content .highlight');
     for (var b = 0; b < blocks.length; b++) {
+      // Blocks wrapped in `.no-region-template` are deliberately static
+      // (e.g. an explicit "replace this URL yourself" example).
+      if (blocks[b].closest('.no-region-template')) continue;
       var walker = document.createTreeWalker(
         blocks[b],
         NodeFilter.SHOW_TEXT,

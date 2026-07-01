@@ -103,11 +103,15 @@ Logfire MCP server automatically — no separate MCP JSON configuration is requi
 
 The Codex plugin currently configures the US endpoint. To point it at the region selected above, replace the MCP entry and re-authenticate:
 
+<div class="no-region-template" markdown>
+
 ```bash
 codex mcp remove logfire
 codex mcp add logfire --url https://logfire-us.pydantic.dev/mcp
 codex mcp login logfire
 ```
+
+</div>
 
 Start a new Codex conversation after switching so the MCP tools reload.
 
