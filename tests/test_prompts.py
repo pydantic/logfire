@@ -9,11 +9,19 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
+import requests_mock as requests_mock_module
 from pydantic import BaseModel
 
 import logfire
-from logfire._internal.config import LocalVariablesOptions
+from logfire._internal.config import LocalVariablesOptions, VariablesOptions
 from logfire.variables import PROMPT_VARIABLE_PREFIX, prompt_variable_name
+from logfire.variables._prompt import prompt_slug_from_variable_name
+from logfire.variables.abstract import (
+    ResolvedVariable,
+    VariableAlreadyExistsError,
+    VariableProvider,
+    VariableWriteError,
+)
 from logfire.variables.config import (
     LabeledValue,
     Rollout,
@@ -21,6 +29,15 @@ from logfire.variables.config import (
     VariablesConfig,
 )
 from logfire.variables.local import LocalVariableProvider
+from logfire.variables.remote import LogfireRemoteVariableProvider
+
+
+def _make_remote_provider() -> LogfireRemoteVariableProvider:
+    return LogfireRemoteVariableProvider(
+        base_url='http://localhost:8000/',
+        token='pylf_v1_local_test_token',
+        options=VariablesOptions(block_before_first_resolve=False),
+    )
 
 
 def _make_lf(variables_config: VariablesConfig, config_kwargs: dict[str, Any]) -> logfire.Logfire:
@@ -267,3 +284,100 @@ class TestPushPrompts:
         assert '+ support-agent' in captured.out
         assert 'Dry run mode' in captured.out
         assert provider._config.variables == {}
+
+
+class TestCreatePromptPrimitive:
+    def test_slug_from_variable_name_rejects_non_prompt_name(self):
+        with pytest.raises(ValueError, match='is not a prompt-backed variable name'):
+            prompt_slug_from_variable_name('plain_var')
+
+    def test_base_create_prompt_warns(self):
+        """The base provider's create_prompt is a warn-only default, like create_variable."""
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, reason='no_provider')  # pragma: no cover
+
+        provider = MinimalProvider()
+        with pytest.warns(UserWarning, match='does not persist prompt writes'):
+            provider.create_prompt(slug='support-agent', name='Support agent')
+
+    def test_local_create_prompt_duplicate_raises(self):
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        provider.create_prompt(slug='support-agent', name='Support agent', template='v1')
+        with pytest.raises(VariableAlreadyExistsError, match="Prompt 'support-agent' already exists"):
+            provider.create_prompt(slug='support-agent', name='Support agent', template='v2')
+
+    def test_remote_create_prompt_full(self):
+        """Remote create_prompt POSTs the prompt, publishes v1, and PUTs the inputs schema."""
+        request_mocker = requests_mock_module.Mocker()
+        create = request_mocker.post('http://localhost:8000/v1/prompts/', json={'slug': 'welcome'}, status_code=201)
+        version = request_mocker.post(
+            'http://localhost:8000/v1/prompts/welcome/versions/', json={'version': 1}, status_code=201
+        )
+        schema_put = request_mocker.put('http://localhost:8000/v1/variables/prompt__welcome/', json={})
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = _make_remote_provider()
+            try:
+                provider.create_prompt(
+                    slug='welcome',
+                    name='Welcome',
+                    description='Welcome email prompt',
+                    template='Hi {{name}}!',
+                    template_inputs_schema={'type': 'object', 'properties': {'name': {'type': 'string'}}},
+                )
+            finally:
+                provider.shutdown()
+        assert create.last_request is not None
+        assert create.last_request.json() == {
+            'name': 'Welcome',
+            'slug': 'welcome',
+            'description': 'Welcome email prompt',
+        }
+        assert version.last_request is not None
+        assert version.last_request.json() == {'template': 'Hi {{name}}!'}
+        assert schema_put.last_request is not None
+        assert schema_put.last_request.json() == {
+            'template_inputs_schema': {'type': 'object', 'properties': {'name': {'type': 'string'}}}
+        }
+
+    def test_remote_create_prompt_minimal(self):
+        """No description/template/inputs schema — only the create POST fires."""
+        request_mocker = requests_mock_module.Mocker()
+        create = request_mocker.post('http://localhost:8000/v1/prompts/', json={'slug': 'bare'}, status_code=201)
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = _make_remote_provider()
+            try:
+                provider.create_prompt(slug='bare', name='Bare')
+            finally:
+                provider.shutdown()
+        assert create.last_request is not None
+        assert create.last_request.json() == {'name': 'Bare', 'slug': 'bare'}
+
+    def test_remote_create_prompt_conflict(self):
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.post('http://localhost:8000/v1/prompts/', status_code=409)
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = _make_remote_provider()
+            try:
+                with pytest.raises(VariableAlreadyExistsError, match="Prompt 'dup' already exists"):
+                    provider.create_prompt(slug='dup', name='Dup')
+            finally:
+                provider.shutdown()
+
+    def test_remote_create_prompt_http_error(self):
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.post('http://localhost:8000/v1/prompts/', status_code=500, text='boom')
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = _make_remote_provider()
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to create prompt'):
+                    provider.create_prompt(slug='broken', name='Broken')
+            finally:
+                provider.shutdown()
