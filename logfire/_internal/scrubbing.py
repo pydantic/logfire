@@ -353,7 +353,10 @@ class SpanScrubber:
             return result
         self.did_scrub = True
         matched_substring = match.pattern_match.group(0)
-        reason = self._pattern_reason_by_group.get(match.pattern_match.lastgroup or '', matched_substring) or matched_substring
+        reason = (
+            self._pattern_reason_by_group.get(match.pattern_match.lastgroup or '', matched_substring)
+            or matched_substring
+        )
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=reason))
         return f'[Scrubbed due to {reason!r}]'
 

@@ -337,9 +337,7 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
     )
 
 
-def test_extra_pattern_redaction_reason_does_not_echo_secret(
-    exporter: TestExporter, config_kwargs: dict[str, Any]
-):
+def test_extra_pattern_redaction_reason_does_not_echo_secret(exporter: TestExporter, config_kwargs: dict[str, Any]):
     logfire.configure(
         scrubbing=logfire.ScrubbingOptions(
             extra_patterns=[r'://[^:@/]+:[^@/]+@'],
@@ -357,9 +355,7 @@ def test_extra_pattern_redaction_reason_does_not_echo_secret(
     assert secret not in config_url
     assert secret not in scrubbed
     assert config_url == "[Scrubbed due to '://[^:@/]+:[^@/]+@']"
-    assert scrubbed == IsJson(
-        [{'path': ['attributes', 'config_url'], 'matched_substring': '://[^:@/]+:[^@/]+@'}]
-    )
+    assert scrubbed == IsJson([{'path': ['attributes', 'config_url'], 'matched_substring': '://[^:@/]+:[^@/]+@'}])
 
 
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
