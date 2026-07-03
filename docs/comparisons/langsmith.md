@@ -32,11 +32,12 @@ At scale, Logfire can be 50-100X cheaper than LangSmith. This isn't about Logfir
 - **Open standards:** You want OTel-compatible instrumentation that isn't locked to one vendor
 - **Framework flexibility:** You use multiple AI frameworks or may switch in the future
 - **Long-term cost efficiency:** You're scaling and costs matter
+- **The full AI engineering loop:** Evals (in code and the [web UI](https://pydantic.dev/docs/logfire/evaluate/evals/?utm_source=comparison_docs)), [prompt management](https://pydantic.dev/docs/logfire/prompt-management/?utm_source=comparison_docs), a playground, and an AI gateway — alongside your observability, not in a separate tool
 
 ## When to Choose LangSmith + LangChain
 
 - **LangChain investment:** You're heavily invested in the LangChain ecosystem
-- **R&D workflow:** You prioritize prompt iteration and playground features
+- **LangChain-native workflow:** You want prompt iteration tooling built specifically around LangChain primitives (Logfire also ships a [prompt editor](https://pydantic.dev/docs/logfire/prompt-management/?utm_source=comparison_docs) and [playground](https://pydantic.dev/docs/logfire/guides/web-ui/prompt-playground/?utm_source=comparison_docs))
 - **Quick prototyping:** You value LangChain's flexibility for rapid experimentation
 
 ## Key Differences Explained

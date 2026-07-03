@@ -43,6 +43,14 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 ![Terminal screenshot with successful authentication](../images/cli/terminal-screenshot-auth-2.png)
 
+### Log out (`auth logout`)
+
+To log out and remove the locally stored credentials, run:
+
+```bash
+logfire auth logout
+```
+
 ## Clean (`clean`)
 
 To clean _most_ the files created by **Logfire**, run the following command:
@@ -111,14 +119,25 @@ This will output the projects you need to install to have optimal OpenTelemetry 
 
 ![Terminal screenshot with Logfire inspect command](../images/cli/terminal-screenshot-inspect.png)
 
+## Info (`info`)
+
+To print the versions of `logfire`, your operating system, and related (OpenTelemetry) packages — useful when reporting a bug — run:
+
+```bash
+logfire info
+```
+
 ## Who Am I (`whoami`)
 
-!!! warning "🚧 Work in Progress 🚧"
-    This section is yet to be written, [contact us](../help.md) if you have any questions.
+To show the currently authenticated user and the URL of the current **Logfire** project, run:
+
+```bash
+logfire whoami
+```
+
+If you have one or more tokens configured (e.g. via the `LOGFIRE_TOKEN` environment variable), this shows the project each token belongs to instead.
 
 ## Projects
-
-<!-- TODO(Marcelo): We can add the `logfire projects --help` here. -->
 
 ### List (`projects list`)
 
@@ -163,6 +182,46 @@ logfire projects new <project-name>
 ```
 
 Follow the instructions, and you'll have a new project created in no time! :partying_face:
+
+## Read tokens (`read-tokens`)
+
+To create a [read token](../how-to-guides/query-api.md) for a project and print it to stdout, run:
+
+```bash
+logfire read-tokens --project <org>/<project> create
+```
+
+Because the token is printed to stdout, this composes well with other tools, e.g. configuring the [Logfire MCP server](../how-to-guides/mcp-server.md):
+
+```bash
+claude mcp add logfire -e LOGFIRE_READ_TOKEN=$(logfire read-tokens --project <org>/<project> create) -- uvx logfire-mcp@latest
+```
+
+## Run (`run`)
+
+To run a Python script or module with **Logfire** instrumentation enabled automatically for all installed packages that have an available OpenTelemetry instrumentation, run:
+
+```bash
+logfire run script.py
+# or run a module, forwarding any arguments after it:
+logfire run -m my_module --my-arg
+```
+
+By default a summary box is printed to stderr showing which packages were instrumented; disable it with `--no-summary`. Use `--exclude` to skip instrumenting specific packages:
+
+```bash
+logfire run --exclude sqlalchemy,fastapi script.py
+```
+
+## Prompt (`prompt`)
+
+To generate a prompt for an LLM to investigate an issue in your project (assuming the [Logfire MCP server](../how-to-guides/mcp-server.md) is configured), run:
+
+```bash
+logfire prompt "why are my requests slow?"
+```
+
+Use `--claude`, `--codex`, or `--opencode` to verify (and set up) the MCP configuration for the respective coding tool, `--update` to replace an existing Logfire MCP server configuration, and `--project <org>/<project>` to select the project.
 
 [terms-of-service]: https://pydantic.dev/legal/terms-of-service
 [privacy_policy]: https://pydantic.dev/legal/privacy-policy

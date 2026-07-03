@@ -40,7 +40,7 @@ import { OFREPWebProvider } from '@openfeature/ofrep-web-provider'
 import { OpenFeature } from '@openfeature/web-sdk'
 
 const LOGFIRE_API_KEY = 'your-api-key'  // project:read_external_variables scope
-const LOGFIRE_API_HOST = 'logfire-api.pydantic.dev'  // or your self-hosted API host
+const LOGFIRE_API_HOST = 'logfire-us.pydantic.dev'  // or 'logfire-eu.pydantic.dev' for the EU region, or your self-hosted API host
 
 const provider = new OFREPWebProvider({
   // The provider appends `/ofrep/v1/evaluate/flags` itself, so this is the `/v1` root.
@@ -213,7 +213,7 @@ from openfeature.evaluation_context import EvaluationContext
 # base_url is the `/v1` root; the provider appends `/ofrep/v1/evaluate/flags/{key}`.
 api.set_provider(
     OFREPProvider(
-        base_url='https://logfire-api.pydantic.dev/v1',  # or your self-hosted API host
+        base_url='https://logfire-us.pydantic.dev/v1',  # or 'https://logfire-eu.pydantic.dev/v1' for EU, or your self-hosted API host
         headers_factory=lambda: {'Authorization': 'Bearer YOUR_API_KEY'},
     )
 )
@@ -229,7 +229,7 @@ The provider — like the OpenFeature client in general — evaluates one named 
 import httpx
 
 response = httpx.post(
-    'https://logfire-api.pydantic.dev/v1/ofrep/v1/evaluate/flags',
+    'https://logfire-us.pydantic.dev/v1/ofrep/v1/evaluate/flags',  # logfire-eu.pydantic.dev for EU
     headers={'Authorization': 'Bearer YOUR_API_KEY'},
     json={'context': {'targetingKey': 'user-123'}},
 )

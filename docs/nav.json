@@ -229,7 +229,7 @@
       { "label": "Export Data", "slug": "how-to-guides/query-api" },
       { "label": "Feature Flags (OFREP)", "slug": "how-to-guides/client-side-feature-flags" },
       { "label": "Convert to Organization", "slug": "how-to-guides/convert-to-organization" },
-      { "label": "Gateway Migration", "slug": "gateway-migration" }
+      { "label": "AI Gateway", "slug": "reference/advanced/gateway/index" }
     ]
   },
   {
