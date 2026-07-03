@@ -12,7 +12,7 @@ Sentry is a mature error monitoring platform. Logfire is an AI-native observabil
 | **Logging**         | Structured logs with full context      | Error-focused                            |
 | **Live View**       | Real-time "pending spans"                | ❌                                        |
 | **Query Interface** | SQL (Postgres-compatible)              | Custom UI                                |
-| **Pricing**         | 10M spans free, then $2/M              | Per-event + quotas                       |
+| **Pricing**         | 10M spans/logs/metrics free, then $2/M | Per-event + quotas                       |
 *Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
 ## When to Choose Logfire

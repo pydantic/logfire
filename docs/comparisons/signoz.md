@@ -16,7 +16,7 @@ This comparison covers both SigNoz deployment options so you can make an informe
 | **AI/LLM observability** | Native (one function call) + purpose-built UI                                                                       | Via OpenLLMetry                     | Via OpenLLMetry                        |
 | **SDKs**                | First-class Python, JS/TS, Rust                                                                                     | Standard OTel                       | No SDKs (standard OTel)                |
 | **Maintenance**         | Zero                                                                                                                | Zero                                | You manage it all                      |
-| **Pricing**         | 10M spans free, then $2/M (plus base plan fee)*                                                                     | Base plan fee + usage               | "Free" but infra + maintenance costs       |
+| **Pricing**         | 10M spans/logs/metrics free, then $2/M (plus base plan fee)*                                                                     | Base plan fee + usage               | "Free" but infra + maintenance costs       |
 | **Query language**      | PostgreSQL-compatible SQL                                                                                           | ClickHouse SQL                      | ClickHouse SQL                         |
 *Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
@@ -47,7 +47,7 @@ Three lines and you're observing AI calls. SigNoz uses standard OpenTelemetry in
 
 **SDK flexibility.** The Logfire SDK can send data to any OTel-compatible backend, including SigNoz. If you like our SDK's simplicity but want to use their backend, you can.
 
-**Pricing** includes 10M spans/logs/metrics per month for free. [Paid plans](https://pydantic.dev/pricing/?utm_source=signoz_comparison_docs) start at $49/mo with 10M spans included, then $2 per million spans after that. That's it. No host fees, no custom metrics fees, no ingestion surprises.
+**Pricing** includes 10M spans/logs/metrics per month for free. [Paid plans](https://pydantic.dev/pricing/?utm_source=signoz_comparison_docs) start at $49/mo with the same 10M included, then $2 per million after that. That's it. No host fees, no custom metrics fees, no ingestion surprises.
 
 
 ### When to Choose Each
@@ -81,7 +81,7 @@ This is the nature of self-hosted infrastructure. Some organizations need this l
 - Engineering time for setup, maintenance, and troubleshooting
 - On-call burden when your monitoring infrastructure has issues
 
-**Logfire pricing** is transparent: 10M spans free, then $2/million on Team or Growth plans. Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5). No hidden infrastructure costs.
+**Logfire pricing** is transparent: 10M spans/logs/metrics free, then $2/million on Team or Growth plans. Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5). No hidden infrastructure costs.
 
 ### When to Choose Each
 

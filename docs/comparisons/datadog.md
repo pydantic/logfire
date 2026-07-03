@@ -51,7 +51,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 - **Custom metrics explosion:** OpenTelemetry metrics are treated as expensive "custom metrics" with cardinality charges
 - **Unpredictable costs:** Multiple billing dimensions make forecasting difficult
 
-**Logfire** includes 10M spans/logs/metrics per month for free. [Paid plans](https://pydantic.dev/pricing/?utm_source=datadog_comparison_docs) start at $49/mo with 10M spans included, then $2 per million spans after that. That's it. No host fees, no custom metrics fees, no ingestion surprises.
+**Logfire** includes 10M spans/logs/metrics per month for free. [Paid plans](https://pydantic.dev/pricing/?utm_source=datadog_comparison_docs) start at $49/mo with the same 10M included, then $2 per million after that. That's it. No host fees, no custom metrics fees, no ingestion surprises.
 
 ### AI/LLM Support
 
