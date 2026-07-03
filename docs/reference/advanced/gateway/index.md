@@ -17,9 +17,6 @@ The gateway gives you:
 
 The gateway is configured per **organization** and is available on the Personal, Team, Growth, and Enterprise Cloud plans.
 
-!!! note "Migrating from gateway.pydantic.dev?"
-    The standalone Pydantic AI Gateway at `gateway.pydantic.dev` has been shut down and replaced by this integrated gateway. See [Migration from gateway.pydantic.dev](../../../gateway-migration.md).
-
 ## Getting started
 
 ### Enable the gateway
@@ -165,6 +162,6 @@ Or run just the proxy and configure a tool manually with `logfire gateway serve`
 
 ## See also
 
-- [Migration from gateway.pydantic.dev](../../../gateway-migration.md) — historical reference for users of the legacy standalone gateway.
+- [Gateway migration](../../../gateway-migration.md) — historical reference for users of the legacy standalone gateway.
 - [Prompt Management: Access and Prerequisites](../prompt-management/plan-requirements.md) — prompt runs execute through the gateway and spend gateway budget.
 - [Cost & Usage](../../../logfire-costs.md) — plan tiers and how usage is billed.
