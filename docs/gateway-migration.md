@@ -1,4 +1,5 @@
 ---
+robots: noindex
 title: "Migration from gateway.pydantic.dev"
 description: "Historical reference: how the legacy gateway.pydantic.dev was migrated to the AI Gateway on Pydantic Logfire."
 ---
