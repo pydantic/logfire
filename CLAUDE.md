@@ -19,7 +19,7 @@ Every page in the public docs (`docs/`) is held to one standard:
 
 > If an expert in some other field who has just started building with AI tools wouldn't know what it means, we spell out the acronym, we explain the term in place, or we rewrite the sentence to be human friendly.
 
-This reader is not a caricature of a confused user. They're smart, motivated, and perfectly capable of understanding anything we take a sentence to explain. What they haven't done is spend years marinating in observability infrastructure, so words that feel like plain English to us (`span`, `exporter`, `instrument`, `OTLP`, `sampling`, `scrubbing`) can be a closed door to them. A specialist walking us through their own field wouldn't drop a term of art and move on; they'd give the plain-language version the first time. We extend the same courtesy.
+This reader is not a caricature of a confused user. They're smart, motivated, and perfectly capable of understanding anything we take a sentence to explain. But our docs sit at the intersection of observability and AI tooling, and few readers arrive fluent in both — so words that feel like plain English to us (`span`, `exporter`, `OTLP`, `evals`, `sampling`, `scrubbing`) can be a closed door to them. A specialist walking us through their own field wouldn't drop a term of art and move on; they'd give the plain-language version the first time. We extend the same courtesy.
 
 This is not dumbing down. Precise terms stay — they're often the thing the user needs to learn to succeed with the product. The standard is about _introducing_ terms, not avoiding them: give the real word and, at its first use on a page, a plain-language hand-hold.
 
