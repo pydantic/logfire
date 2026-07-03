@@ -58,7 +58,7 @@ You can set a variable as external in the Logfire UI when creating a variable (v
 import httpx
 
 httpx.post(
-    'https://logfire-api.pydantic.dev/v1/variables/bulk/',
+    'https://logfire-us.pydantic.dev/v1/variables/bulk/',  # logfire-eu.pydantic.dev for EU
     headers={'Authorization': 'Bearer YOUR_API_KEY'},
     json=[
         {

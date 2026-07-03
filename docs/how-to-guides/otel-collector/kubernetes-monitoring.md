@@ -35,7 +35,7 @@ collectors:
         otlphttp/logfire:
           endpoint: https://logfire-us.pydantic.dev   # or https://logfire-eu.pydantic.dev
           headers:
-            Authorization: ${env:LOGFIRE_TOKEN}
+            Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
       service:
         pipelines:
           traces:  {exporters: [otlphttp/logfire]}
