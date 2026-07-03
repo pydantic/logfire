@@ -37,17 +37,20 @@ Click a row to open the LLM detail page.
 
 ![LLM detail page with headline cards and trend charts](../../images/llms/llm-detail.png)
 
-You'll see five headline metric cards (Calls, Errors, Avg latency, Cost, Speed), a grid of trend charts (Calls over time, Error rate, Latency, Tokens, Cost, Truncated, Tool calls), and two tables:
+You'll see six headline metric cards (Calls, Errors, Avg latency, First token, Cost, Speed), a grid of trend charts (Calls over time, Error rate, Latency, Time to first token, Tokens, Cost, Truncated, Tool calls), and two tables:
 
 - **Agents using this model** — which agents (by Pydantic AI agent name or `gen_ai.system` + `gen_ai.request.model` pair) are calling this model and how much. Direct LLM calls with no enclosing agent run don't appear here.
 - **Recent calls** — the most recent invocations, each linking straight to the trace in the [Live View](live.md) via a **View in live** button in the header.
 
+The **First token** card and **Time to first token** chart (median and p90) measure how long streaming calls take to surface their first token — the number that determines how responsive a streaming UX feels, and exactly what total-latency charts hide. They only populate for streaming calls whose instrumentation records time-to-first-token (see [What drives each column](#what-drives-each-column)); otherwise the chart shows an explanatory empty state. The built-in **LLM Tokens and Costs** dashboards (from records and from metrics) each have a matching **Time to first token (streaming)** section.
+
 ## Agent run distributions
 
-On the agent run detail page you'll find two new charts:
+On the agent run detail page you'll find these charts:
 
 - **Tool calls per run** — average and p90, side by side.
 - **Turns per run** — average and p90, side by side.
+- **Time to first token** — median and p90 across the agent's model calls (streaming calls only, same requirements as the LLM detail chart).
 
 Averages hide the runaway runs — the one that fired 40 tools where the median fired three, the one that ground through 12 turns where the median settled in two. The p90 view makes those visible without writing a dashboard.
 
@@ -73,6 +76,7 @@ The provider attribute is moving in the spec from `gen_ai.system` to `gen_ai.pro
 | **Input / Output** | `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` | Columns show 0 and **Cost** is forced to 0. |
 | **Cache read** | provider-specific cached-token attribute | Empty (only some providers bill cached input separately). |
 | **Cost** | `operation.cost` (a Logfire / [`genai-prices`](https://github.com/pydantic/genai-prices) convention, not in the OTel spec) if set, else computed from tokens | Row priced at 0 if tokens are missing. |
+| **First token** / **Time to first token** | `gen_ai.client.operation.time_to_first_chunk` (seconds), falling back to the model-host analogue `gen_ai.server.time_to_first_token` | Card shows — and the chart shows an empty state. Only streaming calls record it. |
 | **Truncated** | `'length' in gen_ai.response.finish_reasons` (a plural array per the current spec) | Truncation rate shows 0%. |
 | **Tool calls** | presence of tool-call attributes on the span | Tool-call rate shows 0%. |
 | **Provider** badge | `gen_ai.system` (or newer `gen_ai.provider.name`) | Row groups under "unknown". |
@@ -148,4 +152,5 @@ The inventory groups rows by `(provider, model)`. Beyond the text search at the 
 | Tokens or Cost columns are 0 | Streaming is closing the span on the first chunk, so the final `gen_ai.usage.{input,output}_tokens` attributes never land on the span. See [Streaming gotchas](#streaming-gotchas). |
 | Truncated rate is 0% even though responses are being cut off | Missing `gen_ai.response.finish_reasons` array on the span (or the legacy singular `gen_ai.response.finish_reason` is being emitted — the LLMs page reads the plural form). |
 | Tool-call rate is 0% on a model you know calls tools | Instrumentation isn't recording tool-call attributes on the LLM span. The [supported instrumentations](#supported-instrumentations) all do this; custom ones may not. |
+| Time to first token chart is empty | Time-to-first-token is only recorded for **streaming** calls, and only by instrumentations that set `gen_ai.client.operation.time_to_first_chunk` (or `gen_ai.server.time_to_first_token`) on the model span — Pydantic AI records it for streaming runs. Non-streaming calls never populate this chart. |
 | Average per-model latency dropped after enabling the Collector | The Collector is tail-sampling out non-error spans, so the page is averaging only the errored calls. Either disable tail sampling or sample independently of the `gen_ai.*` pipeline. |
