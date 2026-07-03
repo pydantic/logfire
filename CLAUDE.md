@@ -13,6 +13,25 @@ Pre-commit automatically runs ruff and pyright, but you can also run `make forma
 
 Docs are rendered and deployed through the `pydantic/unified-docs` pipeline. Do not use MkDocs checks in this repository.
 
+# Writing for Users
+
+Every user-facing string this repo produces — docs pages, exception messages, warnings, CLI output, public docstrings — is held to one standard:
+
+> If an expert in some other field who has just started building with AI tools wouldn't know what it means, we spell out the acronym, we explain the term in place, or we rewrite the sentence to be human friendly.
+
+This reader is not a caricature of a confused user. They're smart, motivated, and perfectly capable of understanding anything we take a sentence to explain. What they haven't done is spend years marinating in observability infrastructure, so words that feel like plain English to us (`span`, `exporter`, `instrument`, `OTLP`, `sampling`, `scrubbing`) can be a closed door to them. A specialist walking us through their own field wouldn't drop a term of art and move on; they'd give the plain-language version the first time. We extend the same courtesy.
+
+This is not dumbing down. Precise terms stay — they're often the thing the user needs to learn to succeed with the product. The standard is about _introducing_ terms, not avoiding them: give the real word and, at its first use on a page, a plain-language hand-hold.
+
+When you write or touch a user-facing string, check:
+
+- **Acronyms are spelled out at first use on each page** — "OpenTelemetry Protocol (OTLP)", "personally identifiable information (PII)". Assume the reader opens the page directly from a search; no acronym is "already established" by another page.
+- **The page says what it's for.** Every docs page opens with what this is and why you'd use it, before any code or configuration. A feature name is not a description.
+- **Copy describes the user's goal, not our mechanism.** "See every request your app handles", not "Attach the ASGI middleware span processor". If a word names a piece of our internals, it doesn't belong in user-facing text.
+- **Instructions say where.** "Run this in your terminal", "Copy this from your project settings page in Logfire". A step asking for a value the user has to fetch from somewhere else must say where that somewhere is.
+- **Consequences are stated plainly** — especially when data leaves the user's machine, something costs money, or an action can't be undone. If a setting sends more telemetry, say so; if data is dropped or redacted, say what and when.
+- **Errors and warnings name what went wrong and what to do next.** Never a bare "invalid configuration", never an internal detail as the whole user-facing explanation. Say which value failed, why, and what a working one looks like.
+
 # Core Structure
 
 ```
