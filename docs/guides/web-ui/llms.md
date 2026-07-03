@@ -42,7 +42,12 @@ You'll see six headline metric cards (Calls, Errors, Avg latency, First token, C
 - **Agents using this model** — which agents (by Pydantic AI agent name or `gen_ai.system` + `gen_ai.request.model` pair) are calling this model and how much. Direct LLM calls with no enclosing agent run don't appear here.
 - **Recent calls** — the most recent invocations, each linking straight to the trace in the [Live View](live.md) via a **View in live** button in the header.
 
-The **First token** card and **Time to first token** chart (median and p90) measure how long streaming calls take to surface their first token — the number that determines how responsive a streaming UX feels, and exactly what total-latency charts hide. They only populate for streaming calls whose instrumentation records time-to-first-token (see [What drives each column](#what-drives-each-column)); otherwise the chart shows an explanatory empty state. The built-in **LLM Tokens and Costs** dashboards (from records and from metrics) each have a matching **Time to first token (streaming)** section.
+### Time to first token
+
+The **First token** card and **Time to first token** chart (median and p90) measure how long streaming calls take to surface their first token — the number that determines how responsive a streaming UX feels, and exactly what total-latency charts hide. They only populate for streaming calls whose instrumentation records time-to-first-token (see [What drives each column](#what-drives-each-column)); otherwise the chart shows an explanatory empty state. The built-in **LLM Tokens and Costs** dashboards (from records and from metrics) each have a matching **Time to first token (streaming) — Experimental** section.
+
+!!! warning "Experimental"
+    The time-to-first-token surfaces are marked **Experimental** because the OpenTelemetry GenAI convention they read, [`gen_ai.client.operation.time_to_first_chunk`](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-metrics.md#metric-gen_aiclientoperationtime_to_first_chunk), is currently at **Development** stability — its name or shape may change before stabilization, and these charts may change with it.
 
 ## Agent run distributions
 
@@ -50,7 +55,7 @@ On the agent run detail page you'll find these charts:
 
 - **Tool calls per run** — average and p90, side by side.
 - **Turns per run** — average and p90, side by side.
-- **Time to first token** — median and p90 across the agent's model calls (streaming calls only, same requirements as the LLM detail chart).
+- **Time to first token** — median and p90 across the agent's model calls (streaming calls only; [experimental](#time-to-first-token), same requirements as the LLM detail chart).
 
 Averages hide the runaway runs — the one that fired 40 tools where the median fired three, the one that ground through 12 turns where the median settled in two. The p90 view makes those visible without writing a dashboard.
 
