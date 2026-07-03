@@ -229,7 +229,13 @@
       { "label": "Export Data", "slug": "how-to-guides/query-api" },
       { "label": "Feature Flags (OFREP)", "slug": "how-to-guides/client-side-feature-flags" },
       { "label": "Convert to Organization", "slug": "how-to-guides/convert-to-organization" },
-      { "label": "Gateway Migration", "slug": "gateway-migration" }
+      {
+        "label": "AI Gateway",
+        "items": [
+          { "label": "Overview", "slug": "reference/advanced/gateway/index" },
+          { "label": "Migration from gateway.pydantic.dev", "slug": "gateway-migration" }
+        ]
+      }
     ]
   },
   {
