@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import functools
+import importlib.util
 import inspect
 import os
 import re
+import site
+import sysconfig
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar
 
 import pydantic
@@ -368,6 +372,56 @@ IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNO
 _pydantic_plugin_config_value: PydanticPlugin | None = None
 
 
+@lru_cache
+def _non_user_code_prefixes() -> tuple[Path, ...]:
+    prefixes = {
+        sysconfig.get_path('purelib'),
+        sysconfig.get_path('platlib'),
+        sysconfig.get_path('stdlib'),
+        sysconfig.get_path('platstdlib'),
+        site.getusersitepackages(),
+        str(Path(logfire.__file__).resolve().parent),
+    }
+    return tuple(Path(prefix).resolve() for prefix in prefixes if prefix)
+
+
+def _path_has_prefix(path: Path, prefix: Path) -> bool:
+    try:
+        path.relative_to(prefix)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+@lru_cache
+def _module_is_non_user_code(module: str) -> bool:
+    if not module:
+        return False
+
+    try:
+        spec = importlib.util.find_spec(module)
+    except (ImportError, ModuleNotFoundError, ValueError):
+        return False
+
+    if spec is None:
+        return False
+
+    if spec.origin in ('built-in', 'frozen'):
+        return True
+
+    module_paths: list[Path] = []
+    if spec.origin and not spec.origin.startswith('<'):
+        module_paths.append(Path(spec.origin).resolve())
+    module_paths.extend(Path(path).resolve() for path in spec.submodule_search_locations or ())
+
+    if not module_paths:
+        return False
+
+    prefixes = _non_user_code_prefixes()
+    return all(any(_path_has_prefix(path, prefix) for prefix in prefixes) for path in module_paths)
+
+
 def get_pydantic_plugin_config() -> PydanticPlugin:
     """Get the Pydantic plugin config."""
     if _pydantic_plugin_config_value is not None:
@@ -400,7 +454,7 @@ def _include_model(schema_type_path: SchemaTypePath) -> bool:
     # check if the model is in include models
     if include:
         return any(re.search(f'{pattern}$', f'{module}::{schema_type_path.name}') for pattern in include)
-    return True
+    return not _module_is_non_user_code(module)
 
 
 @lru_cache  # only patch once

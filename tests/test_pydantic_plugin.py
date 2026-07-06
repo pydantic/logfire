@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
+import sysconfig
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Annotated, Any
 from unittest.mock import patch
 
@@ -30,6 +32,7 @@ from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import (
     LogfirePydanticPlugin,
+    _include_model,
     get_schema_name,
 )
 from logfire.testing import SeededRandomIdGenerator, TestExporter
@@ -155,6 +158,47 @@ def test_logfire_plugin_include_exclude_models(
         assert result != (None, None, None)
     else:
         assert result == (None, None, None)
+
+
+def test_pydantic_plugin_excludes_non_user_modules_by_default() -> None:
+    purelib = sysconfig.get_path('purelib')
+    assert purelib is not None
+
+    def fake_find_spec(module: str) -> SimpleNamespace | None:
+        if module == 'third_party_pkg.models':
+            return SimpleNamespace(origin=os.path.join(purelib, 'third_party_pkg', 'models.py'), submodule_search_locations=[])
+        if module == 'tests.test_pydantic_plugin':
+            return SimpleNamespace(origin=__file__, submodule_search_locations=[])
+        return None
+
+    logfire.configure(
+        send_to_logfire=False,
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
+    )
+    logfire.instrument_pydantic(record='all')
+
+    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
+        assert not _include_model(SchemaTypePath(module='third_party_pkg.models', name='ThirdPartyModel'))
+        assert _include_model(SchemaTypePath(module='tests.test_pydantic_plugin', name='MyModel'))
+
+
+def test_pydantic_plugin_include_overrides_default_non_user_filter() -> None:
+    purelib = sysconfig.get_path('purelib')
+    assert purelib is not None
+
+    def fake_find_spec(module: str) -> SimpleNamespace | None:
+        if module == 'third_party_pkg.models':
+            return SimpleNamespace(origin=os.path.join(purelib, 'third_party_pkg', 'models.py'), submodule_search_locations=[])
+        return None
+
+    logfire.configure(
+        send_to_logfire=False,
+        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
+    )
+    logfire.instrument_pydantic(record='all', include={'third_party_pkg.models::ThirdPartyModel'})
+
+    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
+        assert _include_model(SchemaTypePath(module='third_party_pkg.models', name='ThirdPartyModel'))
 
 
 def test_get_schema_name():
