@@ -10,7 +10,7 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 | **Strength**         | AI + application tracing                                       | Drift detection, model performance                              |
 | **Non-AI Tracing**   | Full support                                                   | Limited                                                         |
 | **Language Support** | Python, JS/TS, Rust (SDKs) + any OTel                          | Python-focused                                                  |
-| **Evals**            | Integrated web-UI - Code-based via `pydantic-evals` | Integrated web-UI - Code-based via external library |
+| **Evals**            | Web UI (datasets, experiments, live monitoring) + code-based via `pydantic-evals` | Web UI + code-based via external library |
 | **Pricing**          | Per-span ($2/million)*                                         | Usage-based                                                     |
 | **Setup**            | 3 lines of code                                                | OTel-based (several lines of code)                              |
 | **SQL Queries**      | Yes (Postgres-compatible)                                      | No. Use `SpanQuery` DSL                                         |

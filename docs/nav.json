@@ -39,16 +39,7 @@
           { "label": "Sampling Strategies", "link": "/logfire/instrument/sampling/" },
           { "label": "Scrub Sensitive Data", "link": "/logfire/instrument/scrubbing/" },
           { "label": "Suppress Spans and Metrics", "link": "/logfire/instrument/suppress/" },
-          {
-            "label": "OpenTelemetry Collector",
-            "items": [
-              { "label": "Overview", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-overview/" },
-              { "label": "Host Monitoring", "link": "/logfire/instrument/opentelemetry-collector/host-monitoring/" },
-              { "label": "Kubernetes Monitoring", "link": "/logfire/instrument/opentelemetry-collector/kubernetes-monitoring/" },
-              { "label": "Back up to AWS S3", "link": "/logfire/instrument/opentelemetry-collector/s3-backup/" },
-              { "label": "Advanced Scrubbing", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-scrubbing/" }
-            ]
-          }
+          { "label": "Advanced Scrubbing", "link": "/logfire/instrument/opentelemetry-collector/otel-collector-scrubbing/" }
         ]
       },
       {
@@ -206,6 +197,11 @@
     "label": "Observe & Investigate",
     "items": [
       { "label": "Live View", "slug": "guides/web-ui/live" },
+      { "label": "Services", "slug": "guides/web-ui/services" },
+      { "label": "Hosts", "slug": "guides/web-ui/hosts" },
+      { "label": "Kubernetes", "slug": "guides/web-ui/kubernetes" },
+      { "label": "LLMs", "slug": "guides/web-ui/llms" },
+      { "label": "Metrics Explorer", "slug": "guides/web-ui/metrics-explorer" },
       { "label": "LLM Panels", "slug": "guides/web-ui/llm-panels" },
       { "label": "Dashboards", "slug": "guides/web-ui/dashboards" },
       { "label": "SQL Explorer", "slug": "guides/web-ui/explore" },
@@ -261,7 +257,7 @@
       { "label": "Export Data", "slug": "how-to-guides/query-api" },
       { "label": "Feature Flags (OFREP)", "slug": "how-to-guides/client-side-feature-flags" },
       { "label": "Convert to Organization", "slug": "how-to-guides/convert-to-organization" },
-      { "label": "Gateway Migration", "slug": "gateway-migration" }
+      { "label": "AI Gateway", "slug": "reference/advanced/gateway/index" }
     ]
   },
   {
@@ -286,7 +282,16 @@
       { "label": "Collect Cloud Provider Metrics", "slug": "how-to-guides/cloud-metrics" },
       { "label": "Connect to MCP Server", "slug": "how-to-guides/mcp-server" },
       { "label": "Coding Agent Skills", "slug": "how-to-guides/skills" },
-      { "label": "Export Codex Activity", "slug": "how-to-guides/codex-logfire-exporter" }
+      { "label": "Export Codex Activity", "slug": "how-to-guides/codex-logfire-exporter" },
+      {
+        "label": "OpenTelemetry Collector",
+        "items": [
+          { "label": "Overview", "slug": "how-to-guides/otel-collector/otel-collector-overview" },
+          { "label": "Host Monitoring", "slug": "how-to-guides/otel-collector/host-monitoring" },
+          { "label": "Kubernetes Monitoring", "slug": "how-to-guides/otel-collector/kubernetes-monitoring" },
+          { "label": "Back up to AWS S3", "slug": "how-to-guides/otel-collector/s3-backup" }
+        ]
+      }
     ]
   },
   {
@@ -310,9 +315,9 @@
           { "label": "Local Quickstart", "slug": "reference/self-hosted/local-quickstart" },
           { "label": "Architecture", "slug": "reference/self-hosted/architecture" },
           { "label": "Production Requirements", "slug": "reference/self-hosted/installation" },
+          { "label": "Examples", "slug": "reference/self-hosted/examples" },
           { "label": "Troubleshooting", "slug": "reference/self-hosted/troubleshooting" },
           { "label": "Bucket Migration", "slug": "reference/self-hosted/bucket-migration" },
-          { "label": "Examples", "slug": "reference/self-hosted/examples" },
           { "label": "Usage Report", "slug": "reference/self-hosted/usage-report" }
         ]
       }

@@ -10,8 +10,9 @@ With **Logfire**, use Alerts to notify you when certain conditions are met.
 
 Let's see in practice how to create an alert.
 
-1. Go to the **Alerts** tab in the left sidebar.
-2. Click the **Create alert** button.
+1. Go to **Alerts** in the **Notify** section of the left sidebar.
+2. Click the **New alert** button.
+3. Pick **Custom query** (or start from one of the templates).
 
 Then you'll see the following form:
 
@@ -34,19 +35,18 @@ WHERE
 1. The `SELECT ... FROM records` statement is the base query that will be executed. The **records** table contains the spans and logs data. `trace_id` links to the trace in the live view when viewing the alert run results in the web UI.
 2. The `attributes` field is a JSON field that contains additional information about the record. In this case, we're using the `http.route` attribute to filter the records by route.
 
-The **Time window** field allows you to specify the time range over which the query will be executed.
+Under **When this alert fires** you can pick the firing condition (**Fire when**), the time range over which the query is executed (**Look at rows from**), and how often it runs (**Check every**).
 
-The **Webhook URL** field is where you can specify a URL to which the alert will send a POST request when triggered.
-For now, **Logfire** alerts only send the requests in [Slack format].
+The **Send notifications to** section is where you choose which delivery channels receive a notification when the alert fires — Slack, Opsgenie, or a generic webhook endpoint. Click **Add channel** to create one inline, or manage them centrally as described in [Delivery channels and schedules](#delivery-channels-and-schedules) below. An alert without channels still shows up on the Alerts page — it just won't ping anyone outside **Logfire**.
 
 ??? tip "Get a Slack webhook URL"
-    To get a Slack webhook URL, follow the instructions in the [Slack documentation](https://api.slack.com/messaging/webhooks).
+    To get a Slack webhook URL, follow the instructions in the [Slack documentation](https://api.slack.com/messaging/webhooks), or see our [Slack alerts setup guide](../../how-to-guides/setup-slack-alerts.md).
 
 After filling in the form, click the **Create alert** button. And... Alert created! :tada:
 
 ## Notification modes
 
-The **"Notify me when"** setting controls when you receive notifications. There are four modes:
+The **Fire when** setting (under **When this alert fires**) controls when you receive notifications. There are four modes:
 
 ### The query has any results
 
@@ -72,6 +72,28 @@ You'll receive a notification whenever the **actual data** returned by the query
 
 **Example use case:** Detect when a service goes down by querying for health check spans and [using a `CASE` expression](../../how-to-guides/detect-service-is-down.md) to return `'up'` or `'down'`. You'll be notified when the status changes in either direction.
 
+## Delivery channels and schedules
+
+Channels and schedules are managed under **Delivery** in the **Notify** section of the left sidebar, on the **Channels** and **Schedules** tabs. Channels are shared across all projects in your organization.
+
+### Channels
+
+Click **New channel** to create a channel (you can also do this inline from the alert form with **Add channel**). Give it a name and pick a type:
+
+- **Auto** — a webhook where **Logfire** infers the payload format from the URL: Slack [Block Kit](https://api.slack.com/block-kit) for `hooks.slack.com` URLs, raw JSON data for `hooks.zapier.com` URLs, and a legacy [Slack format] payload for anything else. Discord webhook URLs work out of the box — **Logfire** automatically appends `/slack` so Discord accepts the Slack-format payload.
+- **Slack Webhook** — always sends Slack Block Kit payloads.
+- **Slack Legacy (for Discord, etc.)** — always sends legacy Slack-format payloads, which services other than Slack (such as Discord) also accept.
+- **Opsgenie** — sends alerts to the Opsgenie Alert API using an authorization key, with an optional custom base URL (e.g. `https://api.eu.opsgenie.com`).
+- **Webhook** — sends the raw alert data as JSON, for custom integrations.
+
+The **Test your channel** section lets you verify the configuration before saving: pick an alert variant, then click **Send a test alert** to deliver a sample notification to the channel. A successful test is required before you can create a webhook or Opsgenie channel (or change its URL or key). **Copy sample JSON payload** copies the exact JSON body **Logfire** would send for the selected variant, so you can build a custom receiver against it.
+
+### Schedules
+
+Schedules define time windows for alert notification delivery — for example, business hours only. A schedule has a timezone and one or more weekly windows (days of the week plus a start and end time). Create them on the **Schedules** tab with **New schedule**.
+
+On the alert form, each selected channel can be assigned a schedule (the default is **Always deliver**). Notifications triggered outside the configured delivery windows are dropped — they are not queued or deferred.
+
 ## Alert History
 
 After creating an alert, you'll be redirected to the alerts' list. There you can see the alerts you've created and their status.
@@ -84,7 +106,7 @@ Otherwise, you'll see the number of matches highlighted in orange.
 
 ![Alerts list with error](../../images/guide/browser-alerts-error.png)
 
-In this case, you'll also receive a notification in the Webhook URL you've set up.
+In this case, you'll also receive a notification on the channels you've set up.
 
 ## Edit an alert
 

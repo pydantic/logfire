@@ -42,7 +42,7 @@ processors:
 
 exporters:
   otlphttp:
-    endpoint: "https://logfire-eu.pydantic.info"  # or https://logfire-us.pydantic.info for the US region
+    endpoint: "https://logfire-eu.pydantic.dev"  # or https://logfire-us.pydantic.dev for the US region
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
@@ -176,7 +176,7 @@ processors:
 
 exporters:
   otlphttp:
-    endpoint: "https://logfire-eu.pydantic.info"
+    endpoint: "https://logfire-eu.pydantic.dev"  # or https://logfire-us.pydantic.dev for the US region
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 

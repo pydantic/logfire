@@ -23,9 +23,7 @@ Braintrust is an AI evaluation and observability platform focused on LLM testing
 
 ## When to Choose Braintrust
 
-- **Evaluation focus:** Your only need is UI-based AI evaluation workflows
-- **Prompt iteration:** You're heavily iterating on prompts and need that workflow
-- **UI-driven evals:** You prefer managing evaluations through a User Interface (UI)
+- **Deep Braintrust ecosystem investment:** You've already built your evaluation workflows around Braintrust's tooling (note that Logfire also offers [UI-based evals](https://pydantic.dev/docs/logfire/evaluate/evals/?utm_source=comparison_docs), a [prompt editor](https://pydantic.dev/docs/logfire/prompt-management/?utm_source=comparison_docs), a playground, and an [AI gateway](../reference/advanced/gateway/index.md))
 - **AI-only scope:** You don't need full application observability
 
 ## Key Differences Explained

@@ -18,6 +18,14 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   [:octicons-arrow-right-24: Read more](#simplicity-and-power)
 
+- :material-robot-outline:{ .lg .middle } **The Full AI Engineering Loop**
+
+  ***
+
+  Beyond tracing every LLM call with token and cost tracking, Logfire ships **evals** (in the web UI and in code), **prompt management** with a playground, and an **AI gateway** with key management and spending controls — one platform from prototype to production.
+
+  [:octicons-arrow-right-24: Read more](ai-observability.md)
+
 - :material-code-braces:{ .lg .middle } **Deep Language Integration**
 
   ***

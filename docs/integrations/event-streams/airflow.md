@@ -28,7 +28,8 @@ Where `${LOGFIRE_TOKEN}` is your [**Logfire** write token][write-token].
 ```ini title="airflow.cfg"
 [metrics]
 otel_on = True
-otel_host = logfire-api.pydantic.dev
+; use logfire-eu.pydantic.dev for the EU region
+otel_host = logfire-us.pydantic.dev
 otel_port = 443
 otel_prefix = airflow
 otel_interval_milliseconds = 30000  # The interval between exports, defaults to 60000
@@ -36,7 +37,8 @@ otel_ssl_active = True
 
 [traces]
 otel_on = True
-otel_host = logfire-api.pydantic.dev
+; use logfire-eu.pydantic.dev for the EU region
+otel_host = logfire-us.pydantic.dev
 otel_port = 443
 otel_prefix = airflow
 otel_ssl_active = True
@@ -84,7 +86,7 @@ receivers:  # (1)!
 exporters:  # (2)!
   debug:  # (3)!
   otlphttp:
-    endpoint: https://logfire-api.pydantic.dev/
+    endpoint: https://logfire-us.pydantic.dev/  # or https://logfire-eu.pydantic.dev/ for the EU region
     compression: gzip
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"  # (4)!

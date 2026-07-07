@@ -537,25 +537,77 @@ Then set the chart type to **Bar Chart**. Each bar represents a 'bucket' that ac
     ORDER BY m.bucket_midpoint;
     ```
 
-## Working with histogram metrics
+## Working with metrics
 
-The `metrics` table is currently more difficult to work with, especially for histogram instruments.
-If possible, just use the aggregated `histogram_*` columns, something like this:
+The `metrics` table stores each data point differently depending on the instrument type:
+gauges and sums fill the `scalar_value` column, while histograms fill the `histogram_*`
+and `exp_histogram_*` columns. The `value` column unifies all of these into a single
+struct, and the `metric_*` functions operate on it so the same query works regardless
+of how a metric was instrumented:
+
+| Function | What it computes |
+| --- | --- |
+| `metric_quantile(p, value)` | Aggregate: an observation quantile (e.g. p95) across the group |
+| `metric_rate(value, recorded_timestamp)` | Aggregate: per-second rate of change of a counter |
+| `metric_increase(value, recorded_timestamp)` | Aggregate: total increase of a counter |
+| `metric_merge(value)` | Aggregate: folds the group's data points into one `value` struct |
+| `metric_avg(value)` | Per row: the data point's average (scalar reading, or sum/count for histograms) |
+| `metric_sum(value)` | Per row: the data point's total |
+| `metric_count(value)` | Per row: the number of observations (1 for gauges and sums) |
+| `metric_min(value)` / `metric_max(value)` | Per row: the smallest / largest observation |
+
+For example, latency percentiles from a histogram instrument are a one-liner:
 
 ```sql
 SELECT
     time_bucket($resolution, recorded_timestamp) AS x,
-    sum(histogram_count) as total_count,
-    sum(histogram_sum) as total_sum,
-    sum(histogram_sum) / sum(histogram_count) as average,
-    min(histogram_min) as min,
-    max(histogram_max) as max
+    metric_quantile(0.95, value) AS p95
+FROM metrics
+WHERE metric_name = 'http.server.duration'
+GROUP BY x
+ORDER BY x
+```
+
+The same query works unchanged for a gauge like `process.cpu.utilization` — just swap the metric name.
+
+For summary statistics, apply an outer aggregate to the per-row functions:
+
+```sql
+SELECT
+    time_bucket($resolution, recorded_timestamp) AS x,
+    SUM(metric_count(value)) AS total_count,
+    SUM(metric_sum(value)) AS total_sum,
+    SUM(metric_sum(value)) / NULLIF(SUM(metric_count(value)), 0) AS average,
+    MIN(metric_min(value)) AS min,
+    MAX(metric_max(value)) AS max
 FROM metrics
 WHERE metric_name = '<fill in>'
 GROUP BY x
 ```
 
-If you need more detailed data, here's how.
+For counter metrics, `metric_rate` and `metric_increase` handle aggregation temporality
+(delta vs cumulative) automatically, so you don't need to think about resets or
+`WHERE aggregation_temporality = ...` filters:
+
+```sql
+SELECT
+    time_bucket($resolution, recorded_timestamp) AS x,
+    metric_rate(value, recorded_timestamp) AS bytes_per_second
+FROM metrics
+WHERE metric_name = 'system.network.io'
+GROUP BY x
+ORDER BY x
+```
+
+!!! note
+    `metric_quantile` and `metric_merge` require every row in a group to be the same
+    histogram flavor. If a query matches multiple metric names (or the same name emitted
+    by different SDKs) that mix explicit and exponential histograms, add a filter like
+    `metric_type = 'exponential_histogram'` or group by `metric_type`.
+
+### Unpacking raw histogram buckets
+
+The `metric_*` functions cover most needs, but if you want the raw distribution, here's how.
 The Logfire SDK typically uses exponential histograms rather than explicit buckets.
 A single database row contains a list of counts for buckets with mathematically defined boundaries.
 Here's how to unpack this data into a more usable form. Copy the following into the start of a query:
@@ -605,5 +657,5 @@ bucket_item_approx as (
 )
 ```
 
-Then `bucket_item_approx.approx_item` can be fed into e.g. percentile calculations (see the Web Server Metrics standard dashboard)
-or the histogram recipe above.
+Then `bucket_item_approx.approx_item` can be fed into the histogram chart recipe above.
+(For percentiles, prefer `metric_quantile` — it computes the same estimate without any of this machinery.)

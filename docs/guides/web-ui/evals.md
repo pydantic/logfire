@@ -61,6 +61,12 @@ To compare multiple runs side by side:
 
 The comparison view highlights differences in outputs, score variations, performance changes, and regressions between runs.
 
+!!! tip
+    You can also generate a link to the comparison view for an experiment directly from code:
+    `logfire.url_from_eval(report)` takes an evaluation report from `pydantic_evals` and returns
+    the URL to view it in the web UI, or `None` if the project URL or trace/span IDs are not
+    available (e.g. when Logfire wasn't configured when the report was created).
+
 ## Integration with Traces
 
 Every evaluation experiment generates detailed OpenTelemetry traces that appear in Logfire:

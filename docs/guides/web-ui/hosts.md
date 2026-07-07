@@ -103,6 +103,10 @@ The Hosts inventory keys hosts on `host.id` and `host.name`. Without them, a sin
 
 Hosts inside a Kubernetes cluster are recognized as nodes and appear on the [Kubernetes view](kubernetes.md) as well as in the Hosts inventory. The dedup hinges on `host.name` matching `k8s.node.name`. If you run a node-scoped DaemonSet collector, set both attributes from the downward API (`spec.nodeName`) so the same string lands in both places — otherwise the Hosts list will show one row per pod replica instead of one row per node.
 
+### From a Python application
+
+If your workload is a Python app already using Logfire, you can emit system metrics directly from the SDK with [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md) instead of (or alongside) running a collector. Logfire pre-populates the `host.name` resource attribute (overridable via `resource_attributes` — see the [SQL reference](../../reference/sql.md#resource-attributes)), so the app's host shows up here automatically.
+
 ## Run the collector
 
 Save the config above as `collector.yaml`, then:

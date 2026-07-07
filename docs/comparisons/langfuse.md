@@ -13,7 +13,7 @@ Both Logfire and Langfuse help you observe AI/LLM applications, but they take fu
 | **Pricing Model** | Per-span ($2/million)* | Per-event + usage-based |
 | **Python Support** | First-class (Pydantic team) | Good |
 | **Non-AI Tracing** | Full support | Limited |
-| **LLM Features** | Token tracking, costs, panels | Token tracking, costs, evals, prompt mgmt |
+| **LLM Features** | Token tracking, costs, panels, evals (UI + code), prompt mgmt, playground, AI gateway | Token tracking, costs, evals, prompt mgmt |
 | **OpenTelemetry** | Native | Export support |
 
 *Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
@@ -60,7 +60,7 @@ When you're iterating on AI applications with coding agents, the agent needs to 
 
 **Langfuse Cloud** charges per event plus usage-based pricing.
 
-**Logfire Cloud (Team and Growth)** Free tier includes 10M traces. Plans start at $49/month, then charges $2 per million spans after the free tier (10M spans/month). Simple and predictable.
+**Logfire Cloud (Team and Growth)** Free tier includes 10M spans/logs/metrics per month. Plans start at $49/month, then charge $2 per million after the included allowance. Simple and predictable.
 
 ## Integration Comparison
 

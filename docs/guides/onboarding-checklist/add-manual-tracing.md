@@ -238,6 +238,12 @@ my_function(3, 4)
 # Logs: Applying my_function to x=3 and y=4
 ```
 
+Other useful keyword arguments include:
+
+- `level`: the log level for the span, e.g. `@logfire.instrument(level='debug')`. The span is suppressed if the level is below the configured `min_level`.
+- `record_return`: set to `True` to record the function's return value as a span attribute.
+- `new_trace`: set to `True` to start a new trace (with a span link to the current span) instead of creating a child of the current span.
+
 !!! note
 
     - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.

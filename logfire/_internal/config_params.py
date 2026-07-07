@@ -3,7 +3,7 @@ from __future__ import annotations as _annotations
 import os
 import sys
 import typing
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -67,6 +67,10 @@ SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE
 """Version number of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 ENVIRONMENT = ConfigParam(env_vars=['LOGFIRE_ENVIRONMENT'], allow_file_config=True)
 """Environment in which the service is running. For further details, please refer to the [Deployment section](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/)."""
+RESOURCE_ATTRIBUTES = ConfigParam(env_vars=['LOGFIRE_RESOURCE_ATTRIBUTES'], allow_file_config=True, default=None, tp=dict[str, str])
+"""Extra resource attributes to include on all telemetry. As an env var, a comma-separated `key=value` list."""
+RESOURCE_DETECTORS = ConfigParam(env_vars=['LOGFIRE_RESOURCE_DETECTORS'], allow_file_config=True, default=None, tp=list[str])
+"""OpenTelemetry resource detector names to run when building the resource. As an env var, a comma-separated list."""
 CREDENTIALS_DIR = ConfigParam(env_vars=['LOGFIRE_CREDENTIALS_DIR'], allow_file_config=True, default='.logfire', tp=Path)
 """The directory where to store the configuration file."""
 CONSOLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE'], allow_file_config=True, default=True, tp=bool)
@@ -89,7 +93,7 @@ CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_c
 CONSOLE_MIN_LOG_LEVEL = ConfigParam(env_vars=['LOGFIRE_CONSOLE_MIN_LOG_LEVEL'], allow_file_config=True, default='info', tp=LevelName)
 """Minimum log level to show in the console."""
 CONSOLE_SHOW_PROJECT_LINK = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SHOW_PROJECT_LINK', 'LOGFIRE_SHOW_SUMMARY'], allow_file_config=True, default=True, tp=bool)
-"""Whether to enable/disable the console exporter."""
+"""Whether to print the URL of the Logfire project after initialization."""
 PYDANTIC_PLUGIN_RECORD = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_RECORD'], allow_file_config=True, default='off', tp=PydanticPluginRecordValues)
 """Whether instrument Pydantic validation.."""
 PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=set[str])
@@ -125,6 +129,8 @@ CONFIG_PARAMS = {
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
     'environment': ENVIRONMENT,
+    'resource_attributes': RESOURCE_ATTRIBUTES,
+    'resource_detectors': RESOURCE_DETECTORS,
     'trace_sample_rate': TRACE_SAMPLE_RATE,
     'data_dir': CREDENTIALS_DIR,
     'console': CONSOLE,
@@ -227,6 +233,8 @@ class ParamManager:
             return _extract_set_of_str(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is list and get_args(tp) == (str,):
             return extract_list_of_str(value)  # pyright: ignore[reportReturnType]
+        if get_origin(tp) is dict and get_args(tp) == (str, str):
+            return _extract_dict_of_str(value)  # pyright: ignore[reportReturnType]
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
 
 
@@ -254,6 +262,24 @@ def _check_bool(value: Any, name: str) -> bool | None:
 
 def _extract_set_of_str(value: str | set[str]) -> set[str]:
     return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
+
+
+def _extract_dict_of_str(value: str | Mapping[str, str] | None) -> dict[str, str] | None:
+    """Extract a dict of strings from a `key=value,key2=value2` string, a mapping, or None.
+
+    If value is None, return None. Empty items and items without an `=` are skipped.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        result: dict[str, str] = {}
+        for item in value.split(','):
+            if '=' not in item:
+                continue
+            key, _, val = item.partition('=')
+            result[key.strip()] = val.strip()
+        return result
+    return dict(value)
 
 
 def extract_list_of_str(value: str | Sequence[str]) -> list[str] | None:

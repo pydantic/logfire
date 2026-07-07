@@ -58,7 +58,7 @@ You can set a variable as external in the Logfire UI when creating a variable (v
 import httpx
 
 httpx.post(
-    'https://logfire-api.pydantic.dev/v1/variables/bulk/',
+    'https://logfire-us.pydantic.dev/v1/variables/bulk/',  # logfire-eu.pydantic.dev for EU
     headers={'Authorization': 'Bearer YOUR_API_KEY'},
     json=[
         {
@@ -75,7 +75,7 @@ httpx.post(
 ### Typical Setup
 
 1. Create an API key with `project:read_variables` for your backend services (full access to all variables via SDK)
-2. Create a separate API key with only `project:read_external_variables` for client-side or less trusted environments (OFREP access to external variables only)
+2. Create a separate API key with only `project:read_external_variables` for client-side or less trusted environments (OFREP access to external variables only). The one-click presets bundle this scope into broader access, so open the **Advanced** section of the API key form and select just `project:read_external_variables`.
 3. Mark variables as external that are safe to expose to those environments
 
 ## OpenFeature (OFREP) Endpoints

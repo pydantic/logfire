@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.36.0"
+version = "4.37.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -155,7 +155,8 @@ dev = [
     "psycopg2-binary >= 2.9.10",
     "asyncpg >= 0.30.0",
     "pymysql >= 1.1.1",
-    "cryptography >= 44.0.0",
+    # >=48.0.1 ships a non-vulnerable OpenSSL (GHSA-537c-gmf6-5ccf).
+    "cryptography >= 48.0.1",
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
     "sqlmodel>=0.0.15",
@@ -169,7 +170,9 @@ dev = [
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy>=2.0; python_version < '3.12'",
     "pytest-recording>=0.13.2",
-    "vcrpy>=6",
+    # >=8.2.1 includes the aiohttp 3.14 compatibility fix and a fix for arbitrary
+    # code execution via unsafe YAML deserialization of cassettes (GHSA-rpj2-4hq8-938g).
+    "vcrpy>=8.2.1",
     "uvicorn>=0.30.6",
     "logfire-api",
     "setuptools>=75.3.0",
@@ -182,7 +185,8 @@ dev = [
     "openai-agents[voice]>=0.14.0",
     "pydantic-ai-slim>=0.0.39",
     "pydantic-evals>=1.0.0",
-    "langchain>=0.0.27",
+    # >=1.3.9 fixes path traversal / sandbox escape in file-search middleware and loaders (GHSA-gr75-jv2w-4656).
+    "langchain>=1.3.9",
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
     "opentelemetry-instrumentation-google-genai >= 0.4b0",
@@ -309,6 +313,8 @@ filterwarnings = [
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     # kombu using deprecated redis API
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
+    # celery's redis backend uses redis's deprecated `setex` (deprecated in redis-py 8.0)
+    "ignore:Call to deprecated setex.*:DeprecationWarning",
     # OpenTelemetry event logger stuff being used by Pydantic AI
     "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
     # flask.__version__ is deprecated and used by OTel
