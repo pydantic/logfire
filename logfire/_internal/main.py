@@ -3044,7 +3044,7 @@ class Logfire:
                 If the body exceeds this size, the response will be a 413, rejecting the payload.
 
         Returns:
-            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+            A `ForwardExportRequestResponse` containing the response status code, body, and headers.
         """
         from ..experimental.forwarding import forward_export_request
 
