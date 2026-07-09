@@ -5,7 +5,7 @@ description: "Route Microsoft Agent Framework model calls through the Logfire AI
 
 # Microsoft Agent Framework
 
-[Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/) is Microsoft's SDK for building multi-agent AI applications. To route its model calls through the Logfire AI Gateway, configure its OpenAI chat completion client with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/) is Microsoft's SDK for building multi-agent AI applications. To route its model calls through the Logfire AI Gateway, configure its OpenAI chat completion client with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ## Python
 

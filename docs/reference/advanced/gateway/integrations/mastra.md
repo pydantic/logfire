@@ -5,7 +5,7 @@ description: "Route Mastra model calls through the Logfire AI Gateway."
 
 # Mastra
 
-[Mastra](https://mastra.ai/) is a TypeScript framework for building AI agents and workflows. To route its model calls through the Logfire AI Gateway, create an OpenAI-compatible provider pointed at the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[Mastra](https://mastra.ai/) is a TypeScript framework for building AI agents and workflows. To route its model calls through the Logfire AI Gateway, create an OpenAI-compatible provider pointed at the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ```typescript title="mastra-gateway.mts" skip-run="true" skip-reason="external-connection"
 import { createOpenAI } from '@ai-sdk/openai';

@@ -5,7 +5,7 @@ description: "Route Vercel AI SDK model calls through the Logfire AI Gateway."
 
 # Vercel AI SDK
 
-The [Vercel AI software development kit (SDK)](https://ai-sdk.dev/) is a TypeScript toolkit for building AI-powered web applications, with support for streaming, tool use, and multiple model providers. To route its model calls through the Logfire AI Gateway, create an OpenAI-compatible provider pointed at the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+The [Vercel AI SDK](https://ai-sdk.dev/) is a TypeScript toolkit for building AI-powered web applications, with streaming, tool use, and multiple model providers. To route its model calls through the Logfire AI Gateway, create an OpenAI-compatible provider pointed at the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ```typescript title="vercel-ai-sdk-gateway.mts" skip-run="true" skip-reason="external-connection"
 import { createOpenAI } from '@ai-sdk/openai';

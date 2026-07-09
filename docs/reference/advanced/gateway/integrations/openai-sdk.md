@@ -5,7 +5,7 @@ description: "Route OpenAI SDK model calls through the Logfire AI Gateway."
 
 # OpenAI SDK
 
-The [OpenAI software development kit (SDK)](https://platform.openai.com/docs/libraries) is OpenAI's official client library for calling the OpenAI API. To route calls through the Logfire AI Gateway, point the client's base URL at the gateway and use your gateway key in place of an OpenAI key. Set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab before running these examples.
+The [OpenAI SDK](https://platform.openai.com/docs/libraries) is OpenAI's official client library for calling the OpenAI API. To route calls through the Logfire AI Gateway, point the client's base URL at the gateway and use a key from the Gateway **API Keys** tab in place of your OpenAI key.
 
 ## .NET {#dotnet}
 

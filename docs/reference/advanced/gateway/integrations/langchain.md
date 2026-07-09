@@ -5,7 +5,7 @@ description: "Route LangChain model calls through the Logfire AI Gateway."
 
 # LangChain
 
-[LangChain](https://www.langchain.com/) is a popular framework for building large language model (LLM)-powered applications. To route its model calls through the Logfire AI Gateway, configure `ChatOpenAI` with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[LangChain](https://www.langchain.com/) is a framework for building LLM-powered applications. To route its model calls through the Logfire AI Gateway, configure `ChatOpenAI` with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ## TypeScript
 

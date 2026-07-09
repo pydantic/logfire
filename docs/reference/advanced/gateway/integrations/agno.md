@@ -5,7 +5,7 @@ description: "Route Agno model calls through the Logfire AI Gateway."
 
 # Agno
 
-[Agno](https://docs.agno.com/) is a Python framework for building multi-modal, multi-agent AI systems. To route its model calls through the Logfire AI Gateway, configure `OpenAIChat` with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[Agno](https://docs.agno.com/) is a Python framework for building multi-modal, multi-agent AI systems. To route its model calls through the Logfire AI Gateway, configure `OpenAIChat` with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ```python title="agno-gateway.py" skip-run="true" skip-reason="external-connection"
 import os

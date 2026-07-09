@@ -5,7 +5,7 @@ description: "Route LlamaIndex model calls through the Logfire AI Gateway."
 
 # LlamaIndex
 
-[LlamaIndex](https://developers.llamaindex.ai/) is a framework for building data-augmented large language model (LLM) applications, including retrieval-augmented generation (RAG) pipelines and agent workflows. To route its model calls through the Logfire AI Gateway, configure the OpenAI LLM client with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[LlamaIndex](https://developers.llamaindex.ai/) is a framework for building data-augmented LLM applications, including RAG pipelines and agent workflows. To route its model calls through the Logfire AI Gateway, configure the OpenAI LLM client with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ```python title="llamaindex-gateway.py" skip-run="true" skip-reason="external-connection"
 import asyncio

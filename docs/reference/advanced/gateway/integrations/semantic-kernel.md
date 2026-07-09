@@ -5,7 +5,7 @@ description: "Route Semantic Kernel model calls through the Logfire AI Gateway."
 
 # Semantic Kernel
 
-[Microsoft Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/) is Microsoft's SDK for integrating AI models into your applications. To route its model calls through the Logfire AI Gateway, configure an OpenAI-compatible chat completion service with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[Microsoft Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/) is Microsoft's SDK for integrating AI models into your applications. To route its model calls through the Logfire AI Gateway, configure an OpenAI-compatible chat completion service with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ## Python
 

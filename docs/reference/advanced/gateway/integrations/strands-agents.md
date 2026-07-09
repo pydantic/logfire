@@ -5,7 +5,7 @@ description: "Route Strands Agents model calls through the Logfire AI Gateway."
 
 # Strands Agents
 
-[Strands Agents](https://strandsagents.com/) is AWS's open-source framework for building AI agents. To route its model calls through the Logfire AI Gateway, configure the OpenAI-compatible model provider with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[Strands Agents](https://strandsagents.com/) is AWS's open-source framework for building AI agents. To route its model calls through the Logfire AI Gateway, configure the OpenAI-compatible model provider with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ## TypeScript
 

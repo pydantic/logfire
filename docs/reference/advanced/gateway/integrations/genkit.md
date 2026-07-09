@@ -5,7 +5,7 @@ description: "Route Genkit model calls through the Logfire AI Gateway."
 
 # Genkit
 
-[Genkit](https://genkit.dev/) is Google's open-source framework for building AI-powered applications. To route its model calls through the Logfire AI Gateway, use Genkit's OpenAI-compatible plugin pointed at the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[Genkit](https://genkit.dev/) is Google's open-source framework for building AI-powered applications. To route its model calls through the Logfire AI Gateway, use Genkit's OpenAI-compatible plugin pointed at the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ## JavaScript
 

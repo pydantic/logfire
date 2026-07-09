@@ -5,7 +5,7 @@ description: "Route Smolagents model calls through the Logfire AI Gateway."
 
 # Smolagents
 
-[smolagents](https://huggingface.co/docs/smolagents/) is Hugging Face's lightweight Python library for building AI agents that call tools and run multi-step tasks. To route its model calls through the Logfire AI Gateway, configure `OpenAIServerModel` with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[smolagents](https://huggingface.co/docs/smolagents/) is Hugging Face's lightweight Python library for building AI agents that call tools and run multi-step tasks. To route its model calls through the Logfire AI Gateway, configure `OpenAIServerModel` with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ```python title="smolagents-gateway.py" skip-run="true" skip-reason="external-connection"
 import os

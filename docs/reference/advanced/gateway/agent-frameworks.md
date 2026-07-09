@@ -5,7 +5,7 @@ description: "Connect frameworks and SDKs to the Logfire AI Gateway."
 
 # AI Gateway integrations
 
-These pages show how to point each framework or SDK at the Logfire AI Gateway so that all model calls flow through one place for usage tracking, spending limits, and provider fallback.
+These guides show how to point each framework or SDK at the Logfire AI Gateway, so every model call flows through one endpoint with usage tracking, spending limits, and provider fallback.
 
 ## Before you start
 
@@ -17,7 +17,7 @@ These pages show how to point each framework or SDK at the Logfire AI Gateway so
     export LOGFIRE_GATEWAY_API_KEY="..."
     ```
 
-Each example uses a gateway URL like `https://gateway-us.pydantic.dev/proxy/openai`, where the last part picks which model provider (OpenAI, Anthropic, Google, and so on) handles the call. To switch to a different provider — or to a routing group that combines several providers with fallback — copy the URL you want from the Gateway **Providers** or **Routing** tab.
+Each example uses a US gateway URL like `https://gateway-us.pydantic.dev/proxy/openai` (EU users swap in `gateway-eu`). The final path segment selects the provider — OpenAI, Anthropic, Google, and so on. To switch providers, or to point at a routing group that spreads calls across several with fallback, copy the URL you want from the Gateway **Providers** or **Routing** tab.
 
 ## Examples
 

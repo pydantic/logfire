@@ -5,7 +5,7 @@ description: "Route OpenAI Agents SDK model calls through the Logfire AI Gateway
 
 # OpenAI Agents SDK
 
-The [OpenAI Agents software development kit (SDK)](https://openai.github.io/openai-agents-python/) is OpenAI's official SDK for building systems where multiple AI agents collaborate, hand off tasks, and call tools. To route its model calls through the Logfire AI Gateway, configure an OpenAI-compatible model provider with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+The [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) is OpenAI's official SDK for building systems where multiple AI agents collaborate, hand off tasks, and call tools. To route its model calls through the Logfire AI Gateway, configure an OpenAI-compatible model provider with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ## TypeScript
 

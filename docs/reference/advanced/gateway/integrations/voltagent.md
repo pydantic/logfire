@@ -5,7 +5,7 @@ description: "Route VoltAgent model calls through the Logfire AI Gateway."
 
 # VoltAgent
 
-[VoltAgent](https://voltagent.dev/) is a TypeScript framework for building AI agents with built-in observability and tool use. To route its model calls through the Logfire AI Gateway, configure an OpenAI-compatible model provider with the gateway URL and set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab.
+[VoltAgent](https://voltagent.dev/) is a TypeScript framework for building AI agents with built-in observability and tool use. To route its model calls through the Logfire AI Gateway, configure an OpenAI-compatible model provider with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ```typescript title="voltagent-gateway.mts" skip-run="true" skip-reason="external-connection"
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';

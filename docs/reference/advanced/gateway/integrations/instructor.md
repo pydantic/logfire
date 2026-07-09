@@ -5,7 +5,7 @@ description: "Route Instructor model calls through the Logfire AI Gateway."
 
 # Instructor
 
-[Instructor](https://python.useinstructor.com/) is a Python library for extracting structured, typed data from large language model (LLM) responses — you describe the shape of the data you want and Instructor handles the rest. Because Instructor wraps a standard OpenAI client, routing through the gateway is just a matter of configuring that underlying client with the gateway URL. Set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab before running this example.
+[Instructor](https://python.useinstructor.com/) is a Python library for extracting structured, typed data from LLM responses — you describe the shape of the data you want and Instructor handles the rest. Because Instructor wraps a standard OpenAI client, routing through the gateway means configuring that underlying client with the gateway URL, using a key from the Gateway **API Keys** tab.
 
 ```python title="instructor-gateway.py" skip-run="true" skip-reason="external-connection"
 import os
