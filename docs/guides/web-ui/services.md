@@ -4,9 +4,6 @@ description: "Browse every service shipping spans to your Logfire project. See r
 ---
 # Services
 
-!!! note "Beta — feedback welcome"
-    The Services view is in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](https://pydantic.dev/docs/logfire/join-slack/) or email [support@pydantic.dev](mailto:support@pydantic.dev).
-
 The **Services view** is the entry point for finding the service you want to investigate. Each service that ships spans to your project appears as one row, sorted by whatever metric matters right now (requests, error rate, latency). Click a row to drill into its detail page, click a recent failed trace, and you land in the [Live View](live.md) with the failing trace open.
 
 You'll find Services in the project sidebar, between [Explore](explore.md) and [Hosts](hosts.md).

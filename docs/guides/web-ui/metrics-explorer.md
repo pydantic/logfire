@@ -4,9 +4,6 @@ description: "A three-step wizard for browsing the OpenTelemetry metrics you're 
 ---
 # Metrics explorer
 
-!!! note "Beta — feedback welcome"
-    The Metrics explorer is in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](https://pydantic.dev/docs/logfire/join-slack/) or email [support@pydantic.dev](mailto:support@pydantic.dev).
-
 The **Metrics explorer** is built for the moment when you know a metric exists somewhere but you can't remember what it's called, you don't know which labels are useful, and you don't want to write a query yet. Three steps: pick a namespace, pick a metric, see what dimensions you can break it down by. No SQL required. The SQL is on every card when you want it.
 
 You'll find Metrics in the project sidebar, after **Kubernetes**.
