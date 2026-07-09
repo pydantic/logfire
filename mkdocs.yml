@@ -215,6 +215,7 @@ nav:
           - Services: guides/web-ui/services.md
           - Hosts: guides/web-ui/hosts.md
           - Kubernetes: guides/web-ui/kubernetes.md
+          - Docker: guides/web-ui/docker.md
           - LLMs: guides/web-ui/llms.md
           - Metrics explorer: guides/web-ui/metrics-explorer.md
           - LLM Panels: guides/web-ui/llm-panels.md
@@ -502,6 +503,7 @@ plugins:
           - guides/web-ui/services.md
           - guides/web-ui/hosts.md
           - guides/web-ui/kubernetes.md
+          - guides/web-ui/docker.md
           - guides/web-ui/llms.md
           - guides/web-ui/metrics-explorer.md
           - guides/web-ui/llm-panels.md
