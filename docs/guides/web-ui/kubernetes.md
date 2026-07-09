@@ -4,9 +4,6 @@ description: "Browse your Kubernetes clusters, namespaces, workloads, pods, node
 ---
 # Kubernetes
 
-!!! note "Beta — feedback welcome"
-    The Kubernetes view is in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](https://pydantic.dev/docs/logfire/join-slack/) or email [support@pydantic.dev](mailto:support@pydantic.dev).
-
 The **Kubernetes view** is the cluster-shaped browser for your Kubernetes telemetry. Six lenses on the same data — Clusters, Nodes, Namespaces, Workloads, Pods, and Images — all sortable, with one-click drill-down to the traces each pod produced in the [Live View](live.md).
 
 You'll find Kubernetes in the project sidebar, between **Hosts** and **Metrics**.
