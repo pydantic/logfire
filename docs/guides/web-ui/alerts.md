@@ -10,11 +10,15 @@ With **Logfire**, use Alerts to notify you when certain conditions are met.
 
 Let's see in practice how to create an alert.
 
-1. Go to **Alerts** in the **Notify** section of the left sidebar.
-2. Click the **New alert** button.
-3. Pick **Custom query** (or start from one of the templates).
+1. Go to the **Alerts** section in the left sidebar.
+2. Click the **New alert** button. You'll land on a picker offering three starting points:
+    - **Custom query** — start from a blank SQL editor (use this if your scenario isn't covered below).
+    - **Service Level Objective** — define a reliability target and Logfire wires up the burn-rate alerts automatically. Best when you have a clear contract (uptime, latency, error budget).
+    - **Templates** — ready-to-tune alerts for common cases: exceptions, HTTP 5xx, slow database queries, LLM errors, queue backlog, and more. Each one prefills the name, description, query, and evaluation timing — you just tune the threshold and pick a channel.
 
-Then you'll see the following form:
+![New alert picker](../../images/guide/browser-alerts-new.png)
+
+Click **Customize** on any template (or **Start** on the custom-query card) to open the create form.
 
 ![Create alert form](../../images/guide/browser-alerts-create.png)
 
@@ -35,18 +39,15 @@ WHERE
 1. The `SELECT ... FROM records` statement is the base query that will be executed. The **records** table contains the spans and logs data. `trace_id` links to the trace in the live view when viewing the alert run results in the web UI.
 2. The `attributes` field is a JSON field that contains additional information about the record. In this case, we're using the `http.route` attribute to filter the records by route.
 
-Under **When this alert fires** you can pick the firing condition (**Fire when**), the time range over which the query is executed (**Look at rows from**), and how often it runs (**Check every**).
+The **When this alert fires** section controls the evaluation: a **Fire when** condition (see [Notification modes](#notification-modes) below), a **Look at rows from** lookback window, and a **Check every** cadence. A friendly preview line under the controls spells out the resulting behavior in plain English.
 
-The **Send notifications to** section is where you choose which delivery channels receive a notification when the alert fires — Slack, Opsgenie, or a generic webhook endpoint. Click **Add channel** to create one inline, or manage them centrally as described in [Delivery channels and schedules](#delivery-channels-and-schedules) below. An alert without channels still shows up on the Alerts page — it just won't ping anyone outside **Logfire**.
+The **Send notifications to** section is where you pick one or more notification channels. Without a channel the alert still evaluates and shows up on the Alerts page — it just won't notify anyone outside Logfire.
 
-??? tip "Get a Slack webhook URL"
-    To get a Slack webhook URL, follow the instructions in the [Slack documentation](https://api.slack.com/messaging/webhooks), or see our [Slack alerts setup guide](../../how-to-guides/setup-slack-alerts.md).
-
-After filling in the form, click the **Create alert** button. And... Alert created! :tada:
+After filling in the form, click **Create alert**. And... Alert created! :tada:
 
 ## Notification modes
 
-The **Fire when** setting (under **When this alert fires**) controls when you receive notifications. There are four modes:
+The **"Notify me when"** setting controls when you receive notifications. There are four modes:
 
 ### The query has any results
 
@@ -72,48 +73,33 @@ You'll receive a notification whenever the **actual data** returned by the query
 
 **Example use case:** Detect when a service goes down by querying for health check spans and [using a `CASE` expression](../../how-to-guides/detect-service-is-down.md) to return `'up'` or `'down'`. You'll be notified when the status changes in either direction.
 
-## Delivery channels and schedules
+## The Alerts overview
 
-Channels and schedules are managed under **Delivery** in the **Notify** section of the left sidebar, on the **Channels** and **Schedules** tabs. Channels are shared across all projects in your organization.
+After creating an alert, you'll land on the Alerts overview page. The top of the page shows:
 
-### Channels
+- **State tiles** — Firing, Flapping, OK, Snoozed, No data. Click a tile to filter the table to just those alerts. Hover any tile for a definition (e.g. *Flapping = 3+ firing↔clear crossings in the last 20 buckets*).
+- **Alert activity** — a stacked bar chart of how many alerts were firing during each one-hour bucket. The y-axis is floored at 0–10 so a quiet day with a single firing doesn't look like an incident.
 
-Click **New channel** to create a channel (you can also do this inline from the alert form with **Add channel**). Give it a name and pick a type:
+The list below has one row per alert with:
 
-- **Auto** — a webhook where **Logfire** infers the payload format from the URL: Slack [Block Kit](https://api.slack.com/block-kit) for `hooks.slack.com` URLs, raw JSON data for `hooks.zapier.com` URLs, and a legacy [Slack format] payload for anything else. Discord webhook URLs work out of the box — **Logfire** automatically appends `/slack` so Discord accepts the Slack-format payload.
-- **Slack Webhook** — always sends Slack Block Kit payloads.
-- **Slack Legacy (for Discord, etc.)** — always sends legacy Slack-format payloads, which services other than Slack (such as Discord) also accept.
-- **Opsgenie** — sends alerts to the Opsgenie Alert API using an authorization key, with an optional custom base URL (e.g. `https://api.eu.opsgenie.com`).
-- **Webhook** — sends the raw alert data as JSON, for custom integrations.
+- **State** — a colored dot + label (`• Firing`, `• OK`, `• Snoozed`, `• Flapping`, `• No data`).
+- **Activity** — a per-row sparkline of recent firings. Hover any bar to see whether the bucket was clear, snoozed, before the alert existed, or the alert was disabled during it.
+- **Channels**, **Last run**, **Next run** — when the alert last ran and when it's scheduled next. For a disabled alert this reads *disabled*; for a snoozed one it shows when notifications resume (e.g. *after 23 minutes*).
 
-The **Test your channel** section lets you verify the configuration before saving: pick an alert variant, then click **Send a test alert** to deliver a sample notification to the channel. A successful test is required before you can create a webhook or Opsgenie channel (or change its URL or key). **Copy sample JSON payload** copies the exact JSON body **Logfire** would send for the selected variant, so you can build a custom receiver against it.
+Group the list by state, channel, or snooze status with the **Group by** dropdown, or filter by name with the search input.
 
-### Schedules
+## Snoozing
 
-Schedules define time windows for alert notification delivery — for example, business hours only. A schedule has a timezone and one or more weekly windows (days of the week plus a start and end time). Create them on the **Schedules** tab with **New schedule**.
+Use the **Snooze** action on a row to mute notifications until a deadline you pick (30m, 1h, 4h, 1d, 3d, 1w, or a custom timestamp). Evaluation keeps running on the normal cadence — the timeline and Runs history record what fired during the mute — but the worker drops the notification. Snoozed alerts appear in the list with a `• Snoozed` pill and a *Next run after X* timestamp, and notifications resume automatically when the snooze expires.
 
-On the alert form, each selected channel can be assigned a schedule (the default is **Always deliver**). Notifications triggered outside the configured delivery windows are dropped — they are not queued or deferred.
-
-## Alert History
-
-After creating an alert, you'll be redirected to the alerts' list. There you can see the alerts you've created and their status.
-
-If the query was not matched in the last time window, you'll see **no matches** next to the alert name, and no results in the histogram table of the selected time period.
-
-![Alerts list](../../images/guide/browser-alerts-no-error.png)
-
-Otherwise, you'll see the number of matches highlighted in orange.
-
-![Alerts list with error](../../images/guide/browser-alerts-error.png)
-
-In this case, you'll also receive a notification on the channels you've set up.
+You can also select multiple rows with the checkboxes and snooze them together — a floating action bar appears at the bottom of the screen with **Snooze selected** and **Clear**.
 
 ## Edit an alert
 
-You can configure an alert by clicking on the **Configuration** button on the right side of the alert.
+Click an alert's name to open the detail page. The top of the page summarizes the current state in plain English (e.g. *"Firing — 1 match in the last run"* or *"Snoozed until Jun 27, 2026 at 14:30 — notifications paused, evaluation continues."*) and surfaces the right action inline (Unsnooze when snoozed, Snooze otherwise).
 
-![Edit alert](../../images/guide/browser-alerts-edit.png)
+Below the status callout, a **Setup** card shows the firing condition, schedule, notification channels, environment filter, and the SQL query (collapsed by default). A **Runs history** list at the bottom shows every run in the selected time window — expand a row to see the matched rows.
 
-You can update the alert, or delete it by clicking the **Delete** button. If instead of deleting the alert, you want to disable it, you can click on the **Active** switch.
+Use the **Edit alert** button in the header to change the query, channels, or evaluation timing. Toggle the **Active** switch in the edit form to disable the alert without deleting it.
 
 [Slack format]: https://api.slack.com/reference/surfaces/formatting
