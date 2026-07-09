@@ -230,7 +230,34 @@
       { "label": "Export Data", "slug": "how-to-guides/query-api" },
       { "label": "Feature Flags (OFREP)", "slug": "how-to-guides/client-side-feature-flags" },
       { "label": "Convert to Organization", "slug": "how-to-guides/convert-to-organization" },
-      { "label": "AI Gateway", "slug": "reference/advanced/gateway/index" }
+      {
+        "label": "AI Gateway",
+        "items": [
+          { "label": "Overview", "slug": "reference/advanced/gateway/index" },
+          {
+            "label": "Integrations",
+            "items": [
+              { "label": "Overview", "slug": "reference/advanced/gateway/agent-frameworks" },
+              { "label": "Agno", "slug": "reference/advanced/gateway/integrations/agno" },
+              { "label": "Genkit", "slug": "reference/advanced/gateway/integrations/genkit" },
+              { "label": "Google ADK", "slug": "reference/advanced/gateway/integrations/google-adk" },
+              { "label": "Haystack", "slug": "reference/advanced/gateway/integrations/haystack" },
+              { "label": "Instructor", "slug": "reference/advanced/gateway/integrations/instructor" },
+              { "label": "LangChain", "slug": "reference/advanced/gateway/integrations/langchain" },
+              { "label": "LlamaIndex", "slug": "reference/advanced/gateway/integrations/llamaindex" },
+              { "label": "Mastra", "slug": "reference/advanced/gateway/integrations/mastra" },
+              { "label": "Microsoft Agent Framework", "slug": "reference/advanced/gateway/integrations/microsoft-agent-framework" },
+              { "label": "OpenAI Agents SDK", "slug": "reference/advanced/gateway/integrations/openai-agents-sdk" },
+              { "label": "OpenAI SDK", "slug": "reference/advanced/gateway/integrations/openai-sdk" },
+              { "label": "Semantic Kernel", "slug": "reference/advanced/gateway/integrations/semantic-kernel" },
+              { "label": "Smolagents", "slug": "reference/advanced/gateway/integrations/smolagents" },
+              { "label": "Strands Agents", "slug": "reference/advanced/gateway/integrations/strands-agents" },
+              { "label": "Vercel AI SDK", "slug": "reference/advanced/gateway/integrations/vercel-ai-sdk" },
+              { "label": "VoltAgent", "slug": "reference/advanced/gateway/integrations/voltagent" }
+            ]
+          }
+        ]
+      }
     ]
   },
   {
