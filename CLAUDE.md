@@ -25,7 +25,7 @@ This is not dumbing down. Precise terms stay — they're often the thing the use
 
 When you write or touch a docs page, check:
 
-- **Acronyms are spelled out at first use on each page** — "OpenTelemetry Protocol (OTLP)", "personally identifiable information (PII)". Assume the reader opens the page directly from a search; no acronym is "already established" by another page.
+- **Field-specific acronyms are spelled out at first use on each page** — "OpenTelemetry Protocol (OTLP)", "personally identifiable information (PII)". Assume the reader opens the page directly from a search; no acronym is "already established" by another page. Don't take this too far, though: acronyms the whole space already reads as words — AI, LLM, SDK, API, HTTP, JSON, URL, CLI — are left alone. The test is whether spelling it out teaches the reader something; expand the terms that are specific to observability or to Logfire, not the ones every developer uses daily.
 - **The page says what it's for.** It opens with what this is and why you'd use it, before any code or configuration. A feature name is not a description.
 - **Copy describes the user's goal, not our mechanism.** "See every request your app handles", not "Attach the ASGI middleware span processor". If a word names a piece of our internals, it doesn't belong in the docs.
 - **Instructions say where.** "Run this in your terminal", "Copy this from your project settings page in Logfire". A step asking for a value the user has to fetch from somewhere else must say where that somewhere is.
