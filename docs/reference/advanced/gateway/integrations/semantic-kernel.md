@@ -21,17 +21,17 @@ from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.open_ai_pro
 from semantic_kernel.contents.chat_history import ChatHistory
 
 chat_completion = OpenAIChatCompletion(
-    ai_model_id="gpt-5.4-mini",
+    ai_model_id='gpt-5.4-mini',
     async_client=AsyncOpenAI(
-        api_key=os.environ["LOGFIRE_GATEWAY_API_KEY"],
-        base_url="https://gateway-us.pydantic.dev/proxy/openai",
+        api_key=os.environ['LOGFIRE_GATEWAY_API_KEY'],
+        base_url='https://gateway-us.pydantic.dev/proxy/openai',
     ),
 )
 
 
 async def main() -> None:
     history = ChatHistory()
-    history.add_user_message("What is the weather in London?")
+    history.add_user_message('What is the weather in London?')
     response = await chat_completion.get_chat_message_content(
         chat_history=history,
         settings=OpenAIChatPromptExecutionSettings(),
@@ -39,7 +39,7 @@ async def main() -> None:
     print(response)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())
 ```
 

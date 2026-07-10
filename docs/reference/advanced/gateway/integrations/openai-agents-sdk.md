@@ -47,15 +47,15 @@ from agents import Agent, OpenAIChatCompletionsModel, Runner, set_tracing_disabl
 from openai import AsyncOpenAI
 
 client = AsyncOpenAI(
-    api_key=os.environ["LOGFIRE_GATEWAY_API_KEY"],
-    base_url="https://gateway-us.pydantic.dev/proxy/openai",
+    api_key=os.environ['LOGFIRE_GATEWAY_API_KEY'],
+    base_url='https://gateway-us.pydantic.dev/proxy/openai',
 )
 
 agent = Agent(
-    name="Weather Agent",
-    instructions="You are a concise weather assistant.",
+    name='Weather Agent',
+    instructions='You are a concise weather assistant.',
     model=OpenAIChatCompletionsModel(
-        model="gpt-5.4-mini",
+        model='gpt-5.4-mini',
         openai_client=client,
     ),
 )
@@ -63,10 +63,10 @@ agent = Agent(
 
 async def main() -> None:
     set_tracing_disabled(True)
-    result = await Runner.run(agent, "What is the weather in London?")
+    result = await Runner.run(agent, 'What is the weather in London?')
     print(result.final_output)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())
 ```

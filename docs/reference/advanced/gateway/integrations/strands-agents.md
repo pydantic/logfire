@@ -45,14 +45,14 @@ from strands.models.openai import OpenAIModel
 
 model = OpenAIModel(
     client_args={
-        "api_key": os.environ["LOGFIRE_GATEWAY_API_KEY"],
-        "base_url": "https://gateway-us.pydantic.dev/proxy/openai",
+        'api_key': os.environ['LOGFIRE_GATEWAY_API_KEY'],
+        'base_url': 'https://gateway-us.pydantic.dev/proxy/openai',
     },
-    model_id="gpt-5.4-mini",
+    model_id='gpt-5.4-mini',
 )
 
 agent = Agent(model=model, callback_handler=None)
-response = agent("What is the weather in London?")
+response = agent('What is the weather in London?')
 
 print(response)
 ```

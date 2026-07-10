@@ -117,13 +117,13 @@ import os
 from openai import OpenAI
 
 client = OpenAI(
-    api_key=os.environ["LOGFIRE_GATEWAY_API_KEY"],
-    base_url="https://gateway-us.pydantic.dev/proxy/openai",
+    api_key=os.environ['LOGFIRE_GATEWAY_API_KEY'],
+    base_url='https://gateway-us.pydantic.dev/proxy/openai',
 )
 
 response = client.chat.completions.create(
-    model="gpt-5.4-mini",
-    messages=[{"role": "user", "content": "What is the weather in London?"}],
+    model='gpt-5.4-mini',
+    messages=[{'role': 'user', 'content': 'What is the weather in London?'}],
 )
 
 print(response.choices[0].message.content)

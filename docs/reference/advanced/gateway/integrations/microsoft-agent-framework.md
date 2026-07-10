@@ -18,18 +18,18 @@ from agent_framework.openai import OpenAIChatCompletionClient
 
 async def main() -> None:
     agent = OpenAIChatCompletionClient(
-        model="gpt-5.4-mini",
-        api_key=os.environ["LOGFIRE_GATEWAY_API_KEY"],
-        base_url="https://gateway-us.pydantic.dev/proxy/openai",
+        model='gpt-5.4-mini',
+        api_key=os.environ['LOGFIRE_GATEWAY_API_KEY'],
+        base_url='https://gateway-us.pydantic.dev/proxy/openai',
     ).as_agent(
-        name="WeatherAgent",
-        instructions="You are a concise weather assistant.",
+        name='WeatherAgent',
+        instructions='You are a concise weather assistant.',
     )
-    result = await agent.run("What is the weather in London?")
+    result = await agent.run('What is the weather in London?')
     print(result)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())
 ```
 

@@ -22,15 +22,15 @@ class Weather(BaseModel):
 
 client = instructor.from_openai(
     OpenAI(
-        api_key=os.environ["LOGFIRE_GATEWAY_API_KEY"],
-        base_url="https://gateway-us.pydantic.dev/proxy/openai",
+        api_key=os.environ['LOGFIRE_GATEWAY_API_KEY'],
+        base_url='https://gateway-us.pydantic.dev/proxy/openai',
     )
 )
 
 weather = client.create(
-    model="gpt-5.4-mini",
+    model='gpt-5.4-mini',
     response_model=Weather,
-    messages=[{"role": "user", "content": "What is the weather in London?"}],
+    messages=[{'role': 'user', 'content': 'What is the weather in London?'}],
 )
 
 print(weather)

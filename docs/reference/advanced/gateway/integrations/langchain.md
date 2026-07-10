@@ -66,16 +66,14 @@ def get_weather(city: str) -> str:
 
 
 model = ChatOpenAI(
-    model="gpt-5.4-mini",
-    api_key=os.environ["LOGFIRE_GATEWAY_API_KEY"],
-    base_url="https://gateway-us.pydantic.dev/proxy/openai",
+    model='gpt-5.4-mini',
+    api_key=os.environ['LOGFIRE_GATEWAY_API_KEY'],
+    base_url='https://gateway-us.pydantic.dev/proxy/openai',
 )
 
 agent = create_agent(model=model, tools=[get_weather])
 
-result = agent.invoke(
-    {"messages": [{"role": "user", "content": "What is the weather in London?"}]}
-)
+result = agent.invoke({'messages': [{'role': 'user', 'content': 'What is the weather in London?'}]})
 
-print(result["messages"][-1].content)
+print(result['messages'][-1].content)
 ```

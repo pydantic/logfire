@@ -18,13 +18,13 @@ from google.adk.models.lite_llm import LiteLlm
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 
-os.environ["OPENAI_API_KEY"] = os.environ["LOGFIRE_GATEWAY_API_KEY"]
-os.environ["OPENAI_BASE_URL"] = "https://gateway-us.pydantic.dev/proxy/openai"
+os.environ['OPENAI_API_KEY'] = os.environ['LOGFIRE_GATEWAY_API_KEY']
+os.environ['OPENAI_BASE_URL'] = 'https://gateway-us.pydantic.dev/proxy/openai'
 
 agent = LlmAgent(
-    model=LiteLlm(model="openai/gpt-5.4-mini"),
-    name="weather_agent",
-    instruction="You are a concise weather assistant.",
+    model=LiteLlm(model='openai/gpt-5.4-mini'),
+    name='weather_agent',
+    instruction='You are a concise weather assistant.',
 )
 
 
@@ -32,11 +32,11 @@ async def main() -> None:
     runner = InMemoryRunner(agent=agent)
     session = await runner.session_service.create_session(
         app_name=runner.app_name,
-        user_id="gateway-example-user",
+        user_id='gateway-example-user',
     )
     content = types.Content(
-        role="user",
-        parts=[types.Part.from_text(text="What is the weather in London?")],
+        role='user',
+        parts=[types.Part.from_text(text='What is the weather in London?')],
     )
     async for event in runner.run_async(
         user_id=session.user_id,
@@ -47,7 +47,7 @@ async def main() -> None:
             print(event.content.parts[0].text)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())
 ```
 

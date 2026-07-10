@@ -17,22 +17,22 @@ from llama_index.llms.openai import OpenAI
 
 class WeatherWorkflow(Workflow):
     llm = OpenAI(
-        model="gpt-5.4-mini",
-        api_key=os.environ["LOGFIRE_GATEWAY_API_KEY"],
-        api_base="https://gateway-us.pydantic.dev/proxy/openai",
+        model='gpt-5.4-mini',
+        api_key=os.environ['LOGFIRE_GATEWAY_API_KEY'],
+        api_base='https://gateway-us.pydantic.dev/proxy/openai',
     )
 
     @step
     async def answer(self, ev: StartEvent) -> StopEvent:
-        response = await self.llm.acomplete(f"What is the weather in {ev.city}?")
+        response = await self.llm.acomplete(f'What is the weather in {ev.city}?')
         return StopEvent(result=str(response))
 
 
 async def main() -> None:
-    result = await WeatherWorkflow(timeout=60).run(city="London")
+    result = await WeatherWorkflow(timeout=60).run(city='London')
     print(result)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())
 ```
