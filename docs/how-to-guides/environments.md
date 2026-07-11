@@ -26,9 +26,12 @@ If you are using languages other than Python, you can set the environment like t
 
 ---
 
-Once set, you will see your environment in the Logfire UI `all envs` dropdown,
-which is present on the [Live View](../guides/web-ui/live.md), [Dashboards](../guides/web-ui/dashboards.md)
-and [Explore](../guides/web-ui/explore.md) pages:
+Once set, you will see your environment in the environment picker in the Logfire UI.
+The picker lives in the side navigation, directly below the project picker, and reads
+`all envs` until you narrow it down. It applies to observability pages like
+[Live View](../guides/web-ui/live.md), [Dashboards](../guides/web-ui/dashboards.md)
+and [Explore](../guides/web-ui/explore.md) (on pages where environments don't apply,
+the picker is shown disabled):
 
 ![Environments](../images/guide/environments.png)
 
@@ -38,13 +41,15 @@ and [Explore](../guides/web-ui/explore.md) pages:
 Note that by default there are system generated environments:
 
 - `all envs`: Searches will include everything, including spans that had no environment set.
-- `not specified`: Searches will *only* include spans that had no environment set.
+- `env not specified`: Searches will *only* include spans that had no environment set.
 
-So `not specified` is a subset of `all envs`.
+So `env not specified` is a subset of `all envs`.
 
 Any environments you create via the SDK will appear below the system generated environments.
 When you select an environment, all subsequent queries (e.g. on live view, dashboards or explore)
-will filter by that environment.
+will filter by that environment. You can select more than one environment at a time, and
+hovering an environment reveals a pin icon to save it as your personal default for the
+project: that default is applied whenever you open the project.
 
 ## Can I create an environment in the UI?
 
