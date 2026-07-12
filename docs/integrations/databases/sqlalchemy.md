@@ -1,9 +1,9 @@
 ---
-title: "Instrument SQLAlchemy"
+title: "Instrument SQLAlchemy: see every database query your app runs"
 description: "See every database query your app runs through SQLAlchemy (the SQL, how long it took, and which ones failed) as spans in Logfire."
 integration: otel
 ---
-# Instrument SQLAlchemy
+# SQLAlchemy
 
 See every database query your app runs through [SQLAlchemy](https://www.sqlalchemy.org/) in Logfire: the SQL statement, how long it took, and which ones failed. Each query becomes a **span** (one timed step, with a name and a duration), shown nested inside the request that triggered it, so you can spot the slow or failing query behind a slow endpoint.
 
