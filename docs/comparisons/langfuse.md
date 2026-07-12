@@ -21,7 +21,7 @@ Both Logfire and Langfuse help you observe AI/LLM applications, but they take fu
 ## When to Choose Logfire
 
 - **Unified observability:** You want AI monitoring and application monitoring in one tool
-- **Built for scale:** You need to handle massive data loads, SaaS or self-hosted
+- **Built for scale:** You need to handle massive data loads, whether SaaS or self-hosted
 - **SQL-based analysis:** You prefer querying with familiar SQL (and AI assistants write excellent SQL)
 - **Minimal integration effort:** You want to add tracing with minimal code changes
 - **Pydantic/FastAPI stack:** You're already using Pydantic or FastAPI

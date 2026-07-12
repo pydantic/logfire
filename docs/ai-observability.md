@@ -49,7 +49,7 @@ Logfire covers evals from both directions. [pydantic-evals](https://github.com/p
 
 ### Prompt Management & Playground
 
-Author, version, and test prompts in the [prompt editor](reference/advanced/prompt-management/index.md), compose reusable fragments, and promote new versions with labeled rollouts, no redeploy needed. The Playground lets you iterate on prompts, models, and tools interactively against real captured runs.
+Author, version, and test prompts in the [prompt editor](reference/advanced/prompt-management/index.md), compose reusable fragments, and promote new versions with labeled rollouts: no redeploy needed. The Playground lets you iterate on prompts, models, and tools interactively against real captured runs.
 
 ### AI Gateway
 

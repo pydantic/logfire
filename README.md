@@ -9,7 +9,7 @@
   <a href="https://pydantic.dev/docs/logfire/join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
 </p>
 
-From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library: that the most powerful tools can be easy to use.
+From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open-source library: that the most powerful tools can be easy to use.
 
 What sets Logfire apart:
 
