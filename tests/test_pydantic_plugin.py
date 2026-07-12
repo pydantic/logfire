@@ -8,12 +8,11 @@ from typing import TYPE_CHECKING, Annotated, Any, cast
 from unittest.mock import patch
 
 import cloudpickle
-import pydantic
 import pytest
 import sqlmodel
 from dirty_equals import IsInt
 from inline_snapshot import snapshot
-from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import (
     AfterValidator,
@@ -28,6 +27,7 @@ from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic_core import core_schema
 
 import logfire
+import logfire.integrations.pydantic as logfire_pydantic
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import (
@@ -166,6 +166,8 @@ def _new_pydantic_plugin_result(
     include: set[str] | None = None,
     exclude: set[str] | None = None,
 ) -> tuple[object | None, object | None, object | None]:
+    getattr(logfire_pydantic, '_module_is_non_user_code').cache_clear()
+    getattr(logfire_pydantic, '_non_user_code_prefixes').cache_clear()
     logfire.configure(
         send_to_logfire=False,
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
@@ -200,28 +202,18 @@ def test_pydantic_plugin_excludes_non_user_modules_by_default() -> None:
 
 
 def test_pydantic_plugin_include_overrides_default_non_user_filter() -> None:
-    purelib = sysconfig.get_path('purelib')
-    assert purelib is not None
-
-    def fake_find_spec(module: str) -> SimpleNamespace | None:
-        if module == 'third_party_pkg.models':
-            return SimpleNamespace(
-                origin=os.path.join(purelib, 'third_party_pkg', 'models.py'),
-                submodule_search_locations=[],
-            )
-        return None
-
-    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
-        assert _new_pydantic_plugin_result(
-            'third_party_pkg.models',
-            'ThirdPartyModel',
-            include={'third_party_pkg.models::ThirdPartyModel'},
-        ) != (None, None, None)
+    assert _new_pydantic_plugin_result(
+        'third_party_pkg.models',
+        'ThirdPartyModel',
+        include={'third_party_pkg.models::ThirdPartyModel'},
+    ) != (None, None, None)
 
 
-def test_pydantic_plugin_handles_invalid_module_specs_as_user_code() -> None:
+def test_pydantic_plugin_handles_find_spec_failures_as_user_code() -> None:
     def fake_find_spec(module: str) -> SimpleNamespace | None:
         if module == 'broken_pkg.models':
+            raise RuntimeError('broken parent import')
+        if module == 'invalid_name':
             raise ValueError('invalid module name')
         if module == 'namespace_pkg.models':
             return SimpleNamespace(origin=None, submodule_search_locations=[])
@@ -229,6 +221,7 @@ def test_pydantic_plugin_handles_invalid_module_specs_as_user_code() -> None:
 
     with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
         assert _new_pydantic_plugin_result('broken_pkg.models', 'BrokenModel') != (None, None, None)
+        assert _new_pydantic_plugin_result('invalid_name', 'InvalidModel') != (None, None, None)
         assert _new_pydantic_plugin_result('namespace_pkg.models', 'NamespaceModel') != (None, None, None)
 
 
@@ -321,7 +314,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                             'exemplars': [],
                         },
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': 1,
                     'is_monotonic': True,
                 },
             }
@@ -375,7 +368,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
                             'exemplars': [],
                         },
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': 1,
                     'is_monotonic': True,
                 },
             }
@@ -437,7 +430,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                             'exemplars': [],
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': 1,
                     'is_monotonic': True,
                 },
             }
@@ -523,7 +516,7 @@ def test_pydantic_plugin_python_error_record_failure(
                             'exemplars': [],
                         }
                     ],
-                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'aggregation_temporality': 1,
                     'is_monotonic': True,
                 },
             }
@@ -1377,9 +1370,7 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
                     'logfire.level_num': 9,
                     'logfire.span_type': 'span',
                     'success': True,
-                    'result': '{"id":1}'
-                    if get_version(pydantic.__version__) >= get_version('2.7.0')
-                    else '"Hero(id=1)"',
+                    'result': '{"id":1}',
                     'logfire.msg': 'Pydantic Hero validate_python succeeded',
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"Hero","x-python-datatype":"PydanticModel"}}}',
                 },

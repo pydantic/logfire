@@ -401,7 +401,7 @@ def _module_is_non_user_code(module: str) -> bool:
 
     try:
         spec = importlib.util.find_spec(module)
-    except (ImportError, ModuleNotFoundError, ValueError):
+    except Exception:
         return False
 
     if spec is None:
