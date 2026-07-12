@@ -1,6 +1,6 @@
 ---
 title: "Logfire Web Framework Integrations: Flask"
-description: "Get automatic request tracing for Flask applications. Instrument your Flask app to capture spans, logs, and headers effortlessly with Logfire."
+description: "Get automatic request tracing for Flask applications. Instrument your Flask app to capture spans, logs, and headers with Logfire."
 integration: otel
 ---
 # Flask

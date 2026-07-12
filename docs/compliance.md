@@ -6,7 +6,7 @@ For more about our security posture, see the <a href="https://pydantic.dev/secur
 
 To request our SOC2 report or any other compliance documentation, use our <a href="https://portal.usepylon.com/pydantic/forms/compliance-request" target="_blank" rel="noopener">compliance request form</a>. For anything else, feel free to [get in touch](help.md).
 
-## SOC2 💡
+## SOC2
 
 ![Pydantic Logfire SOC2 Badge](https://badges.oneleet.com/badge/59e88e9f-ed29-49bc-a91d-0c9d1b8b5c2e?dark=true#only-dark){ width="150" }
 ![Pydantic Logfire SOC2 Badge](https://badges.oneleet.com/badge/59e88e9f-ed29-49bc-a91d-0c9d1b8b5c2e?dark=false#only-light){ width="150" }

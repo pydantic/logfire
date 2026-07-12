@@ -7,7 +7,7 @@ In this section, we'll focus on integrating **Logfire** with your application.
 ## OpenTelemetry Instrumentation
 
 Harnessing the power of [OpenTelemetry], **Logfire** not only offers broad compatibility with any [OpenTelemetry]
-instrumentation package, but also includes a user-friendly CLI command that effortlessly highlights any
+instrumentation package, but also includes a CLI command that highlights any
 missing components in your project.
 
 To inspect your project, run the following command:

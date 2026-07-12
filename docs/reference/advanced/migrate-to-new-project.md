@@ -1,6 +1,6 @@
 ---
 title: How to Migrate to a New Logfire Project
-description: Send data to multiple Logfire projects simultaneously for seamless migration.
+description: Send data to multiple Logfire projects simultaneously for migration.
 ---
 
 # Migrate to a New Logfire Project
