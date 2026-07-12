@@ -4,13 +4,13 @@ description: "Browse your Kubernetes clusters, namespaces, workloads, pods, node
 ---
 # Kubernetes
 
-The **Kubernetes view** is the cluster-shaped browser for your Kubernetes telemetry. Six lenses on the same data — Clusters, Nodes, Namespaces, Workloads, Pods, and Images — all sortable, with one-click drill-down to the traces each pod produced in the [Live View](live.md).
+The **Kubernetes view** is the cluster-shaped browser for your Kubernetes telemetry. Six lenses on the same data (Clusters, Nodes, Namespaces, Workloads, Pods, and Images) all sortable, with one-click drill-down to the traces each pod produced in the [Live View](live.md).
 
 You'll find Kubernetes in the project sidebar, between **Hosts** and **Metrics**.
 
 ![Kubernetes view with the Clusters tab open](../../images/kubernetes/inventory.png)
 
-Switch to the **Pods** tab to drop into individual pod state — restart counts, CPU and memory per pod, status pill, and the workload they belong to:
+Switch to the **Pods** tab to drop into individual pod state: restart counts, CPU and memory per pod, status pill, and the workload they belong to:
 
 ![Kubernetes Pods tab](../../images/kubernetes/pods-tab.png)
 
@@ -44,10 +44,10 @@ Every detail page links into the [Live View](live.md) for the trace investigatio
 
 ## Setting up
 
-The recommended path is the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator, a DaemonSet `OpenTelemetryCollector` running every preset this view reads from — `kubeletMetrics` (with `metric_groups` already set to `[node, pod, container]`), `clusterMetrics` (`k8s_cluster` with leader election so it only emits from one pod), `hostMetrics`, `kubernetesAttributes` (the trace-enrichment processor), and `kubernetesEvents` — plus the ServiceAccount, RBAC and CRDs it all needs. You just point its OTLP exporter at Logfire:
+The recommended path is the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator, a DaemonSet `OpenTelemetryCollector` running every preset this view reads from: `kubeletMetrics` (with `metric_groups` already set to `[node, pod, container]`), `clusterMetrics` (`k8s_cluster` with leader election so it only emits from one pod), `hostMetrics`, `kubernetesAttributes` (the trace-enrichment processor), and `kubernetesEvents`, plus the ServiceAccount, RBAC and CRDs it all needs. You just point its OTLP exporter at Logfire:
 
 ```yaml
-# values.yaml — Logfire-shaped overrides for opentelemetry-kube-stack.
+# values.yaml: Logfire-shaped overrides for opentelemetry-kube-stack.
 # See the chart's own values.yaml for the full schema; this is only the
 # overrides on top of the defaults.
 
@@ -62,7 +62,7 @@ extraEnvs:
         key: LOGFIRE_TOKEN
 
 # Route the daemon collector's three pipelines to Logfire.
-# Override must live under `collectors.daemon.config` — the chart's
+# Override must live under `collectors.daemon.config`. The chart's
 # collector-specific config wins over `defaultCRConfig.config`.
 collectors:
   daemon:
@@ -96,7 +96,7 @@ If you have not set anything up yet, the empty state on each tab has a **Set up*
 
 ## Where Kubernetes events surface today
 
-The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, OOMKills, image pull failures, deployment progress) into log records via the `k8sobjects` receiver and ships them to your project. There is no dedicated **Events** tab in the Kubernetes view yet — to read them, open the [Live View](live.md) and filter on the relevant pod, namespace or `k8s.*` attribute, or query the `records` table directly in the [SQL Explorer](explore.md). Watch this space — an events feed in the Kubernetes view is in our backlog.
+The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, OOMKills, image pull failures, deployment progress) into log records via the `k8sobjects` receiver and ships them to your project. There is no dedicated **Events** tab in the Kubernetes view yet. To read them, open the [Live View](live.md) and filter on the relevant pod, namespace or `k8s.*` attribute, or query the `records` table directly in the [SQL Explorer](explore.md). Watch this space. An events feed in the Kubernetes view is in our backlog.
 
 ## Troubleshooting
 

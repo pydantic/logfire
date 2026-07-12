@@ -121,7 +121,7 @@ This will output the projects you need to install to have optimal OpenTelemetry 
 
 ## Info (`info`)
 
-To print the versions of `logfire`, your operating system, and related (OpenTelemetry) packages — useful when reporting a bug — run:
+To print the versions of `logfire`, your operating system, and related (OpenTelemetry) packages (useful when reporting a bug) run:
 
 ```bash
 logfire info

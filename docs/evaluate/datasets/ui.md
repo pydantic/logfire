@@ -140,5 +140,5 @@ From the dataset detail page, click **Export** to download the dataset in one of
 
 Once you have cases in a dataset, you can:
 
-- Run evaluations against it — see [Running Evaluations](evaluations.md).
-- View and compare experiment results — see [Evals: Datasets & Experiments](../../guides/web-ui/evals.md#viewing-experiments).
+- Run evaluations against it: see [Running Evaluations](evaluations.md).
+- View and compare experiment results: see [Evals: Datasets & Experiments](../../guides/web-ui/evals.md#viewing-experiments).

@@ -18,10 +18,10 @@ The supported grammar is **standard Handlebars** with the default helper set. Pr
 | Form | Meaning |
 |---|---|
 | `{{name}}` | Insert the value of variable `name` |
-| `{{object.field}}` | Insert a nested field — dotted paths resolve against the rendered context |
+| `{{object.field}}` | Insert a nested field: dotted paths resolve against the rendered context |
 | `{{object.field.subfield}}` | Arbitrary depth is supported |
 
-HTML escaping is **disabled** for prompt rendering — values are inserted verbatim. There is therefore no practical difference between `{{x}}` and the Handlebars raw form `{{{x}}}` here.
+HTML escaping is **disabled** for prompt rendering: values are inserted verbatim. There is therefore no practical difference between `{{x}}` and the Handlebars raw form `{{{x}}}` here.
 
 ### Block helpers
 
@@ -94,7 +94,7 @@ flowchart TD
 ```
 
 1. The **prompt template** expands composition references, then renders through Handlebars against the scenario's variables, producing the *rendered prompt*.
-2. For each **scenario message** (and every templated field within it — text content, tool-call args, tool-return content), Logfire preserves the scenario-only `@{prompt}@` alias, expands other composition references, and renders through Handlebars against the same scenario variables.
+2. For each **scenario message** (and every templated field within it: text content, tool-call args, tool-return content), Logfire preserves the scenario-only `@{prompt}@` alias, expands other composition references, and renders through Handlebars against the same scenario variables.
 3. Finally, every literal occurrence of `@{prompt}@` in the rendered message is replaced with the rendered prompt from step 1.
 
 This order matters: the prompt template never sees `@{prompt}@` as a payload, and scenario messages never see un-rendered Handlebars from the prompt template.
@@ -103,8 +103,8 @@ This order matters: the prompt template never sees `@{prompt}@` as a payload, an
 
 Scenario variable names come from the variables panel on the scenario editor. Two styles are supported:
 
-- **Plain identifiers** — `customer_name`, `topic`, `max_retries`. Reachable as `{{customer_name}}`.
-- **Dotted paths** — `customer.name`, `customer.tier`. On both surfaces, dotted entries are unpacked into a nested object so they are reachable as `{{customer.name}}` and via `{{#with customer}}{{name}}{{/with}}`.
+- **Plain identifiers**: `customer_name`, `topic`, `max_retries`. Reachable as `{{customer_name}}`.
+- **Dotted paths**: `customer.name`, `customer.tier`. On both surfaces, dotted entries are unpacked into a nested object so they are reachable as `{{customer.name}}` and via `{{#with customer}}{{name}}{{/with}}`.
 
 Dotted paths share prefixes: defining `customer.name` and `customer.tier` creates a single `customer` object with two fields. If the same prefix is used both as a plain identifier and as a dotted path (e.g. `customer = "..."` and `customer.name = "..."`), the dotted entries overwrite the plain value.
 
@@ -127,7 +127,7 @@ Rendering errors fall into a small set of categories:
 | Error | Cause |
 |---|---|
 | `Reserved prompt placeholder @{prompt}@ can only be used in scenario messages` | The prompt template contains `@{prompt}@`. Move it into a scenario message. |
-| `Unclosed block` / parser errors | The template is malformed Handlebars — typically an unbalanced `{{#if}} … {{/if}}` or `{{#each}} … {{/each}}`. |
+| `Unclosed block` / parser errors | The template is malformed Handlebars: typically an unbalanced `{{#if}} … {{/if}}` or `{{#each}} … {{/each}}`. |
 | `Missing helper` | You referenced a helper that is not in the default set. Only the standard Handlebars helpers are enabled. |
 
 ## Compatibility with the SDK

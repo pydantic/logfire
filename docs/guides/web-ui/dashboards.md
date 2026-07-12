@@ -165,13 +165,13 @@ Once defined, variables can be referenced in SQL queries using the format `$your
 
 #### Panel variables
 
-Besides dashboard-level variables, an individual panel can declare its own variables. A panel variable renders as a small selector inside the panel (below its title) and re-filters only that panel's queries — the dashboard toolbar and other panels are unaffected. This is useful for dashboards that mix fleet-wide panels with a drill-down panel, where a toolbar variable that re-filters everything would be too broad.
+Besides dashboard-level variables, an individual panel can declare its own variables. A panel variable renders as a small selector inside the panel (below its title) and re-filters only that panel's queries; the dashboard toolbar and other panels are unaffected. This is useful for dashboards that mix fleet-wide panels with a drill-down panel, where a toolbar variable that re-filters everything would be too broad.
 
 To add a variable to a panel:
 
 1. Open the panel editor (when creating the panel, or via **Edit** on an existing panel).
 2. Switch to the **Variables** tab.
-3. Click **Add panel variable** and configure it — panel variables support the same **Text** and **List** types as dashboard variables.
+3. Click **Add panel variable** and configure it. Panel variables support the same **Text** and **List** types as dashboard variables.
 4. Save the variable, then save the panel.
 
 Panel variables are referenced in the panel's SQL with the same `$your_variable_name` syntax. If a panel variable has the same name as a dashboard variable, the panel variable takes precedence for that panel's queries. The variable definition is saved with the panel, so the selector persists across reloads.

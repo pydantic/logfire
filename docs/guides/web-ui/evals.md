@@ -4,7 +4,7 @@ description: "Logfire Evals provides observability into how your AI systems perf
 ---
 # Evals
 
-This is the reference for the **Evals: Datasets & Experiments** page in the Logfire web UI — use it to view and compare your dataset and experiment results. For live, per-request evaluation activity streaming in from production or staging traffic, see [Live Evaluations](./live-evals.md) instead.
+This is the reference for the **Evals: Datasets & Experiments** page in the Logfire web UI. Use it to view and compare your dataset and experiment results. For live, per-request evaluation activity streaming in from production or staging traffic, see [Live Evaluations](./live-evals.md) instead.
 
 **Where to go next:**
 
