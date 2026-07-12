@@ -21,7 +21,7 @@ Both Logfire and Langfuse help you observe AI/LLM applications, but they take fu
 ## When to Choose Logfire
 
 - **Unified observability:** You want AI monitoring and application monitoring in one tool
-- **Built for scale:** You need to handle massive data loads — SaaS or self-hosted
+- **Built for scale:** You need to handle massive data loads, SaaS or self-hosted
 - **SQL-based analysis:** You prefer querying with familiar SQL (and AI assistants write excellent SQL)
 - **Minimal integration effort:** You want to add tracing with minimal code changes
 - **Pydantic/FastAPI stack:** You're already using Pydantic or FastAPI
@@ -43,16 +43,16 @@ Both Logfire and Langfuse help you observe AI/LLM applications, but they take fu
 
 This matters because AI applications don't exist in isolation. They call APIs, query databases, process files. Unified observability means faster debugging.
 
-### Query Language — Essential for Agentic Coding
+### Query Language: Essential for Agentic Coding
 
 **Langfuse** uses a custom UI and API for querying data.
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 
-- **No artificial limitations** — Ask any question, get any answer
-- **AI assistants excel at SQL** — GPT-5, Claude, and coding agents write excellent SQL
-- **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries to [understand and debug production behavior](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=langfure_comparison_webpage)
-- **Familiar syntax** — all in SQL, no new query language to learn
+- **No artificial limitations**: Ask any question, get any answer
+- **AI assistants excel at SQL**: GPT-5, Claude, and coding agents write excellent SQL
+- **Agentic workflows**: When coding agents debug your AI application, they can write arbitrary queries to [understand and debug production behavior](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=langfure_comparison_webpage)
+- **Familiar syntax**: all in SQL, no new query language to learn
 
 When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. With custom APIs or DSLs, it's constrained to anticipated queries.
 

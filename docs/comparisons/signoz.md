@@ -27,7 +27,7 @@ If you want managed observability without infrastructure overhead, here's how Lo
 
 ### What's Similar
 
-Both SaaS platforms handle infrastructure for you—no ClickHouse to manage, no collectors to deploy, no scaling headaches. You instrument your app, send data, and get observability.
+Both SaaS platforms handle infrastructure for you, no ClickHouse to manage, no collectors to deploy, no scaling headaches. You instrument your app, send data, and get observability.
 
 ### Where Logfire Differs
 
@@ -43,7 +43,7 @@ logfire.instrument_openai()
 
 Three lines and you're observing AI calls. SigNoz uses standard OpenTelemetry instrumentation, which requires more configuration and overhead.
 
-**SQL querying for agentic workflows.** Logfire uses PostgreSQL-compatible SQL. This matters more than it might seem—AI coding assistants and agents write excellent PostgreSQL. When you're debugging production issues with Claude or Cursor, your tools can query your observability data without learning tool-specific syntax. SigNoz uses ClickHouse SQL, which is powerful but less familiar to most developers and AI tools.
+**SQL querying for agentic workflows.** Logfire uses PostgreSQL-compatible SQL. This matters more than it might seem. AI coding assistants and agents write excellent PostgreSQL. When you're debugging production issues with Claude or Cursor, your tools can query your observability data without learning tool-specific syntax. SigNoz uses ClickHouse SQL, which is powerful but less familiar to most developers and AI tools.
 
 **SDK flexibility.** The Logfire SDK can send data to any OTel-compatible backend, including SigNoz. If you like our SDK's simplicity but want to use their backend, you can.
 
@@ -52,7 +52,7 @@ Three lines and you're observing AI calls. SigNoz uses standard OpenTelemetry in
 
 ### When to Choose Each
 
-**Choose Logfire** if you're building AI/LLM applications — you get evals, prompt management, a playground, and an AI gateway alongside observability — want the simplest possible setup, work heavily with AI coding tools, use MCP for debugging, and benefit from querying your data with standard SQL.
+**Choose Logfire** if you're building AI/LLM applications (you get evals, prompt management, a playground, and an AI gateway alongside observability), want the simplest possible setup, work heavily with AI coding tools, use MCP for debugging, and benefit from querying your data with standard SQL.
 
 **Choose SigNoz Cloud** if you need Prometheus-style infrastructure metrics alongside APM, prefer standard OTel instrumentation, or your team is already familiar with ClickHouse.
 
@@ -85,7 +85,7 @@ This is the nature of self-hosted infrastructure. Some organizations need this l
 
 ### When to Choose Each
 
-**Choose Logfire** if you want to focus on your application instead of your monitoring infrastructure, need AI-first observability, don't have dedicated DevOps resources, want to use MCP server to debug errors, query tracing data with SQL, built dashboards, visualise evals and setup alerts with the same platform.
+**Choose Logfire** if you want to focus on your application instead of your monitoring infrastructure, need AI-first observability, don't have dedicated DevOps resources, want to use MCP server to debug errors, query tracing data with SQL, build dashboards, visualise evals and setup alerts with the same platform.
 
 **Choose SigNoz Self-Hosted** if you have strict data residency requirements that prevent using any cloud service, need complete control over your observability infrastructure, or have a DevOps team with capacity to maintain the stack.
 
@@ -97,15 +97,15 @@ If you're running SigNoz and considering Logfire:
 
 1. Both platforms use OpenTelemetry, so instrumentation concepts transfer directly
 2. Try Logfire alongside SigNoz to compare the experience
-3. The Logfire SDK works with any OTel backend—you can use our simpler instrumentation while evaluating
+3. The Logfire SDK works with any OTel backend. You can use our simpler instrumentation while evaluating
 
 ---
 
 ## Summary
 
 
-**Logfire** is for teams who want managed or self-hosted (via https://pydantic.dev/pricing?utm_source=signoz_comparison_docs#enterprise) AI-native observability with minimal operational overhead. It's built for developers who'd rather focus on their application than their monitoring infrastructure—especially those without dedicated DevOps resources. Beyond tracing, Logfire lets you query your telemetry data with SQL, build dashboards, visualize evals, and set up alerts all in one platform. You can even debug production errors via MCP server directly from your IDE.
+**Logfire** is for teams who want managed or self-hosted (via https://pydantic.dev/pricing?utm_source=signoz_comparison_docs#enterprise) AI-native observability with minimal operational overhead. It's built for developers who'd rather focus on their application than their monitoring infrastructure, especially those without dedicated DevOps resources. Beyond tracing, Logfire lets you query your telemetry data with SQL, build dashboards, visualize evals, and set up alerts all in one platform. You can even debug production errors via MCP server directly from your IDE.
 
 **SigNoz Cloud** is for teams who want managed observability with standard OTel instrumentation and ClickHouse's query capabilities.
 
-**SigNoz Self-Hosted** is for teams who must own their infrastructure—whether for compliance, control, or organizational requirements—and have the resources to maintain it.
+**SigNoz Self-Hosted** is for teams who must own their infrastructure (whether for compliance, control, or organizational requirements) and have the resources to maintain it.

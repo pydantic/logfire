@@ -16,9 +16,9 @@ description: "Step by Step Guide to Getting Started with Pydantic Logfire: How t
 ## About Pydantic Logfire
 
 From the team behind **Pydantic Validation**, **Pydantic Logfire** is a new type of observability platform built on
-the same belief as our open source library — that the most powerful tools can be easy to use.
+the same belief as our open source library: that the most powerful tools can be easy to use.
 
-**Logfire** is built on OpenTelemetry, with native SDKs for **Python**, **JavaScript/TypeScript**, and **Rust** — plus support for **any language** via OpenTelemetry. [Read more](why.md).
+**Logfire** is built on OpenTelemetry, with native SDKs for **Python**, **JavaScript/TypeScript**, and **Rust**, plus support for **any language** via OpenTelemetry. [Read more](why.md).
 
 ## Overview
 
