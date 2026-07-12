@@ -1,6 +1,6 @@
 ---
 title: "Logfire Web Framework Integrations: Starlette"
-description: Get seamless tracing for your Starlette application. Use pip install starlette to get started.
+description: Get automatic tracing for your Starlette application. Use pip install starlette to get started.
 integration: otel
 ---
 # Starlette

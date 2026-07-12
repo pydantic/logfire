@@ -296,7 +296,7 @@ The precedence, from highest to lowest (each of the first three can be set by th
 5. Resource detectors from the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` environment variable.
 6. Logfire's pre-populated defaults (`host.*`, `os.*`, `process.runtime.*`).
 
-Items 4 and 5 are applied by OpenTelemetry's `Resource.create`, so they behave exactly as in any OpenTelemetry SDK — in particular `OTEL_RESOURCE_ATTRIBUTES` takes precedence over the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` detectors.
+Items 4 and 5 are applied by OpenTelemetry's `Resource.create`, so they behave exactly as in any OpenTelemetry SDK: in particular `OTEL_RESOURCE_ATTRIBUTES` takes precedence over the `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` detectors.
 
 Metrics and spans/logs produced by the same process will share the same resource attributes, and the `metrics` table has this column as well as many of the others in this section.
 

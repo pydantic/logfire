@@ -9,11 +9,11 @@ The Logfire AI Gateway lets you route LLM calls through a single endpoint with b
 
 The gateway gives you:
 
-- **One endpoint, many providers** — call OpenAI, Anthropic, Google, AWS Bedrock, Groq, Mistral, and more through provider-compatible endpoints, using the SDKs you already have.
-- **Key management** — project-scoped and personal API keys with per-key spending limits and expiry, managed in the Logfire UI.
-- **Cost controls** — usage analytics plus daily, weekly, monthly, and total spending caps per key, and per-member limits.
-- **Failover and load balancing** — routing groups let you group providers with priorities and weights.
-- **Observability** — with telemetry enabled, every gateway request is traced into a Logfire project of your choice.
+- **One endpoint, many providers**: call OpenAI, Anthropic, Google, AWS Bedrock, Groq, Mistral, and more through provider-compatible endpoints, using the SDKs you already have.
+- **Key management**: project-scoped and personal API keys with per-key spending limits and expiry, managed in the Logfire UI.
+- **Cost controls**: usage analytics plus daily, weekly, monthly, and total spending caps per key, and per-member limits.
+- **Failover and load balancing**: routing groups let you group providers with priorities and weights.
+- **Observability**: with telemetry enabled, every gateway request is traced into a Logfire project of your choice.
 
 The gateway is configured per **organization** and is available on the Personal, Team, Growth, and Enterprise Cloud plans.
 
@@ -31,7 +31,7 @@ If you prefer to wire things up yourself, **Manual setup** just turns the gatewa
 
 !!! note "Prerequisites"
     - You need to be an **organization admin** to enable the gateway and manage providers, routing, and spending. Non-admin members see the **Connect** and **API Keys** tabs only.
-    - The organization needs at least one **project** — API keys and telemetry are scoped to a project.
+    - The organization needs at least one **project**: API keys and telemetry are scoped to a project.
     - On the Personal, Team, and Growth plans, built-in providers are billed against a prepaid balance and require a payment method; the exact fees and initial balance are shown during activation. You can skip this entirely by adding your own provider credentials instead (see [Providers](#providers)).
 
 Once enabled, the Gateway page has these tabs: **Overview**, **Connect**, **API Keys**, **Providers**, **Routing**, **Spending**, and **Settings**.
@@ -95,7 +95,7 @@ For example, with an OpenAI-compatible provider whose slug is `openai`, in the U
     print(agent.run_sync('Hello!').output)
     ```
 
-Anthropic-type providers expose the Anthropic Messages API instead — the same pattern with the Anthropic SDK:
+Anthropic-type providers expose the Anthropic Messages API instead: the same pattern with the Anthropic SDK:
 
 ```python skip-run="true" skip-reason="external-connection"
 from anthropic import Anthropic
@@ -121,7 +121,7 @@ Use the Connect tab as the source of truth for your organization: it substitutes
 
 A provider is an upstream LLM service the gateway can forward requests to. Each provider has a **slug** which becomes the route segment in your request URL. There are two kinds:
 
-- **Built-in providers** are managed by Logfire — no upstream account or API key needed. Usage is billed to your organization through a prepaid gateway balance (with configurable auto-recharge). Activation is a separate step from enabling the gateway and, on card-based plans, requires a payment method.
+- **Built-in providers** are managed by Logfire: no upstream account or API key needed. Usage is billed to your organization through a prepaid gateway balance (with configurable auto-recharge). Activation is a separate step from enabling the gateway and, on card-based plans, requires a payment method.
 - **Bring-your-own-key (BYOK) providers** use credentials you supply on the **Providers** tab. Supported types include OpenAI, Anthropic, Google Vertex AI, Azure Foundry, AWS Bedrock, Groq, Hugging Face, Mistral, Ollama, Doubleword, and custom OpenAI-compatible endpoints. Upstream usage is billed directly by your provider.
 
 ### API keys
@@ -131,7 +131,7 @@ Gateway API keys authenticate requests to the gateway. Keys are scoped to a proj
 - **Project keys** are created and managed by admins, for shared or production use.
 - **Personal keys** belong to an individual member (useful for local development); regular members can create and reveal their own.
 
-Each key can have an expiry date and its own **spending limits** — daily, weekly, monthly, and total. The recommended setup creates a first project key named **Quick Start**.
+Each key can have an expiry date and its own **spending limits**: daily, weekly, monthly, and total. The recommended setup creates a first project key named **Quick Start**.
 
 ### Routing groups
 
@@ -141,13 +141,13 @@ Routing groups (the **Routing** tab) let you define fallback strategies by group
 
 The **Spending** tab shows usage analytics for the organization, broken down by project, member, and API key. Cost controls exist at several levels:
 
-- **Per-key limits** — daily, weekly, monthly, and total caps set on each API key.
-- **Per-member limits** — daily, weekly, and monthly caps that admins can set for individual organization members.
-- **Prepaid balance and auto-recharge** — built-in provider usage draws from a prepaid balance. You can enable auto-recharge with a threshold and a top-up target so the balance refills automatically before it runs out.
+- **Per-key limits**: daily, weekly, monthly, and total caps set on each API key.
+- **Per-member limits**: daily, weekly, and monthly caps that admins can set for individual organization members.
+- **Prepaid balance and auto-recharge**: built-in provider usage draws from a prepaid balance. You can enable auto-recharge with a threshold and a top-up target so the balance refills automatically before it runs out.
 
 ### Telemetry
 
-The gateway can record every request as traces in a Logfire project, so you get full observability of your LLM traffic — models, latency, token usage, and conversation content — alongside the rest of your telemetry. The recommended setup turns this on for your chosen project; you can manage it later from the gateway **Settings** tab.
+The gateway can record every request as traces in a Logfire project, so you get full observability of your LLM traffic (models, latency, token usage, and conversation content) alongside the rest of your telemetry. The recommended setup turns this on for your chosen project; you can manage it later from the gateway **Settings** tab.
 
 ## Using the gateway with AI coding tools
 
@@ -162,6 +162,6 @@ Or run just the proxy and configure a tool manually with `logfire gateway serve`
 
 ## See also
 
-- [Embeddings](embeddings.md) — discover and call embedding models through the gateway.
-- [Prompt Management: Access and Prerequisites](../prompt-management/plan-requirements.md) — prompt runs execute through the gateway and spend gateway budget.
-- [Cost & Usage](../../../logfire-costs.md) — plan tiers and how usage is billed.
+- [Embeddings](embeddings.md): discover and call embedding models through the gateway.
+- [Prompt Management: Access and Prerequisites](../prompt-management/plan-requirements.md): prompt runs execute through the gateway and spend gateway budget.
+- [Cost & Usage](../../../logfire-costs.md): plan tiers and how usage is billed.

@@ -568,7 +568,7 @@ GROUP BY x
 ORDER BY x
 ```
 
-The same query works unchanged for a gauge like `process.cpu.utilization` — just swap the metric name.
+The same query works unchanged for a gauge like `process.cpu.utilization`: just swap the metric name.
 
 For summary statistics, apply an outer aggregate to the per-row functions:
 
@@ -658,4 +658,4 @@ bucket_item_approx as (
 ```
 
 Then `bucket_item_approx.approx_item` can be fed into the histogram chart recipe above.
-(For percentiles, prefer `metric_quantile` — it computes the same estimate without any of this machinery.)
+(For percentiles, prefer `metric_quantile`: it computes the same estimate without any of this machinery.)

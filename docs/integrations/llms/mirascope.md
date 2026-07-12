@@ -1,9 +1,9 @@
 ---
 title: "Logfire Integrations: Mirascope"
-description: "Get seamless observability for Mirascope applications. This guide shows how to trace conversation, prompt templates & monitor different LLM providers."
+description: "Get observability for Mirascope applications. This guide shows how to trace conversation, prompt templates & monitor different LLM providers."
 integration: "third-party"
 ---
-[Mirascope][mirascope-repo] is a developer tool for building with LLMs. Their library focuses on abstractions that aren't obstructions and integrates with Logfire to make observability and monitoring for LLMs easy and seamless.
+[Mirascope][mirascope-repo] is a developer tool for building with LLMs. Their library focuses on abstractions that aren't obstructions and integrates with Logfire to make observability and monitoring for LLMs easy.
 
 You can enable it using their [`@with_logfire`][mirascope-logfire] decorator, which will work with all of the [model providers that they support][mirascope-supported-providers] (e.g. OpenAI, Anthropic, Gemini, Mistral, Groq, and more).
 

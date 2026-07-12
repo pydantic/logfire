@@ -75,9 +75,9 @@ For this, you will need the [Webhook URL](#creating-a-slack-incoming-webhook) yo
 Let's set up a channel, then test that alerts can be sent with the URL.
 In the **Send notifications to** section of the alert form:
 
-* Select **Add channel** to open the New channel dialog (channels can also be managed from **Delivery** → **Channels** in the **Notify** section of the left sidebar — they are shared across all projects in your organization)
+* Select **Add channel** to open the New channel dialog (channels can also be managed from **Delivery** → **Channels** in the **Notify** section of the left sidebar; they are shared across all projects in your organization)
 * Put in a name such as **Logfire Alerts**.  This does not need to be the name of your Slack channel
-* Select **Slack Webhook** as the type (or leave it as **Auto** — the Slack format is inferred from `hooks.slack.com` URLs)
+* Select **Slack Webhook** as the type (or leave it as **Auto**; the Slack format is inferred from `hooks.slack.com` URLs)
 * Paste in your Webhook URL from the Slack [Apps Management Dashboard](https://api.slack.com/apps)
 * Click on **Send a test alert** and check that you can see the alert in Slack.  A successful test is required before you can create the channel
 * Click **Create channel** to create the channel and close the dialog

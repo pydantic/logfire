@@ -59,7 +59,7 @@ All methods are covered with both `anthropic.Anthropic` and `anthropic.AsyncAnth
 
 ## Streaming Responses
 
-When instrumenting streaming responses, Logfire creates two spans — one around the initial request and one
+When instrumenting streaming responses, Logfire creates two spans: one around the initial request and one
 around the streamed response.
 
 Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to render the response in the terminal in real-time. :dancer:

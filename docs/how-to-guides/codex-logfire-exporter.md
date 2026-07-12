@@ -31,7 +31,7 @@ After enabling the plugin:
 
 1. Restart Codex so hook configuration is loaded.
 2. Run `/hooks` if Codex asks you to review or trust the plugin hooks.
-3. Complete a new Codex turn — the exporter sends telemetry when the turn finishes.
+3. Complete a new Codex turn: the exporter sends telemetry when the turn finishes.
 
 ## Configure
 
@@ -77,7 +77,7 @@ The exporter registers Codex lifecycle hooks:
 
 ### Export boundary
 
-Only completed turns are exported. The exporter sends telemetry on the `Stop` hook — it does not live-stream every
+Only completed turns are exported. The exporter sends telemetry on the `Stop` hook. It does not live-stream every
 Codex action. Interrupted turns that never reach `Stop` are not exported.
 
 ### Trace model
@@ -128,12 +128,12 @@ rg -n "logfire-exporter|failed to load plugin" ~/.codex/log/codex-tui.log
 
 Common issues:
 
-- **No spans after a turn** — confirm `LOGFIRE_TOKEN` is set in `config.env` and the turn completed normally (reached `Stop`).
-- **Hooks not trusted** — run `/hooks` in Codex and approve the exporter hooks.
-- **Stale plugin state** — restart Codex or start a new conversation after changing plugin configuration.
+- **No spans after a turn**: confirm `LOGFIRE_TOKEN` is set in `config.env` and the turn completed normally (reached `Stop`).
+- **Hooks not trusted**: run `/hooks` in Codex and approve the exporter hooks.
+- **Stale plugin state**: restart Codex or start a new conversation after changing plugin configuration.
 
 ## See also
 
-- [Coding Agent Skills](skills.md) — install the Logfire plugin and other Pydantic skills.
-- [Connect to MCP Server](mcp-server.md) — configure Logfire MCP access through the Logfire plugin.
+- [Coding Agent Skills](skills.md): install the Logfire plugin and other Pydantic skills.
+- [Connect to MCP Server](mcp-server.md): configure Logfire MCP access through the Logfire plugin.
 - Source repository: [github.com/pydantic/skills](https://github.com/pydantic/skills)

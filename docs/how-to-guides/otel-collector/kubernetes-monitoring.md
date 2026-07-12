@@ -4,16 +4,16 @@ description: "Ship Kubernetes cluster metrics, node and pod metrics, pod logs, a
 ---
 # Kubernetes monitoring with the OTel Collector
 
-This page is the end-to-end guide for monitoring a Kubernetes cluster with the OpenTelemetry Collector and Logfire — cluster-level state and events, per-node container CPU/memory/network/disk, pod stdout/stderr logs, and the Kubernetes resource attributes (`k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, `k8s.pod.name`, …) that make all of the above queryable and groupable in the Logfire UI.
+This page is the end-to-end guide for monitoring a Kubernetes cluster with the OpenTelemetry Collector and Logfire: cluster-level state and events, per-node container CPU/memory/network/disk, pod stdout/stderr logs, and the Kubernetes resource attributes (`k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, `k8s.pod.name`, …) that make all of the above queryable and groupable in the Logfire UI.
 
-If you only want one slice of this, jump straight to the relevant section. Every snippet below is a working example you can `kubectl apply -f` against a real cluster (managed or local — kind, minikube, k3s, Docker Desktop).
+If you only want one slice of this, jump straight to the relevant section. Every snippet below is a working example you can `kubectl apply -f` against a real cluster (managed or local: kind, minikube, k3s, Docker Desktop).
 
 ## Quickstart: the `opentelemetry-kube-stack` Helm chart
 
-For the fastest path from an empty cluster to a populated [Kubernetes view](../../guides/web-ui/kubernetes.md), use the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator and a DaemonSet `OpenTelemetryCollector` running every preset the view reads from — `kubeletMetrics` (with `metric_groups: [node, pod, container]`), `clusterMetrics` (`k8s_cluster` with `k8s_leader_elector` so it only emits from one pod), `hostMetrics`, `kubernetesAttributes`, `kubernetesEvents` — plus the ServiceAccount, CRDs and RBAC it all needs. You provide a small `values.yaml` to point its OTLP exporter at Logfire:
+For the fastest path from an empty cluster to a populated [Kubernetes view](../../guides/web-ui/kubernetes.md), use the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator and a DaemonSet `OpenTelemetryCollector` running every preset the view reads from: `kubeletMetrics` (with `metric_groups: [node, pod, container]`), `clusterMetrics` (`k8s_cluster` with `k8s_leader_elector` so it only emits from one pod), `hostMetrics`, `kubernetesAttributes`, `kubernetesEvents`, plus the ServiceAccount, CRDs and RBAC it all needs. You provide a small `values.yaml` to point its OTLP exporter at Logfire:
 
 ```yaml
-# values.yaml — Logfire-shaped overrides for opentelemetry-kube-stack.
+# values.yaml: Logfire-shaped overrides for opentelemetry-kube-stack.
 # See the chart's own values.yaml for the full schema; this is only the
 # overrides on top of the defaults.
 
@@ -26,7 +26,7 @@ extraEnvs:
         name: logfire-token
         key: LOGFIRE_TOKEN
 
-# Override must live under `collectors.daemon.config` — the chart's
+# Override must live under `collectors.daemon.config`. The chart's
 # collector-specific config wins over `defaultCRConfig.config`.
 collectors:
   daemon:
@@ -54,7 +54,7 @@ helm upgrade --install otel-stack open-telemetry/opentelemetry-kube-stack \
 
 Data starts flowing within a minute or two of the daemon pods reaching `Ready`. Validated against a 3-node kind cluster with chart 0.15.2 / operator + collector 0.151.0; the daemon collector exports cleanly with no dropped batches, and the `k8s_cluster` receiver completes initial cache sync via leader election.
 
-The rest of this page is the **from-scratch walkthrough** — recommended if you want to understand every piece, customise beyond what the chart's value overrides expose, or deploy without the chart's bundled Operator (for example on a managed platform that already provides one). If you took the Helm path above, you can skip directly to [What `k8sattributesprocessor` actually does](#what-k8sattributesprocessor-actually-does) and [Verifying it works on the Logfire side](#verifying-it-works-on-the-logfire-side).
+The rest of this page is the **from-scratch walkthrough**: recommended if you want to understand every piece, customise beyond what the chart's value overrides expose, or deploy without the chart's bundled Operator (for example on a managed platform that already provides one). If you took the Helm path above, you can skip directly to [What `k8sattributesprocessor` actually does](#what-k8sattributesprocessor-actually-does) and [Verifying it works on the Logfire side](#verifying-it-works-on-the-logfire-side).
 
 ## The two-Collector pattern
 
@@ -62,17 +62,17 @@ A single Collector workload cannot collect everything in Kubernetes cleanly. Som
 
 The recommended layout is two Collector workloads sharing one image, one config schema, and one ServiceAccount:
 
-- **Cluster-scoped Collector** — a `Deployment` with **exactly one replica**. Runs:
-    - [`k8sclusterreceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sclusterreceiver) — node count, pod phases, deployment/daemonset replica status, allocatable resources. Talks to the API server, not the nodes. Running this on every node would multiply every metric by N.
-    - [`k8sobjectsreceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver) — Kubernetes Events (pod scheduling, OOMKills, image pull failures, etc.) as log records. The upstream README is explicit: "This receiver must be deployed as one replica, otherwise it'll be producing duplicated data."
-    - [`k8sattributesprocessor`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor) — to enrich the cluster-scoped data with namespace/workload attributes before exporting.
+- **Cluster-scoped Collector**: a `Deployment` with **exactly one replica**. Runs:
+    - [`k8sclusterreceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sclusterreceiver): node count, pod phases, deployment/daemonset replica status, allocatable resources. Talks to the API server, not the nodes. Running this on every node would multiply every metric by N.
+    - [`k8sobjectsreceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver): Kubernetes Events (pod scheduling, OOMKills, image pull failures, etc.) as log records. The upstream README is explicit: "This receiver must be deployed as one replica, otherwise it'll be producing duplicated data."
+    - [`k8sattributesprocessor`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor): to enrich the cluster-scoped data with namespace/workload attributes before exporting.
 
-- **Per-node Collector** — a `DaemonSet`, one Pod per node. Runs:
-    - [`kubeletstatsreceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kubeletstatsreceiver) — talks to the local node's kubelet on `https://<node>:10250/stats/summary` and emits container/pod/node CPU, memory, network, filesystem, volume metrics. Must run on every node; can only see its own node.
-    - [`filelog`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver) — tails `/var/log/pods/*/*/*.log` to ship pod stdout/stderr. Only readable from a host-mounted volume on the node itself.
-    - Optionally [`hostmetrics`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) with `root_path: /host` — node-level CPU, load, paging, processes from `/proc` and `/sys`.
-    - An `otlp` receiver — to enrich and forward traces/logs/metrics from your apps running on the same node.
-    - `k8sattributesprocessor` with `filter.node_from_env_var: KUBE_NODE_NAME` — to enrich everything with pod/workload metadata while only watching pods on the local node.
+- **Per-node Collector**: a `DaemonSet`, one Pod per node. Runs:
+    - [`kubeletstatsreceiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kubeletstatsreceiver): talks to the local node's kubelet on `https://<node>:10250/stats/summary` and emits container/pod/node CPU, memory, network, filesystem, volume metrics. Must run on every node; can only see its own node.
+    - [`filelog`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver): tails `/var/log/pods/*/*/*.log` to ship pod stdout/stderr. Only readable from a host-mounted volume on the node itself.
+    - Optionally [`hostmetrics`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) with `root_path: /host`: node-level CPU, load, paging, processes from `/proc` and `/sys`.
+    - An `otlp` receiver: to enrich and forward traces/logs/metrics from your apps running on the same node.
+    - `k8sattributesprocessor` with `filter.node_from_env_var: KUBE_NODE_NAME`: to enrich everything with pod/workload metadata while only watching pods on the local node.
 
 !!! tip "Mental model"
     *"Things about the cluster"* → one Deployment.
@@ -95,11 +95,11 @@ kubectl -n observability create secret generic logfire-token \
   --from-literal=logfire-token=your-write-token
 ```
 
-In production prefer a real secrets manager — for example [External Secrets Operator](https://external-secrets.io/latest/) syncing from AWS Secrets Manager, GCP Secret Manager, or Vault.
+In production prefer a real secrets manager, for example [External Secrets Operator](https://external-secrets.io/latest/) syncing from AWS Secrets Manager, GCP Secret Manager, or Vault.
 
 ## RBAC: one ClusterRole for both Collectors
 
-Both the Deployment and the DaemonSet authenticate as the same `otel-collector` ServiceAccount. The ClusterRole below is the union of what all four components (`k8sclusterreceiver`, `k8sobjectsreceiver`, `kubeletstatsreceiver`, `k8sattributesprocessor`) need. It's all read-only — `get`, `list`, `watch`.
+Both the Deployment and the DaemonSet authenticate as the same `otel-collector` ServiceAccount. The ClusterRole below is the union of what all four components (`k8sclusterreceiver`, `k8sobjectsreceiver`, `kubeletstatsreceiver`, `k8sattributesprocessor`) need. It's all read-only: `get`, `list`, `watch`.
 
 ```yaml title="rbac.yaml"
 apiVersion: v1
@@ -113,7 +113,7 @@ kind: ClusterRole
 metadata:
   name: otel-collector
 rules:
-  # Core resources — used by all four components.
+  # Core resources: used by all four components.
   - apiGroups: [""]
     resources:
       - events
@@ -354,7 +354,7 @@ data:
         # signed by a CA the ServiceAccount token trusts and you can leave this
         # off. On kind/minikube/k3s the kubelet often uses a self-signed cert
         # and you need this set to true. It bypasses TLS verification of the
-        # kubelet — fine on a node-local connection, less so over the network.
+        # kubelet: fine on a node-local connection, less so over the network.
         insecure_skip_verify: true
         metric_groups: [node, pod, container, volume]
         extra_metadata_labels:
@@ -368,7 +368,7 @@ data:
         include:
           - /var/log/pods/*/*/*.log
         exclude:
-          # Don't scrape our own logs — would loop.
+          # Don't scrape our own logs: would loop.
           - /var/log/pods/observability_otel-node-collector-*/*/*.log
           - /var/log/pods/observability_otel-cluster-collector-*/*/*.log
         start_at: end
@@ -394,7 +394,7 @@ data:
               overwrite_text: true
 
       # Node-level metrics from /proc and /sys, mounted from the host.
-      # Optional — skip this receiver and its volume mounts if you don't want it.
+      # Optional: skip this receiver and its volume mounts if you don't want it.
       hostmetrics:
         collection_interval: 30s
         root_path: /host
@@ -420,7 +420,7 @@ data:
     processors:
       # Limits pod-watch to this node only via the downward-API env var.
       # Without filter.node, every DaemonSet replica would watch every pod
-      # cluster-wide — N nodes watching N pods.
+      # cluster-wide: N nodes watching N pods.
       k8sattributes:
         auth_type: serviceAccount
         passthrough: false
@@ -563,7 +563,7 @@ spec:
             - mountPath: /var/log/pods
               name: varlogpods
               readOnly: true
-            # Symlink targets — varlogpods entries are symlinks into this dir
+            # Symlink targets: varlogpods entries are symlinks into this dir
             # on Docker-based runtimes.
             - mountPath: /var/lib/docker/containers
               name: varlibdockercontainers
@@ -615,11 +615,11 @@ Once both manifests are applied, four streams of data flow to Logfire:
 | Pod stdout/stderr | `filelog` (DaemonSet) | `logs` |
 | Your apps' OTLP | `otlp` (DaemonSet) | `traces`, `metrics`, `logs` |
 
-Every stream is enriched by `k8sattributesprocessor` with `k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, `k8s.pod.name`, `k8s.deployment.name`, etc. before it leaves the Collector — which is what makes the Logfire UI able to group, filter, and roll up by Kubernetes object.
+Every stream is enriched by `k8sattributesprocessor` with `k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, `k8s.pod.name`, `k8s.deployment.name`, etc. before it leaves the Collector, which is what makes the Logfire UI able to group, filter, and roll up by Kubernetes object.
 
 ## Step-by-step walkthrough: pod logs from a fresh cluster
 
-The rest of this section is a hands-on walkthrough you can paste verbatim into a fresh local cluster. It focuses on the *pod logs* slice — the smallest interesting subset — and is the easiest way to confirm the moving parts work before turning on cluster metrics and kubeletstats.
+The rest of this section is a hands-on walkthrough you can paste verbatim into a fresh local cluster. It focuses on the *pod logs* slice (the smallest interesting subset) and is the easiest way to confirm the moving parts work before turning on cluster metrics and kubeletstats.
 
 To follow this guide you'll need a local Kubernetes cluster running. Options include [Docker Desktop](https://www.docker.com/blog/how-to-set-up-a-kubernetes-cluster-on-docker-desktop/), [Rancher Desktop](https://docs.rancherdesktop.io/), [Minikube](https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download), [Kind](https://kind.sigs.k8s.io/), or [k3s](https://docs.k3s.io/quick-start).
 
@@ -703,7 +703,7 @@ kubectl apply -f apps.yaml
 
 ### 2. Apply the RBAC, Secret, and DaemonSet
 
-Reuse `rbac.yaml`, `secrets.yaml`, and `node-collector.yaml` from above. If you only care about pod logs for this walkthrough, the following stripped-down Collector config is enough — it skips kubeletstats and hostmetrics:
+Reuse `rbac.yaml`, `secrets.yaml`, and `node-collector.yaml` from above. If you only care about pod logs for this walkthrough, the following stripped-down Collector config is enough; it skips kubeletstats and hostmetrics:
 
 ```yaml title="logs-only-collector-config.yaml"
 apiVersion: v1
@@ -783,15 +783,15 @@ This processor is the glue that turns "the Collector saw a span/log/metric" into
 
 By default it discovers the source Pod in one of two ways:
 
-- **Connection IP** — when an app sends OTLP over the network, the processor takes the source IP from the connection and looks up the matching pod via the Kubernetes API (or a local cache). This works as long as the Pod's IP isn't NAT'd away. Running the Collector as a DaemonSet on the same node as the app, with `hostPort` on the OTLP receiver, is the layout where this works most reliably — the app's source IP arrives unchanged.
-- **Resource attributes** — if the telemetry already has `k8s.pod.uid`, `k8s.pod.ip`, or `k8s.pod.name` set (e.g. set by `filelog`'s container operator, or by `kubeletstatsreceiver`, or by the SDK via the OTel resource detector), the processor matches on those instead. Configure this with `pod_association`.
+- **Connection IP**: when an app sends OTLP over the network, the processor takes the source IP from the connection and looks up the matching pod via the Kubernetes API (or a local cache). This works as long as the Pod's IP isn't NAT'd away. Running the Collector as a DaemonSet on the same node as the app, with `hostPort` on the OTLP receiver, is the layout where this works most reliably: the app's source IP arrives unchanged.
+- **Resource attributes**: if the telemetry already has `k8s.pod.uid`, `k8s.pod.ip`, or `k8s.pod.name` set (e.g. set by `filelog`'s container operator, or by `kubeletstatsreceiver`, or by the SDK via the OTel resource detector), the processor matches on those instead. Configure this with `pod_association`.
 
 The first matching `pod_association` rule wins.
 
 Two modes are available:
 
-- **`passthrough: false` (default)** — the processor calls the Kubernetes API and enriches the telemetry with the full set of attributes you listed under `extract.metadata`. This is what you want at the agent that owns the data.
-- **`passthrough: true`** — the processor only annotates the data with the pod IP and does *not* call the Kubernetes API. Used when a collector in agent mode forwards to a central gateway, and the gateway runs the full processor. This keeps the API-watch load on one place.
+- **`passthrough: false` (default)**: the processor calls the Kubernetes API and enriches the telemetry with the full set of attributes you listed under `extract.metadata`. This is what you want at the agent that owns the data.
+- **`passthrough: true`**: the processor only annotates the data with the pod IP and does *not* call the Kubernetes API. Used when a collector in agent mode forwards to a central gateway, and the gateway runs the full processor. This keeps the API-watch load on one place.
 
 Three things you'll forget the first time:
 
@@ -803,7 +803,7 @@ Three things you'll forget the first time:
 
 Once both Collectors are running:
 
-1. Open the **Kubernetes** page in the Logfire UI. It groups by `k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, and `k8s.pod.name`. If your Pods aren't appearing, `k8sattributesprocessor` likely isn't enriching them — check the Collector's own logs and the RBAC ClusterRole.
+1. Open the **Kubernetes** page in the Logfire UI. It groups by `k8s.cluster.name`, `k8s.node.name`, `k8s.namespace.name`, and `k8s.pod.name`. If your Pods aren't appearing, `k8sattributesprocessor` likely isn't enriching them. Check the Collector's own logs and the RBAC ClusterRole.
 2. Open **Metrics** and look for `k8s.pod.cpu.utilization`, `k8s.pod.memory.working_set`, `k8s.node.cpu.utilization`, `k8s.container.cpu.usage`, `k8s.deployment.available`, `k8s.deployment.desired`. The first three come from `kubeletstats`; the deployment ones come from `k8sclusterreceiver`.
 3. Open **Live** and filter for `otel_resource_attributes->>'k8s.namespace.name' = 'default'`. You should see your apps' stdout flowing through.
 4. Query Kubernetes Events with SQL:
@@ -833,17 +833,17 @@ Once both Collectors are running:
 If nothing appears, the usual suspects in order:
 
 - **Token wrong region.** The `endpoint` must match the project's region (`logfire-eu` vs `logfire-us`).
-- **RBAC missing a verb.** `kubectl -n observability logs deploy/otel-cluster-collector` and `kubectl -n observability logs ds/otel-node-collector` — the receivers log "forbidden" errors loudly.
+- **RBAC missing a verb.** `kubectl -n observability logs deploy/otel-cluster-collector` and `kubectl -n observability logs ds/otel-node-collector`. The receivers log "forbidden" errors loudly.
 - **`KUBE_NODE_NAME` not injected.** `kubectl -n observability exec ds/otel-node-collector -- env | grep KUBE_NODE_NAME` should print a node name.
 - **`kubeletstats` TLS errors.** On kind/minikube/k3s set `insecure_skip_verify: true`. On managed clusters check that the ServiceAccount token signs the kubelet's serving cert.
 - **`filelog` finds no files.** `kubectl -n observability exec ds/otel-node-collector -- ls /var/log/pods` should list your pods. If empty, the host path may be different (e.g. on Talos or some MicroK8s setups).
 
 ## Further reading
 
-- [`k8sclusterreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sclusterreceiver) — full list of metrics, including the ones disabled by default.
-- [`kubeletstatsreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kubeletstatsreceiver) — `auth_type` options, `metric_groups`, and the volume-metric attributes.
-- [`k8sobjectsreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver) — collecting arbitrary objects beyond Events, and pull vs. watch modes.
-- [`k8sattributesprocessor` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor) — every extractable attribute and the full `pod_association` syntax.
-- [`filelogreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver) and the [container operator](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/stanza/docs/operators/container.md) — for advanced log parsing.
-- [OpenTelemetry Collector on Kubernetes](https://opentelemetry.io/docs/platforms/kubernetes/collector/components) — upstream deployment-pattern reference (sidecar / DaemonSet / Deployment / Gateway).
-- [Advanced scrubbing with the OTel Collector](./otel-collector-scrubbing.md) — if you need to redact PII before it leaves the cluster.
+- [`k8sclusterreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sclusterreceiver): full list of metrics, including the ones disabled by default.
+- [`kubeletstatsreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/kubeletstatsreceiver): `auth_type` options, `metric_groups`, and the volume-metric attributes.
+- [`k8sobjectsreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver): collecting arbitrary objects beyond Events, and pull vs. watch modes.
+- [`k8sattributesprocessor` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor): every extractable attribute and the full `pod_association` syntax.
+- [`filelogreceiver` README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver) and the [container operator](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/stanza/docs/operators/container.md): for advanced log parsing.
+- [OpenTelemetry Collector on Kubernetes](https://opentelemetry.io/docs/platforms/kubernetes/collector/components): upstream deployment-pattern reference (sidecar / DaemonSet / Deployment / Gateway).
+- [Advanced scrubbing with the OTel Collector](./otel-collector-scrubbing.md): if you need to redact PII before it leaves the cluster.

@@ -50,8 +50,8 @@ With that you get:
 
 The following OpenAI methods are covered:
 
-- [`client.chat.completions.create`](https://platform.openai.com/docs/guides/text-generation/chat-completions-api) — with and without `stream=True`
-- [`client.completions.create`](https://platform.openai.com/docs/guides/text-generation/completions-api) — with and without `stream=True`
+- [`client.chat.completions.create`](https://platform.openai.com/docs/guides/text-generation/chat-completions-api): with and without `stream=True`
+- [`client.completions.create`](https://platform.openai.com/docs/guides/text-generation/completions-api): with and without `stream=True`
 - [`client.embeddings.create`](https://platform.openai.com/docs/guides/embeddings/how-to-get-embeddings)
 - [`client.images.generate`](https://platform.openai.com/docs/guides/images/generations)
 - [`client.responses.create`](https://platform.openai.com/docs/api-reference/responses)
@@ -96,7 +96,7 @@ Gives:
 
 ### Streaming Responses
 
-When instrumenting streaming responses, Logfire creates two spans — one around the initial request and one
+When instrumenting streaming responses, Logfire creates two spans: one around the initial request and one
 around the streamed response.
 
 Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to render the response in the terminal in real-time. :dancer:

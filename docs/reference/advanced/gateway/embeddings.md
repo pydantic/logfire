@@ -5,7 +5,7 @@ description: "Discover and call embedding models through the Logfire AI Gateway 
 
 # Embeddings
 
-The AI Gateway proxies embedding requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/embeddings` endpoint. Embedding models are discovered per route, listed separately from chat models in the **Connect** tab, and traced like any other gateway request. Usage is recorded for every embeddings call; estimated cost is tracked when pricing data is available for the model, and where the charge lands depends on the provider type — built-in provider usage draws from your prepaid gateway balance, while bring-your-own-key (BYOK) usage is billed directly by the upstream provider (see [Providers](index.md#providers)).
+The AI Gateway proxies embedding requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/embeddings` endpoint. Embedding models are discovered per route, listed separately from chat models in the **Connect** tab, and traced like any other gateway request. Usage is recorded for every embeddings call; estimated cost is tracked when pricing data is available for the model, and where the charge lands depends on the provider type: built-in provider usage draws from your prepaid gateway balance, while bring-your-own-key (BYOK) usage is billed directly by the upstream provider (see [Providers](index.md#providers)).
 
 ## Which providers can serve embeddings
 
@@ -19,7 +19,7 @@ The badge means the provider *can* serve embeddings; which embedding models are 
 
 Each route reports its chat and embedding models separately. List them with `GET /proxy/models`.
 
-The requests on this page need two values. Create or reveal a gateway API key on the **API Keys** tab and use it in place of `<YOUR_GATEWAY_API_KEY>`; for the route, use a provider slug from the **Providers** tab (or a routing group slug from **Routing**) — the examples below use `openai`.
+The requests on this page need two values. Create or reveal a gateway API key on the **API Keys** tab and use it in place of `<YOUR_GATEWAY_API_KEY>`; for the route, use a provider slug from the **Providers** tab (or a routing group slug from **Routing**). The examples below use `openai`.
 
 ```bash
 curl "https://gateway-us.pydantic.dev/proxy/models?route=openai" \
@@ -46,7 +46,7 @@ In the **Connect** tab, the model picker groups these into **Chat models** and *
 
 ## Sending an embeddings request
 
-Address the request to `<gateway-base-url>/<route>/embeddings` with an OpenAI-compatible body: a `model` and an `input` that is either a string or a list of strings. The response is the standard OpenAI shape — a `data` array with one `embedding` (a list of floats) per input — so you can embed several inputs in one request.
+Address the request to `<gateway-base-url>/<route>/embeddings` with an OpenAI-compatible body: a `model` and an `input` that is either a string or a list of strings. The response is the standard OpenAI shape, a `data` array with one `embedding` (a list of floats) per input, so you can embed several inputs in one request.
 
 The examples below use the `openai` route in the US region; see the [gateway base URLs](index.md#connect-an-sdk) for other regions.
 
@@ -118,8 +118,8 @@ The examples below use the `openai` route in the US region; see the [gateway bas
     asyncio.run(main())
     ```
 
-Usage is recorded on every embeddings request like any other gateway call — and estimated cost too, when pricing data is available for the model — so embeddings show up in your **Spending** analytics and (when telemetry is enabled) as traces alongside the rest of your LLM traffic. As with chat, built-in provider usage draws from your prepaid gateway balance while BYOK usage is billed by the upstream provider.
+Usage is recorded on every embeddings request like any other gateway call (and estimated cost too, when pricing data is available for the model) so embeddings show up in your **Spending** analytics and (when telemetry is enabled) as traces alongside the rest of your LLM traffic. As with chat, built-in provider usage draws from your prepaid gateway balance while BYOK usage is billed by the upstream provider.
 
 ## See also
 
-- [AI Gateway](index.md) — enabling the gateway, providers, routing, and connecting SDKs.
+- [AI Gateway](index.md): enabling the gateway, providers, routing, and connecting SDKs.
