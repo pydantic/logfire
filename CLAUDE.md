@@ -19,19 +19,29 @@ Every page in the public docs (`docs/`) is held to one standard:
 
 > If an expert in some other field who has just started building with AI tools wouldn't know what it means, we spell out the acronym, we explain the term in place, or we rewrite the sentence to be human friendly.
 
-This reader is not a caricature of a confused user. They're smart, motivated, and perfectly capable of understanding anything we take a sentence to explain. But our docs sit at the intersection of observability and AI tooling, and few readers arrive fluent in both — so words that feel like plain English to us (`span`, `exporter`, `OTLP`, `evals`, `sampling`, `scrubbing`) can be a closed door to them. A specialist walking us through their own field wouldn't drop a term of art and move on; they'd give the plain-language version the first time. We extend the same courtesy.
+This reader is not a caricature of a confused user. They're smart, motivated, and perfectly capable of understanding anything we take a sentence to explain. But our docs sit at the intersection of observability and AI tooling, and few readers arrive fluent in both, so words that feel like plain English to us (`span`, `exporter`, `OTLP`, `evals`, `sampling`, `scrubbing`) can be a closed door to them. A specialist walking us through their own field wouldn't drop a term of art and move on; they'd give the plain-language version the first time. We extend the same courtesy.
 
-This is not dumbing down. Precise terms stay — they're often the thing the user needs to learn to succeed with the product. The standard is about _introducing_ terms, not avoiding them: give the real word and, at its first use on a page, a plain-language hand-hold.
+This is not dumbing down. Precise terms stay: they're often the thing the user needs to learn to succeed with the product. The standard is about _introducing_ terms, not avoiding them: give the real word and, at its first use on a page, a plain-language hand-hold.
 
 When you write or touch a docs page, check:
 
-- **Field-specific acronyms are spelled out at first use on each page** — "OpenTelemetry Protocol (OTLP)", "personally identifiable information (PII)". Assume the reader opens the page directly from a search; no acronym is "already established" by another page. Don't take this too far, though: acronyms the whole space already reads as words — AI, LLM, SDK, API, HTTP, JSON, URL, CLI — are left alone. The test is whether spelling it out teaches the reader something; expand the terms that are specific to observability or to Logfire, not the ones every developer uses daily.
+- **Field-specific acronyms are spelled out at first use on each page**: "OpenTelemetry Protocol (OTLP)", "personally identifiable information (PII)". Assume the reader opens the page directly from a search; no acronym is "already established" by another page. Don't take this too far, though: acronyms the whole space already reads as words (AI, LLM, SDK, API, HTTP, JSON, URL, CLI) are left alone. The test is whether spelling it out teaches the reader something; expand the terms that are specific to observability or to Logfire, not the ones every developer uses daily.
 - **The page says what it's for.** It opens with what this is and why you'd use it, before any code or configuration. A feature name is not a description.
 - **Copy describes the user's goal, not our mechanism.** "See every request your app handles", not "Attach the ASGI middleware span processor". If a word names a piece of our internals, it doesn't belong in the docs.
 - **Instructions say where.** "Run this in your terminal", "Copy this from your project settings page in Logfire". A step asking for a value the user has to fetch from somewhere else must say where that somewhere is.
-- **Consequences are stated plainly** — especially when data leaves the user's machine, something costs money, or an action can't be undone. If a setting sends more telemetry, say so; if data is dropped or redacted, say what and when.
+- **Consequences are stated plainly**, especially when data leaves the user's machine, something costs money, or an action can't be undone. If a setting sends more telemetry, say so; if data is dropped or redacted, say what and when.
 
 This standard is for docs prose. Docstrings and other in-code text follow normal API-reference conventions and are not expected to introduce terms this way.
+
+## Machine-writing tells
+
+Docs prose (and PR and commit copy) should read like a person wrote it, not a model. Do not use the markers that make text look machine-generated:
+
+- **No em-dashes (`—`).** Use a comma, a colon, parentheses, or two sentences. (En-dashes in numeric ranges like `0–100` are fine.)
+- **No doubled words or leftover typos** ("the the", "to to"). Read the sentence back before committing.
+- **No filler or hype.** Avoid "delve", "leverage" (write "use"), "seamless", "robust", "boasts", "unleash", "supercharge", "game-changer", and the "it's not just X, it's Y" and "whether you're a beginner or an expert" constructions.
+- **No throat-clearing.** Drop "In this section, we will...", "It's worth noting that...", and "Furthermore/Moreover/Additionally" chains. State the thing.
+- **No decorative emoji** in prose.
 
 # Core Structure
 
@@ -97,13 +107,13 @@ The `logfire-api` package is a no-op shim that libraries can depend on to avoid 
 
 # CI
 
-CI is required to pass on main, so pre-existing CI failures are unlikely. If the same test fails across multiple Python version jobs, it's almost certainly caused by your changes — investigate rather than assuming it's a flaky pre-existing issue.
+CI is required to pass on main, so pre-existing CI failures are unlikely. If the same test fails across multiple Python version jobs, it's almost certainly caused by your changes. Investigate rather than assuming it's a flaky pre-existing issue.
 
 ## Pydantic version coverage
 
 PR CI only tests pydantic latest plus one extra job at pydantic 2.4. The full set of supported minor versions (2.4, 2.5, 2.6, ... up through main) is exercised by the weekly job in `.github/workflows/weekly_deps_test.yml`, which is the contract: every minor version listed there is meant to keep working.
 
-When something fails on pydantic 2.4, do not assume it is a 2.4-only quirk. The same problem is likely to affect some of 2.5–2.11 as well. Investigate which versions are actually affected (e.g. read the upstream changelog, install one of the in-between versions locally and reproduce) and fix or work around for the whole affected range. A green PR CI is not enough — if you only verify against 2.4 and latest, the weekly job will fail later even though the PR merged cleanly.
+When something fails on pydantic 2.4, do not assume it is a 2.4-only quirk. The same problem is likely to affect some of 2.5–2.11 as well. Investigate which versions are actually affected (e.g. read the upstream changelog, install one of the in-between versions locally and reproduce) and fix or work around for the whole affected range. A green PR CI is not enough. If you only verify against 2.4 and latest, the weekly job will fail later even though the PR merged cleanly.
 
 # Misc
 
