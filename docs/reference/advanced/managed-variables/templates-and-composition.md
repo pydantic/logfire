@@ -310,7 +310,7 @@ with warnings.catch_warnings(record=True) as caught:
     warnings.simplefilter('always')
     # Simulate a stored value (via override, which is composed strictly too) that builds the
     # prompt from one resolvable fragment and one that's been deleted or mistyped. Instead of
-    # serving "You are a helpful assistant. " (silently missing the safety policy) resolution
+    # serving "You are a helpful assistant. " (silently missing the safety policy), resolution
     # falls back to the complete, self-contained code default.
     with system_prompt.override('@{persona}@ @{safety_rules}@'):
         with system_prompt.get() as resolved:

@@ -4,7 +4,7 @@ description: "Browse your Kubernetes clusters, namespaces, workloads, pods, node
 ---
 # Kubernetes
 
-The **Kubernetes view** is the cluster-shaped browser for your Kubernetes telemetry. Six lenses on the same data (Clusters, Nodes, Namespaces, Workloads, Pods, and Images) all sortable, with one-click drill-down to the traces each pod produced in the [Live View](live.md).
+The **Kubernetes view** is the cluster-shaped browser for your Kubernetes telemetry. Six lenses on the same data (Clusters, Nodes, Namespaces, Workloads, Pods, and Images) are all sortable, with one-click drill-down to the traces each pod produced in the [Live View](live.md).
 
 You'll find Kubernetes in the project sidebar, between **Hosts** and **Metrics**.
 
