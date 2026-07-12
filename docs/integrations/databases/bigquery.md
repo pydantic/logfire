@@ -31,7 +31,8 @@ creating a project and linking your machine.
 ## Installation
 
 BigQuery has no separate Logfire extra: the OpenTelemetry support it needs is already included with
-Logfire. Just install `logfire`:
+Logfire. Install `logfire` (the example below also imports the `google-cloud-bigquery` client, which
+you'll already have if you're using BigQuery):
 
 {{ install_logfire() }}
 

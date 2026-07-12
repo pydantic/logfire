@@ -17,6 +17,9 @@ how long it took, and any errors, as a **trace** (the full journey of one reques
 - Response details, including the number of tokens used
 - Streaming responses and tool calls, shown as spans in the trace
 
+!!! note "Prompts and responses are sent to Logfire"
+    The full conversation (prompts, responses, and tool inputs) is recorded as span attributes and stored in Logfire, so it can include personal or proprietary data. Use [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your machine.
+
 ## Before you start
 
 You'll need two things:

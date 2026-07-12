@@ -37,7 +37,7 @@ Add two lines to your [Django settings file](https://docs.djangoproject.com/en/s
 [`logfire.instrument_django()`][logfire.Logfire.instrument_django] to record every request. The same
 example also routes your standard-library log messages to Logfire.
 
-```py hl_lines="14-15"
+```py hl_lines="19-20"
 import logfire
 
 # ...All the other settings...

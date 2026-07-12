@@ -4,7 +4,7 @@ description: "Browse Logfire's first-class integrations, most of which need only
 ---
 # Integrations
 
-Instrument the libraries you already use (your web framework, database driver, HTTP client, LLM SDK) and their work shows up in Logfire automatically, as spans nested inside the request that triggered them. You don't add logging by hand; you turn on the integration once and get the traces for free.
+Instrument the libraries you already use (your web framework, database driver, HTTP client, LLM SDK) and their work shows up in Logfire automatically, as **spans** (one unit of work: a single operation, with a name, a start, and a duration) nested inside the request that triggered them. You don't add logging by hand; you turn on the integration once and get the **traces** (the full journey of one request, made of nested spans) for free.
 
 Most integrations are a single `logfire.instrument_<package>()` call, made once after [`logfire.configure()`][logfire.configure]. For example, to instrument FastAPI and HTTPX:
 

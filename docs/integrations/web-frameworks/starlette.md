@@ -39,7 +39,7 @@ To run the example below, also install [Uvicorn][uvicorn], the server that runs 
 pip install uvicorn
 ```
 
-```py title="main.py" hl_lines="7 14" skip-run="true" skip-reason="server-start"
+```py title="main.py" hl_lines="8 16" skip-run="true" skip-reason="server-start"
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse

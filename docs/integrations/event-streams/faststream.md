@@ -45,7 +45,7 @@ The example below uses Redis, so it adds the
 [`RedisTelemetryMiddleware`][faststream.redis.opentelemetry.RedisTelemetryMiddleware]. If you use a
 different broker, add that broker's matching middleware instead.
 
-```python title="main.py" hl_lines="7 11" skip-run="true" skip-reason="external-connection"
+```python title="main.py" hl_lines="7 9" skip-run="true" skip-reason="external-connection"
 from faststream import FastStream
 from faststream.redis import RedisBroker
 from faststream.redis.opentelemetry import RedisTelemetryMiddleware

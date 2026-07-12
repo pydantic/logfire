@@ -98,7 +98,7 @@ Within a few seconds you'll see your message as a record.
 
 ## Advanced
 
-### Quieten a noisy logger
+### Quiet a noisy logger
 
 Logging can be too verbose, especially from third-party libraries.
 You can raise a logger's level to suppress logs that are less important.

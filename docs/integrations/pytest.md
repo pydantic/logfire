@@ -94,7 +94,7 @@ pytest --logfire
 
 The plugin automatically enables when both:
 
-- the `CI` environment variable is set to a non-empty string, and
+- the `CI` environment variable is set to `true` or `1` (case-insensitive), and
 - the `LOGFIRE_TOKEN` environment variable is present.
 
 This means your CI pipelines get tracing without any configuration changes. (Consequence: test runs in

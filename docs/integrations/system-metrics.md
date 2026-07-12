@@ -71,7 +71,7 @@ enough for at least one collection interval to pass.
 
 ## Advanced
 
-### Customising resource attributes
+### Customizing resource attributes
 
 The Hosts view identifies a machine by its `host.name`, which Logfire takes from `socket.gethostname()`. If that
 isn't meaningful, for example a random container ID, set a clearer value (or add other resource attributes such

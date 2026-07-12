@@ -205,7 +205,7 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-You can also use these hooks to filter or modify headers before capturing them.
+Inside a hook you choose which headers to record on the span. If you also set `capture_headers=True`, though, Logfire records the headers before your hook runs, so a hook can't redact those after the fact; use [scrubbing](../../how-to-guides/scrubbing.md) for that.
 
 ### Capture HTTP bodies
 

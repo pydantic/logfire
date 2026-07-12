@@ -38,7 +38,7 @@ pip install claude-agent-sdk
 
 Call `logfire.configure()`, then [`logfire.instrument_claude_agent_sdk()`][logfire.Logfire.instrument_claude_agent_sdk] to record every agent run.
 
-```python skip-run="true" skip-reason="external-connection" hl_lines="11-12"
+```python skip-run="true" skip-reason="external-connection" hl_lines="13-14"
 import asyncio
 from typing import Any
 

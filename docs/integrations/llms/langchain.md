@@ -48,6 +48,10 @@ LANGSMITH_OTEL_ONLY=true
 LANGSMITH_TRACING=true
 ```
 
+The example below calls an OpenAI model, so it also needs your model provider's credential: set the
+`OPENAI_API_KEY` environment variable to your OpenAI API key (swap in another provider's model and key
+if you prefer).
+
 Here's a complete example using LangGraph:
 
 ```python skip-run="true" skip-reason="external-connection"

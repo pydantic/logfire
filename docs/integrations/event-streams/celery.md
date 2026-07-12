@@ -17,6 +17,9 @@ to the request that enqueued it. Tasks scheduled with [Celery beat][celery-beat]
 - Failed tasks, with the error
 - Tasks fired on a schedule by Celery beat
 
+!!! note "Task arguments are sent to Logfire"
+    A task's arguments and any error details are recorded as span attributes and stored in Logfire, so they can include secrets or personal data. Use [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your machine.
+
 ## Before you start
 
 You'll need a Logfire project and its **write token**: the credential your app uses to send data to
