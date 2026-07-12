@@ -5,7 +5,7 @@ description: "Discover and call embedding models through the Logfire AI Gateway 
 
 # Embeddings
 
-The AI Gateway proxies embedding requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/embeddings` endpoint. Embedding models are discovered per route, listed separately from chat models in the **Connect** tab, and traced and billed like any other gateway request.
+The AI Gateway proxies embedding requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/embeddings` endpoint. Embedding models are discovered per route, listed separately from chat models in the **Connect** tab, and traced like any other gateway request. Usage is recorded for every embeddings call; estimated cost is tracked when pricing data is available for the model, and where the charge lands depends on the provider type — built-in provider usage draws from your prepaid gateway balance, while bring-your-own-key (BYOK) usage is billed directly by the upstream provider (see [Providers](index.md#providers)).
 
 ## Which providers can serve embeddings
 
@@ -17,7 +17,9 @@ The badge means the provider *can* serve embeddings; which embedding models are 
 
 ## Discovering a route's embedding models
 
-Each route reports its chat and embedding models separately. List them with `GET /proxy/models`:
+Each route reports its chat and embedding models separately. List them with `GET /proxy/models`.
+
+The requests on this page need two values. Create or reveal a gateway API key on the **API Keys** tab and use it in place of `<YOUR_GATEWAY_API_KEY>`; for the route, use a provider slug from the **Providers** tab (or a routing group slug from **Routing**) — the examples below use `openai`.
 
 ```bash
 curl "https://gateway-us.pydantic.dev/proxy/models?route=openai" \
@@ -116,7 +118,7 @@ The examples below use the `openai` route in the US region; see the [gateway bas
     asyncio.run(main())
     ```
 
-Usage and estimated cost are recorded on the request like any other gateway call, so embeddings show up in your **Spending** analytics and (when telemetry is enabled) as traces alongside the rest of your LLM traffic.
+Usage is recorded on every embeddings request like any other gateway call — and estimated cost too, when pricing data is available for the model — so embeddings show up in your **Spending** analytics and (when telemetry is enabled) as traces alongside the rest of your LLM traffic. As with chat, built-in provider usage draws from your prepaid gateway balance while BYOK usage is billed by the upstream provider.
 
 ## See also
 
