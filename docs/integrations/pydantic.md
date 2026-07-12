@@ -1,43 +1,87 @@
 ---
-title: "Pydantic Validation with Logfire: Guide"
-description: Guide to instrumenting Pydantic Validation models via the Pydantic Validation plugin (get logs and metrics about model validation).
+title: "Instrument Pydantic: log and measure model validation"
+description: "Get logs and metrics about your Pydantic model validation, including which models validate and how often validation fails."
 integration: logfire
 ---
 # Pydantic Validation
 
-Pydantic Logfire has a Pydantic Validation plugin to instrument [Pydantic Validation][pydantic] models.
-The plugin provides logs and metrics about model validation.
+See every time your app validates a [Pydantic][pydantic] model (which model ran, whether it succeeded
+or failed, and how often validation fails) in Logfire. Successful and failed validations become
+**spans** (a span is one timed step, with a name and a duration) and are also counted as **metrics**
+(a metric is a number tracked over time, like a validation count), so you get both individual records
+and rolled-up totals.
 
-To enable the plugin, do one of the following:
+Logfire ships a Pydantic plugin that hooks into Pydantic's validation. Unlike most integrations, you
+don't call a `logfire.instrument_*` function on each object: you turn the plugin on once, through
+configuration.
+
+## What you'll capture
+
+- Each model validation, marked as a success or a failure
+- A count of validations and failures over time, as metrics
+- The validation error for each failure
+
+## Before you start
+
+You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one
+and copy it from **Project → Settings → Write tokens**. See [Getting Started](../index.md).
+
+## Installation
+
+Install `logfire`. The Pydantic plugin is included, with no separate extra:
+
+{{ install_logfire() }}
+
+## Usage
+
+Enable the plugin in any one of these ways:
 
 - Set the `LOGFIRE_PYDANTIC_PLUGIN_RECORD` environment variable to `all`.
-- Set `pydantic_plugin_record` in `pyproject.toml`, e.g:
+- Set `pydantic_plugin_record` in `pyproject.toml`:
 
-```toml
-[tool.logfire]
-pydantic_plugin_record = "all"
-```
+    ```toml
+    [tool.logfire]
+    pydantic_plugin_record = "all"
+    ```
 
-- Call [`logfire.instrument_pydantic`][logfire.Logfire.instrument_pydantic] with the desired configuration, e.g:
+- Call [`logfire.instrument_pydantic()`][logfire.Logfire.instrument_pydantic]:
 
-```py skip-run="true" skip-reason="global-instrumentation"
-import logfire
+    ```py skip-run="true" skip-reason="global-instrumentation"
+    import logfire
 
-logfire.instrument_pydantic()  # Defaults to record='all'
-```
+    logfire.instrument_pydantic()  # defaults to record='all'
+    ```
 
-Note that if you only use the last option then only model classes defined and imported *after* calling `logfire.instrument_pydantic`
-will be instrumented.
+If you use only the last option, note that only model classes defined and imported *after* the
+`logfire.instrument_pydantic()` call are instrumented.
 
 !!! note
-    Remember to call [`logfire.configure()`][logfire.configure] at some point, whether before or after
-    calling `logfire.instrument_pydantic` and defining model classes.
-    Model validations will only start being logged after calling `logfire.configure()`.
+    Remember to call [`logfire.configure()`][logfire.configure] at some point, before or after
+    enabling the plugin and defining your models. Validations are only sent to Logfire once
+    `logfire.configure()` has run.
 
-## Third party modules
+## Verify it worked
 
-By default, third party modules are not instrumented by the plugin to avoid noise. You can enable instrumentation for those
-using the [`include`][logfire.PydanticPlugin.include] configuration.
+Validate one of your models (for example, construct it from user input), then open the
+[Live view](../guides/web-ui/live.md) for the individual validations, or the
+[Metrics explorer](../guides/web-ui/metrics-explorer.md) for the validation counts. Within a few
+seconds you'll see the validation appear.
+
+<!-- TODO(app-verify): screenshot of a Pydantic validation span in the Live view, and the validation-count metric in the Metrics explorer -->
+
+## Troubleshooting
+
+Not seeing your validations in Logfire? Check that `logfire.configure()` ran, that your write token is
+set, that the plugin is enabled (via environment variable, `pyproject.toml`, or
+`instrument_pydantic()`), and, if you used `instrument_pydantic()`, that your models are defined and
+imported *after* that call.
+
+## Advanced
+
+### Third-party modules
+
+By default the plugin does not instrument third-party modules, to avoid noise. Opt specific ones in
+with the [`include`][logfire.PydanticPlugin.include] setting:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
@@ -45,8 +89,7 @@ import logfire
 logfire.instrument_pydantic(include={'openai'})
 ```
 
-You can also disable instrumentation for your own modules using the
-[`exclude`][logfire.PydanticPlugin.exclude] configuration.
+Opt your own modules out with the [`exclude`][logfire.PydanticPlugin.exclude] setting:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
@@ -54,10 +97,10 @@ import logfire
 logfire.instrument_pydantic(exclude={'app.api.v1'})
 ```
 
-## Model configuration
+### Per-model configuration
 
-If you want more granular control over the plugin, you can use the
-[`plugin_settings`][pydantic.config.ConfigDict.plugin_settings] class parameter in your Pydantic models.
+For finer control, set options on an individual model with Pydantic's
+[`plugin_settings`][pydantic.config.ConfigDict.plugin_settings] class parameter:
 
 ```py
 from pydantic import BaseModel
@@ -68,33 +111,22 @@ from logfire.integrations.pydantic import PluginSettings
 class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'})): ...
 ```
 
-### Record
+#### Record
 
-The [`record`][logfire.integrations.pydantic.LogfireSettings.record] argument is used to configure what to record.
-It can be one of the following values:
+The [`record`][logfire.integrations.pydantic.LogfireSettings.record] setting controls what is captured.
+It takes one of:
 
-  * `all`: Send traces and metrics for all events. This is default value for `logfire.instrument_pydantic`.
-  * `failure`: Send metrics for all validations and traces only for validation failures.
-  * `metrics`: Send only metrics.
-  * `off`: Disable instrumentation.
+- `all`: send spans and metrics for every validation. This is the default for
+  `logfire.instrument_pydantic`.
+- `failure`: send metrics for all validations, but spans only for failures.
+- `metrics`: send only metrics.
+- `off`: disable instrumentation for this model.
 
-<!--
-[Sampling](../usage/sampling.md) can be configured by `trace_sample_rate` key in
-[`plugin_settings`][pydantic.config.ConfigDict.plugin_settings].
+#### Tags
 
-```py
-from pydantic import BaseModel
-
-
-class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}): ...
-```
--->
-
-### Tags
-
-Tags are used to add additional information to the traces, and metrics. They can be included by
-adding the [`tags`][logfire.integrations.pydantic.LogfireSettings.tags] key in
-[`plugin_settings`][pydantic.config.ConfigDict.plugin_settings].
+Tags add extra labels to the spans and metrics. Include them with the
+[`tags`][logfire.integrations.pydantic.LogfireSettings.tags] key in
+[`plugin_settings`][pydantic.config.ConfigDict.plugin_settings]:
 
 ```py
 from pydantic import BaseModel
@@ -102,5 +134,12 @@ from pydantic import BaseModel
 
 class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}): ...
 ```
+
+## Reference
+
+- [`logfire.instrument_pydantic()`][logfire.Logfire.instrument_pydantic]: the Logfire API reference.
+- [`record`][logfire.integrations.pydantic.LogfireSettings.record] and
+  [`tags`][logfire.integrations.pydantic.LogfireSettings.tags]: per-model settings.
+- [Pydantic validation docs][pydantic]: the library being instrumented.
 
 [pydantic]: https://pydantic.dev/docs/validation/latest/get-started/

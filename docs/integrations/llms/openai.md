@@ -1,13 +1,49 @@
 ---
-title: Pydantic Logfire OpenAI Integration
-description: "Logfire supports instrumenting via the standard OpenAI SDK package and OpenAI \"agents\" framework. Track tool calls, token usage, and conversation flow."
+title: "Instrument OpenAI: see every model call your app makes"
+description: "Add a few lines to your OpenAI code and see every model call in Logfire: the full conversation, tool calls, token usage, duration, and any errors."
 integration: logfire
 ---
-We support instrumenting both the [standard OpenAI SDK](https://github.com/openai/openai-python) package and [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
+# OpenAI
+
+See every call your app makes to OpenAI: the full conversation, each tool call, how many tokens it
+used, how long it took, and any errors, as a **trace** (the full journey of one request, made of
+nested **spans**, where each span is one unit of work with a name, a start, and a duration) in
+Logfire.
+
+This page covers both the [standard OpenAI SDK](https://github.com/openai/openai-python) and the
+[OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
+
+## What you'll capture
+
+- Each model call as a span, with its duration and any exceptions
+- The full conversation, rendered so you can read it like a transcript
+- Response details, including the number of tokens used
+- For agents: tool calls and nested work, shown as child spans in the trace
+
+## Before you start
+
+You'll need two things:
+
+- **A Logfire project and its write token**, the credential your app uses to send data to Logfire.
+  Create a project and copy its token from **Project → Settings → Write tokens** in the Logfire web
+  app. New to Logfire? Start with [Getting Started](../../index.md).
+- **An OpenAI API key**, from your OpenAI dashboard at
+  [platform.openai.com/api-keys](https://platform.openai.com/api-keys). The OpenAI SDK reads it from
+  the `OPENAI_API_KEY` environment variable.
+
+## Installation
+
+Install `logfire`:
+
+{{ install_logfire() }}
+
+This integration works with your existing `openai` package: nothing extra to install. If you don't
+have it yet, `pip install openai` (or add the `openai-agents` package to use the agents framework).
 
 ## OpenAI SDK
 
-**Logfire** supports instrumenting calls to OpenAI with the [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] method, for example:
+Add two lines to your app: `logfire.configure()` to connect to your project, and
+[`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] to record every OpenAI call.
 
 ```python hl_lines="7-8" skip-run="true" skip-reason="external-connection"
 import openai
@@ -30,11 +66,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message)
 ```
 
-With that you get:
-
-* a span around the call to OpenAI which records duration and captures any exceptions that might occur
-* Human-readable display of the conversation with the agent
-* details of the response, including the number of tokens used
+Run this and the call shows up in Logfire as a span you can open to read the whole exchange:
 
 <figure markdown="span">
   ![Logfire OpenAI](../../images/logfire-screenshot-openai.png){ width="500" }
@@ -45,6 +77,30 @@ With that you get:
   ![Logfire OpenAI Arguments](../../images/logfire-screenshot-openai-arguments.png){ width="500" }
   <figcaption>Span arguments including response details</figcaption>
 </figure>
+
+## Verify it worked
+
+Run your program, then open your project in the
+[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+should see a span for the OpenAI call. Click it to read the conversation and see the token count and
+duration.
+
+<!-- TODO(app-verify): confirm the Live-view span name for a chat completion call and add a screenshot of the expanded conversation view -->
+
+## Troubleshooting
+
+Not seeing your model calls in Logfire? Check these first:
+
+- **`logfire.configure()` runs before `logfire.instrument_openai()`.** Configure the connection
+  first, then instrument.
+- **You instrument the client you actually call.** `instrument_openai()` with no argument covers all
+  clients; if you pass a specific client, make sure it's the one making the request.
+- **Your Logfire write token is set.** In local development, run `logfire projects use <your-project>`;
+  in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
+- **Your OpenAI call succeeded.** If the call itself fails (for example, a missing or invalid
+  `OPENAI_API_KEY`), check the span for the recorded exception.
+
+## Advanced
 
 ### Methods covered
 
@@ -94,12 +150,13 @@ Gives:
   <figcaption>OpenAI image generation span</figcaption>
 </figure>
 
-### Streaming Responses
+### Streaming responses
 
-When instrumenting streaming responses, Logfire creates two spans: one around the initial request and one
-around the streamed response.
+When instrumenting streaming responses, Logfire creates two spans: one around the initial request and
+one around the streamed response.
 
-Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to render the response in the terminal in real-time. :dancer:
+Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to
+render the response in the terminal in real time.
 
 ```python skip-run="true" skip-reason="external-connection"
 import openai
@@ -121,7 +178,7 @@ async def main():
             model='gpt-4',
             messages=[
                 {'role': 'system', 'content': 'Reply in markdown one.'},
-                {'role': 'user', 'content': 'Write Python to show a tree of files 🤞.'},
+                {'role': 'user', 'content': 'Write Python to show a tree of files.'},
             ],
             stream=True,
         )
@@ -146,9 +203,11 @@ Shows up like this in Logfire:
   <figcaption>OpenAI streaming response</figcaption>
 </figure>
 
-## OpenAI Agents
+### OpenAI Agents
 
-We also support instrumenting the [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
+Logfire also instruments the [OpenAI "agents"](https://github.com/openai/openai-agents-python)
+framework, so you can see each step an agent takes and every tool it calls as nested spans in one
+trace.
 
 ```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 from agents import Agent, Runner
@@ -164,7 +223,8 @@ result = Runner.run_sync(agent, 'Write a haiku about recursion in programming.')
 print(result.final_output)
 ```
 
-_For more information, see the [`instrument_openai_agents()` API reference][logfire.Logfire.instrument_openai_agents]._
+_For more information, see the
+[`instrument_openai_agents()` API reference][logfire.Logfire.instrument_openai_agents]._
 
 Which shows up like this in Logfire:
 
@@ -173,7 +233,7 @@ Which shows up like this in Logfire:
   <figcaption>OpenAI Agents</figcaption>
 </figure>
 
-In this example we add a function tool to the agents:
+In this example we add a function tool to the agent:
 
 ```python skip-run="true" skip-reason="external-connection"
 from agents import Agent, RunContextWrapper, Runner, function_tool
@@ -219,9 +279,14 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-We see spans from within the function call nested within the agent spans:
+We see spans from within the function call nested inside the agent spans:
 
 <figure markdown="span">
   ![Logfire OpenAI Agents](../../images/logfire-screenshot-openai-agents-tools.png){ width="500" }
   <figcaption>OpenAI Agents</figcaption>
 </figure>
+
+## Reference
+
+- API reference: [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] ·
+  [`logfire.instrument_openai_agents()`][logfire.Logfire.instrument_openai_agents]

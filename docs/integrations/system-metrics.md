@@ -1,9 +1,25 @@
 ---
-title: "Logfire System Metrics: Monitor CPU, Memory Usage & More"
-description: "Collect detailed system metrics (CPU, memory, disk I/O usage) with Logfire Metrics. Visualize real-time performance on a dedicated system metrics dashboard."
+title: "Monitor system metrics with Logfire"
+description: "See how the machine running your app is doing (CPU, memory, disk, and network) as metrics in Logfire, plotted on a ready-made dashboard."
 integration: logfire
 ---
-The [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics] method can be used to collect system metrics with **Logfire**, such as CPU and memory usage.
+# System metrics
+
+See how the machine running your app is doing (CPU, memory, disk, network, and process activity) as
+**metrics** (a metric is a number tracked over time, like CPU usage or free memory) in Logfire, plotted
+on charts and a ready-made dashboard so you can watch performance in real time.
+
+## What you'll capture
+
+- CPU usage, for the process and for the whole machine
+- Memory and swap usage
+- Disk input/output and network traffic (with the detailed configuration below)
+- Process activity, such as thread and file-descriptor counts
+
+## Before you start
+
+You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one
+and copy it from **Project → Settings → Write tokens**. See [Getting Started](../index.md).
 
 ## Installation
 
@@ -12,6 +28,10 @@ Install `logfire` with the `system-metrics` extra:
 {{ install_logfire(extras=['system-metrics']) }}
 
 ## Usage
+
+Call `logfire.configure()` to connect to your project, then
+[`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics] to start collecting
+metrics from the machine:
 
 ```py
 import logfire
@@ -35,14 +55,30 @@ Your metrics then show up in several places in the Logfire UI:
 You can also query the metrics directly in the [Explore](../guides/web-ui/explore.md) view via the `metrics`
 table (see the [SQL reference](../reference/sql.md)).
 
-## Customising resource attributes
+## Verify it worked
+
+Run your program and leave it running for a few seconds, then open the
+[Metrics explorer](../guides/web-ui/metrics-explorer.md) or the [Hosts](../guides/web-ui/hosts.md)
+view. Within a few seconds you'll see your machine appear with CPU and memory charts.
+
+<!-- TODO(app-verify): screenshot of the Hosts view showing the instrumented machine's CPU and memory charts -->
+
+## Troubleshooting
+
+Not seeing your metrics in Logfire? Check that `logfire.configure()` ran before
+`instrument_system_metrics()`, that your write token is set, and that you left the program running long
+enough for at least one collection interval to pass.
+
+## Advanced
+
+### Customising resource attributes
 
 The Hosts view identifies a machine by its `host.name`, which Logfire takes from `socket.gethostname()`. If that
 isn't meaningful, for example a random container ID, set a clearer value (or add other resource attributes such
 as `process.*` or cloud metadata). See the [SQL reference](../reference/sql.md#resource-attributes) for how to set
 and query resource attributes.
 
-## Configuration
+### Choosing which metrics to collect
 
 By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics (Logfire)' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
 
@@ -62,7 +98,7 @@ logfire.instrument_system_metrics({
 
 To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`.
 
-!!! warning
+!!! warning "`base='full'` sends much more data, and can cost more"
     The amount of data collected by `base='full'` can be expensive, especially if you have many servers,
     and this is easy to forget about. If you enable this, be sure to monitor your usage and costs.
 
@@ -112,3 +148,9 @@ For convenient customizability, the first dict argument is merged with the base.
 - `logfire.instrument_system_metrics({'system.disk.operations': ['read']})` to collect that data in addition to the basic defaults.
 - `logfire.instrument_system_metrics({'system.disk.operations': ['read']}, base='full')` to collect detailed data about all metrics, excluding disk write operations.
 - `logfire.instrument_system_metrics({'system.disk.operations': ['read']}, base=None)` to collect only disk read operations and nothing else.
+
+## Reference
+
+- [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]: the Logfire API reference.
+- [SQL reference](../reference/sql.md): querying the `metrics` table and resource attributes.
+- [`psutil` documentation](https://psutil.readthedocs.io/en/latest/): the library the metric values come from.

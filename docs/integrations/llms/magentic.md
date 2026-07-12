@@ -1,15 +1,39 @@
 ---
-title: "Pydantic Logfire Integrations: Magentic"
-description: Guide for instrumenting Magentic. Magentic instrumentation requires no additional setup beyond configuring Logfire itself.
+title: "Instrument Magentic: trace prompts, retries, and tool calls"
+description: "See Magentic's prompt templating, retries, and tool or function calls in Logfire. Works once Logfire is configured, no extra setup."
 integration: "third-party"
 ---
-[Magentic](https://github.com/jackmpcollins/magentic) is a lightweight library for working with
-structured output from LLMs, built around standard python type annotations and **Pydantic**. It
-integrates with **Logfire** to provide observability into prompt-templating, retries, tool/function
-call execution, and [other features](https://magentic.dev/#features).
+# Magentic
 
-Magentic instrumentation requires no additional setup beyond configuring **Logfire** itself.
-You might also want to enable the [OpenAI](../llms/openai.md) and/or [Anthropic](../llms/anthropic.md) integrations.
+See what [Magentic](https://github.com/jackmpcollins/magentic) does when it turns a model's reply into structured output: the prompt it built, each retry it needed, and the tool or function calls it made, as a **trace** (the full journey of one request, made of nested **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
+
+Magentic is a library for getting structured output from models, built around standard Python type annotations and Pydantic. It emits its own spans as soon as Logfire is configured; there's no separate Magentic instrument call.
+
+## What you'll capture
+
+- Each Magentic function call as a span, with the input arguments
+- The prompt template and the messages sent to and from the model
+- Retries, with a warning for each attempt that produced invalid output
+- Tool and function calls the model made
+- Token usage and any errors, once you also instrument the model provider (see below)
+
+## Before you start
+
+You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+
+Magentic calls a model provider using your own API key, so each run costs money on that provider account.
+
+## Installation
+
+Install `logfire`:
+
+{{ install_logfire() }}
+
+This works with your existing Magentic install; there's no extra to add. If you don't have it yet, `pip install magentic`.
+
+## Usage
+
+Magentic needs no setup of its own; it starts emitting spans as soon as you call `logfire.configure()`. To also capture the underlying model calls (the full conversation and token usage), instrument the provider you use: [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] and/or [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic].
 
 ```python hl_lines="11-12" skip-run="true" skip-reason="external-connection"
 from __future__ import annotations
@@ -51,16 +75,24 @@ hero = make_superhero('The Bark Night')
 print(hero)
 ```
 
-This creates the following in **Logfire**:
+## Verify it worked
 
-* A span for the call to `make_superhero` showing the input arguments
-* A span showing that retries have been enabled for this query
-* A warning for each retry that was needed in order to generate a valid output
-* The chat messages to/from the LLM, including tool calls and invalid outputs that required retrying
+Run your program, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see a trace for the `make_superhero` call. Click it to see the input arguments, the messages to and from the model, and a warning for each retry that was needed to produce valid output.
+
+The example above creates this in Logfire:
 
 <figure markdown="span">
   ![Logfire Magentic Superhero](../../images/logfire-screenshot-magentic-create-superhero.png){ width="500" }
   <figcaption>Magentic chatprompt-function call span and conversation</figcaption>
 </figure>
 
-To learn more about Magentic, check out [magentic.dev](https://magentic.dev).
+<!-- TODO(app-verify): screenshot of the resulting Magentic trace in the Live view -->
+
+## Troubleshooting
+
+Not seeing data? Check that `logfire.configure()` ran before your Magentic calls and that your write token is set. Missing the conversation and token counts? Instrument the model provider too (`instrument_openai()` and/or `instrument_anthropic()`), and call it exactly once.
+
+## Reference
+
+- [Magentic docs](https://magentic.dev) and [feature list](https://magentic.dev/#features)
+- Model provider instrumentation: [OpenAI](../llms/openai.md) · [Anthropic](../llms/anthropic.md)

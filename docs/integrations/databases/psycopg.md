@@ -1,13 +1,29 @@
 ---
-title: "Logfire Psycopg Integration & Setup Guide"
-description: "Instrument Psycopg and Psycopg2 operations with OpenTelemetry Psycopg. Capture queries, duration, and context with logfire.instrument_psycopg()."
+title: "Instrument Psycopg: see every PostgreSQL query your app runs"
+description: "Add a few lines to your Psycopg code and see every PostgreSQL query in Logfire: the statement, how long it took, and which ones failed."
 integration: otel
 ---
 # Psycopg
 
-The [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg] function can be used to instrument the [Psycopg][psycopg] PostgreSQL driver with **Logfire**. It works with both the `psycopg2` and `psycopg` (i.e. Psycopg 3) packages.
+See every query your app sends to PostgreSQL through [Psycopg][psycopg] (the statement, how long it
+took, and which ones failed) as a **span** (one unit of work with a name, a start, and a duration) in
+Logfire. Related spans link together into a **trace** (the full journey of one request), so a slow
+query shows up right next to the code that triggered it.
 
-See the documentation for the [OpenTelemetry Psycopg Instrumentation][opentelemetry-psycopg] or the [OpenTelemetry Psycopg2 Instrumentation][opentelemetry-psycopg2] package for more details.
+This works with both the `psycopg` (Psycopg 3) and `psycopg2` packages.
+
+## What you'll capture
+
+- Each query as a span, with its duration and any errors
+- The SQL statement that ran
+- Which database the query went to
+
+## Before you start
+
+You'll need a Logfire project and its **write token**: the credential your app uses to send data to
+Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
+Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
+creating a project and linking your machine.
 
 ## Installation
 
@@ -15,18 +31,17 @@ Install `logfire` with the `psycopg` extra:
 
 {{ install_logfire(extras=['psycopg']) }}
 
-Or with the `psycopg2` extra:
+Or, if you use `psycopg2`, install the `psycopg2` extra instead:
 
 {{ install_logfire(extras=['psycopg2']) }}
 
 ## Usage
 
-Let's setup a PostgreSQL database using Docker and run a Python script that connects to the database using Psycopg to
-demonstrate how to use **Logfire** with Psycopg.
+Add two lines to your app: `logfire.configure()` to connect to your project, and
+[`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg] to record every query.
 
-### Setup a PostgreSQL Database Using Docker
-
-First, we need to initialize a PostgreSQL database. This can be easily done using Docker with the following command:
+The example below connects to a local PostgreSQL database. If you don't have one running, you can
+start one with Docker:
 
 ```bash
 docker run --rm --name postgres \
@@ -37,30 +52,17 @@ docker run --rm --name postgres \
     -d postgres
 ```
 
-This command will create a PostgreSQL database, that you can connect with `postgres://user:secret@0.0.0.0:5432/database`.
+This gives you a database you can reach at `postgres://user:secret@127.0.0.1:5432/database`.
 
-### Run the Python script
-
-The following Python script connects to the PostgreSQL database and executes some SQL queries:
-
-```py skip-run="true" skip-reason="external-connection"
+```py title="main.py" hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 import psycopg
 
 import logfire
 
 logfire.configure()
+logfire.instrument_psycopg()  # instrument whichever of psycopg/psycopg2 is installed
 
-# To instrument the whole module:
-logfire.instrument_psycopg(psycopg)
-# or
-logfire.instrument_psycopg('psycopg')
-# or just instrument whichever modules (psycopg and/or psycopg2) are installed:
-logfire.instrument_psycopg()
-
-connection = psycopg.connect('dbname=database user=user password=secret host=0.0.0.0 port=5432')
-
-# Or instrument just the connection:
-logfire.instrument_psycopg(connection)
+connection = psycopg.connect('dbname=database user=user password=secret host=127.0.0.1 port=5432')
 
 with logfire.span('Create table and insert data'), connection.cursor() as cursor:
     cursor.execute('CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);')
@@ -73,11 +75,60 @@ with logfire.span('Create table and insert data'), connection.cursor() as cursor
     cursor.execute('SELECT * FROM test')
 ```
 
-If you go to your project on the UI, you will see the span created by the script.
+Run it with `python main.py`.
 
-## SQL Commenter
+## Verify it worked
 
-To add SQL comments to the end of your queries to enrich your database logs with additional context, use the `enable_commenter` parameter:
+Run your program, then open your project in the
+[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+should see a span for each query the script ran. Click one to see the SQL statement and how long it
+took.
+
+<!-- TODO(app-verify): screenshot of the query spans in the Live view, showing the SQL statement and duration -->
+
+## Troubleshooting
+
+Not seeing your queries in Logfire? Check these first:
+
+- **`logfire.configure()` runs before `logfire.instrument_psycopg()`.** Configure the connection
+  first, then instrument.
+- **You call `instrument_psycopg()` exactly once.** With no argument it instruments the whole module;
+  pass a connection to instrument just that one.
+- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+  production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
+- **You actually ran a query.** Spans appear only after a statement executes.
+
+## Advanced
+
+### Choosing what to instrument
+
+You can instrument the whole module, a single package by name, or one connection:
+
+```py skip-run="true" skip-reason="external-connection"
+import psycopg
+
+import logfire
+
+logfire.configure()
+
+# Instrument the whole module:
+logfire.instrument_psycopg(psycopg)
+# or by name:
+logfire.instrument_psycopg('psycopg')
+# or instrument whichever modules (psycopg and/or psycopg2) are installed:
+logfire.instrument_psycopg()
+
+connection = psycopg.connect('dbname=database user=user password=secret host=127.0.0.1 port=5432')
+
+# Or instrument just one connection:
+logfire.instrument_psycopg(connection)
+```
+
+### Adding context with SQL Commenter
+
+SQL Commenter appends a comment to the end of each query with extra context (for example, the driver
+name and version). This can help tools that read your database's own query logs correlate them back to
+your app. Turn it on with `enable_commenter=True`:
 
 ```python
 import logfire
@@ -88,7 +139,7 @@ logfire.instrument_psycopg(enable_commenter=True)
 
 This can only be used when instrumenting the whole module, not individual connections.
 
-By default the SQL comments will include values for the following keys:
+By default the SQL comments include values for these keys:
 
 - `db_driver`
 - `dbapi_threadsafety`
@@ -97,8 +148,7 @@ By default the SQL comments will include values for the following keys:
 - `driver_paramstyle`
 - `opentelemetry_values`
 
-You can exclude any of these keys by passing a dictionary with those keys and the value `False` to `commenter_options`,
-e.g:
+You can exclude any of these by passing a dictionary of keys mapped to `False` in `commenter_options`:
 
 ```python
 import logfire
@@ -110,7 +160,17 @@ logfire.instrument_psycopg(
 )
 ```
 
-## API Reference
+### Passing options to the OpenTelemetry instrumentor
+
+[`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg] accepts additional keyword
+arguments and passes them to the OpenTelemetry Psycopg instrumentation. See the
+[OpenTelemetry Psycopg][opentelemetry-psycopg] and
+[OpenTelemetry Psycopg2][opentelemetry-psycopg2] documentation for the full list.
+
+## Reference
+
+- Underlying OpenTelemetry packages: [Psycopg][opentelemetry-psycopg] ·
+  [Psycopg2][opentelemetry-psycopg2]
 
 ::: logfire.Logfire.instrument_psycopg
     options:

@@ -1,15 +1,30 @@
 ---
-title: "Logfire AIOHTTP Client Integration: Setup Guide"
-description: "Instrument AIOHTTP for full observability with Pydantic Logfire. Trace HTTP calls, headers, and bodies for async clients."
+title: "Instrument AIOHTTP client: see every outgoing request your app makes"
+description: "Add a few lines to your AIOHTTP client code and see every outgoing HTTP request in Logfire: the URL, status, how long it took, and any errors."
 integration: otel
 ---
-# AIOHTTP Client
+# AIOHTTP client
 
-[AIOHTTP][aiohttp] is an asynchronous HTTP client/server framework for asyncio and Python.
+See every HTTP request your app makes with an [AIOHTTP][aiohttp] client: the URL, the response status,
+how long it took, and any errors, as a **span** (one unit of work with a name, a start, and a
+duration) in Logfire. Related spans link together into a **trace** (the full journey of one request),
+so a slow outgoing call shows up right next to the code that triggered it.
 
-The [`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] method will create a span for every request made by your AIOHTTP clients.
+This page covers AIOHTTP as an HTTP *client*. To instrument an AIOHTTP *server*, see
+[AIOHTTP server](../web-frameworks/aiohttp.md).
 
-For AIOHTTP server instrumentation, see [here](../web-frameworks/aiohttp.md).
+## What you'll capture
+
+- Each request as a span, with its URL, method, response status, and duration
+- Any errors that occurred during the request
+- Optionally, request and response headers and bodies (off by default: see below)
+
+## Before you start
+
+You'll need a Logfire project and its **write token**: the credential your app uses to send data to
+Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
+Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
+creating a project and linking your machine.
 
 ## Installation
 
@@ -19,9 +34,11 @@ Install `logfire` with the `aiohttp-client` extra:
 
 ## Usage
 
-Let's see a minimal example below. You can run it with `python main.py`:
+Add two lines to your app: `logfire.configure()` to connect to your project, and
+[`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] to record every
+request.
 
-```py title="main.py" skip-run="true" skip-reason="external-connection"
+```py title="main.py" hl_lines="6" skip-run="true" skip-reason="external-connection"
 import aiohttp
 
 import logfire
@@ -41,15 +58,38 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-The keyword arguments of `logfire.instrument_aiohttp_client()` are passed to the `AioHttpClientInstrumentor().instrument()` method of the OpenTelemetry aiohttp client Instrumentation package, read more about it [here][opentelemetry-aiohttp].
+Run it with `python main.py`.
 
-## Configuration
+## Verify it worked
 
-The `logfire.instrument_aiohttp_client()` method accepts various parameters to configure the instrumentation.
+Run your program, then open your project in the
+[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+should see a span for the `GET` request. Click it to see the URL, response status, and how long it
+took.
 
-### Capture Everything
+<!-- TODO(app-verify): screenshot of the outgoing GET request span in the Live view, showing the URL, status, and duration -->
 
-You can capture all information (headers and bodies) by setting the `capture_all` parameter to `True`.
+## Troubleshooting
+
+Not seeing your requests in Logfire? Check these first:
+
+- **`logfire.configure()` runs before `logfire.instrument_aiohttp_client()`.** Configure the
+  connection first, then instrument.
+- **You call `instrument_aiohttp_client()` exactly once.**
+- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+  production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
+- **You actually made a request.** Spans appear only after a request completes.
+
+## Advanced
+
+The [`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] method accepts
+several parameters to control what's captured.
+
+### Capture everything
+
+Capture all request and response headers and bodies by setting `capture_all=True`. This sends that
+data to Logfire, so avoid it if your requests carry secrets or personally identifiable information
+(PII).
 
 ```py skip-run="true" skip-reason="external-connection"
 import aiohttp
@@ -71,9 +111,9 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-### Capture HTTP Headers
+### Capture HTTP headers
 
-By default, **Logfire** doesn't capture HTTP headers. You can enable it by setting the `capture_headers` parameter to `True`.
+By default, Logfire doesn't record HTTP headers. Turn them on with `capture_headers=True`:
 
 ```py skip-run="true" skip-reason="external-connection"
 import aiohttp
@@ -95,9 +135,10 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-#### Capture Only Request Headers
+#### Capture only request headers
 
-Instead of capturing both request and response headers, you can create a request hook to capture only the request headers:
+Instead of capturing both request and response headers, you can use a request hook to capture only the
+request headers:
 
 ```py skip-run="true" skip-reason="external-connection"
 import aiohttp
@@ -129,9 +170,9 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-#### Capture Only Response Headers
+#### Capture only response headers
 
-Similarly, you can create a response hook to capture only the response headers:
+Similarly, use a response hook to capture only the response headers:
 
 ```py skip-run="true" skip-reason="external-connection"
 import aiohttp
@@ -164,13 +205,13 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-You can also use the hooks to filter headers or modify them before capturing them.
+You can also use these hooks to filter or modify headers before capturing them.
 
-### Capture HTTP Bodies
+### Capture HTTP bodies
 
-By default, **Logfire** doesn't capture HTTP bodies.
-
-To capture bodies, you can set the `capture_request_body` and `capture_response_body` parameters to `True`.
+By default, Logfire doesn't record HTTP bodies. Turn them on with `capture_request_body` and
+`capture_response_body`. As with headers, this sends the body data to Logfire, so avoid it for
+requests that carry sensitive data.
 
 ```py skip-run="true" skip-reason="external-connection"
 import aiohttp
@@ -196,9 +237,10 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-## Hiding sensitive URL parameters
+### Hiding sensitive URL parameters
 
-The `url_filter` keyword argument can be used to modify the URL that's recorded in spans. Here's an example of how to use this to redact query parameters:
+Use the `url_filter` keyword argument to change the URL recorded in spans, for example to redact
+sensitive query parameters:
 
 ```python skip-run="true" skip-reason="external-connection"
 from yarl import URL
@@ -221,6 +263,17 @@ def mask_url(url: URL) -> str:
 
 logfire.instrument_aiohttp_client(url_filter=mask_url)
 ```
+
+### Passing options to the OpenTelemetry instrumentor
+
+[`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] accepts additional
+keyword arguments and passes them to the OpenTelemetry AIOHTTP client instrumentation. See
+[their documentation][opentelemetry-aiohttp] for the full list.
+
+## Reference
+
+- API reference: [`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client]
+- Underlying OpenTelemetry package: [AIOHTTP client instrumentation][opentelemetry-aiohttp]
 
 [aiohttp]: https://docs.aiohttp.org/en/stable/
 [opentelemetry-aiohttp]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html

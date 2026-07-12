@@ -1,11 +1,27 @@
 ---
-title: "Logfire Asyncpg Integration & Setup Guide"
-description: "Step-by-step installation guide for instrumenting asyncpg with Logfire using the logfire.instrument_asyncpg() function."
+title: "Instrument asyncpg: see every PostgreSQL query your app runs"
+description: "Add a few lines to your asyncpg code and see every PostgreSQL query in Logfire: the statement, how long it took, and which ones failed."
 integration: otel
 ---
 # asyncpg
 
-The [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg] function can be used to instrument the [asyncpg][asyncpg] PostgreSQL driver with **Logfire**.
+See every query your app sends to PostgreSQL through [asyncpg][asyncpg] (the statement, how long it
+took, and which ones failed) as a **span** (one unit of work with a name, a start, and a duration) in
+Logfire. Related spans link together into a **trace** (the full journey of one request), so a slow
+query shows up right next to the code that triggered it.
+
+## What you'll capture
+
+- Each query as a span, with its duration and any errors
+- The SQL statement that ran
+- Which database the query went to
+
+## Before you start
+
+You'll need a Logfire project and its **write token**: the credential your app uses to send data to
+Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
+Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
+creating a project and linking your machine.
 
 ## Installation
 
@@ -15,12 +31,11 @@ Install `logfire` with the `asyncpg` extra:
 
 ## Usage
 
-Let's setup a PostgreSQL database using Docker and run a Python script that connects to the database using asyncpg to
-demonstrate how to use **Logfire** with asyncpg.
+Add two lines to your app: `logfire.configure()` to connect to your project, and
+[`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg] to record every query.
 
-### Setup a PostgreSQL Database Using Docker
-
-First, we need to initialize a PostgreSQL database. This can be easily done using Docker with the following command:
+The example below connects to a local PostgreSQL database. If you don't have one running, you can
+start one with Docker:
 
 ```bash
 docker run --name postgres \
@@ -31,13 +46,9 @@ docker run --name postgres \
     -d postgres
 ```
 
-This command will create a PostgreSQL database, that you can connect with `postgres://user:secret@0.0.0.0:5432/database`.
+This gives you a database you can reach at `postgres://user:secret@127.0.0.1:5432/database`.
 
-### Run the Python script
-
-The following Python script connects to the PostgreSQL database and executes some SQL queries:
-
-```py skip-run="true" skip-reason="external-connection"
+```py title="main.py" hl_lines="8" skip-run="true" skip-reason="external-connection"
 import asyncio
 
 import asyncpg
@@ -45,16 +56,12 @@ import asyncpg
 import logfire
 
 logfire.configure()
-
 logfire.instrument_asyncpg()
-
-# To capture parameters:
-# logfire.instrument_asyncpg(capture_parameters=True)
 
 
 async def main():
     connection: asyncpg.Connection = await asyncpg.connect(
-        user='user', password='secret', database='database', host='0.0.0.0', port=5432
+        user='user', password='secret', database='database', host='127.0.0.1', port=5432
     )
 
     with logfire.span('Create table and insert data'):
@@ -72,8 +79,49 @@ async def main():
 asyncio.run(main())
 ```
 
-If you go to your project on the UI, you will see the span created by the script.
+Run it with `python main.py`.
+
+## Verify it worked
+
+Run your program, then open your project in the
+[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+should see a span for each query the script ran. Click one to see the SQL statement and how long it
+took.
+
+<!-- TODO(app-verify): screenshot of the query spans in the Live view, showing the SQL statement and duration -->
+
+## Troubleshooting
+
+Not seeing your queries in Logfire? Check these first:
+
+- **`logfire.configure()` runs before `logfire.instrument_asyncpg()`.** Configure the connection
+  first, then instrument.
+- **You call `instrument_asyncpg()` exactly once.**
+- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+  production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
+- **You actually ran a query.** Spans appear only after a statement executes.
+
+## Advanced
+
+### Capturing query parameters
+
+By default, the values you pass into queries aren't recorded, since they can contain sensitive data.
+To include them, pass `capture_parameters=True`:
+
+```py skip-run="true" skip-reason="external-connection"
+import logfire
+
+logfire.configure()
+logfire.instrument_asyncpg(capture_parameters=True)
+```
+
+Turning this on sends the parameter values to Logfire, so avoid it if your queries carry secrets or
+personally identifiable information (PII).
+
+## Reference
+
+- API reference: [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg]
+- Underlying OpenTelemetry package: [asyncpg instrumentation][opentelemetry-asyncpg]
 
 [opentelemetry-asyncpg]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asyncpg/asyncpg.html
-[opentelemetry-asyncpg2]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asyncpg2/asyncpg2.html
 [asyncpg]: https://magicstack.github.io/asyncpg/

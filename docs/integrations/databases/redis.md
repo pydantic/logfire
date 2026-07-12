@@ -1,11 +1,27 @@
 ---
-title: "Logfire Redis Integration & Setup Guide"
-description: "Integrate Pydantic Redis instrumentation. Logfire creates a span for every Redis command executed, offering granular tracing of your data layer."
+title: "Instrument Redis: see every command your app runs"
+description: "Add a few lines to your Redis code and see every command in Logfire: which command ran, how long it took, and which ones failed."
 integration: otel
 ---
 # Redis
 
-The [`logfire.instrument_redis()`][logfire.Logfire.instrument_redis] method will create a span for every command executed by your [Redis][redis] clients.
+See every command your app sends to [Redis][redis] (which command ran, how long it took, and which
+ones failed) as a **span** (one unit of work with a name, a start, and a duration) in Logfire.
+Related spans link together into a **trace** (the full journey of one request), so a slow lookup shows
+up right next to the code that triggered it.
+
+## What you'll capture
+
+- Each command as a span, with its duration and any errors
+- Which Redis server the command went to
+- Optionally, the command itself (off by default; see below)
+
+## Before you start
+
+You'll need a Logfire project and its **write token**: the credential your app uses to send data to
+Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
+Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
+creating a project and linking your machine.
 
 ## Installation
 
@@ -15,20 +31,17 @@ Install `logfire` with the `redis` extra:
 
 ## Usage
 
-Let's setup a container with Redis and run a Python script that connects to the Redis server to
-demonstrate how to use **Logfire** with Redis.
+Add two lines to your app: `logfire.configure()` to connect to your project, and
+[`logfire.instrument_redis()`][logfire.Logfire.instrument_redis] to record every command.
 
-### Setup a Redis Server Using Docker
-
-First, we need to initialize a Redis server. This can be easily done using Docker with the following command:
+The example below connects to a local Redis server. If you don't have one running, you can start one
+with Docker:
 
 ```bash
-docker run --name redis -p 6379:6379 -d redis:latest
+docker run --name redis -p 127.0.0.1:6379:6379 -d redis:latest
 ```
 
-### Run the Python script
-
-```py title="main.py" skip-run="true" skip-reason="external-connection"
+```py title="main.py" hl_lines="6" skip-run="true" skip-reason="external-connection"
 import redis
 
 import logfire
@@ -51,15 +64,53 @@ if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-!!! info
-    You can pass `capture_statement=True` to `logfire.instrument_redis()` to capture the Redis command.
+Run it with `python main.py`.
 
-    By default, it is set to `False` given that Redis commands can contain sensitive information.
+## Verify it worked
 
-The keyword arguments of `logfire.instrument_redis()` are passed to the `RedisInstrumentor().instrument()`
-method of the OpenTelemetry Redis Instrumentation package, read more about it [here][opentelemetry-redis].
+Run your program, then open your project in the
+[Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
+should see a span for each command the script ran. Click one to see how long it took.
 
-## API Reference
+<!-- TODO(app-verify): screenshot of the Redis command spans in the Live view, showing the command and duration -->
+
+## Troubleshooting
+
+Not seeing your commands in Logfire? Check these first:
+
+- **`logfire.configure()` runs before `logfire.instrument_redis()`.** Configure the connection first,
+  then instrument.
+- **You call `instrument_redis()` exactly once.**
+- **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
+  production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
+- **You actually ran a command.** Spans appear only after a command executes.
+
+## Advanced
+
+### Capturing the command
+
+By default, the command sent to Redis isn't recorded, since it can contain sensitive data. To include
+it, pass `capture_statement=True`:
+
+```py skip-run="true" skip-reason="external-connection"
+import logfire
+
+logfire.configure()
+logfire.instrument_redis(capture_statement=True)
+```
+
+Turning this on sends the command (including any values in it) to Logfire, so avoid it if your
+commands carry secrets or personally identifiable information (PII).
+
+### Passing options to the OpenTelemetry instrumentor
+
+[`logfire.instrument_redis()`][logfire.Logfire.instrument_redis] accepts additional keyword arguments
+and passes them to the OpenTelemetry Redis instrumentation. See
+[their documentation][opentelemetry-redis] for the full list.
+
+## Reference
+
+- Underlying OpenTelemetry package: [Redis instrumentation][opentelemetry-redis]
 
 ::: logfire.Logfire.instrument_redis
     options:
