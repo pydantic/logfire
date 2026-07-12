@@ -11,7 +11,7 @@ What does "AI-native" mean? Two things:
 
 1. **Designed for AI development workflows.** Logfire has purpose-built features for LLM applications: conversation panels, token tracking, cost monitoring, tool call inspection. It integrates with [pydantic-evals](https://github.com/pydantic/pydantic-evals) for systematic testing. And unlike AI-only observability tools that only see the LLM layer, Logfire is built on [OpenTelemetry](https://opentelemetry.io/) and traces your entire application stack, so you can debug whether a problem is in the AI or the backend.
 
-2. **Designed to be queried by AI.** Logfire exposes all observability data via SQL (PostgreSQL-compatible syntax). This means your coding agent can query production data directly, asking arbitrary questions without being limited to predefined dashboards or APIs. We provide an [MCP server](how-to-guides/mcp-server.md) that makes this seamless. Other tools may offer MCP integrations, but without raw SQL access, agents are constrained to whatever queries someone anticipated. With Logfire, they can ask anything.
+2. **Designed to be queried by AI.** Logfire exposes all observability data via SQL (PostgreSQL-compatible syntax). This means your coding agent can query production data directly, asking arbitrary questions without being limited to predefined dashboards or APIs. We provide an [MCP server](how-to-guides/mcp-server.md) that makes this easy. Other tools may offer MCP integrations, but without raw SQL access, agents are constrained to whatever queries someone anticipated. With Logfire, they can ask anything.
 
 If your framework has OTel instrumentation, it works with Logfire automatically.
 

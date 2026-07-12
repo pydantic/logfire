@@ -96,7 +96,7 @@ All deployment options use the same underlying technology:
 
 - Built on established protocols and open formats
 - Minimizes vendor lock-in risk
-- Seamless integration with existing tooling
+- Integrates with existing tooling
 - Simplified migration path through OTel compatibility
 
 #### AI Readiness

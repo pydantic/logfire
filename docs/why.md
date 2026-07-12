@@ -46,7 +46,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   ***
 
-  Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
+  Logfire is an opinionated wrapper around OpenTelemetry, allowing you to use existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
 
   [:octicons-arrow-right-24: Read more](#opentelemetry-under-the-hood)
 
@@ -70,7 +70,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
 ## Find the needle in a _stack trace_
 
-Pydantic Logfire was built by developers who understand real applications: from async Python services to JavaScript frontends to multi-language distributed systems. With deep integrations across Python, JavaScript/TypeScript, Rust, and any OpenTelemetry-compatible language, it's not just about having data; it's about having the _right_ data, presented in ways that make sense for your applications.
+Pydantic Logfire was built by developers who understand real applications: from async Python services to JavaScript frontends to multi-language distributed systems. With deep integrations across Python, JavaScript/TypeScript, Rust, and any OpenTelemetry-compatible language, it's about having the _right_ data, presented in ways that make sense for your applications.
 
 ![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
@@ -91,7 +91,7 @@ This might look similar to simple logging, but it's much more powerful. You get:
 - **Custom-built platform** to view your data, with no configuration required
 - **Pretty display** of Python objects
 
-Ready to try Logfire? [Get Started](index.md)! 🚀
+Ready to try Logfire? [Get Started](index.md)!
 
 ## Deep language integration :material-code-braces:
 
@@ -290,4 +290,4 @@ attributes->'result'->>'name' = 'Ben'
 
 ![Logfire search query screenshot](images/index/logfire-screenshot-search-query.png)
 
-Structured Data and SQL Access with familiar syntax means you can leverage AI for SQL generation, ensuring your Python objects and structured data are query-ready.
+Structured Data and SQL Access with familiar syntax means you can use AI for SQL generation, ensuring your Python objects and structured data are query-ready.
