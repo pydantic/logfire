@@ -139,9 +139,12 @@ trace is guesswork. Here's how to see exactly what it did."
 - **Define every term of art in place, at first use, in one clause** — using the [glossary](#the-canonical-glossary)
   wording so the whole set is consistent: "a span (one unit of work — a single operation, with a
   start and a duration)".
-- **Spell out every acronym the first time it appears on a page.** Assume the reader arrived from a
-  search; nothing is "already established" by another page: "personally identifiable information
-  (PII)", "OpenTelemetry Protocol (OTLP)".
+- **Spell out field-specific acronyms the first time they appear on a page.** Assume the reader
+  arrived from a search; nothing is "already established" by another page: "personally identifiable
+  information (PII)", "OpenTelemetry Protocol (OTLP)". Leave the acronyms the whole space already
+  reads as words — AI, LLM, SDK, API, HTTP, JSON, URL, CLI. The test is whether spelling it out
+  teaches the reader something: expand terms specific to observability or Logfire, not the ones
+  every developer uses daily.
 - **Don't gloss the obvious** (see the don't-gloss list in §5). Spend the budget on the terms that
   actually block the reader.
 - **Precise terms stay.** Introduce jargon; don't avoid it. The real word plus a hand-hold — never
@@ -249,7 +252,7 @@ page:
   cost", "can't be undone".
 
 ### Don't-gloss list (the reader already knows these)
-`SDK`, `API`, `JSON`, `HTTP`, `URL`, `CLI`, `environment variable`, `package`, `import`, `function`,
+`AI`, `LLM`, `SDK`, `API`, `JSON`, `HTTP`, `URL`, `CLI`, `environment variable`, `package`, `import`, `function`,
 `database`, `endpoint`, `request`. Spend the definition budget on the terms below instead.
 
 ### The canonical glossary
