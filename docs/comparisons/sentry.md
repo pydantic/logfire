@@ -79,7 +79,7 @@ logfire.instrument_openai()  # That's it
 - "What's the average token usage by endpoint?"
 - "Which users are hitting rate limits most often?"
 
-AI assistants and coding agents are excellent at writing these queries. When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. No artificial limitations. With custom UIs or APIs, it's constrained to anticipated queries.
+AI assistants and coding agents are excellent at writing these queries. When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question without artificial limitations. With custom UIs or APIs, it's constrained to anticipated queries.
 
 ## Migration Path
 
