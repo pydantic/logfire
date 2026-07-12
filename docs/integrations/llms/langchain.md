@@ -21,12 +21,7 @@ environment variables, and Logfire receives the data.
 - Model calls, with the conversation and the number of tokens used
 - Nested steps of a chain or agent, shown as child spans in one trace
 
-## Before you start
-
-You'll need a Logfire project and its **write token**, the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -90,8 +85,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a trace for the agent run, with a span for each step. Click into it to see the model calls
 and tool calls.
-
-<!-- TODO(app-verify): confirm the Live-view span names for a LangGraph agent run and add a screenshot of the nested trace -->
 
 ## Troubleshooting
 

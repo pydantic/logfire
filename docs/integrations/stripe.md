@@ -21,14 +21,9 @@ depends on which style you use.
 - Any errors returned by Stripe
 - Optionally, Stripe's own log messages (see [Advanced](#advanced))
 
-## Before you start
+{{ before_you_start() }}
 
-You'll need two things:
-
-- **A Logfire project and its write token** (the key your app uses to send data). Create one and copy
-  it from **Project → Settings → Write tokens**. See [Getting Started](../index.md).
-- **A Stripe secret key**, from your Stripe dashboard. The examples read it from the
-  `STRIPE_SECRET_KEY` environment variable.
+You'll also need a **Stripe secret key**, from your Stripe dashboard. The examples read it from the `STRIPE_SECRET_KEY` environment variable.
 
 ## Installation
 
@@ -97,8 +92,6 @@ if __name__ == '__main__':
 
 Run your program, then open the [Live view](../guides/web-ui/live.md). Within a few seconds you'll see
 a span for the HTTP call to Stripe, with its duration and status.
-
-<!-- TODO(app-verify): screenshot of a Stripe API call span in the Live view, showing the request URL and duration -->
 
 ## Troubleshooting
 

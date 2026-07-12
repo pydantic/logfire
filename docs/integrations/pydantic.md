@@ -21,10 +21,7 @@ configuration.
 - A count of validations and failures over time, as metrics
 - The validation error for each failure
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one
-and copy it from **Project → Settings → Write tokens**. See [Getting Started](../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -66,8 +63,6 @@ Validate one of your models (for example, construct it from user input), then op
 [Live view](../guides/web-ui/live.md) for the individual validations, or the
 [Metrics explorer](../guides/web-ui/metrics-explorer.md) for the validation counts. Within a few
 seconds you'll see the validation appear.
-
-<!-- TODO(app-verify): screenshot of a Pydantic validation span in the Live view, and the validation-count metric in the Metrics explorer -->
 
 ## Troubleshooting
 

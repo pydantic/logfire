@@ -15,9 +15,7 @@ See what your [Pydantic AI](https://pydantic.dev/docs/ai/overview/) agents do: e
 - Retries, including the failed attempt that triggered each one
 - Token usage for each model call, and any errors raised along the way
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+{{ before_you_start() }}
 
 Your agent runs call a model provider (OpenAI, Anthropic, and others) using your own API key, so each run costs money on that provider account.
 
@@ -81,8 +79,6 @@ The example above displays like this in Logfire:
 /// public-trace | https://logfire-eu.pydantic.dev/public-trace/953848ba-11a8-4368-a21b-c9bda69a7f58?spanId=9026260034697d53
     title: 'Logfire instrumentation of the agent run'
 ///
-
-<!-- TODO(app-verify): screenshot of the resulting Pydantic AI agent trace in the Live view -->
 
 ## Advanced
 

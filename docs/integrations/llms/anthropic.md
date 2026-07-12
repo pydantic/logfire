@@ -20,15 +20,9 @@ how long it took, and any errors, as a **trace** (the full journey of one reques
 !!! note "Prompts and responses are sent to Logfire"
     The full conversation (prompts, responses, and tool inputs) is recorded as span attributes and stored in Logfire, so it can include personal or proprietary data. Use [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your machine.
 
-## Before you start
+{{ before_you_start() }}
 
-You'll need two things:
-
-- **A Logfire project and its write token**, the credential your app uses to send data to Logfire.
-  Create a project and copy its token from **Project → Settings → Write tokens** in the Logfire web
-  app. New to Logfire? Start with [Getting Started](../../index.md).
-- **An Anthropic API key**, from your [Anthropic console](https://console.anthropic.com/). The
-  Anthropic SDK reads it from the `ANTHROPIC_API_KEY` environment variable.
+You'll also need an **Anthropic API key**, from your [Anthropic console](https://console.anthropic.com/). The Anthropic SDK reads it from the `ANTHROPIC_API_KEY` environment variable.
 
 ## Installation
 
@@ -87,8 +81,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a span for the Anthropic call. Click it to read the conversation and see the token count and
 duration.
-
-<!-- TODO(app-verify): confirm the Live-view span name for a messages.create call and add a screenshot of the expanded conversation view -->
 
 ## Troubleshooting
 

@@ -15,12 +15,7 @@ span is one unit of work with a name, a start, and a duration) in Logfire.
 - The matched route and method
 - Any errors raised while handling the request
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -62,8 +57,6 @@ With the app running, open [http://localhost:5000/](http://localhost:5000/) in y
 Then open your project in the [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live**
 view. Within a few seconds you should see a span for the request. Click it to see its duration, the
 matched route, and the response status.
-
-<!-- TODO(app-verify): screenshot of a Flask request span in the Live view, showing the matched route and status -->
 
 ## Troubleshooting
 

@@ -16,9 +16,7 @@ Mirascope is a library for building with models. It adds this instrumentation th
 - Token usage for each model call and any errors raised
 - Validation of Pydantic models, when you also instrument Pydantic (see below)
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+{{ before_you_start() }}
 
 Mirascope calls a model provider using your own API key, so each call costs money on that provider account.
 
@@ -64,8 +62,6 @@ The example above shows up like this in Logfire:
   ![Logfire Mirascope Anthropic call](../../images/logfire-screenshot-mirascope-anthropic-call.png){ width="500" }
   <figcaption>Mirascope call span and conversation</figcaption>
 </figure>
-
-<!-- TODO(app-verify): screenshot of the resulting Mirascope trace in the Live view -->
 
 ## Advanced
 

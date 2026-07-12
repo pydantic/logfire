@@ -13,9 +13,7 @@ See every database query your app runs through [SQLAlchemy](https://www.sqlalche
 - The SQL statement that ran, and the database it ran against
 - Failed queries, with the error
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -63,8 +61,6 @@ Call `logfire.configure()`, then `logfire.instrument_sqlalchemy()` with your eng
 ## Verify it worked
 
 Run a query through your engine, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see a span for the query, with its duration and the SQL it ran, nested under the request span if you've also instrumented your [web framework](../web-frameworks/index.md).
-
-<!-- TODO(app-verify): screenshot of a SQLAlchemy query span in the Live view, showing the SQL statement and duration -->
 
 ## Troubleshooting
 

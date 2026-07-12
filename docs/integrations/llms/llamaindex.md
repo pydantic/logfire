@@ -19,12 +19,7 @@ We recommend instrumenting LlamaIndex with the OpenTelemetry instrumentation fro
 - Retrieval steps, showing which documents were pulled in as context
 - Model calls, shown as child spans within the trace
 
-## Before you start
-
-You'll need a Logfire project and its **write token**, the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -81,8 +76,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a trace for the query, with spans for the indexing, retrieval, and model call. Click into it
 to see the duration of each step.
-
-<!-- TODO(app-verify): confirm the Live-view span names for a LlamaIndex query and add a screenshot of the nested trace -->
 
 ## Troubleshooting
 

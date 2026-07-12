@@ -18,15 +18,9 @@ in Logfire.
 - The full conversation between your app and the model
 - Response details, including the number of tokens used
 
-## Before you start
+{{ before_you_start() }}
 
-You'll need two things:
-
-- **A Logfire project and its write token**, the credential your app uses to send data to Logfire.
-  Create a project and copy its token from **Project → Settings → Write tokens** in the Logfire web
-  app. New to Logfire? Start with [Getting Started](../../index.md).
-- **A Google Gemini API key**, from [Google AI Studio](https://aistudio.google.com/apikey). The
-  Google Gen AI SDK reads it from the `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) environment variable.
+You'll also need a **Google Gemini API key**, from [Google AI Studio](https://aistudio.google.com/apikey). The Google Gen AI SDK reads it from the `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) environment variable.
 
 ## Installation
 
@@ -76,8 +70,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a span for the Gemini call. Click it to read the conversation and see the token count and
 duration.
-
-<!-- TODO(app-verify): confirm the Live-view span name for a generate_content call and add a screenshot of the expanded conversation view -->
 
 ## Troubleshooting
 

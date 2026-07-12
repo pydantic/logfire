@@ -19,16 +19,9 @@ regardless of which provider handles it.
 - Response details, including the number of tokens used
 - The provider and model behind each call
 
-## Before you start
+{{ before_you_start() }}
 
-You'll need:
-
-- **A Logfire project and its write token**, the credential your app uses to send data to Logfire.
-  Create a project and copy its token from **Project → Settings → Write tokens** in the Logfire web
-  app. New to Logfire? Start with [Getting Started](../../index.md).
-- **An API key for whichever model provider you call** (for example, `OPENAI_API_KEY` or
-  `ANTHROPIC_API_KEY`). LiteLLM reads these from environment variables; see the
-  [LiteLLM provider docs](https://docs.litellm.ai/docs/providers) for the variable each provider uses.
+You'll also need an API key for whichever model provider you call (for example, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`). LiteLLM reads these from environment variables; see the [LiteLLM provider docs](https://docs.litellm.ai/docs/providers) for the variable each provider uses.
 
 ## Installation
 
@@ -73,8 +66,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a span for the LiteLLM call. Click it to read the conversation and see the token count and
 duration.
-
-<!-- TODO(app-verify): confirm the Live-view span name for a litellm.completion call and add a screenshot of the expanded conversation view -->
 
 ## Troubleshooting
 

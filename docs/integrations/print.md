@@ -16,11 +16,7 @@ Your `print()` calls still print to the console as usual.
 - Its timestamp
 - The printed arguments, captured as structured attributes you can search and filter
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Copy it from **Project → Settings → Write tokens** in the Logfire web app. New to Logfire?
-Start with [Getting Started](../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -52,8 +48,6 @@ This will still print as usual, but will also emit a log with the message `Hello
 
 Run your program, then open the [Live view](../guides/web-ui/live.md) in the Logfire web app.
 Within a few seconds you'll see your printed message as a record.
-
-<!-- TODO(app-verify): screenshot of the log record in the Live view -->
 
 ## Advanced
 

@@ -19,10 +19,7 @@ inside each worker rather than once at startup. This page shows where.
 - The duration and status of every request across all workers
 - Any errors raised while handling a request
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one
-and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -58,8 +55,6 @@ gunicorn myapp:app --config gunicorn_config.py
 Start Gunicorn and open one of your pages in the browser. Then open the
 [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see a span for the request,
 regardless of which worker handled it.
-
-<!-- TODO(app-verify): screenshot of a request span from a Gunicorn worker in the Live view -->
 
 ## Troubleshooting
 

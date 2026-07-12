@@ -15,9 +15,7 @@ The Model Context Protocol is a standard way for an AI application to call tools
 - The tool the client called, with the arguments it sent and the result it got back
 - The duration of each call and any errors raised on either side
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+{{ before_you_start() }}
 
 The client example below calls OpenAI using your own API key, so running it costs money on that OpenAI account.
 
@@ -86,8 +84,6 @@ print(result.output)
 With both scripts running, open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see one trace covering the client request and the server's response to it. Click into it to see the `add` tool call, its arguments, and the result.
 
 ![Logfire MCP Trace](../../images/logfire-screenshot-mcp.png)
-
-<!-- TODO(app-verify): screenshot of the resulting distributed MCP trace in the Live view -->
 
 ## Troubleshooting
 

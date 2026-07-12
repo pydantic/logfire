@@ -18,12 +18,7 @@ AIOHTTP is an asynchronous HTTP client and server framework for asyncio. This pa
 - The request method and path
 - Any errors raised while handling the request
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -74,8 +69,6 @@ With the server running, open [http://localhost:8080/](http://localhost:8080/) o
 Then open your project in the [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live**
 view. Within a few seconds you should see a span for the request. Click it to see its duration, the
 method and path, and the response status.
-
-<!-- TODO(app-verify): screenshot of an AIOHTTP server request span in the Live view, showing the method, path, and status -->
 
 ## Troubleshooting
 

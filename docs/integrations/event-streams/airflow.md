@@ -21,12 +21,7 @@ a couple of settings.
 - The full run of a pipeline as a trace
 - Airflow's built-in metrics
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential Airflow uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project.
+{{ before_you_start() }}
 
 !!! warning "Airflow 2.10.4 or newer"
     The setup below needs `apache-airflow` 2.10.4 or later. On older versions you can't set the
@@ -81,8 +76,6 @@ For the full list of settings, see Airflow's [traces] and [metrics] documentatio
 Trigger a pipeline run, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds
 you'll see spans for the task runs: click one to see its duration and outcome. Airflow's metrics
 appear in your project's dashboards.
-
-<!-- TODO(app-verify): screenshot of an Airflow task span in the Live view, showing the task name and duration -->
 
 ## Troubleshooting
 

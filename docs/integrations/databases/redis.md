@@ -16,12 +16,7 @@ up right next to the code that triggered it.
 - Which Redis server the command went to
 - Optionally, the command itself (off by default; see below)
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -71,8 +66,6 @@ Run it with `python main.py`.
 Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a span for each command the script ran. Click one to see how long it took.
-
-<!-- TODO(app-verify): screenshot of the Redis command spans in the Live view, showing the command and duration -->
 
 ## Troubleshooting
 

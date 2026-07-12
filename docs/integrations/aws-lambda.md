@@ -16,10 +16,7 @@ Logfire.
 - Any errors raised while the function ran
 - Any instrumented work inside the handler (database queries, HTTP calls) as nested spans
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one
-and copy it from **Project → Settings → Write tokens**. See [Getting Started](../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -54,8 +51,6 @@ logfire.instrument_aws_lambda(handler)
 Invoke your function (for example, from the AWS console or with a test event), then open the
 [Live view](../guides/web-ui/live.md). Within a few seconds you'll see a span for the invocation, with
 its duration and status.
-
-<!-- TODO(app-verify): screenshot of an AWS Lambda invocation span in the Live view, showing duration and status -->
 
 ## Troubleshooting
 

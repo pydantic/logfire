@@ -15,12 +15,7 @@ so a slow query shows up right next to the code that triggered it.
 - Each query as a span, with its duration and any errors
 - The SQL statement that ran
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -63,8 +58,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a span for each query the script ran. Click one to see the SQL statement and how long it
 took.
-
-<!-- TODO(app-verify): screenshot of the query spans in the Live view, showing the SQL statement and duration -->
 
 ## Troubleshooting
 

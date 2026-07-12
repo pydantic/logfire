@@ -16,9 +16,7 @@ See what your [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/o
 - Every tool the agent calls, as a child span with its arguments and result
 - The duration of each step and any errors raised along the way
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+{{ before_you_start() }}
 
 The Claude Agent SDK calls Claude using your own credentials, so running an agent costs money on that account.
 
@@ -103,8 +101,6 @@ Run your program, then open the [Live view](../../guides/web-ui/live.md). Within
 The example above looks like this in Logfire:
 
 ![Logfire Claude Agent SDK Trace](../../images/logfire-screenshot-claude-agent-sdk.png)
-
-<!-- TODO(app-verify): screenshot of the resulting Claude Agent SDK trace in the Live view -->
 
 ## Troubleshooting
 

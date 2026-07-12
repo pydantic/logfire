@@ -20,12 +20,7 @@ Logfire receives what it emits.
 - The channel or subject the message went to
 - Failed message handling, with the error
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -80,8 +75,6 @@ async def test():
 Run your app so it publishes a message, then open the [Live view](../../guides/web-ui/live.md). Within
 a few seconds you'll see spans for the published and consumed messages: click one to see the channel
 and how long handling took.
-
-<!-- TODO(app-verify): screenshot of a FastStream message span in the Live view, showing the channel and duration -->
 
 ## Troubleshooting
 

@@ -17,11 +17,7 @@ you already log, with all its structured fields, becomes a Logfire log.
 - Its timestamp
 - The structured key/value fields you attach to the event
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Copy it from **Project → Settings → Write tokens** in the Logfire web app. New to Logfire?
-Start with [Getting Started](../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -78,8 +74,6 @@ configuration.
 
 Run your program, then open the [Live view](../guides/web-ui/live.md) in the Logfire web app.
 Within a few seconds you'll see your event as a record, with its fields as attributes.
-
-<!-- TODO(app-verify): screenshot of the log record in the Live view -->
 
 ## Advanced
 

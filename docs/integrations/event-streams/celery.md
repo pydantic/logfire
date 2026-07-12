@@ -20,12 +20,7 @@ to the request that enqueued it. Tasks scheduled with [Celery beat][celery-beat]
 !!! note "Task arguments are sent to Logfire"
     A task's arguments and any error details are recorded as span attributes and stored in Logfire, so they can include secrets or personal data. Use [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your machine.
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -87,8 +82,6 @@ add.delay(42, 50)  # (4)!
 Trigger a task, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll
 see a span named after the task, with its duration and status: click it to see the arguments it ran
 with.
-
-<!-- TODO(app-verify): screenshot of a Celery task span in the Live view, showing the task name and duration -->
 
 ## Troubleshooting
 

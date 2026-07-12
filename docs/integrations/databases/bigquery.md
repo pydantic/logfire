@@ -21,12 +21,7 @@ on their own. If you'd rather they didn't, see [Opting out](#opting-out) below.
 - The SQL statement that ran
 - Failed queries, with the error
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -63,8 +58,6 @@ print(list(query_job.result()))
 
 Run a query, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see a
 span for the query, with its duration and job status. Click it to see the SQL that ran.
-
-<!-- TODO(app-verify): screenshot of a BigQuery query span in the Live view, showing the SQL and job status -->
 
 ## Advanced
 

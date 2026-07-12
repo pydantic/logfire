@@ -25,10 +25,7 @@ function: you turn the plugin on when you run your tests.
 - Any instrumented work inside a test (database queries, HTTP calls, your own spans) nested underneath
 - Any exceptions raised during a test
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one
-and copy it from **Project → Settings → Write tokens**. See [Getting Started](../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -52,8 +49,6 @@ other ways to enable it, covered under [Advanced](#enabling-the-plugin).
 Run your suite with `pytest --logfire`, then open the [Live view](../guides/web-ui/live.md) and filter
 by the service name `pytest`. Within a few seconds you'll see the session span with a span per test
 nested under it, showing which passed or failed and how long each took.
-
-<!-- TODO(app-verify): screenshot of a pytest session span with nested test spans in the Live view, showing pass/fail and duration -->
 
 ## Troubleshooting
 

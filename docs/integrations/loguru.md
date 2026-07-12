@@ -17,11 +17,7 @@ calls.
 - Its timestamp
 - Any structured fields you attach to the record
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Copy it from **Project → Settings → Write tokens** in the Logfire web app. New to Logfire?
-Start with [Getting Started](../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -53,8 +49,6 @@ logger.info('Hello, {name}!', name='World')
 
 Run your program, then open the [Live view](../guides/web-ui/live.md) in the Logfire web app.
 Within a few seconds you'll see your message as a record.
-
-<!-- TODO(app-verify): screenshot of the log record in the Live view -->
 
 ## Advanced
 

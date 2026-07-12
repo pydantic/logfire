@@ -20,16 +20,9 @@ This page covers both the [standard OpenAI SDK](https://github.com/openai/openai
 - Response details, including the number of tokens used
 - For agents: tool calls and nested work, shown as child spans in the trace
 
-## Before you start
+{{ before_you_start() }}
 
-You'll need two things:
-
-- **A Logfire project and its write token**, the credential your app uses to send data to Logfire.
-  Create a project and copy its token from **Project → Settings → Write tokens** in the Logfire web
-  app. New to Logfire? Start with [Getting Started](../../index.md).
-- **An OpenAI API key**, from your OpenAI dashboard at
-  [platform.openai.com/api-keys](https://platform.openai.com/api-keys). The OpenAI SDK reads it from
-  the `OPENAI_API_KEY` environment variable.
+You'll also need an **OpenAI API key**, from your OpenAI dashboard at [platform.openai.com/api-keys](https://platform.openai.com/api-keys). The OpenAI SDK reads it from the `OPENAI_API_KEY` environment variable.
 
 ## Installation
 
@@ -84,8 +77,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a span for the OpenAI call. Click it to read the conversation and see the token count and
 duration.
-
-<!-- TODO(app-verify): confirm the Live-view span name for a chat completion call and add a screenshot of the expanded conversation view -->
 
 ## Troubleshooting
 

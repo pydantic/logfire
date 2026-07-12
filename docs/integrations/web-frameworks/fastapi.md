@@ -20,12 +20,7 @@ Logfire.
 !!! note "This captures request data"
     The endpoint arguments and path/query parameters recorded here can contain personal data (names, emails, tokens). They're sent to and stored in Logfire as span attributes. Use [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your machine, or `request_attributes_mapper` (see [Advanced](#endpoint-arguments-and-validation-errors)) to control exactly what's recorded.
 
-## Before you start
-
-You'll need a Logfire project and its **write token**: the credential your app uses to send data to
-Logfire. Create a project and copy its token from **Project → Settings → Write tokens** in the
-Logfire web app. New to Logfire? Start with [Getting Started](../../index.md), which walks through
-creating a project and linking your machine.
+{{ before_you_start() }}
 
 ## Installation
 
@@ -76,8 +71,6 @@ With the app running, open
 Then open your project in the [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live**
 view. Within a few seconds you should see a span for the `GET /hello` request. Click it to see its
 duration, the `name` argument (`world`), and the response status.
-
-<!-- TODO(app-verify): screenshot of the GET /hello request span in the Live view, showing the parsed `name` argument and 200 status -->
 
 ## Troubleshooting
 

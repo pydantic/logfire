@@ -17,9 +17,7 @@ Magentic is a library for getting structured output from models, built around st
 - Tool and function calls the model made
 - Token usage and any errors, once you also instrument the model provider (see below)
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one and copy it from **Project → Settings → Write tokens**. See [Getting Started](../../index.md).
+{{ before_you_start() }}
 
 Magentic calls a model provider using your own API key, so each run costs money on that provider account.
 
@@ -85,8 +83,6 @@ The example above creates this in Logfire:
   ![Logfire Magentic Superhero](../../images/logfire-screenshot-magentic-create-superhero.png){ width="500" }
   <figcaption>Magentic chatprompt-function call span and conversation</figcaption>
 </figure>
-
-<!-- TODO(app-verify): screenshot of the resulting Magentic trace in the Live view -->
 
 ## Troubleshooting
 

@@ -16,10 +16,7 @@ on charts and a ready-made dashboard so you can watch performance in real time.
 - Disk input/output and network traffic (with the detailed configuration below)
 - Process activity, such as thread and file-descriptor counts
 
-## Before you start
-
-You'll need a Logfire project and its **write token** (the key your app uses to send data). Create one
-and copy it from **Project → Settings → Write tokens**. See [Getting Started](../index.md).
+{{ before_you_start() }}
 
 ## Installation
 
@@ -60,8 +57,6 @@ table (see the [SQL reference](../reference/sql.md)).
 Run your program and leave it running for a few seconds, then open the
 [Metrics explorer](../guides/web-ui/metrics-explorer.md) or the [Hosts](../guides/web-ui/hosts.md)
 view. Within a few seconds you'll see your machine appear with CPU and memory charts.
-
-<!-- TODO(app-verify): screenshot of the Hosts view showing the instrumented machine's CPU and memory charts -->
 
 ## Troubleshooting
 

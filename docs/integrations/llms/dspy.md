@@ -18,15 +18,9 @@ each nested step in one trace.
 - Nested steps of your program, shown as child spans in the trace
 - Response details, including the number of tokens used
 
-## Before you start
+{{ before_you_start() }}
 
-You'll need:
-
-- **A Logfire project and its write token**, the credential your app uses to send data to Logfire.
-  Create a project and copy its token from **Project → Settings → Write tokens** in the Logfire web
-  app. New to Logfire? Start with [Getting Started](../../index.md).
-- **An API key for whichever model provider DSPy uses** (for example, `OPENAI_API_KEY` for the
-  `openai/...` model below). DSPy reads it from the provider's environment variable.
+You'll also need an API key for whichever model provider DSPy uses (for example, `OPENAI_API_KEY` for the `openai/...` model below). DSPy reads it from the provider's environment variable.
 
 ## Installation
 
@@ -83,8 +77,6 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a trace for the DSPy run, with a span for each module call. Click into it to see the
 prompts, responses, and token counts.
-
-<!-- TODO(app-verify): confirm the Live-view span names for a dspy.Predict run and add a screenshot of the nested trace -->
 
 ## Troubleshooting
 
