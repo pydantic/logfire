@@ -2,7 +2,7 @@
 
 This is the standard every page in the public docs (`docs/`) is held to — whether a person or an AI
 agent writes it. It lays out the rules we follow going forward; recent documentation work already
-follows them. If a page can't pass the [pre-publish checklist](#pre-publish-checklist), it isn't done.
+follows them. If a page can't pass the [pre-publish checklist](#6-pre-publish-checklist), it isn't done.
 
 Read this before writing or substantially editing a docs page. Docstrings and other in-code API text
 follow normal API-reference conventions and are out of scope here.
@@ -73,7 +73,9 @@ Two beliefs shape everything below:
 **Frontmatter on every page:** a `title` (a user goal, sentence case) and a `description` (one
 sentence on what the page is for). Keep to the one convention across the set.
 
-**The universal skeleton** every page follows:
+**The universal skeleton** most setup, integration, and how-to pages follow — Reference pages stay
+terse and skip Verify/Troubleshooting, and concept overviews orient and fan out but rarely need a
+Troubleshooting list:
 
 1. **Outcome sentence** — what you'll be able to do, in the reader's terms.
 2. **Orientation** — what this is / why you'd use it (and when *not* to), before any config.
@@ -156,8 +158,9 @@ failures.
 
 - "Copy your write token from **Project → Settings → Write tokens**."
 - "Get an API key from the provider's dashboard (platform.openai.com/api-keys)."
-- Every setup page states, before the first `configure()`, that a project + token are needed and
-  where to get them.
+- When a page sends data directly to Logfire, state before the first `configure()` that a project +
+  token are needed and where to get them. (Setups that don't send to Logfire — e.g. exporting to a
+  local backend with `send_to_logfire=False` — don't need one; don't invent the prerequisite.)
 
 ### State consequences plainly
 Whenever an action **sends data off the machine, costs money, drops/redacts data, or can't be
