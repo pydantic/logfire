@@ -857,9 +857,6 @@ async def test_input_guardrails(exporter: TestExporter):
     agent = Agent[str](name='my_agent', input_guardrails=[zero_guardrail])
 
     await Runner.run(agent, '1+1?')
-    with pytest.raises(InputGuardrailTripwireTriggered):
-        await Runner.run(agent, '0?')
-
     assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
@@ -997,105 +994,41 @@ async def test_input_guardrails(exporter: TestExporter):
                     'agent_trace_id': IsStr(),
                 },
             },
-            {
-                'name': 'Guardrail {name!r} {triggered=}',
-                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
-                'start_time': 17000000000,
-                'end_time': 18000000000,
-                'attributes': {
-                    'triggered': True,
-                    'gen_ai.system': 'openai',
-                    'name': 'zero_guardrail',
-                    'logfire.msg_template': 'Guardrail {name!r} {triggered=}',
-                    'logfire.msg': "Guardrail 'zero_guardrail' triggered=True",
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'Turn {turn} for agent my_agent',
-                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
-                'start_time': 16000000000,
-                'end_time': 19000000000,
-                'attributes': {
-                    'code.filepath': 'test_openai_agents.py',
-                    'code.function': 'test_input_guardrails',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'Turn {turn} for agent my_agent',
-                    'logfire.span_type': 'span',
-                    'logfire.level_num': 17,
-                    'type': 'custom',
-                    'name': 'turn',
-                    'sdk_span_type': 'turn',
-                    'turn': 1,
-                    'agent_name': 'my_agent',
-                    'gen_ai.system': 'openai',
-                    'error': {'message': 'Guardrail tripwire triggered', 'data': {'guardrail': 'zero_guardrail'}},
-                    'logfire.msg': 'Turn 1 for agent my_agent failed: Guardrail tripwire triggered',
-                },
-            },
-            {
-                'name': 'Agent run: {name!r}',
-                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
-                'start_time': 15000000000,
-                'end_time': 20000000000,
-                'attributes': {
-                    'code.filepath': 'test_openai_agents.py',
-                    'code.function': 'test_input_guardrails',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'Agent run: {name!r}',
-                    'logfire.span_type': 'span',
-                    'name': 'my_agent',
-                    'handoffs': [],
-                    'tools': [],
-                    'output_type': 'str',
-                    'gen_ai.system': 'openai',
-                    'logfire.msg': "Agent run: 'my_agent'",
-                },
-            },
-            {
-                'name': 'Task: Agent workflow',
-                'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
-                'start_time': 14000000000,
-                'end_time': 21000000000,
-                'attributes': {
-                    'code.filepath': 'test_openai_agents.py',
-                    'code.function': 'test_input_guardrails',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'Task: Agent workflow',
-                    'logfire.span_type': 'span',
-                    'type': 'custom',
-                    'name': 'Agent workflow',
-                    'sdk_span_type': 'task',
-                    'gen_ai.system': 'openai',
-                    'logfire.msg': 'Task: Agent workflow',
-                },
-            },
-            {
-                'name': 'OpenAI Agents trace: {name}',
-                'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
-                'parent': None,
-                'start_time': 13000000000,
-                'end_time': 22000000000,
-                'attributes': {
-                    'code.filepath': 'test_openai_agents.py',
-                    'code.function': 'test_input_guardrails',
-                    'code.lineno': 123,
-                    'name': 'Agent workflow',
-                    'group_id': 'null',
-                    'metadata': 'null',
-                    'tracing': 'null',
-                    'logfire.msg_template': 'OpenAI Agents trace: {name}',
-                    'logfire.msg': 'OpenAI Agents trace: Agent workflow',
-                    'logfire.span_type': 'span',
-                    'agent_trace_id': IsStr(),
-                },
-            },
         ]
     )
+
+    exporter.exported_spans.clear()
+    with pytest.raises(InputGuardrailTripwireTriggered):
+        await Runner.run(agent, '0?')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # The model call runs concurrently with input guardrails. Depending on when it is
+    # cancelled, the Agents SDK may or may not emit an incomplete Responses API span.
+    # Assert the guardrail telemetry independently of that span and its effect on IDs.
+    spans = [span for span in spans if span['name'] != 'Responses API with {gen_ai.request.model!r}']
+    assert [(span['name'], span['attributes']) for span in spans] == [
+        (
+            'Guardrail {name!r} {triggered=}',
+            IsPartialDict(
+                {
+                    'name': 'zero_guardrail',
+                    'triggered': True,
+                    'gen_ai.system': 'openai',
+                }
+            ),
+        ),
+        (
+            'Turn {turn} for agent my_agent',
+            IsPartialDict(
+                turn=1,
+                agent_name='my_agent',
+                error={'message': 'Guardrail tripwire triggered', 'data': {'guardrail': 'zero_guardrail'}},
+            ),
+        ),
+        ('Agent run: {name!r}', IsPartialDict(name='my_agent')),
+        ('Task: Agent workflow', IsPartialDict(name='Agent workflow')),
+        ('OpenAI Agents trace: {name}', IsPartialDict(name='Agent workflow')),
+    ]
 
 
 @pytest.mark.vcr()
