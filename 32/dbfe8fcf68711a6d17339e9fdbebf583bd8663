@@ -1,0 +1,47 @@
+logfire/_internal/integrations/pydantic_ai.py
+  s_65d0ebccfd6fe8::t_c4f4894b14bc94 19
+tests/otel_integrations/test_pydantic_ai.py
+  s_65d0ebccfd6fe8::t_c4f4894b14bc94 60-61,70,83,87
+logfire/_internal/main.py
+  s_65d0ebccfd6fe8::t_8df7b8964dabc4 1151-1152
+  s_65d0ebccfd6fe8::t_c4f4894b14bc94 1101,1114,1126,1143-1145
+tests/test_datasets_client.py
+  s_65d0ebccfd6fe8::t_c4f4894b14bc94 97,848,1294
+tests/otel_integrations/test_pydantic_ai_mcp.py
+  s_65d0ebccfd6fe8::t_0870e0e9c85a65 20,38,48-52
+  s_65d0ebccfd6fe8::t_162013cac9bb4d 82-85,93,107-129,135-138,150-172,177-178,180,182-194,201-236,282-285,292-303,339-342,350,401-404,460-463,469-480,510-513,548-551,558-559,598-601,605-613,646-659,662,664-665,685,687-688,695-730,808,823-824
+pyproject.toml
+  s_d3d6e2a0a73f05::t_95b8fe1f021de9 203
+  s_65d0ebccfd6fe8::t_0337d16bfe3805 86,202
+uv.lock
+  s_65d0ebccfd6fe8::t_247631e0e8a1e1 41-84,470-482,492-509,609-637,1257-1269,1343-1370,1969-2013,2134-2145,2204-2221,2670,2738,2816-2817,2999-3007,4720-4745,4848-4852,4855,4867,4869-4874,4995,5005,5007,5012,5020,5022,5395-5403,5970-5982
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "32dbfe8fcf68711a6d17339e9fdbebf583bd8663",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_65d0ebccfd6fe8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5bb1-75b0-7ff2-893f-faa35b40a933",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_d3d6e2a0a73f05": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1783949632069",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
