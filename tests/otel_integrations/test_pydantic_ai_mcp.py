@@ -1,9 +1,7 @@
 # No from __future__ import annotations here
 # because it breaks `ctx: Context` being recognised by `@fastmcp.tool()` properly.
 
-import asyncio
 import os
-from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import pydantic
@@ -18,9 +16,8 @@ from tests.otel_integrations.test_openai_agents import simplify_spans
 try:
     from inline_snapshot import snapshot
     from mcp.server.fastmcp import Context, FastMCP
-    from mcp.shared.memory import create_client_server_memory_streams
     from pydantic_ai import Agent
-    from pydantic_ai.mcp import MCPServer
+    from pydantic_ai.mcp import MCPToolset
     from pydantic_ai.models.mcp_sampling import MCPSamplingModel
 except Exception:
     assert not TYPE_CHECKING
@@ -38,7 +35,7 @@ os.environ.setdefault('OPENAI_API_KEY', 'foo')
 @pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
-    logfire.instrument_pydantic_ai(version=3)
+    logfire.instrument_pydantic_ai(version=5)
 
     fastmcp = FastMCP()
 
@@ -48,26 +45,11 @@ async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
         r = await Agent().run(f'tell a joke about {theme}', model=MCPSamplingModel(session=ctx.session))
         return r.output
 
-    async with create_client_server_memory_streams() as (client_streams, server_streams):
-        lowlevel_mcp = fastmcp._mcp_server  # type: ignore
-        asyncio.create_task(
-            lowlevel_mcp.run(
-                *server_streams,
-                lowlevel_mcp.create_initialization_options(),
-                raise_exceptions=True,
-            )
-        )
-
-        class MyMCPServer(MCPServer):
-            @asynccontextmanager
-            async def client_streams(self):
-                yield client_streams
-
-        agent = Agent('openai-chat:gpt-4o', toolsets=[MyMCPServer()])
-        async with agent:
-            agent.set_mcp_sampling_model()
-            result = await agent.run('tell a joke about socks')
-            assert result.output == snapshot("""\
+    agent = Agent('openai-chat:gpt-4o', toolsets=[MCPToolset(fastmcp)])
+    agent.set_mcp_sampling_model()
+    async with agent:
+        result = await agent.run('tell a joke about socks')
+        assert result.output == snapshot("""\
 Why did the sock break up with the shoe?
 
 Because it found something more "sole-ful!"\
@@ -97,10 +79,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP server handle request: tools/list',
-                'context': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': True},
-                'start_time': 5000000000,
-                'end_time': 6000000000,
+                'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 7, 'is_remote': True},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/list',
@@ -108,7 +90,7 @@ Because it found something more "sole-ful!"\
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-0000000000000005-01',
+                                'traceparent': '00-00000000000000000000000000000002-0000000000000007-01',
                                 'baggage': IsStr(),
                             },
                             'cursor': None,
@@ -122,16 +104,38 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [IsPartialDict()],
+                        'tools': [
+                            {
+                                'name': 'joker',
+                                'title': None,
+                                'description': 'Poem generator',
+                                'inputSchema': {
+                                    'properties': {'theme': {'title': 'Theme', 'type': 'string'}},
+                                    'required': ['theme'],
+                                    'title': 'jokerArguments',
+                                    'type': 'object',
+                                },
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'string'}},
+                                    'required': ['result'],
+                                    'title': 'jokerOutput',
+                                    'type': 'object',
+                                },
+                                'icons': None,
+                                'annotations': None,
+                                'meta': None,
+                                'execution': None,
+                            }
+                        ],
                     },
                 },
             },
             {
                 'name': 'MCP request: tools/list',
-                'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 4000000000,
-                'end_time': 7000000000,
+                'context': {'trace_id': 2, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'request': {'method': 'tools/list', 'params': None},
                     'rpc.system': 'jsonrpc',
@@ -143,23 +147,93 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [IsPartialDict()],
+                        'tools': [
+                            {
+                                'name': 'joker',
+                                'title': None,
+                                'description': 'Poem generator',
+                                'inputSchema': {
+                                    'properties': {'theme': {'title': 'Theme', 'type': 'string'}},
+                                    'required': ['theme'],
+                                    'title': 'jokerArguments',
+                                    'type': 'object',
+                                },
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'string'}},
+                                    'required': ['result'],
+                                    'title': 'jokerOutput',
+                                    'type': 'object',
+                                },
+                                'icons': None,
+                                'annotations': None,
+                                'meta': None,
+                                'execution': None,
+                            }
+                        ],
                     },
                 },
             },
             {
-                'name': 'chat gpt-4o',
-                'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
+                'name': 'tools/list',
+                'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 8000000000,
+                'start_time': 4000000000,
                 'end_time': 9000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'tools/list',
+                    'mcp.method.name': 'tools/list',
+                    'fastmcp.component.key': '',
+                },
+            },
+            {
+                'name': 'chat gpt-4o',
+                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
-                    'model_request_parameters': IsPartialDict(),
+                    'model_request_parameters': {
+                        'function_tools': [
+                            {
+                                'name': 'joker',
+                                'parameters_json_schema': {
+                                    'properties': {'theme': {'type': 'string'}},
+                                    'required': ['theme'],
+                                    'type': 'object',
+                                    'additionalProperties': False,
+                                },
+                                'description': 'Poem generator',
+                                'outer_typed_dict_key': None,
+                                'strict': True,
+                                'sequential': False,
+                                'kind': 'function',
+                                'metadata': {'meta': None, 'annotations': None, 'task': False},
+                                'timeout': None,
+                                'defer_loading': False,
+                                'unless_native': None,
+                                'with_native': None,
+                                'tool_kind': None,
+                                'return_schema': None,
+                                'include_return_schema': None,
+                                'capability_id': None,
+                            }
+                        ],
+                        'native_tools': [],
+                        'output_mode': 'text',
+                        'output_object': None,
+                        'output_tools': [],
+                        'prompted_output_template': None,
+                        'allow_text_output': True,
+                        'allow_image_output': False,
+                        'instruction_parts': None,
+                        'thinking': None,
+                    },
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.conversation.id': IsStr(),
@@ -205,17 +279,28 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'chat gpt-4o',
-                'context': {'trace_id': 2, 'span_id': 25, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
-                'start_time': 17000000000,
-                'end_time': 18000000000,
+                'context': {'trace_id': 2, 'span_id': 29, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
+                'start_time': 20000000000,
+                'end_time': 21000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
-                    'model_request_parameters': IsPartialDict(),
+                    'model_request_parameters': {
+                        'function_tools': [],
+                        'native_tools': [],
+                        'output_mode': 'text',
+                        'output_object': None,
+                        'output_tools': [],
+                        'prompted_output_template': None,
+                        'allow_text_output': True,
+                        'allow_image_output': False,
+                        'instruction_parts': None,
+                        'thinking': None,
+                    },
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.conversation.id': IsStr(),
@@ -251,10 +336,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP client handle request: sampling/createMessage',
-                'context': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 21, 'is_remote': True},
-                'start_time': 16000000000,
-                'end_time': 19000000000,
+                'context': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 25, 'is_remote': True},
+                'start_time': 19000000000,
+                'end_time': 22000000000,
                 'attributes': {
                     'request': {
                         'method': 'sampling/createMessage',
@@ -262,7 +347,7 @@ Because it found something more "sole-ful!"\
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-0000000000000015-01',
+                                'traceparent': '00-00000000000000000000000000000002-0000000000000019-01',
                                 'baggage': IsStr(),
                             },
                             'messages': [
@@ -313,10 +398,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP request: sampling/createMessage',
-                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
-                'start_time': 15000000000,
-                'end_time': 20000000000,
+                'context': {'trace_id': 2, 'span_id': 25, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
+                'start_time': 18000000000,
+                'end_time': 23000000000,
                 'attributes': {
                     'request': {
                         'method': 'sampling/createMessage',
@@ -372,16 +457,27 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'chat mcp-sampling',
-                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
-                'start_time': 14000000000,
-                'end_time': 21000000000,
+                'context': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
+                'start_time': 17000000000,
+                'end_time': 24000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'MCP',
                     'gen_ai.system': 'MCP',
                     'gen_ai.request.model': 'mcp-sampling',
-                    'model_request_parameters': IsPartialDict(),
+                    'model_request_parameters': {
+                        'function_tools': [],
+                        'native_tools': [],
+                        'output_mode': 'text',
+                        'output_object': None,
+                        'output_tools': [],
+                        'prompted_output_template': None,
+                        'allow_text_output': True,
+                        'allow_image_output': False,
+                        'instruction_parts': None,
+                        'thinking': None,
+                    },
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.conversation.id': IsStr(),
@@ -411,10 +507,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'invoke_agent agent',
-                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
-                'start_time': 13000000000,
-                'end_time': 22000000000,
+                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
+                'start_time': 16000000000,
+                'end_time': 25000000000,
                 'attributes': {
                     'model_name': 'mcp-sampling',
                     'agent_name': 'agent',
@@ -449,18 +545,18 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP server handle request: tools/call',
-                'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': True},
-                'start_time': 12000000000,
-                'end_time': 23000000000,
+                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': True},
+                'start_time': 15000000000,
+                'end_time': 26000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
                         'params': {
                             'task': None,
                             'meta': {
-                                'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-000000000000000d-01',
+                                'progressToken': 2,
+                                'traceparent': '00-00000000000000000000000000000002-000000000000000f-01',
                                 'baggage': IsStr(),
                             },
                             'name': 'joker',
@@ -499,14 +595,22 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP request: tools/call joker',
-                'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'start_time': 11000000000,
-                'end_time': 24000000000,
+                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
+                'start_time': 14000000000,
+                'end_time': 27000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
-                        'params': {'task': None, 'meta': None, 'name': 'joker', 'arguments': {'theme': 'socks'}},
+                        'params': {
+                            'task': None,
+                            'meta': {
+                                'progressToken': None,
+                                'traceparent': '00-00000000000000000000000000000002-000000000000000f-01',
+                            },
+                            'name': 'joker',
+                            'arguments': {'theme': 'socks'},
+                        },
                     },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -540,11 +644,25 @@ Because it found something more "sole-ful!"\
                 },
             },
             {
+                'name': 'tools/call joker',
+                'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
+                'start_time': 13000000000,
+                'end_time': 28000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'tools/call joker',
+                    'mcp.method.name': 'tools/call',
+                    'fastmcp.component.key': 'joker',
+                    'gen_ai.tool.name': 'joker',
+                },
+            },
+            {
                 'name': 'execute_tool joker',
-                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 25000000000,
+                'start_time': 12000000000,
+                'end_time': 29000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'joker',
@@ -564,17 +682,52 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'chat gpt-4o',
-                'context': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 31, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 26000000000,
-                'end_time': 27000000000,
+                'start_time': 30000000000,
+                'end_time': 31000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
-                    'model_request_parameters': IsPartialDict(),
+                    'model_request_parameters': {
+                        'function_tools': [
+                            {
+                                'name': 'joker',
+                                'parameters_json_schema': {
+                                    'properties': {'theme': {'type': 'string'}},
+                                    'required': ['theme'],
+                                    'type': 'object',
+                                    'additionalProperties': False,
+                                },
+                                'description': 'Poem generator',
+                                'outer_typed_dict_key': None,
+                                'strict': True,
+                                'sequential': False,
+                                'kind': 'function',
+                                'metadata': {'meta': None, 'annotations': None, 'task': False},
+                                'timeout': None,
+                                'defer_loading': False,
+                                'unless_native': None,
+                                'with_native': None,
+                                'tool_kind': None,
+                                'return_schema': None,
+                                'include_return_schema': None,
+                                'capability_id': None,
+                            }
+                        ],
+                        'native_tools': [],
+                        'output_mode': 'text',
+                        'output_object': None,
+                        'output_tools': [],
+                        'prompted_output_template': None,
+                        'allow_text_output': True,
+                        'allow_image_output': False,
+                        'instruction_parts': None,
+                        'thinking': None,
+                    },
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.conversation.id': IsStr(),
@@ -652,7 +805,7 @@ Because it found something more "sole-ful!"\
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
-                'end_time': 28000000000,
+                'end_time': 32000000000,
                 'attributes': {
                     'model_name': 'gpt-4o',
                     'agent_name': 'agent',
@@ -667,8 +820,8 @@ Why did the sock break up with the shoe?
 
 Because it found something more "sole-ful!"\
 """,
-                    'gen_ai.usage.input_tokens': 132,
-                    'gen_ai.usage.output_tokens': 36,
+                    'gen_ai.aggregated_usage.input_tokens': 132,
+                    'gen_ai.aggregated_usage.output_tokens': 36,
                     'pydantic_ai.all_messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'tell a joke about socks'}]},
                         {
