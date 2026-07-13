@@ -1,0 +1,124 @@
+docs/integrations/system-metrics.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6-19,29-32,55-69,76,96,146-151
+docs/integrations/structlog.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-35,70-80,83-87,90-91,100-111
+docs/integrations/web-frameworks/index.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,5,7
+docs/integrations/loguru.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-35,48-56,65-72
+  s_eda0d7b4952abb::t_7cfa2cae456c5c 73
+docs/integrations/web-frameworks/gunicorn.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-10,12-14,16-39,47,53-63,65,67,69-71,84-85,98,104-111
+docs/integrations/llms/anthropic.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-11,13-40,65,78-100,113,115-116,118-119,140-141,165,167-168,184-187
+docs/integrations/web-frameworks/aiohttp.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-10,12-13,15-21,31-33,35,62-94,96-99,102
+docs/integrations/http-clients/aiohttp.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6,8-11,13-14,16-22,32-34,36,56-67,69-74,76,78-79,81-85,107,109,131,133-134,166,168,201,203,205-207,233,235-236,260-269
+  s_eda0d7b4952abb::t_ca898ffdc6f603 270
+docs/integrations/http-clients/requests.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-18,28-31,42-73
+tests/otel_integrations/test_faststream.py
+  s_eda0d7b4952abb::t_2645c3255d71a8 1-56
+docs/integrations/web-frameworks/fastapi.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-23,33-36,64-69,71-73,75,77,79-84,86-106,133-135,137,139-140,142,145-146,150-156,158,160-161,163-167,169,171-172
+docs/integrations/event-streams/airflow.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-11,13-16,18,20-22,24-36,39,42-54,56,78,80,82-84,86,88-91,93,95,97-101,104-105,107,148,150,152,154-155,157-158,160,162,182-187
+docs/integrations/web-frameworks/asgi.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-24,34-38,40-44,70-104
+docs/plugins/main.py
+  s_eda0d7b4952abb::t_2645c3255d71a8 24,153-175
+  s_eda0d7b4952abb::t_d8091c930d8174 176-177
+docs/integrations/stripe.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-10,12-16,18,20-22,24,26,28,30,32,34,36,38-39,41-42,59-60,86-96,98-101,103-109,127-134
+docs/integrations/index.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,7,9,27,94,96
+docs/integrations/aws-lambda.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-19,29-31,46-61,63-64
+docs/integrations/databases/psycopg.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-11,13-21,29,35-36,38-39,50,52,58,60,73-80,82,84-124,135,144,156-166
+docs/integrations/event-streams/celery.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-11,13,15-18,20-21,23,25,27,29,31,33-35,38-39,41,44,47,49,51,56,73-77,79-86,88,90-93,95-112,116,121,127,148-152,154-155,161-171,174
+docs/integrations/llms/dspy.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-29,38,43-45,80-101
+docs/integrations/llms/mcp.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8,10,12,14-28,34-40,82-84,87-95
+docs/integrations/llms/pydanticai.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6-32,71-77,83-95,97,99-100
+docs/integrations/logging.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6,8-36,88,90-91,93,95-98,111,173-182
+docs/integrations/pydantic.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-12,14-34,37,39-42,44,46-47,49-50,52-53,56-58,60,62-79,87,95,97-98,109-112,114-118,120,122-124,130,133,135-138
+docs/integrations/databases/asyncpg.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-19,29-30,32-33,44,46,59,77-117
+docs/integrations/llms/mirascope.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6,8-33,55,57-59,63,66-68,70,104,107-108,111-119
+docs/integrations/pytest.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-15,17-21,23-28,32,36-45,47,49-66,72,74,76,84,88,92-93,95-96,98,106,116,128,141,158,162,189,201,222,230-232,234,241,243,253,266-271
+docs/integrations/databases/redis.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-19,29-30,32-33,36,39,62-98,100-102,104,106
+docs/integrations/databases/sqlite3.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-18,28-30,53-55,57-79,102-104,106-107,112-115
+docs/integrations/event-streams/faststream.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-11,13-15,17,19-47,77-90,92-94
+docs/integrations/llms/google-genai.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-23,33-41,49,67-86,88-90
+pyproject.toml
+  s_eda0d7b4952abb::t_2645c3255d71a8 175
+docs/integrations/databases/bigquery.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-11,13-16,18,20-22,24,26,28-37,57-87
+docs/integrations/llms/langchain.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-44,52-55,87-108
+docs/integrations/llms/magentic.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6,8-34,76-78,80,87-94
+docs/integrations/llms/openai.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6-34,38-39,62,74-95,144,146-147,149-150,171-172,197,199-201,217-218,227,273,279-283
+docs/integrations/http-clients/httpx.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-21,31-32,34,36,62,87-94,96,98,100-106,108-117,131,133,147,149-150,174,176,200,202,204-206,223-226
+  s_eda0d7b4952abb::t_c59b742db4fe24 227
+docs/integrations/databases/sqlalchemy.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6-16,26,28,30,41,43,55-71,73,75-76
+docs/integrations/llms/litellm.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-30,40-42,69-85,89-94
+docs/integrations/databases/pymongo.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6,8-23,33-34,36-37,40,45,62,84-121,123-125,127,129
+docs/integrations/databases/mysql.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-19,29-30,32-33,45,47,75,77-117,120-129
+docs/integrations/llms/claude-agent-sdk.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8,11,13-29,32,35,37-39,95-97,99-101,104-112
+docs/integrations/print.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-33,47-55,59-70
+docs/integrations/web-frameworks/flask.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-10,12-20,28-29,31,51-85,87-88,90
+docs/integrations/web-frameworks/starlette.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-18,28-31,37,61-94,96,98-99,101-105,107,109-110
+docs/integrations/web-frameworks/wsgi.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-24,34-36,38,58-85,88-92
+docs/integrations/llms/llamaindex.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,6,8-22,26-29,32-33,38-41,43,49-50,69,71,73,75-78,80-95,97-98,100-101,103,105-106
+docs/integrations/web-frameworks/django.md
+  s_eda0d7b4952abb::t_2645c3255d71a8 2-3,8-20,30-33,35,58,60-61,64-67,70-98,100,102-103,105,107-108
+uv.lock
+  s_eda0d7b4952abb::t_1bbb4bc737bffb 1167,1192-1209,1226-1244,2400,2416,2548,5197,5202,5204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "b6a2e533445d74fd12b074bb533ecb3a3ec374b7",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_eda0d7b4952abb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b35732ce-e5b6-4797-bc13-706b2d88f464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
