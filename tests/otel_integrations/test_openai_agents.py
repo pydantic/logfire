@@ -1004,7 +1004,7 @@ async def test_input_guardrails(exporter: TestExporter):
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     # The model call runs concurrently with input guardrails. Depending on when it is
     # cancelled, the Agents SDK may or may not emit an incomplete Responses API span.
-    # Assert the guardrail telemetry independently of that span and its effect on IDs.
+    # Assert the guardrail telemetry independently of that span and its effect on end times.
     spans = [span for span in spans if span['name'] != 'Responses API with {gen_ai.request.model!r}']
     assert simplify_spans(spans) == snapshot(
         [
