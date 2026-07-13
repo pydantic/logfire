@@ -75,14 +75,14 @@ Three lines, and you're observing AI calls with full application context.
 
 **Arize Phoenix** requires more configuration, especially for non-AI instrumentation.
 
-### Query Interface — Essential for Agentic Coding
+### Query Interface: Essential for Agentic Coding
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 
-- **AI assistants excel at SQL** — GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=arize_comparison_docs)
-- **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
-- **Familiar syntax** — No new query language to learn
-- **No artificial limitations** — Ask any question, get any answer
+- **AI assistants excel at SQL**: GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=arize_comparison_docs)
+- **Agentic workflows**: When coding agents debug your AI application, they can write arbitrary queries
+- **Familiar syntax**: No new query language to learn
+- **No artificial limitations**: Ask any question, get any answer
 
 When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. With proprietary interfaces, it's constrained to anticipated queries.
 

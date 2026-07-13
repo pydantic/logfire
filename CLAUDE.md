@@ -15,23 +15,13 @@ Docs are rendered and deployed through the `pydantic/unified-docs` pipeline. Do 
 
 ## Writing standard
 
+**The full documentation style guide is [`dev-docs/documentation-style-guide.md`](dev-docs/documentation-style-guide.md)** — page templates, the terminology glossary, the pre-publish checklist, the anti-pattern catalog, and the rules for AI-assisted authoring. Read it before writing or substantially editing a docs page.
+
 Every page in the public docs (`docs/`) is held to one standard:
 
 > If an expert in some other field who has just started building with AI tools wouldn't know what it means, we spell out the acronym, we explain the term in place, or we rewrite the sentence to be human friendly.
 
-This reader is not a caricature of a confused user. They're smart, motivated, and perfectly capable of understanding anything we take a sentence to explain. But our docs sit at the intersection of observability and AI tooling, and few readers arrive fluent in both — so words that feel like plain English to us (`span`, `exporter`, `OTLP`, `evals`, `sampling`, `scrubbing`) can be a closed door to them. A specialist walking us through their own field wouldn't drop a term of art and move on; they'd give the plain-language version the first time. We extend the same courtesy.
-
-This is not dumbing down. Precise terms stay — they're often the thing the user needs to learn to succeed with the product. The standard is about _introducing_ terms, not avoiding them: give the real word and, at its first use on a page, a plain-language hand-hold.
-
-When you write or touch a docs page, check:
-
-- **Acronyms are spelled out at first use on each page** — "OpenTelemetry Protocol (OTLP)", "personally identifiable information (PII)". Assume the reader opens the page directly from a search; no acronym is "already established" by another page.
-- **The page says what it's for.** It opens with what this is and why you'd use it, before any code or configuration. A feature name is not a description.
-- **Copy describes the user's goal, not our mechanism.** "See every request your app handles", not "Attach the ASGI middleware span processor". If a word names a piece of our internals, it doesn't belong in the docs.
-- **Instructions say where.** "Run this in your terminal", "Copy this from your project settings page in Logfire". A step asking for a value the user has to fetch from somewhere else must say where that somewhere is.
-- **Consequences are stated plainly** — especially when data leaves the user's machine, something costs money, or an action can't be undone. If a setting sends more telemetry, say so; if data is dropped or redacted, say what and when.
-
-This standard is for docs prose. Docstrings and other in-code text follow normal API-reference conventions and are not expected to introduce terms this way.
+This is about _introducing_ terms, not avoiding them — give the real word plus a plain-language hand-hold at first use. Docstrings and other in-code text follow normal API-reference conventions and are out of scope.
 
 # Core Structure
 

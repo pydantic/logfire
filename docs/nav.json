@@ -234,6 +234,7 @@
         "label": "AI Gateway",
         "items": [
           { "label": "Overview", "slug": "reference/advanced/gateway/index" },
+          { "label": "Embeddings", "slug": "reference/advanced/gateway/embeddings" },
           {
             "label": "Integrations",
             "items": [

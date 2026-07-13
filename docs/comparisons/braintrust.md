@@ -79,15 +79,15 @@ logfire.instrument_asyncpg()    # Database
 
 Same simple interface for everything.
 
-### SQL-Based Analysis — Essential for Agentic Coding
+### SQL-Based Analysis: Essential for Agentic Coding
 
 **Logfire** exposes your data via SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 
-- **No artificial limitations** — Ask any question, get any answer
-- **AI assistants excel at SQL** — GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome/?utm_source=braintrust_compare_docs)
+- **No artificial limitations**: Ask any question, get any answer
+- **AI assistants excel at SQL**: GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome/?utm_source=braintrust_compare_docs)
 - **Joins and complex queries allowed** - write joins on your trace queries and create dashboards, all in SQL
-- **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
-- **Familiar syntax** — No new query language to learn
+- **Agentic workflows**: When coding agents debug your AI application, they can write arbitrary queries
+- **Familiar syntax**: No new query language to learn
 
 When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. With custom APIs, it's constrained to anticipated queries.
 

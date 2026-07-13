@@ -1,29 +1,59 @@
 ---
-title: Logfire Airflow Integration via OpenTelemetry
-description: "Guide for instrumenting Apache Airflow OTEL tracing. Configure the native Airflow OpenTelemetry settings to send metrics & Airflow Pydantic data to Logfire"
+title: "Instrument Airflow: send task traces and metrics"
+description: "Turn on Airflow's built-in OpenTelemetry support to send its task traces and metrics to Logfire."
 integration: "built-in"
 ---
 # Airflow
 
-**Airflow** has a native OpenTelemetry integration for [traces] and [metrics], which involves creating
-an exporter internally that sends data to the configured backend.
+See every task your [Airflow][airflow] pipelines run (how long each took and how it ended), plus
+Airflow's own metrics, in Logfire. Each task run becomes a **span** (one unit of work with a name, a
+start, and a duration), and related spans link into a **trace** (the full journey of one run), so you
+can follow a run across your pipeline.
 
-To configure **Airflow** to send data to **Logfire**, you'll need to:
+Airflow has native OpenTelemetry support for [traces] and [metrics]: it builds an internal exporter
+(the piece that sends telemetry out) and ships data straight to the backend you point it at. So
+instead of a `logfire.instrument_*` call, you turn Airflow's own support on and aim it at Logfire with
+a couple of settings.
 
-- Set the `OTEL_EXPORTER_OTLP_HEADERS` environment variable.
-- Configure the `otel_*` settings in the `airflow.cfg` file.
+## What you'll capture
 
-!!! warning
-    If your `apache-airflow` is older than 2.10.4, this section will not work for you.
+- Each task run as a span, with its duration and outcome
+- The full run of a pipeline as a trace
+- Airflow's built-in metrics
 
-    In that case, go to the [Airflow with OpenTelemetry Collector] section.
+{{ before_you_start() }}
+
+!!! warning "Airflow 2.10.4 or newer"
+    The setup below needs `apache-airflow` 2.10.4 or later. On older versions you can't set the
+    `OTEL_EXPORTER_OTLP_HEADERS` environment variable (a bug the Logfire team fixed in
+    [apache/airflow#44346](https://github.com/apache/airflow/pull/44346)). Use the
+    [OpenTelemetry Collector](#older-airflow-via-an-opentelemetry-collector) route instead.
+
+## Installation
+
+Logfire has no Airflow-specific extra, and you don't install `logfire` in your Airflow environment:
+Airflow exports OpenTelemetry to Logfire directly. You do need Airflow's own `otel` extra, which pulls
+in the OpenTelemetry exporter Airflow uses:
+
+```bash
+pip install 'apache-airflow[otel]'
+```
+
+Everything else below is set through environment variables and `airflow.cfg`.
+
+## Usage
+
+Two steps: pass your write token as an OpenTelemetry header, then point Airflow's `otel_*` settings at
+Logfire.
+
+First, set the header so Airflow authenticates to Logfire. Run this in the same shell (or set it in the
+environment) where Airflow runs, with `LOGFIRE_TOKEN` holding your [write token][write-token]:
 
 ```bash
 export OTEL_EXPORTER_OTLP_HEADERS="Authorization=${LOGFIRE_TOKEN}"
 ```
 
-Where `${LOGFIRE_TOKEN}` is your [**Logfire** write token][write-token].
-
+Then turn on OpenTelemetry in your `airflow.cfg` and aim it at Logfire's endpoint:
 
 ```ini title="airflow.cfg"
 [metrics]
@@ -45,34 +75,36 @@ otel_ssl_active = True
 otel_task_log_event = True
 ```
 
-For more details, check airflow [traces] and [metrics] documentation.
+For the full list of settings, see Airflow's [traces] and [metrics] documentation.
 
-## Airflow with OpenTelemetry Collector
+## Verify it worked
 
-If your `apache-airflow` is older than 2.10.4, it means that you'll not be able to set the `OTEL_EXPORTER_OTLP_HEADERS`
-environment variable. :sob:
+Trigger a pipeline run, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds
+you'll see spans for the task runs: click one to see its duration and outcome. Airflow's metrics
+appear in your project's dashboards.
 
-??? question "Why can't I set the `OTEL_EXPORTER_OTLP_HEADERS` environment variable? :thinking:"
-    This was a bug that was fixed in the 2.10.4 version of `apache-airflow`.
+## Troubleshooting
 
-    The **Logfire** team fixed it in [apache/airflow#44346](https://github.com/apache/airflow/pull/44346).
+Not seeing your task runs? Check that `OTEL_EXPORTER_OTLP_HEADERS` is set in the environment Airflow
+actually runs in, that `LOGFIRE_TOKEN` holds a valid write token, that `otel_on = True` under both
+`[traces]` and `[metrics]`, and that `otel_host` matches your region (`logfire-us.pydantic.dev` or
+`logfire-eu.pydantic.dev`). On `apache-airflow` older than 2.10.4, use the Collector route below.
 
-In that case, you'll need to set up an [OpenTelemetry Collector] to send data to **Logfire**.
+## Advanced
 
-### OpenTelemetry Collector
+### Older Airflow: via an OpenTelemetry Collector
 
-The OpenTelemetry Collector is a vendor-agnostic agent that can collect traces and metrics from your applications and
-send them to various backends.
-
-In this case, we are interested in sending data to **Logfire**. :fire:
+If your `apache-airflow` is older than 2.10.4, you can't set the `OTEL_EXPORTER_OTLP_HEADERS`
+environment variable, so Airflow can't authenticate to Logfire directly. Instead, run an
+[OpenTelemetry Collector] (a standalone agent that receives telemetry from your apps and forwards it
+on) in front of Logfire. Airflow sends to the collector; the collector adds your token and forwards
+to Logfire.
 
 !!! note
-    Using a collector is an option when you are already sending data to a backend, but you want to migrate to **Logfire**.
+    A collector is also handy when you already send data to another backend and want to try Logfire
+    alongside it: point the collector at both, compare, and switch over once you're happy.
 
-    Then you can configure the collector to send data to **Logfire**, as well as your current backend. This way you can
-    compare the data and ensure that everything is working as expected. Cool, right? :sunglasses:
-
-You can check the [OpenTelemetry Collector installation] guide to set it up, but I'll help you with the configuration.
+Follow the [OpenTelemetry Collector installation] guide to set one up, then use this configuration:
 
 ```yaml title="otel-collector-config.yaml"
 receivers:  # (1)!
@@ -113,34 +145,21 @@ service:  # (5)!
       exporters: [debug, otlphttp]
 ```
 
-1. Define the receivers to collect data from your applications.
+1. Receivers collect data from your applications.
 
-    See more about it on the [OpenTelemetry Collector Receiver] section.
+    See the [OpenTelemetry Collector Receiver] section for more.
 
-2. Define the exporters to send data to **Logfire**.
+2. Exporters send data on. The `otlphttp` exporter sends it to Logfire.
 
-    The `otlphttp` exporter is used to send data to **Logfire**.
+3. The `debug` exporter prints what's being sent to the console: useful while setting things up, and
+   safe to remove in production.
 
-3. The `debug` exporter is used to send data to the console, so you can see what's being sent.
+4. The `Authorization` header carries your Logfire write token. `${env:LOGFIRE_TOKEN}` is replaced by
+   the environment variable of the same name.
 
-    This is useful for debugging purposes, but it can be removed in production.
+5. The service section wires up the pipelines: `traces` for trace data, `metrics` for metrics.
 
-4. Set the `Authorization` header to send data to **Logfire**.
-
-    The `{env:LOGFIRE_TOKEN}` will be replaced by the environment variable.
-
-5. Define the service to configure the pipelines.
-
-    The `traces` pipeline is used to send trace data, and the `metrics` pipeline is used to send metrics data.
-
-### Airflow configuration
-
-To configure Airflow to send data to the OpenTelemetry Collector, we'll need the following settings:
-
-- [Metrics Configuration][metrics]
-- [Traces Configuration][traces]
-
-On your `airflow.cfg` file, add the following configuration:
+Then point Airflow at the collector (running locally, no TLS) in your `airflow.cfg`:
 
 ```ini title="airflow.cfg"
 [metrics]
@@ -160,6 +179,12 @@ otel_ssl_active = False
 otel_task_log_event = True
 ```
 
+## Reference
+
+- [Airflow traces configuration][traces] and [metrics configuration][metrics]: the official docs.
+- [OpenTelemetry Collector][OpenTelemetry Collector]: for the older-Airflow route.
+
+[airflow]: https://airflow.apache.org/
 [traces]: https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/traces.html
 [metrics]: https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/metrics.html#setup-opentelemetry
 [OpenTelemetry Collector]: https://opentelemetry.io/docs/collector/

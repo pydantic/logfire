@@ -1,36 +1,79 @@
 ---
-title: "Logfire Pytest Integration: Setup Guide"
-description: "Add observability to your pytest test suite with Pydantic Logfire. See test sessions, individual tests, and what happens during test execution."
+title: "Instrument Pytest: see what your tests do"
+description: "Send traces from your test suite to Logfire, with a span for each test session and individual test, so you can see what happened during a run."
 integration: logfire
 ---
 # Pytest
 
-!!! tip "Looking to test your instrumentation code?"
-    This page covers **sending test traces to Logfire** for observability into your test runs. If you want to **assert that your code emits the correct spans and logs**, see the [Testing Logfire Instrumentation](../reference/advanced/testing.md) guide instead.
+See what your [pytest](https://docs.pytest.org/) suite does (which tests ran, which passed or failed,
+how long each took, and what happened inside them) as **traces** in Logfire. A trace is the full
+journey of one test run, made of nested **spans**, where each span is one unit of work (a test session,
+an individual test, or a step inside a test) with a name, a start, and a duration.
 
-Logfire includes a built-in Pytest plugin that adds observability to your test suite. The plugin creates spans for test sessions and individual tests, allowing you to see exactly what happens during test execution.
+Logfire ships a built-in pytest plugin that does this. You don't call a `logfire.instrument_*`
+function: you turn the plugin on when you run your tests.
+
+!!! tip "Looking to test your instrumentation code?"
+    This page covers **sending test traces to Logfire** for observability into your test runs. If you
+    want to **assert that your code emits the correct spans and logs**, see the
+    [Testing Logfire Instrumentation](../reference/advanced/testing.md) guide instead.
+
+## What you'll capture
+
+- The whole test run as one session span, with how many tests were collected and how many failed
+- Each test as its own span, marked passed, failed, or skipped, with its duration
+- Any instrumented work inside a test (database queries, HTTP calls, your own spans) nested underneath
+- Any exceptions raised during a test
+
+{{ before_you_start() }}
 
 ## Installation
 
-The pytest plugin is included with `logfire` - no additional installation required:
+Install `logfire`. The pytest plugin is included, with no separate extra:
 
 {{ install_logfire() }}
 
-## Enabling the Plugin
+## Usage
 
-The plugin can be enabled in several ways:
-
-### Command Line Flag
+Run your tests with the `--logfire` flag to enable the plugin:
 
 ```bash
 pytest --logfire
 ```
 
-### Configuration File
+That's it: the plugin creates a session span for the run and a span for each test. There are a few
+other ways to enable it, covered under [Advanced](#enabling-the-plugin).
 
-=== "`pytest.toml`"
+## Verify it worked
 
-    ```toml
+Run your suite with `pytest --logfire`, then open the [Live view](../guides/web-ui/live.md) and filter
+by the service name `pytest`. Within a few seconds you'll see the session span with a span per test
+nested under it, showing which passed or failed and how long each took.
+
+## Troubleshooting
+
+Not seeing your test runs in Logfire? Check that you passed `--logfire` (or enabled the plugin another
+way), that your write token is set (in local development, run `logfire projects use <your-project>`; in
+CI, set the `LOGFIRE_TOKEN` environment variable), and that the plugin wasn't disabled with
+`--no-logfire`.
+
+## Advanced
+
+### Enabling the plugin
+
+The plugin can be enabled in several ways.
+
+#### Command line flag
+
+```bash
+pytest --logfire
+```
+
+#### Configuration file
+
+=== "`pytest.ini`"
+
+    ```ini
     [pytest]
     logfire = true
     ```
@@ -38,20 +81,21 @@ pytest --logfire
 === "`pyproject.toml`"
 
     ```toml
-    [tool.pytest]
+    [tool.pytest.ini_options]
     logfire = true
     ```
 
-### Auto-Enable in CI
+#### Auto-enable in CI
 
 The plugin automatically enables when both:
 
-- `CI` environment variable is set to a non-empty string
-- `LOGFIRE_TOKEN` environment variable is present
+- the `CI` environment variable is set to `true` or `1` (case-insensitive), and
+- the `LOGFIRE_TOKEN` environment variable is present.
 
-This means your CI pipelines will automatically get tracing without any configuration changes.
+This means your CI pipelines get tracing without any configuration changes. (Consequence: test runs in
+CI will send data to Logfire whenever a token is present. Use `--no-logfire` below to opt a run out.)
 
-### Explicitly Disable
+#### Explicitly disable
 
 To explicitly disable the plugin (useful to override auto-enable in CI):
 
@@ -59,7 +103,7 @@ To explicitly disable the plugin (useful to override auto-enable in CI):
 pytest --no-logfire
 ```
 
-## Configuration Options
+### Configuration options
 
 | Option | CLI Flag | Config option | Environment variable | Default | Description |
 |--------|----------|------------|---------------------|---------|-------------|
@@ -69,7 +113,7 @@ pytest --no-logfire
 
 Configuration priority: CLI > Environment Variable > INI > Default
 
-## Trace Hierarchy
+### Trace hierarchy
 
 When running tests with `--logfire`, the plugin creates a hierarchical trace structure:
 
@@ -81,7 +125,7 @@ pytest: {project-name}                    (session span)
 └── test_module.py::TestClass::test_three (test span)
 ```
 
-### Session Span
+#### Session span
 
 The session span (`pytest: {project-name}`) wraps the entire test run and includes:
 
@@ -94,7 +138,7 @@ The session span (`pytest: {project-name}`) wraps the entire test run and includ
 | `pytest.testsfailed` | Number of tests failed |
 | `pytest.exitstatus` | Exit code |
 
-### Test Spans
+#### Test spans
 
 Each test gets its own span with:
 
@@ -111,11 +155,11 @@ Each test gets its own span with:
 | `code.function` | Test function name |
 | `code.lineno` | Line number |
 
-## Using with Instrumented Libraries
+### Using with instrumented libraries
 
 When running tests with `--logfire`, any instrumented library calls create spans nested under the test span. This provides end-to-end visibility into what your tests are doing.
 
-### Example: Custom Spans in Tests
+#### Example: custom spans in tests
 
 ```python title="test_api.py"
 def test_user_workflow(logfire_pytest):
@@ -142,7 +186,7 @@ pytest: my-project
     └── verify user
 ```
 
-### Example: Logging During Tests
+#### Example: logging during tests
 
 ```python skip="true" skip-reason="incomplete"
 def test_operation(logfire_pytest):
@@ -154,7 +198,7 @@ def test_operation(logfire_pytest):
 
 All log messages appear as spans nested under the test span.
 
-## Application Code Spans
+### Application code spans
 
 By default, when running under Pytest, Logfire sets `send_to_logfire=False` to prevent your application code from accidentally sending spans during tests. This is intentional - most of the time you don't want test runs to pollute your production traces.
 
@@ -175,7 +219,7 @@ def perform_operation():
 
 When running tests with `--logfire`, spans from `perform_operation` will appear under the test span.
 
-## Linking to External Traces
+### Linking to external traces
 
 You can link your test traces to external systems using the `TRACEPARENT` environment variable:
 
@@ -183,18 +227,20 @@ You can link your test traces to external systems using the `TRACEPARENT` enviro
 TRACEPARENT="00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" pytest --logfire
 ```
 
-This follows the [W3C Trace Context](https://www.w3.org/TR/trace-context/) specification, allowing your test runs to be part of a larger distributed trace.
+This follows the [W3C Trace Context](https://www.w3.org/TR/trace-context/) specification (a standard
+way to pass one trace's ID to another system), allowing your test runs to be part of a larger
+distributed trace (one trace that spans several services).
 
-## Benefits
+### What this is good for
 
 1. **Debugging Failed Tests**: See exactly what operations occurred before a test failure
 2. **Performance Analysis**: Identify slow operations within your tests
 3. **Integration Testing**: Verify that your code makes the expected calls to external services
 4. **CI Visibility**: Get detailed traces from your CI pipelines automatically
 
-## Example: Viewing in Logfire
+### Viewing test runs in Logfire
 
-After running your tests with `--logfire`, you can view the traces in the Logfire web UI:
+After running your tests with `--logfire`, view the traces in the Logfire web UI:
 
 1. Navigate to your project in Logfire
 2. Filter by service name `pytest` (or your custom service name)
@@ -204,7 +250,7 @@ After running your tests with `--logfire`, you can view the traces in the Logfir
     - What operations occurred within each test
     - Any exceptions that were raised
 
-## Migration from conftest.py Pattern
+### Migrating from the conftest.py pattern
 
 If you were previously using a manual tracing pattern in `conftest.py`:
 
@@ -217,3 +263,9 @@ def pytest_runtest_protocol(item):
 ```
 
 You can remove this code and simply use `pytest --logfire` instead. The built-in plugin handles all the tracing automatically with more comprehensive attributes.
+
+## Reference
+
+- [Testing Logfire Instrumentation](../reference/advanced/testing.md): for asserting that your code
+  emits the correct spans and logs (a different task from this page).
+- [W3C Trace Context](https://www.w3.org/TR/trace-context/): the standard used by `TRACEPARENT`.

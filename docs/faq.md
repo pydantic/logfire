@@ -76,7 +76,7 @@ Some tools focus only on LLM observability. Logfire takes a different approach: 
 
 ### Q: Does Logfire support evaluations (evals)?
 
-Yes — both code-first and in the web UI.
+Yes, both code-first and in the web UI.
 
 [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire:
 
@@ -235,7 +235,7 @@ When you're iterating on AI applications with a coding agent, the agent needs to
 
 ### Q: Can I use Logfire alongside other observability tools?
 
-Yes: Logfire is built on OpenTelemetry, the industry standard. Your instrumentation is portable—use Logfire, export to other tools, or both.
+Yes: Logfire is built on OpenTelemetry, the industry standard. Your instrumentation is portable: use Logfire, export to other tools, or both.
 
 You can:
 
