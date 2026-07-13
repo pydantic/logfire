@@ -13,6 +13,16 @@ Pre-commit automatically runs ruff and pyright, but you can also run `make forma
 
 Docs are rendered and deployed through the `pydantic/unified-docs` pipeline. Do not use MkDocs checks in this repository.
 
+## Writing standard
+
+**The full documentation style guide is [`dev-docs/documentation-style-guide.md`](dev-docs/documentation-style-guide.md)** — page templates, the terminology glossary, the pre-publish checklist, the anti-pattern catalog, and the rules for AI-assisted authoring. Read it before writing or substantially editing a docs page.
+
+Every page in the public docs (`docs/`) is held to one standard:
+
+> If an expert in some other field who has just started building with AI tools wouldn't know what it means, we spell out the acronym, we explain the term in place, or we rewrite the sentence to be human friendly.
+
+This is about _introducing_ terms, not avoiding them — give the real word plus a plain-language hand-hold at first use. Docstrings and other in-code text follow normal API-reference conventions and are out of scope.
+
 # Core Structure
 
 ```

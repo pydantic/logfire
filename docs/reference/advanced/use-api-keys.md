@@ -51,15 +51,15 @@ Navigate to your project, then **Settings → API Keys → New API Key**.
 Project API keys are limited to the project where they were created.
 
 !!! warning
-    Copy your API key when it's displayed—it won't be shown again.
+    Copy your API key when it's displayed. It won't be shown again.
 
 ### Personal API Keys
 
 When creating an API key, it can be marked as **personal**. A personal API key is tied to your user account rather than being a shared project or organization key.
 
 - **Automatically deleted** when your account is removed from the project or organization.
-- **Only visible to you** — you can only view and delete your own personal API keys.
-- **Scoped to your permissions** — the key can only be granted scopes that your role allows.
+- **Only visible to you**: you can only view and delete your own personal API keys.
+- **Scoped to your permissions**: the key can only be granted scopes that your role allows.
 
 Organization and project admins can choose whether to create a personal or non-personal API key. Non-admin members always create personal API keys.
 
@@ -70,11 +70,11 @@ Available scopes depend on whether you're creating an organization or project AP
 
 | Scope                                | Organization API Key | Project API Key |
 | ------------------------------------ | -------------------- | --------------- |
-| Organization management              | ✓                    | —               |
-| Notification channels                | ✓                    | —               |
-| Audit logs                           | ✓                    | —               |
-| SCIM provisioning                    | ✓                    | —               |
-| Billing usage                        | ✓                    | —               |
+| Organization management              | ✓                    | -               |
+| Notification channels                | ✓                    | -               |
+| Audit logs                           | ✓                    | -               |
+| SCIM provisioning                    | ✓                    | -               |
+| Billing usage                        | ✓                    | -               |
 | Project settings                     | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |

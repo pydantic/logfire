@@ -1,6 +1,6 @@
 ---
 title: "Pydantic Logfire: Supported Languages"
-description: "Logfire offers streamlined SDKs for Python, Rust, and JavaScript/TypeScript. Leverage OpenTelemetry compatibility to support tracing in other languages."
+description: "Logfire offers streamlined SDKs for Python, Rust, and JavaScript/TypeScript. Use OpenTelemetry compatibility to support tracing in other languages."
 ---
 Logfire is built on top of OpenTelemetry, which means that it supports all the languages that OpenTelemetry supports.
 

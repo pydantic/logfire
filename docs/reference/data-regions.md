@@ -30,7 +30,7 @@ Logfire is hosted independently in each region at [logfire-us.pydantic.dev](http
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
 !!! tip "Signing in to Logfire"
-    We don't detect your sessions across regions, each region is hosted independently. Bookmark and sign in to your regional URL directly — [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
+    We don't detect your sessions across regions; each region is hosted independently. Bookmark and sign in to your regional URL directly: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
 
 Consider the following factors when selecting a region:
 
@@ -44,8 +44,8 @@ When you run `logfire auth` and create a project, the SDK picks up the right reg
 
 You only need your region's URL when talking to Logfire from outside the Python SDK:
 
-- [Alternative Clients](../how-to-guides/alternative-clients.md) — OTLP and non-Python SDKs
-- [MCP Server](../how-to-guides/mcp-server.md) — connect an LLM client
+- [Alternative Clients](../how-to-guides/alternative-clients.md): OTLP and non-Python SDKs
+- [MCP Server](../how-to-guides/mcp-server.md): connect an LLM client
 
 ## Multiple Regions
 
@@ -65,5 +65,5 @@ Pricing is the same between the US and EU instances.
 
 If you need a specific GCP region, stricter isolation, or your own infrastructure:
 
-- **[Enterprise Single-Tenant](../enterprise-single-tenant.md)** — dedicated single-tenant Logfire managed by Pydantic, deployable to any GCP region.
-- **[Enterprise Self-Hosted](../enterprise.md#enterprise-self-hosted)** — run Logfire on your own infrastructure via our Helm chart.
+- **[Enterprise Single-Tenant](../enterprise-single-tenant.md)**: dedicated single-tenant Logfire managed by Pydantic, deployable to any GCP region.
+- **[Enterprise Self-Hosted](../enterprise.md#enterprise-self-hosted)**: run Logfire on your own infrastructure via our Helm chart.

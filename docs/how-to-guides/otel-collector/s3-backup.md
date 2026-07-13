@@ -23,7 +23,7 @@ The pattern this page sets up is **dual-export**: every span, metric, and log is
 - **Logfire** is your live querying surface. The UI, dashboards, alerts, and the Explore page all read from Logfire's backend.
 - **S3** is the cold archive. Objects sit there cheaply for as long as your bucket policy keeps them, and you reach for them only when you need to audit, replay, or analyze data older than Logfire's retention window.
 
-You do not query S3 live. When you need archived data, you spin up a second Collector with the [`awss3receiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awss3receiver) and replay a time range into whatever destination you want — for example, back into Logfire under a different project, into a local file, or into another OTel-compatible tool.
+You do not query S3 live. When you need archived data, you spin up a second Collector with the [`awss3receiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awss3receiver) and replay a time range into whatever destination you want: for example, back into Logfire under a different project, into a local file, or into another OTel-compatible tool.
 
 ## Minimal Collector config
 
@@ -105,7 +105,7 @@ The `awss3exporter` supports several marshalers via the `marshaler` field. The t
 | `otlp_json`  | OTLP, JSON-encoded       | Larger (~2–3x)     | First-time setups; you want to grep, jq, or eyeball the data  |
 | `otlp_proto` | OTLP, Protocol Buffers   | Smallest            | Cost-sensitive long-term archive at any meaningful volume     |
 
-`otlp_json` is the default and produces files with a `.json` suffix; `otlp_proto` produces files with a `.binpb` suffix. Pick a single marshaler per bucket prefix — mixing formats under the same prefix makes the receiver-side configuration annoying.
+`otlp_json` is the default and produces files with a `.json` suffix; `otlp_proto` produces files with a `.binpb` suffix. Pick a single marshaler per bucket prefix: mixing formats under the same prefix makes the receiver-side configuration annoying.
 
 ```yaml title="config.yaml"
 exporters:
@@ -117,7 +117,7 @@ exporters:
 ```
 
 !!! tip
-    Start with `otlp_json` while you're verifying the pipeline end-to-end — being able to `aws s3 cp ... -` and pipe into `jq` is invaluable during setup. Switch to `otlp_proto` once everything is working and you're optimizing storage cost.
+    Start with `otlp_json` while you're verifying the pipeline end-to-end: being able to `aws s3 cp ... -` and pipe into `jq` is invaluable during setup. Switch to `otlp_proto` once everything is working and you're optimizing storage cost.
 
 You can also turn on per-object compression independently of the marshaler with `compression: gzip` or `compression: zstd` under `s3uploader`. This stacks with the marshaler choice and is usually worth turning on for long-term archives.
 
@@ -146,7 +146,7 @@ exporters:
       s3_partition_format: "year=%Y/month=%m/day=%d/hour=%H"  # hour-level granularity
 ```
 
-Hour-level partitioning is a reasonable default for most workloads — minute-level (the default) produces a lot of tiny objects and inflates LIST costs, while day-level forces the receiver to download more than it needs for narrow time windows.
+Hour-level partitioning is a reasonable default for most workloads: minute-level (the default) produces a lot of tiny objects and inflates LIST costs, while day-level forces the receiver to download more than it needs for narrow time windows.
 
 ## IAM permissions
 
@@ -179,13 +179,13 @@ The exporter only needs `s3:PutObject` on the bucket prefix it writes to:
 }
 ```
 
-Scope the `Resource` to the prefix you configured in `s3_prefix` rather than the whole bucket — that way the same bucket can hold other archives without the Collector being able to touch them.
+Scope the `Resource` to the prefix you configured in `s3_prefix` rather than the whole bucket: that way the same bucket can hold other archives without the Collector being able to touch them.
 
 The retrieval-side Collector (covered below) needs separate read permissions; don't grant them to the writer.
 
 ## Encryption
 
-S3 encrypts every object at rest. The simplest setup is to configure encryption at the **bucket** level rather than per-object — the Collector then doesn't need to know or care, and the same policy applies to anything else that ever writes to the bucket.
+S3 encrypts every object at rest. The simplest setup is to configure encryption at the **bucket** level rather than per-object: the Collector then doesn't need to know or care, and the same policy applies to anything else that ever writes to the bucket.
 
 - **SSE-S3** (AES-256, AWS-managed keys) is on by default for all new buckets and requires no extra IAM. This is what you get for free.
 - **SSE-KMS** (customer-managed KMS key) gives you per-key audit trail, key rotation policies, and the ability to revoke access by disabling the key. To use it, enable [SSE-KMS as the default bucket encryption](https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html) and grant the Collector's IAM principal `kms:GenerateDataKey` on the key:
@@ -210,7 +210,7 @@ S3 encrypts every object at rest. The simplest setup is to configure encryption 
 }
 ```
 
-The retrieval-side Collector additionally needs `kms:Decrypt` on the same key — again, granted to the reader principal, not the writer.
+The retrieval-side Collector additionally needs `kms:Decrypt` on the same key: again, granted to the reader principal, not the writer.
 
 ## Lifecycle policies for cost
 
@@ -242,7 +242,7 @@ aws s3api put-bucket-lifecycle-configuration \
 
 ## Retrieving archived data
 
-When you need to look at archived data, run a second Collector with the [`awss3receiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awss3receiver) and point it at a time range. The receiver downloads matching objects, decodes them, and pushes them through whatever pipeline you configure — exactly like a live receiver, but bounded by `starttime`/`endtime`.
+When you need to look at archived data, run a second Collector with the [`awss3receiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awss3receiver) and point it at a time range. The receiver downloads matching objects, decodes them, and pushes them through whatever pipeline you configure: exactly like a live receiver, but bounded by `starttime`/`endtime`.
 
 Here's a minimal config that replays a one-hour window into a local file, which you can then open in any OTel-compatible tool:
 
@@ -276,14 +276,14 @@ Times accept RFC3339, `YYYY-MM-DD HH:MM`, or `YYYY-MM-DD` (interpreted as `00:00
 
 A few things to keep in mind:
 
-- **`s3_partition_format` and `s3_prefix` must match the writer.** If you changed them on the exporter side, change them here too — otherwise the receiver constructs the wrong key list and finds nothing.
+- **`s3_partition_format` and `s3_prefix` must match the writer.** If you changed them on the exporter side, change them here too: otherwise the receiver constructs the wrong key list and finds nothing.
 - **The marshaler must match the writer.** If you wrote `otlp_proto`, configure the receiver to decode `.binpb`; if you wrote `otlp_json`, the default works.
 - **Retrieval is for cold-data analysis, not live querying.** A receiver run processes one bounded time range and then stops. For live data, query Logfire.
-- **You can replay back into Logfire.** Swap the `file` exporter for an `otlphttp` exporter pointing at Logfire to re-ingest archived data into a project — useful for forensic investigations on data that's already aged out of your live project's retention window.
+- **You can replay back into Logfire.** Swap the `file` exporter for an `otlphttp` exporter pointing at Logfire to re-ingest archived data into a project: useful for forensic investigations on data that's already aged out of your live project's retention window.
 
 ## Using S3-compatible storage
 
-The `awss3exporter` talks to any S3-compatible API — including [MinIO](https://min.io/), Cloudflare R2, and similar — via three knobs on `s3uploader`:
+The `awss3exporter` talks to any S3-compatible API (including [MinIO](https://min.io/), Cloudflare R2, and similar) via three knobs on `s3uploader`:
 
 - `endpoint`: the API endpoint URL (overrides the AWS-region-derived default).
 - `s3_force_path_style: true`: use `endpoint/bucket/key` addressing instead of virtual-hosted-style `bucket.endpoint/key`. Most non-AWS S3 implementations require this.
@@ -300,7 +300,7 @@ exporters:
       disable_ssl: true
 ```
 
-Credentials still come from the standard AWS SDK chain — for MinIO, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to the MinIO access key and secret.
+Credentials still come from the standard AWS SDK chain: for MinIO, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to the MinIO access key and secret.
 
 ## Reading the data with other tools
 
