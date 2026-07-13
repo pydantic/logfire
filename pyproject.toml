@@ -119,8 +119,13 @@ dev = [
     "pytest-pretty >= 1.2.0",
     "pydantic >= 2.11.0",
     "requests >= 2.31.0",
-    # requests >= 2.34 ships inline py.typed stubs that regress some annotations
-    # (e.g. Session/Response.headers); keep using the more accurate types-requests stubs.
+    # requests >= 2.34 bundles inline (py.typed) annotations shaped differently from
+    # the types-requests stubs the code was written against. Concretely, it types
+    # Session.headers as CaseInsensitiveDict[str], which rejects the str|bytes header
+    # values requests accepts at runtime and that our DiskRetryer passes to a Session
+    # (exporters/otlp.py); types-requests types it as MutableMapping[str, str|bytes].
+    # Keep depending on types-requests so its stubs take priority; it previously came
+    # in transitively via openai-agents.
     "types-requests",
     "sqlalchemy >= 1.4.54",
     "pandas>=2.1.2",
