@@ -2299,8 +2299,15 @@ def get_span_processors() -> Iterable[SpanProcessor]:
     return result[1:]
 
 
-def get_metric_readers() -> Iterable[SpanProcessor]:
-    return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
+def get_metric_readers() -> Iterable[object]:
+    provider = get_meter_provider().provider  # type: ignore
+    result = provider._logfire_metric_readers  # type: ignore
+    try:
+        # This only works on older OTel versions and is just a sanity check now.
+        assert result == provider._sdk_config.metric_readers  # type: ignore
+    except AttributeError:
+        pass
+    return result  # type: ignore
 
 
 def get_log_record_processors() -> Iterable[LogRecordProcessor]:
