@@ -28,7 +28,7 @@ Install `logfire`:
 The example below also needs the MCP SDK and a client. Install them with:
 
 ```bash
-pip install mcp 'pydantic-ai-slim[openai]'
+pip install mcp 'pydantic-ai-slim[mcp,openai]'
 ```
 
 ## Usage
@@ -63,7 +63,7 @@ Then run this client script in another terminal:
 
 ```python title="agent.py" skip-run="true" skip-reason="external-connection"
 from pydantic_ai import Agent
-from pydantic_ai.mcp import MCPServerStreamableHTTP
+from pydantic_ai.mcp import MCPToolset
 
 import logfire
 
@@ -71,8 +71,8 @@ logfire.configure(service_name='agent')
 logfire.instrument_pydantic_ai()  # (1)!
 logfire.instrument_mcp()
 
-server = MCPServerStreamableHTTP('http://localhost:8000/mcp')
-agent = Agent('openai:gpt-4o', toolsets=[server])
+mcp_toolset = MCPToolset('http://localhost:8000/mcp')
+agent = Agent('openai:gpt-4o', toolsets=[mcp_toolset])
 result = agent.run_sync('What is 7 plus 5?')
 print(result.output)
 ```
