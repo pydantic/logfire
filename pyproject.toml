@@ -187,7 +187,14 @@ dev = [
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
-    "openai-agents[voice]>=0.14.0",
+    # Pinned <0.17.5 (main's version) for now: newer openai-agents changes the
+    # scheduling of concurrent input guardrails vs the first model turn, which makes
+    # test_input_guardrails flaky. When an input guardrail trips, the cancelled model
+    # call intermittently emits an extra "Responses API" span; because the test
+    # exporter assigns span ids/timestamps sequentially at creation, that extra span
+    # shifts every later span and can't be normalised away. Unpin once the test is
+    # made deterministic. See ignoreme/workflow/questions.md.
+    "openai-agents[voice]>=0.14.0,<0.17.5",
     # Pinned <2 for now: pydantic-ai 2.x is a breaking major bump (removed
     # instrumentation format version=1, deprecated versions 2-4, restructured the
     # MCP API, made Dataset.name required). The 2.x migration is tracked separately.
