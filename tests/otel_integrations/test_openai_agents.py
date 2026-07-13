@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from dirty_equals import IsPartialDict, IsStr
+from dirty_equals import IsInt, IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
@@ -857,9 +857,6 @@ async def test_input_guardrails(exporter: TestExporter):
     agent = Agent[str](name='my_agent', input_guardrails=[zero_guardrail])
 
     await Runner.run(agent, '1+1?')
-    with pytest.raises(InputGuardrailTripwireTriggered):
-        await Runner.run(agent, '0?')
-
     assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
@@ -997,6 +994,20 @@ async def test_input_guardrails(exporter: TestExporter):
                     'agent_trace_id': IsStr(),
                 },
             },
+        ]
+    )
+
+    exporter.exported_spans.clear()
+    with pytest.raises(InputGuardrailTripwireTriggered):
+        await Runner.run(agent, '0?')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # The model call runs concurrently with input guardrails. Depending on when it is
+    # cancelled, the Agents SDK may or may not emit an incomplete Responses API span.
+    # Assert the guardrail telemetry independently of that span and its effect on end times.
+    spans = [span for span in spans if span['name'] != 'Responses API with {gen_ai.request.model!r}']
+    assert simplify_spans(spans) == snapshot(
+        [
             {
                 'name': 'Guardrail {name!r} {triggered=}',
                 'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
@@ -1017,7 +1028,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
                 'start_time': 16000000000,
-                'end_time': 19000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1040,7 +1051,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
                 'start_time': 15000000000,
-                'end_time': 20000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1060,7 +1071,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'start_time': 14000000000,
-                'end_time': 21000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1079,7 +1090,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
-                'end_time': 22000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
