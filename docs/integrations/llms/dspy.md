@@ -18,6 +18,12 @@ each nested step in one trace.
 - Nested steps of your program, shown as child spans in the trace
 - Response details, including the number of tokens used
 
+!!! note "Prompts and responses are sent to Logfire"
+    Your prompts, the model's responses, and any tool inputs are recorded as span attributes and
+    stored in Logfire, so they can include personal or proprietary data. Use
+    [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your
+    machine.
+
 {{ before_you_start() }}
 
 You'll also need an API key for whichever model provider DSPy uses (for example, `OPENAI_API_KEY` for the `openai/...` model below). DSPy reads it from the provider's environment variable.
@@ -29,7 +35,7 @@ Install `logfire` with the `dspy` extra and the DSPy package:
 {{ install_logfire(extras=['dspy']) }}
 
 ```bash
-pip install dspy-ai
+pip install dspy
 ```
 
 ## Usage

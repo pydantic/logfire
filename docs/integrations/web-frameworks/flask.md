@@ -87,5 +87,5 @@ If you run your Flask application with Gunicorn, you can also
 - API reference: [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask]
 - Underlying OpenTelemetry package: [Flask instrumentation][opentelemetry-flask]
 
-[flask]: https://flask.palletsprojects.com/en/2.0.x/
+[flask]: https://flask.palletsprojects.com/
 [opentelemetry-flask]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html

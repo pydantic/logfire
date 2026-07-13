@@ -35,7 +35,7 @@ Add two lines to your app: `logfire.configure()` to connect to your project, and
 [`logfire.instrument_wsgi()`][logfire.Logfire.instrument_wsgi], which wraps your app so every request
 is recorded. The example below uses the standard library [`wsgiref`][wsgiref] server.
 
-```py title="main.py" hl_lines="5 12" skip-run="true" skip-reason="server-start"
+```py title="main.py" hl_lines="5 13" skip-run="true" skip-reason="server-start"
 from wsgiref.simple_server import make_server
 
 import logfire

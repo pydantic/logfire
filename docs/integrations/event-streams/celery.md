@@ -124,7 +124,7 @@ def init_worker(*args, **kwargs):
     logfire.instrument_celery()
 
 
-@beat_init.connect()  # (1)!
+@beat_init.connect(weak=False)  # (1)!
 def init_beat(*args, **kwargs):
     logfire.configure(service_name='beat')  # (2)!
     logfire.instrument_celery()

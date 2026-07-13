@@ -21,6 +21,12 @@ environment variables, and Logfire receives the data.
 - Model calls, with the conversation and the number of tokens used
 - Nested steps of a chain or agent, shown as child spans in one trace
 
+!!! note "Prompts and responses are sent to Logfire"
+    Your prompts, the model's responses, and any tool inputs are recorded as span attributes and
+    stored in Logfire, so they can include personal or proprietary data. Use
+    [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your
+    machine.
+
 {{ before_you_start() }}
 
 ## Installation

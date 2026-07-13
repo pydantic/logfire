@@ -41,7 +41,7 @@ To run the example below, also install [Uvicorn][uvicorn], the server that runs 
 pip install uvicorn
 ```
 
-```py title="main.py" hl_lines="3 16" skip-run="true" skip-reason="server-start"
+```py title="main.py" hl_lines="3 18" skip-run="true" skip-reason="server-start"
 import logfire
 
 logfire.configure()

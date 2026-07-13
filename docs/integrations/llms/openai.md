@@ -168,7 +168,7 @@ async def main():
         response = await client.chat.completions.create(
             model='gpt-4',
             messages=[
-                {'role': 'system', 'content': 'Reply in markdown one.'},
+                {'role': 'system', 'content': 'Reply in markdown.'},
                 {'role': 'user', 'content': 'Write Python to show a tree of files.'},
             ],
             stream=True,

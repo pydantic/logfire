@@ -137,7 +137,7 @@ async def main():
         response = client.messages.stream(
             max_tokens=1000,
             model='claude-3-haiku-20240307',
-            system='Reply in markdown one.',
+            system='Reply in markdown.',
             messages=[{'role': 'user', 'content': 'Write Python to show a tree of files.'}],
         )
         content = ''

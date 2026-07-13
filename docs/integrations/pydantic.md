@@ -127,7 +127,7 @@ Tags add extra labels to the spans and metrics. Include them with the
 from pydantic import BaseModel
 
 
-class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}): ...
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ['tag1', 'tag2']}}): ...
 ```
 
 ## Reference

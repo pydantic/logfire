@@ -19,6 +19,12 @@ regardless of which provider handles it.
 - Response details, including the number of tokens used
 - The provider and model behind each call
 
+!!! note "Prompts and responses are sent to Logfire"
+    Your prompts, the model's responses, and any tool inputs are recorded as span attributes and
+    stored in Logfire, so they can include personal or proprietary data. Use
+    [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your
+    machine.
+
 {{ before_you_start() }}
 
 You'll also need an API key for whichever model provider you call (for example, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`). LiteLLM reads these from environment variables; see the [LiteLLM provider docs](https://docs.litellm.ai/docs/providers) for the variable each provider uses.
