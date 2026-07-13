@@ -13,6 +13,12 @@ Pre-commit automatically runs ruff and pyright, but you can also run `make forma
 
 Docs are rendered and deployed through the `pydantic/unified-docs` pipeline. Do not use MkDocs checks in this repository.
 
+When linking between pages in this repository, use source-relative `.md` links. Published routes can
+differ from source paths because `pydantic/unified-docs` remaps some sections. When adding or moving
+a docs section, check whether unified-docs remaps it and verify the page and any anchor in a rendered
+preview. Fix a missing remap in unified-docs instead of hard-coding a public route here, and never
+include the deployment-specific `/docs` prefix.
+
 ## Writing standard
 
 **The full documentation style guide is [`dev-docs/documentation-style-guide.md`](dev-docs/documentation-style-guide.md)** — page templates, the terminology glossary, the pre-publish checklist, the anti-pattern catalog, and the rules for AI-assisted authoring. Read it before writing or substantially editing a docs page.
