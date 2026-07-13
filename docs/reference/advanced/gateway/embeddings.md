@@ -5,7 +5,7 @@ description: "Discover and call embedding models through the Logfire AI Gateway 
 
 # Embeddings
 
-The AI Gateway proxies embedding requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/embeddings` endpoint. Embedding models are discovered per route, listed separately from chat models in the **Connect** tab, and traced like any other gateway request. Usage is recorded for every embeddings call; estimated cost is tracked when pricing data is available for the model, and where the charge lands depends on the provider type: built-in provider usage draws from your prepaid gateway balance, while bring-your-own-key (BYOK) usage is billed directly by the upstream provider (see [Providers](index.md#providers)).
+The AI Gateway proxies embedding requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/embeddings` endpoint. Embedding models are discovered per route, listed separately from chat models in the **Connect** tab, and traced like any other gateway request. Usage is recorded for every embeddings call; estimated cost is tracked when pricing data is available for the model, and where the charge lands depends on the provider type: built-in provider usage draws from your prepaid gateway balance, while bring-your-own-key (BYOK) usage is billed directly by the upstream provider (see [Providers](/logfire/manage/ai-gateway/#providers)).
 
 ## Which providers can serve embeddings
 
@@ -48,7 +48,7 @@ In the **Connect** tab, the model picker groups these into **Chat models** and *
 
 Address the request to `<gateway-base-url>/<route>/embeddings` with an OpenAI-compatible body: a `model` and an `input` that is either a string or a list of strings. The response is the standard OpenAI shape, a `data` array with one `embedding` (a list of floats) per input, so you can embed several inputs in one request.
 
-The examples below use the `openai` route in the US region; see the [gateway base URLs](index.md#connect-an-sdk) for other regions.
+The examples below use the `openai` route in the US region; see the [gateway base URLs](/logfire/manage/ai-gateway/#connect-an-sdk) for other regions.
 
 === "curl"
 
@@ -122,4 +122,4 @@ Usage is recorded on every embeddings request like any other gateway call (and e
 
 ## See also
 
-- [AI Gateway](index.md): enabling the gateway, providers, routing, and connecting SDKs.
+- [AI Gateway](/logfire/manage/ai-gateway/): enabling the gateway, providers, routing, and connecting SDKs.
