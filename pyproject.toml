@@ -117,6 +117,9 @@ dev = [
     "pytest-pretty >= 1.2.0",
     "pydantic >= 2.11.0",
     "requests >= 2.31.0",
+    # requests >= 2.34 ships inline py.typed stubs that regress some annotations
+    # (e.g. Session/Response.headers); keep using the more accurate types-requests stubs.
+    "types-requests",
     "sqlalchemy >= 1.4.54",
     "pandas>=2.1.2",
     "attrs >= 23.1.0",
