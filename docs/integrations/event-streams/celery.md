@@ -31,8 +31,8 @@ Install `logfire` with the `celery` extra:
 ## Usage
 
 Call `logfire.configure()`, then [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery] to
-record every task. Call both inside Celery's `worker_init` signal so they run once each worker process
-starts.
+record every task. Call both inside Celery's `worker_process_init` signal so they run once in each
+worker process, after the prefork pool forks it.
 
 !!! info
     The message broker you use doesn't matter for this integration: any
@@ -48,12 +48,12 @@ Then run the worker with `celery -A tasks worker --loglevel=info`:
 
 ```py title="tasks.py" hl_lines="9-10" skip-run="true" skip-reason="external-connection"
 from celery import Celery
-from celery.signals import worker_init
+from celery.signals import worker_process_init
 
 import logfire
 
 
-@worker_init.connect()  # (1)!
+@worker_process_init.connect(weak=False)  # (1)!
 def init_worker(*args, **kwargs):
     logfire.configure(service_name='worker')  # (2)!
     logfire.instrument_celery()
@@ -71,7 +71,9 @@ add.delay(42, 50)  # (4)!
 ```
 
 1. Celery emits [signals](https://docs.celeryq.dev/en/latest/userguide/signals.html) at points in the
-   application lifecycle. `worker_init` fires once, as a worker process starts.
+   application lifecycle. `worker_process_init` fires once inside each worker process, after Celery
+   forks it from the parent. Initializing in `worker_init` (which runs in the parent, before the fork)
+   would build the exporter's background thread in the wrong process, so spans wouldn't export.
 2. Set a `service_name` so you can tell this service's spans apart from the rest in Logfire.
 3. Install `redis` with `pip install redis`.
 4. Trigger the task. In your own app you'll more likely use `app.send_task("tasks.add", args=[42, 50])`,
@@ -111,12 +113,12 @@ If you schedule periodic tasks with **Celery beat**, instrument the beat process
 
 ```py title="tasks.py" hl_lines="13-16 20-26" skip-run="true" skip-reason="external-connection"
 from celery import Celery
-from celery.signals import beat_init, worker_init
+from celery.signals import beat_init, worker_process_init
 
 import logfire
 
 
-@worker_init.connect()
+@worker_process_init.connect(weak=False)
 def init_worker(*args, **kwargs):
     logfire.configure(service_name='worker')
     logfire.instrument_celery()

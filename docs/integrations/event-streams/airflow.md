@@ -31,9 +31,15 @@ a couple of settings.
 
 ## Installation
 
-Airflow has no separate Logfire extra: its OpenTelemetry support is built in. This page configures
-Airflow directly, so you don't need to install `logfire` in your Airflow environment. Everything below
-is set through environment variables and `airflow.cfg`.
+Logfire has no Airflow-specific extra, and you don't install `logfire` in your Airflow environment:
+Airflow exports OpenTelemetry to Logfire directly. You do need Airflow's own `otel` extra, which pulls
+in the OpenTelemetry exporter Airflow uses:
+
+```bash
+pip install 'apache-airflow[otel]'
+```
+
+Everything else below is set through environment variables and `airflow.cfg`.
 
 ## Usage
 

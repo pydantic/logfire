@@ -24,10 +24,14 @@ Logfire receives what it emits.
 
 ## Installation
 
-FastStream has no separate Logfire extra: the OpenTelemetry support lives in FastStream itself. Just
-install `logfire`:
+FastStream has no separate Logfire extra, but its OpenTelemetry middleware needs FastStream's own
+`otel` extra (which pulls in the OpenTelemetry SDK). Install `logfire` alongside it:
 
 {{ install_logfire() }}
+
+```bash
+pip install 'faststream[otel]'
+```
 
 ## Usage
 
