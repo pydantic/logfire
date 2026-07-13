@@ -1,0 +1,26 @@
+tests/otel_integrations/test_openai_agents.py
+  s_d3d6e2a0a73f05::t_1bc695647a90b7 1009-1019,1023-1104,1106-1109
+  s_d3d6e2a0a73f05::t_bdc52852f57c93 1105
+  s_d3d6e2a0a73f05::t_00dc9b81893eea 1004
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "3aa3406bf6fac07b3199a26036b85bfb054b4946",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d3d6e2a0a73f05": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1783949632069",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
