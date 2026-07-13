@@ -202,11 +202,24 @@ def test_pydantic_plugin_excludes_non_user_modules_by_default() -> None:
 
 
 def test_pydantic_plugin_include_overrides_default_non_user_filter() -> None:
-    assert _new_pydantic_plugin_result(
-        'third_party_pkg.models',
-        'ThirdPartyModel',
-        include={'third_party_pkg.models::ThirdPartyModel'},
-    ) != (None, None, None)
+    purelib = sysconfig.get_path('purelib')
+    assert purelib is not None
+
+    def fake_find_spec(module: str) -> SimpleNamespace | None:
+        if module == 'third_party_pkg.models':
+            return SimpleNamespace(
+                origin=os.path.join(purelib, 'third_party_pkg', 'models.py'),
+                submodule_search_locations=[],
+            )
+        return None
+
+    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
+        assert _new_pydantic_plugin_result('third_party_pkg.models', 'ThirdPartyModel') == (None, None, None)
+        assert _new_pydantic_plugin_result(
+            'third_party_pkg.models',
+            'ThirdPartyModel',
+            include={'third_party_pkg.models::ThirdPartyModel'},
+        ) != (None, None, None)
 
 
 def test_pydantic_plugin_handles_find_spec_failures_as_user_code() -> None:
