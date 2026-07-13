@@ -2633,6 +2633,7 @@ dev = [
     { name = "mysql-connector-python" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_version < '0'" },
     { name = "openai" },
     { name = "openai-agents", extra = ["voice"] },
     { name = "openinference-instrumentation-dspy" },
@@ -2780,7 +2781,7 @@ dev = [
     { name = "mysql-connector-python", specifier = ">=8.0" },
     { name = "numpy", marker = "python_full_version < '3.12'", specifier = ">=2.0" },
     { name = "openai", specifier = ">=1.108.1" },
-    { name = "openai-agents", extras = ["voice"], specifier = ">=0.14.0,<0.17.5" },
+    { name = "openai-agents", extras = ["voice"], specifier = ">=0.14.0" },
     { name = "openinference-instrumentation-dspy", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", specifier = ">=0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
@@ -3488,7 +3489,7 @@ wheels = [
 
 [[package]]
 name = "openai-agents"
-version = "0.17.4"
+version = "0.17.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "griffelib" },
@@ -3496,13 +3497,12 @@ dependencies = [
     { name = "openai" },
     { name = "pydantic" },
     { name = "requests" },
-    { name = "types-requests" },
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/48/ba0ad614c66d88100d61b9ddaf0793022a425b5b958c0139c2f1c7473764/openai_agents-0.17.4.tar.gz", hash = "sha256:6af9afd4b40de23493c9ab285c28cd4e8fd088240af6e96e2dee45826ad568fd", size = 5409840, upload-time = "2026-05-26T08:55:10.459Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d4/b2/235cbfdefe86623fc77f65fc1d016686372f61d4a1bf3fc66151de2eb847/openai_agents-0.17.7.tar.gz", hash = "sha256:ca76e7f882c9d8f06e3dfb8064cc33bcb5a5f34a29816cb9af863f395964ff0c", size = 5485068, upload-time = "2026-06-24T05:15:33.705Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/89/adf09ec269d4de1c7be37c747d8488aac51b58d5589a9c1dd55f3c1e8e05/openai_agents-0.17.4-py3-none-any.whl", hash = "sha256:feea8264c9812bba7c526a01f6efd4f8c0efdb348c2233c36ff9c292a9d465af", size = 842963, upload-time = "2026-05-26T08:55:08.767Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/2e/2e96ca6928951fe1d16744c22dc1355eda1dd5b0dd920ca1d3ab602929f8/openai_agents-0.17.7-py3-none-any.whl", hash = "sha256:51b5ae43756eea37032e430f95979ba3999af6b1ade397df6c0ffeaf1939646a", size = 856074, upload-time = "2026-06-24T05:15:31.741Z" },
 ]
 
 [package.optional-dependencies]
