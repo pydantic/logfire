@@ -172,6 +172,7 @@ dev = [
     "sqlmodel>=0.0.15",
     "mypy>=1.10.0",
     "celery>=5.4.0",
+    "faststream[redis]>=0.5.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
     "testcontainers<4.13",
     "mysql-connector-python>=8.0",

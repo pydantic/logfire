@@ -1,13 +1,12 @@
 ---
-title: Pydantic Logfire Integrations
-description: "Overview of Pydantic Logfire integrations for LLM Clients & AI Frameworks by OpenAI, Anthropic, LangChain, etc., as well as web frameworks, databases & more."
+title: "Integrations: instrument the libraries you already use"
+description: "Browse Logfire's first-class integrations, most of which need only a single logfire.instrument_<package>() call, covering LLM clients, AI frameworks, web frameworks, databases, and more."
 ---
 # Integrations
 
-**Pydantic Logfire** supports first-class integration with many popular Python packages using a single `logfire.instrument_<package>()`
-function call. Each of these should be called exactly once after [`logfire.configure()`][logfire.configure].
+Instrument the libraries you already use (your web framework, database driver, HTTP client, LLM SDK) and their work shows up in Logfire automatically, as **spans** (one unit of work: a single operation, with a name, a start, and a duration) nested inside the request that triggered them. You don't add logging by hand; you turn on the integration once and get the **traces** (the full journey of one request, made of nested spans) for free.
 
-For example, to instrument FastAPI and HTTPX, you would do:
+Most integrations are a single `logfire.instrument_<package>()` call, made once after [`logfire.configure()`][logfire.configure]. For example, to instrument FastAPI and HTTPX:
 
 ```python
 from fastapi import FastAPI
@@ -25,7 +24,7 @@ logfire.instrument_httpx()
 
 If a package you are using is not listed in this documentation, please let us know on our [Slack][slack]!
 
-## Documented Integrations
+## Documented integrations
 
 **Logfire** has documented integrations with many technologies, including:
 
@@ -92,9 +91,9 @@ instrumentation package. You can find the list of all OpenTelemetry instrumentat
 Many of the integrations documented in the previous section are based upon the OpenTelemetry instrumentation packages
 with first-class support built into **Logfire**.
 
-## Creating Custom Integrations
+## Creating custom integrations
 
-If you are a maintainer of a package and would like to create an integration for **Logfire**, you can do it! :smile:
+If you are a maintainer of a package and would like to create an integration for **Logfire**, you can do it!
 
 We've created a shim package called `logfire-api`, which can be used to integrate your package with **Logfire**.
 
