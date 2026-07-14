@@ -1,0 +1,35 @@
+logfire/_internal/exporters/otlp.py
+  s_d3d6e2a0a73f05::t_b31c890dec7bb7 91
+  s_d3d6e2a0a73f05::t_56e88ad32ccdd1 90
+  s_d3d6e2a0a73f05::t_25f68a76607af1 297
+  h_d9dd17644dded9 306,317
+  s_d3d6e2a0a73f05::t_7883df4d73a74a 296
+  s_d3d6e2a0a73f05::t_fd4b8beddb2329 298-299
+logfire/_internal/exporters/quiet_metrics.py
+  h_d9dd17644dded9 6,16
+tests/exporters/test_otlp_session.py
+  h_d9dd17644dded9 64,150-156,159
+  s_d3d6e2a0a73f05::t_5bf06bff4f8574 158
+  s_d3d6e2a0a73f05::t_0a765b2ff3edd4 157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "1d0977c63b619c513b85d7ce3bfb20d49c675a13",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d3d6e2a0a73f05": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1783949632069",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
