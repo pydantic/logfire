@@ -9,7 +9,6 @@ import unittest.mock
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -1597,25 +1596,34 @@ class TestLogfireRemoteVariableProviderStart:
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
-    def test_api_key_region_configures_provider_base_url(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_api_key_region_configures_provider_base_url(self, config_kwargs: dict[str, Any]) -> None:
         api_key = 'pylf_v2_stagingeu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
-        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
-        config = LogfireConfig(
-            send_to_logfire=False,
-            api_key=api_key,
-            console=False,
-            config_dir=tmp_path,
-            variables=VariablesOptions(),
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'https://logfire-eu.pydantic.info/v1/variables/',
+            json={
+                'variables': {
+                    'test_var': {
+                        'name': 'test_var',
+                        'labels': {'default': {'version': 1, 'serialized_value': '"region_value"'}},
+                        'rollout': {'labels': {'default': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
         )
+        request_mocker.get('https://logfire-eu.pydantic.info/v1/variable-updates/', status_code=404)
+        config_kwargs.update(api_key=api_key, variables=VariablesOptions())
 
-        try:
-            config.initialize()
-            provider = config.get_variable_provider()
+        with request_mocker:
+            lf = logfire.configure(**config_kwargs)
+            try:
+                result = lf.var('test_var', type=str, default='default').get()
 
-            assert isinstance(provider, LogfireRemoteVariableProvider)
-            assert provider._base_url == 'https://logfire-eu.pydantic.info'
-        finally:
-            config.shutdown()
+                assert result.value == 'region_value'
+                assert result.reason == 'resolved'
+            finally:
+                lf.shutdown()
 
     def test_api_key_in_config(self) -> None:
         """Test that api_key can be passed to LogfireRemoteVariableProvider."""
