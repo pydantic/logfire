@@ -9,6 +9,7 @@ import unittest.mock
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -1596,6 +1597,26 @@ class TestLogfireRemoteVariableProviderStart:
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
+    def test_api_key_region_configures_provider_base_url(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        api_key = 'pylf_v2_stagingeu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
+        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+        config = LogfireConfig(
+            send_to_logfire=False,
+            api_key=api_key,
+            console=False,
+            config_dir=tmp_path,
+            variables=VariablesOptions(),
+        )
+
+        try:
+            config.initialize()
+            provider = config.get_variable_provider()
+
+            assert isinstance(provider, LogfireRemoteVariableProvider)
+            assert provider._base_url == 'https://logfire-eu.pydantic.info'
+        finally:
+            config.shutdown()
+
     def test_api_key_in_config(self) -> None:
         """Test that api_key can be passed to LogfireRemoteVariableProvider."""
         api_key = 'test_api_key_12345'
