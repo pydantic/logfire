@@ -70,7 +70,7 @@ class OTLPExporterHttpSession(Session):
         start_time = time.time()
         try:
             return self._post(url, data, **kwargs)
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
             # Wait a little before trying again normally, before resorting to disk retrying.
             # This has several advantages:
             #  - Writing to disk might be impossible.
@@ -81,20 +81,25 @@ class OTLPExporterHttpSession(Session):
             # So only do this if the first attempt took less than 10 seconds.
             end_time = time.time()
             if end_time - start_time > 10:  # pragma: no cover
-                self._add_task(data, url, kwargs)
+                self._add_task(data, url, kwargs, e)
                 raise
 
             time.sleep(1)
             try:
                 return self._post(url, data, **kwargs)
             except requests.exceptions.RequestException:
-                self._add_task(data, url, kwargs)
+                self._add_task(data, url, kwargs, e)
                 raise
 
-    def _add_task(self, data: bytes, url: str, kwargs: dict[str, Any]):
+    def _add_task(self, data: bytes, url: str, kwargs: dict[str, Any], exception: Exception):
         # No threads in Emscripten, we can't add a task to try later
         if not platform_is_emscripten():  # pragma: no branch
             self.retryer.add_task(data, {'url': url, **kwargs})
+
+            if isinstance(exception, requests.exceptions.ConnectionError):
+                # OTel already retries ConnectionError, so we don't want to surface that error as is,
+                # since that would create two layers of retrying and lead to duplicate exports.
+                raise RuntimeError()
 
     def _post(self, url: str, data: bytes, **kwargs: Any):
         response = super().post(url, data=data, **kwargs)
