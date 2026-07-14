@@ -4,9 +4,6 @@ description: "Browse every service shipping spans to your Logfire project. See r
 ---
 # Services
 
-!!! note "Beta — feedback welcome"
-    The Services view is in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](https://pydantic.dev/docs/logfire/join-slack/) or email [support@pydantic.dev](mailto:support@pydantic.dev).
-
 The **Services view** is the entry point for finding the service you want to investigate. Each service that ships spans to your project appears as one row, sorted by whatever metric matters right now (requests, error rate, latency). Click a row to drill into its detail page, click a recent failed trace, and you land in the [Live View](live.md) with the failing trace open.
 
 You'll find Services in the project sidebar, between [Explore](explore.md) and [Hosts](hosts.md).
@@ -36,8 +33,8 @@ You'll see:
 - **Headline cards** for the service's requests, error rate, latency p50, latency p95, and operation count.
 - **Side-by-side trend charts** for requests and errors and for latency percentiles (p50, p95, p99), with **deployment markers** so you can see whether a spike lines up with a release.
 - A **Service topology** panel showing cross-service calls in the current window, with the service you opened highlighted.
-- **Top operations** — the highest-traffic and slowest spans inside the service.
-- **Recent errors** — a short list of failed traces, each linking straight to the [Live View](live.md) so you can investigate.
+- **Top operations**: the highest-traffic and slowest spans inside the service.
+- **Recent errors**: a short list of failed traces, each linking straight to the [Live View](live.md) so you can investigate.
 
 Two buttons in the header ([Live view](live.md) and [Explore](explore.md)) hand the whole service off to the live view or the SQL editor in one click. The detail page defaults to the last 30 minutes.
 
@@ -55,7 +52,7 @@ Click any node to jump to that service's detail page. Click any recent failed tr
 
 Logfire identifies a service from the [OpenTelemetry `service.name` resource attribute](https://opentelemetry.io/docs/specs/semconv/resource/#service) on the spans you send. If you instrument your application with the [Python SDK](../onboarding-checklist/integrate.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/), or any OpenTelemetry-compatible instrumentation, `service.name` is set for you. The Services view picks up new services within a minute or two of their first span.
 
-The RED counts are computed from **service entry spans** — the trace roots (`parent_span_id IS NULL`) plus any span whose parent's `service.name` differs from the span's own. ([`service_name`](../../reference/sql.md#service_name) is the column name on Logfire's `records` table; the underlying OTel resource attribute is `service.name`.) That gives downstream services in a call chain real counts even when they're nested inside a longer trace, while still letting the topology graph draw edges between them.
+The RED counts are computed from **service entry spans**: the trace roots (`parent_span_id IS NULL`) plus any span whose parent's `service.name` differs from the span's own. ([`service_name`](../../reference/sql.md#service_name) is the column name on Logfire's `records` table; the underlying OTel resource attribute is `service.name`.) That gives downstream services in a call chain real counts even when they're nested inside a longer trace, while still letting the topology graph draw edges between them.
 
 ### Resource attributes the inventory uses
 
@@ -69,7 +66,7 @@ The RED counts are computed from **service entry spans** — the trace roots (`p
 
 ### Topology edges
 
-The graph draws an edge wherever a span's `service.name` differs from its parent's `service.name`. The renderer reads only `service.name` today, so edges to external dependencies (third-party APIs, managed databases) are labelled with the calling service's name rather than the dependency itself — give every span-emitting component a distinct, meaningful `service.name` and the graph will be readable.
+The graph draws an edge wherever a span's `service.name` differs from its parent's `service.name`. The renderer reads only `service.name` today, so edges to external dependencies (third-party APIs, managed databases) are labelled with the calling service's name rather than the dependency itself. Give every span-emitting component a distinct, meaningful `service.name` and the graph will be readable.
 
 ## Get your first row to appear
 
@@ -82,14 +79,14 @@ export OTEL_SERVICE_NAME=cart
 python -c "import logfire; logfire.configure(); logfire.info('hi')"
 ```
 
-Refresh the Services page — `cart` should appear within a minute or two. For broader instrumentation paths (FastAPI, Django, gRPC, OTel Collector), see the [Onboarding Checklist](../onboarding-checklist/integrate.md).
+Refresh the Services page. `cart` should appear within a minute or two. For broader instrumentation paths (FastAPI, Django, gRPC, OTel Collector), see the [Onboarding Checklist](../onboarding-checklist/integrate.md).
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---------|--------------|
 | Service doesn't appear in the inventory | No `service.name` resource attribute on the spans, or the project hasn't received any span yet. Both the Python and TypeScript SDKs set `service.name` for you; if you send raw OTLP, set it explicitly. |
-| The row shows under `(unknown)` | Same as above — `service.name` is the row key. |
+| The row shows under `(unknown)` | Same as above: `service.name` is the row key. |
 | One service appears as two rows | `service.name` differs across replicas (e.g. one carries a hostname suffix). Pin it via `OTEL_SERVICE_NAME` or the SDK's `service_name` argument so every replica reports the same string. |
 | An edge between two services is missing from the topology | Either no span actually crossed that service boundary in the window, or tail sampling dropped the spans that did. The graph reads from real cross-boundary spans, not from a configured topology. |
 | Counts are way lower than expected | Head or tail sampling is dropping spans before they reach Logfire. RED metrics on this page count what arrived, not what was emitted. |

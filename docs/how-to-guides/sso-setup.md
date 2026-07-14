@@ -1,16 +1,19 @@
 ---
 title: "SSO Setup (Enterprise Cloud)"
-description: "Step-by-step guide to configure Single Sign-On (SSO) for Logfire Enterprise Cloud. Supports Okta, Microsoft Azure Entra ID, Keycloak, and any OIDC-compatible provider."
+description: "Step-by-step guide to configure Single Sign-On (SSO) for Logfire Enterprise Cloud. Supports Microsoft Entra ID, Okta, and Keycloak OIDC providers."
 ---
 
 # SSO Setup
 
-Logfire Enterprise Cloud supports Single Sign-On (SSO) via [OIDC-compatible](https://openid.net/developers/how-connect-works/) identity providers, including Okta, Microsoft Azure Entra ID, and Keycloak. Under the hood, Logfire uses [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway.
+Logfire Enterprise Cloud supports Single Sign-On (SSO) through Microsoft Entra ID, Okta, and Keycloak OIDC providers. Under the hood, Logfire uses [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway.
 
-This guide uses **Microsoft Azure Entra ID** as an example, but the general steps — registering an OIDC app, obtaining a Client ID, Client Secret, and Issuer URL, then connecting it in Logfire — apply to any supported provider.
+This guide uses **Microsoft Azure Entra ID** as an example, but the general steps (registering an OIDC app, obtaining a Client ID, Client Secret, and Issuer URL, then connecting it in Logfire) also apply to Okta and Keycloak.
 
 !!! note "Enterprise Cloud Required"
     SSO is available exclusively on the **Enterprise Cloud** plan. Ensure your organization has Enterprise Cloud enabled before proceeding. [Contact sales](mailto:sales@pydantic.dev) if you need to upgrade.
+
+!!! note "Self-hosted Logfire"
+    For self-hosted deployments, configure SSO in your Helm values through Dex. See the [self-hosted SSO provider examples](../reference/self-hosted/examples.md#sso-provider-examples).
 
 !!! tip "We Recommend Doing This on a Call"
     SSO configuration involves coordinating between Logfire and your identity provider's admin portal, and it's easy to miss a step. We strongly recommend scheduling a setup call with the Logfire team. Reach out to [support@pydantic.dev](mailto:support@pydantic.dev) to arrange this.
@@ -25,12 +28,24 @@ This guide uses **Microsoft Azure Entra ID** as an example, but the general step
 
 ---
 
+## Provider Setup References
+
+Use the Redirect URI from Logfire in Step 1 when your identity provider asks for a callback URL, sign-in redirect URI, or allowed callback URL.
+
+- **Microsoft Entra ID**: [Register an application](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) and [add a redirect URI](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-add-redirect-uri).
+- **Okta**: [Create an OIDC web app integration](https://developer.okta.com/docs/guides/sign-into-web-app-redirect/main/).
+- **Keycloak**: [Create an OpenID Connect client](https://www.keycloak.org/docs/latest/server_admin/index.html#_oidc_clients).
+
+If you need a provider that is not listed here, contact [support@pydantic.dev](mailto:support@pydantic.dev).
+
+---
+
 ## Step 1: Find the Redirect URI in Logfire
 
 1. Log in to Logfire and switch to your **Enterprise Cloud organization**.
 2. Go to **Settings** in the left-hand menu.
 3. Scroll down to the **Identity Providers** section.
-4. Note the **Redirect URI** shown — you will need this when configuring the Azure app.
+4. Note the **Redirect URI** shown. You will need this when configuring the Azure app.
 
 ---
 
@@ -49,7 +64,7 @@ This guide uses **Microsoft Azure Entra ID** as an example, but the general step
 
 1. In your new app registration, go to **Certificates & secrets** → **New client secret**.
 2. Add a description and choose an expiry period.
-3. Click **Add** and immediately **copy the secret value** — it will not be shown again.
+3. Click **Add** and immediately **copy the secret value**. It will not be shown again.
 
 ---
 
@@ -89,7 +104,7 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 ## Step 7: Test the SSO Login
 
 1. Log out of Logfire.
-2. Navigate to your organization's SSO login URL — use the URL for the region your Logfire organization is hosted in:
+2. Navigate to your organization's SSO login URL. Use the URL for the region your Logfire organization is hosted in:
    ```
    https://logfire-us.pydantic.dev/login/{org-name}
    https://logfire-eu.pydantic.dev/login/{org-name}
@@ -108,7 +123,7 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 1. Go to your Enterprise Cloud organization in Logfire.
 2. Navigate to **Settings** → **Invite Members**.
 3. Create an invite link (set it to never expire for convenience if you plan to share it in internal documentation).
-4. Share the **invite link** with your team — if users are not already authenticated, it will automatically redirect them to your SSO login page.
+4. Share the **invite link** with your team. If users are not already authenticated, it will automatically redirect them to your SSO login page.
 
 ---
 

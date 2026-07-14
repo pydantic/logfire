@@ -57,8 +57,8 @@ async def test_instrument_pydantic_ai():
     # Other agents are unaffected.
     assert resolve(agent2) is None
 
-    # Now instrument all agents. Also use the (currently not default) version
-    logfire_inst.instrument_pydantic_ai(version=1, include_binary_content=False)
+    # Now instrument all agents. Also specify the current version explicitly.
+    logfire_inst.instrument_pydantic_ai(version=5, include_binary_content=False)
     s = resolve(agent1)
     assert isinstance(s, InstrumentationSettings)
     # agent1 still has its own instrumentation settings which override the global ones.
@@ -67,7 +67,7 @@ async def test_instrument_pydantic_ai():
     # agent2 uses the global settings.
     s2 = resolve(agent2)
     assert isinstance(s2, InstrumentationSettings)
-    assert s2.version == 1
+    assert s2.version == 5
     assert not s2.include_binary_content
 
     # Remove the global instrumentation. agent1 remains instrumented.
@@ -80,15 +80,13 @@ async def test_instrument_pydantic_ai():
     logfire_inst.instrument_pydantic_ai(
         include_binary_content=False,
         include_content=False,
-        version=1,
-        event_mode='logs',
+        version=5,
     )
     s = resolve(agent2)
     assert isinstance(s, InstrumentationSettings)
-    assert s.version == 1
+    assert s.version == 5
     assert not s.include_binary_content
     assert not s.include_content
-    assert s.event_mode == 'logs'
     Agent.instrument_all(False)
 
 

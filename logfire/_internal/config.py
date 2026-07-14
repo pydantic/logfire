@@ -1435,6 +1435,8 @@ class LogfireConfig(_LogfireConfigData):
                     resource=resource,
                     views=self.metrics.views,
                 )
+                # For easy testing
+                meter_provider._logfire_metric_readers = metric_readers  # type: ignore
                 for reader in metric_readers:
                     with suppress(Exception):
                         # Prevent metric readers from recording metrics about themselves which just adds noise.

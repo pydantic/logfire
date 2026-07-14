@@ -26,17 +26,17 @@ Every new prompt starts with a **default scenario** containing a single message:
 - Role: `system`
 - Content: `@{prompt}@`
 
-That one message is what turns the prompt template into a real system prompt during a run. If you never add another scenario and never change the default, the run will execute with just the prompt as system message and no user input — useful when your prompt is the whole instruction (for example, for a structured-output extractor).
+That one message is what turns the prompt template into a real system prompt during a run. If you never add another scenario and never change the default, the run will execute with just the prompt as system message and no user input, useful when your prompt is the whole instruction (for example, for a structured-output extractor).
 
 For any realistic iteration you will want to add at least one `user` message that describes a representative request.
 
 ## Adding messages
 
-Use the scenario editor to append messages of four possible roles. Each message is a list of **parts** — most scenarios only need a single `text` part per message, but tool-calling conversations need a mix.
+Use the scenario editor to append messages of four possible roles. Each message is a list of **parts**: most scenarios only need a single `text` part per message, but tool-calling conversations need a mix.
 
 ### Text messages
 
-The common case. Add a message, pick the role, and write the content. Content is a template — you can reference scenario variables with `{{variable}}` and, in any message, insert the rendered prompt with `@{prompt}@`.
+The common case. Add a message, pick the role, and write the content. Content is a template: you can reference scenario variables with `{{variable}}` and, in any message, insert the rendered prompt with `@{prompt}@`.
 
 ```text
 Role: system
@@ -59,13 +59,13 @@ Role: user
 
 The variables panel sits alongside the editor. Each variable has a name and a value. Two styles:
 
-- **Plain** — `customer_name = Taylor`. Reachable as `{{customer_name}}` in templates.
-- **Dotted** — `customer.name = Taylor`, `customer.tier = gold`. Unpacked into a nested object; reachable as `{{customer.name}}` and `{{customer.tier}}`.
+- **Plain**: `customer_name = Taylor`. Reachable as `{{customer_name}}` in templates.
+- **Dotted**: `customer.name = Taylor`, `customer.tier = gold`. Unpacked into a nested object; reachable as `{{customer.name}}` and `{{customer.tier}}`.
 
-The editor lists the variables the template and scenario messages reference — a quick visual sanity check that your names match.
+The editor lists the variables the template and scenario messages reference, a quick visual sanity check that your names match.
 
 !!! tip "Use scenarios, not hard-coded strings"
-    It is tempting to write a scenario like *"What's the weather in Amsterdam today?"* with the city hard-coded. Prefer *"What's the weather in {{city}} today?"* with `city = Amsterdam` in the variables panel. When you later link the scenario to a dataset for a [batch run](#datasets-and-batch-runs), the variable column becomes the axis of evaluation — the hard-coded version cannot be swept over a dataset.
+    It is tempting to write a scenario like *"What's the weather in Amsterdam today?"* with the city hard-coded. Prefer *"What's the weather in {{city}} today?"* with `city = Amsterdam` in the variables panel. When you later link the scenario to a dataset for a [batch run](#datasets-and-batch-runs), the variable column becomes the axis of evaluation. The hard-coded version cannot be swept over a dataset.
 
 ## Tool-calling conversations
 
@@ -85,7 +85,7 @@ Role: tool
     content      = { "temp_c": 19, "conditions": "{{weather_summary}}" }
 ```
 
-Both `args` (on `tool-call`) and `content` (on `tool-return`) are JSON values. String fields anywhere inside them are rendered through the template engine — including nested strings inside arrays and objects. Non-string values (numbers, booleans, nulls) pass through unchanged.
+Both `args` (on `tool-call`) and `content` (on `tool-return`) are JSON values. String fields anywhere inside them are rendered through the template engine, including nested strings inside arrays and objects. Non-string values (numbers, booleans, nulls) pass through unchanged.
 
 Scenarios only describe what tool calls and returns *look like*; they do not change what the model is permitted to do.
 
@@ -127,7 +127,7 @@ Two behaviors matter:
 
 A prompt can have as many scenarios as you want. Use them to capture distinct intents: a short question, a long ambiguous request, a tool-heavy flow, an edge case. Running the prompt against several scenarios is the standard way to spot that a template change helps one intent but regresses another.
 
-Scenarios have a position — they render in the editor in the order you arrange them — and one is marked as the **default**. The default is the scenario that runs when you click Run without explicitly picking a scenario first.
+Scenarios have a position (they render in the editor in the order you arrange them) and one is marked as the **default**. The default is the scenario that runs when you click Run without explicitly picking a scenario first.
 
 ## Datasets and batch runs
 
