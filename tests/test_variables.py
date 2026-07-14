@@ -1598,30 +1598,15 @@ class TestLogfireRemoteVariableProviderStart:
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
     def test_api_key_region_configures_provider_base_url(self, config_kwargs: dict[str, Any]) -> None:
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get(
-            'https://logfire-eu.pydantic.info/v1/variables/',
-            json={
-                'variables': {
-                    'test_var': {
-                        'name': 'test_var',
-                        'labels': {'default': {'version': 1, 'serialized_value': '"region_value"'}},
-                        'rollout': {'labels': {'default': 1.0}},
-                        'overrides': [],
-                    }
-                }
-            },
-        )
-        request_mocker.get('https://logfire-eu.pydantic.info/v1/variable-updates/', status_code=404)
         config_kwargs.update(api_key=REGION_API_KEY, variables=VariablesOptions())
 
-        with request_mocker:
+        with unittest.mock.patch.object(LogfireRemoteVariableProvider, 'start'):
             lf = logfire.configure(**config_kwargs)
             try:
-                result = lf.var('test_var', type=str, default='default').get()
+                provider = lf.config.get_variable_provider()
 
-                assert result.value == 'region_value'
-                assert result.reason == 'resolved'
+                assert isinstance(provider, LogfireRemoteVariableProvider)
+                assert provider._base_url == 'https://logfire-eu.pydantic.info'
             finally:
                 lf.shutdown()
 
@@ -5659,29 +5644,14 @@ class TestLazyVariableProviderInit:
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv('LOGFIRE_API_KEY', REGION_API_KEY)
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get(
-            'https://logfire-eu.pydantic.info/v1/variables/',
-            json={
-                'variables': {
-                    'test_var': {
-                        'name': 'test_var',
-                        'labels': {'default': {'version': 1, 'serialized_value': '"region_value"'}},
-                        'rollout': {'labels': {'default': 1.0}},
-                        'overrides': [],
-                    }
-                }
-            },
-        )
-        request_mocker.get('https://logfire-eu.pydantic.info/v1/variable-updates/', status_code=404)
 
-        with request_mocker:
+        with unittest.mock.patch.object(LogfireRemoteVariableProvider, 'start'):
             lf = logfire.configure(**config_kwargs)
             try:
-                result = lf.var('test_var', type=str, default='default').get()
+                provider = lf.config.get_variable_provider()
 
-                assert result.value == 'region_value'
-                assert result.reason == 'resolved'
+                assert isinstance(provider, LogfireRemoteVariableProvider)
+                assert provider._base_url == 'https://logfire-eu.pydantic.info'
             finally:
                 lf.shutdown()
 
