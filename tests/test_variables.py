@@ -1601,14 +1601,11 @@ class TestApiKeySupport:
         config_kwargs.update(api_key=REGION_API_KEY, variables=VariablesOptions())
 
         with unittest.mock.patch.object(LogfireRemoteVariableProvider, 'start'):
-            lf = logfire.configure(**config_kwargs)
-            try:
-                provider = lf.config.get_variable_provider()
+            logfire.configure(**config_kwargs)
+            provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
 
-                assert isinstance(provider, LogfireRemoteVariableProvider)
-                assert provider._base_url == 'https://logfire-eu.pydantic.info'
-            finally:
-                lf.shutdown()
+            assert isinstance(provider, LogfireRemoteVariableProvider)
+            assert provider._base_url == 'https://logfire-eu.pydantic.info'
 
     def test_api_key_in_config(self) -> None:
         """Test that api_key can be passed to LogfireRemoteVariableProvider."""
@@ -5646,14 +5643,11 @@ class TestLazyVariableProviderInit:
         monkeypatch.setenv('LOGFIRE_API_KEY', REGION_API_KEY)
 
         with unittest.mock.patch.object(LogfireRemoteVariableProvider, 'start'):
-            lf = logfire.configure(**config_kwargs)
-            try:
-                provider = lf.config.get_variable_provider()
+            logfire.configure(**config_kwargs)
+            provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
 
-                assert isinstance(provider, LogfireRemoteVariableProvider)
-                assert provider._base_url == 'https://logfire-eu.pydantic.info'
-            finally:
-                lf.shutdown()
+            assert isinstance(provider, LogfireRemoteVariableProvider)
+            assert provider._base_url == 'https://logfire-eu.pydantic.info'
 
     def test_lazy_init_when_api_key_set(self, config_kwargs: dict[str, Any]) -> None:
         """When LOGFIRE_API_KEY is set but variables= is not passed, get_variable_provider()
