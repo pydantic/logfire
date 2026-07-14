@@ -2884,6 +2884,13 @@ def test_quiet_span_exporter(caplog: LogCaptureFixture):
 def test_staging_token_regions():
     assert get_base_url_from_token('pylf_v1_stagingeu_123456') == 'https://logfire-eu.pydantic.info'
     assert get_base_url_from_token('pylf_v1_stagingus_123456') == 'https://logfire-us.pydantic.info'
+    # Backend routing must not depend on validation of the evolving token suffix format.
+    assert (
+        get_base_url_from_token(
+            'pylf_v2_stagingeu_9F9BA85A-B759-4181-9527-D812E03F9F7F_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
+        )
+        == 'https://logfire-eu.pydantic.info'
+    )
 
 
 def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:
