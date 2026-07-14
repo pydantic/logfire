@@ -25,6 +25,8 @@ to share your personal org's projects (which you may wish to keep private) with 
 
 ## Roles
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/akVKNpYZHuA" title="How to Manage Roles and Permissions in Pydantic Logfire" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 Logfire provides a fixed set of _organization_ and _project_ roles, that can be managed in the organization settings. Roles contain a set of permissions,
 and are assigned to team members either at the organization or project level.
 
