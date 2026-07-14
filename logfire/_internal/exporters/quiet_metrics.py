@@ -3,6 +3,7 @@ from typing import Any
 import requests
 from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
 
+from .otlp import SuppressedConnectionError
 from .wrapper import WrapperMetricExporter
 
 
@@ -12,6 +13,6 @@ class QuietMetricExporter(WrapperMetricExporter):
     def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any) -> MetricExportResult:
         try:
             return super().export(metrics_data, timeout_millis, **kwargs)
-        except requests.exceptions.RequestException:
+        except (requests.exceptions.RequestException, SuppressedConnectionError):
             # Rely on OTLPExporterHttpSession to log this kind of error periodically.
             return MetricExportResult.FAILURE

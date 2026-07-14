@@ -61,6 +61,7 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
 
     sleep_mock = Mock(return_value=0)
     monkeypatch.setattr('time.sleep', sleep_mock)
+    monkeypatch.setattr('time.monotonic', Mock(side_effect=range(0, 1000, 30)))
     monkeypatch.setattr('random.random', Mock(return_value=0.5))
 
     class ConnectionErrorAdapter(HTTPAdapter):
@@ -145,6 +146,17 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # While there's still tasks to process, the base sleep time is reduced to 0.2 seconds.
     # When that loop ends, a new task may still be added and the loop restarts with a base time of 1 second.
     assert all(t in {0.2 * 1.5, 1.0 * 1.5} for t in sleep_times_after)
+
+    # A message gets logged once per minute when an export fails.
+    # time.monotonic is mocked to return a value increasing by 30 each time,
+    # so for 10 failed exports we get 5 messages.
+    assert len(caplog.messages) == 5
+    # This will always be the first message in case of failures.
+    # After that the number of failed exports is unpredictable because the main thread is adding to it
+    # at the same time as the retryer thread removes from it.
+    assert caplog.messages[0].startswith('Currently retrying 1 failed export(s) (')
+    for message in caplog.messages:
+        assert message == IsStr(regex=r'Currently retrying \d+ failed export\(s\) \(\d+ bytes\)')
 
 
 def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
