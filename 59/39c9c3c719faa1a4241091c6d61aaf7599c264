@@ -1,0 +1,27 @@
+CLAUDE.md
+  s_d3d6e2a0a73f05::t_7fb7682a31f282 90
+  h_d9dd17644dded9 91
+  s_d3d6e2a0a73f05::t_7cf32442535685 92
+  s_d3d6e2a0a73f05::t_c1bb9e6932c004 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "5939c9c3c719faa1a4241091c6d61aaf7599c264",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d3d6e2a0a73f05": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1783949632069",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
