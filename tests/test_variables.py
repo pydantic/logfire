@@ -1597,10 +1597,7 @@ class TestLogfireRemoteVariableProviderStart:
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
-    def test_api_key_region_configures_provider_base_url(
-        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+    def test_api_key_region_configures_provider_base_url(self, config_kwargs: dict[str, Any]) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
             'https://logfire-eu.pydantic.info/v1/variables/',
@@ -5662,7 +5659,6 @@ class TestLazyVariableProviderInit:
         self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv('LOGFIRE_API_KEY', REGION_API_KEY)
-        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
             'https://logfire-eu.pydantic.info/v1/variables/',
