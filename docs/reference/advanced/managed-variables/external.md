@@ -1,6 +1,6 @@
 # External Variables and OFREP
 
-When you need to access managed variables from less trusted environments — client-side web applications, mobile apps, edge services, or third-party integrations — Logfire provides **external variables** and **OFREP** (OpenFeature Remote Evaluation Protocol) endpoints.
+When you need to access managed variables from less trusted environments (client-side web applications, mobile apps, edge services, or third-party integrations) Logfire provides **external variables** and **OFREP** (OpenFeature Remote Evaluation Protocol) endpoints.
 
 ## How Variable Access Works
 
@@ -12,7 +12,7 @@ When you use `logfire.variable.get()` (or the `.get()` method on a variable crea
 
 1. The SDK fetches all variable definitions, versions, labels, and rollout rules in a single request
 2. A background thread polls for updates (or listens via SSE)
-3. Each `.get()` call resolves the value **locally in memory** — no network request per evaluation
+3. Each `.get()` call resolves the value **locally in memory**: no network request per evaluation
 
 This is efficient for backend services, but it means the client has access to the **complete configuration**, including all version values.
 
@@ -20,7 +20,7 @@ This is efficient for backend services, but it means the client has access to th
 
 ### Server-Side Evaluation (OFREP)
 
-The OFREP endpoints take a different approach — every evaluation is a **server-side request**:
+The OFREP endpoints take a different approach. Every evaluation is a **server-side request**:
 
 1. The client sends a request with the variable key and an evaluation context (targeting key, attributes)
 2. The server evaluates the variable using the context and returns only the resolved value
@@ -32,7 +32,7 @@ This is less efficient (one network request per evaluation or batch), but the fu
 
 ## External and Internal Variables
 
-By default, variables are **internal** — they are only accessible with an API key that has the full `project:read_variables` scope. You can mark a variable as **external** to make it accessible with the more restricted `project:read_external_variables` scope.
+By default, variables are **internal**. They are only accessible with an API key that has the full `project:read_variables` scope. You can mark a variable as **external** to make it accessible with the more restricted `project:read_external_variables` scope.
 
 - **Internal variables** (default): Only accessible with `project:read_variables`. Use this for sensitive configuration like internal prompts, pricing parameters, or anything you don't want exposed to client-side code.
 - **External variables**: Accessible with either `project:read_variables` or `project:read_external_variables`. Use this for configuration that is safe to expose, like feature flags, UI theme settings, or public-facing behavior toggles.
@@ -58,7 +58,7 @@ You can set a variable as external in the Logfire UI when creating a variable (v
 import httpx
 
 httpx.post(
-    'https://logfire-api.pydantic.dev/v1/variables/bulk/',
+    'https://logfire-us.pydantic.dev/v1/variables/bulk/',  # logfire-eu.pydantic.dev for EU
     headers={'Authorization': 'Bearer YOUR_API_KEY'},
     json=[
         {
@@ -116,7 +116,7 @@ These endpoints require an API key with the `project:read_variables` or `project
 
 When the server resolves a variable successfully, the OFREP response includes the resolved `value`, a `variant` (the label name), and `reason: "TARGETING_MATCH"`.
 
-When no value can be resolved — either because the variable has no versions, or because no label matches the evaluation context (e.g., rollout weights sum to less than 1.0 and no latest version fallback exists) — the server returns:
+When no value can be resolved, either because the variable has no versions, or because no label matches the evaluation context (e.g., rollout weights sum to less than 1.0 and no latest version fallback exists), the server returns:
 
 ```json
 {

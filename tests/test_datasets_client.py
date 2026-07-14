@@ -94,7 +94,7 @@ FAKE_EXPORT = {
 }
 
 
-def make_local_dataset(name: str | None = 'local-dataset') -> Dataset[MyInput, MyOutput, MyMetadata]:
+def make_local_dataset(name: str = 'local-dataset') -> Dataset[MyInput, MyOutput, MyMetadata]:
     return Dataset[MyInput, MyOutput, MyMetadata](
         name=name,
         cases=[
@@ -845,7 +845,7 @@ class TestLogfireAPIClient:
     def test_push_dataset_requires_name(self):
         client = make_client()
         dataset = make_local_dataset()
-        dataset.name = None
+        dataset.name = cast(Any, None)
 
         with pytest.raises(ValueError, match='requires a dataset name'):
             client.push_dataset(dataset)
@@ -1291,7 +1291,7 @@ class TestAsyncLogfireAPIClient:
     async def test_push_dataset_requires_name(self):
         client = make_async_client()
         dataset = make_local_dataset()
-        dataset.name = None
+        dataset.name = cast(Any, None)
 
         with pytest.raises(ValueError, match='requires a dataset name'):
             await client.push_dataset(dataset)

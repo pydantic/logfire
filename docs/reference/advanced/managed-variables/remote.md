@@ -97,7 +97,7 @@ When you run this script, it will:
 3. Prompt for confirmation before applying changes
 
 !!! note "What gets synced"
-    `logfire.variables_push()` syncs **metadata only** — the variable name, description, JSON schema, rollout configuration, and overrides. It does **not** create versions or labels. Instead, it stores your code's default value as an "example" that can be used as a template when creating versions in the Logfire UI. To sync labels and versions programmatically, use [`logfire.variables_push_config()`](#config-push-workflow-programmatic).
+    `logfire.variables_push()` syncs **metadata only**: the variable name, description, JSON schema, rollout configuration, and overrides. It does **not** create versions or labels. Instead, it stores your code's default value as an "example" that can be used as a template when creating versions in the Logfire UI. To sync labels and versions programmatically, use [`logfire.variables_push_config()`](#config-push-workflow-programmatic).
 
 **Example output:**
 

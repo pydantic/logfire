@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import pytest
 import requests
 import requests.exceptions
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests.models import PreparedRequest, Response as Response
@@ -45,7 +46,9 @@ def test_max_body_size_bytes() -> None:
     exporter.max_body_size = 10
     with pytest.raises(BodyTooLargeError) as e:
         exporter.export(TEST_SPANS)
-    assert str(e.value) == snapshot('Request body is too large (897045 bytes), must be less than 10 bytes.')
+    # The exact serialized size depends on the OpenTelemetry version, so match the message shape
+    # rather than a hardcoded byte count.
+    assert str(e.value) == IsStr(regex=r'Request body is too large \(\d+ bytes\), must be less than 10 bytes\.')
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:

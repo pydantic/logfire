@@ -1,15 +1,15 @@
 ---
 title: Guide to Exporting Logfire Data via Web API
-description: "Leverage the Logfire web API to query data via SQL. Export logs & metrics and retrieve data in JSON, CSV, or Apache Arrow format."
+description: "Use the Logfire web API to query data via SQL. Export logs & metrics and retrieve data in JSON, CSV, or Apache Arrow format."
 ---
 **Logfire** provides a web API for programmatically running arbitrary SQL queries against the data in your **Logfire** projects.
-This API can be used to retrieve data for export, analysis, or integration with other tools, allowing you to leverage
+This API can be used to retrieve data for export, analysis, or integration with other tools, allowing you to use
 your data in a variety of ways.
 
 The API endpoint expects a POST request and is available at:
 
-* `https://logfire-us.pydantic.dev/v2/query` for the US [region](reference/data-regions.md).
-* `https://logfire-eu.pydantic.dev/v2/query` for the EU [region](reference/data-regions.md).
+* `https://logfire-us.pydantic.dev/v2/query` for the US [region](../reference/data-regions.md).
+* `https://logfire-eu.pydantic.dev/v2/query` for the EU [region](../reference/data-regions.md).
 
 It requires a **read token** for authentication, which can be generated from the Logfire web interface and provide secure access to your data.
 
@@ -69,6 +69,12 @@ the Logfire API. If blocking I/O is acceptable and you want to avoid the complex
 you can use the plain [`LogfireQueryClient`][logfire.query_client.LogfireQueryClient].
 
 Here's an example of how to use these clients:
+
+/// version-deprecated | v4.35.0
+The older `query_json()` method is deprecated in favor of `query_json_rows()`. Calling `query_json_rows()`,
+`query_arrow()`, or `query_csv()` without providing a `min_timestamp` is also deprecated: pass an explicit
+timestamp as shown below.
+///
 
 === "Async"
 
@@ -178,7 +184,7 @@ Here's an example of how to use these clients:
 
 Logfire also provides a [PEP 249](https://peps.python.org/pep-0249/) (DB API 2.0) compatible interface via
 `logfire.db_api`. This makes Logfire query data work out of the box with any tool that supports standard
-Python database connections — including [pandas](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html),
+Python database connections, including [pandas](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html),
 [marimo SQL cells](https://docs.marimo.io/guides/working_with_data/sql/), and Jupyter `%%sql` magic.
 
 ### Basic Usage
@@ -225,7 +231,7 @@ conn.close()
     > `UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.`
 
     This is safe to ignore. pandas uses the standard DB API 2.0 cursor interface under the hood and
-    it works correctly with `logfire.db_api` — the warning just means pandas hasn't explicitly tested
+    it works correctly with `logfire.db_api`. The warning just means pandas hasn't explicitly tested
     third-party DB API connections. If you do run into any issues, please
     [open an issue](https://github.com/pydantic/logfire/issues).
 
@@ -237,7 +243,7 @@ In a [marimo](https://marimo.io/) notebook, you can register the connection and 
 import logfire.db_api
 
 conn = logfire.db_api.connect(read_token='<your_read_token>')
-# Register connection with marimo — now you can use SQL cells with the "logfire" connection
+# Register connection with marimo; now you can use SQL cells with the "logfire" connection
 ```
 
 ### Parameters
@@ -381,7 +387,7 @@ The Logfire API supports various response formats and body parameters to give yo
     - **`max_timestamp`**: Similar to `min_timestamp`, but serves as an upper bound for filtering `start_timestamp` in the `records` table or `recorded_timestamp` in the `metrics` table. The same filtering can also be done manually within the query itself.
     - **`limit`**: An optional parameter to limit the number of rows returned by the query. If not specified, **the default limit is 100**. The maximum allowed value is 10,000.
     - **`timezone`**: An optional timezone (e.g. `"Europe/Paris"`) to use for the query execution context.
-    - **`deployment_environment`**: Restrict rows to one or more [environments](../environments.md). Accepts a single environment string or a list of strings. To only match rows where no environment is set, use the empty string (`""`).
+    - **`deployment_environment`**: Restrict rows to one or more [environments](environments.md). Accepts a list of environment name strings (the Python client's `environment` argument also accepts a single string). To only match rows where no environment is set, use the empty string (`""`).
     - **`explain`**: Whether to explain the query or not.
 
 All body parameters besides `sql` and `min_timestamp` are optional and can be used in any combination to tailor the API response to your needs.

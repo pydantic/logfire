@@ -45,9 +45,12 @@ Yes: Logfire is _built_ for AI observability, and it's better at it because it s
 **AI-specific features:**
 
 - LLM-specific panels for conversation inspection
-- Token tracking and cost monitoring
+- Token tracking and cost monitoring, plus a per-model [LLMs view](guides/web-ui/llms.md)
 - Tool call inspection with full context
 - Streaming support
+- [Evals](guides/web-ui/evals.md): datasets, experiments, and [live production monitoring](guides/web-ui/live-evals.md) in the web UI, powered by code-first [pydantic-evals](https://github.com/pydantic/pydantic-evals)
+- [Prompt management](reference/advanced/prompt-management/index.md) with versioning, labeled rollouts, and a playground
+- An [AI Gateway](reference/advanced/gateway/index.md) with unified key management, spending limits, and provider failover
 
 **Better debugging:** When your AI agent fails, you don't just see the LLM error. You see the database timeout that caused it, the API rate limit that preceded it, and the user request that started it all.
 
@@ -73,14 +76,15 @@ Some tools focus only on LLM observability. Logfire takes a different approach: 
 
 ### Q: Does Logfire support evaluations (evals)?
 
-Yes. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire:
+Yes, both code-first and in the web UI.
+
+[pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire:
 
 - Evaluate any Python function, not just LLM calls (test your tools, data pipelines, entire agent workflows)
 - Define evals in Python, version-controlled like everything else
 - Run them programmatically, locally or in CI
-- View comparison results in Logfire
 
-This is a code-first approach. Some tools offer UI-managed evals; Pydantic's philosophy is that evals belong in your codebase alongside your tests.
+The results feed Logfire's [Evals web UI](guides/web-ui/evals.md), where you can manage hosted [datasets](evaluate/datasets/index.md), compare experiment runs side by side, and watch [live evaluations](guides/web-ui/live-evals.md) grade real production traffic in the background. The eval definitions stay in your codebase alongside your tests; the exploration, comparison, and monitoring happen in the UI.
 
 ---
 
@@ -231,7 +235,7 @@ When you're iterating on AI applications with a coding agent, the agent needs to
 
 ### Q: Can I use Logfire alongside other observability tools?
 
-Yes: Logfire is built on OpenTelemetry, the industry standard. Your instrumentation is portable—use Logfire, export to other tools, or both.
+Yes: Logfire is built on OpenTelemetry, the industry standard. Your instrumentation is portable: use Logfire, export to other tools, or both.
 
 You can:
 

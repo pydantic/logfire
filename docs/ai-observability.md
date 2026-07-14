@@ -11,7 +11,7 @@ What does "AI-native" mean? Two things:
 
 1. **Designed for AI development workflows.** Logfire has purpose-built features for LLM applications: conversation panels, token tracking, cost monitoring, tool call inspection. It integrates with [pydantic-evals](https://github.com/pydantic/pydantic-evals) for systematic testing. And unlike AI-only observability tools that only see the LLM layer, Logfire is built on [OpenTelemetry](https://opentelemetry.io/) and traces your entire application stack, so you can debug whether a problem is in the AI or the backend.
 
-2. **Designed to be queried by AI.** Logfire exposes all observability data via SQL (PostgreSQL-compatible syntax). This means your coding agent can query production data directly, asking arbitrary questions without being limited to predefined dashboards or APIs. We provide an [MCP server](how-to-guides/mcp-server.md) that makes this seamless. Other tools may offer MCP integrations, but without raw SQL access, agents are constrained to whatever queries someone anticipated. With Logfire, they can ask anything.
+2. **Designed to be queried by AI.** Logfire exposes all observability data via SQL (PostgreSQL-compatible syntax). This means your coding agent can query production data directly, asking arbitrary questions without being limited to predefined dashboards or APIs. We provide an [MCP server](how-to-guides/mcp-server.md) that makes this easy. Other tools may offer MCP integrations, but without raw SQL access, agents are constrained to whatever queries someone anticipated. With Logfire, they can ask anything.
 
 If your framework has OTel instrumentation, it works with Logfire automatically.
 
@@ -45,7 +45,19 @@ Trace entire conversation flows across multiple turns and tool calls.
 
 ### Evaluations
 
-[pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire. A key difference from other eval tools: pydantic-evals can evaluate any Python function, not just LLM calls. This means you can test your tools, your data pipelines, your entire agent workflow. Define evals in Python, run them locally or in CI, and view results in Logfire. Unlike UI-managed evals in other tools, pydantic-evals treats evaluations as code: version-controlled, programmatically managed, and integrated with your existing test infrastructure.
+Logfire covers evals from both directions. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that can evaluate any Python function, not just LLM calls. Define evals in Python, version-control them, and run them locally or in CI. The results land in Logfire's [Evals web UI](guides/web-ui/evals.md), where you can manage [datasets](evaluate/datasets/index.md), compare experiment runs side by side, and monitor [live evaluations](guides/web-ui/live-evals.md) grading real production traffic in the background.
+
+### Prompt Management & Playground
+
+Author, version, and test prompts in the [prompt editor](reference/advanced/prompt-management/index.md), compose reusable fragments, and promote new versions with labeled rollouts: no redeploy needed. The Playground lets you iterate on prompts, models, and tools interactively against real captured runs.
+
+### AI Gateway
+
+Route LLM calls from any SDK through the [AI Gateway](reference/advanced/gateway/index.md) for unified key management, spending limits, provider failover, and automatic tracing of every call: one endpoint across OpenAI, Anthropic, Google, Bedrock, and more.
+
+### LLMs Page
+
+A per-provider, per-model breakdown of every model call your project records (calls, error rate, latency, token mix, and cost) with click-through to the underlying traces. See the [LLMs view](guides/web-ui/llms.md).
 
 ## Quick Start
 

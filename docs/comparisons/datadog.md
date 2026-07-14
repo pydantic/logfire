@@ -22,7 +22,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 | Scenario | Datadog    | Logfire Cloud*    | Savings |
 |----------|------------|-------------------|---------|
 | Hobby (2 hosts, 5M spans) | $101/mo    | $0/mo (free tier) | 100%    |
-| Startup (10 hosts, 100M spans) | $229/mo    | $180/mo           | 59%     |
+| Startup (10 hosts, 100M spans) | $229/mo    | $229/mo           | -       |
 | Scale-up (50-150 hosts, 500M spans) | $9,860/mo  | $1,229/mo         | 87%     |
 | High-volume (500 hosts, 2B spans) | $33,550/mo | $4,229/mo         | 87%     |
 
@@ -51,7 +51,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 - **Custom metrics explosion:** OpenTelemetry metrics are treated as expensive "custom metrics" with cardinality charges
 - **Unpredictable costs:** Multiple billing dimensions make forecasting difficult
 
-**Logfire** includes 10M traces for free. [Paid plans](https://pydantic.dev/pricing/?utm_source=datadog_comparison_docs) start at $49/mo with 10M spans included, then $2 per million spans after that. That's it. No host fees, no custom metrics fees, no ingestion surprises.
+**Logfire** includes 10M spans/logs/metrics per month for free. [Paid plans](https://pydantic.dev/pricing/?utm_source=datadog_comparison_docs) start at $49/mo with the same 10M included, then $2 per million after that. That's it. No host fees, no custom metrics fees, no ingestion surprises.
 
 ### AI/LLM Support
 
@@ -65,13 +65,15 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 - Streaming support
 - Integration with MCP server to query & debug tracing data
 
+And observability is only half the story: Logfire also ships [evals in the web UI](https://pydantic.dev/docs/logfire/evaluate/evals/?utm_source=datadog_comparison_docs) (datasets, experiments, and live production monitoring), [prompt management](https://pydantic.dev/docs/logfire/prompt-management/?utm_source=datadog_comparison_docs) with a playground, and an AI gateway with key management and spending controls: the full AI engineering loop in one platform, not a bolted-on add-on.
+
 ### OpenTelemetry
 
 **Datadog** uses proprietary agents. While they support OTel export, it's not the native path.
 
 **Logfire** is OpenTelemetry-native with [first-class integrations for most technologies](https://pydantic.dev/docs/logfire/integrations/?utm_source=datadog_comparison_docs). Any OTel instrumentation works automatically. Your instrumentation is portable: if you ever want to switch, your code doesn't change.
 
-### Query Language — Essential for Agentic Coding
+### Query Language: Essential for Agentic Coding
 
 **Datadog** uses a proprietary query language for dashboards and analysis. This creates limitations:
 
@@ -81,10 +83,10 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 
-- **No artificial limitations** — Ask any question, get any answer
-- **AI assistants excel at SQL** — GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=datadog_comparison_docs)
-- **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
-- **Familiar syntax** — No new query language to learn
+- **No artificial limitations**: Ask any question, get any answer
+- **AI assistants excel at SQL**: GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=datadog_comparison_docs)
+- **Agentic workflows**: When coding agents debug your AI application, they can write arbitrary queries
+- **Familiar syntax**: No new query language to learn
 
 When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. With proprietary DSLs, it's constrained to what someone anticipated.
 
