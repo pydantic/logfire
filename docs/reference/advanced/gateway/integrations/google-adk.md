@@ -1,15 +1,27 @@
 ---
-title: "AI Gateway: Google ADK"
-description: "Route Google ADK model calls through the Logfire AI Gateway."
+title: "Connect Google ADK to the AI Gateway"
+description: "Send Google ADK model requests through the Logfire AI Gateway."
 ---
 
-# Google ADK
+# Connect Google ADK to the AI Gateway
 
-[Google Agent Development Kit (ADK)](https://adk.dev/) is Google's framework for building multi-step, multi-agent AI systems. To route its model calls through the Logfire AI Gateway, set `LOGFIRE_GATEWAY_API_KEY` to a key from the Gateway **API Keys** tab. The Python example routes calls via LiteLLM (a library that translates between LLM provider APIs); the Go example connects directly to the gateway's Google Vertex proxy.
+Send requests from your Google Agent Development Kit (ADK) agents through Logfire to track model usage and apply gateway spending limits.
+
+[Google ADK](https://adk.dev/) is Google's framework for building multi-step and multi-agent AI systems. The Python example uses LiteLLM, a library that translates between model-provider APIs. The Go example connects directly to the gateway's Google Vertex route.
+
+## Before you start
+
+- Complete the [AI Gateway prerequisites](index.md#before-you-start), including setting `LOGFIRE_GATEWAY_API_KEY` in your terminal.
+- Use an existing Google ADK project with the packages imported by your chosen example installed.
+
+!!! note "Model data passes through Logfire"
+    This configuration sends prompts, tool inputs, and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire stores the conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
 
 ## Python
 
-```python title="google-adk-gateway.py" skip-run="true" skip-reason="external-connection"
+The LiteLLM client uses the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
+
+```python title="google-adk-gateway.py" hl_lines="9-10" skip-run="true" skip-reason="external-connection"
 import asyncio
 import os
 
@@ -53,10 +65,9 @@ if __name__ == '__main__':
 
 ## Go
 
-The Go example routes Google Vertex model calls through `https://gateway-us.pydantic.dev/proxy/google-vertex`
-and uses `gemini-2.5-flash`.
+The Go client uses the provider-native Google Vertex route. Copy the Google Vertex URL and a supported Gemini model from the Gateway **Connect** tab.
 
-```go title="google-adk-gateway.go" skip-run="true" skip-reason="external-connection"
+```go title="google-adk-gateway.go" hl_lines="17 25 28 30" skip-run="true" skip-reason="external-connection"
 package main
 
 import (
@@ -115,3 +126,13 @@ func main() {
 	}
 }
 ```
+
+## Verify it worked
+
+Run either example from your terminal. It prints the model response. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+
+## Troubleshooting
+
+- **The example reports that `LOGFIRE_GATEWAY_API_KEY` is missing:** set the environment variable in the same terminal where you run the example.
+- **The Python request fails:** copy an OpenAI-compatible URL and supported model from the Gateway **Connect** tab.
+- **The Go request fails:** copy the Google Vertex URL and supported Gemini model from the **Connect** tab; an OpenAI-compatible route does not work with the provider-native Go client.

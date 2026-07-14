@@ -1,15 +1,27 @@
 ---
-title: "AI Gateway: LangChain"
-description: "Route LangChain model calls through the Logfire AI Gateway."
+title: "Connect LangChain to the AI Gateway"
+description: "Send LangChain model requests through the Logfire AI Gateway."
 ---
 
-# LangChain
+# Connect LangChain to the AI Gateway
 
-[LangChain](https://www.langchain.com/) is a framework for building LLM-powered applications. To route its model calls through the Logfire AI Gateway, configure `ChatOpenAI` with the gateway URL, using a key from the Gateway **API Keys** tab.
+Send requests from your LangChain agents through Logfire to track model usage and apply gateway spending limits without changing your prompts or tools.
+
+[LangChain](https://www.langchain.com/) is a framework for building LLM-powered applications. Both examples keep the agent in LangChain and point `ChatOpenAI` at an OpenAI-compatible gateway route.
+
+## Before you start
+
+- Complete the [AI Gateway prerequisites](index.md#before-you-start), including setting `LOGFIRE_GATEWAY_API_KEY` in your terminal.
+- Use an existing LangChain project with the packages imported by your chosen example installed.
+
+!!! note "Model data passes through Logfire"
+    This configuration sends prompts, tool inputs, and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire stores the conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
 
 ## TypeScript
 
-```typescript title="langchain-gateway.mts" skip-run="true" skip-reason="external-connection"
+Set `apiKey` to your gateway key and `baseURL` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
+
+```typescript title="langchain-gateway.mts" hl_lines="13 15" skip-run="true" skip-reason="external-connection"
 import { createAgent, tool } from 'langchain';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
@@ -53,7 +65,9 @@ console.log(result);
 
 ## Python
 
-```python title="langchain-gateway.py" skip-run="true" skip-reason="external-connection"
+Set the equivalent `api_key` and `base_url` values on the Python client.
+
+```python title="langchain-gateway.py" hl_lines="14-15" skip-run="true" skip-reason="external-connection"
 import os
 
 from langchain.agents import create_agent
@@ -77,3 +91,12 @@ result = agent.invoke({'messages': [{'role': 'user', 'content': 'What is the wea
 
 print(result['messages'][-1].content)
 ```
+
+## Verify it worked
+
+Run either example from your terminal. It prints the agent's final response. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+
+## Troubleshooting
+
+- **The example cannot read `LOGFIRE_GATEWAY_API_KEY`:** set the environment variable in the same terminal where you run the example.
+- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.

@@ -1,15 +1,28 @@
 ---
-title: "AI Gateway: OpenAI SDK"
-description: "Route OpenAI SDK model calls through the Logfire AI Gateway."
+title: "Connect the OpenAI SDK to the AI Gateway"
+description: "Send OpenAI SDK model requests through the Logfire AI Gateway."
 ---
 
-# OpenAI SDK
+# Connect the OpenAI SDK to the AI Gateway
 
-The [OpenAI SDK](https://platform.openai.com/docs/libraries) is OpenAI's official client library for calling the OpenAI API. To route calls through the Logfire AI Gateway, point the client's base URL at the gateway and use a key from the Gateway **API Keys** tab in place of your OpenAI key.
+Send requests from an OpenAI SDK through Logfire to track model usage and apply gateway spending limits.
+
+The [OpenAI SDK](https://platform.openai.com/docs/libraries) is available for several languages. In each client, replace the provider key with your gateway key and replace the default base URL with an OpenAI-compatible gateway route.
+
+## Before you start
+
+- Complete the [AI Gateway prerequisites](index.md#before-you-start), including setting `LOGFIRE_GATEWAY_API_KEY` in your terminal.
+- Use an existing project with the OpenAI SDK for your chosen language installed.
+- Copy an OpenAI-compatible route and supported model name from the Gateway **Connect** tab.
+
+!!! note "Model data passes through Logfire"
+    This configuration sends prompts and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire stores the conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
 
 ## .NET {#dotnet}
 
-```csharp title="openai-sdk-gateway.cs" skip-run="true" skip-reason="external-connection"
+Pass the gateway key and route to `ChatClient`.
+
+```csharp title="openai-sdk-gateway.cs" hl_lines="6 14 19" skip-run="true" skip-reason="external-connection"
 using OpenAI;
 using OpenAI.Chat;
 
@@ -41,7 +54,9 @@ Console.WriteLine(completion.Content[0].Text);
 
 ## Go
 
-```go title="openai-sdk-gateway.go" skip-run="true" skip-reason="external-connection"
+Pass the gateway key and route as client options.
+
+```go title="openai-sdk-gateway.go" hl_lines="22-23" skip-run="true" skip-reason="external-connection"
 package main
 
 import (
@@ -86,7 +101,9 @@ func main() {
 
 ## TypeScript
 
-```typescript title="openai-sdk-gateway.mts" skip-run="true" skip-reason="external-connection"
+Pass the gateway key and route to the `OpenAI` constructor.
+
+```typescript title="openai-sdk-gateway.mts" hl_lines="11-12" skip-run="true" skip-reason="external-connection"
 import OpenAI from 'openai';
 import { z } from 'zod';
 
@@ -111,7 +128,9 @@ console.log(response.choices[0]?.message.content);
 
 ## Python
 
-```python title="openai-sdk-gateway.py" skip-run="true" skip-reason="external-connection"
+Set the equivalent `api_key` and `base_url` values on the Python client.
+
+```python title="openai-sdk-gateway.py" hl_lines="6-7" skip-run="true" skip-reason="external-connection"
 import os
 
 from openai import OpenAI
@@ -128,3 +147,12 @@ response = client.chat.completions.create(
 
 print(response.choices[0].message.content)
 ```
+
+## Verify it worked
+
+Run your chosen example from your terminal. It prints the model response. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+
+## Troubleshooting
+
+- **The example reports that `LOGFIRE_GATEWAY_API_KEY` is missing:** set the environment variable in the same terminal where you run the example.
+- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.

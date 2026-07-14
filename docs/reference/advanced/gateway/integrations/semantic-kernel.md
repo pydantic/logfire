@@ -1,15 +1,27 @@
 ---
-title: "AI Gateway: Semantic Kernel"
-description: "Route Semantic Kernel model calls through the Logfire AI Gateway."
+title: "Connect Semantic Kernel to the AI Gateway"
+description: "Send Semantic Kernel model requests through the Logfire AI Gateway."
 ---
 
-# Semantic Kernel
+# Connect Semantic Kernel to the AI Gateway
 
-[Microsoft Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/) is Microsoft's SDK for integrating AI models into your applications. To route its model calls through the Logfire AI Gateway, configure an OpenAI-compatible chat completion service with the gateway URL, using a key from the Gateway **API Keys** tab.
+Send requests from your Semantic Kernel application through Logfire to track model usage and apply gateway spending limits.
+
+[Microsoft Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/) is an SDK for adding AI models to applications. Both examples configure its OpenAI chat completion service with an OpenAI-compatible gateway route.
+
+## Before you start
+
+- Complete the [AI Gateway prerequisites](index.md#before-you-start), including setting `LOGFIRE_GATEWAY_API_KEY` in your terminal.
+- Use an existing Semantic Kernel project with the packages imported by your chosen example installed.
+
+!!! note "Model data passes through Logfire"
+    This configuration sends prompts and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire stores the conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
 
 ## Python
 
-```python title="semantic-kernel-gateway.py" skip-run="true" skip-reason="external-connection"
+Set `api_key` to your gateway key and `base_url` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
+
+```python title="semantic-kernel-gateway.py" hl_lines="14-15" skip-run="true" skip-reason="external-connection"
 import asyncio
 import os
 
@@ -45,7 +57,9 @@ if __name__ == '__main__':
 
 ## .NET {#dotnet}
 
-```csharp title="semantic-kernel-gateway.cs" skip-run="true" skip-reason="external-connection"
+Pass the same gateway key, route, and model name to `AddOpenAIChatCompletion`.
+
+```csharp title="semantic-kernel-gateway.cs" hl_lines="8 17-18" skip-run="true" skip-reason="external-connection"
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -74,3 +88,12 @@ history.AddUserMessage("What is the weather in London?");
 var response = await chat.GetChatMessageContentAsync(history, kernel: kernel, cancellationToken: cts.Token);
 Console.WriteLine(response.Content);
 ```
+
+## Verify it worked
+
+Run either example from your terminal. It prints the model response. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+
+## Troubleshooting
+
+- **The example reports that `LOGFIRE_GATEWAY_API_KEY` is missing:** set the environment variable in the same terminal where you run the example.
+- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.

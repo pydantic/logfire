@@ -238,7 +238,7 @@
           {
             "label": "Integrations",
             "items": [
-              { "label": "Overview", "slug": "reference/advanced/gateway/agent-frameworks" },
+              { "label": "Overview", "slug": "reference/advanced/gateway/integrations/index" },
               { "label": "Agno", "slug": "reference/advanced/gateway/integrations/agno" },
               { "label": "Genkit", "slug": "reference/advanced/gateway/integrations/genkit" },
               { "label": "Google ADK", "slug": "reference/advanced/gateway/integrations/google-adk" },

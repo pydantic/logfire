@@ -1,15 +1,27 @@
 ---
-title: "AI Gateway: Genkit"
-description: "Route Genkit model calls through the Logfire AI Gateway."
+title: "Connect Genkit to the AI Gateway"
+description: "Send Genkit model requests through the Logfire AI Gateway."
 ---
 
-# Genkit
+# Connect Genkit to the AI Gateway
 
-[Genkit](https://genkit.dev/) is Google's open-source framework for building AI-powered applications. To route its model calls through the Logfire AI Gateway, use Genkit's OpenAI-compatible plugin pointed at the gateway URL, using a key from the Gateway **API Keys** tab.
+Send requests from your Genkit application through Logfire to track model usage and apply gateway spending limits.
 
-## JavaScript
+[Genkit](https://genkit.dev/) is Google's open-source framework for building AI applications. Both examples configure Genkit's OpenAI-compatible plugin with a gateway key and route.
 
-```typescript title="genkit-gateway.mts" skip-run="true" skip-reason="external-connection"
+## Before you start
+
+- Complete the [AI Gateway prerequisites](index.md#before-you-start), including setting `LOGFIRE_GATEWAY_API_KEY` in your terminal.
+- Use an existing Genkit project with the packages imported by your chosen example installed.
+
+!!! note "Model data passes through Logfire"
+    This configuration sends prompts, tool inputs, and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire stores the conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
+
+## TypeScript
+
+Set `apiKey` to your gateway key and `baseURL` to the OpenAI-compatible gateway route. Copy the route and a supported model name from the Gateway **Connect** tab.
+
+```typescript title="genkit-gateway.mts" hl_lines="15-16" skip-run="true" skip-reason="external-connection"
 import { openAICompatible } from '@genkit-ai/compat-oai';
 import { genkit } from 'genkit';
 import { z } from 'zod';
@@ -40,7 +52,9 @@ console.log(text);
 
 ## Go
 
-```go title="genkit-gateway.go" skip-run="true" skip-reason="external-connection"
+Pass the same gateway key and route to Genkit's Go plugin.
+
+```go title="genkit-gateway.go" hl_lines="25 27" skip-run="true" skip-reason="external-connection"
 package main
 
 import (
@@ -82,3 +96,12 @@ func main() {
 	log.Println(response.Text())
 }
 ```
+
+## Verify it worked
+
+Run either example from your terminal. It prints the model response. That confirms the client reached the gateway. Organization admins can also open **AI Engineering** > **Gateway** > **Spending** to see usage for the key. If telemetry is enabled, open the selected project's **Live** view to inspect the request trace.
+
+## Troubleshooting
+
+- **The example reports that `LOGFIRE_GATEWAY_API_KEY` is missing:** set the environment variable in the same terminal where you run the example.
+- **The request returns an authentication or model error:** copy the URL and model name again from the Gateway **Connect** tab, and confirm that the selected route supports the OpenAI request format.
