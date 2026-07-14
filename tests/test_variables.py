@@ -929,6 +929,7 @@ class TestLocalVariableProvider:
 
 REMOTE_BASE_URL = 'http://localhost:8000/'
 REMOTE_TOKEN = 'pylf_v1_local_test_token'
+REGION_API_KEY = 'pylf_v2_stagingeu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
 
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
@@ -1596,8 +1597,10 @@ class TestLogfireRemoteVariableProviderStart:
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
-    def test_api_key_region_configures_provider_base_url(self, config_kwargs: dict[str, Any]) -> None:
-        api_key = 'pylf_v2_stagingeu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
+    def test_api_key_region_configures_provider_base_url(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
             'https://logfire-eu.pydantic.info/v1/variables/',
@@ -1613,7 +1616,7 @@ class TestApiKeySupport:
             },
         )
         request_mocker.get('https://logfire-eu.pydantic.info/v1/variable-updates/', status_code=404)
-        config_kwargs.update(api_key=api_key, variables=VariablesOptions())
+        config_kwargs.update(api_key=REGION_API_KEY, variables=VariablesOptions())
 
         with request_mocker:
             lf = logfire.configure(**config_kwargs)
@@ -5654,6 +5657,37 @@ class TestLazyVariableProviderInit:
 
         assert isinstance(provider, NoOpVariableProvider)
         assert isinstance(config._variable_provider, NoOpVariableProvider)
+
+    def test_lazy_init_uses_api_key_region(
+        self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv('LOGFIRE_API_KEY', REGION_API_KEY)
+        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'https://logfire-eu.pydantic.info/v1/variables/',
+            json={
+                'variables': {
+                    'test_var': {
+                        'name': 'test_var',
+                        'labels': {'default': {'version': 1, 'serialized_value': '"region_value"'}},
+                        'rollout': {'labels': {'default': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        request_mocker.get('https://logfire-eu.pydantic.info/v1/variable-updates/', status_code=404)
+
+        with request_mocker:
+            lf = logfire.configure(**config_kwargs)
+            try:
+                result = lf.var('test_var', type=str, default='default').get()
+
+                assert result.value == 'region_value'
+                assert result.reason == 'resolved'
+            finally:
+                lf.shutdown()
 
     def test_lazy_init_when_api_key_set(self, config_kwargs: dict[str, Any]) -> None:
         """When LOGFIRE_API_KEY is set but variables= is not passed, get_variable_provider()
