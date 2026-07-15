@@ -5,7 +5,7 @@ description: "Use the Logfire AI Gateway with agent frameworks and model SDKs."
 
 # Connect frameworks to the AI Gateway
 
-Keep the framework, prompts, tools, and agent workflow you already use while Logfire tracks model usage and applies spending limits.
+Connect the framework, prompts, tools, and agent workflow you already use to the Logfire AI Gateway.
 
 Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider or at a [routing group](/logfire/manage/ai-gateway/#routing-groups), which can fail over to another provider or distribute requests across several providers.
 

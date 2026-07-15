@@ -5,7 +5,7 @@ description: "Send Strands Agents model requests through the Logfire AI Gateway.
 
 # Connect Strands Agents to the AI Gateway
 
-Send requests from your Strands Agents application through Logfire to track model usage and apply spending limits.
+Send requests from your Strands Agents application through the Logfire AI Gateway.
 
 [Strands Agents](https://strandsagents.com/) is AWS's open-source framework for building AI agents. Both examples configure its OpenAI model provider with an OpenAI-compatible gateway route.
 

@@ -5,7 +5,7 @@ description: "Send OpenAI SDK model requests through the Logfire AI Gateway."
 
 # Connect the OpenAI SDK to the AI Gateway
 
-Send requests from an OpenAI SDK through Logfire to track model usage and apply spending limits.
+Send requests from an OpenAI SDK through the Logfire AI Gateway.
 
 The [OpenAI SDK](https://platform.openai.com/docs/libraries) is available for several languages. In each client, replace the provider key with your gateway key and replace the default base URL with an OpenAI-compatible gateway route.
 

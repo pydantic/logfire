@@ -5,7 +5,7 @@ description: "Send Haystack model requests through the Logfire AI Gateway."
 
 # Connect Haystack to the AI Gateway
 
-Send requests from your Haystack pipelines through Logfire to track model usage and apply spending limits.
+Send requests from your Haystack pipelines through the Logfire AI Gateway.
 
 [Haystack](https://haystack.deepset.ai/) is an open-source Python framework for AI search and document-processing pipelines. The example points `OpenAIChatGenerator` at an OpenAI-compatible gateway route.
 

@@ -5,7 +5,7 @@ description: "Send OpenAI Agents SDK model requests through the Logfire AI Gatew
 
 # Connect OpenAI Agents SDK to the AI Gateway
 
-Send requests from your OpenAI Agents SDK agents through Logfire to track model usage and apply spending limits without changing your handoffs or tools.
+Send requests from your OpenAI Agents SDK agents through the Logfire AI Gateway.
 
 The [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) builds systems where agents collaborate, hand off tasks, and call tools. Both examples configure its model provider with an OpenAI-compatible gateway route.
 

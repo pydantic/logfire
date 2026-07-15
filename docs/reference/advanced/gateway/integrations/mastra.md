@@ -5,7 +5,7 @@ description: "Send Mastra model requests through the Logfire AI Gateway."
 
 # Connect Mastra to the AI Gateway
 
-Send requests from your Mastra agents through Logfire to track model usage and apply spending limits without changing your tools or workflow.
+Send requests from your Mastra agents through the Logfire AI Gateway.
 
 [Mastra](https://mastra.ai/) is a TypeScript framework for building AI agents and workflows. The example creates an OpenAI-compatible provider that uses the gateway key and route.
 

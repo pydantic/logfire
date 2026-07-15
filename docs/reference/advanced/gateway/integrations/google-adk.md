@@ -5,7 +5,7 @@ description: "Send Google ADK model requests through the Logfire AI Gateway."
 
 # Connect Google ADK to the AI Gateway
 
-Send requests from your Google Agent Development Kit (ADK) agents through Logfire to track model usage and apply spending limits.
+Send requests from your Google Agent Development Kit (ADK) agents through the Logfire AI Gateway.
 
 [Google ADK](https://adk.dev/) is Google's framework for building multi-step and multi-agent AI systems. The Python example uses LiteLLM, a library that translates between model-provider APIs. The Go example connects directly to the gateway's Google Vertex route.
 

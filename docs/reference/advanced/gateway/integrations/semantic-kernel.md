@@ -5,7 +5,7 @@ description: "Send Semantic Kernel model requests through the Logfire AI Gateway
 
 # Connect Semantic Kernel to the AI Gateway
 
-Send requests from your Semantic Kernel application through Logfire to track model usage and apply spending limits.
+Send requests from your Semantic Kernel application through the Logfire AI Gateway.
 
 [Microsoft Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/) is an SDK for adding AI models to applications. Both examples configure its OpenAI chat completion service with an OpenAI-compatible gateway route.
 

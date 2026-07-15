@@ -5,7 +5,7 @@ description: "Send Instructor model requests through the Logfire AI Gateway."
 
 # Connect Instructor to the AI Gateway
 
-Send Instructor's structured-output requests through Logfire to track model usage and apply spending limits.
+Send Instructor's structured-output requests through the Logfire AI Gateway.
 
 [Instructor](https://python.useinstructor.com/) is a Python library for extracting structured, typed data from LLM responses. You describe the data shape, and Instructor validates the model's response against it. Because Instructor wraps an OpenAI client, you connect the underlying client to an OpenAI-compatible gateway route.
 

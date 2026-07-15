@@ -5,7 +5,7 @@ description: "Send Microsoft Agent Framework model requests through the Logfire 
 
 # Connect Microsoft Agent Framework to the AI Gateway
 
-Send requests from your Microsoft Agent Framework agents through Logfire to track model usage and apply spending limits.
+Send requests from your Microsoft Agent Framework agents through the Logfire AI Gateway.
 
 [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/) is Microsoft's SDK for building multi-agent AI applications. Both examples point an OpenAI chat completion client at an OpenAI-compatible gateway route.
 

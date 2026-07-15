@@ -5,7 +5,7 @@ description: "Send Smolagents model requests through the Logfire AI Gateway."
 
 # Connect Smolagents to the AI Gateway
 
-Send requests from your Smolagents agents through Logfire to track model usage and apply spending limits.
+Send requests from your Smolagents agents through the Logfire AI Gateway.
 
 [Smolagents](https://huggingface.co/docs/smolagents/) is Hugging Face's Python library for building AI agents that call tools and run multi-step tasks. The example points `OpenAIServerModel` at an OpenAI-compatible gateway route.
 
