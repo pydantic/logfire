@@ -70,44 +70,25 @@ OTEL_INSTRUMENTATION_MAP = {
     'openai-agents': 'openai_agents',
 }
 
-# Mapping from target package names to logfire optional dependency group names.
-# This allows us to suggest `uv add logfire[requests,sqlite3,urllib]` instead of
-# individual `opentelemetry-instrumentation-*` packages.
+# Mapping from target package names to Logfire optional dependency names.
 TARGET_TO_DEP_GROUP = {
-    'requests': 'requests',
-    'sqlite3': 'sqlite3',
-    'urllib': 'urllib',
-    'urllib3': 'urllib3',
-    'httpx': 'httpx',
     'aiohttp_client': 'aiohttp',
     'aiohttp_server': 'aiohttp-server',
+    'celery': 'celery',
+    'django': 'django',
     'fastapi': 'fastapi',
     'flask': 'flask',
-    'django': 'django',
-    'starlette': 'starlette',
-    'sqlalchemy': 'sqlalchemy',
-    'redis': 'redis',
+    'httpx': 'httpx',
+    'mysql': 'mysql',
     'psycopg': 'psycopg',
     'psycopg2': 'psycopg2',
     'pymongo': 'pymongo',
-    'mysql': 'mysql',
-    'celery': 'celery',
-    'asyncpg': 'asyncpg',
-    'aiopg': 'aiopg',
-    'pymysql': 'pymysql',
-    'tornado': 'tornado',
-    'falcon': 'falcon',
-    'pika': 'pika',
-    'confluent_kafka': 'confluent-kafka',
-    'kafka_python': 'kafka-python',
-    'elasticsearch': 'elasticsearch',
-    'boto': 'boto',
-    'botocore': 'botocore',
-    'grpc': 'grpc',
-    'jinja2': 'jinja2',
-    'pyramid': 'pyramid',
-    'tortoise_orm': 'tortoise-orm',
-    'remoulade': 'remoulade',
+    'redis': 'redis',
+    'requests': 'requests',
+    'sqlalchemy': 'sqlalchemy',
+    'sqlite3': 'sqlite3',
+    'starlette': 'starlette',
+    'urllib': 'urllib',
 }
 
 
@@ -186,41 +167,6 @@ def is_uv_installed() -> bool:
     return shutil.which('uv') is not None
 
 
-def _detect_uv_invocation() -> str | None:
-    """Detect how logfire was invoked via uv.
-
-    Returns:
-        'uvx' if invoked via `uvx logfire run ...`
-        'uv_run_with' if invoked via `uv run --with logfire logfire run ...`
-        'uv_run' if invoked via `uv run logfire run ...`
-        None if not invoked via uv or detection failed
-    """
-    # Check environment variables that uv sets
-    if os.environ.get('UV_TOOL_DIR') or os.environ.get('UV_TOOL_NAME'):
-        return 'uvx'
-    if os.environ.get('UV_PROJECT_ENVIRONMENT'):
-        # Running in a uv project environment
-        return 'uv_run'
-
-    # On Linux, we can check /proc/self/cmdline for the parent process
-    try:
-        with open('/proc/self/cmdline', 'rb') as f:
-            cmdline = f.read().decode('utf-8', errors='ignore')
-        # cmdline is null-separated arguments
-        parts = cmdline.split('\x00')
-        if parts and 'uvx' in parts[0]:
-            return 'uvx'
-        if 'uv' in parts[0] and 'run' in parts:
-            # Check for --with
-            if '--with' in parts:
-                return 'uv_run_with'
-            return 'uv_run'
-    except (OSError, IndexError):
-        pass
-
-    return None
-
-
 def _format_dep_group_install_command(dep_groups: list[str]) -> str:
     """Format a uv add command with dependency groups."""
     if not dep_groups:
@@ -238,8 +184,8 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         return ''  # pragma: no cover
 
     # Map to dependency groups where available
-    dep_groups = []
-    fallback_packages = []
+    dep_groups: list[str] = []
+    fallback_packages: list[str] = []
     for otel_pkg, target_pkg in recommendations:
         dep_group = TARGET_TO_DEP_GROUP.get(target_pkg)
         if dep_group:
