@@ -5,7 +5,7 @@ description: "Send Genkit model requests through the Logfire AI Gateway."
 
 # Connect Genkit to the AI Gateway
 
-Send requests from your Genkit application through Logfire to track model usage and apply gateway spending limits.
+Send requests from your Genkit application through Logfire to track model usage and apply spending limits.
 
 [Genkit](https://genkit.dev/) is Google's open-source framework for building AI applications. Both examples configure Genkit's OpenAI-compatible plugin with a gateway key and route.
 

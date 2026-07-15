@@ -5,7 +5,7 @@ description: "Use the Logfire AI Gateway with agent frameworks and model SDKs."
 
 # Connect frameworks to the AI Gateway
 
-Keep the framework, prompts, tools, and agent workflow you already use while Logfire tracks model usage and applies gateway spending limits.
+Keep the framework, prompts, tools, and agent workflow you already use while Logfire tracks model usage and applies spending limits.
 
 Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider, or at a routing group that tries another provider if the first one fails.
 
@@ -21,7 +21,7 @@ Each guide shows the two client settings you need to change: the API key and gat
 
 4. On the Gateway **Connect** tab, select a provider and model. Copy the gateway URL and model name into the example.
 
-The examples use the United States OpenAI-compatible route, `https://gateway-us.pydantic.dev/proxy/openai`. For an organization in the European Union, use `gateway-eu` instead. For a self-hosted organization, copy the URL from the **Connect** tab.
+The examples use the OpenAI-compatible route for the US region, `https://gateway-us.pydantic.dev/proxy/openai`. For the EU region, use `gateway-eu` instead. For a self-hosted organization, copy the URL from the **Connect** tab.
 
 Most examples use an OpenAI-compatible client. The provider or routing group you select must support the OpenAI request format and the model name in the example. Provider-native APIs, such as Anthropic Messages, require that provider's client. See [Connect an SDK](/logfire/manage/ai-gateway/#connect-an-sdk) for both patterns.
 

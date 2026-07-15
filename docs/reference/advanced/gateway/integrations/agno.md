@@ -5,7 +5,7 @@ description: "Send Agno model requests through the Logfire AI Gateway."
 
 # Connect Agno to the AI Gateway
 
-Send requests from your Agno agents through Logfire to track model usage and apply gateway spending limits.
+Send requests from your Agno agents through Logfire to track model usage and apply spending limits.
 
 [Agno](https://docs.agno.com/) is a Python framework for building multimodal and multi-agent AI systems. The example keeps the agent in Agno and points its `OpenAIChat` model at an OpenAI-compatible gateway route.
 

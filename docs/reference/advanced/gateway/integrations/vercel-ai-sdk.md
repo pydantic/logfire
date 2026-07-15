@@ -5,7 +5,7 @@ description: "Send Vercel AI SDK model requests through the Logfire AI Gateway."
 
 # Connect Vercel AI SDK to the AI Gateway
 
-Send requests from your Vercel AI SDK application through Logfire to track model usage and apply gateway spending limits without changing your tools.
+Send requests from your Vercel AI SDK application through Logfire to track model usage and apply spending limits without changing your tools.
 
 The [Vercel AI SDK](https://ai-sdk.dev/) is a TypeScript toolkit for AI web applications, including streaming, tool use, and multiple model providers. The example creates an OpenAI provider that uses an OpenAI-compatible gateway route.
 

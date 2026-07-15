@@ -5,7 +5,7 @@ description: "Send LlamaIndex model requests through the Logfire AI Gateway."
 
 # Connect LlamaIndex to the AI Gateway
 
-Send requests from your LlamaIndex workflows through Logfire to track model usage and apply gateway spending limits.
+Send requests from your LlamaIndex workflows through Logfire to track model usage and apply spending limits.
 
 [LlamaIndex](https://developers.llamaindex.ai/) is a framework for building LLM applications over your data. This includes retrieval-augmented generation (RAG), where an application retrieves relevant data before asking a model to answer. The example points LlamaIndex's OpenAI client at an OpenAI-compatible gateway route.
 

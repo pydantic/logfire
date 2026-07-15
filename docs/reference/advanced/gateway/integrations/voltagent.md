@@ -5,7 +5,7 @@ description: "Send VoltAgent model requests through the Logfire AI Gateway."
 
 # Connect VoltAgent to the AI Gateway
 
-Send requests from your VoltAgent agents through Logfire to track model usage and apply gateway spending limits.
+Send requests from your VoltAgent agents through Logfire to track model usage and apply spending limits.
 
 [VoltAgent](https://voltagent.dev/) is a TypeScript framework for building AI agents with tool use and its own observability features. The example creates an OpenAI-compatible provider that uses the gateway key and route.
 

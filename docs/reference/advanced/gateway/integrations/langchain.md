@@ -5,7 +5,7 @@ description: "Send LangChain model requests through the Logfire AI Gateway."
 
 # Connect LangChain to the AI Gateway
 
-Send requests from your LangChain agents through Logfire to track model usage and apply gateway spending limits without changing your prompts or tools.
+Send requests from your LangChain agents through Logfire to track model usage and apply spending limits without changing your prompts or tools.
 
 [LangChain](https://www.langchain.com/) is a framework for building LLM-powered applications. Both examples keep the agent in LangChain and point `ChatOpenAI` at an OpenAI-compatible gateway route.
 
