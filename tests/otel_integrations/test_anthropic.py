@@ -1,6 +1,8 @@
 from __future__ import annotations as _annotations
 
+import gc
 import json
+import logging
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, cast
 
@@ -616,6 +618,35 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
             },
         ]
     )
+
+
+def test_sync_messages_stream_close_early(
+    instrumented_client: anthropic.Anthropic, caplog: pytest.LogCaptureFixture
+) -> None:
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    chunks_seen = 0
+
+    with caplog.at_level(logging.ERROR, logger='opentelemetry.context'):
+        with response as stream:
+            for chunk in stream:
+                if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta):  # type: ignore
+                    chunks_seen += 1
+                    break
+        del response
+        gc.collect()
+
+    assert chunks_seen == 1
+    assert not [
+        record
+        for record in caplog.records
+        if record.name == 'opentelemetry.context' and 'Failed to detach context' in record.getMessage()
+    ]
 
 
 def test_messages_stream_text_block_none() -> None:
