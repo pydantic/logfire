@@ -39,6 +39,7 @@ from .semconv import (
     TOOL_DEFINITIONS,
     BlobPart,
     ChatMessage,
+    FilePart,
     InputMessages,
     MessagePart,
     OutputMessage,
@@ -282,20 +283,50 @@ def _convert_content_part(part: object) -> MessagePart:
 
     part = cast('dict[str, Any]', part)
     part_type = part.get('type', 'unknown')
-    if part_type in ('text', 'output_text'):
+    if part_type in ('text', 'output_text', 'input_text'):
         return TextPart(type='text', content=part.get('text', ''))
-    elif part_type == 'image_url':  # pragma: no cover
-        url = part.get('image_url', {}).get('url', '')
-        return UriPart(type='uri', uri=url, modality='image')
+    elif part_type in ('image_url', 'input_image'):
+        if uri := _media_part_uri(part, 'image_url'):
+            return UriPart(type='uri', uri=uri, modality='image')
+        if data := part.get('file_data'):
+            return BlobPart(type='blob', content=data, modality='image')
+        if file_id := _media_part_file_id(part):
+            return FilePart(type='file', file_id=file_id, modality='image')
     elif part_type == 'input_audio':  # pragma: no cover
         return BlobPart(
             type='blob',
             content=part.get('input_audio', {}).get('data', ''),
             modality='audio',
         )
+    elif part_type == 'input_file':
+        if uri := _media_part_uri(part, 'file_url'):
+            return UriPart(type='uri', uri=uri, modality='document')
+        if data := part.get('file_data'):
+            return BlobPart(type='blob', content=data, modality='document')
+        if file_id := _media_part_file_id(part):
+            return FilePart(type='file', file_id=file_id, modality='document')
     else:  # pragma: no cover
         # Return as generic dict for unknown types
         return {**part, 'type': part_type}
+
+    return {**part, 'type': part_type}
+
+
+def _media_part_uri(part: dict[str, Any], url_key: str) -> str:
+    value = part.get(url_key)
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        value = cast('dict[str, Any]', value)
+        url = value.get('url')
+        if isinstance(url, str):
+            return url
+    return ''
+
+
+def _media_part_file_id(part: dict[str, Any]) -> str:
+    file_id = part.get('file_id')
+    return file_id if isinstance(file_id, str) else ''
 
 
 def convert_responses_inputs_to_semconv(
@@ -727,11 +758,10 @@ def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
                 events.append({'event.name': event_name, 'content': content, 'role': role})
             else:
                 for content_item in content:
-                    with contextlib.suppress(KeyError):
-                        if content_item['type'] == 'output_text':
-                            events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
-                            continue
-                    events.append(unknown_event(content_item))  # pragma: no cover
+                    if event := _content_part_to_event(content_item, event_name, role):
+                        events.append(event)
+                    else:
+                        events.append(unknown_event(content_item))  # pragma: no cover
         elif typ == 'function_call':
             tool_call_id_to_name[inp['call_id']] = inp['name']
             events.append(
@@ -772,3 +802,31 @@ def unknown_event(inp: dict[str, Any]):
         'content': f'{inp.get("type")}\n\nSee JSON for details',
         'data': inp,
     }
+
+
+def _content_part_to_event(content_item: Any, event_name: str, role: str) -> dict[str, Any] | None:
+    if not isinstance(content_item, dict):  # pragma: no cover
+        return None
+
+    content_item = cast('dict[str, Any]', content_item)
+    content_type = content_item.get('type')
+    if content_type in ('output_text', 'input_text'):
+        return {'event.name': event_name, 'content': content_item.get('text', ''), 'role': role}
+    if content_type in ('image_url', 'input_image'):
+        if uri := _media_part_uri(content_item, 'image_url'):
+            return {'event.name': event_name, 'content': uri, 'role': role}
+        if content_item.get('file_data') is not None:
+            return {'event.name': event_name, 'content': '[file_data]', 'role': role}
+        if file_id := _media_part_file_id(content_item):
+            return {'event.name': event_name, 'content': file_id, 'role': role}
+    if content_type == 'input_file':
+        if uri := _media_part_uri(content_item, 'file_url'):
+            return {'event.name': event_name, 'content': uri, 'role': role}
+        if file_id := _media_part_file_id(content_item):
+            return {'event.name': event_name, 'content': file_id, 'role': role}
+        if isinstance(filename := content_item.get('filename'), str):
+            return {'event.name': event_name, 'content': filename, 'role': role}
+        if content_item.get('file_data') is not None:
+            return {'event.name': event_name, 'content': '[file_data]', 'role': role}
+        return {'event.name': event_name, 'content': '[file]', 'role': role}
+    return None
