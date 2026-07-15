@@ -12,7 +12,7 @@ Send requests from your Smolagents agents through Logfire to track model usage a
 ## Before you start
 
 - Complete the [AI Gateway prerequisites](index.md#before-you-start), including setting `LOGFIRE_GATEWAY_API_KEY` in your terminal.
-- Use an existing Smolagents project with the packages imported below installed.
+- Use an existing Smolagents project. Install the OpenAI extra with `pip install 'smolagents[openai]'`.
 
 !!! note "Model data passes through Logfire"
     This configuration sends prompts, tool inputs, and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire stores the conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
