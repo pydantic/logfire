@@ -289,18 +289,19 @@ def test_inspect(
 
 ╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
 │                                                                                                                                                    │
-│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
-│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
-│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
+│  ☐ django (need to install opentelemetry-instrumentation-django)                                                                                   │
+│  ☐ httpx (need to install opentelemetry-instrumentation-httpx)                                                                                     │
+│  ☐ requests [*] (need to install opentelemetry-instrumentation-requests)                                                                           │
+│  ☐ sqlite3 [*] (need to install opentelemetry-instrumentation-sqlite3)                                                                             │
+│  ☐ starlette (need to install opentelemetry-instrumentation-starlette)                                                                             │
 │  ☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)                                                                               │
 │                                                                                                                                                    │
-│  [*] `urllib` may not actually be used by your app, in which case you can ignore this recommendation                                               │
+│  [*] `requests`, `sqlite3`, and `urllib` may not actually be used by your app, in which case you can ignore these recommendations                  │
 │                                                                                                                                                    │
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
-│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
-│  opentelemetry-instrumentation-urllib                                                                                                              │
+│  uv add logfire[django,httpx,requests,sqlite3,starlette,urllib]                                                                                    │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │

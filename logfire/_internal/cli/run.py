@@ -70,6 +70,46 @@ OTEL_INSTRUMENTATION_MAP = {
     'openai-agents': 'openai_agents',
 }
 
+# Mapping from target package names to logfire optional dependency group names.
+# This allows us to suggest `uv add logfire[requests,sqlite3,urllib]` instead of
+# individual `opentelemetry-instrumentation-*` packages.
+TARGET_TO_DEP_GROUP = {
+    'requests': 'requests',
+    'sqlite3': 'sqlite3',
+    'urllib': 'urllib',
+    'urllib3': 'urllib3',
+    'httpx': 'httpx',
+    'aiohttp_client': 'aiohttp',
+    'aiohttp_server': 'aiohttp-server',
+    'fastapi': 'fastapi',
+    'flask': 'flask',
+    'django': 'django',
+    'starlette': 'starlette',
+    'sqlalchemy': 'sqlalchemy',
+    'redis': 'redis',
+    'psycopg': 'psycopg',
+    'psycopg2': 'psycopg2',
+    'pymongo': 'pymongo',
+    'mysql': 'mysql',
+    'celery': 'celery',
+    'asyncpg': 'asyncpg',
+    'aiopg': 'aiopg',
+    'pymysql': 'pymysql',
+    'tornado': 'tornado',
+    'falcon': 'falcon',
+    'pika': 'pika',
+    'confluent_kafka': 'confluent-kafka',
+    'kafka_python': 'kafka-python',
+    'elasticsearch': 'elasticsearch',
+    'boto': 'boto',
+    'botocore': 'botocore',
+    'grpc': 'grpc',
+    'jinja2': 'jinja2',
+    'pyramid': 'pyramid',
+    'tortoise_orm': 'tortoise-orm',
+    'remoulade': 'remoulade',
+}
+
 
 @dataclass
 class InstrumentationContext:
@@ -144,6 +184,79 @@ def alter_sys_argv(argv: list[str], cmd: str) -> Generator[None, None, None]:
 def is_uv_installed() -> bool:
     """Check if uv package manager is installed and available in the PATH."""
     return shutil.which('uv') is not None
+
+
+def _detect_uv_invocation() -> str | None:
+    """Detect how logfire was invoked via uv.
+
+    Returns:
+        'uvx' if invoked via `uvx logfire run ...`
+        'uv_run_with' if invoked via `uv run --with logfire logfire run ...`
+        'uv_run' if invoked via `uv run logfire run ...`
+        None if not invoked via uv or detection failed
+    """
+    # Check environment variables that uv sets
+    if os.environ.get('UV_TOOL_DIR') or os.environ.get('UV_TOOL_NAME'):
+        return 'uvx'
+    if os.environ.get('UV_PROJECT_ENVIRONMENT'):
+        # Running in a uv project environment
+        return 'uv_run'
+
+    # On Linux, we can check /proc/self/cmdline for the parent process
+    try:
+        with open('/proc/self/cmdline', 'rb') as f:
+            cmdline = f.read().decode('utf-8', errors='ignore')
+        # cmdline is null-separated arguments
+        parts = cmdline.split('\x00')
+        if parts and 'uvx' in parts[0]:
+            return 'uvx'
+        if 'uv' in parts[0] and 'run' in parts:
+            # Check for --with
+            if '--with' in parts:
+                return 'uv_run_with'
+            return 'uv_run'
+    except (OSError, IndexError):
+        pass
+
+    return None
+
+
+def _format_dep_group_install_command(dep_groups: list[str]) -> str:
+    """Format a uv add command with dependency groups."""
+    if not dep_groups:
+        return ''
+    return f'uv add logfire[{",".join(dep_groups)}]'
+
+
+def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
+    """Generate a command to install all recommended packages at once.
+
+    Uses dependency groups when available (e.g., `logfire[requests,sqlite3,urllib]`),
+    falls back to individual package names for packages without a dependency group.
+    """
+    if not recommendations:
+        return ''  # pragma: no cover
+
+    # Map to dependency groups where available
+    dep_groups = []
+    fallback_packages = []
+    for otel_pkg, target_pkg in recommendations:
+        dep_group = TARGET_TO_DEP_GROUP.get(target_pkg)
+        if dep_group:
+            dep_groups.append(dep_group)
+        else:
+            fallback_packages.append(otel_pkg)
+
+    parts = []
+    if dep_groups:
+        parts.append(_format_dep_group_install_command(sorted(dep_groups)))
+    if fallback_packages:
+        if is_uv_installed():
+            parts.append(f'uv add {" ".join(sorted(fallback_packages))}')
+        else:
+            parts.append(f'pip install {" ".join(sorted(fallback_packages))}')  # pragma: no cover
+
+    return '\n'.join(parts)
 
 
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:
@@ -328,21 +441,6 @@ def installed_packages() -> set[str]:
             import pkg_resources  # pyright: ignore[reportMissingImports]
 
             return {pkg.key for pkg in pkg_resources.working_set}  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
-
-
-def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
-    """Generate a command to install all recommended packages at once."""
-    if not recommendations:
-        return ''  # pragma: no cover
-
-    package_names = [pkg_name for pkg_name, _ in recommendations]
-
-    # TODO(Marcelo): We should customize this. If the user uses poetry, they'd use `poetry add`.
-    # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
-    if is_uv_installed():
-        return f'uv add {" ".join(package_names)}'
-    else:
-        return f'pip install {" ".join(package_names)}'  # pragma: no cover
 
 
 def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext:
