@@ -71,7 +71,7 @@ OTEL_INSTRUMENTATION_MAP = {
 }
 
 # Mapping from target package names to Logfire optional dependency names.
-TARGET_TO_DEP_GROUP = {
+TARGET_TO_DEP_GROUP: dict[str, str] = {
     'aiohttp_client': 'aiohttp',
     'aiohttp_server': 'aiohttp-server',
     'celery': 'celery',
@@ -193,7 +193,7 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         else:
             fallback_packages.append(otel_pkg)
 
-    parts = []
+    parts: list[str] = []
     if dep_groups:
         parts.append(_format_dep_group_install_command(sorted(dep_groups)))
     if fallback_packages:
