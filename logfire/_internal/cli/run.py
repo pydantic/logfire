@@ -170,7 +170,7 @@ def is_uv_installed() -> bool:
 def _format_dep_group_install_command(dep_groups: list[str]) -> str:
     """Format a uv add command with dependency groups."""
     if not dep_groups:
-        return ''
+        return ''  # pragma: no cover
     return f'uv add logfire[{",".join(dep_groups)}]'
 
 
