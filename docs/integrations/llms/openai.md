@@ -78,6 +78,39 @@ Run your program, then open your project in the
 should see a span for the OpenAI call. Click it to read the conversation and see the token count and
 duration.
 
+## OpenAI-compatible gateways
+
+`instrument_openai()` works with any client that uses the official OpenAI Python SDK, including multi-model gateways that expose an OpenAI-compatible Chat Completions API. Point `base_url` at the gateway and pass the gateway API key:
+
+```python skip-run="true" skip-reason="external-connection"
+import openai
+
+import logfire
+
+client = openai.Client(
+    api_key='your_daoxe_api_key',
+    base_url='https://daoxe.com/v1',  # DaoXE multi-model gateway example
+)
+
+logfire.configure()
+logfire.instrument_openai(client)
+
+response = client.chat.completions.create(
+    model='your-account-model-id',  # exact ID from your DaoXE account / GET /v1/models
+    messages=[
+        {'role': 'user', 'content': 'Write a one-line haiku about observability.'},
+    ],
+)
+print(response.choices[0].message)
+```
+
+Notes:
+
+- Model IDs are account-scoped on many gateways; do not hardcode a static public catalog.
+- This path is OpenAI Chat Completions. Other protocols (for example Anthropic Messages) need their own SDK + instrumentation.
+- [DaoXE](https://daoxe.com) is not available in mainland China.
+- Contributor disclosure: this section was contributed by a DaoXE affiliate.
+
 ## Troubleshooting
 
 Not seeing your model calls in Logfire? Check these first:
