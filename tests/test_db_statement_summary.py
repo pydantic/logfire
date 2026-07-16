@@ -153,3 +153,16 @@ def test_insert():
         message_from_db_statement(attrs(q), None, 'INSERT')
         == 'INSERT INTO table (apple, bana…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
     )
+
+
+def test_insert_long_table():
+    # A long (e.g. schema-qualified) table name is not truncated on its own, so without a
+    # final length bound the INSERT summary blew past MAX_QUERY_MESSAGE_LENGTH (was 112 chars
+    # here) — unlike the SELECT path, which always ends with truncate(summary, MAX). The
+    # summary must stay bounded like every other branch.
+    q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple, banana, carrot, durian, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    # insert_assert(message_from_db_statement(attrs(q), None, 'INSERT'))
+    assert (
+        message_from_db_statement(attrs(q), None, 'INSERT')
+        == 'INSERT INTO "analytics"."very_long_event…a…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    )
