@@ -621,7 +621,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
 
 
 def test_sync_messages_stream_close_early(
-    instrumented_client: anthropic.Anthropic, caplog: pytest.LogCaptureFixture
+    instrumented_client: anthropic.Anthropic, exporter: TestExporter, caplog: pytest.LogCaptureFixture
 ) -> None:
     response = instrumented_client.messages.create(
         max_tokens=1000,
@@ -638,6 +638,8 @@ def test_sync_messages_stream_close_early(
                 if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta):  # type: ignore
                     chunks_seen += 1
                     break
+        del chunk
+        del stream
         del response
         gc.collect()
 
@@ -646,6 +648,11 @@ def test_sync_messages_stream_close_early(
         record
         for record in caplog.records
         if record.name == 'opentelemetry.context' and 'Failed to detach context' in record.getMessage()
+    ]
+    span_names = [span['name'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert span_names == [
+        'Message with {request_data[model]!r}',
+        'streaming response from {request_data[model]!r} took {duration:.2f}s',
     ]
 
 
