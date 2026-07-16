@@ -1,4 +1,4 @@
-from logfire._internal.db_statement_summary import message_from_db_statement
+from logfire._internal.db_statement_summary import MAX_QUERY_MESSAGE_LENGTH, message_from_db_statement
 
 
 def test_no_db_statement():
@@ -162,7 +162,9 @@ def test_insert_long_table():
     # summary must stay bounded like every other branch.
     q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple, banana, carrot, durian, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
     # insert_assert(message_from_db_statement(attrs(q), None, 'INSERT'))
-    assert (
-        message_from_db_statement(attrs(q), None, 'INSERT')
-        == 'INSERT INTO "analytics"."very_long_event…a…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
-    )
+    result = message_from_db_statement(attrs(q), None, 'INSERT')
+    assert result == 'INSERT INTO "analytics"."very_long_event…a…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    # Bounded like the SELECT path. The `+ 1` is truncate()'s pre-existing even-length
+    # behavior (it returns `2 * (length // 2) + 1` chars), shared with SELECT — this fix
+    # only makes INSERT honor the same bound, it doesn't change truncate() itself.
+    assert len(result) <= MAX_QUERY_MESSAGE_LENGTH + 1
