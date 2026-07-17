@@ -156,15 +156,10 @@ def test_insert():
 
 
 def test_insert_long_table():
-    # A long (e.g. schema-qualified) table name is not truncated on its own, so without a
-    # final length bound the INSERT summary blew past MAX_QUERY_MESSAGE_LENGTH (was 112 chars
-    # here) — unlike the SELECT path, which always ends with truncate(summary, MAX). The
-    # summary must stay bounded like every other branch.
+    # The table name isn't truncated on its own, so this was 112 chars before the bound.
     q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple, banana, carrot, durian, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
     # insert_assert(message_from_db_statement(attrs(q), None, 'INSERT'))
     result = message_from_db_statement(attrs(q), None, 'INSERT')
     assert result == 'INSERT INTO "analytics"."very_long_event…a…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
-    # Bounded like the SELECT path. The `+ 1` is truncate()'s pre-existing even-length
-    # behavior (it returns `2 * (length // 2) + 1` chars), shared with SELECT — this fix
-    # only makes INSERT honor the same bound, it doesn't change truncate() itself.
+    # +1: truncate() returns 2 * (length // 2) + 1 chars for even lengths, as it does for SELECT.
     assert len(result) <= MAX_QUERY_MESSAGE_LENGTH + 1
