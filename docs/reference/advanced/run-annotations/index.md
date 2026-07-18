@@ -28,18 +28,18 @@ You'll find **Annotations** in the project sidebar under **AI Evaluations**.
 1. Open **Agents** in the sidebar and click into an agent.
 2. On the **Runs** tab, click a row to expand it, then click **Annotate** in the run detail header. A sidebar opens on the right.
 3. Set a verdict. Click **Pass**, **Neutral**, or **Fail**, or press `1`, `2`, or `3`.
-4. Fill in the rest of the fields (all optional), covered below.
-5. Save. Press `cmd+enter` (`ctrl+enter` on Windows and Linux) to save and jump to the next run, or click **Save**.
+4. Add any of the optional fields below. Which ones appear depends on the verdict you picked.
+5. Save. Press `cmd+enter` (`ctrl+enter` on Windows and Linux) to save and move to the next unannotated run, or click **Save**.
 
 As you save, the **X / Y annotated** badge at the top of the runs table updates, so you can see how far through a batch you are.
 
 ## What you can record
 
-Each annotation holds:
+An annotation can hold:
 
-- **Verdict**: `pass`, `neutral`, or `fail`. The one required field, shown as a colored icon next to the run afterwards.
-- **Category**: a short label for the *kind* of result, for example `hallucination` or `wrong-tool`. Use a consistent set so you can group by it later.
-- **Expected output**: the answer the agent should have given. This is the field that turns a failing run into a reusable eval case, so it's worth writing out in full.
+- **Verdict**: `pass`, `neutral`, or `fail`. This is the headline label, shown as a colored icon next to the run afterwards. The other fields are optional context, and you can save an annotation with just a comment or a tag if you prefer.
+- **Category** (for neutral or failing runs): a short label for the *kind* of result, for example `hallucination` or `wrong-tool`. Use a consistent set so you can group by it later.
+- **Expected output** (for failing runs): the answer the agent should have given. This is the field that turns a failing run into a reusable eval case, so it's worth writing out in full.
 - **Comment**: free-text notes for the next reviewer.
 - **Tags**: extra labels for filtering.
 
@@ -54,7 +54,7 @@ Use the **Pass / Neutral / Fail** chips and the annotator chips at the top to fi
 
 ## Export annotations as eval cases
 
-From the runs table on an agent's detail page, click the export button at the top right. Logfire downloads a JSON Lines file (one JSON object per line) of every annotation matching the filter chips currently applied, including the reviewer and each run's `expected_output`. Feed that file into an eval [dataset](../../../evaluate/datasets/index.md) to turn the runs your team marked `fail` into the next round of test cases.
+On an agent's detail page, the runs table has an export button next to its annotation filters. It downloads a JSON Lines file (one JSON object per line) of the saved annotations, honoring the runs table's verdict, category, and tag filters, with each run's reviewer and `expected_output` included. Feed that file into an eval [dataset](../../../evaluate/datasets/index.md) to turn the runs your team marked `fail` into the next round of test cases.
 
 ## Verify
 
@@ -64,9 +64,9 @@ From the runs table on an agent's detail page, click the export button at the to
 
 ## Troubleshooting
 
-- **No agents on the Annotations page.** The grid only lists agents with runs in the last 7 days. Widen your activity window by sending more agent runs, or open an agent directly from the **Agents** page.
+- **No agents on the Annotations page.** The grid only lists agents with runs in the last 7 days. If the agent you want is older than that, open it directly from the **Agents** page.
 - **The run has no Annotate button.** Annotations attach to agent runs. Make sure you're on the **Runs** tab of an agent detail page and have expanded a run row; the button is in the expanded run's header.
-- **The export file is empty.** Export respects the filter chips. Clear the verdict and annotator filters, or pick chips that match saved annotations, then export again.
+- **The export file is empty.** Export only includes saved annotations, and it honors the runs table's verdict, category, and tag filters. Clear those filters, or set them to match annotations you've saved, then export again.
 
 ## Next steps
 
