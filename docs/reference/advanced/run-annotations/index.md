@@ -6,7 +6,7 @@ description: "Annotations let you label individual agent runs in Logfire with a 
 # Annotations
 
 !!! note "Beta: feedback welcome"
-    Annotations are in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](https://pydantic.dev/docs/logfire/join-slack/) or email [support@pydantic.dev](mailto:support@pydantic.dev).
+    Annotations are in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](../../../join-slack/index.html) or email [support@pydantic.dev](mailto:support@pydantic.dev).
 
 Review the output of your AI agents and label each run with a verdict (pass, neutral, or fail), a category, the answer it should have given, and a comment, without leaving Logfire. An *agent run* is one execution of an agent, recorded as a trace (the full journey of one request). The label you attach is an *annotation*.
 
