@@ -37,7 +37,7 @@ As you save, the **X / Y annotated** badge at the top of the runs table updates,
 
 An annotation can hold:
 
-- **Verdict**: `pass`, `neutral`, or `fail`. This is the headline label, shown as a colored icon next to the run afterwards. The other fields are optional context, and you can save an annotation with just a comment or a tag if you prefer.
+- **Verdict**: `pass`, `neutral`, or `fail`. This is the headline label, shown as a colored icon next to the run afterwards. The other fields are optional context, and you can save an annotation with only a comment or a tag.
 - **Category** (for neutral or failing runs): a short label for the *kind* of result, for example `hallucination` or `wrong-tool`. Use a consistent set so you can group by it later.
 - **Expected output** (for failing runs): the answer the agent should have given. This is the field that turns a failing run into a reusable eval case, so it's worth writing out in full.
 - **Comment**: free-text notes for the next reviewer.
