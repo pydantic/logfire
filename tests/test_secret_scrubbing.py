@@ -305,7 +305,6 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
                     ),
                     'other': "[Scrubbed due to 'my_pattern']",
                     'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
-                    'logfire.scrubbed': '[{"path": ["attributes", "other"], "matched_substring": "my_pattern"}]',
                 },
             }
         ]
@@ -340,7 +339,7 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
 def test_extra_pattern_redaction_reason_does_not_echo_secret(exporter: TestExporter, config_kwargs: dict[str, Any]):
     logfire.configure(
         scrubbing=logfire.ScrubbingOptions(
-            extra_patterns=[r'://[^:@/]+:[^@/]+@'],
+            extra_patterns=[r'://([^:@/]+):([^@/]+)@'],
         ),
         **config_kwargs,
     )
@@ -348,14 +347,30 @@ def test_extra_pattern_redaction_reason_does_not_echo_secret(exporter: TestExpor
     secret = 'admin:s3cr3t_pass'
     logfire.info('connect', config_url=f'postgresql://{secret}@db.internal:5432/mydb')
 
-    span = exporter.exported_spans_as_dict()[0]
-    config_url = span['attributes']['config_url']
-    scrubbed = span['attributes']['logfire.scrubbed']
-
-    assert secret not in config_url
-    assert secret not in scrubbed
-    assert config_url == "[Scrubbed due to '://[^:@/]+:[^@/]+@']"
-    assert scrubbed == IsJson([{'path': ['attributes', 'config_url'], 'matched_substring': '://[^:@/]+:[^@/]+@'}])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert secret not in str(spans)
+    assert spans == snapshot(
+        [
+            {
+                'name': 'connect',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'connect',
+                    'logfire.msg': 'connect',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_extra_pattern_redaction_reason_does_not_echo_secret',
+                    'code.lineno': 123,
+                    'config_url': "[Scrubbed due to '://([^:@/]+):([^@/]+)@']",
+                    'logfire.json_schema': {'type': 'object', 'properties': {'config_url': {}}},
+                },
+            }
+        ]
+    )
 
 
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
