@@ -631,6 +631,7 @@ def test_sync_messages_stream_close_early(
         stream=True,
     )
     chunks_seen = 0
+    chunk = None
 
     with caplog.at_level(logging.ERROR, logger='opentelemetry.context'):
         with response as stream:
