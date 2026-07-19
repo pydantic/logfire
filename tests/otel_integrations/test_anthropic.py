@@ -14,6 +14,7 @@ from anthropic.types import (
     MessageDeltaUsage,
     MessageStartEvent,
     MessageStopEvent,
+    ThinkingBlock,
     TextBlock,
     TextDelta,
     Usage,
@@ -1238,6 +1239,35 @@ def test_convert_messages_content_none() -> None:
     assert (input_messages, system_instructions) == snapshot(([{'role': 'user', 'parts': []}], []))
 
 
+def test_convert_response_with_thinking_block() -> None:
+    """Anthropic thinking blocks should map to semconv reasoning parts."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_response_to_semconv
+
+    message = Message.model_construct(
+        id='test_id',
+        content=[
+            ThinkingBlock(signature='sig', thinking='First, I should reason through the request.', type='thinking'),
+            TextBlock(text='Final answer', type='text'),
+        ],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    )
+
+    assert convert_response_to_semconv(message) == snapshot(
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'reasoning', 'content': 'First, I should reason through the request.'},
+                {'type': 'text', 'content': 'Final answer'},
+            ],
+            'finish_reason': 'end_turn',
+        }
+    )
+
+
 def test_on_response_unknown_block_type() -> None:
     """Test on_response with a block that's neither text nor tool_use."""
     from logfire._internal.integrations.llm_providers.anthropic import on_response
@@ -1274,6 +1304,49 @@ def test_on_response_unknown_block_type() -> None:
 
     assert span.attributes.get('response_data') == snapshot(
         {'message': {'role': 'assistant', 'content': 'Hello'}, 'usage': Usage(input_tokens=2, output_tokens=3)}
+    )
+
+
+def test_on_response_with_thinking_block_legacy_response_data() -> None:
+    """Legacy Anthropic response_data should preserve thinking blocks."""
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
+
+    message = Message.model_construct(
+        id='test_id',
+        content=[
+            ThinkingBlock(signature='sig', thinking='Need to inspect the tool result first.', type='thinking'),
+            TextBlock(text='Done', type='text'),
+        ],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    )
+
+    class MockSpan:
+        def __init__(self):
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
+
+    span = MockSpan()
+    on_response(message, span, version=1)  # type: ignore
+
+    assert span.attributes.get('response_data') == snapshot(
+        {
+            'message': {
+                'role': 'assistant',
+                'reasoning': ['Need to inspect the tool result first.'],
+                'content': 'Done',
+            },
+            'usage': Usage(input_tokens=2, output_tokens=3),
+        }
     )
 
 
