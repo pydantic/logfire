@@ -69,7 +69,7 @@ async def run_evaluation():
 
 !!! note "Pulling data from Logfire without pushing results back"
 
-    Whether you *store* the dataset on Logfire and whether you *send* the evaluation results to Logfire are two independent choices. You can fetch a hosted dataset (see below) and then run a purely local evaluation that only prints to the console — just omit the `logfire.configure()` call. That said, we recommend configuring Logfire during evaluation so that runs show up alongside your dataset in the UI for comparison over time.
+    Whether you *store* the dataset on Logfire and whether you *send* the evaluation results to Logfire are two independent choices. You can fetch a hosted dataset (see below) and then run a purely local evaluation that only prints to the console: just omit the `logfire.configure()` call. That said, we recommend configuring Logfire during evaluation so that runs show up alongside your dataset in the UI for comparison over time.
 
 You can also load local datasets from YAML files --- see the [pydantic-evals documentation](https://pydantic.dev/docs/ai/evals/evals/) for details. With Logfire tracing enabled, runs against local datasets still appear on the [Evals: Datasets & Experiments](../../guides/web-ui/evals.md) page (as **Local** datasets --- see [Hosted vs Local Datasets](index.md#hosted-vs-local-datasets)).
 

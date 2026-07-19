@@ -17,7 +17,7 @@ Example: a prompt named *"Welcome Email"* with slug `welcome-email`. One prompt 
 
 A **version** is an immutable snapshot of a prompt's template text. Versions are numbered sequentially (v1, v2, v3, …) and recorded with the author and timestamp. You save a version when you want a stable point to promote, compare against, or roll back to.
 
-!!! important "A version freezes the template — nothing else"
+!!! important "A version freezes the template, nothing else"
     Saving a version stores only the template text. If you test "v2" today and test "v2" again later, you will get v2's template but whatever settings are current at execution time.
 
 ### Backing managed variable

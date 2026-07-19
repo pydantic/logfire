@@ -10,10 +10,15 @@ With **Logfire**, use Alerts to notify you when certain conditions are met.
 
 Let's see in practice how to create an alert.
 
-1. Go to the **Alerts** tab in the left sidebar.
-2. Click the **Create alert** button.
+1. Go to the **Alerts** section in the left sidebar.
+2. Click the **New alert** button. You'll land on a picker offering three starting points:
+    - **Custom query**: start from a blank SQL editor (use this if your scenario isn't covered below).
+    - **Service Level Objective**: define a reliability target and Logfire wires up the burn-rate alerts automatically. Best when you have a clear contract (uptime, latency, error budget).
+    - **Templates**: ready-to-tune alerts for common cases: exceptions, HTTP 5xx, slow database queries, LLM errors, queue backlog, and more. Each one prefills the name, description, query, and evaluation timing. You just tune the threshold and pick a channel.
 
-Then you'll see the following form:
+![New alert picker](../../images/guide/browser-alerts-new.png)
+
+Click **Customize** on any template (or **Start** on the custom-query card) to open the create form.
 
 ![Create alert form](../../images/guide/browser-alerts-create.png)
 
@@ -34,15 +39,11 @@ WHERE
 1. The `SELECT ... FROM records` statement is the base query that will be executed. The **records** table contains the spans and logs data. `trace_id` links to the trace in the live view when viewing the alert run results in the web UI.
 2. The `attributes` field is a JSON field that contains additional information about the record. In this case, we're using the `http.route` attribute to filter the records by route.
 
-The **Time window** field allows you to specify the time range over which the query will be executed.
+The **When this alert fires** section controls the evaluation: a **Fire when** condition (see [Notification modes](#notification-modes) below), a **Look at rows from** lookback window, and a **Check every** cadence. A friendly preview line under the controls spells out the resulting behavior in plain English.
 
-The **Webhook URL** field is where you can specify a URL to which the alert will send a POST request when triggered.
-For now, **Logfire** alerts only send the requests in [Slack format].
+The **Send notifications to** section is where you pick one or more notification channels. Without a channel the alert still evaluates and shows up on the Alerts page. It just won't notify anyone outside Logfire.
 
-??? tip "Get a Slack webhook URL"
-    To get a Slack webhook URL, follow the instructions in the [Slack documentation](https://api.slack.com/messaging/webhooks).
-
-After filling in the form, click the **Create alert** button. And... Alert created! :tada:
+After filling in the form, click **Create alert**. And... Alert created! :tada:
 
 ## Notification modes
 
@@ -62,36 +63,43 @@ You'll receive a notification when the query **transitions** between having resu
 
 ### The query starts having results
 
-Same as above, but you'll **only** be notified on the transition from no rows to rows — not the other direction. If rows indicate a problem, this means you'll hear about the onset but not the resolution.
+Same as above, but you'll **only** be notified on the transition from no rows to rows, not the other direction. If rows indicate a problem, this means you'll hear about the onset but not the resolution.
 
-**Example use case:** Alert me when my service starts throwing exceptions, but don't notify me when it stops — I'll check resolution on my own schedule.
+**Example use case:** Alert me when my service starts throwing exceptions, but don't notify me when it stops. I'll check resolution on my own schedule.
 
 ### The query's results change
 
-You'll receive a notification whenever the **actual data** returned by the query changes between consecutive runs. This is more granular than the previous mode — it detects changes in the result set itself, not just whether there are results.
+You'll receive a notification whenever the **actual data** returned by the query changes between consecutive runs. This is more granular than the previous mode. It detects changes in the result set itself, not just whether there are results.
 
 **Example use case:** Detect when a service goes down by querying for health check spans and [using a `CASE` expression](../../how-to-guides/detect-service-is-down.md) to return `'up'` or `'down'`. You'll be notified when the status changes in either direction.
 
-## Alert History
+## The Alerts overview
 
-After creating an alert, you'll be redirected to the alerts' list. There you can see the alerts you've created and their status.
+After creating an alert, you'll land on the Alerts overview page. The top of the page shows:
 
-If the query was not matched in the last time window, you'll see **no matches** next to the alert name, and no results in the histogram table of the selected time period.
+- **State tiles**: Firing, Flapping, OK, Snoozed, No data. Click a tile to filter the table to just those alerts. Hover any tile for a definition (e.g. *Flapping = 3+ firing↔clear crossings in the last 20 buckets*).
+- **Alert activity**: a stacked bar chart of how many alerts were firing during each one-hour bucket. The y-axis is floored at 0–10 so a quiet day with a single firing doesn't look like an incident.
 
-![Alerts list](../../images/guide/browser-alerts-no-error.png)
+The list below has one row per alert with:
 
-Otherwise, you'll see the number of matches highlighted in orange.
+- **State**: a colored dot + label (`• Firing`, `• OK`, `• Snoozed`, `• Flapping`, `• No data`).
+- **Activity**: a per-row sparkline of recent firings. Hover any bar to see whether the bucket was clear, snoozed, before the alert existed, or the alert was disabled during it.
+- **Channels**, **Last run**, **Next run**: when the alert last ran and when it's scheduled next. For a disabled alert this reads *disabled*; for a snoozed one it shows when notifications resume (e.g. *after 23 minutes*).
 
-![Alerts list with error](../../images/guide/browser-alerts-error.png)
+Group the list by state, channel, or snooze status with the **Group by** dropdown, or filter by name with the search input.
 
-In this case, you'll also receive a notification in the Webhook URL you've set up.
+## Snoozing
+
+Use the **Snooze** action on a row to mute notifications until a deadline you pick (30m, 1h, 4h, 1d, 3d, 1w, or a custom timestamp). Evaluation keeps running on the normal cadence (the timeline and Runs history record what fired during the mute), but the worker drops the notification. Snoozed alerts appear in the list with a `• Snoozed` pill and a *Next run after X* timestamp, and notifications resume automatically when the snooze expires.
+
+You can also select multiple rows with the checkboxes and snooze them together. A floating action bar appears at the bottom of the screen with **Snooze selected** and **Clear**.
 
 ## Edit an alert
 
-You can configure an alert by clicking on the **Configuration** button on the right side of the alert.
+Click an alert's name to open the detail page. The top of the page summarizes the current state in plain English (e.g. *"Firing: 1 match in the last run"* or *"Snoozed until Jun 27, 2026 at 14:30: notifications paused, evaluation continues."*) and surfaces the right action inline (Unsnooze when snoozed, Snooze otherwise).
 
-![Edit alert](../../images/guide/browser-alerts-edit.png)
+Below the status callout, a **Setup** card shows the firing condition, schedule, notification channels, environment filter, and the SQL query (collapsed by default). A **Runs history** list at the bottom shows every run in the selected time window. Expand a row to see the matched rows.
 
-You can update the alert, or delete it by clicking the **Delete** button. If instead of deleting the alert, you want to disable it, you can click on the **Active** switch.
+Use the **Edit alert** button in the header to change the query, channels, or evaluation timing. Toggle the **Active** switch in the edit form to disable the alert without deleting it.
 
 [Slack format]: https://api.slack.com/reference/surfaces/formatting

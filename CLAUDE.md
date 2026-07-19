@@ -13,6 +13,22 @@ Pre-commit automatically runs ruff and pyright, but you can also run `make forma
 
 Docs are rendered and deployed through the `pydantic/unified-docs` pipeline. Do not use MkDocs checks in this repository.
 
+When linking between pages in this repository, use source-relative `.md` links. Published routes can
+differ from source paths because `pydantic/unified-docs` remaps some sections. When adding or moving
+a docs section, check whether unified-docs remaps it and verify the page and any anchor in a rendered
+preview. Fix a missing remap in unified-docs instead of hard-coding a public route here, and never
+include the deployment-specific `/docs` prefix.
+
+## Writing standard
+
+**The full documentation style guide is [`dev-docs/documentation-style-guide.md`](dev-docs/documentation-style-guide.md)** — page templates, the terminology glossary, the pre-publish checklist, the anti-pattern catalog, and the rules for AI-assisted authoring. Read it before writing or substantially editing a docs page.
+
+Every page in the public docs (`docs/`) is held to one standard:
+
+> If an expert in some other field who has just started building with AI tools wouldn't know what it means, we spell out the acronym, we explain the term in place, or we rewrite the sentence to be human friendly.
+
+This is about _introducing_ terms, not avoiding them — give the real word plus a plain-language hand-hold at first use. Docstrings and other in-code text follow normal API-reference conventions and are out of scope.
+
 # Core Structure
 
 ```
@@ -70,6 +86,12 @@ assert ... == snapshot({
 Use `@pytest.mark.anyio` for async tests.
 
 Some tests are decorated with `@pytest.mark.vcr()` and use `pytest-recording` to record HTTP interactions. Existing VCR cassette files should suffice. When creating a new test like this, run `uv run pytest -k test_my_thing --inline-snapshot=fix --record-mode=rewrite`.
+
+Tests should use user-facing APIs as much as possible. Minimize mocking and reaching into internals.
+
+Avoid constructing `LogfireConfig` or `Logfire` instances unless absolutely necessary. Use `logfire.configure()` instead, typically with the `config_kwargs` fixture, and even then only if the default configuration done for each test doesn't already suffice.
+
+There's no need to write `lf = logfire.configure(...); lf.foo()`. Write `logfire.configure(...); logfire.foo()`. There's also generally no need to explicitly call `logfire.shutdown()`.
 
 # logfire-api
 

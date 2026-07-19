@@ -172,6 +172,7 @@
       { "label": "Services", "slug": "guides/web-ui/services" },
       { "label": "Hosts", "slug": "guides/web-ui/hosts" },
       { "label": "Kubernetes", "slug": "guides/web-ui/kubernetes" },
+      { "label": "Docker", "slug": "guides/web-ui/docker" },
       { "label": "LLMs", "slug": "guides/web-ui/llms" },
       { "label": "Metrics Explorer", "slug": "guides/web-ui/metrics-explorer" },
       { "label": "LLM Panels", "slug": "guides/web-ui/llm-panels" },
@@ -229,7 +230,13 @@
       { "label": "Export Data", "slug": "how-to-guides/query-api" },
       { "label": "Feature Flags (OFREP)", "slug": "how-to-guides/client-side-feature-flags" },
       { "label": "Convert to Organization", "slug": "how-to-guides/convert-to-organization" },
-      { "label": "Gateway Migration", "slug": "gateway-migration" }
+      {
+        "label": "AI Gateway",
+        "items": [
+          { "label": "Overview", "slug": "reference/advanced/gateway/index" },
+          { "label": "Embeddings", "slug": "reference/advanced/gateway/embeddings" }
+        ]
+      }
     ]
   },
   {

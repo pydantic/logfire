@@ -21,7 +21,7 @@ The [usage documentation](index.md) is the most complete guide on how to get sta
 
 ## :material-api: SDK API Documentation
 
-The [SDK API documentation](reference/api/logfire.md) give reference docs for the **Logfire** SDK.
+The [SDK API documentation](reference/api/logfire.md) gives reference docs for the **Logfire** SDK.
 
 ## :material-email: Email
 

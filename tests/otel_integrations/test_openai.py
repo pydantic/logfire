@@ -4235,6 +4235,57 @@ def test_input_to_events_unknown_type_no_role() -> None:
     )
 
 
+def test_input_to_events_responses_api_content_parts() -> None:
+    """Test Responses API content parts on the legacy events path."""
+    from logfire._internal.integrations.llm_providers.openai import input_to_events
+
+    inp: dict[str, Any] = {
+        'type': 'message',
+        'role': 'user',
+        'content': [
+            {'type': 'input_text', 'text': 'What is in these files?'},
+            {'type': 'input_image', 'image_url': 'data:image/png;base64,abc123'},
+            {'type': 'input_image', 'file_data': 'ignored-on-events-path'},
+            {'type': 'input_image', 'file_id': 'file_image_123'},
+            {'type': 'input_image', 'detail': 'low'},
+            {'type': 'input_file', 'file_url': 'https://example.com/report.pdf'},
+            {'type': 'input_file', 'file_id': 'file_123'},
+            {'type': 'input_file', 'file_data': 'JVBERi0x'},
+            {'type': 'input_file', 'filename': 'report.pdf', 'file_data': 'JVBERi0x'},
+            {'type': 'input_file'},
+            {'type': 'input_unknown', 'value': 'kept as unknown'},
+        ],
+    }
+
+    events = input_to_events(inp, {})
+
+    assert events == snapshot(
+        [
+            {'event.name': 'gen_ai.user.message', 'content': 'What is in these files?', 'role': 'user'},
+            {'event.name': 'gen_ai.user.message', 'content': 'data:image/png;base64,abc123', 'role': 'user'},
+            {'event.name': 'gen_ai.user.message', 'content': '[file_data]', 'role': 'user'},
+            {'event.name': 'gen_ai.user.message', 'content': 'file_image_123', 'role': 'user'},
+            {
+                'event.name': 'gen_ai.unknown',
+                'role': 'unknown',
+                'content': 'input_image\n\nSee JSON for details',
+                'data': {'type': 'input_image', 'detail': 'low'},
+            },
+            {'event.name': 'gen_ai.user.message', 'content': 'https://example.com/report.pdf', 'role': 'user'},
+            {'event.name': 'gen_ai.user.message', 'content': 'file_123', 'role': 'user'},
+            {'event.name': 'gen_ai.user.message', 'content': '[file_data]', 'role': 'user'},
+            {'event.name': 'gen_ai.user.message', 'content': 'report.pdf', 'role': 'user'},
+            {'event.name': 'gen_ai.user.message', 'content': '[file]', 'role': 'user'},
+            {
+                'event.name': 'gen_ai.unknown',
+                'role': 'unknown',
+                'content': 'input_unknown\n\nSee JSON for details',
+                'data': {'type': 'input_unknown', 'value': 'kept as unknown'},
+            },
+        ]
+    )
+
+
 def test_inputs_to_events_no_inputs() -> None:
     """Test inputs_to_events with no inputs."""
     from logfire._internal.integrations.llm_providers.openai import inputs_to_events
@@ -4365,6 +4416,56 @@ def test_convert_responses_inputs_unknown_type() -> None:
 
     assert (input_messages, system_instructions) == snapshot(
         ([{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}], [])
+    )
+
+
+def test_convert_responses_inputs_multimodal_content_parts() -> None:
+    """Test Responses API text, image, and file input parts."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    inputs: list[dict[str, Any]] = [
+        {
+            'role': 'user',
+            'content': [
+                {'type': 'input_text', 'text': 'Summarize these inputs'},
+                {'type': 'image_url', 'image_url': {'url': 'https://example.com/chat-image.png'}},
+                {'type': 'image_url', 'image_url': {}, 'file_id': 'file_chat_image_123'},
+                {'type': 'input_image', 'image_url': 'https://example.com/image.png'},
+                {'type': 'input_image', 'file_data': 'iVBORw0KGgo='},
+                {'type': 'input_image', 'file_id': 'file_image_123'},
+                {'type': 'input_image', 'detail': 'low'},
+                {'type': 'input_file', 'file_url': 'https://example.com/report.pdf'},
+                {'type': 'input_file', 'file_id': 'file_doc_123'},
+                {'type': 'input_file', 'file_data': 'JVBERi0x', 'filename': 'inline.pdf'},
+                {'type': 'input_file', 'filename': 'missing-data.pdf'},
+            ],
+        }
+    ]
+
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, None)
+
+    assert (input_messages, system_instructions) == snapshot(
+        (
+            [
+                {
+                    'role': 'user',
+                    'parts': [
+                        {'type': 'text', 'content': 'Summarize these inputs'},
+                        {'type': 'uri', 'uri': 'https://example.com/chat-image.png', 'modality': 'image'},
+                        {'type': 'file', 'file_id': 'file_chat_image_123', 'modality': 'image'},
+                        {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
+                        {'type': 'blob', 'content': 'iVBORw0KGgo=', 'modality': 'image'},
+                        {'type': 'file', 'file_id': 'file_image_123', 'modality': 'image'},
+                        {'type': 'input_image', 'detail': 'low'},
+                        {'type': 'uri', 'uri': 'https://example.com/report.pdf', 'modality': 'document'},
+                        {'type': 'file', 'file_id': 'file_doc_123', 'modality': 'document'},
+                        {'type': 'blob', 'content': 'JVBERi0x', 'modality': 'document'},
+                        {'type': 'input_file', 'filename': 'missing-data.pdf'},
+                    ],
+                }
+            ],
+            [],
+        )
     )
 
 

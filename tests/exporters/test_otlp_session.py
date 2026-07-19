@@ -11,11 +11,14 @@ from unittest.mock import Mock
 import pytest
 import requests
 import requests.exceptions
-from inline_snapshot import snapshot
+from dirty_equals import IsStr
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
+import logfire
+from logfire._internal.config import LogfireConfig
+from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     BodyTooLargeError,
@@ -23,7 +26,10 @@ from logfire._internal.exporters.otlp import (
     OTLPExporterHttpSession,
     cleanup_disk_retryers,
 )
+from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
+from logfire._internal.exporters.wrapper import WrapperSpanExporter
 from tests.exporters.test_retry_fewer_spans import TEST_SPANS
+from tests.test_configure import get_span_processors, wait_for_check_token_thread
 
 
 class SinkHTTPAdapter(HTTPAdapter):
@@ -45,10 +51,14 @@ def test_max_body_size_bytes() -> None:
     exporter.max_body_size = 10
     with pytest.raises(BodyTooLargeError) as e:
         exporter.export(TEST_SPANS)
-    assert str(e.value) == snapshot('Request body is too large (897045 bytes), must be less than 10 bytes.')
+    # The exact serialized size depends on the OpenTelemetry version, so match the message shape
+    # rather than a hardcoded byte count.
+    assert str(e.value) == IsStr(regex=r'Request body is too large \(\d+ bytes\), must be less than 10 bytes\.')
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
     sleep_mock = Mock(return_value=0)
     monkeypatch.setattr('time.sleep', sleep_mock)
     monkeypatch.setattr('time.monotonic', Mock(side_effect=range(0, 1000, 30)))
@@ -60,18 +70,24 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
             self.mock = mock
 
         def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
-            assert request.body == b'123'
-            assert request.url == 'http://example.com/'
-            assert request.headers['User-Agent'] == 'logfire'
-            assert request.headers['Authorization'] == 'Bearer 123'
             return self.mock()
 
-    session = OTLPExporterHttpSession()
-    headers = {'User-Agent': 'logfire', 'Authorization': 'Bearer 123'}
-    session.headers.update(headers)
+    logfire.configure(send_to_logfire=True, console=False, token='foo')
+    wait_for_check_token_thread()
+
+    [send_to_logfire_processor, *_] = get_span_processors()
+
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    exporter = send_to_logfire_processor.span_exporter
+    while isinstance(exporter, WrapperSpanExporter):
+        exporter = exporter.wrapped_exporter
+    assert isinstance(exporter, BodySizeCheckingOTLPSpanExporter)
+
+    session: OTLPExporterHttpSession = exporter._session  # type: ignore
 
     # The main session always fails so that it defers to the retryer.
-    session.mount('http://', ConnectionErrorAdapter(Mock(side_effect=requests.exceptions.ConnectionError())))
+    session.mount('https://', ConnectionErrorAdapter(Mock(side_effect=requests.exceptions.ConnectionError())))
 
     # The retryer sessions fails at first to simulate logfire being down, then succeeds.
     failure = Response()
@@ -80,14 +96,14 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     success.status_code = 200
     num_exports = 10
     session.retryer.session.mount(
-        'http://',
+        'https://',
         ConnectionErrorAdapter(Mock(side_effect=[failure] * num_exports + [success] * num_exports)),
     )
 
     # Create a bunch of failed exports.
     for _ in range(num_exports):
-        with pytest.raises(requests.exceptions.ConnectionError):
-            session.post('http://example.com/', data=b'123')
+        logfire.info('hi')
+        logfire.force_flush()
 
     # Wait for the retryer to finish.
     # time.sleep has been mocked to return 0 so this shouldn't take long.
@@ -138,7 +154,9 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # This will always be the first message in case of failures.
     # After that the number of failed exports is unpredictable because the main thread is adding to it
     # at the same time as the retryer thread removes from it.
-    assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
+    assert caplog.messages[0].startswith('Currently retrying 1 failed export(s) (')
+    for message in caplog.messages:
+        assert message == IsStr(regex=r'Currently retrying \d+ failed export\(s\) \(\d+ bytes\)')
 
 
 def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
