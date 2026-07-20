@@ -76,7 +76,7 @@ def _httpx2_instrumentation_error() -> RuntimeError:
     return RuntimeError(
         'Instrumenting `httpx2` requires `opentelemetry-instrumentation-httpx>=0.65b0`.\n'
         'You can update this with:\n'
-        "    pip install -U 'logfire[httpx]'"
+        "    pip install -U 'opentelemetry-instrumentation-httpx>=0.65b0'"
     )
 
 
