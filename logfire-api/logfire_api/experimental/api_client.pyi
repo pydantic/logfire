@@ -1,13 +1,16 @@
 from _typeshed import Incomplete
 from collections.abc import Sequence
+from datetime import datetime as datetime
 from httpx import AsyncClient, Client, Timeout
 from httpx._client import BaseClient
 from logfire._internal.config import get_base_url_from_token as get_base_url_from_token
+from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, ReportEvaluator
 from types import TracebackType
 from typing import Any, Generic, Literal, TypeVar, overload
-from typing_extensions import Self
+from typing_extensions import NotRequired, Self, TypedDict
+from uuid import UUID
 
 Case = Any
 Dataset = Any
@@ -18,6 +21,101 @@ T = TypeVar('T', bound=BaseClient)
 InputsT = TypeVar('InputsT')
 OutputT = TypeVar('OutputT')
 MetadataT = TypeVar('MetadataT')
+ResponseT = TypeVar('ResponseT')
+
+class EvaluatorSpec(TypedDict):
+    """An evaluator specification with a name and optional arguments."""
+    name: str
+    arguments: NotRequired[dict[str, Any] | None]
+
+class DatasetSummary(TypedDict):
+    """Summary of a dataset, as returned by `LogfireAPIClient.list_datasets`."""
+    id: UUID
+    name: str
+    project_id: NotRequired[UUID]
+    description: NotRequired[str | None]
+    guidance: NotRequired[str | None]
+    ai_managed_guidance: NotRequired[bool]
+    case_count: NotRequired[int]
+    created_at: NotRequired[datetime]
+    updated_at: NotRequired[datetime]
+    created_by_name: NotRequired[str | None]
+    updated_by_name: NotRequired[str | None]
+
+class DatasetDetail(TypedDict):
+    """Full dataset metadata.
+
+    Returned by `LogfireAPIClient.create_dataset`, `LogfireAPIClient.update_dataset`,
+    `LogfireAPIClient.push_dataset`, and `LogfireAPIClient.get_dataset` with
+    `include_cases=False`.
+    """
+    id: UUID
+    name: str
+    project_id: NotRequired[UUID]
+    description: NotRequired[str | None]
+    input_schema: NotRequired[dict[str, Any] | None]
+    output_schema: NotRequired[dict[str, Any] | None]
+    metadata_schema: NotRequired[dict[str, Any] | None]
+    guidance: NotRequired[str | None]
+    ai_managed_guidance: NotRequired[bool]
+    evaluators: NotRequired[list[EvaluatorSpec] | None]
+    report_evaluators: NotRequired[list[EvaluatorSpec] | None]
+    case_count: NotRequired[int]
+    created_at: NotRequired[datetime]
+    updated_at: NotRequired[datetime]
+    created_by: NotRequired[UUID | None]
+
+class CaseDetail(TypedDict):
+    """Full case details, as returned by case operations like `LogfireAPIClient.get_case`."""
+    id: UUID
+    inputs: Any
+    dataset_id: NotRequired[UUID]
+    name: NotRequired[str | None]
+    expected_output: NotRequired[Any]
+    metadata: NotRequired[Any]
+    evaluators: NotRequired[list[EvaluatorSpec] | None]
+    source_trace_id: NotRequired[str | None]
+    source_span_id: NotRequired[str | None]
+    tags: NotRequired[list[str] | None]
+    version: NotRequired[int]
+    created_at: NotRequired[datetime]
+    created_by: NotRequired[UUID | None]
+    updated_at: NotRequired[datetime]
+    updated_by: NotRequired[UUID | None]
+
+class CaseData(TypedDict):
+    """Data for creating a case via `LogfireAPIClient.add_cases`.
+
+    Only `inputs` is required; all other fields are optional. This is an input
+    type and is not validated against the backend response.
+    """
+    inputs: Any
+    name: NotRequired[str | None]
+    expected_output: NotRequired[Any]
+    metadata: NotRequired[Any]
+    evaluators: NotRequired[list[EvaluatorSpec] | None]
+    source_trace_id: NotRequired[str | None]
+    source_span_id: NotRequired[str | None]
+    tags: NotRequired[list[str] | None]
+
+class ExportedCase(TypedDict):
+    """A case in pydantic-evals-compatible format, part of `ExportedDataset`."""
+    inputs: Any
+    name: NotRequired[str | None]
+    metadata: NotRequired[Any]
+    expected_output: NotRequired[Any]
+    evaluators: NotRequired[list[EvaluatorSpec] | None]
+
+class ExportedDataset(TypedDict):
+    """Dataset export in pydantic-evals-compatible format.
+
+    Returned by `LogfireAPIClient.get_dataset` when called with cases but without
+    type arguments. Compatible with `pydantic_evals.Dataset.from_dict()`.
+    """
+    cases: list[ExportedCase]
+    name: NotRequired[str | None]
+    evaluators: NotRequired[list[EvaluatorSpec]]
+    report_evaluators: NotRequired[list[EvaluatorSpec]]
 
 class DatasetNotFoundError(Exception):
     """Raised when a dataset is not found."""
@@ -85,13 +183,13 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         """
     def __enter__(self) -> Self: ...
     def __exit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
-    def list_datasets(self) -> list[dict[str, Any]]:
+    def list_datasets(self) -> list[DatasetSummary]:
         """List all datasets in the project.
 
         Returns:
             List of dataset summaries with id, name, description, case_count, etc.
         """
-    def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None, report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None) -> dict[str, Any]:
+    def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None, report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None) -> DatasetDetail:
         '''Create a new dataset with optional type schemas.
 
         Args:
@@ -130,7 +228,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             )
             ```
         '''
-    def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ..., report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = ...) -> dict[str, Any]:
+    def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ..., report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = ...) -> DatasetDetail:
         """Update an existing dataset.
 
         Args:
@@ -160,7 +258,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
         """
-    def list_cases(self, dataset_id_or_name: str) -> list[dict[str, Any]]:
+    def list_cases(self, dataset_id_or_name: str) -> list[CaseDetail]:
         """List all cases in a dataset.
 
         Args:
@@ -172,7 +270,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
         """
-    def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
+    def get_case(self, dataset_id_or_name: str, case_id: str) -> CaseDetail:
         """Get a specific case from a dataset.
 
         Args:
@@ -186,7 +284,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             DatasetNotFoundError: If the dataset does not exist.
             CaseNotFoundError: If the case does not exist.
         """
-    def push_dataset(self, dataset: Dataset[InputsT, OutputT, MetadataT], *, name: str | None = None, description: str | None = ..., on_case_conflict: Literal['update', 'error'] = 'update') -> dict[str, Any]:
+    def push_dataset(self, dataset: Dataset[InputsT, OutputT, MetadataT], *, name: str | None = None, description: str | None = ..., on_case_conflict: Literal['update', 'error'] = 'update') -> DatasetDetail:
         '''Publish a local `pydantic_evals.Dataset` to the hosted datasets API.
 
         This is the high-level "push my dataset to hosted" helper. It creates a
@@ -257,7 +355,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             )
             ```
         '''
-    def add_cases(self, dataset_id_or_name: str, cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]], *, on_conflict: str = 'update') -> list[dict[str, Any]]:
+    def add_cases(self, dataset_id_or_name: str, cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[CaseData], *, on_conflict: str = 'update') -> list[CaseDetail]:
         '''Add cases to a dataset.
 
         Accepts either pydantic-evals Case objects or plain dicts.
@@ -291,7 +389,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             )
             ```
         '''
-    def update_case(self, dataset_id_or_name: str, case_id: str, *, name: str | None = ..., inputs: Any | None = None, expected_output: Any | None = ..., metadata: Any | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ...) -> dict[str, Any]:
+    def update_case(self, dataset_id_or_name: str, case_id: str, *, name: str | None = ..., inputs: Any | None = None, expected_output: Any | None = ..., metadata: Any | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ...) -> CaseDetail:
         """Update an existing case.
 
         Args:
@@ -322,7 +420,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             CaseNotFoundError: If the case does not exist.
         """
     @overload
-    def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
+    def get_dataset(self, id_or_name: str, *, include_cases: Literal[False]) -> DatasetDetail: ...
+    @overload
+    def get_dataset(self, id_or_name: str, *, include_cases: Literal[True] = ...) -> ExportedDataset: ...
     @overload
     def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (), custom_report_evaluator_types: Sequence[type[Any]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
@@ -334,19 +434,19 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     def __init__(self, api_key: str | None = None, base_url: str | None = None, timeout: Timeout = ..., *, client: AsyncClient | None = None) -> None: ...
     async def __aenter__(self) -> Self: ...
     async def __aexit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
-    async def list_datasets(self) -> list[dict[str, Any]]:
+    async def list_datasets(self) -> list[DatasetSummary]:
         """List all datasets."""
-    async def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None, report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None) -> dict[str, Any]:
+    async def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None, report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None) -> DatasetDetail:
         """Create a new dataset."""
-    async def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ..., report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = ...) -> dict[str, Any]:
+    async def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ..., report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = ...) -> DatasetDetail:
         """Update an existing dataset."""
     async def delete_dataset(self, id_or_name: str) -> None:
         """Delete a dataset."""
-    async def list_cases(self, dataset_id_or_name: str) -> list[dict[str, Any]]:
+    async def list_cases(self, dataset_id_or_name: str) -> list[CaseDetail]:
         """List all cases in a dataset."""
-    async def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
+    async def get_case(self, dataset_id_or_name: str, case_id: str) -> CaseDetail:
         """Get a specific case from a dataset."""
-    async def push_dataset(self, dataset: Dataset[InputsT, OutputT, MetadataT], *, name: str | None = None, description: str | None = ..., on_case_conflict: Literal['update', 'error'] = 'update') -> dict[str, Any]:
+    async def push_dataset(self, dataset: Dataset[InputsT, OutputT, MetadataT], *, name: str | None = None, description: str | None = ..., on_case_conflict: Literal['update', 'error'] = 'update') -> DatasetDetail:
         """Async version of `LogfireAPIClient.push_dataset`.
 
         Args:
@@ -376,7 +476,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             DatasetNotFoundError: If the hosted dataset cannot be fetched after
                 the push completes.
         """
-    async def add_cases(self, dataset_id_or_name: str, cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]], *, on_conflict: str = 'update') -> list[dict[str, Any]]:
+    async def add_cases(self, dataset_id_or_name: str, cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[CaseData], *, on_conflict: str = 'update') -> list[CaseDetail]:
         """Add cases to a dataset.
 
         Accepts either pydantic-evals Case objects or plain dicts.
@@ -385,11 +485,13 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         case in the dataset are updated; cases without a name or with a new name
         are created. Set `on_conflict='error'` to fail on name conflicts instead.
         """
-    async def update_case(self, dataset_id_or_name: str, case_id: str, *, name: str | None = ..., inputs: Any | None = None, expected_output: Any | None = ..., metadata: Any | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ...) -> dict[str, Any]:
+    async def update_case(self, dataset_id_or_name: str, case_id: str, *, name: str | None = ..., inputs: Any | None = None, expected_output: Any | None = ..., metadata: Any | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ...) -> CaseDetail:
         """Update an existing case."""
     async def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
         """Delete a case from a dataset."""
     @overload
-    async def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
+    async def get_dataset(self, id_or_name: str, *, include_cases: Literal[False]) -> DatasetDetail: ...
+    @overload
+    async def get_dataset(self, id_or_name: str, *, include_cases: Literal[True] = ...) -> ExportedDataset: ...
     @overload
     async def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (), custom_report_evaluator_types: Sequence[type[Any]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
