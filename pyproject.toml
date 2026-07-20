@@ -175,8 +175,9 @@ dev = [
     # https://github.com/testcontainers/testcontainers-python/issues/874
     "testcontainers<4.13",
     "mysql-connector-python>=8.0",
-    "pyarrow>=17.0.0; python_version < '3.13'",
-    "pyarrow>=18.1.0; python_version >= '3.13'",
+    # 25.0.0 dropped the py.typed marker and type stubs, breaking pyright on query_client.py.
+    "pyarrow>=17.0.0, <25; python_version < '3.13'",
+    "pyarrow>=18.1.0, <25; python_version >= '3.13'",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
     "numpy>=2.0; python_version < '3.12'",
     "pytest-recording>=0.13.2",
