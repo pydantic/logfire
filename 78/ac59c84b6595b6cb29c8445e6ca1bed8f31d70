@@ -1,0 +1,40 @@
+tests/otel_integrations/test_google_genai.py
+  s_ba42da6a3fdfad::t_0d1afe0e277aa9 189-190,208-209,212,215,217-221,223-224,261,265,268,271-274,276-279,281-282
+  s_ba42da6a3fdfad::t_934432aacea530 197
+  s_ba42da6a3fdfad::t_16eb5b208176b7 158
+  s_ba42da6a3fdfad::t_80925878f21656 121
+  s_ba42da6a3fdfad::t_b976d05ebd0777 88
+  s_ba42da6a3fdfad::t_2268b6db6741eb 139-147,284-288,290
+  s_ba42da6a3fdfad::t_f010567e604dbe 75-76,83-87,96,100,103,106,109-115,117-120,122-134,136-137
+  s_ba42da6a3fdfad::t_f4fe1213e428d9 15
+  s_ba42da6a3fdfad::t_0c00610bfcd961 291
+logfire/_internal/main.py
+  s_ba42da6a3fdfad::t_73c7746845eb67 1455
+logfire/_internal/integrations/google_genai.py
+  s_ba42da6a3fdfad::t_826edf87184785 3,6
+logfire/_internal/exporters/processor_wrapper.py
+  s_ba42da6a3fdfad::t_52c058b26780eb 549-556,558-574
+  s_ba42da6a3fdfad::t_4a9941e52ae952 546-548
+  s_ba42da6a3fdfad::t_8f7e91ce843b09 557
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "78ac59c84b6595b6cb29c8445e6ca1bed8f31d70",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_ba42da6a3fdfad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5da444fb-69d4-4194-a9b8-afd5b6770f57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
