@@ -31,6 +31,7 @@ MetricName: type[
         'system.cpu.simple_utilization',
         'system.cpu.time',
         'system.cpu.utilization',
+        'system.cpu.load_average.1m',
         'system.memory.usage',
         'system.memory.utilization',
         'system.swap.usage',
@@ -43,6 +44,7 @@ MetricName: type[
         'system.network.errors',
         'system.network.io',
         'system.network.connections',
+        'system.processes.count',
         'system.thread_count',
         'process.open_file_descriptor.count',
         'process.context_switches',
@@ -62,6 +64,7 @@ MetricName: type[
     'system.cpu.simple_utilization',
     'system.cpu.time',
     'system.cpu.utilization',
+    'system.cpu.load_average.1m',
     'system.memory.usage',
     'system.memory.utilization',
     'system.swap.usage',
@@ -74,6 +77,7 @@ MetricName: type[
     'system.network.errors',
     'system.network.io',
     'system.network.connections',
+    'system.processes.count',
     'system.thread_count',
     'process.open_file_descriptor.count',
     'process.context_switches',
@@ -109,6 +113,11 @@ FULL_CONFIG: Config = {
     'process.cpu.core_utilization': None,
     'system.cpu.time': CPU_FIELDS,
     'system.cpu.utilization': CPU_FIELDS,
+    # The Hosts page reads these — upstream `_DEFAULT_CONFIG` doesn't include
+    # them and they aren't expensive (one number per scrape each), so add them
+    # so `base='full'` covers the page without a follow-up `config={…}` knob.
+    'system.cpu.load_average.1m': None,
+    'system.processes.count': None,
     # For usage, knowing the total amount of bytes available might be handy.
     'system.memory.usage': MEMORY_FIELDS + ['total'],
     # For utilization, the total is always just 1 (100%), so it's not included.
@@ -172,6 +181,14 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
         # Override OTEL here to avoid emitting 0 in the first measurement.
         measure_process_cpu_utilization(logfire_instance)
         del config['process.cpu.utilization']
+
+    if 'system.cpu.load_average.1m' in config:
+        measure_system_cpu_load_average_1m(logfire_instance)
+        del config['system.cpu.load_average.1m']
+
+    if 'system.processes.count' in config:
+        measure_system_processes_count(logfire_instance)
+        del config['system.processes.count']
 
     instrumentor = SystemMetricsInstrumentor(config=config)  # pyright: ignore[reportArgumentType]
     instrumentor.instrument(meter_provider=logfire_instance.config.get_meter_provider())
@@ -247,4 +264,42 @@ def measure_process_cpu_core_utilization(logfire_instance: Logfire):
         [callback],
         description='Runtime CPU utilization, not divided by the number of available cores.',
         unit='core',
+    )
+
+
+def measure_system_cpu_load_average_1m(logfire_instance: Logfire):
+    """1-minute system load average (run-queue length, smoothed).
+
+    Upstream `SystemMetricsInstrumentor` doesn't include this metric; we add it
+    so `base='full'` covers the Hosts page's `Load 1m` column. On Windows,
+    `psutil.getloadavg()` is an emulated polling shim — first call returns 0
+    and subsequent values update every ~5s.
+    """
+
+    def callback(_options: CallbackOptions) -> Iterable[Observation]:
+        yield Observation(psutil.getloadavg()[0])
+
+    logfire_instance.metric_gauge_callback(
+        'system.cpu.load_average.1m',
+        [callback],
+        description='Average system load over the last minute.',
+        unit='{run_queue_item}',
+    )
+
+
+def measure_system_processes_count(logfire_instance: Logfire):
+    """Total number of processes on the system.
+
+    Upstream `SystemMetricsInstrumentor` doesn't include this metric; we add
+    it so `base='full'` covers the Hosts page's `Procs` column.
+    """
+
+    def callback(_options: CallbackOptions) -> Iterable[Observation]:
+        yield Observation(len(psutil.pids()))
+
+    logfire_instance.metric_gauge_callback(
+        'system.processes.count',
+        [callback],
+        description='Total number of processes on the system.',
+        unit='{process}',
     )

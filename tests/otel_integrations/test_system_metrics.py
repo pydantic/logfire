@@ -67,6 +67,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'process.open_file_descriptor.count',
             'process.runtime.cpython.gc_count',
             'process.thread.count',
+            'system.cpu.load_average.1m',
             'system.cpu.simple_utilization',
             'system.cpu.time',
             'system.cpu.utilization',
@@ -79,6 +80,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'system.network.errors',
             'system.network.io',
             'system.network.packets',
+            'system.processes.count',
             'system.swap.usage',
             'system.swap.utilization',
             'system.thread_count',
@@ -90,6 +92,18 @@ def test_measure_process_runtime_cpu_utilization(metrics_reader: InMemoryMetricR
     # This metric is now deprecated by OTEL, but there isn't a strong reason to stop allowing it when requested
     logfire.instrument_system_metrics({'process.runtime.cpu.utilization': None}, base=None)  # type: ignore
     assert get_collected_metric_names(metrics_reader) == ['process.runtime.cpython.cpu.utilization']
+
+
+def test_system_cpu_load_average_1m(metrics_reader: InMemoryMetricReader) -> None:
+    """Load average isn't in upstream `SystemMetricsInstrumentor` — Logfire emits it."""
+    logfire.instrument_system_metrics({'system.cpu.load_average.1m': None}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.cpu.load_average.1m']
+
+
+def test_system_processes_count(metrics_reader: InMemoryMetricReader) -> None:
+    """Process count isn't in upstream `SystemMetricsInstrumentor` — Logfire emits it."""
+    logfire.instrument_system_metrics({'system.processes.count': None}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.processes.count']
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -186,6 +200,8 @@ def test_full_base():
         'cpython.gc.collected_objects': None,
         'cpython.gc.collections': None,
         'cpython.gc.uncollectable_objects': None,
+        'system.cpu.load_average.1m': None,
+        'system.processes.count': None,
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 
