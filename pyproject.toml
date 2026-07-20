@@ -80,7 +80,8 @@ requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
-google-genai = ["opentelemetry-instrumentation-google-genai >= 0.4b0"]
+# TODO: 1.0b0 is a breaking rewrite (built on opentelemetry.util.genai) that our integration doesn't support yet.
+google-genai = ["opentelemetry-instrumentation-google-genai >= 0.4b0, < 1.0b0"]
 litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
@@ -198,7 +199,7 @@ dev = [
     "langchain>=1.3.9",
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
-    "opentelemetry-instrumentation-google-genai >= 0.4b0",
+    "opentelemetry-instrumentation-google-genai >= 0.4b0, < 1.0b0",
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.92.0; python_version >= '3.14'",
