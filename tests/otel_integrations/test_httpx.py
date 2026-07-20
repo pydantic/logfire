@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import os
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import httpx
@@ -178,6 +178,61 @@ def test_httpx2_client_without_httpx_module(exporter: TestExporter, monkeypatch:
 
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert [span['attributes']['url.full'] for span in spans] == ['https://example.org/httpx2']
+
+
+def test_instrumentors_for_optional_client_modules(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx2', None)
+    instrumentors = logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
+    assert [type(instrumentor) for instrumentor in instrumentors] == [HTTPXClientInstrumentor]
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', None)
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx2', httpx2)
+    instrumentors = logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
+    assert [type(instrumentor) for instrumentor in instrumentors] == [HTTPX2ClientInstrumentor]
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx2', None)
+    with pytest.raises(RuntimeError, match='requires either the `httpx` or `httpx2` package'):
+        logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_httpx2_requires_new_otel(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, 'HTTPX2ClientInstrumentor', None)
+    with httpx2.Client(transport=create_httpx2_transport()) as client:
+        with pytest.raises(RuntimeError) as exc_info:
+            logfire.instrument_httpx(client)
+    assert str(exc_info.value) == snapshot("""\
+Instrumenting `httpx2` requires `opentelemetry-instrumentation-httpx>=0.65b0`.
+You can update this with:
+    pip install -U 'opentelemetry-instrumentation-httpx>=0.65b0'\
+""")
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', None)
+    with pytest.raises(RuntimeError, match='Instrumenting `httpx2` requires'):
+        logfire.instrument_httpx()
+
+
+def test_invalid_httpx_client():
+    with pytest.raises(TypeError, match='Expected an `httpx` or `httpx2` client, got object'):
+        logfire.instrument_httpx(cast(Any, object()))
+
+
+@pytest.mark.parametrize('missing_name', ['httpx', 'httpcore'])
+def test_import_optional_client_module(missing_name: str, monkeypatch: pytest.MonkeyPatch):
+    def import_missing_module(name: str):
+        raise ModuleNotFoundError(name=missing_name)
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, 'import_module', import_missing_module)
+    if missing_name == 'httpx':
+        assert (
+            logfire._internal.integrations.httpx._import_optional_client_module('httpx')  # pyright: ignore[reportPrivateUsage]
+            is None
+        )
+    else:
+        with pytest.raises(ModuleNotFoundError) as exc_info:
+            logfire._internal.integrations.httpx._import_optional_client_module(  # pyright: ignore[reportPrivateUsage]
+                'httpx'
+            )
+        assert exc_info.value.name == 'httpcore'
 
 
 async def test_async_httpx2_client_capture_all(exporter: TestExporter):
