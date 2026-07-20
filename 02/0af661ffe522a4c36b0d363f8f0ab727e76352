@@ -1,0 +1,32 @@
+logfire/experimental/query_client.py
+  s_ba42da6a3fdfad::t_6c8881552a2042 416,723
+  s_ba42da6a3fdfad::t_e1db54ef74c726 342,354,365
+  s_ba42da6a3fdfad::t_86d635cc8bb42c 649,661,672
+pyproject.toml
+  s_ba42da6a3fdfad::t_ae1d4763cf1131 178-181
+tests/test_query_client.py
+  s_ba42da6a3fdfad::t_5db21fd8bba587 198,342
+uv.lock
+  s_ba42da6a3fdfad::t_b178eaa058b2b1 2732,2878-2880,4814-4871
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "020af661ffe522a4c36b0d363f8f0ab727e76352",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_ba42da6a3fdfad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5da444fb-69d4-4194-a9b8-afd5b6770f57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
