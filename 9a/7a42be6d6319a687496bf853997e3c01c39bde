@@ -1,0 +1,28 @@
+tests/otel_integrations/test_openai_agents.py
+  s_ba42da6a3fdfad::t_fc9ca91a30e97c 526,614-619,663,769-774,818,904,937-942,986,1169,1211-1216,1260,1545,1578-1583,1627,1649,1702-1707,1751,1815,1868-1873,1917,1939,2027-2032,2076,2138,2215-2220,2244,2314-2319,2363,2454,2488-2493,2531
+tests/otel_integrations/test_openai_agents_mcp.py
+  s_ba42da6a3fdfad::t_fc9ca91a30e97c 206,351-356,469,539-544,588
+tests/otel_integrations/test_openai.py
+  s_ba42da6a3fdfad::t_fc9ca91a30e97c 2238-2242,4142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9a7a42be6d6319a687496bf853997e3c01c39bde",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_ba42da6a3fdfad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5da444fb-69d4-4194-a9b8-afd5b6770f57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
