@@ -1,0 +1,28 @@
+logfire/_internal/exporters/wrapper.py
+  s_6ecbf5e47c7b78::t_b3b9e79baa20b6 86-88
+logfire/_internal/exporters/console.py
+  s_6ecbf5e47c7b78::t_a2d84e4eaba600 509-511
+tests/test_otel_logs.py
+  s_6ecbf5e47c7b78::t_d25b8bffb455be 155-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "86b54cd176d44b6f5dec9f444068e3fed0fdf297",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_6ecbf5e47c7b78": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f9177b3-1204-44a0-b77a-75206e437902",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
