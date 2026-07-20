@@ -205,7 +205,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                 'end_time': 6000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gemini-2.0-flash-001',
-                    'gen_ai.operation.name': 'generate_content',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'gemini',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'generate_content gemini-2.0-flash-001',
@@ -223,6 +223,10 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'gen_ai.tool.definitions': {'type': 'array'}},
+                    },
                 },
             },
         ]

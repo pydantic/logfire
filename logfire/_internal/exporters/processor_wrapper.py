@@ -549,11 +549,13 @@ def _transform_google_genai_span(span: ReadableSpanDict):
         return
 
     attributes = span['attributes']
-    if 'gen_ai.input.messages' in attributes:
-        # opentelemetry-instrumentation-google-genai >= 1.0b0 stores messages directly on the span
-        # following the newer OpenTelemetry GenAI semantic conventions. Mark the JSON-encoded message
-        # attributes as arrays and set the operation name to 'chat' so they render the same way as the
-        # Anthropic and Pydantic AI integrations.
+    if attributes.get('gen_ai.operation.name') == 'generate_content':
+        # opentelemetry-instrumentation-google-genai >= 1.0b0 stores messages directly on the model
+        # request span following the newer OpenTelemetry GenAI semantic conventions. Mark the JSON-encoded
+        # message/tool attributes as arrays and set the operation name to 'chat' so they render the same way
+        # as the Anthropic and Pydantic AI integrations. This runs regardless of the content-capture mode,
+        # so no-content spans are still recognised as chat spans (the tool-call span keeps its own
+        # 'execute_tool' operation name and is left untouched).
         array_properties: dict[str, Any] = {
             key: {'type': 'array'}
             for key in (
