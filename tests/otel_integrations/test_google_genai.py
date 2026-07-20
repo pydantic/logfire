@@ -1,5 +1,6 @@
 import os
 import warnings
+from importlib.metadata import version as package_version
 from unittest import mock
 from unittest.mock import patch
 
@@ -18,6 +19,13 @@ os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 pytestmark = [
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
+    ),
+    pytest.mark.skipif(
+        # opentelemetry-instrumentation-google-genai >= 1.0b0 depends on opentelemetry-util-genai, which
+        # requires opentelemetry ~= 1.43 (it references gen_ai semconv attributes added in that release).
+        # Logfire's core still supports opentelemetry down to 1.39, so skip when it's too old for this extra.
+        get_version(package_version('opentelemetry-sdk')) < get_version('1.43.0'),
+        reason='Requires opentelemetry >= 1.43 for opentelemetry-instrumentation-google-genai >= 1.0b0',
     ),
 ]
 
