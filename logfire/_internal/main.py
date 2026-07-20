@@ -1452,7 +1452,7 @@ class Logfire:
 
         !!! note
             To capture message contents (i.e. prompts and completions), set the environment variable
-            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY`.
 
         Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
         [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)

@@ -543,7 +543,35 @@ def _default_gen_ai_response_model(span: ReadableSpanDict):
 
 def _transform_google_genai_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    if not (scope and scope.name == 'opentelemetry.instrumentation.google_genai' and span['events']):
+    # `opentelemetry.instrumentation.google_genai`: the scope used up to 0.x (legacy event-based format).
+    # `opentelemetry.util.genai.handler`: the scope used by >= 1.0b0, which is built on `opentelemetry.util.genai`.
+    if not (scope and scope.name in ('opentelemetry.instrumentation.google_genai', 'opentelemetry.util.genai.handler')):
+        return
+
+    attributes = span['attributes']
+    if 'gen_ai.input.messages' in attributes:
+        # opentelemetry-instrumentation-google-genai >= 1.0b0 stores messages directly on the span
+        # following the newer OpenTelemetry GenAI semantic conventions. Mark the JSON-encoded message
+        # attributes as arrays and set the operation name to 'chat' so they render the same way as the
+        # Anthropic and Pydantic AI integrations.
+        array_properties: dict[str, Any] = {
+            key: {'type': 'array'}
+            for key in (
+                'gen_ai.input.messages',
+                'gen_ai.output.messages',
+                'gen_ai.system_instructions',
+                'gen_ai.tool.definitions',
+            )
+            if key in attributes
+        }
+        span['attributes'] = {
+            **attributes,
+            'gen_ai.operation.name': 'chat',
+            ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties(array_properties)),
+        }
+        return
+
+    if not span['events']:
         return
 
     new_events: list[Event] = []
