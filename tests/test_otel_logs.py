@@ -161,6 +161,8 @@ def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
     assert exporter.export([]) == LogRecordExportResult.FAILURE
     assert not caplog.messages
 
+    assert exporter.force_flush() is True
+
     assert not connection_error_exporter.shutdown_called
     exporter.shutdown()
     assert connection_error_exporter.shutdown_called
