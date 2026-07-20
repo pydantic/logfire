@@ -301,3 +301,27 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
             }
         ]
     )
+
+
+def test_non_gemini_util_genai_span_not_transformed(exporter: TestExporter) -> None:
+    """A non-Gemini span under the shared `opentelemetry.util.genai.handler` scope is left untouched.
+
+    Guards against the chat transform accidentally rewriting spans from other (future)
+    util.genai-based integrations that happen to share the scope.
+    """
+    from opentelemetry.trace import get_tracer
+
+    tracer = get_tracer('opentelemetry.util.genai.handler')
+    with tracer.start_as_current_span(
+        'generate_content',
+        attributes={
+            'gen_ai.provider.name': 'openai',
+            'gen_ai.operation.name': 'generate_content',
+        },
+    ):
+        pass
+
+    [span] = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # The operation name is preserved (not rewritten to 'chat') and no chat json_schema is injected.
+    assert span['attributes']['gen_ai.operation.name'] == 'generate_content'
+    assert 'logfire.json_schema' not in span['attributes']
