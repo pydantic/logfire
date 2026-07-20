@@ -1,10 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeAlias
 
-import httpx
 from opentelemetry.trace import Span
+
+if TYPE_CHECKING:
+    import httpx
+    import httpx2
+
+    _HTTPXURL: TypeAlias = httpx.URL | httpx2.URL
+    _HTTPXHeaders: TypeAlias = httpx.Headers | httpx2.Headers
+    _HTTPXStream: TypeAlias = (
+        httpx.SyncByteStream | httpx.AsyncByteStream | httpx2.SyncByteStream | httpx2.AsyncByteStream | None
+    )
+else:
+    _HTTPXURL = _HTTPXHeaders = _HTTPXStream = Any
 
 # TODO(Marcelo): When https://github.com/open-telemetry/opentelemetry-python-contrib/pull/3098/ gets merged,
 # and the next version of `opentelemetry-instrumentation-httpx` is released, we can just do a reimport:
@@ -21,9 +32,9 @@ class RequestInfo(NamedTuple):
     """
 
     method: bytes
-    url: httpx.URL
-    headers: httpx.Headers
-    stream: httpx.SyncByteStream | httpx.AsyncByteStream | None
+    url: _HTTPXURL
+    headers: _HTTPXHeaders
+    stream: _HTTPXStream
     extensions: dict[str, Any] | None
 
 
@@ -34,8 +45,8 @@ class ResponseInfo(NamedTuple):
     """
 
     status_code: int
-    headers: httpx.Headers
-    stream: httpx.SyncByteStream | httpx.AsyncByteStream | None
+    headers: _HTTPXHeaders
+    stream: _HTTPXStream
     extensions: dict[str, Any] | None
 
 

@@ -7,16 +7,17 @@ from collections.abc import Awaitable, Callable, Mapping
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cached_property, lru_cache
+from importlib import import_module
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-import httpx
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
 
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.stack_info import warn_at_user_stacklevel
 
 try:
-    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    otel_httpx = import_module('opentelemetry.instrumentation.httpx')
 
     from logfire.integrations.httpx import (
         AsyncRequestHook,
@@ -37,15 +38,80 @@ from logfire import Logfire, LogfireSpan
 from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire._internal.utils import handle_internal_errors
 
+HTTPXClientInstrumentor = otel_httpx.HTTPXClientInstrumentor
+HTTPX2ClientInstrumentor: Any = getattr(otel_httpx, 'HTTPX2ClientInstrumentor', None)
+
 if TYPE_CHECKING:
     from typing import ParamSpec
+
+    import httpx
+    import httpx2
 
     P = ParamSpec('P')
 
 
+def _import_optional_client_module(name: str) -> ModuleType | None:
+    try:
+        return import_module(name)
+    except ModuleNotFoundError as error:
+        if error.name != name:
+            raise
+        return None
+
+
+_httpx = _import_optional_client_module('httpx')
+_httpx2 = _import_optional_client_module('httpx2')
+
+
+def _client_module_types(name: str) -> tuple[type[Any], ...]:
+    return tuple(cast(type[Any], getattr(module, name)) for module in (_httpx, _httpx2) if module is not None)
+
+
+_HTTPX_BYTE_STREAM_TYPES = _client_module_types('ByteStream')
+_HTTPX_RESPONSE_TYPES = _client_module_types('Response')
+_HTTPX_RESPONSE_NOT_READ_TYPES = cast(tuple[type[BaseException], ...], _client_module_types('ResponseNotRead'))
+
+
+def _httpx2_instrumentation_error() -> RuntimeError:
+    return RuntimeError(
+        'Instrumenting `httpx2` requires `opentelemetry-instrumentation-httpx>=0.65b0`.\n'
+        'You can update this with:\n'
+        "    pip install -U 'logfire[httpx]'"
+    )
+
+
+def _instrumentors_for_installed_modules() -> list[Any]:
+    instrumentors: list[Any] = []
+    if _httpx is not None:
+        instrumentors.append(HTTPXClientInstrumentor())
+    if _httpx2 is not None:
+        if HTTPX2ClientInstrumentor is None:
+            if not instrumentors:
+                raise _httpx2_instrumentation_error()
+            warn_at_user_stacklevel(
+                '`httpx2` will not be instrumented because it requires `opentelemetry-instrumentation-httpx>=0.65b0`.',
+                UserWarning,
+            )
+        else:
+            instrumentors.append(HTTPX2ClientInstrumentor())
+    if not instrumentors:
+        raise RuntimeError('`logfire.instrument_httpx()` requires either the `httpx` or `httpx2` package.')
+    return instrumentors
+
+
+def _instrumentor_for_client(client: Any) -> tuple[Any, bool]:
+    if _httpx is not None and isinstance(client, (_httpx.Client, _httpx.AsyncClient)):
+        return HTTPXClientInstrumentor(), isinstance(client, _httpx.AsyncClient)
+    if _httpx2 is not None and isinstance(client, (_httpx2.Client, _httpx2.AsyncClient)):
+        if HTTPX2ClientInstrumentor is None:
+            raise _httpx2_instrumentation_error()
+        return HTTPX2ClientInstrumentor(), isinstance(client, _httpx2.AsyncClient)
+    raise TypeError(f'Expected an `httpx` or `httpx2` client, got {type(client).__name__}.')
+
+
 def instrument_httpx(
     logfire_instance: Logfire,
-    client: httpx.Client | httpx.AsyncClient | None,
+    client: httpx.Client | httpx.AsyncClient | httpx2.Client | httpx2.AsyncClient | None,
     capture_all: bool | None,
     capture_headers: bool,
     capture_request_body: bool,
@@ -56,7 +122,7 @@ def instrument_httpx(
     async_response_hook: AsyncResponseHook | None,
     **kwargs: Any,
 ) -> None:
-    """Instrument the `httpx` module so that spans are automatically created for each request.
+    """Instrument the `httpx` and `httpx2` modules so that spans are automatically created for each request.
 
     See the `Logfire.instrument_httpx` method for details.
     """
@@ -100,7 +166,6 @@ def instrument_httpx(
     }
     del kwargs  # make sure only final_kwargs is used
 
-    instrumentor = HTTPXClientInstrumentor()
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='httpx')
 
     if client is None:
@@ -125,9 +190,11 @@ def instrument_httpx(
             logfire_instance,
         )
 
-        instrumentor.instrument(**final_kwargs)
+        for instrumentor in _instrumentors_for_installed_modules():
+            instrumentor.instrument(**final_kwargs)
     else:
-        if isinstance(client, httpx.AsyncClient):
+        instrumentor, is_async = _instrumentor_for_client(client)
+        if is_async:
             request_hook = make_async_request_hook(
                 request_hook,
                 should_capture_request_headers,
@@ -166,7 +233,7 @@ def instrument_httpx(
 
 
 class LogfireHttpxInfoMixin:
-    headers: httpx.Headers
+    headers: httpx.Headers | httpx2.Headers
 
     @property
     def content_type_header_object(self) -> ContentTypeHeader:
@@ -214,7 +281,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
 
     @property
     def body_is_streaming(self):
-        return not isinstance(self.stream, httpx.ByteStream)
+        return not isinstance(self.stream, _HTTPX_BYTE_STREAM_TYPES)
 
     @property
     def content_type_charset(self):
@@ -263,13 +330,13 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
         self.on_response_read(hook)
 
     @cached_property
-    def response(self) -> httpx.Response:
+    def response(self) -> httpx.Response | httpx2.Response:
         frame = inspect.currentframe().f_back.f_back  # pyright: ignore[reportOptionalMemberAccess]
         while frame:  # pragma: no branch
             response = frame.f_locals.get('response')
             frame = frame.f_back
-            if isinstance(response, httpx.Response):
-                return response
+            if isinstance(response, _HTTPX_RESPONSE_TYPES):
+                return cast('httpx.Response | httpx2.Response', response)
         raise RuntimeError('Could not find the response object')  # pragma: no cover
 
     def on_response_read(self, hook: Callable[[LogfireSpan], None]):
@@ -301,7 +368,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
             try:
                 # Only log the body the first time it's read
                 return response.content
-            except httpx.ResponseNotRead:
+            except _HTTPX_RESPONSE_NOT_READ_TYPES:
                 return hook(original_read)
 
         response.read = read
@@ -315,7 +382,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
             try:
                 # Only log the body the first time it's read
                 return response.content
-            except httpx.ResponseNotRead:
+            except _HTTPX_RESPONSE_NOT_READ_TYPES:
                 return await hook(original_aread)
 
         response.aread = aread
@@ -477,7 +544,7 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
 
 
 def capture_request_or_response_headers(
-    span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']
+    span: Span, headers: httpx.Headers | httpx2.Headers, request_or_response: Literal['request', 'response']
 ) -> None:
     span.set_attributes(
         {
@@ -489,12 +556,9 @@ def capture_request_or_response_headers(
 
 CODES_FOR_METHODS_WITH_DATA_PARAM = [
     inspect.unwrap(method).__code__
-    for method in [
-        httpx.Client.request,
-        httpx.Client.stream,
-        httpx.AsyncClient.request,
-        httpx.AsyncClient.stream,
-    ]
+    for module in (_httpx, _httpx2)
+    if module is not None
+    for method in [module.Client.request, module.Client.stream, module.AsyncClient.request, module.AsyncClient.stream]
 ]
 
 

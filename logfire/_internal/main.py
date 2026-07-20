@@ -75,6 +75,7 @@ if TYPE_CHECKING:
 
     import anthropic
     import httpx
+    import httpx2
     import openai
     import pydantic_ai.models
     import requests
@@ -1537,7 +1538,7 @@ class Logfire:
     @overload
     def instrument_httpx(
         self,
-        client: httpx.Client,
+        client: httpx.Client | httpx2.Client,
         *,
         capture_all: bool = False,
         capture_headers: bool = False,
@@ -1551,7 +1552,7 @@ class Logfire:
     @overload
     def instrument_httpx(
         self,
-        client: httpx.AsyncClient,
+        client: httpx.AsyncClient | httpx2.AsyncClient,
         *,
         capture_all: bool = False,
         capture_headers: bool = False,
@@ -1580,7 +1581,7 @@ class Logfire:
 
     def instrument_httpx(
         self,
-        client: httpx.Client | httpx.AsyncClient | None = None,
+        client: httpx.Client | httpx.AsyncClient | httpx2.Client | httpx2.AsyncClient | None = None,
         *,
         capture_all: bool | None = None,
         capture_headers: bool = False,
@@ -1592,17 +1593,17 @@ class Logfire:
         async_response_hook: HttpxAsyncResponseHook | None = None,
         **kwargs: Any,
     ) -> None:
-        """Instrument the `httpx` module so that spans are automatically created for each request.
+        """Instrument the `httpx` and `httpx2` modules so that spans are automatically created for each request.
 
-        Optionally, pass an `httpx.Client` instance to instrument only that client.
+        Optionally, pass an `httpx` or `httpx2` client instance to instrument only that client.
 
         Uses the
         [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
-        library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
+        library, specifically the installed client libraries' instrumentors, to which it passes `**kwargs`.
 
         Args:
-            client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
-                If `None`, the default, all clients will be instrumented.
+            client: The `httpx` or `httpx2` client instance to instrument.
+                If `None`, the default, all clients from both installed libraries will be instrumented.
             capture_all: Set to `True` to capture all HTTP headers, request and response bodies.
                 By default checks the environment variable `LOGFIRE_HTTPX_CAPTURE_ALL`.
             capture_headers: Set to `True` to capture all HTTP headers.
