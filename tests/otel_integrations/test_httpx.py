@@ -7,12 +7,18 @@ from typing import Any
 from unittest import mock
 
 import httpx
+import httpx2
 import pytest
 from dirty_equals import IsAnyStr, IsStr
 from httpx import Request
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
-from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
+from opentelemetry.instrumentation.httpx import (
+    HTTPX2ClientInstrumentor,
+    HTTPXClientInstrumentor,
+    RequestInfo,
+    ResponseInfo,
+)
 from opentelemetry.trace.span import Span
 
 import logfire
@@ -32,13 +38,28 @@ def create_transport() -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 
 
+def create_httpx2_transport() -> httpx2.MockTransport:
+    def handler(request: httpx2.Request):
+        return httpx2.Response(200, headers=request.headers, stream=httpx2.ByteStream(b'{"good": "response"}'))
+
+    return httpx2.MockTransport(handler)
+
+
+def handle_httpx_request(_transport: httpx.HTTPTransport, request: httpx.Request) -> httpx.Response:
+    return httpx.Response(200, headers=request.headers, stream=httpx.ByteStream(b'{"good": "response"}'))
+
+
+def handle_httpx2_request(_transport: httpx2.HTTPTransport, request: httpx2.Request) -> httpx2.Response:
+    return httpx2.Response(200, headers=request.headers, stream=httpx2.ByteStream(b'{"good": "response"}'))
+
+
 @contextmanager
 def check_traceparent_header():
     with logfire.set_baggage(baggage_key='baggage_value'), logfire.span('test span') as span:
         assert span.context
         trace_id = span.context.trace_id
 
-        def checker(response: httpx.Response):
+        def checker(response: httpx.Response | httpx2.Response):
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
@@ -104,6 +125,89 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'test span',
                 },
             },
+        ]
+    )
+
+
+def test_global_httpx_and_httpx2_instrumentation(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', handle_httpx_request)
+    monkeypatch.setattr(httpx2.HTTPTransport, 'handle_request', handle_httpx2_request)
+    try:
+        logfire.instrument_httpx()
+        with check_traceparent_header() as checker:
+            with httpx.Client() as httpx_client:
+                response = httpx_client.get('https://example.org/httpx')
+                checker(response)
+            with httpx2.Client() as httpx2_client:
+                response = httpx2_client.get('https://example.org/httpx2')
+                checker(response)
+    finally:
+        HTTPXClientInstrumentor().uninstrument()
+        HTTPX2ClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert [span['attributes'].get('url.full') for span in spans] == snapshot(
+        ['https://example.org/httpx', 'https://example.org/httpx2', None]
+    )
+
+
+def test_global_httpx_instrumentation_with_old_otel(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, 'HTTPX2ClientInstrumentor', None)
+    monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', handle_httpx_request)
+    try:
+        with pytest.warns(
+            UserWarning,
+            match='`httpx2` will not be instrumented because it requires '
+            '`opentelemetry-instrumentation-httpx>=0.65b0`.',
+        ):
+            logfire.instrument_httpx()
+        with httpx.Client() as client:
+            client.get('https://example.org/httpx')
+    finally:
+        HTTPXClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert [span['attributes']['url.full'] for span in spans] == ['https://example.org/httpx']
+
+
+def test_httpx2_client_without_httpx_module(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', None)
+    with httpx2.Client(transport=create_httpx2_transport()) as client:
+        logfire.instrument_httpx(client)
+        client.get('https://example.org/httpx2')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert [span['attributes']['url.full'] for span in spans] == ['https://example.org/httpx2']
+
+
+async def test_async_httpx2_client_capture_all(exporter: TestExporter):
+    with check_traceparent_header() as checker:
+        async with httpx2.AsyncClient(transport=create_httpx2_transport()) as client:
+            logfire.instrument_httpx(client, capture_all=True)
+            response = await client.post('https://example.org/httpx2', json={'hello': 'world'})
+            checker(response)
+            assert response.json() == {'good': 'response'}
+            assert await response.aread() == b'{"good": "response"}'
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert [
+        {
+            'name': span['name'],
+            'url': span['attributes'].get('url.full'),
+            'request_body': span['attributes'].get('http.request.body.text'),
+            'response_body': span['attributes'].get('http.response.body.text'),
+        }
+        for span in spans
+    ] == snapshot(
+        [
+            {
+                'name': 'POST',
+                'url': 'https://example.org/httpx2',
+                'request_body': {'hello': 'world'},
+                'response_body': None,
+            },
+            {'name': 'Reading response body', 'url': None, 'request_body': None, 'response_body': {'good': 'response'}},
+            {'name': 'test span', 'url': None, 'request_body': None, 'response_body': None},
         ]
     )
 
@@ -663,8 +767,17 @@ def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: Test
 
 
 def test_httpx_client_capture_request_form_data(exporter: TestExporter):
-    assert len({code.co_filename for code in CODES_FOR_METHODS_WITH_DATA_PARAM}) == 1
-    assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']
+    assert len({code.co_filename for code in CODES_FOR_METHODS_WITH_DATA_PARAM}) == 2
+    assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == [
+        'request',
+        'stream',
+        'request',
+        'stream',
+        'request',
+        'stream',
+        'request',
+        'stream',
+    ]
 
     with httpx.Client(transport=create_transport()) as client:
         logfire.instrument_httpx(client, capture_request_body=True)
