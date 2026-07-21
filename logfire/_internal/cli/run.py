@@ -27,8 +27,16 @@ STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 AMBIGUOUS_RECOMMENDATION_PACKAGES = {'requests', 'sqlite3', 'urllib'}
 
 # Most instrumentation packages target one import package with the same name as the Logfire instrumentation method.
-# The OpenTelemetry HTTPX instrumentation package targets both HTTP client families through `instrument_httpx()`.
-INSTRUMENTATION_TARGETS = {'httpx': ('httpx', 'httpx2')}
+# HTTPX has one OTel package for two clients; Psycopg has two OTel packages routed through one Logfire method.
+INSTRUMENTATION_TARGETS = {
+    'opentelemetry-instrumentation-httpx': ('httpx', 'httpx2'),
+    'opentelemetry-instrumentation-psycopg2': ('psycopg2',),
+}
+TARGET_PACKAGE_ALIASES = {'psycopg2': ('psycopg2', 'psycopg2-binary')}
+INSTRUMENTATION_CALL_ARGUMENTS = {
+    'opentelemetry-instrumentation-psycopg': ('psycopg',),
+    'opentelemetry-instrumentation-psycopg2': ('psycopg2',),
+}
 MINIMUM_INSTRUMENTATION_VERSIONS = {('opentelemetry-instrumentation-httpx', 'httpx2'): '0.65b0'}
 
 # Map of instrumentation packages to the packages they instrument
@@ -180,21 +188,21 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
     os.environ.setdefault('LANGSMITH_TRACING_ENABLED', 'true')
 
     # Process all installed OpenTelemetry packages
-    for otel_pkg_name in installed_otel_packages:
+    for otel_pkg_name in sorted(installed_otel_packages):
         base_pkg = otel_pkg_name.replace('opentelemetry-instrumentation-', '')
 
         import_name = instrument_pkg_map[otel_pkg_name]
         try:
-            instrument_package(import_name)
+            instrument_package(import_name, *INSTRUMENTATION_CALL_ARGUMENTS.get(otel_pkg_name, ()))
         except Exception:
             continue
         instrumented.append(base_pkg)
     return instrumented
 
 
-def instrument_package(import_name: str):
+def instrument_package(import_name: str, *args: str) -> None:
     instrument_attr = f'instrument_{import_name}'
-    getattr(logfire, instrument_attr)()
+    getattr(logfire, instrument_attr)(*args)
 
 
 def find_recommended_instrumentations_to_install(
@@ -218,7 +226,7 @@ def find_recommended_instrumentations_to_install(
     recommendations: set[InstrumentationRecommendation] = set()
 
     for otel_pkg, import_name in instrument_pkg_map.items():
-        target_packages = _installed_target_packages(import_name, installed_pkgs)
+        target_packages = _installed_target_packages(otel_pkg, import_name, installed_pkgs)
         if not target_packages:
             continue
 
@@ -280,7 +288,9 @@ def instrumented_packages_text(
     for pkg_name in sorted(installed_otel_pkgs):
         base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
         import_name = OTEL_INSTRUMENTATION_MAP.get(pkg_name, base_pkg)
-        target_packages = _installed_target_packages(import_name, installed_pkgs) or (import_name,)
+        target_packages = _installed_target_packages(pkg_name, import_name, installed_pkgs) or _instrumentation_targets(
+            pkg_name, import_name
+        )
         for target_package in target_packages:
             is_instrumented = base_pkg in instrumented_packages and _target_is_supported(
                 pkg_name, target_package, installed_versions
@@ -421,15 +431,18 @@ def _full_install_command(recommendations: list[InstrumentationRecommendation]) 
         return f'pip install {" ".join(package_specs)}'  # pragma: no cover
 
 
-def _instrumentation_targets(import_name: str) -> tuple[str, ...]:
-    return INSTRUMENTATION_TARGETS.get(import_name, (import_name,))
+def _instrumentation_targets(otel_pkg: str, import_name: str) -> tuple[str, ...]:
+    return INSTRUMENTATION_TARGETS.get(otel_pkg, (import_name,))
 
 
-def _installed_target_packages(import_name: str, installed_pkgs: set[str]) -> tuple[str, ...]:
+def _installed_target_packages(otel_pkg: str, import_name: str, installed_pkgs: set[str]) -> tuple[str, ...]:
     return tuple(
         target
-        for target in _instrumentation_targets(import_name)
-        if target in installed_pkgs or target in STANDARD_LIBRARY_PACKAGES
+        for target in _instrumentation_targets(otel_pkg, import_name)
+        if any(
+            package_name in installed_pkgs or package_name in STANDARD_LIBRARY_PACKAGES
+            for package_name in TARGET_PACKAGE_ALIASES.get(target, (target,))
+        )
     )
 
 
@@ -467,7 +480,11 @@ def collect_instrumentation_context(exclude: Collection[str]) -> Instrumentation
     instrument_pkg_map = {
         otel_pkg: pkg
         for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items()
-        if not any(target in exclude for target in _instrumentation_targets(pkg))
+        if not any(
+            package_name in exclude
+            for target in _instrumentation_targets(otel_pkg, pkg)
+            for package_name in TARGET_PACKAGE_ALIASES.get(target, (target,))
+        )
     }
     installed_pkgs = installed_packages()
     installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}

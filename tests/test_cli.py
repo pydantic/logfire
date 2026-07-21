@@ -370,6 +370,10 @@ def test_recommended_packages_with_dependencies(
 
 
 HTTPX_OTEL_PACKAGE = 'opentelemetry-instrumentation-httpx'
+PSYCOPG_OTEL_PACKAGES = {
+    'opentelemetry-instrumentation-psycopg': 'psycopg',
+    'opentelemetry-instrumentation-psycopg2': 'psycopg',
+}
 
 
 @pytest.mark.parametrize(
@@ -431,6 +435,40 @@ def test_httpx_exclude_aliases(excluded_client: str, monkeypatch: pytest.MonkeyP
 
     assert HTTPX_OTEL_PACKAGE not in context.instrument_pkg_map
     assert all(HTTPX_OTEL_PACKAGE != recommendation.package_name for recommendation in context.recommendations)
+
+
+@pytest.mark.parametrize(
+    ('installed_clients', 'expected'),
+    [
+        (
+            {'psycopg'},
+            {InstrumentationRecommendation('opentelemetry-instrumentation-psycopg', ('psycopg',))},
+        ),
+        (
+            {'psycopg2'},
+            {InstrumentationRecommendation('opentelemetry-instrumentation-psycopg2', ('psycopg2',))},
+        ),
+        (
+            {'psycopg2-binary'},
+            {InstrumentationRecommendation('opentelemetry-instrumentation-psycopg2', ('psycopg2',))},
+        ),
+        (
+            {'psycopg', 'psycopg2-binary'},
+            {
+                InstrumentationRecommendation('opentelemetry-instrumentation-psycopg', ('psycopg',)),
+                InstrumentationRecommendation('opentelemetry-instrumentation-psycopg2', ('psycopg2',)),
+            },
+        ),
+    ],
+)
+def test_psycopg_recommendations(installed_clients: set[str], expected: set[InstrumentationRecommendation]) -> None:
+    recommendations = find_recommended_instrumentations_to_install(
+        PSYCOPG_OTEL_PACKAGES,
+        set(),
+        installed_clients,
+    )
+
+    assert recommendations == expected
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
@@ -1718,6 +1756,20 @@ def test_instrument_packages_with_only_httpx2(monkeypatch: pytest.MonkeyPatch) -
     assert result == ['httpx']
     instrument_httpx.assert_called_once_with()
     assert '✓ httpx2 (installed and instrumented)' in summary
+
+
+def test_instrument_packages_targets_each_psycopg_family(monkeypatch: pytest.MonkeyPatch) -> None:
+    instrument_psycopg = Mock()
+    monkeypatch.setattr(
+        logfire._internal.cli.run,
+        'logfire',
+        types.SimpleNamespace(instrument_psycopg=instrument_psycopg),
+    )
+
+    result = instrument_packages(set(PSYCOPG_OTEL_PACKAGES), PSYCOPG_OTEL_PACKAGES)
+
+    assert result == ['psycopg', 'psycopg2']
+    assert instrument_psycopg.call_args_list == [call('psycopg'), call('psycopg2')]
 
 
 @pytest.mark.parametrize(
