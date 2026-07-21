@@ -4,7 +4,7 @@ description: "Ship CPU, memory, disk, filesystem, network, and process metrics f
 ---
 # Host monitoring with the OTel Collector
 
-The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **Explore**, and any dashboard you build on top of them.
+The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
 
 This is also the smallest possible working Collector configuration. The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
 
@@ -272,7 +272,7 @@ For long-running deployments, wrap that in a systemd unit (or your init system o
 Within a minute or two of the Collector starting, the host shows up on the **Hosts** page keyed by `host.name`. From there:
 
 - Click the host to drill into per-host CPU, memory, disk, and network charts.
-- Open **Explore** to query the raw metric series: useful for ad-hoc questions like "show me every host where filesystem utilization is above 90%".
+- Open **SQL Workbench** to query the raw metric series: useful for ad-hoc questions like "show me every host where filesystem utilization is above 90%".
 - Build a dashboard on top of the metrics if you want a persistent view.
 
 If a host doesn't appear, the cause is almost always one of: missing `resourcedetection` (no `host.name`), wrong region in the `otlphttp` endpoint, or (in Kubernetes) a missing `root_path: /host` or one of the `hostPath` mounts, so the receiver is happily scraping the container's view instead of the node's.

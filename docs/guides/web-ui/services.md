@@ -6,7 +6,7 @@ description: "Browse every service shipping spans to your Logfire project. See r
 
 The **Services view** is the entry point for finding the service you want to investigate. Each service that ships spans to your project appears as one row, sorted by whatever metric matters right now (requests, error rate, latency). Click a row to drill into its detail page, click a recent failed trace, and you land in the [Live View](live.md) with the failing trace open.
 
-You'll find Services in the project sidebar, between [Explore](explore.md) and [Hosts](hosts.md).
+You'll find Services in the project sidebar, between [SQL Workbench](explore.md) and [Hosts](hosts.md).
 
 ![Services inventory page](../../images/services/inventory.png)
 
@@ -36,7 +36,7 @@ You'll see:
 - **Top operations**: the highest-traffic and slowest spans inside the service.
 - **Recent errors**: a short list of failed traces, each linking straight to the [Live View](live.md) so you can investigate.
 
-Two buttons in the header ([Live view](live.md) and [Explore](explore.md)) hand the whole service off to the live view or the SQL editor in one click. The detail page defaults to the last 30 minutes.
+Two buttons in the header ([Live view](live.md) and [SQL Workbench](explore.md)) hand the whole service off to the live view or SQL Workbench in one click. The detail page defaults to the last 30 minutes.
 
 The topology graph and the operations / errors tables below the trends:
 
