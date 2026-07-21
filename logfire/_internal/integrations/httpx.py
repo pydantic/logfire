@@ -17,7 +17,7 @@ from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.stack_info import warn_at_user_stacklevel
 
 try:
-    otel_httpx = import_module('opentelemetry.instrumentation.httpx')
+    from opentelemetry.instrumentation import httpx as otel_httpx
 
     from logfire.integrations.httpx import (
         AsyncRequestHook,
@@ -39,7 +39,6 @@ from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire._internal.utils import handle_internal_errors
 
 HTTPXClientInstrumentor = otel_httpx.HTTPXClientInstrumentor
-HTTPX2ClientInstrumentor: Any = getattr(otel_httpx, 'HTTPX2ClientInstrumentor', None)
 
 if TYPE_CHECKING:
     from typing import ParamSpec
@@ -47,7 +46,11 @@ if TYPE_CHECKING:
     import httpx
     import httpx2
 
+    HTTPX2ClientInstrumentor: type[otel_httpx.HTTPX2ClientInstrumentor] | None = otel_httpx.HTTPX2ClientInstrumentor
+
     P = ParamSpec('P')
+else:
+    HTTPX2ClientInstrumentor: Any = getattr(otel_httpx, 'HTTPX2ClientInstrumentor', None)
 
 
 def _import_optional_client_module(name: str) -> ModuleType | None:
@@ -558,7 +561,12 @@ CODES_FOR_METHODS_WITH_DATA_PARAM = [
     inspect.unwrap(method).__code__
     for module in (_httpx, _httpx2)
     if module is not None
-    for method in [module.Client.request, module.Client.stream, module.AsyncClient.request, module.AsyncClient.stream]
+    for method in [
+        module.Client.request,
+        module.Client.stream,
+        module.AsyncClient.request,
+        module.AsyncClient.stream,
+    ]
 ]
 
 
