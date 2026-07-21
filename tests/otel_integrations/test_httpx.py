@@ -1088,9 +1088,9 @@ async def test_httpx_client_capture_all(exporter: TestExporter, httpx_family: HT
 
 async def test_httpx_client_capture_all_environment_variable(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with mock.patch.dict(os.environ, {'LOGFIRE_HTTPX_CAPTURE_ALL': 'true'}):
-        with httpx_family.client() as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(client)
-            response = client.get('https://example.org:8080/foo')
+            response = await client.get('https://example.org:8080/foo')
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
