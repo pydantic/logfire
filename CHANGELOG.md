@@ -1,5 +1,16 @@
 # Release Notes
 
+## [v4.38.0] (2026-07-20)
+
+* Add `resource_attributes` and `resource_detectors` options to `logfire.configure` by @dmontagu in [#2012](https://github.com/pydantic/logfire/pull/2012)
+* Raise opentelemetry-sdk ceiling to <1.44.0 (allow 1.43) by @hramezani in [#2042](https://github.com/pydantic/logfire/pull/2042)
+* Support OpenAI Responses API content parts by @RitwijParmar in [#1981](https://github.com/pydantic/logfire/pull/1981)
+* Route managed variables by API key region by @alexmojaki in [#2077](https://github.com/pydantic/logfire/pull/2077)
+* Prevent double retrying of ConnectionErrors by @alexmojaki in [#2078](https://github.com/pydantic/logfire/pull/2078)
+* Add proper TypedDict types and TypeAdapter validation to datasets API client by @dmontagu in [#1724](https://github.com/pydantic/logfire/pull/1724)
+* fix(logfire-api): support bare @logfire.instrument decorator by @syf2211 in [#2047](https://github.com/pydantic/logfire/pull/2047)
+* Mark ambiguous run summary recommendations by @snoopuppy582 in [#1926](https://github.com/pydantic/logfire/pull/1926)
+
 ## [v4.37.0] (2026-06-12)
 
 * Pre-populate `host.*` and `os.*` resource attributes by @strawgate in [#2013](https://github.com/pydantic/logfire/pull/2013)
@@ -1190,3 +1201,4 @@ First release from new repo!
 [v4.35.0]: https://github.com/pydantic/logfire/compare/v4.34.0...v4.35.0
 [v4.36.0]: https://github.com/pydantic/logfire/compare/v4.35.0...v4.36.0
 [v4.37.0]: https://github.com/pydantic/logfire/compare/v4.36.0...v4.37.0
+[v4.38.0]: https://github.com/pydantic/logfire/compare/v4.37.0...v4.38.0
