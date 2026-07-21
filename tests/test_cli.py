@@ -1844,6 +1844,21 @@ def test_get_recommendation_texts_httpx2_upgrade() -> None:
     assert "uv add 'opentelemetry-instrumentation-httpx>=0.65b0'" in install
 
 
+@pytest.mark.parametrize(
+    ('targets', 'formatted_targets'),
+    [
+        (('foo', 'bar'), 'foo and bar'),
+        (('foo', 'bar', 'baz'), 'foo, bar, and baz'),
+    ],
+)
+def test_get_recommendation_texts_formats_multiple_targets(targets: tuple[str, ...], formatted_targets: str) -> None:
+    recommended, _ = get_recommendation_texts(
+        {InstrumentationRecommendation('opentelemetry-instrumentation-foo', targets)}
+    )
+
+    assert f'{formatted_targets} (need to install opentelemetry-instrumentation-foo)' in recommended
+
+
 def test_get_recommendation_texts_marks_ambiguous_packages():
     recs = {
         InstrumentationRecommendation('opentelemetry-instrumentation-foo', ('foo',)),
