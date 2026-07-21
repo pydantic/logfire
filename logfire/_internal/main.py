@@ -1599,7 +1599,8 @@ class Logfire:
 
         Uses the
         [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
-        library, specifically the installed client libraries' instrumentors, to which it passes `**kwargs`.
+        library, specifically `HTTPXClientInstrumentor().instrument()` (or `HTTPX2ClientInstrumentor` for `httpx2`),
+        to which it passes `**kwargs`.
 
         Args:
             client: The `httpx` or `httpx2` client instance to instrument.
