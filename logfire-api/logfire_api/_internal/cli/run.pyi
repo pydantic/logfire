@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.text import Text
 
 STANDARD_LIBRARY_PACKAGES: Incomplete
+AMBIGUOUS_RECOMMENDATION_PACKAGES: Incomplete
 OTEL_INSTRUMENTATION_MAP: Incomplete
 
 @dataclass

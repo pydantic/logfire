@@ -2235,7 +2235,11 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                                 'reasoning_tokens': 0,
                                 'rejected_prediction_tokens': 0,
                             },
-                            'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0},
+                            'prompt_tokens_details': {
+                                'audio_tokens': 0,
+                                'cache_write_tokens': None,
+                                'cached_tokens': 0,
+                            },
                         },
                     },
                     'gen_ai.response.finish_reasons': ['stop'],
@@ -4135,6 +4139,7 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
                             },
                             'prompt_tokens_details': {
                                 'audio_tokens': 2,
+                                'cache_write_tokens': None,
                                 'cached_tokens': 0,
                                 'text_tokens': 19,
                                 'image_tokens': 0,
