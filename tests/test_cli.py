@@ -299,8 +299,8 @@ def test_inspect(
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
+│  uv add logfire[urllib]                                                                                                                            │
 │  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
-│  opentelemetry-instrumentation-urllib                                                                                                              │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │
