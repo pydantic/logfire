@@ -1,0 +1,31 @@
+logfire/integrations/httpx.py
+  h_d9dd17644dded9 30,42
+logfire/_internal/integrations/httpx.py
+  s_9a77f4b5186062::t_a0225bc6eaea99 564-569
+  s_9a77f4b5186062::t_6edb1fbd6775a1 49
+  s_9a77f4b5186062::t_49fcd623d0dd40 52
+  h_d9dd17644dded9 53
+  s_9a77f4b5186062::t_3bec6fd0275d93 20
+  s_9a77f4b5186062::t_e5c9bbceded608 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "06835c741e74e610a75a68e4cc47c6b31599fc7d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_9a77f4b5186062": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1784548060583",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
