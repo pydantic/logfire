@@ -3,8 +3,7 @@ from __future__ import annotations
 import importlib
 import os
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Generator
-from contextlib import AbstractAsyncContextManager, AbstractContextManager, asynccontextmanager, contextmanager
+from contextlib import contextmanager
 from typing import Any, Generic, TypeAlias, TypeVar, cast
 from unittest import mock
 
@@ -57,13 +56,11 @@ class HTTPXFamily(ABC, Generic[RequestT, ResponseT]):
         raise NotImplementedError
 
     @abstractmethod
-    def client(self, response_body: bytes = RESPONSE_BODY) -> AbstractContextManager[httpx.Client | httpx2.Client]:
+    def client(self, response_body: bytes = RESPONSE_BODY) -> httpx.Client | httpx2.Client:
         raise NotImplementedError
 
     @abstractmethod
-    def async_client(
-        self, response_body: bytes = RESPONSE_BODY
-    ) -> AbstractAsyncContextManager[httpx.AsyncClient | httpx2.AsyncClient]:
+    def async_client(self, response_body: bytes = RESPONSE_BODY) -> httpx.AsyncClient | httpx2.AsyncClient:
         raise NotImplementedError
 
 
@@ -84,15 +81,11 @@ class HTTPXClientFamily(HTTPXFamily[httpx.Request, httpx.Response]):
     def patch_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', self.transport_response_handler)
 
-    @contextmanager
-    def client(self, response_body: bytes = RESPONSE_BODY) -> Generator[httpx.Client]:
-        with httpx.Client(transport=self.create_transport(response_body)) as client:
-            yield client
+    def client(self, response_body: bytes = RESPONSE_BODY):
+        return httpx.Client(transport=self.create_transport(response_body))
 
-    @asynccontextmanager
-    async def async_client(self, response_body: bytes = RESPONSE_BODY) -> AsyncGenerator[httpx.AsyncClient]:
-        async with httpx.AsyncClient(transport=self.create_transport(response_body)) as client:
-            yield client
+    def async_client(self, response_body: bytes = RESPONSE_BODY):
+        return httpx.AsyncClient(transport=self.create_transport(response_body))
 
 
 class HTTPX2ClientFamily(HTTPXFamily[httpx2.Request, httpx2.Response]):
@@ -112,15 +105,11 @@ class HTTPX2ClientFamily(HTTPXFamily[httpx2.Request, httpx2.Response]):
     def patch_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(httpx2.HTTPTransport, 'handle_request', self.transport_response_handler)
 
-    @contextmanager
-    def client(self, response_body: bytes = RESPONSE_BODY) -> Generator[httpx2.Client]:
-        with httpx2.Client(transport=self.create_transport(response_body)) as client:
-            yield client
+    def client(self, response_body: bytes = RESPONSE_BODY) -> httpx2.Client:
+        return httpx2.Client(transport=self.create_transport(response_body))
 
-    @asynccontextmanager
-    async def async_client(self, response_body: bytes = RESPONSE_BODY) -> AsyncGenerator[httpx2.AsyncClient]:
-        async with httpx2.AsyncClient(transport=self.create_transport(response_body)) as client:
-            yield client
+    def async_client(self, response_body: bytes = RESPONSE_BODY) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=self.create_transport(response_body))
 
 
 HTTPX_CLIENT_FAMILY = HTTPXClientFamily()
