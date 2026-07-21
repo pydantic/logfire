@@ -38,6 +38,8 @@ from logfire import VERSION
 from logfire._internal.auth import UserToken
 from logfire._internal.cli import OrgProjectAction, SplitArgs, main
 from logfire._internal.cli.run import (
+    InstrumentationRecommendation,
+    collect_instrumentation_context,
     find_recommended_instrumentations_to_install,
     get_recommendation_texts,
     instrument_packages,
@@ -323,9 +325,9 @@ def test_inspect(
             {'fastapi'},
             snapshot(
                 {
-                    ('opentelemetry-instrumentation-fastapi', 'fastapi'),
-                    ('opentelemetry-instrumentation-urllib', 'urllib'),
-                    ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+                    InstrumentationRecommendation('opentelemetry-instrumentation-fastapi', ('fastapi',)),
+                    InstrumentationRecommendation('opentelemetry-instrumentation-urllib', ('urllib',)),
+                    InstrumentationRecommendation('opentelemetry-instrumentation-sqlite3', ('sqlite3',)),
                 }
             ),
         ),
@@ -335,7 +337,7 @@ def test_inspect(
                 'opentelemetry-instrumentation-starlette': 'starlette',
             },
             {'fastapi', 'starlette'},
-            snapshot({('opentelemetry-instrumentation-fastapi', 'fastapi')}),
+            snapshot({InstrumentationRecommendation('opentelemetry-instrumentation-fastapi', ('fastapi',))}),
         ),
         (
             {
@@ -346,25 +348,89 @@ def test_inspect(
             {'urllib3', 'requests'},
             snapshot(
                 {
-                    ('opentelemetry-instrumentation-requests', 'requests'),
-                    ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+                    InstrumentationRecommendation('opentelemetry-instrumentation-requests', ('requests',)),
+                    InstrumentationRecommendation('opentelemetry-instrumentation-sqlite3', ('sqlite3',)),
                 }
             ),
         ),
         (
             {'opentelemetry-instrumentation-starlette': 'starlette'},
             {'starlette'},
-            snapshot({('opentelemetry-instrumentation-starlette', 'starlette')}),
+            snapshot({InstrumentationRecommendation('opentelemetry-instrumentation-starlette', ('starlette',))}),
         ),
     ],
 )
 def test_recommended_packages_with_dependencies(
     otel_instrumentation_map: dict[str, str],
     installed: set[str],
-    should_install: set[tuple[str, str]],
+    should_install: set[InstrumentationRecommendation],
 ) -> None:
     recommendations = find_recommended_instrumentations_to_install(otel_instrumentation_map, set(), installed)
     assert recommendations == should_install
+
+
+HTTPX_OTEL_PACKAGE = 'opentelemetry-instrumentation-httpx'
+
+
+@pytest.mark.parametrize(
+    ('installed_clients', 'otel_version', 'expected'),
+    [
+        (
+            {'httpx'},
+            None,
+            InstrumentationRecommendation(HTTPX_OTEL_PACKAGE, ('httpx',)),
+        ),
+        (
+            {'httpx2'},
+            None,
+            InstrumentationRecommendation(HTTPX_OTEL_PACKAGE, ('httpx2',), '0.65b0'),
+        ),
+        (
+            {'httpx', 'httpx2'},
+            None,
+            InstrumentationRecommendation(HTTPX_OTEL_PACKAGE, ('httpx', 'httpx2'), '0.65b0'),
+        ),
+        ({'httpx'}, '0.64b0', None),
+        (
+            {'httpx2'},
+            '0.64b0',
+            InstrumentationRecommendation(HTTPX_OTEL_PACKAGE, ('httpx2',), '0.65b0', already_installed=True),
+        ),
+        (
+            {'httpx', 'httpx2'},
+            '0.64b0',
+            InstrumentationRecommendation(HTTPX_OTEL_PACKAGE, ('httpx2',), '0.65b0', already_installed=True),
+        ),
+        ({'httpx2'}, '0.65b0', None),
+        ({'httpx', 'httpx2'}, '0.65b0', None),
+    ],
+)
+def test_httpx_recommendations(
+    installed_clients: set[str],
+    otel_version: str | None,
+    expected: InstrumentationRecommendation | None,
+) -> None:
+    installed_otel: set[str] = {HTTPX_OTEL_PACKAGE} if otel_version else set()
+    installed_versions = {HTTPX_OTEL_PACKAGE: otel_version} if otel_version else {}
+
+    recommendations = find_recommended_instrumentations_to_install(
+        {HTTPX_OTEL_PACKAGE: 'httpx'},
+        installed_otel,
+        installed_clients,
+        installed_versions,
+    )
+
+    assert recommendations == ({expected} if expected else set())
+
+
+@pytest.mark.parametrize('excluded_client', ['httpx', 'httpx2'])
+def test_httpx_exclude_aliases(excluded_client: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(logfire._internal.cli.run, 'installed_packages', lambda: {'httpx2'})
+
+    context = collect_instrumentation_context({excluded_client})
+
+    assert HTTPX_OTEL_PACKAGE not in context.instrument_pkg_map
+    assert all(HTTPX_OTEL_PACKAGE != recommendation.package_name for recommendation in context.recommendations)
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
@@ -1626,6 +1692,70 @@ def test_instrument_packages_handles_missing(monkeypatch: pytest.MonkeyPatch):
     assert result == []
 
 
+def test_instrument_packages_with_only_httpx2(monkeypatch: pytest.MonkeyPatch) -> None:
+    instrument_httpx = Mock()
+    monkeypatch.setattr(logfire._internal.cli.run, 'logfire', types.SimpleNamespace(instrument_httpx=instrument_httpx))
+    monkeypatch.setattr(
+        logfire._internal.cli.run,
+        'installed_packages',
+        lambda: {HTTPX_OTEL_PACKAGE, 'httpx2'},
+    )
+    monkeypatch.setattr(
+        logfire._internal.cli.run,
+        '_installed_package_versions',
+        Mock(return_value={HTTPX_OTEL_PACKAGE: '0.65b0'}),
+    )
+
+    context = collect_instrumentation_context(())
+    result = instrument_packages(context.installed_otel_pkgs, context.instrument_pkg_map)
+    summary = instrumented_packages_text(
+        context.installed_otel_pkgs,
+        result,
+        context.installed_pkgs,
+        context.installed_versions,
+    )
+
+    assert result == ['httpx']
+    instrument_httpx.assert_called_once_with()
+    assert '✓ httpx2 (installed and instrumented)' in summary
+
+
+@pytest.mark.parametrize(
+    ('installed_clients', 'otel_version', 'instrumented', 'expected_lines'),
+    [
+        ({'httpx'}, '0.64b0', ['httpx'], ['✓ httpx (installed and instrumented)']),
+        ({'httpx2'}, '0.65b0', ['httpx'], ['✓ httpx2 (installed and instrumented)']),
+        (
+            {'httpx', 'httpx2'},
+            '0.65b0',
+            ['httpx'],
+            ['✓ httpx (installed and instrumented)', '✓ httpx2 (installed and instrumented)'],
+        ),
+        ({'httpx2'}, '0.64b0', [], ['⚠️ httpx2 (installed but not automatically instrumented)']),
+        (
+            {'httpx', 'httpx2'},
+            '0.64b0',
+            ['httpx'],
+            ['✓ httpx (installed and instrumented)', '⚠️ httpx2 (installed but not automatically instrumented)'],
+        ),
+    ],
+)
+def test_httpx_instrumented_packages_text(
+    installed_clients: set[str],
+    otel_version: str,
+    instrumented: list[str],
+    expected_lines: list[str],
+) -> None:
+    text = instrumented_packages_text(
+        {HTTPX_OTEL_PACKAGE},
+        instrumented,
+        installed_clients,
+        {HTTPX_OTEL_PACKAGE: otel_version},
+    )
+
+    assert [line for line in str(text).splitlines() if line] == ['Your instrumentation checklist:', *expected_lines]
+
+
 def test_instrumented_packages_text_basic():
     installed_otel_pkgs = {'opentelemetry-instrumentation-foo', 'opentelemetry-instrumentation-bar'}
     instrumented_packages = ['foo']
@@ -1636,19 +1766,38 @@ def test_instrumented_packages_text_basic():
 
 
 def test_get_recommendation_texts():
-    recs = {('opentelemetry-instrumentation-foo', 'foo'), ('opentelemetry-instrumentation-bar', 'bar')}
+    recs = {
+        InstrumentationRecommendation('opentelemetry-instrumentation-foo', ('foo',)),
+        InstrumentationRecommendation('opentelemetry-instrumentation-bar', ('bar',)),
+    }
     recommended, install = get_recommendation_texts(recs)
     assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
     assert 'need to install opentelemetry-instrumentation-bar' in recommended
     assert 'need to install opentelemetry-instrumentation-foo' in recommended
 
 
+def test_get_recommendation_texts_httpx2_upgrade() -> None:
+    recs = {
+        InstrumentationRecommendation(
+            HTTPX_OTEL_PACKAGE,
+            ('httpx2',),
+            '0.65b0',
+            already_installed=True,
+        )
+    }
+
+    recommended, install = get_recommendation_texts(recs)
+
+    assert 'httpx2 (need to upgrade opentelemetry-instrumentation-httpx>=0.65b0)' in recommended
+    assert "uv add 'opentelemetry-instrumentation-httpx>=0.65b0'" in install
+
+
 def test_get_recommendation_texts_marks_ambiguous_packages():
     recs = {
-        ('opentelemetry-instrumentation-foo', 'foo'),
-        ('opentelemetry-instrumentation-requests', 'requests'),
-        ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
-        ('opentelemetry-instrumentation-urllib', 'urllib'),
+        InstrumentationRecommendation('opentelemetry-instrumentation-foo', ('foo',)),
+        InstrumentationRecommendation('opentelemetry-instrumentation-requests', ('requests',)),
+        InstrumentationRecommendation('opentelemetry-instrumentation-sqlite3', ('sqlite3',)),
+        InstrumentationRecommendation('opentelemetry-instrumentation-urllib', ('urllib',)),
     }
     recommended, _ = get_recommendation_texts(recs)
 
@@ -1664,8 +1813,8 @@ def test_get_recommendation_texts_marks_ambiguous_packages():
 
 def test_get_recommendation_texts_formats_two_ambiguous_packages():
     recs = {
-        ('opentelemetry-instrumentation-requests', 'requests'),
-        ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+        InstrumentationRecommendation('opentelemetry-instrumentation-requests', ('requests',)),
+        InstrumentationRecommendation('opentelemetry-instrumentation-sqlite3', ('sqlite3',)),
     }
     recommended, _ = get_recommendation_texts(recs)
 
