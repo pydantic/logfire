@@ -5,6 +5,8 @@ import opentelemetry.trace as trace_api
 import pydantic_ai
 import pydantic_ai.models
 import requests
+import urllib3.connectionpool
+import urllib3.response
 from . import async_ as async_
 from ..experimental.forwarding import ForwardExportRequestResponse as ForwardExportRequestResponse
 from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
@@ -43,6 +45,7 @@ from fastapi import FastAPI
 from flask.app import Flask
 from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
+from opentelemetry.instrumentation.urllib3 import RequestInfo as Urllib3RequestInfo
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
@@ -771,6 +774,16 @@ class Logfire:
             excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
+        """
+    def instrument_urllib3(self, excluded_urls: str | None = None, request_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, Urllib3RequestInfo], None] | None = None, response_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, urllib3.response.HTTPResponse], None] | None = None, url_filter: Callable[[str], str] | None = None, **kwargs: Any) -> None:
+        """Instrument the `urllib3` module so that spans are automatically created for each request.
+
+        Args:
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
+            url_filter: A callback to process the requested URL prior to adding it as a span attribute.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
         """
     @overload
