@@ -81,10 +81,10 @@ class HTTPXClientFamily(HTTPXFamily[httpx.Request, httpx.Response]):
     def patch_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', self.transport_response_handler)
 
-    def client(self, response_body: bytes = RESPONSE_BODY):
+    def client(self, response_body: bytes = RESPONSE_BODY) -> httpx.Client:
         return httpx.Client(transport=self.create_transport(response_body))
 
-    def async_client(self, response_body: bytes = RESPONSE_BODY):
+    def async_client(self, response_body: bytes = RESPONSE_BODY) -> httpx.AsyncClient:
         return httpx.AsyncClient(transport=self.create_transport(response_body))
 
 
