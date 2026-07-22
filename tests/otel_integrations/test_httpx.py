@@ -273,7 +273,7 @@ def test_httpx2_requires_new_otel(monkeypatch: pytest.MonkeyPatch):
     assert str(exc_info.value) == snapshot("""\
 Instrumenting `httpx2` requires `opentelemetry-instrumentation-httpx>=0.65b0`.
 You can update this with:
-    pip install -U 'opentelemetry-instrumentation-httpx>=0.65b0'\
+    pip install -U 'logfire[httpx]' 'opentelemetry-instrumentation-httpx>=0.65b0'\
 """)
 
     monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', None)
