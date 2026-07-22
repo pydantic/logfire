@@ -46,7 +46,7 @@ with logfire.span('doing stuff'):
 ```
 
 The `doing stuff` span will now contain a `logfire.metrics` attribute that holds the aggregated total of the `my_amount` counter, i.e. `3`.
-Running the following query in the Explore view:
+Running the following query in SQL Workbench:
 
 ```sql
 SELECT attributes->>'logfire.metrics'->>'my_amount'->>'total' AS total_amount
