@@ -14,7 +14,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import cast
 
-from packaging.version import Version
 from rich.box import ROUNDED
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -22,6 +21,7 @@ from rich.rule import Rule
 from rich.text import Text
 
 import logfire
+from logfire._internal.utils import get_version
 
 STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 AMBIGUOUS_RECOMMENDATION_PACKAGES = {'requests', 'sqlite3', 'urllib'}
@@ -461,14 +461,16 @@ def _minimum_instrumentation_version(otel_pkg: str, target_packages: tuple[str, 
     ]
     if not minimum_versions:
         return None
-    return str(max(map(Version, minimum_versions)))
+    return str(max(map(get_version, minimum_versions)))
 
 
 def _target_is_supported(otel_pkg: str, target_package: str, installed_versions: Mapping[str, str]) -> bool:
     minimum_version = MINIMUM_INSTRUMENTATION_VERSIONS.get((otel_pkg, target_package))
     installed_version = installed_versions.get(otel_pkg)
     return (
-        minimum_version is None or installed_version is None or Version(installed_version) >= Version(minimum_version)
+        minimum_version is None
+        or installed_version is None
+        or get_version(installed_version) >= get_version(minimum_version)
     )
 
 
