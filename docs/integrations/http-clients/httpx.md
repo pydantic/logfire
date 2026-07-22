@@ -11,7 +11,9 @@ duration) in Logfire. Related spans link together into a **trace** (the full jou
 so a slow outgoing call shows up right next to the code that triggered it.
 
 This works with the synchronous `Client` and asynchronous `AsyncClient` from either library. If both
-libraries are installed, one call to `logfire.instrument_httpx()` instruments both.
+libraries are installed, one call to `logfire.instrument_httpx()` instruments both when
+`opentelemetry-instrumentation-httpx` is version 0.65b0 or newer. With an earlier version, Logfire
+instruments HTTPX and warns that it skipped HTTPX2.
 
 ## What you'll capture
 
