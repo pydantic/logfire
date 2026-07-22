@@ -280,7 +280,7 @@ FROM records
 WHERE attributes->'result'->>'country_code' = 'USA';
 ```
 
-![Logfire explore query screenshot](images/index/logfire-screenshot-explore-query.png)
+![Logfire SQL Workbench query screenshot](images/index/logfire-screenshot-explore-query.png)
 
 You can also filter to show only traces related to users in the USA in the live view with
 

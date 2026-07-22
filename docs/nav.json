@@ -177,7 +177,7 @@
       { "label": "Metrics Explorer", "slug": "guides/web-ui/metrics-explorer" },
       { "label": "LLM Panels", "slug": "guides/web-ui/llm-panels" },
       { "label": "Dashboards", "slug": "guides/web-ui/dashboards" },
-      { "label": "SQL Explorer", "slug": "guides/web-ui/explore" },
+      { "label": "SQL Workbench", "slug": "guides/web-ui/explore" },
       { "label": "Issues", "slug": "guides/web-ui/issues" },
       { "label": "Alerts", "slug": "guides/web-ui/alerts" },
       { "label": "Saved Searches", "slug": "guides/web-ui/saved-searches" },
