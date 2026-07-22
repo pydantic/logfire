@@ -1,16 +1,17 @@
 ---
-title: "Instrument HTTPX: see every outgoing request your app makes"
-description: "Add a few lines to your HTTPX code and see every outgoing HTTP request in Logfire: the URL, status, how long it took, and any errors."
+title: "Instrument HTTPX and HTTPX2: see every outgoing request your app makes"
+description: "Add a few lines to your HTTPX or HTTPX2 code and see every outgoing HTTP request in Logfire: the URL, status, how long it took, and any errors."
 integration: otel
 ---
-# HTTPX
+# HTTPX and HTTPX2
 
-See every HTTP request your app makes with [HTTPX][httpx]: the URL, the response status, how long it
-took, and any errors, as a **span** (one unit of work with a name, a start, and a duration) in
-Logfire. Related spans link together into a **trace** (the full journey of one request), so a slow
-outgoing call shows up right next to the code that triggered it.
+See every HTTP request your app makes with [HTTPX][httpx] or [HTTPX2][httpx2]: the URL, the response
+status, how long it took, and any errors, as a **span** (one unit of work with a name, a start, and a
+duration) in Logfire. Related spans link together into a **trace** (the full journey of one request),
+so a slow outgoing call shows up right next to the code that triggered it.
 
-This works with both the synchronous `httpx.Client` and the asynchronous `httpx.AsyncClient`.
+This works with the synchronous `Client` and asynchronous `AsyncClient` from either library. If both
+libraries are installed, one call to `logfire.instrument_httpx()` instruments both.
 
 ## What you'll capture
 
@@ -26,12 +27,21 @@ Install `logfire` with the `httpx` extra:
 
 {{ install_logfire(extras=['httpx']) }}
 
+The extra installs the OpenTelemetry integration that collects request data. It does not install
+`httpx` or `httpx2`; keep the client library you use as an application dependency.
+
+HTTPX2 support requires `opentelemetry-instrumentation-httpx` 0.65b0 or newer. A fresh installation
+normally selects a compatible version. If an existing environment keeps an older version, use the
+upgrade command in [Troubleshooting](#troubleshooting).
+
 ## Usage
 
 Add two lines to your app: `logfire.configure()` to connect to your project, and
-[`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] to record every request.
+[`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] to record every request. With no
+client argument, Logfire instruments both libraries when they are installed. Pass a client instance
+to instrument only that client.
 
-=== "Instrument every client"
+=== "Instrument all installed clients"
 
     ```py title="main.py" hl_lines="8" skip-run="true" skip-reason="external-connection"
     import asyncio
@@ -57,12 +67,12 @@ Add two lines to your app: `logfire.configure()` to connect to your project, and
     asyncio.run(main())
     ```
 
-=== "Instrument a single client"
+=== "Instrument one HTTPX2 client"
 
     ```py title="main.py" hl_lines="12 18" skip-run="true" skip-reason="external-connection"
     import asyncio
 
-    import httpx
+    import httpx2
 
     import logfire
 
@@ -70,13 +80,13 @@ Add two lines to your app: `logfire.configure()` to connect to your project, and
 
     url = 'https://httpbin.org/get'
 
-    with httpx.Client() as client:
+    with httpx2.Client() as client:
         logfire.instrument_httpx(client)
         client.get(url)
 
 
     async def main():
-        async with httpx.AsyncClient() as client:
+        async with httpx2.AsyncClient() as client:
             logfire.instrument_httpx(client)
             await client.get(url)
 
@@ -85,6 +95,8 @@ Add two lines to your app: `logfire.configure()` to connect to your project, and
     ```
 
 Run it with `python main.py`.
+
+You can also pass one `httpx.Client` or `httpx.AsyncClient`; the Logfire call stays the same.
 
 ## Verify it worked
 
@@ -99,8 +111,14 @@ Not seeing your requests in Logfire? Check these first:
 
 - **`logfire.configure()` runs before `logfire.instrument_httpx()`.** Configure the connection first,
   then instrument.
-- **You instrument the client you actually call.** `instrument_httpx()` with no argument covers all
-  clients; if you pass a specific client, make sure it's the one making the request.
+- **You instrument the client you actually call.** `instrument_httpx()` with no argument covers both
+  installed libraries; if you pass a specific client, make sure it's the one making the request.
+- **HTTPX2 reports that it needs newer OpenTelemetry instrumentation.** Upgrade Logfire and the HTTPX
+  integration together so their OpenTelemetry dependencies remain compatible:
+
+  ```bash
+  pip install -U 'logfire[httpx]' 'opentelemetry-instrumentation-httpx>=0.65b0'
+  ```
 - **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually made a request.** Spans appear only after a request completes.
@@ -108,7 +126,8 @@ Not seeing your requests in Logfire? Check these first:
 ## Advanced
 
 The [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] method accepts several parameters
-to control what's captured.
+to control what's captured. The same capture settings and hooks apply to HTTPX and HTTPX2. The
+examples below use HTTPX.
 
 ### Capture everything
 
@@ -226,4 +245,5 @@ client.post('https://httpbin.org/post', data='Hello, World!')
 - Underlying OpenTelemetry package: [HTTPX instrumentation][opentelemetry-httpx]
 
 [httpx]: https://www.python-httpx.org/
+[httpx2]: https://github.com/pydantic/httpx2
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html
