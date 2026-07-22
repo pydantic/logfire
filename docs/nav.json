@@ -60,7 +60,35 @@
               { "label": "Claude Agent SDK", "link": "/logfire/integrations/llms/claude-agent-sdk/" },
               { "label": "LLamaIndex", "link": "/logfire/integrations/llms/llamaindex/" },
               { "label": "Mirascope", "link": "/logfire/integrations/llms/mirascope/" },
-              { "label": "Magentic", "link": "/logfire/integrations/llms/magentic/" }
+              { "label": "Magentic", "link": "/logfire/integrations/llms/magentic/" },
+              { "label": "CrewAI", "link": "/logfire/integrations/llms/crewai/" },
+              { "label": "AutoGen", "link": "/logfire/integrations/llms/autogen/" },
+              { "label": "Google ADK", "link": "/logfire/integrations/llms/google-adk/" },
+              { "label": "smolagents", "link": "/logfire/integrations/llms/smolagents/" },
+              { "label": "Strands Agents", "link": "/logfire/integrations/llms/strands/" },
+              { "label": "Agno", "link": "/logfire/integrations/llms/agno/" },
+              { "label": "Haystack", "link": "/logfire/integrations/llms/haystack/" },
+              { "label": "LangGraph", "link": "/logfire/integrations/llms/langgraph/" },
+              { "label": "Instructor", "link": "/logfire/integrations/llms/instructor/" },
+              { "label": "Semantic Kernel", "link": "/logfire/integrations/llms/semantic-kernel/" },
+              { "label": "Letta", "link": "/logfire/integrations/llms/letta/" }
+            ]
+          },
+          {
+            "label": "Agent Frameworks (JS, Go, Rust, .NET)",
+            "items": [
+              { "label": "Overview", "link": "/logfire/integrations/agent-frameworks/" },
+              { "label": "Vercel AI SDK", "link": "/logfire/integrations/agent-frameworks/vercel-ai-sdk/" },
+              { "label": "Mastra", "link": "/logfire/integrations/agent-frameworks/mastra/" },
+              { "label": "LangChain.js", "link": "/logfire/integrations/agent-frameworks/langchain-js/" },
+              { "label": "OpenAI Agents SDK (TS)", "link": "/logfire/integrations/agent-frameworks/openai-agents-js/" },
+              { "label": "VoltAgent", "link": "/logfire/integrations/agent-frameworks/voltagent/" },
+              { "label": "LlamaIndex.TS", "link": "/logfire/integrations/agent-frameworks/llamaindex-ts/" },
+              { "label": "Genkit (Go)", "link": "/logfire/integrations/agent-frameworks/genkit-go/" },
+              { "label": "Eino (Go)", "link": "/logfire/integrations/agent-frameworks/eino/" },
+              { "label": "Rig (Rust)", "link": "/logfire/integrations/agent-frameworks/rig/" },
+              { "label": "Semantic Kernel (.NET)", "link": "/logfire/integrations/agent-frameworks/semantic-kernel-dotnet/" },
+              { "label": "Microsoft Agent Framework (.NET)", "link": "/logfire/integrations/agent-frameworks/agent-framework-dotnet/" }
             ]
           },
           {

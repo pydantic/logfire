@@ -29,6 +29,7 @@ If a package you are using is not listed in this documentation, please let us kn
 **Logfire** has documented integrations with many technologies, including:
 
 - _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic
+- _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Instructor, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more — see [Agent Frameworks](agent-frameworks/index.md)
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
 - _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
 - _HTTP Clients_: HTTPX, Requests, AIOHTTP
@@ -46,6 +47,17 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [AIOHTTP](http-clients/aiohttp.md)        | HTTP Client             | [`logfire.instrument_aiohttp_client()`,][logfire.Logfire.instrument_aiohttp_client] [`logfire.instrument_aiohttp_server()`][logfire.Logfire.instrument_aiohttp_server] |
 | [Airflow](event-streams/airflow.md)       | Task Scheduler          | N/A (built in, config needed)                                                                                                                                          |
 | [Anthropic](llms/anthropic.md)            | AI                      | [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic]                                                                                               |
+| [Agno](llms/agno.md)                      | AI Agent Framework      | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [AutoGen](llms/autogen.md)                | AI Agent Framework      | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [CrewAI](llms/crewai.md)                  | AI Agent Framework      | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [Google ADK](llms/google-adk.md)          | AI Agent Framework      | N/A (native OpenTelemetry support)                                                                                                                                     |
+| [Haystack](llms/haystack.md)              | AI Framework            | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [Instructor](llms/instructor.md)          | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai]                                                                                                     |
+| [LangGraph](llms/langgraph.md)            | AI Agent Framework      | N/A (built-in OpenTelemetry support)                                                                                                                                   |
+| [Letta](llms/letta.md)                    | AI Agent Framework      | N/A (OpenTelemetry Collector)                                                                                                                                          |
+| [Semantic Kernel](llms/semantic-kernel.md) | AI Agent Framework     | N/A (native OpenTelemetry support)                                                                                                                                     |
+| [smolagents](llms/smolagents.md)          | AI Agent Framework      | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [Strands Agents](llms/strands.md)         | AI Agent Framework      | N/A (native OpenTelemetry support)                                                                                                                                     |
 | [ASGI](web-frameworks/asgi.md)            | Web Framework Interface | [`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi]                                                                                                         |
 | [AWS Lambda](aws-lambda.md)               | Cloud Function          | [`logfire.instrument_aws_lambda()`][logfire.Logfire.instrument_aws_lambda]                                                                                             |
 | [Asyncpg](databases/asyncpg.md)           | Database                | [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg]                                                                                                   |
