@@ -427,8 +427,15 @@ def _full_install_command(recommendations: list[InstrumentationRecommendation]) 
     # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
     if is_uv_installed():
         return f'uv add {" ".join(package_specs)}'
-    else:
-        return f'pip install {" ".join(package_specs)}'  # pragma: no cover
+
+    if any(
+        recommendation.package_name == 'opentelemetry-instrumentation-httpx' and recommendation.minimum_version
+        for recommendation in recommendations
+    ):
+        package_specs.insert(0, shlex.quote('logfire[httpx]'))
+        return f'pip install -U {" ".join(package_specs)}'
+
+    return f'pip install {" ".join(package_specs)}'
 
 
 def _instrumentation_targets(otel_pkg: str, import_name: str) -> tuple[str, ...]:

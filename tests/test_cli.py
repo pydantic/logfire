@@ -1828,7 +1828,7 @@ def test_get_recommendation_texts():
     assert 'need to install opentelemetry-instrumentation-foo' in recommended
 
 
-def test_get_recommendation_texts_httpx2_upgrade() -> None:
+def test_get_recommendation_texts_httpx2_upgrade(monkeypatch: pytest.MonkeyPatch) -> None:
     recs = {
         InstrumentationRecommendation(
             HTTPX_OTEL_PACKAGE,
@@ -1842,6 +1842,10 @@ def test_get_recommendation_texts_httpx2_upgrade() -> None:
 
     assert 'httpx2 (need to upgrade opentelemetry-instrumentation-httpx>=0.65b0)' in recommended
     assert "uv add 'opentelemetry-instrumentation-httpx>=0.65b0'" in install
+
+    monkeypatch.setattr(logfire._internal.cli.run, 'is_uv_installed', lambda: False)
+    _, install = get_recommendation_texts(recs)
+    assert "pip install -U 'logfire[httpx]' 'opentelemetry-instrumentation-httpx>=0.65b0'" in install
 
 
 @pytest.mark.parametrize(
