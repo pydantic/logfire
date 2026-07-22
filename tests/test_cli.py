@@ -1817,7 +1817,7 @@ def test_instrumented_packages_text_basic():
     assert '⚠️ bar' in text
 
 
-def test_get_recommendation_texts():
+def test_get_recommendation_texts(monkeypatch: pytest.MonkeyPatch):
     recs = {
         InstrumentationRecommendation('opentelemetry-instrumentation-foo', ('foo',)),
         InstrumentationRecommendation('opentelemetry-instrumentation-bar', ('bar',)),
@@ -1826,6 +1826,10 @@ def test_get_recommendation_texts():
     assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
     assert 'need to install opentelemetry-instrumentation-bar' in recommended
     assert 'need to install opentelemetry-instrumentation-foo' in recommended
+
+    monkeypatch.setattr(logfire._internal.cli.run, 'is_uv_installed', lambda: False)
+    _, install = get_recommendation_texts(recs)
+    assert 'pip install opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
 
 
 def test_get_recommendation_texts_httpx2_upgrade(monkeypatch: pytest.MonkeyPatch) -> None:
