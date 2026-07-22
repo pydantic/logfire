@@ -73,7 +73,7 @@ from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
-from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
+from .client import UA_HEADER, InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     ATTRIBUTES_CONFIG,
@@ -97,6 +97,7 @@ from .exporters.console import (
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from .exporters.otlp import (
+    OTLP_EXPORTER_UA_HEADER,
     BodySizeCheckingOTLPSpanExporter,
     OTLPExporterHttpSession,
     QuietLogExporter,
@@ -134,7 +135,7 @@ if TYPE_CHECKING:
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
-COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
+COMMON_REQUEST_HEADERS = {'User-Agent': UA_HEADER}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
@@ -1309,7 +1310,7 @@ class LogfireConfig(_LogfireConfigData):
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
                         otlp_forwarding_destinations.append((base_url, token))
-                        headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
+                        headers = {'User-Agent': OTLP_EXPORTER_UA_HEADER, 'Authorization': token}
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(

@@ -9,6 +9,7 @@ import weakref
 from collections import deque
 from collections.abc import Mapping, Sequence
 from functools import cached_property
+from importlib.metadata import version as package_version
 from pathlib import Path
 from tempfile import mkdtemp
 from threading import Lock, Thread
@@ -24,8 +25,19 @@ from requests import Session
 
 import logfire
 
+from ..client import UA_HEADER
 from ..utils import logger, platform_is_emscripten
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
+
+# The upstream OTLP exporters emit `OTel-OTLP-Exporter-Python/<version>` by default, but drop it
+# entirely when custom headers include a `User-Agent`. The OTLP exporter spec recommends that a
+# distribution's identifier be *prepended* while the exporter's default identifier is retained
+# (https://opentelemetry.io/docs/specs/otel/protocol/exporter/#user-agent), so rebuild that
+# default here and prepend ours. `tests/test_user_agent.py` guards against the upstream format
+# drifting.
+OTLP_EXPORTER_UA_HEADER = (
+    f'{UA_HEADER} OTel-OTLP-Exporter-Python/{package_version("opentelemetry-exporter-otlp-proto-http")}'
+)
 
 _DISK_RETRYERS: list[weakref.ref[DiskRetryer]] = []
 

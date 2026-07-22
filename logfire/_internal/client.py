@@ -13,7 +13,13 @@ from .auth import UserToken, UserTokenCollection
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .utils import UnexpectedResponse
 
-UA_HEADER = f'logfire/{VERSION}'
+# Identifies the Logfire Python SDK on every HTTP request it makes, as a single RFC 9110
+# product token consistent with the other Logfire SDKs (`logfire-js`, `logfire-rust`).
+# Runtime details (Python version, OS, etc.) deliberately stay out of this string: on OTLP
+# exports they are carried by resource attributes, and a low-cardinality User-Agent is easy
+# to filter and aggregate on. OTLP export requests additionally retain the upstream
+# exporter's own identifier: see `OTLP_EXPORTER_UA_HEADER` in `exporters/otlp.py`.
+UA_HEADER = f'logfire-python/{VERSION}'
 
 
 class ProjectAlreadyExists(Exception):
