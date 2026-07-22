@@ -14,7 +14,7 @@ Data is stored in two main tables: `records` and `metrics`.
 
 `records` is the table you'll usually care about and is what you'll see in the Live View. Each row in `records` is a span or log (essentially a span with no duration). A _trace_ is a collection of spans that share the same `trace_id`, structured as a tree.
 
-`metrics` contains pre-aggregated numerical data which is usually more efficient to query than `records` for certain use cases. There's currently no dedicated UI for metrics, but you can query it directly using SQL in the Explore view, Dashboards, Alerts, or the API, just like you would with `records`.
+`metrics` contains pre-aggregated numerical data which is usually more efficient to query than `records` for certain use cases. There's currently no dedicated UI for metrics, but you can query it directly using SQL in SQL Workbench, Dashboards, Alerts, or the API, just like you would with `records`.
 
 Technically `records` is a subset, the full table is called `records_all` which includes additional rows called pending spans, but you can ignore that for most use cases.
 
@@ -36,9 +36,9 @@ You will see this in the Live view:
 
 ![Basic columns example in the live view](../images/sql-reference/basic-columns-live.png)
 
-Here's an example of querying in the Explore view:
+Here's an example of querying in SQL Workbench:
 
-![Basic columns example in the explore view](../images/sql-reference/basic-columns-explore.png)
+![Basic columns example in SQL Workbench](../images/sql-reference/basic-columns-explore.png)
 
 #### `span_name`
 
@@ -105,7 +105,7 @@ The default level for spans is `info`, but can be higher in some cases:
 
 You can convert level names to numbers using the `level_num` SQL function, e.g. `level_num('warn')` returns `13`.
 
-You can also use the `level_name` SQL function to convert numbers to names, e.g. `SELECT level_name(level), ...` to see a human-readable level in the Explore view.
+You can also use the `level_name` SQL function to convert numbers to names, e.g. `SELECT level_name(level), ...` to see a human-readable level in SQL Workbench.
 
 The numerical values are based on the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitynumber). Some common values: `info` is `9`, `warn` is `13`, and `error` is `17`.
 
@@ -119,7 +119,7 @@ This is a unique identifier for the trace that this span/log belongs to.
 
 A trace is a collection of one or more records that share the same `trace_id`, structured as a tree. It typically represents one high level operation such as an HTTP server request or a batch job.
 
-If you query individual records in the explore view, dashboard tables, or alerts, we recommend including `trace_id` in the `SELECT` clause. The values will become clickable links in the UI that will take you to the Live view filtered by that trace, making it easy to explore a record in context. For alerts sent as slack messages, note that this doesn't apply to the slack message itself, but the title of the slack message will link to the alert run results in the UI, and the table there will have clickable `trace_id` links.
+If you query individual records in SQL Workbench, dashboard tables, or alerts, we recommend including `trace_id` in the `SELECT` clause. The values will become clickable links in the UI that will take you to the Live view filtered by that trace, making it easy to explore a record in context. For alerts sent as slack messages, note that this doesn't apply to the slack message itself, but the title of the slack message will link to the alert run results in the UI, and the table there will have clickable `trace_id` links.
 
 Technically the trace ID is a 128-bit (16 byte) integer, but in the database it's represented as a 32-character hexadecimal string. For example, the following code:
 
@@ -189,7 +189,7 @@ This is the time shown on the left side of the list of records in the Live view.
 
 All views in the UI have some time range dropdown that filters on this column, so you usually don't have to. For example, in the Live view the default is set to 'Last 5 minutes'. But if you wanted to do this manually in SQL, you could use a `WHERE` clause like `start_timestamp >= now() - interval '5 minutes'`.
 
-In dashboard queries, a time series chart querying `records` should have `time_bucket($resolution, start_timestamp)` in the `SELECT` clause, which will be used as the x-axis. `$resolution` is a variable that will be replaced with the time resolution of the dashboard, e.g. `1 minute`. This variable doesn't exist outside of dashboards, so if you want to copy a query from a dashboard to the Explore view, tick 'Show rendered query' first. This will fill in the variable with the actual value, e.g. `time_bucket('1 minute', start_timestamp)`.
+In dashboard queries, a time series chart querying `records` should have `time_bucket($resolution, start_timestamp)` in the `SELECT` clause, which will be used as the x-axis. `$resolution` is a variable that will be replaced with the time resolution of the dashboard, e.g. `1 minute`. This variable doesn't exist outside of dashboards, so if you want to copy a query from a dashboard to SQL Workbench, tick 'Show rendered query' first. This will fill in the variable with the actual value, e.g. `time_bucket('1 minute', start_timestamp)`.
 
 !!! warning
     Prefer this column over `created_at`, which is an internal timestamp representing when the record was created in the database.

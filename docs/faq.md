@@ -216,7 +216,7 @@ When you're iterating on AI applications with a coding agent, the agent needs to
 
 *Logfire uses [Apache DataFusion](https://datafusion.apache.org/) as its query engine, with syntax designed to match PostgreSQL conventions.*
 
-[SQL Explorer](guides/web-ui/explore.md)
+[SQL Workbench](guides/web-ui/explore.md)
 
 ---
 

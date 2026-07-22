@@ -49,7 +49,7 @@ Your metrics then show up in several places in the Logfire UI:
   [use it as a template](../guides/web-ui/dashboards.md#using-a-standard-dashboard-as-a-template) for a custom
   dashboard.
 
-You can also query the metrics directly in the [Explore](../guides/web-ui/explore.md) view via the `metrics`
+You can also query the metrics directly in [SQL Workbench](../guides/web-ui/explore.md) via the `metrics`
 table (see the [SQL reference](../reference/sql.md)).
 
 ## Verify it worked
