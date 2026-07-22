@@ -1,0 +1,22 @@
+tests/test_cli.py
+  s_5435a3ee18f08e::t_c903e0119c402f 1831,1846-1848
+  s_5435a3ee18f08e::t_3c1b7ed7d8f1fd 1849
+logfire/_internal/cli/run.py
+  s_5435a3ee18f08e::t_c903e0119c402f 430-438
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3d3bfc6ae4075b7a827c458a78026ea60a6fd822",
+  "prompts": {},
+  "sessions": {
+    "s_5435a3ee18f08e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f804f-f12b-7243-ab0b-0a9ded4f6eae",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
