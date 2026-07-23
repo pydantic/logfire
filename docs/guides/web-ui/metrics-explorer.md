@@ -29,7 +29,7 @@ Step 3 shows you a small chart per dimension (label) on the metric, with the car
 Each card has:
 
 - **View SQL**: opens a dialog with the exact SQL that produced the chart. Copy it for a dashboard, or send it to a teammate.
-- **Open in Explore**: drops you into the [SQL Explorer](explore.md) with that query already populated, so you can extend it.
+- **Open in SQL Workbench**: opens [SQL Workbench](explore.md) with that query already populated, so you can extend it.
 
 Aggregations default sensibly by metric kind, with the rest available from the dropdown:
 
@@ -41,11 +41,11 @@ Aggregations default sensibly by metric kind, with the rest available from the d
 | Exponential histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
 
 !!! note "Percentiles on histograms"
-    The wizard does not expose `p50`/`p95`/`p99` directly on histogram-typed metrics today: pre-aggregated histograms (e.g. `http.server.request.duration` from OTel SDK instrumentations) report `avg`, `min`, `max`, `count` and `sum` in the wizard. For percentiles over a histogram, switch to the [SQL Explorer](explore.md) and use the histogram bucket columns; the **Open in Explore** button on every card hands you a query you can extend.
+    The wizard does not expose `p50`/`p95`/`p99` directly on histogram-typed metrics today: pre-aggregated histograms (e.g. `http.server.request.duration` from OTel SDK instrumentations) report `avg`, `min`, `max`, `count` and `sum` in the wizard. For percentiles over a histogram, switch to [SQL Workbench](explore.md) and use the histogram bucket columns; the **Open in SQL Workbench** button on every card hands you a query you can extend.
 
 ## When the wizard isn't enough
 
-The wizard is for discovery. The [SQL Explorer](explore.md) is for the real work. The **View SQL** and **Open in Explore** buttons on every card are the on-ramp between them, so you can do as much as the wizard handles and graduate without retyping anything.
+The wizard is for discovery. [SQL Workbench](explore.md) is for the real work. The **View SQL** and **Open in SQL Workbench** buttons on every card are the on-ramp between them, so you can do as much as the wizard handles and graduate without retyping anything.
 
 The columns you see in the wizard live on the `metrics` table; the full schema is in the [SQL reference](../../reference/sql.md).
 
@@ -96,4 +96,4 @@ Refresh the Metrics view. `hello` appears in **Recently active** and as its own 
 | Custom metric lands in **Everything else** instead of its own namespace | The metric name has no dot (e.g. `requests_total` instead of `app.requests.total`). The grouping is structural: give the name a dotted prefix to create a namespace. |
 | Step 1 shows no namespaces at all | The project hasn't received any metric samples yet. The wizard reads from `metrics`-table data; if you're sending only spans, no namespaces will appear here. |
 | Two metric sources show up under `system.*` with overlapping series | The SDK's [system-metrics integration](../../integrations/system-metrics.md) and an OpenTelemetry Collector running `hostmetricsreceiver` are both running on the same host. See the [double-counting note](#how-the-data-flows-in). |
-| Promoting a dimension shows fewer series than the cardinality card claimed | The chart truncates after a fixed number of series. For full breakdowns of a high-cardinality dimension, jump into the [SQL Explorer](explore.md) via the **Open in Explore** button on the card. |
+| Promoting a dimension shows fewer series than the cardinality card claimed | The chart truncates after a fixed number of series. For full breakdowns of a high-cardinality dimension, open [SQL Workbench](explore.md) from the **Open in SQL Workbench** button on the card. |
