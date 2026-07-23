@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from dirty_equals import IsPartialDict, IsStr
+from dirty_equals import IsInt, IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
@@ -523,7 +523,7 @@ async def test_responses(exporter: TestExporter):
                         'input_tokens': 0,
                         'output_tokens': 0,
                         'total_tokens': 0,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -611,7 +611,12 @@ async def test_responses(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'agent1',
-                    'usage': {'input_tokens': 0, 'output_tokens': 0, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 0,
+                        'output_tokens': 0,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'name': 'turn',
                     'gen_ai.system': 'openai',
                 },
@@ -655,7 +660,7 @@ async def test_responses(exporter: TestExporter):
                         'input_tokens': 89,
                         'output_tokens': 18,
                         'total_tokens': 107,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'logfire.msg': "Responses API with 'gpt-4o'",
@@ -761,7 +766,12 @@ async def test_responses(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 2,
                     'agent_name': 'agent2',
-                    'usage': {'input_tokens': 89, 'output_tokens': 18, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 89,
+                        'output_tokens': 18,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'logfire.msg': 'Turn 2 for agent agent2',
                     'logfire.span_type': 'span',
                 },
@@ -805,6 +815,7 @@ async def test_responses(exporter: TestExporter):
                         'input_tokens': 89,
                         'output_tokens': 18,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 2,
                         'total_tokens': 107,
                     },
@@ -857,9 +868,6 @@ async def test_input_guardrails(exporter: TestExporter):
     agent = Agent[str](name='my_agent', input_guardrails=[zero_guardrail])
 
     await Runner.run(agent, '1+1?')
-    with pytest.raises(InputGuardrailTripwireTriggered):
-        await Runner.run(agent, '0?')
-
     assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
@@ -893,7 +901,7 @@ async def test_input_guardrails(exporter: TestExporter):
                         'input_tokens': 29,
                         'output_tokens': 9,
                         'total_tokens': 38,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -926,7 +934,12 @@ async def test_input_guardrails(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'my_agent',
-                    'usage': {'input_tokens': 29, 'output_tokens': 9, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 29,
+                        'output_tokens': 9,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'name': 'turn',
                     'gen_ai.system': 'openai',
                 },
@@ -970,6 +983,7 @@ async def test_input_guardrails(exporter: TestExporter):
                         'input_tokens': 29,
                         'output_tokens': 9,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 1,
                         'total_tokens': 38,
                     },
@@ -997,6 +1011,20 @@ async def test_input_guardrails(exporter: TestExporter):
                     'agent_trace_id': IsStr(),
                 },
             },
+        ]
+    )
+
+    exporter.exported_spans.clear()
+    with pytest.raises(InputGuardrailTripwireTriggered):
+        await Runner.run(agent, '0?')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # The model call runs concurrently with input guardrails. Depending on when it is
+    # cancelled, the Agents SDK may or may not emit an incomplete Responses API span.
+    # Assert the guardrail telemetry independently of that span and its effect on end times.
+    spans = [span for span in spans if span['name'] != 'Responses API with {gen_ai.request.model!r}']
+    assert simplify_spans(spans) == snapshot(
+        [
             {
                 'name': 'Guardrail {name!r} {triggered=}',
                 'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
@@ -1017,7 +1045,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
                 'start_time': 16000000000,
-                'end_time': 19000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1040,7 +1068,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
                 'start_time': 15000000000,
-                'end_time': 20000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1060,7 +1088,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'start_time': 14000000000,
-                'end_time': 21000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1079,7 +1107,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
-                'end_time': 22000000000,
+                'end_time': IsInt(),
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1138,7 +1166,7 @@ async def test_chat_completions(exporter: TestExporter):
                         'input_tokens': 11,
                         'output_tokens': 8,
                         'total_tokens': 19,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.system': 'openai',
@@ -1180,7 +1208,12 @@ async def test_chat_completions(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'my_agent',
-                    'usage': {'input_tokens': 11, 'output_tokens': 8, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 11,
+                        'output_tokens': 8,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'name': 'turn',
                     'gen_ai.system': 'openai',
                 },
@@ -1224,6 +1257,7 @@ async def test_chat_completions(exporter: TestExporter):
                         'input_tokens': 11,
                         'output_tokens': 8,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 1,
                         'total_tokens': 19,
                     },
@@ -1508,7 +1542,7 @@ async def test_responses_simple(exporter: TestExporter):
                         'input_tokens': 11,
                         'output_tokens': 8,
                         'total_tokens': 19,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -1541,7 +1575,12 @@ async def test_responses_simple(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'agent1',
-                    'usage': {'input_tokens': 11, 'output_tokens': 8, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 11,
+                        'output_tokens': 8,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'name': 'turn',
                     'gen_ai.system': 'openai',
                 },
@@ -1585,6 +1624,7 @@ async def test_responses_simple(exporter: TestExporter):
                         'input_tokens': 11,
                         'output_tokens': 8,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 1,
                         'total_tokens': 19,
                     },
@@ -1606,7 +1646,7 @@ async def test_responses_simple(exporter: TestExporter):
                         'input_tokens': 28,
                         'output_tokens': 6,
                         'total_tokens': 34,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.system': 'openai',
@@ -1659,7 +1699,12 @@ async def test_responses_simple(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'agent1',
-                    'usage': {'input_tokens': 28, 'output_tokens': 6, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 28,
+                        'output_tokens': 6,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Turn 1 for agent agent1',
                 },
@@ -1703,6 +1748,7 @@ async def test_responses_simple(exporter: TestExporter):
                         'input_tokens': 28,
                         'output_tokens': 6,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 1,
                         'total_tokens': 34,
                     },
@@ -1766,7 +1812,7 @@ async def test_file_search(exporter: TestExporter):
                         'input_tokens': 1144,
                         'output_tokens': 38,
                         'total_tokens': 1182,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.request.model': 'gpt-4o',
@@ -1819,7 +1865,12 @@ See JSON for details\
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'agent',
-                    'usage': {'input_tokens': 1144, 'output_tokens': 38, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 1144,
+                        'output_tokens': 38,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'name': 'turn',
                     'gen_ai.system': 'openai',
                 },
@@ -1863,6 +1914,7 @@ See JSON for details\
                         'input_tokens': 1144,
                         'output_tokens': 38,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 1,
                         'total_tokens': 1182,
                     },
@@ -1884,7 +1936,7 @@ See JSON for details\
                         'input_tokens': 862,
                         'output_tokens': 10,
                         'total_tokens': 872,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.system': 'openai',
@@ -1972,7 +2024,12 @@ See JSON for details\
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'agent',
-                    'usage': {'input_tokens': 862, 'output_tokens': 10, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 862,
+                        'output_tokens': 10,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Turn 1 for agent agent',
                 },
@@ -2016,6 +2073,7 @@ See JSON for details\
                         'input_tokens': 862,
                         'output_tokens': 10,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 1,
                         'total_tokens': 872,
                     },
@@ -2077,7 +2135,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'input_tokens': 244,
                         'output_tokens': 10,
                         'total_tokens': 254,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -2154,7 +2212,12 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'Start Agent',
-                    'usage': {'input_tokens': 244, 'output_tokens': 10, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 244,
+                        'output_tokens': 10,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Turn 1 for agent Start Agent',
                 },
@@ -2178,7 +2241,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'input_tokens': 283,
                         'output_tokens': 30,
                         'total_tokens': 313,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -2248,7 +2311,12 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 2,
                     'agent_name': 'Start Agent',
-                    'usage': {'input_tokens': 283, 'output_tokens': 30, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 283,
+                        'output_tokens': 30,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'logfire.msg': 'Turn 2 for agent Start Agent',
                     'logfire.span_type': 'span',
                 },
@@ -2292,6 +2360,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'input_tokens': 527,
                         'output_tokens': 40,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 2,
                         'total_tokens': 567,
                     },
@@ -2382,7 +2451,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                         'input_tokens': 10,
                         'output_tokens': 41,
                         'total_tokens': 51,
-                        'input_tokens_details': {'cached_tokens': 0},
+                        'input_tokens_details': {'cache_write_tokens': 0, 'cached_tokens': 0},
                         'output_tokens_details': {'reasoning_tokens': 0},
                     },
                     'gen_ai.operation.name': 'chat',
@@ -2416,7 +2485,12 @@ async def test_voice_pipeline(exporter: TestExporter):
                     'sdk_span_type': 'turn',
                     'turn': 1,
                     'agent_name': 'Assistant',
-                    'usage': {'input_tokens': 10, 'output_tokens': 41, 'cached_input_tokens': 0},
+                    'usage': {
+                        'input_tokens': 10,
+                        'output_tokens': 41,
+                        'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
+                    },
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Turn 1 for agent Assistant',
                 },
@@ -2454,6 +2528,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                         'input_tokens': 10,
                         'output_tokens': 41,
                         'cached_input_tokens': 0,
+                        'cache_write_input_tokens': 0,
                         'requests': 1,
                         'total_tokens': 51,
                     },

@@ -19,7 +19,7 @@ New to observability? Another great resource is the [OpenTelemetry primer](https
 
 ## What is a Span?
 
-A **span** is the building block of a trace. You might also think of spans as logs with extra functionality — a single row in our live view.
+A **span** is the building block of a trace. You might also think of spans as logs with extra functionality: a single row in our live view.
 
 !!! info
     Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
@@ -33,7 +33,7 @@ A trace is a tree structure of spans which shows the path of any client request,
 Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned.
 
 !!! info
-    Traces are not limited to a single service — they can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
+    Traces are not limited to a single service. They can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
 
 ![Trace](images/concepts/trace.png)
 
@@ -72,7 +72,7 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
 
 In this example:
 
-1. The outer span sets the topic — the user's birthday
+1. The outer span sets the topic: the user's birthday
 2. The user input is captured in the terminal
 3. `dob` (date of birth) is displayed in the span. Logfire calculates the age from the `dob` and displays age in the debug message
 
@@ -98,14 +98,14 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 ---
 
 By instrumenting your code with traces and spans, you can see how long operations take, identify bottlenecks,
-and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
+and get a high-level view of request flows in your system: all invaluable for maintaining the performance and
 reliability of your applications.
 
 ## What is a Metric?
 
 A metric is a calculated value measuring your application through time.
 
-- Metrics are collected at regular intervals—such as request latency, CPU load, or queue length
+- Metrics are collected at regular intervals, such as request latency, CPU load, or queue length
 - Metrics are aggregated over time
 - Metrics make it easy to chart long‑term trends, establish Service‑Level Objectives (SLOs), and trigger alerts when your system drifts outside acceptable thresholds
 

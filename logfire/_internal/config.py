@@ -62,7 +62,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack, assert_type
 
-from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
+from logfire._internal.auth import REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
@@ -137,6 +137,7 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
+LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
@@ -1435,6 +1436,8 @@ class LogfireConfig(_LogfireConfigData):
                     resource=resource,
                     views=self.metrics.views,
                 )
+                # For easy testing
+                meter_provider._logfire_metric_readers = metric_readers  # type: ignore
                 for reader in metric_readers:
                     with suppress(Exception):
                         # Prevent metric readers from recording metrics about themselves which just adds noise.
@@ -1481,10 +1484,8 @@ class LogfireConfig(_LogfireConfigData):
                         'Remote variables require an API key. '
                         'Set the LOGFIRE_API_KEY environment variable or pass api_key to logfire.configure().'
                     )
-                # Determine base URL: prefer config, then advanced settings, then infer from token
-                base_url = self.advanced.base_url or get_base_url_from_token(self.api_key)
                 self._variable_provider = LogfireRemoteVariableProvider(
-                    base_url=base_url,
+                    base_url=self.advanced.generate_base_url(self.api_key),
                     token=self.api_key,
                     options=self.variables,
                     server_response_hook=self.advanced.server_response_hook,
@@ -1663,9 +1664,8 @@ class LogfireConfig(_LogfireConfigData):
             from logfire.variables.remote import LogfireRemoteVariableProvider
 
             options = VariablesOptions()
-            base_url = self.advanced.base_url or get_base_url_from_token(api_key)
             provider = LogfireRemoteVariableProvider(
-                base_url=base_url,
+                base_url=self.advanced.generate_base_url(api_key),
                 token=api_key,
                 options=options,
                 server_response_hook=self.advanced.server_response_hook,
@@ -2197,7 +2197,7 @@ def get_base_url_from_token(token: str) -> str:
     """Get the base API URL from the token's region."""
     # default to US for tokens that were created before regions were added:
     region = 'us'
-    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
+    if match := LOGFIRE_TOKEN_REGION_PATTERN.match(token):
         region = match.group('region')
 
         if region == 'stagingus':

@@ -17,7 +17,7 @@ To search the live view, click `Search your spans` (keyboard shortcut `/`), this
 ### SQL Search
 
 For confident SQL users, write your queries directly here. For devs who want a bit of help,
-try the new [Pydantic AI](https://pydantic.dev/docs/ai/overview/) feature which generates a SQL query based on your prompt.
+you can [generate a SQL query from a natural-language prompt](#ask-in-language-get-sql) instead.
 You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
 
 **WHERE clause**
@@ -25,7 +25,7 @@ As the greyed out `SELECT * FROM RECORDS WHERE` implies, you're searching inside
 It has auto-complete & schema hints, so try typing something to get a reminder. To run your query click `Run` or
 keyboard shortcut `cmd+enter` (or `ctrl+enter` on Windows/Linux).
 
-Note: you can run more complex queries on the [explore screen](explore.md)
+Note: you can run more complex queries in [SQL Workbench](explore.md).
 
 The records table fields are documented in the [SQL reference](../../reference/sql.md).
 

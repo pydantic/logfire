@@ -4,7 +4,7 @@ description: "Logfire unifies metrics, tracing, and structured data logging into
 ---
 # Introducing Pydantic Logfire
 
-From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.
+From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open-source library: that the most powerful tools can be easy to use.
 
 ## What sets Logfire apart
 
@@ -18,11 +18,19 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   [:octicons-arrow-right-24: Read more](#simplicity-and-power)
 
+- :material-robot-outline:{ .lg .middle } **The Full AI Engineering Loop**
+
+  ***
+
+  Beyond tracing every LLM call with token and cost tracking, Logfire ships **evals** (in the web UI and in code), **prompt management** with a playground, and an **AI gateway** with key management and spending controls: one platform from prototype to production.
+
+  [:octicons-arrow-right-24: Read more](ai-observability.md)
+
 - :material-code-braces:{ .lg .middle } **Deep Language Integration**
 
   ***
 
-  Python has the deepest integration — rich display of **Python objects**, **event-loop telemetry**, and **profiling** — but Logfire also has native SDKs for **JavaScript/TypeScript** and **Rust**, and works with **any OpenTelemetry language**.
+  Python has the deepest integration (rich display of **Python objects**, **event-loop telemetry**, and **profiling**), but Logfire also has native SDKs for **JavaScript/TypeScript** and **Rust**, and works with **any OpenTelemetry language**.
 
   [:octicons-arrow-right-24: Read more](#deep-language-integration)
 
@@ -38,7 +46,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   ***
 
-  Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
+  Logfire is an opinionated wrapper around OpenTelemetry, allowing you to use existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
 
   [:octicons-arrow-right-24: Read more](#opentelemetry-under-the-hood)
 
@@ -46,7 +54,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   ***
 
-  Include your structured data in Logfire calls — in Python, that means lists, dicts, dataclasses, Pydantic models, DataFrames, and more — and it'll end up as structured data in our platform ready to be queried.
+  Include your structured data in Logfire calls (in Python, that means lists, dicts, dataclasses, Pydantic models, DataFrames, and more) and it'll end up as structured data in our platform ready to be queried.
 
   [:octicons-arrow-right-24: Read more](#sql)
 
@@ -54,7 +62,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   ***
 
-  Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
+  Query your data using standard SQL: all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 
   [:octicons-arrow-right-24: Read more](#sql)
 
@@ -62,7 +70,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
 ## Find the needle in a _stack trace_
 
-Pydantic Logfire was built by developers who understand real applications — from async Python services to JavaScript frontends to multi-language distributed systems. With deep integrations across Python, JavaScript/TypeScript, Rust, and any OpenTelemetry-compatible language, it's not just about having data; it's about having the _right_ data, presented in ways that make sense for your applications.
+Pydantic Logfire was built by developers who understand real applications: from async Python services to JavaScript frontends to multi-language distributed systems. With deep integrations across Python, JavaScript/TypeScript, Rust, and any OpenTelemetry-compatible language, it's about having the _right_ data, presented in ways that make sense for your applications.
 
 ![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
@@ -76,14 +84,14 @@ Within a few minutes you'll have your first logs:
 
 ![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
 
-This might look similar to simple logging, but it's much more powerful — you get:
+This might look similar to simple logging, but it's much more powerful. You get:
 
 - **Structured data** from your logs
 - **Nested logs &amp; traces** to contextualize what you're viewing
 - **Custom-built platform** to view your data, with no configuration required
 - **Pretty display** of Python objects
 
-Ready to try Logfire? [Get Started](index.md)! 🚀
+Ready to try Logfire? [Get Started](index.md)!
 
 ## Deep language integration :material-code-braces:
 
@@ -226,7 +234,7 @@ In the example above, we can see the FastAPI arguments failing (`user` is null w
 
 ## Structured Data and SQL :abacus: {#sql}
 
-Query your data with SQL using familiar PostgreSQL-compatible syntax — all the control and (for many) nothing new to learn.
+Query your data with SQL using familiar PostgreSQL-compatible syntax: all the control and (for many) nothing new to learn.
 
 Logfire uses [Apache DataFusion](https://datafusion.apache.org/) as its query engine, which provides SQL syntax designed to match PostgreSQL conventions. See the [SQL Reference](reference/sql.md) for details.
 
@@ -254,14 +262,14 @@ ORDER BY avg_latency DESC;
 
 This means:
 
-- **No artificial limitations** — Ask any question, get any answer
-- **AI assistants excel at SQL** — GPT-5, Claude, and other LLMs write excellent SQL
-- **Arbitrary analysis** — Correlations, patterns, edge cases—whatever you need
-- **Familiar syntax** — No new query language to learn
+- **No artificial limitations**: Ask any question, get any answer
+- **AI assistants excel at SQL**: GPT-5, Claude, and other LLMs write excellent SQL
+- **Arbitrary analysis**: Correlations, patterns, edge cases, whatever you need
+- **Familiar syntax**: No new query language to learn
 
 When a coding agent is debugging your AI application, it shouldn't be limited by what queries someone anticipated. It should have full access to understand what's actually happening.
 
-Just include your structured data in **Logfire** calls — for example, in Python that means lists, dicts, dataclasses, Pydantic models, DataFrames, and more —
+Just include your structured data in **Logfire** calls (for example, in Python that means lists, dicts, dataclasses, Pydantic models, DataFrames, and more)
 and it'll end up as structured data in our platform ready to be queried.
 
 For example, using data from a `User` model, we could list users from the USA:
@@ -272,7 +280,7 @@ FROM records
 WHERE attributes->'result'->>'country_code' = 'USA';
 ```
 
-![Logfire explore query screenshot](images/index/logfire-screenshot-explore-query.png)
+![Logfire SQL Workbench query screenshot](images/index/logfire-screenshot-explore-query.png)
 
 You can also filter to show only traces related to users in the USA in the live view with
 
@@ -282,4 +290,4 @@ attributes->'result'->>'name' = 'Ben'
 
 ![Logfire search query screenshot](images/index/logfire-screenshot-search-query.png)
 
-Structured Data and SQL Access with familiar syntax means you can leverage AI for SQL generation, ensuring your Python objects and structured data are query-ready.
+Structured Data and SQL Access with familiar syntax means you can use AI for SQL generation, ensuring your Python objects and structured data are query-ready.

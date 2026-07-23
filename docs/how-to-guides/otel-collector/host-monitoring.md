@@ -4,9 +4,9 @@ description: "Ship CPU, memory, disk, filesystem, network, and process metrics f
 ---
 # Host monitoring with the OTel Collector
 
-The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire — no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **Explore**, and any dashboard you build on top of them.
+The OpenTelemetry Collector's [`hostmetrics` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver) reads CPU, memory, disk, filesystem, network, paging and process metrics from the machine the Collector is running on and ships them to Logfire: no SDK required, no application changes. Hosts reporting these metrics show up on the **Hosts** page in Logfire, and the metric series are queryable in **Metrics**, **SQL Workbench**, and any dashboard you build on top of them.
 
-This is also the smallest possible working Collector configuration. The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes — only the deployment wrapper changes.
+This is also the smallest possible working Collector configuration. The same shape works whether the Collector runs as a daemon on a bare VM, a sidecar next to your app, or a DaemonSet in Kubernetes; only the deployment wrapper changes.
 
 ## Minimal configuration
 
@@ -42,7 +42,7 @@ processors:
 
 exporters:
   otlphttp:
-    endpoint: "https://logfire-eu.pydantic.info"  # or https://logfire-us.pydantic.info for the US region
+    endpoint: "https://logfire-eu.pydantic.dev"  # or https://logfire-us.pydantic.dev for the US region
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
@@ -58,9 +58,9 @@ A few things worth calling out:
 
 - **`resourcedetection`** adds the `host.name` (and on cloud VMs, `cloud.provider`, `cloud.region`, etc.) resource attributes to every metric. The Hosts page groups by `host.name`, so a Collector that omits this processor won't appear there.
 - **`*.utilization` metrics are off by default in the receiver**, but the Hosts page expects them. Enabling `system.cpu.utilization`, `system.memory.utilization`, and `system.filesystem.utilization` populates the **CPU**, **Memory**, and disk columns directly instead of requiring a downstream rate calculation.
-- **Scraper list** is the OTel `hostmetricsreceiver` default set. Drop the ones you don't need to reduce cardinality — `processes` in particular emits a series per running process and can be heavy on busy hosts.
+- **Scraper list** is the OTel `hostmetricsreceiver` default set. Drop the ones you don't need to reduce cardinality. `processes` in particular emits a series per running process and can be heavy on busy hosts.
 - The endpoint must match the region your project lives in (`logfire-eu` or `logfire-us`). The token is a Logfire write token; pass it via the `LOGFIRE_TOKEN` environment variable on the Collector workload.
-- `collection_interval` defaults to `1m` in the receiver. `30s` is a good middle ground; anything faster multiplies series volume — and your bill — without telling you much more about a host.
+- `collection_interval` defaults to `1m` in the receiver. `30s` is a good middle ground; anything faster multiplies series volume (and your bill) without telling you much more about a host.
 
 ## Scraper reference
 
@@ -79,7 +79,7 @@ Each entry under `scrapers:` enables one source of host metrics. Pick the ones y
 | `process` | **Per-process** CPU, memory, and disk I/O for every running PID. | yes | yes | yes |
 
 !!! note
-    On macOS and Windows the `processes` (aggregate counts) and `process` (per-PID) scrapers behave differently from Linux — `processes` is unavailable on Windows, and several per-process attributes only populate on Linux. If you're standardizing on a single config across operating systems, lean on `cpu`, `memory`, `load`, `disk`, `filesystem`, `network`, and `paging` and add the process scrapers only where they're supported.
+    On macOS and Windows the `processes` (aggregate counts) and `process` (per-PID) scrapers behave differently from Linux: `processes` is unavailable on Windows, and several per-process attributes only populate on Linux. If you're standardizing on a single config across operating systems, lean on `cpu`, `memory`, `load`, `disk`, `filesystem`, `network`, and `paging` and add the process scrapers only where they're supported.
 
 For the exhaustive list of metric names and attributes each scraper emits, see the [`hostmetricsreceiver` documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/hostmetricsreceiver/documentation.md).
 
@@ -88,7 +88,7 @@ For the exhaustive list of metric names and attributes each scraper emits, see t
 The `processes` and `process` scrapers are the two you have to think about.
 
 - `processes` emits a handful of aggregate counts per host. It's cheap.
-- `process` emits **one set of series per process PID** — every short-lived `ps`, every Node worker, every `kubectl exec`. On a busy host or build agent this can mean tens of thousands of active series before lunch, and each new PID is a fresh series even if the binary is identical.
+- `process` emits **one set of series per process PID**: every short-lived `ps`, every Node worker, every `kubectl exec`. On a busy host or build agent this can mean tens of thousands of active series before lunch, and each new PID is a fresh series even if the binary is identical.
 
 If you turn on `process`, scope it. The receiver supports `include` and `exclude` filters on process name, and you almost always want one or the other:
 
@@ -114,7 +114,7 @@ Or, equivalently, exclude the noisy ones:
           match_type: regexp
 ```
 
-`mute_process_name_error: true` silences the warnings the receiver logs when it can't read `/proc/<pid>/comm` for a process that exited between scrape ticks — common, noisy, and not actionable.
+`mute_process_name_error: true` silences the warnings the receiver logs when it can't read `/proc/<pid>/comm` for a process that exited between scrape ticks: common, noisy, and not actionable.
 
 !!! tip
     If you only need a "what's running on this host" view, leave `process` off entirely and rely on `processes` plus `cpu` / `memory`. Per-process metrics are most useful when you have a small, stable set of long-running services you want to chart individually.
@@ -136,15 +136,15 @@ processors:
 A few details:
 
 - Order matters. Detectors run left-to-right, and with `override: false` the first detector to set an attribute wins. Put `env` first so anything you've baked into `OTEL_RESOURCE_ATTRIBUTES` (a deployment name, a cluster tag) takes precedence over auto-detected values.
-- `ec2`, `gcp`, and `azure` each hit the cloud provider's instance metadata service. They cost nothing on the wrong cloud — the detector times out and moves on — so it's safe to list all three on a config that might be deployed anywhere.
+- `ec2`, `gcp`, and `azure` each hit the cloud provider's instance metadata service. They cost nothing on the wrong cloud (the detector times out and moves on) so it's safe to list all three on a config that might be deployed anywhere.
 - For Kubernetes, add the matching managed-cluster detector (`eks`, `gke`, or `aks`) to pick up `k8s.cluster.name`. See the [resourcedetection processor README](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/resourcedetectionprocessor) for the full list.
 
 !!! warning
-    Without `resourcedetection` (or some other source of `host.name`), the Collector's metrics still flow into Logfire but the host will not appear on the **Hosts** page — that page groups by `host.name`, and there's nothing for it to group by.
+    Without `resourcedetection` (or some other source of `host.name`), the Collector's metrics still flow into Logfire but the host will not appear on the **Hosts** page: that page groups by `host.name`, and there's nothing for it to group by.
 
 ## Running as a Kubernetes DaemonSet
 
-In Kubernetes you want one Collector per node, scraping that node's host metrics. That means a DaemonSet — and a few specific bits of pod spec so the receiver reads the **node's** CPU, memory, network, and process tables instead of the container's namespaced view.
+In Kubernetes you want one Collector per node, scraping that node's host metrics. That means a DaemonSet, and a few specific bits of pod spec so the receiver reads the **node's** CPU, memory, network, and process tables instead of the container's namespaced view.
 
 Three things have to be right:
 
@@ -176,7 +176,7 @@ processors:
 
 exporters:
   otlphttp:
-    endpoint: "https://logfire-eu.pydantic.info"
+    endpoint: "https://logfire-eu.pydantic.dev"  # or https://logfire-us.pydantic.dev for the US region
     headers:
       Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
 
@@ -258,7 +258,7 @@ A couple of things to be deliberate about:
 
 ## Running on a bare host
 
-Outside of Kubernetes, no special configuration is required — the Collector already has the host's `/proc` and `/sys`. Drop the config in place and run:
+Outside of Kubernetes, no special configuration is required: the Collector already has the host's `/proc` and `/sys`. Drop the config in place and run:
 
 ```bash
 LOGFIRE_TOKEN=<your-write-token> \
@@ -272,7 +272,7 @@ For long-running deployments, wrap that in a systemd unit (or your init system o
 Within a minute or two of the Collector starting, the host shows up on the **Hosts** page keyed by `host.name`. From there:
 
 - Click the host to drill into per-host CPU, memory, disk, and network charts.
-- Open **Explore** to query the raw metric series — useful for ad-hoc questions like "show me every host where filesystem utilization is above 90%".
+- Open **SQL Workbench** to query the raw metric series: useful for ad-hoc questions like "show me every host where filesystem utilization is above 90%".
 - Build a dashboard on top of the metrics if you want a persistent view.
 
-If a host doesn't appear, the cause is almost always one of: missing `resourcedetection` (no `host.name`), wrong region in the `otlphttp` endpoint, or — in Kubernetes — a missing `root_path: /host` or one of the `hostPath` mounts, so the receiver is happily scraping the container's view instead of the node's.
+If a host doesn't appear, the cause is almost always one of: missing `resourcedetection` (no `host.name`), wrong region in the `otlphttp` endpoint, or (in Kubernetes) a missing `root_path: /host` or one of the `hostPath` mounts, so the receiver is happily scraping the container's view instead of the node's.

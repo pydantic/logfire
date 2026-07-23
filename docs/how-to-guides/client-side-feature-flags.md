@@ -6,8 +6,8 @@ This guide shows how to set up a **JavaScript/TypeScript web application** using
 
 ## Prerequisites
 
-1. **Create your variables** in the Logfire UI (Settings > Variables) and mark them as **external** — see [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
-2. **Create an API key** with the `project:read_external_variables` scope — expand the **Advanced** section of the API key form and select just this scope (the one-click presets bundle it into broader access) by selecting the "Read external managed variables within a project via OFREP" item under the "Variables" section. This restricted scope is safe to use in client-side code since it only exposes variables you've explicitly marked as external
+1. **Create your variables** in the Logfire UI (Settings > Variables) and mark them as **external**. See [External Variables and OFREP](../reference/advanced/managed-variables/external.md)
+2. **Create an API key** with the `project:read_external_variables` scope. Expand the **Advanced** section of the API key form and select just this scope (the one-click presets bundle it into broader access) by selecting the "Read external managed variables within a project via OFREP" item under the "Variables" section. This restricted scope is safe to use in client-side code since it only exposes variables you've explicitly marked as external
 
 ## Installation
 
@@ -40,7 +40,7 @@ import { OFREPWebProvider } from '@openfeature/ofrep-web-provider'
 import { OpenFeature } from '@openfeature/web-sdk'
 
 const LOGFIRE_API_KEY = 'your-api-key'  // project:read_external_variables scope
-const LOGFIRE_API_HOST = 'logfire-api.pydantic.dev'  // or your self-hosted API host
+const LOGFIRE_API_HOST = 'logfire-us.pydantic.dev'  // or 'logfire-eu.pydantic.dev' for the EU region, or your self-hosted API host
 
 const provider = new OFREPWebProvider({
   // The provider appends `/ofrep/v1/evaluate/flags` itself, so this is the `/v1` root.
@@ -197,9 +197,9 @@ function getFeatureFlags() {
 ## Python
 
 !!! note "Most Python services should use the Logfire SDK instead"
-    OFREP exists to evaluate variables from **untrusted** environments. If you're shipping a Python **application to untrusted end users** (a desktop/CLI app, an on-device agent), use OFREP as shown below so the full variable configuration is never exposed. For a **trusted backend** you control, skip all of this and use the pull-based [`logfire.var()`](../reference/advanced/managed-variables/index.md) — it evaluates locally with no per-flag network round-trip, and is the recommended path.
+    OFREP exists to evaluate variables from **untrusted** environments. If you're shipping a Python **application to untrusted end users** (a desktop/CLI app, an on-device agent), use OFREP as shown below so the full variable configuration is never exposed. For a **trusted backend** you control, skip all of this and use the pull-based [`logfire.var()`](../reference/advanced/managed-variables/index.md). It evaluates locally with no per-flag network round-trip, and is the recommended path.
 
-OpenFeature for Python is two separate installs — the core SDK and the OFREP provider:
+OpenFeature for Python is two separate installs, the core SDK and the OFREP provider:
 
 ```bash
 pip install openfeature-sdk openfeature-provider-ofrep
@@ -213,7 +213,7 @@ from openfeature.evaluation_context import EvaluationContext
 # base_url is the `/v1` root; the provider appends `/ofrep/v1/evaluate/flags/{key}`.
 api.set_provider(
     OFREPProvider(
-        base_url='https://logfire-api.pydantic.dev/v1',  # or your self-hosted API host
+        base_url='https://logfire-us.pydantic.dev/v1',  # or 'https://logfire-eu.pydantic.dev/v1' for EU, or your self-hosted API host
         headers_factory=lambda: {'Authorization': 'Bearer YOUR_API_KEY'},
     )
 )
@@ -223,13 +223,13 @@ context = EvaluationContext(targeting_key='user-123')
 show_new_feature = client.get_boolean_value('show_new_feature', False, evaluation_context=context)
 ```
 
-The provider — like the OpenFeature client in general — evaluates one named flag at a time. To read **every** variable in a single call, `POST` the bulk endpoint directly with any HTTP client (there is no bulk method on the client). This example uses [`httpx`](https://www.python-httpx.org/) (`pip install httpx`), which is separate from the OpenFeature packages above:
+The provider, like the OpenFeature client in general, evaluates one named flag at a time. To read **every** variable in a single call, `POST` the bulk endpoint directly with any HTTP client (there is no bulk method on the client). This example uses [`httpx`](https://www.python-httpx.org/) (`pip install httpx`), which is separate from the OpenFeature packages above:
 
 ```python skip="true"
 import httpx
 
 response = httpx.post(
-    'https://logfire-api.pydantic.dev/v1/ofrep/v1/evaluate/flags',
+    'https://logfire-us.pydantic.dev/v1/ofrep/v1/evaluate/flags',  # logfire-eu.pydantic.dev for EU
     headers={'Authorization': 'Bearer YOUR_API_KEY'},
     json={'context': {'targetingKey': 'user-123'}},
 )

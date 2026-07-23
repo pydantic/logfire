@@ -9,7 +9,7 @@ Prompt Management gives you a dedicated place to author the prompts that drive y
 
 ## What it is
 
-A prompt in Logfire is a first-class piece of configuration that lives next to — but separately from — your traces. The production contract is straightforward:
+A prompt in Logfire is a first-class piece of configuration that lives next to (but separately from) your traces. The production contract is straightforward:
 
 - author a prompt template,
 - save versions as you iterate,
@@ -43,7 +43,7 @@ flowchart LR
 ```
 
 - You **author** the template and, when needed, supporting test scenarios on the Prompts page.
-- You **save versions** as you iterate — each version freezes the template text at that moment.
+- You **save versions** as you iterate: each version freezes the template text at that moment.
 - You **test** with scenarios, datasets, and runs to see how the prompt behaves before promotion.
 - You **promote** a version by pointing a label (for example, `production`) at it on the Managed Variables page for that prompt.
 - Your **application fetches and renders** the prompt through the Logfire SDK, using labels or rollout targeting to select the served version.
