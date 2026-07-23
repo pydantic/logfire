@@ -198,6 +198,7 @@ nav:
                   - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
                   - Testing Logfire Instrumentation: reference/advanced/testing.md
                   - Migrating Projects: reference/advanced/migrate-to-new-project.md
+                  - Integrations: reference/advanced/integrations/index.md
                   - Link to Code Source: how-to-guides/link-to-code-source.md
                   - Use Alternative Backends: how-to-guides/alternative-backends.md
                   - Multiple Configurations: how-to-guides/different-configurations.md
