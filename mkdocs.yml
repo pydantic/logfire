@@ -220,7 +220,7 @@ nav:
           - Metrics explorer: guides/web-ui/metrics-explorer.md
           - LLM Panels: guides/web-ui/llm-panels.md
           - Dashboards: guides/web-ui/dashboards.md
-          - SQL Explorer: guides/web-ui/explore.md
+          - SQL Workbench: guides/web-ui/explore.md
           - Issues: guides/web-ui/issues.md
           - Alerts: guides/web-ui/alerts.md
           - Saved Searches: guides/web-ui/saved-searches.md

@@ -96,7 +96,7 @@ If you have not set anything up yet, the empty state on each tab has a **Set up*
 
 ## Where Kubernetes events surface today
 
-The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, OOMKills, image pull failures, deployment progress) into log records via the `k8sobjects` receiver and ships them to your project. There is no dedicated **Events** tab in the Kubernetes view yet. To read them, open the [Live View](live.md) and filter on the relevant pod, namespace or `k8s.*` attribute, or query the `records` table directly in the [SQL Explorer](explore.md). Watch this space. An events feed in the Kubernetes view is in our backlog.
+The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, OOMKills, image pull failures, deployment progress) into log records via the `k8sobjects` receiver and ships them to your project. There is no dedicated **Events** tab in the Kubernetes view yet. To read them, open the [Live View](live.md) and filter on the relevant pod, namespace or `k8s.*` attribute, or query the `records` table directly in [SQL Workbench](explore.md). Watch this space. An events feed in the Kubernetes view is in our backlog.
 
 ## Troubleshooting
 
