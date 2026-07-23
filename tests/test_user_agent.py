@@ -7,6 +7,7 @@ from importlib.metadata import version as package_version
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 import requests_mock
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
@@ -16,6 +17,7 @@ from logfire._internal.cli import main
 from logfire._internal.client import UA_HEADER, LogfireClient
 from logfire._internal.config import LogfireCredentials
 from logfire._internal.exporters.otlp import OTLP_EXPORTER_UA_HEADER
+from logfire.experimental.api_client import AsyncLogfireAPIClient, LogfireAPIClient
 from logfire.experimental.query_client import LogfireQueryClient
 from logfire.version import VERSION
 
@@ -72,6 +74,17 @@ def test_configure_sends_expected_user_agents() -> None:
 def test_logfire_client_user_agent() -> None:
     client = LogfireClient(UserToken(token='123', base_url='http://localhost', expiration='2099-12-31T23:59:59'))
     assert client._session.headers['User-Agent'] == UA_HEADER  # type: ignore[reportPrivateUsage]
+
+
+def test_datasets_api_client_user_agent() -> None:
+    with LogfireAPIClient(api_key='test-key', base_url='http://localhost') as client:
+        assert client.client.headers.get_list('user-agent') == [UA_HEADER]
+
+
+@pytest.mark.anyio
+async def test_async_datasets_api_client_user_agent() -> None:
+    async with AsyncLogfireAPIClient(api_key='test-key', base_url='http://localhost') as client:
+        assert client.client.headers.get_list('user-agent') == [UA_HEADER]
 
 
 def test_query_client_user_agent() -> None:
