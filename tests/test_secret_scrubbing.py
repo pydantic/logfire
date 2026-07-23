@@ -1,673 +1,415 @@
 from __future__ import annotations
 
-import os
+import copy
+import json
 import re
-from pathlib import Path
-from typing import Any
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any, TypedDict, cast
 
-import pytest
-from dirty_equals import IsJson, IsPartialDict
-from inline_snapshot import snapshot
-from opentelemetry._logs import LogRecord, get_logger
-from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
-from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
-from opentelemetry.trace.propagation import get_current_span
+import typing_extensions
+from opentelemetry._logs import LogRecord
+from opentelemetry.attributes import BoundedAttributes
+from opentelemetry.sdk.trace import Event
+from opentelemetry.trace import Link
 
-import logfire
-from logfire._internal.scrubbing import NoopScrubber
-from logfire.testing import TestExporter, TestLogExporter
+from .constants import (
+    ATTRIBUTES_CONFIG,
+    ATTRIBUTES_JSON_SCHEMA_KEY,
+    ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
+    ATTRIBUTES_LOGGING_NAME,
+    ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_PACKAGE_VERSIONS,
+    ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
+    ATTRIBUTES_SAMPLE_RATE_KEY,
+    ATTRIBUTES_SCRUBBED_KEY,
+    ATTRIBUTES_SPAN_TYPE_KEY,
+    ATTRIBUTES_TAGS_KEY,
+    MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT,
+    RESOURCE_ATTRIBUTES_VERSION,
+)
+from .integrations.llm_providers import semconv as gen_ai_semconv
+from .stack_info import STACK_INFO_KEYS
+from .utils import ReadableSpanDict, truncate_string
 
-
-def test_scrub_attribute(exporter: TestExporter):
-    logfire.info(
-        'Password: {user_password}',
-        user_password=['hunter2'],
-        mode='password',
-        modes='passwords',
-        Author='Alice1',
-        authors='Alice2',
-        authr='Alice3',
-        authorization='Alice4',
-    )
-    # We redact:
-    # - The `user_password` attribute.
-    # - The `modes` attribute.
-    # - `authr` and `authorization` because they contain 'auth' but don't look like 'author(s)'.
-    # Things intentionally not redacted even though they contain "password":
-    # - The `mode` attribute, because the value 'password' is a full match.
-    # - 'Author' and 'authors': special cases in the regex that looks for 'auth'.
-    # - logfire.msg_template
-    # - The span name, which is the same as msg_template and shouldn't contain data.
-    # - logfire.json_schema
-    # - code.filepath (contains 'secret' - this test filename is itself part of the test)
-    # - logfire.msg: while `{user_password}` is obviously sensitive, the user clearly explicitly wanted it to be logged.
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'Password: {user_password}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'Password: {user_password}',
-                    'logfire.msg': "Password: ['hunter2']",
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_scrub_attribute',
-                    'code.lineno': 123,
-                    'user_password': "[Scrubbed due to 'password']",
-                    'mode': 'password',
-                    'modes': "[Scrubbed due to 'password']",
-                    'Author': 'Alice1',
-                    'authors': 'Alice2',
-                    'authr': "[Scrubbed due to 'auth']",
-                    'authorization': "[Scrubbed due to 'auth']",
-                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{"type":"array"},"mode":{},"modes":{},"Author":{},"authors":{},"authr":{},"authorization":{}}}',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
-                            {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
-                        ]
-                    ),
-                },
-            }
+DEFAULT_PATTERNS = [
+    'password',
+    'passwd',
+    'mysql_pwd',
+    'secret',
+    r'auth(?!ors?\b)',
+    'credential',
+    'private[._ -]?key',
+    'api[._ -]?key',
+    'session',
+    'cookie',
+    'social[._ -]?security',
+    'credit[._ -]?card',
+    'logfire[._ -]?token',
+    r'pylf_v\d+_',
+    *[
+        # Require these to be surrounded by word boundaries or underscores,
+        # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
+        rf'(?:\b|_){acronym}(?:\b|_)'
+        for acronym in [
+            'csrf',
+            'xsrf',
+            'jwt',
+            'ssn',
         ]
-    )
+    ],
+]
+
+JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
 
-def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
-    get_logger(__name__).emit(
-        LogRecord(
-            attributes={
-                'event.name': 'Password: {user_password}',
-                'user_password': ['hunter2'],
-                'mode': 'password',
-                'modes': 'passwords',
-                'Author': 'Alice1',
-                'authors': 'Alice2',
-                'authr': 'Alice3',
-                'authorization': 'Alice4',
-            },
-        )
-    )
-    # We redact:
-    # - The `user_password` attribute.
-    # - The `modes` attribute.
-    # - `authr` and `authorization` because they contain 'auth' but don't look like 'author(s)'.
-    # Things intentionally not redacted even though they contain "password":
-    # - The `mode` attribute, because the value 'password' is a full match.
-    # - 'Author' and 'authors': special cases in the regex that looks for 'auth'.
-    # - event.name
-    assert logs_exporter.exported_logs_as_dicts() == snapshot(
-        [
-            {
-                'body': None,
-                'severity_number': None,
-                'severity_text': None,
-                'attributes': {
-                    'user_password': ("[Scrubbed due to 'password']",),
-                    'mode': 'password',
-                    'modes': "[Scrubbed due to 'password']",
-                    'Author': 'Alice1',
-                    'authors': 'Alice2',
-                    'authr': "[Scrubbed due to 'auth']",
-                    'authorization': "[Scrubbed due to 'auth']",
-                    'event.name': 'Password: {user_password}',
-                    'logfire.scrubbed': IsJson(
-                        snapshot(
-                            [
-                                {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
-                                {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
-                                {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
-                                {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
-                            ]
-                        )
-                    ),
-                },
-                'timestamp': 1000000000,
-                'observed_timestamp': 2000000000,
-                'trace_id': 0,
-                'span_id': 0,
-                'trace_flags': 0,
-            }
-        ]
-    )
+@dataclass
+class ScrubMatch:
+    """An object passed to a [`ScrubbingOptions.callback`][logfire.ScrubbingOptions.callback] function."""
 
+    path: JsonPath
+    """The path to the value in the span being considered for redaction, e.g. `('attributes', 'password')`."""
 
-def test_scrub_message(exporter: TestExporter):
-    logfire.info('User: {user}', user=[{'name': 'John', 'password': 'hunter2'}])
-    # Only the sensitive part of the `user` attribute is redacted.
-    # The full formatted value is redacted from the message,
-    # because the formatting code only sees the full `str(user)`.
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'User: {user}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'User: {user}',
-                    'logfire.msg': "User: [Scrubbed due to 'password']",
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_scrub_message',
-                    'code.lineno': 123,
-                    'user': '[{"name": "John", "password": "[Scrubbed due to \'password\']"}]',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {'path': ['message', 'user'], 'matched_substring': 'password'},
-                            {'path': ['attributes', 'user', 0, 'password'], 'matched_substring': 'password'},
-                        ]
-                    ),
-                    'logfire.json_schema': '{"type":"object","properties":{"user":{"type":"array"}}}',
-                },
-            }
-        ]
-    )
+    value: Any
+    """The value in the span being considered for redaction, e.g. `'my_password'`."""
 
-
-class PasswordError(Exception):
-    pass
-
-
-def test_scrub_events(exporter: TestExporter):
-    def get_password():
-        with logfire.span('get_password'):
-            get_current_span().add_event('password', {'password': 'hunter2', 'other': 'safe'})
-            try:
-                raise PasswordError('Password: hunter2')
-            except Exception as e:
-                get_current_span().record_exception(e, attributes={'exception.stacktrace': 'wrong and secret'})
-                raise
-
-    with pytest.raises(PasswordError):
-        get_password()
-
-    # We redact:
-    # - The `password` event attribute.
-    # We don't redact (despite containing "password"):
-    # - The event name.
-    # - The exception stuff.
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'get_password',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'get_password',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'get_password',
-                    'logfire.msg': 'get_password',
-                    'logfire.span_type': 'span',
-                    'logfire.level_num': 17,
-                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {
-                                'path': ['otel_events', 0, 'attributes', 'password'],
-                                'matched_substring': 'password',
-                            },
-                        ]
-                    ),
-                },
-                'events': [
-                    {
-                        'name': 'password',
-                        'timestamp': 2000000000,
-                        'attributes': {
-                            'password': "[Scrubbed due to 'password']",
-                            'other': 'safe',
-                        },
-                    },
-                    {
-                        'name': 'exception',
-                        'timestamp': 3000000000,
-                        'attributes': {
-                            'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': 'Password: hunter2',
-                            'exception.stacktrace': 'wrong and secret',
-                            'exception.escaped': 'False',
-                        },
-                    },
-                    {
-                        'name': 'exception',
-                        'timestamp': 4000000000,
-                        'attributes': {
-                            'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': 'Password: hunter2',
-                            'exception.stacktrace': 'tests.test_secret_scrubbing.PasswordError: Password: hunter2',
-                            'exception.escaped': 'True',
-                        },
-                    },
-                ],
-            }
-        ]
-    )
-
-
-def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
-    def callback(match: logfire.ScrubMatch):
-        if match.path[-1] == 'my_password':
-            return str(match)
-        elif match.path[-1] == 'bad_value':
-            # This is not a valid OTEL attribute value, so it will be removed completely.
-            return match
-
-    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
-    logfire.configure(
-        scrubbing=logfire.ScrubbingOptions(
-            extra_patterns=['my_pattern'],
-            callback=callback,
-        ),
-        **config_kwargs,
-    )
-
-    # Note the values (or lack thereof) of each of these attributes in the exported span.
-    logfire.info('hi', my_password='hunter2', other='matches_my_pattern', bad_value='the_password')
-
-    get_logger(__name__).emit(
-        LogRecord(attributes={'my_password': 'hunter2', 'bad_value': 'the_password', 'event.name': 'hi'})
-    )
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'hi',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'hi',
-                    'logfire.msg': 'hi',
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_scrubbing_config',
-                    'code.lineno': 123,
-                    'my_password': (
-                        'ScrubMatch('
-                        "path=('attributes', 'my_password'), "
-                        "value='hunter2', "
-                        "pattern_match=<re.Match object; span=(3, 11), match='password'>"
-                        ')'
-                    ),
-                    'other': "[Scrubbed due to 'my_pattern']",
-                    'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
-                },
-            }
-        ]
-    )
-
-    assert logs_exporter.exported_logs_as_dicts() == snapshot(
-        [
-            {
-                'body': None,
-                'severity_number': None,
-                'severity_text': None,
-                'attributes': {
-                    'my_password': (
-                        'ScrubMatch('
-                        "path=('attributes', 'my_password'), "
-                        "value='hunter2', "
-                        "pattern_match=<re.Match object; span=(3, 11), match='password'>"
-                        ')'
-                    ),
-                    'event.name': 'hi',
-                },
-                'timestamp': 2000000000,
-                'observed_timestamp': 3000000000,
-                'trace_id': 0,
-                'span_id': 0,
-                'trace_flags': 0,
-            }
-        ]
-    )
-
-
-def test_extra_pattern_redaction_reason_does_not_echo_secret(exporter: TestExporter, config_kwargs: dict[str, Any]):
-    logfire.configure(
-        scrubbing=logfire.ScrubbingOptions(
-            extra_patterns=[r'://([^:@/]+):([^@/]+)@'],
-        ),
-        **config_kwargs,
-    )
-
-    secret = 'admin:s3cr3t_pass'
-    logfire.info('connect', config_url=f'postgresql://{secret}@db.internal:5432/mydb')
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert secret not in str(spans)
-    assert spans == snapshot(
-        [
-            {
-                'name': 'connect',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'connect',
-                    'logfire.msg': 'connect',
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_extra_pattern_redaction_reason_does_not_echo_secret',
-                    'code.lineno': 123,
-                    'config_url': "[Scrubbed due to '://([^:@/]+):([^@/]+)@']",
-                    'logfire.json_schema': {'type': 'object', 'properties': {'config_url': {}}},
-                },
-            }
-        ]
-    )
-
-
-def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
-    os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
-    logfire.configure(**config_kwargs)
-    logfire.info('hi')
-    assert dict(exporter.exported_spans[0].resource.attributes) == IsPartialDict(
-        {
-            'telemetry.sdk.language': 'python',
-            'telemetry.sdk.name': 'opentelemetry',
-            'my_password': 'hunter2',
-            'yours': 'your_password',
-            'other': 'safe=good',
-        }
-    )
-
-
-def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
-    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
-    logfire.configure(**config_kwargs, scrubbing=False)
-
-    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    assert config.scrubbing is False
-    assert isinstance(config.scrubber, NoopScrubber)
-
-    logfire.info('Password: {user_password}', user_password='my secret password')
-    get_logger(__name__).emit(
-        LogRecord(attributes={'user_password': 'my secret password', 'event.name': 'Password: {user_password}'})
-    )
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'Password: {user_password}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'Password: {user_password}',
-                    'logfire.msg': 'Password: my secret password',
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_disable_scrubbing',
-                    'code.lineno': 123,
-                    'user_password': 'my secret password',
-                    'logfire.json_schema': '{"type":"object","properties":{"user_password":{}}}',
-                },
-            }
-        ]
-    )
-    assert logs_exporter.exported_logs_as_dicts() == snapshot(
-        [
-            {
-                'body': None,
-                'severity_number': None,
-                'severity_text': None,
-                'attributes': {
-                    'user_password': 'my secret password',
-                    'event.name': 'Password: {user_password}',
-                },
-                'timestamp': 2000000000,
-                'observed_timestamp': 3000000000,
-                'trace_id': 0,
-                'span_id': 0,
-                'trace_flags': 0,
-            }
-        ]
-    )
-
-
-def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
-    def callback(match: logfire.ScrubMatch):  # pragma: no cover
-        return str(match)
-
-    with pytest.warns(UserWarning, match='The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated.'):
-        logfire.configure(**config_kwargs, scrubbing_patterns=['my_pattern'], scrubbing_callback=callback)  # type: ignore
-
-    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
-    assert config.scrubbing
-    assert config.scrubbing.extra_patterns == ['my_pattern']
-    assert config.scrubbing.callback is callback
-
-
-def test_scrubbing_deprecated_args_combined_with_new_options():
-    with pytest.raises(
-        ValueError,
-        match='Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time.',
-    ):
-        logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())  # type: ignore
-
-
-def test_do_not_scrub(exporter: TestExporter):
-    # do_not_scrub is a safe key to provide a crude workaround, but it only works if the matched value is *inside*
-    logfire.info(
-        'hi',
-        x=[
-            {'do_not_scrub': 'not_secret'},  # only this works
-            {'not_secret': 'do_not_scrub'},
-            {'not_secret': {'do_not_scrub': 'foo'}},
-        ],
-    )
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'hi',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'hi',
-                    'logfire.msg': 'hi',
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_do_not_scrub',
-                    'code.lineno': 123,
-                    'x': [
-                        {'do_not_scrub': 'not_secret'},
-                        {'not_secret': "[Scrubbed due to 'secret']"},
-                        {'not_secret': "[Scrubbed due to 'secret']"},
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
-                    'logfire.scrubbed': [
-                        {'path': ['attributes', 'x', 1, 'not_secret'], 'matched_substring': 'secret'},
-                        {'path': ['attributes', 'x', 2, 'not_secret'], 'matched_substring': 'secret'},
-                    ],
-                },
-            }
-        ]
-    )
-
-
-def test_fstring_magic_scrubbing(exporter: TestExporter):
-    password = 'secret-password'
-    name = 'John'
-    logfire.info(f'User: {name}, password: {password}', foo=1234)
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'User: {name}, password: {password}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'User: {name}, password: {password}',
-                    'logfire.msg': "User: John, password: [Scrubbed due to 'secret']",
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_fstring_magic_scrubbing',
-                    'code.lineno': 123,
-                    'foo': 1234,
-                    'name': 'John',
-                    'password': "[Scrubbed due to 'password']",
-                    'logfire.json_schema': '{"type":"object","properties":{"foo":{},"name":{},"password":{}}}',
-                    'logfire.scrubbed': IsJson(
-                        [
-                            {'path': ['message', 'password'], 'matched_substring': 'secret'},
-                            {'path': ['attributes', 'password'], 'matched_substring': 'password'},
-                        ]
-                    ),
-                },
-            }
-        ]
-    )
-
-
-def test_word_boundaries(exporter: TestExporter):
-    logfire.info(
-        'hi',
-        x=[
-            'abcjwt',
-            'abc_jwt',
-            'abc-jwt',
-            'csrf123',
-            'csrf_123',
-            'csrf/123',
-            '456/csrf/123',
-        ],
-    )
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'hi',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'hi',
-                    'logfire.msg': 'hi',
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_word_boundaries',
-                    'code.lineno': 123,
-                    'x': [
-                        'abcjwt',
-                        "[Scrubbed due to '_jwt']",
-                        "[Scrubbed due to 'jwt']",
-                        'csrf123',
-                        "[Scrubbed due to 'csrf_']",
-                        "[Scrubbed due to 'csrf']",
-                        "[Scrubbed due to 'csrf']",
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
-                    'logfire.scrubbed': [
-                        {'path': ['attributes', 'x', 1], 'matched_substring': '_jwt'},
-                        {'path': ['attributes', 'x', 2], 'matched_substring': 'jwt'},
-                        {'path': ['attributes', 'x', 4], 'matched_substring': 'csrf_'},
-                        {'path': ['attributes', 'x', 5], 'matched_substring': 'csrf'},
-                        {'path': ['attributes', 'x', 6], 'matched_substring': 'csrf'},
-                    ],
-                },
-            }
-        ]
-    )
-
-
-def test_default_patterns_match_docs():
-    """The default scrubbing patterns are documented, so the docs must be kept in sync with the code.
-
-    The docs list is generated from `DEFAULT_PATTERNS`. If it has drifted, this test rewrites
-    the docs to match (so a local re-run passes) and then fails, like inline-snapshot's fix mode.
+    pattern_match: re.Match[str]
     """
-    from logfire._internal.scrubbing import DEFAULT_PATTERNS
-
-    docs = Path(__file__).parent.parent / 'docs' / 'how-to-guides' / 'scrubbing.md'
-    content = docs.read_text()
-
-    # `repr` of each pattern reproduces exactly how it's written in the docs code block.
-    expected_block = '[\n' + ''.join(f'    {pattern!r},\n' for pattern in DEFAULT_PATTERNS) + ']'
-
-    # Match the ```python [...] ``` block that follows the "default scrubbing patterns" sentence.
-    match = re.search(
-        r'(Here are the default scrubbing patterns:\n+```python\n)(\[.*?\])(\n```)',
-        content,
-        re.DOTALL,
-    )
-    assert match, 'Could not find the default scrubbing patterns code block in the docs'
-
-    if match.group(2) != expected_block:
-        docs.write_text(content[: match.start(2)] + expected_block + content[match.end(2) :])
-        pytest.fail(
-            f'The scrubbing patterns documented in {docs} were out of sync with `DEFAULT_PATTERNS` '
-            'in logfire/_internal/scrubbing.py. The docs have been updated to match; re-run to confirm.'
-        )
+    The regex match object indicating why the value is being redacted.
+    Use `pattern_match.group(0)` to get the matched string.
+    """
 
 
-def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
-    logfire.info(
-        'hi',
-        x=[
-            'pylf_v1_abc123xyz',
-            'pylf_v2_sometoken',
-            'pylf_v10_longerversion',
-            'not_pylf_v1_token',
-            'pylf_v1_',
-        ],
-    )
-    # pylf_v\d+_ pattern matches Logfire API token prefixes.
-    # Tokens like 'pylf_v1_abc123xyz' get scrubbed, but the prefix alone is kept.
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'hi',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'hi',
-                    'logfire.msg': 'hi',
-                    'code.filepath': 'test_secret_scrubbing.py',
-                    'code.function': 'test_logfire_token_prefix_scrubbing',
-                    'code.lineno': 123,
-                    'x': [
-                        "[Scrubbed due to 'pylf_v1_']",
-                        "[Scrubbed due to 'pylf_v2_']",
-                        "[Scrubbed due to 'pylf_v10_']",
-                        "[Scrubbed due to 'pylf_v1_']",
-                        'pylf_v1_',
-                    ],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
-                    'logfire.scrubbed': [
-                        {'path': ['attributes', 'x', 0], 'matched_substring': 'pylf_v1_'},
-                        {'path': ['attributes', 'x', 1], 'matched_substring': 'pylf_v2_'},
-                        {'path': ['attributes', 'x', 2], 'matched_substring': 'pylf_v10_'},
-                        {'path': ['attributes', 'x', 3], 'matched_substring': 'pylf_v1_'},
-                    ],
-                },
+ScrubCallback = Callable[[ScrubMatch], Any]
+
+
+class ScrubbedNote(TypedDict):
+    path: JsonPath
+    matched_substring: str
+
+
+@dataclass
+class ScrubbingOptions:
+    """Options for redacting sensitive data."""
+
+    callback: ScrubCallback | None = None
+    """
+    A function that is called for each match found by the scrubber.
+    If it returns `None`, the value is redacted.
+    Otherwise, the returned value replaces the matched value.
+    The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
+    """
+
+    extra_patterns: Sequence[str] | None = None
+    """
+    A sequence of regular expressions to detect sensitive data that should be redacted.
+    For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
+    The specified patterns are combined with the default patterns.
+    """
+
+
+class BaseScrubber(ABC):
+    # These keys and everything within are safe to keep in spans, even if they match the scrubbing pattern.
+    # Some of these are just here for performance.
+    SAFE_KEYS = {
+        ATTRIBUTES_MESSAGE_KEY,  # Formatted field values are scrubbed separately
+        ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+        ATTRIBUTES_JSON_SCHEMA_KEY,
+        ATTRIBUTES_TAGS_KEY,
+        ATTRIBUTES_LOG_LEVEL_NAME_KEY,
+        ATTRIBUTES_LOG_LEVEL_NUM_KEY,
+        ATTRIBUTES_SPAN_TYPE_KEY,
+        ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
+        ATTRIBUTES_SAMPLE_RATE_KEY,
+        ATTRIBUTES_LOGGING_NAME,
+        ATTRIBUTES_SCRUBBED_KEY,
+        ATTRIBUTES_CONFIG,
+        ATTRIBUTES_PACKAGE_VERSIONS,
+        RESOURCE_ATTRIBUTES_VERSION,
+        *STACK_INFO_KEYS,
+        'exception.stacktrace',
+        'exception.type',
+        'exception.message',
+        'error.type',
+        'http.method',
+        'http.status_code',
+        'http.scheme',
+        'http.url',
+        'http.target',
+        'http.route',
+        'db.statement',
+        'db.query.text',
+        'db.plan',
+        'fastapi.route.name',
+        'fastapi.route.operation_id',
+        'url.full',
+        'url.path',
+        'url.query',
+        'event.name',
+        'agent_session_id',
+        'do_not_scrub',
+        'binary_content',
+        'pydantic_ai.all_messages',
+        'rpc.method',
+        'model_request_parameters',
+        'langsmith.metadata.session_id',
+        'langsmith.trace.session_name',
+        gen_ai_semconv.INPUT_MESSAGES,
+        gen_ai_semconv.OUTPUT_MESSAGES,
+        gen_ai_semconv.SYSTEM_INSTRUCTIONS,
+        gen_ai_semconv.TOOL_DEFINITIONS,
+        gen_ai_semconv.TOOL_NAME,
+        gen_ai_semconv.TOOL_CALL_ID,
+        gen_ai_semconv.INPUT_TOKENS,
+        gen_ai_semconv.OUTPUT_TOKENS,
+        gen_ai_semconv.CACHE_READ_INPUT_TOKENS,
+        gen_ai_semconv.CACHE_CREATION_INPUT_TOKENS,
+        gen_ai_semconv.USAGE_RAW,
+        gen_ai_semconv.CONVERSATION_ID,
+        gen_ai_semconv.SYSTEM,
+        gen_ai_semconv.PROVIDER_NAME,
+        gen_ai_semconv.REQUEST_MODEL,
+        gen_ai_semconv.RESPONSE_MODEL,
+    }
+
+    @abstractmethod
+    def scrub_span(self, span: ReadableSpanDict): ...
+
+    @abstractmethod
+    def scrub_log(self, log: LogRecord) -> LogRecord: ...
+
+    @abstractmethod
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
+
+
+class NoopScrubber(BaseScrubber):
+    def scrub_span(self, span: ReadableSpanDict):
+        pass
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        return log
+
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
+        return value, []
+
+
+NOOP_SCRUBBER = NoopScrubber()
+
+
+class Scrubber(BaseScrubber):
+    """Redacts potentially sensitive data."""
+
+    def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
+        # See ScrubbingOptions for more info on these parameters.
+        patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
+        default_patterns_count = len(DEFAULT_PATTERNS)
+        pattern_parts: list[str] = []
+        pattern_reason_by_group: dict[str, str | None] = {}
+        for index, pattern in enumerate(patterns):
+            group_name = f'pattern_{index}'
+            pattern_parts.append(f'(?P<{group_name}>{pattern})')
+            pattern_reason_by_group[group_name] = (
+                None if index < default_patterns_count else f'extra_pattern_{index - default_patterns_count}'
+            )
+
+        self._pattern = re.compile('|'.join(pattern_parts), re.IGNORECASE | re.DOTALL)
+        self._pattern_reason_by_group = pattern_reason_by_group
+        self._callback = callback
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        span_scrubber = SpanScrubber(self)
+        return span_scrubber.scrub_log(log)
+
+    def scrub_span(self, span: ReadableSpanDict):
+        scope = span['instrumentation_scope']
+        if scope and scope.name in ['logfire.openai', 'logfire.anthropic']:
+            return
+
+        span_scrubber = SpanScrubber(self)
+        span_scrubber.scrub_span(span)
+        if span_scrubber.scrubbed:
+            attributes = span['attributes']
+            already_scrubbed = cast('str', attributes.get(ATTRIBUTES_SCRUBBED_KEY, '[]'))
+            try:
+                already_scrubbed = cast('list[ScrubbedNote]', json.loads(already_scrubbed))
+            except json.JSONDecodeError:  # pragma: no cover
+                already_scrubbed = []
+            span['attributes'] = {
+                **attributes,
+                ATTRIBUTES_SCRUBBED_KEY: json.dumps(already_scrubbed + span_scrubber.scrubbed),
             }
+
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+        span_scrubber = SpanScrubber(self)
+        result = span_scrubber.scrub(path, value)
+        return result, span_scrubber.scrubbed
+
+
+class SpanScrubber:
+    """Does the actual scrubbing work.
+
+    This class is separate from Scrubber so that it can be instantiated more regularly
+    and hold and mutate state about the span being scrubbed, specifically the scrubbed notes.
+    """
+
+    def __init__(self, parent: Scrubber):
+        self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._pattern_reason_by_group = parent._pattern_reason_by_group  # pyright: ignore[reportPrivateUsage]
+        self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
+        self.scrubbed: list[ScrubbedNote] = []
+        self.did_scrub = False
+
+    def scrub_span(self, span: ReadableSpanDict):
+        # We need to use BoundedAttributes because:
+        # 1. For events and links, we get an error otherwise:
+        #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
+        # 2. The callback might return a value that isn't of the type required by OTEL,
+        #      in which case BoundAttributes will discard it to prevent an error.
+        # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
+        new_attributes = self.scrub(('attributes',), span['attributes'])
+        if self.did_scrub:
+            span['attributes'] = BoundedAttributes(attributes=new_attributes)
+
+        span['events'] = [
+            Event(
+                # We don't scrub the event name because in theory it should be a low-cardinality general description,
+                # not containing actual data. The same applies to the span name, which just isn't mentioned here.
+                name=event.name,
+                attributes=BoundedAttributes(attributes=self.scrub_event_attributes(event, i)),
+                timestamp=event.timestamp,
+            )
+            for i, event in enumerate(span['events'])
         ]
-    )
+        span['links'] = [
+            Link(
+                context=link.context,
+                attributes=BoundedAttributes(attributes=self.scrub(('links', i, 'attributes'), link.attributes)),
+            )
+            for i, link in enumerate(span['links'])
+        ]
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
+        new_body = self.scrub(('log_body',), log.body)
+
+        if not self.did_scrub:
+            return log
+
+        if self.scrubbed:
+            new_attributes = new_attributes or {}
+            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
+
+        result = copy.copy(log)
+        result.attributes = BoundedAttributes(attributes=new_attributes)
+        result.body = new_body
+        return result
+
+    def scrub_event_attributes(self, event: Event, index: int):
+        attributes = event.attributes or {}
+        path = ('otel_events', index, 'attributes')
+        new_attributes = self.scrub(path, attributes)
+        # We used to scrub exception messages here, git blame this line if you want to restore that logic.
+        return new_attributes
+
+    def scrub(self, path: JsonPath, value: Any) -> Any:
+        """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
+
+        `path` is a list of keys and indices leading to `value` in the span.
+        Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
+        """
+        if isinstance(value, str):
+            if match := self._pattern.search(value):
+                if match.span() == (0, len(value)):
+                    # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
+                    # it's considered safe.
+                    return value
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    return self._redact(ScrubMatch(path, value, match))
+                else:
+                    return json.dumps(self.scrub(path, value))
+        elif isinstance(value, Sequence):
+            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+        elif isinstance(value, Mapping):
+            result: dict[str, Any] = {}
+            for k, v in cast('Mapping[str, Any]', value).items():
+                if k in BaseScrubber.SAFE_KEYS:
+                    result[k] = v
+                elif match := self._pattern.search(k):
+                    redacted = self._redact(ScrubMatch(path + (k,), v, match))
+                    if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
+                        redacted = [redacted]
+                    result[k] = redacted
+                else:
+                    result[k] = self.scrub(path + (k,), v)
+            return result
+        return value
+
+    def _redact(self, match: ScrubMatch) -> Any:
+        if self._callback and (result := self._callback(match)) is not None:
+            self.did_scrub = self.did_scrub or result is not match.value
+            return result
+        self.did_scrub = True
+        matched_substring = match.pattern_match.group(0)
+        reason = matched_substring
+        for group_name, pattern_reason in self._pattern_reason_by_group.items():
+            if match.pattern_match.group(group_name) is not None:
+                if pattern_reason is None:
+                    self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
+                else:
+                    reason = pattern_reason
+                break
+        else:  # pragma: no cover
+            self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
+        return f'[Scrubbed due to {reason!r}]'
+
+
+class MessageValueCleaner:
+    """Scrubs and truncates formatted field values to be included in the message attribute.
+
+    Use to construct the message for a single span, e.g:
+
+        cleaner = MessageValueCleaner(scrubber, check_keys=...)
+        message_parts = [cleaner.clean_value(field_name, str(value)) for field_name, value in fields]
+        message = <construct from message parts>
+        attributes = {**other_attributes, **cleaner.extra_attrs(), ATTRIBUTES_MESSAGE_KEY: message}
+
+    check_keys determines whether the key should be accounted for in scrubbing.
+    Set to False if the user explicitly provided the key, e.g. `logfire.info(f'... {password} ...')`
+    means that the password is clearly expected to be logged.
+    The password will therefore not be scrubbed here and will appear in the message.
+    However it may still be scrubbed out of the attributes, just because that process is independent.
+    """
+
+    def __init__(self, scrubber: BaseScrubber, *, check_keys: bool):
+        self.scrubber = scrubber
+        self.scrubbed: list[ScrubbedNote] = []
+        self.check_keys = check_keys
+
+    def clean_value(self, field_name: str, value: str) -> str:
+        # Scrub before truncating so that the scrubber can see the full value.
+        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
+        # because of truncation, then that leaves '=123' in the message, which is not good.
+        if field_name not in self.scrubber.SAFE_KEYS:
+            if self.check_keys:
+                # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
+                scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
+                value = scrubbed_value[field_name]
+            else:
+                # Whereas having the key in the path doesn't affect the scrubbing result,
+                # so this only looks at `value` itself.
+                value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
+            self.scrubbed.extend(scrubbed_notes)
+        return self.truncate(value)
+
+    def truncate(self, value: str) -> str:
+        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+
+    def extra_attrs(self) -> dict[str, Any]:
+        if self.scrubbed:
+            return {ATTRIBUTES_SCRUBBED_KEY: json.dumps(self.scrubbed)}
+        return {}

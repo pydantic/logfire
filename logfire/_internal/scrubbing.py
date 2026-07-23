@@ -211,7 +211,9 @@ class Scrubber(BaseScrubber):
         for index, pattern in enumerate(patterns):
             group_name = f'pattern_{index}'
             pattern_parts.append(f'(?P<{group_name}>{pattern})')
-            pattern_reason_by_group[group_name] = None if index < default_patterns_count else pattern
+            pattern_reason_by_group[group_name] = (
+                None if index < default_patterns_count else f'extra_pattern_{index - default_patterns_count}'
+            )
 
         self._pattern = re.compile('|'.join(pattern_parts), re.IGNORECASE | re.DOTALL)
         self._pattern_reason_by_group = pattern_reason_by_group
