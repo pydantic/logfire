@@ -232,6 +232,7 @@ nav:
       - Evaluate:
           - "Evals: Datasets & Experiments": guides/web-ui/evals.md
           - "Evals: Live Monitoring": guides/web-ui/live-evals.md
+          - Annotate Agent Runs: reference/advanced/run-annotations/index.md
           - Datasets:
               - Datasets: evaluate/datasets/index.md
               - Web UI Guide: evaluate/datasets/ui.md
