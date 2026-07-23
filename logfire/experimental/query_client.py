@@ -17,7 +17,7 @@ else:
     UTC = timezone.utc
 
 try:
-    from httpx import AsyncClient, Client, Response, Timeout
+    from httpx import AsyncClient, Client, Headers, Response, Timeout
     from httpx._client import BaseClient
 except ImportError as e:  # pragma: no cover
     raise ImportError('httpx is required to use the Logfire query clients') from e
@@ -145,7 +145,9 @@ class _BaseLogfireQueryClient(Generic[T]):
         self.base_url = base_url
         self.read_token = read_token
         self.timeout = timeout
-        headers = client_kwargs.pop('headers', {})
+        # `Headers` is case-insensitive, so a caller-supplied `User-Agent` (any casing) is
+        # respected rather than a second `user-agent` entry being added alongside it.
+        headers = Headers(client_kwargs.pop('headers', None))
         headers['authorization'] = read_token
         headers.setdefault('user-agent', UA_HEADER)
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)

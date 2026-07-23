@@ -76,7 +76,15 @@ def test_logfire_client_user_agent() -> None:
 
 def test_query_client_user_agent() -> None:
     with LogfireQueryClient('fake-read-token') as client:
-        assert client.client.headers['user-agent'] == UA_HEADER
+        assert client.client.headers.get_list('user-agent') == [UA_HEADER]
+
+
+def test_query_client_user_agent_caller_override() -> None:
+    # A caller-supplied user-agent wins regardless of key casing, and exactly one entry is sent:
+    # a plain-dict `setdefault('user-agent', ...)` next to a caller's `'User-Agent'` key would
+    # produce two entries, which httpx sends as duplicate headers.
+    with LogfireQueryClient('fake-read-token', headers={'User-Agent': 'my-agent/1.0'}) as client:
+        assert client.client.headers.get_list('user-agent') == ['my-agent/1.0']
 
 
 def test_cli_requests_user_agent(tmp_dir_cwd: Path) -> None:
