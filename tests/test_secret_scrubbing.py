@@ -303,9 +303,8 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
                         "pattern_match=<re.Match object; span=(3, 11), match='password'>"
                         ')'
                     ),
-                    'other': "[Scrubbed due to 'my_pattern']",
+                    'other': "[Scrubbed due to 'extra_pattern_0']",
                     'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
-                    'logfire.scrubbed': '[{"path": ["attributes", "other"], "matched_substring": "my_pattern"}]',
                 },
             }
         ]
@@ -335,6 +334,57 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
             }
         ]
     )
+
+
+def test_extra_pattern_redaction_reason_does_not_echo_secret(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(
+        scrubbing=logfire.ScrubbingOptions(
+            extra_patterns=[r'://([^:@/]+):([^@/]+)@'],
+        ),
+        **config_kwargs,
+    )
+
+    secret = 'admin:s3cr3t_pass'
+    logfire.info('connect', config_url=f'postgresql://{secret}@db.internal:5432/mydb')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert secret not in str(spans)
+    assert spans == snapshot(
+        [
+            {
+                'name': 'connect',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'connect',
+                    'logfire.msg': 'connect',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_extra_pattern_redaction_reason_does_not_echo_secret',
+                    'code.lineno': 123,
+                    'config_url': "[Scrubbed due to 'extra_pattern_0']",
+                    'logfire.json_schema': {'type': 'object', 'properties': {'config_url': {}}},
+                },
+            }
+        ]
+    )
+
+
+def test_extra_pattern_literal_secret_is_not_echoed(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    secret = 'sk-live-secret'
+    logfire.configure(
+        scrubbing=logfire.ScrubbingOptions(extra_patterns=[re.escape(secret)]),
+        **config_kwargs,
+    )
+
+    logfire.info('connect', safe_value=f'value {secret}')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert secret not in str(spans)
+    assert spans[0]['attributes']['safe_value'] == "[Scrubbed due to 'extra_pattern_0']"
 
 
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
