@@ -303,7 +303,7 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
                         "pattern_match=<re.Match object; span=(3, 11), match='password'>"
                         ')'
                     ),
-                        'other': "[Scrubbed due to 'extra_pattern_0']",
+                    'other': "[Scrubbed due to 'extra_pattern_0']",
                     'logfire.json_schema': '{"type":"object","properties":{"my_password":{},"other":{},"bad_value":{}}}',
                 },
             }
