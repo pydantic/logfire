@@ -232,6 +232,7 @@ nav:
       - Evaluate:
           - "Evals: Datasets & Experiments": guides/web-ui/evals.md
           - "Evals: Live Monitoring": guides/web-ui/live-evals.md
+          - Scorers: guides/web-ui/scorers.md
           - Datasets:
               - Datasets: evaluate/datasets/index.md
               - Web UI Guide: evaluate/datasets/ui.md
@@ -522,6 +523,7 @@ plugins:
         Evaluate:
           - guides/web-ui/evals.md
           - guides/web-ui/live-evals.md
+          - guides/web-ui/scorers.md
           - evaluate/datasets/*.md
         Manage & Configure:
           - guides/web-ui/organizations-and-projects.md
