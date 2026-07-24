@@ -1,12 +1,16 @@
 ---
-title: Logfire OTel Integration with Alternative Clients
+title: Logfire OpenTelemetry Integration with Alternative Clients
 description: "Guide on how to use the standard OpenTelemetry SDK to export Node.js, Rust or Go data to Logfire."
 ---
 # Alternative clients
 
-**Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs
-in many languages to export to the **Logfire** backend, including those outside our
-[first-class supported languages](../languages.md). Depending on your SDK, you may need to set only
+**Logfire** uses the OpenTelemetry standard. This means that you can configure standard **OpenTelemetry client SDKs**
+in many languages (Node.js, Go, Rust, Java, and others) to export telemetry to the **Logfire** backend / OpenTelemetry Protocol (OTLP) server endpoint, including those outside our
+[first-class supported languages](../languages.md).
+
+If instead you want Logfire's Python SDK to export to a different backend or collector server, see [Alternative backends](./alternative-backends.md).
+
+Depending on your SDK, you may need to set only
 these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
 
 - `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for both traces and metrics, or:
