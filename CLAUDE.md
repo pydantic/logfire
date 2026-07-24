@@ -14,10 +14,11 @@ Pre-commit automatically runs ruff and pyright, but you can also run `make forma
 Docs are rendered and deployed through the `pydantic/unified-docs` pipeline. Do not use MkDocs checks in this repository.
 
 When linking between pages in this repository, use source-relative `.md` links. Published routes can
-differ from source paths because `pydantic/unified-docs` remaps some sections. When adding or moving
-a docs section, check whether unified-docs remaps it and verify the page and any anchor in a rendered
-preview. Fix a missing remap in unified-docs instead of hard-coding a public route here, and never
-include the deployment-specific `/docs` prefix.
+differ from source paths because [`docs/navigation.yml`](docs/navigation.yml) defines the published
+sidebar and route map. When adding, moving, or removing a public docs page, update that manifest in
+the same PR. Its public schema provides editor validation; contributors do not need a unified-docs
+checkout. Verify the page and any anchor in a rendered preview, and never include the
+deployment-specific `/docs` prefix in source links.
 
 ## Writing standard
 

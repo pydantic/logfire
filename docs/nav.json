@@ -9,6 +9,17 @@
       { "label": "FAQ", "slug": "faq" },
       { "label": "Get Help", "slug": "help" },
       {
+        "label": "Choose your path",
+        "items": [
+          { "label": "Choose your path", "slug": "get-started/choose-your-path" },
+          { "label": "For AI engineers", "slug": "get-started/for-ai-engineers" },
+          { "label": "For backend & SRE", "slug": "get-started/for-backend-and-sre" },
+          { "label": "For platform & security", "slug": "get-started/for-platform-and-security" },
+          { "label": "For product & growth", "slug": "get-started/for-product-and-growth" },
+          { "label": "Solo builder", "slug": "get-started/solo-builder" }
+        ]
+      },
+      {
         "label": "Comparisons",
         "items": [
           { "label": "Overview", "slug": "comparisons/index" },
@@ -191,8 +202,10 @@
   {
     "label": "Evaluate",
     "items": [
+      { "label": "Overview", "slug": "evaluate/overview" },
       { "label": "Evals: Datasets & Experiments", "slug": "guides/web-ui/evals" },
       { "label": "Evals: Live Monitoring", "slug": "guides/web-ui/live-evals" },
+      { "label": "Human Review", "slug": "evaluate/human-review" },
       {
         "label": "Datasets",
         "items": [
@@ -201,6 +214,17 @@
           { "label": "Running Evaluations", "slug": "evaluate/datasets/evaluations" }
         ]
       }
+    ]
+  },
+  {
+    "label": "Cookbook",
+    "items": [
+      { "label": "Overview", "slug": "cookbook/index" },
+      { "label": "Instrument & evaluate an agent", "slug": "cookbook/evaluate-an-agent" },
+      { "label": "Debug a slow endpoint", "slug": "cookbook/debug-a-slow-endpoint" },
+      { "label": "Debug a slow tool call", "slug": "cookbook/debug-a-slow-tool-call" },
+      { "label": "Roll out a prompt safely", "slug": "cookbook/roll-out-a-prompt-safely" },
+      { "label": "Track & alert on LLM cost", "slug": "cookbook/track-llm-cost" }
     ]
   },
   {
