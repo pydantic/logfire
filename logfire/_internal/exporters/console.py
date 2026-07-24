@@ -506,5 +506,8 @@ class ConsoleLogExporter(LogRecordExporter):
 
         return LogRecordExportResult.SUCCESS
 
+    def force_flush(self, timeout_millis: int = 10_000) -> bool:
+        return self.span_exporter.force_flush(timeout_millis)
+
     def shutdown(self):
         self.span_exporter.shutdown()

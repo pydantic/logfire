@@ -481,9 +481,9 @@ class Logfire:
                 Exclude specific modules from instrumentation.
         """
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -1450,7 +1450,7 @@ class Logfire:
                 If the body exceeds this size, the response will be a 413, rejecting the payload.
 
         Returns:
-            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+            A `ForwardExportRequestResponse` containing the response status code, body, and headers.
         '''
     async def forward_export_request_starlette(self, request: Request, *, max_body_size: int = ...) -> Response:
         """Forward an OpenTelemetry export request to the Logfire backend.

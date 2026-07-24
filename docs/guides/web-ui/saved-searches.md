@@ -88,5 +88,5 @@ flowchart TD
 
 **Next Steps:**
 
-- [Explore more about querying with SQL](explore.md)
+- [Learn more about querying with SQL](explore.md)
 - [Learn about dashboards and alerts](dashboards.md), (alerts.md)
