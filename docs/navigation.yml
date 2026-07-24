@@ -592,54 +592,89 @@ navigation:
               - page: "Overview"
                 path: "reference/advanced/gateway/integrations/index.md"
                 slug: "manage/ai-gateway/integrations"
+                title: "Integrations"
+                aliases:
+                  - "manage/integrations"
               - page: "Agno"
                 path: "reference/advanced/gateway/integrations/agno.md"
                 slug: "manage/ai-gateway/integrations/agno"
+                aliases:
+                  - "manage/agno"
               - page: "Genkit"
                 path: "reference/advanced/gateway/integrations/genkit.md"
                 slug: "manage/ai-gateway/integrations/genkit"
+                aliases:
+                  - "manage/genkit"
               - page: "Google ADK"
                 path: "reference/advanced/gateway/integrations/google-adk.md"
                 slug: "manage/ai-gateway/integrations/google-adk"
+                aliases:
+                  - "manage/google-adk"
               - page: "Haystack"
                 path: "reference/advanced/gateway/integrations/haystack.md"
                 slug: "manage/ai-gateway/integrations/haystack"
+                aliases:
+                  - "manage/haystack"
               - page: "Instructor"
                 path: "reference/advanced/gateway/integrations/instructor.md"
                 slug: "manage/ai-gateway/integrations/instructor"
+                aliases:
+                  - "manage/instructor"
               - page: "LangChain"
                 path: "reference/advanced/gateway/integrations/langchain.md"
                 slug: "manage/ai-gateway/integrations/langchain"
+                aliases:
+                  - "manage/langchain"
               - page: "LlamaIndex"
                 path: "reference/advanced/gateway/integrations/llamaindex.md"
                 slug: "manage/ai-gateway/integrations/llamaindex"
+                aliases:
+                  - "manage/llamaindex"
               - page: "Mastra"
                 path: "reference/advanced/gateway/integrations/mastra.md"
                 slug: "manage/ai-gateway/integrations/mastra"
+                aliases:
+                  - "manage/mastra"
               - page: "Microsoft Agent Framework"
                 path: "reference/advanced/gateway/integrations/microsoft-agent-framework.md"
                 slug: "manage/ai-gateway/integrations/microsoft-agent-framework"
+                aliases:
+                  - "manage/microsoft-agent-framework"
               - page: "OpenAI Agents SDK"
                 path: "reference/advanced/gateway/integrations/openai-agents-sdk.md"
                 slug: "manage/ai-gateway/integrations/openai-agents-sdk"
+                aliases:
+                  - "manage/openai-agents-sdk"
               - page: "OpenAI SDK"
                 path: "reference/advanced/gateway/integrations/openai-sdk.md"
                 slug: "manage/ai-gateway/integrations/openai-sdk"
+                aliases:
+                  - "manage/openai-sdk"
               - page: "Semantic Kernel"
                 path: "reference/advanced/gateway/integrations/semantic-kernel.md"
                 slug: "manage/ai-gateway/integrations/semantic-kernel"
+                aliases:
+                  - "manage/semantic-kernel"
               - page: "Smolagents"
                 path: "reference/advanced/gateway/integrations/smolagents.md"
                 slug: "manage/ai-gateway/integrations/smolagents"
+                aliases:
+                  - "manage/smolagents"
               - page: "Strands Agents"
                 path: "reference/advanced/gateway/integrations/strands-agents.md"
                 slug: "manage/ai-gateway/integrations/strands-agents"
+                aliases:
+                  - "manage/strands-agents"
               - page: "Vercel AI SDK"
                 path: "reference/advanced/gateway/integrations/vercel-ai-sdk.md"
                 slug: "manage/ai-gateway/integrations/vercel-ai-sdk"
+                aliases:
+                  - "manage/vercel-ai-sdk"
               - page: "VoltAgent"
                 path: "reference/advanced/gateway/integrations/voltagent.md"
                 slug: "manage/ai-gateway/integrations/voltagent"
+                aliases:
+                  - "manage/voltagent"
   - section: "Observability"
     slug: ""
     contents:
