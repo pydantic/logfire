@@ -25,31 +25,19 @@ Pick your language. Each tab is a complete, runnable example.
 
 === "Python"
 
-    **1. Install the SDK**
+    **1. Install and connect**
+
+    Run this in your project's terminal to install the SDK, sign in (`logfire auth` opens your browser to log in, no API key needed), and connect this project:
 
     ```bash
     pip install logfire
-    ```
-
-    Prefer uv or conda? Use `uv add logfire` or `conda install -c conda-forge logfire`.
-
-    **2. Log in from your terminal**
-
-    ```bash
     logfire auth
-    ```
-
-    This opens your browser to log in, then stores credentials in `~/.logfire/default.toml`.
-
-    **3. Choose your project**
-
-    From the root of your app, point the SDK at the project you created:
-
-    ```bash
     logfire projects use <your-project>
     ```
 
-    **4. Add Logfire to your app**
+    Prefer uv? Use `uv add logfire`, then prefix each `logfire` command with `uv run`. Prefer conda? Use `conda install -c conda-forge logfire`.
+
+    **2. Add Logfire to your app**
 
     ```py title="hello.py"
     import logfire
@@ -62,7 +50,7 @@ Pick your language. Each tab is a complete, runnable example.
 
     `configure()` connects your app to Logfire. `span()` records one operation, and `info()` writes a log (a timestamped record of a single event) inside it, so together they make your first trace.
 
-    **5. Run it**
+    **3. Run it**
 
     ```bash
     python hello.py
@@ -70,23 +58,18 @@ Pick your language. Each tab is a complete, runnable example.
 
 === "JavaScript / TypeScript"
 
-    **1. Install the SDK**
+    **1. Install and connect**
+
+    Copy a write token (the credential your app uses to send data to a Logfire project) from **Project → Settings → Write tokens**, then install the SDK and set the token:
 
     ```bash
     npm install @pydantic/logfire-node
-    ```
-
-    **2. Connect to Logfire**
-
-    Copy a write token (the credential your app uses to send data to a Logfire project) from **Project → Settings → Write tokens**, and set it in your environment:
-
-    ```bash
     export LOGFIRE_TOKEN="your-write-token"
     ```
 
     For local development you can log in with the CLI instead: `npx logfire auth`, then `npx logfire projects use <your-project>`.
 
-    **3. Add Logfire to your app**
+    **2. Add Logfire to your app**
 
     ```js title="hello.mjs"
     import * as logfire from '@pydantic/logfire-node'
@@ -104,7 +87,7 @@ Pick your language. Each tab is a complete, runnable example.
 
     `span()` records one operation, and the `info()` inside it is a log nested in that span, so together they make a trace. `shutdown()` sends anything still buffered before the script exits.
 
-    **4. Run it**
+    **3. Run it**
 
     ```bash
     node hello.mjs
