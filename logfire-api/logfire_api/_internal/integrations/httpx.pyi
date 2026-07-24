@@ -1,5 +1,6 @@
 import contextlib
 import httpx
+import httpx2
 from _typeshed import Incomplete
 from collections.abc import Awaitable as Awaitable, Callable, Generator, Mapping
 from email.headerregistry import ContentTypeHeader
@@ -10,19 +11,22 @@ from logfire._internal.main import set_user_attributes_on_raw_span as set_user_a
 from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
 from logfire.integrations.httpx import AsyncRequestHook as AsyncRequestHook, AsyncResponseHook as AsyncResponseHook, RequestHook as RequestHook, RequestInfo as RequestInfo, ResponseHook as ResponseHook, ResponseInfo as ResponseInfo
+from opentelemetry.instrumentation import httpx as otel_httpx
 from opentelemetry.trace import Span
 from typing import Any, Literal, ParamSpec
 
+HTTPXClientInstrumentor: Incomplete
+HTTPX2ClientInstrumentor: type[otel_httpx.HTTPX2ClientInstrumentor] | None
 P = ParamSpec('P')
 
-def instrument_httpx(logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, capture_all: bool | None, capture_headers: bool, capture_request_body: bool, capture_response_body: bool, request_hook: RequestHook | AsyncRequestHook | None, response_hook: ResponseHook | AsyncResponseHook | None, async_request_hook: AsyncRequestHook | None, async_response_hook: AsyncResponseHook | None, **kwargs: Any) -> None:
-    """Instrument the `httpx` module so that spans are automatically created for each request.
+def instrument_httpx(logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | httpx2.Client | httpx2.AsyncClient | None, capture_all: bool | None, capture_headers: bool, capture_request_body: bool, capture_response_body: bool, request_hook: RequestHook | AsyncRequestHook | None, response_hook: ResponseHook | AsyncResponseHook | None, async_request_hook: AsyncRequestHook | None, async_response_hook: AsyncResponseHook | None, **kwargs: Any) -> None:
+    """Instrument the `httpx` and `httpx2` modules so that spans are automatically created for each request.
 
     See the `Logfire.instrument_httpx` method for details.
     """
 
 class LogfireHttpxInfoMixin:
-    headers: httpx.Headers
+    headers: httpx.Headers | httpx2.Headers
     @property
     def content_type_header_object(self) -> ContentTypeHeader: ...
     @property
@@ -52,7 +56,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     def capture_headers(self) -> None: ...
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text'): ...
     @cached_property
-    def response(self) -> httpx.Response: ...
+    def response(self) -> httpx.Response | httpx2.Response: ...
     def on_response_read(self, hook: Callable[[LogfireSpan], None]): ...
     def wrap_response_read(self, hook: Callable[[Callable[[], bytes]], bytes]): ...
     def wrap_response_aread(self, hook: Callable[[Callable[[], Awaitable[bytes]]], Awaitable[bytes]]): ...
@@ -68,7 +72,7 @@ def capture_request(span: Span, request: RequestInfo, should_capture_headers: bo
 def capture_response(span: Span, request: RequestInfo, response: ResponseInfo, logfire_instance: Logfire, capture_headers: bool, capture_body: bool, *, is_async: bool) -> tuple[LogfireHttpxRequestInfo, LogfireHttpxResponseInfo]: ...
 async def run_async_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None: ...
 def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None: ...
-def capture_request_or_response_headers(span: Span, headers: httpx.Headers, request_or_response: Literal['request', 'response']) -> None: ...
+def capture_request_or_response_headers(span: Span, headers: httpx.Headers | httpx2.Headers, request_or_response: Literal['request', 'response']) -> None: ...
 
 CODES_FOR_METHODS_WITH_DATA_PARAM: Incomplete
 

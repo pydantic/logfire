@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.39.0] (2026-07-24)
+
+* `httpx2` support in `logfire.instrument_httpx()` by @alexmojaki in [#2095](https://github.com/pydantic/logfire/pull/2095)
+* Support OpenTelemetry SDK 1.44.0 by @alexmojaki in [#2094](https://github.com/pydantic/logfire/pull/2094)
+
 ## [v4.38.0] (2026-07-20)
 
 * Add `resource_attributes` and `resource_detectors` options to `logfire.configure` by @dmontagu in [#2012](https://github.com/pydantic/logfire/pull/2012)
@@ -1202,3 +1207,4 @@ First release from new repo!
 [v4.36.0]: https://github.com/pydantic/logfire/compare/v4.35.0...v4.36.0
 [v4.37.0]: https://github.com/pydantic/logfire/compare/v4.36.0...v4.37.0
 [v4.38.0]: https://github.com/pydantic/logfire/compare/v4.37.0...v4.38.0
+[v4.39.0]: https://github.com/pydantic/logfire/compare/v4.38.0...v4.39.0
