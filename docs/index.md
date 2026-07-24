@@ -1,13 +1,13 @@
 ---
 title: "Get started with Logfire"
-description: "Install the Logfire SDK, add a few lines to your app, and watch your first traces, logs, and metrics arrive in the Live view."
+description: "Install the Logfire SDK, add a few lines to your app, and watch your first logs and traces arrive in the Live view."
 ---
 
 # Get started with Logfire
 
-See what your app is actually doing: every request, database query, and error, with how long each one took, in your browser. This page takes you from install to your first data in Logfire in about five minutes.
+See what your app is actually doing: every request, database query, and error, with how long each one took, in your browser. This page takes you from install to your first trace in Logfire in about 5 minutes.
 
-Logfire is an observability platform (a place to see what your running software is doing) built on OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs. It has native SDKs for Python, JavaScript/TypeScript, and Rust, and works with any language through OpenTelemetry. General application observability and AI applications get the same treatment: the tools that show you a slow endpoint also show you a slow model call. [Read why Logfire exists](why.md).
+Logfire is an observability platform (a place to see what your running software is doing) built on OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs. A trace is the journey of one request, made of nested spans, and a span is one operation, with a name, a start, and a duration. Logfire has native SDKs for Python, JavaScript/TypeScript, and Rust, and works with any language through OpenTelemetry. General application observability and AI applications get the same treatment: the tools that show you a slow endpoint also show you a slow model call. [Read why Logfire exists](why.md).
 
 ## Before you start
 
@@ -17,9 +17,9 @@ You need a Logfire account and a project to send your data to:
 2. Create your first project when asked. A project is a namespace that holds your data; everything you send to Logfire belongs to one.
 
 !!! note "This sends your data to Logfire"
-    The steps below send your app's telemetry to Logfire, where it is stored. To keep data on your own infrastructure while you evaluate, [send it to a local backend](how-to-guides/alternative-backends.md) instead.
+    The steps below send your app's data to Logfire, where it is stored. To keep data on your own infrastructure while you evaluate, [send it to a local backend](how-to-guides/alternative-backends.md) instead.
 
-## Send your first data
+## Send your first trace
 
 Pick your language. Each tab is a complete, runnable example.
 
@@ -27,7 +27,11 @@ Pick your language. Each tab is a complete, runnable example.
 
     **1. Install the SDK**
 
-    {{ install_logfire() }}
+    ```bash
+    pip install logfire
+    ```
+
+    Prefer uv or conda? Use `uv add logfire` or `conda install -c conda-forge logfire`.
 
     **2. Log in from your terminal**
 
@@ -51,10 +55,12 @@ Pick your language. Each tab is a complete, runnable example.
     import logfire
 
     logfire.configure()
-    logfire.info('Hello, {name}!', name='world')
+
+    with logfire.span('greeting'):
+        logfire.info('Hello, {name}!', name='world')
     ```
 
-    `configure()` runs once to connect to Logfire; `info()` records a log (a timestamped record of a single event).
+    `configure()` connects your app to Logfire. `span()` records one operation, and `info()` writes a log (a timestamped record of a single event) inside it, so together they make your first trace.
 
     **5. Run it**
 
@@ -87,7 +93,7 @@ Pick your language. Each tab is a complete, runnable example.
 
     logfire.configure({ serviceName: 'hello-logfire' })
 
-    await logfire.span('say hello', {
+    await logfire.span('greeting', {
       callback: async () => {
         logfire.info('Hello world!')
       },
@@ -95,6 +101,8 @@ Pick your language. Each tab is a complete, runnable example.
 
     await logfire.shutdown()
     ```
+
+    `span()` records one operation, and the `info()` inside it is a log nested in that span, so together they make a trace. `shutdown()` sends anything still buffered before the script exits.
 
     **4. Run it**
 
@@ -110,11 +118,21 @@ Pick your language. Each tab is a complete, runnable example.
 
 ## See it in the Live view
 
-Open the **Live view** in Logfire. Your log and any spans (a span is one unit of work: a single operation, with a name, a start, and a duration) appear as they arrive:
+Open the [**Live view**](guides/web-ui/live.md) in Logfire. Your `greeting` trace appears as it arrives:
 
 ![Traces arriving in the Logfire Live view](images/logfire-live-view.png)
 
-Each row is one operation, with its service, name, and duration. Click a row to open the full trace (the full journey of one request, made of nested spans) and read its attributes. The example above shows a checkout request with a nested validation error; your `hello world` shows up as a single row.
+Each row is one span, with its service, name, and duration. Click a span to open its full trace and read its details. The example above shows a busier app: a checkout request with a nested validation error. Your `greeting` span shows up as a row, with the `Hello world!` log nested inside it.
+
+## Get automatic traces
+
+The `greeting` span is a manual example. Most of your traces should come automatically: add one line to instrument a framework or library you already use, and Logfire records every request, query, and outgoing call as a trace, without writing spans by hand.
+
+```py
+logfire.instrument_httpx()  # trace every outgoing HTTP request
+```
+
+See [Integrations](integrations/index.md) for FastAPI, Django, SQLAlchemy, HTTPX, and many more.
 
 ## Troubleshooting
 
