@@ -143,9 +143,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 daemon=True,
             )
             self._worker_thread.start()
-            # Restart SSE listener; treat it as a reconnect so any missed events get re-fetched
+            # Restart SSE listener.  Keep _sse_had_connected at its pre-fork value so the
+            # child's next successful SSE connection is treated as a REconnect -- triggering a
+            # forced refresh to catch any events published while the stream was torn down.
             self._sse_connected = False
-            self._sse_had_connected = False
             self._followup_refresh_at = None
             self._start_sse_listener()
         self._pid = os.getpid()
