@@ -741,6 +741,13 @@ def configure(
     # are started when first accessed via get_variable_provider().
     if config.variables is not None:
         config.get_variable_provider().start(logfire_instance if config.variables.instrument else None)
+    elif config._variable_change_polling_requested:  # pyright: ignore[reportPrivateUsage]
+        # An on_change callback is registered but no variables were explicitly configured. The
+        # poller would otherwise only start on the first variable resolution, so callbacks would
+        # never fire if nothing is resolved. Trigger lazy provider init (which starts polling) so
+        # on_change works without an eager get(). This also restarts the poller after a reconfigure
+        # rebuilt the provider as a no-op. Does nothing if no API key is available to resolve against.
+        config.get_variable_provider()
 
     return logfire_instance
 
@@ -1018,6 +1025,15 @@ class LogfireConfig(_LogfireConfigData):
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
+        # Listeners for variable config changes. Held on the config (not the provider) so they
+        # survive reconfiguration: each provider this config creates is wired to dispatch here.
+        self._variables_change_listeners: list[Callable[[set[str]], None]] = []
+        # Set once any variable's `on_change` callback is registered. on_change is only useful
+        # if the background poller is running, but the poller is otherwise started lazily on the
+        # first variable resolution. This flag lets us start it eagerly when a callback is
+        # registered, and restart it after a reconfigure (which rebuilds the provider). It lives
+        # on the config so it survives reconfiguration.
+        self._variable_change_polling_requested: bool = False
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         self._otlp_forwarding = OTLPForwardingManager([])
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
@@ -1490,6 +1506,7 @@ class LogfireConfig(_LogfireConfigData):
                     options=self.variables,
                     server_response_hook=self.advanced.server_response_hook,
                 )
+            self._variable_provider.add_on_config_change(self._notify_variables_change_listeners)
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
                 multi_log_processor.add_log_record_processor(processor)
@@ -1670,9 +1687,36 @@ class LogfireConfig(_LogfireConfigData):
                 options=options,
                 server_response_hook=self.advanced.server_response_hook,
             )
+            provider.add_on_config_change(self._notify_variables_change_listeners)
             self._variable_provider = provider
             provider.start(Logfire(config=self))
             return provider
+
+    def add_variables_change_listener(self, listener: Callable[[set[str]], None]) -> None:
+        """Register a listener for variable config changes.
+
+        Registration is idempotent (adding the same listener twice has no effect) and
+        survives reconfiguration: every variable provider this config creates dispatches
+        its change notifications to the registered listeners.
+
+        Args:
+            listener: Called with the set of variable names (including aliases) whose
+                configs changed.
+        """
+        if listener not in self._variables_change_listeners:
+            self._variables_change_listeners.append(listener)
+
+    def _notify_variables_change_listeners(self, changed_names: set[str]) -> None:
+        """Dispatch a provider's config-change notification to all registered listeners."""
+        # Snapshot: dispatch runs on the provider's polling thread, and a concurrent
+        # registration on another thread shouldn't affect the in-flight dispatch.
+        for listener in list(self._variables_change_listeners):
+            try:
+                listener(changed_names)
+            except Exception:
+                import logging
+
+                logging.getLogger('logfire').exception('Error in variables change listener')
 
     def warn_if_not_initialized(self, message: str):
         ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG', '')
