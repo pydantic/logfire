@@ -2,8 +2,10 @@ from __future__ import annotations as _annotations
 
 import json
 import os
+import random
 import re
 import threading
+import time
 import warnings
 import weakref
 from collections.abc import Mapping
@@ -96,15 +98,20 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._last_fetched_at: datetime | None = None
 
         self._config: VariablesConfig | None = None
+        self._etag: str | None = None  # ETag from last successful response for conditional GETs
 
         self._shutdown = False
         self._shutdown_timeout_exceeded = False
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
         self._force_refresh_event = threading.Event()  # Set by SSE listener to force immediate refresh
+        # Monotonic timestamp after which the worker should do a follow-up forced refresh (gap 5).
+        # Set after an SSE-triggered refresh to catch the 1s server-side cache window.
+        self._followup_refresh_at: float | None = None
 
         # SSE listener for real-time updates
         self._sse_connected = False
+        self._sse_had_connected = False  # True after the first successful SSE connection
         self._sse_thread: threading.Thread | None = None
 
         # Logfire instance for error logging, set via start()
@@ -136,8 +143,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 daemon=True,
             )
             self._worker_thread.start()
-            # Restart SSE listener
+            # Restart SSE listener; treat it as a reconnect so any missed events get re-fetched
             self._sse_connected = False
+            self._sse_had_connected = False
+            self._followup_refresh_at = None
             self._start_sse_listener()
         self._pid = os.getpid()
 
@@ -235,6 +244,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     # receive data (below), which proves the stream is healthy.
                     self._sse_connected = True
 
+                    # Gap 1: on REconnect (not the very first connection) trigger a forced refresh
+                    # to catch any events that arrived while the stream was down.
+                    if self._sse_had_connected:
+                        self._force_refresh_event.set()
+                        self._worker_awaken.set()
+                    self._sse_had_connected = True
+
                     # Process SSE events
                     for line in response.iter_lines(decode_unicode=True):
                         if self._shutdown:
@@ -247,9 +263,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         if not line:
                             continue
 
+                        # Gap 2: any received line (including ": keepalive" comments) proves the
+                        # stream is healthy, so reset the reconnect backoff immediately.
+                        reconnect_delay = 1.0
+
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
-                            reconnect_delay = 1.0
                             data_str = line[5:].strip()
                             try:
                                 event_data = json.loads(data_str)
@@ -300,12 +319,38 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
             self.refresh(force=force)
 
+            # Gap 5: after an SSE-event-triggered forced refresh, schedule a single follow-up
+            # refresh ~2s later.  The server-side in-memory cache (platform PR #28877) has a 1s
+            # per-pod TTL, so the immediate refetch can race and return the pre-update config.
+            # One debounced follow-up guarantees convergence without adding new threads.
+            if force:
+                self._followup_refresh_at = time.monotonic() + 2.0
+
+            # Gap 3: add uniform +/-10% jitter to the wait so that fleets deployed
+            # simultaneously don't poll in lockstep.
+            base_interval = self._polling_interval.total_seconds()
+            wait_timeout = base_interval * random.uniform(0.9, 1.1)
+
+            # If a follow-up refresh is pending, shorten the wait accordingly.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None:
+                followup_remaining = max(0.0, followup_at - time.monotonic())
+                wait_timeout = min(wait_timeout, followup_remaining)
+
             # Use wait(timeout) then clear() to avoid lost wakeups:
             # If SSE sets the event during refresh(), wait() returns immediately
             # and we loop again without sleeping for the full polling interval.
-            awakened = self._worker_awaken.wait(self._polling_interval.total_seconds())
+            awakened = self._worker_awaken.wait(wait_timeout)
             if awakened:  # pragma: no branch
                 self._worker_awaken.clear()
+
+            # Gap 5 (continued): if the follow-up window has elapsed, do a forced refresh
+            # and clear the pending timer.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None and time.monotonic() >= followup_at:
+                self._followup_refresh_at = None
+                self.refresh(force=True)
+
             if self._shutdown:  # pragma: no branch
                 break
 
@@ -333,9 +378,22 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
             try:
                 with self._session_lock:
+                    # Gap 4: send a conditional GET when we have a cached ETag so the server
+                    # can respond with 304 Not Modified and skip the response body entirely.
+                    # Servers that don't support ETags (all current ones) see identical
+                    # behaviour -- they simply ignore the header.
+                    headers: dict[str, str] = {}
+                    if self._etag is not None:
+                        headers['If-None-Match'] = self._etag
                     variables_response = self._session.get(
-                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
+                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout, headers=headers
                     )
+                    # Gap 4: 304 Not Modified -- config is current, just refresh the timestamp.
+                    # Do NOT call raise_for_status here (304 is outside 2xx).
+                    if variables_response.status_code == 304:
+                        self._last_fetched_at = datetime.now(tz=timezone.utc)
+                        self._has_attempted_fetch = True
+                        return
                     UnexpectedResponse.raise_for_status(variables_response)
                     variables_config_data = variables_response.json()
             except Exception as e:
@@ -348,6 +406,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._has_attempted_fetch = True
                 self._log_error('Error retrieving variables', e)
                 return
+
+            # Gap 4: remember the ETag from a successful 200 response for the next request.
+            etag = variables_response.headers.get('ETag')
+            if etag is not None:
+                self._etag = etag
 
             try:
                 new_config = VariablesConfig.model_validate(variables_config_data)
