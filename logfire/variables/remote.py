@@ -19,6 +19,7 @@ from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
 from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
 from logfire._internal.utils import UnexpectedResponse
+from logfire.variables._prompt import prompt_variable_name
 from logfire.variables.abstract import (
     ResolvedVariable,
     VariableAlreadyExistsError,
@@ -517,6 +518,62 @@ class LogfireRemoteVariableProvider(VariableProvider):
         # Refresh cache after successful write
         self.refresh(force=True)
         return config
+
+    def create_prompt(
+        self,
+        *,
+        slug: str,
+        name: str,
+        description: str | None = None,
+        template: str | None = None,
+        template_inputs_schema: dict[str, Any] | None = None,
+    ) -> None:
+        """Create a prompt via the remote prompts API.
+
+        Creates the prompt with `POST /v1/prompts/` (requires an API key with the
+        `project:write_variables` scope), publishes `template` as version 1 when given,
+        and sets `template_inputs_schema` on the backing variable (the one prompt field
+        the variables API accepts).
+
+        Args:
+            slug: The prompt slug, e.g. `support-agent`.
+            name: Human-readable prompt name shown on the Prompts page.
+            description: Optional prompt description.
+            template: When set, published as the prompt's first version.
+            template_inputs_schema: JSON Schema for `{{field}}` template inputs.
+
+        Raises:
+            VariableAlreadyExistsError: If a prompt with this slug already exists.
+            VariableWriteError: If any API request fails.
+        """
+        body: dict[str, Any] = {'name': name, 'slug': slug}
+        if description is not None:
+            body['description'] = description
+        try:
+            with self._session_lock:
+                response = self._session.post(urljoin(self._base_url, '/v1/prompts/'), json=body, timeout=self._timeout)
+                if response.status_code == 409:
+                    raise VariableAlreadyExistsError(f"Prompt '{slug}' already exists")
+                UnexpectedResponse.raise_for_status(response)
+                if template is not None:
+                    response = self._session.post(
+                        urljoin(self._base_url, f'/v1/prompts/{slug}/versions/'),
+                        json={'template': template},
+                        timeout=self._timeout,
+                    )
+                    UnexpectedResponse.raise_for_status(response)
+                if template_inputs_schema is not None:
+                    response = self._session.put(
+                        urljoin(self._base_url, f'/v1/variables/{prompt_variable_name(slug)}/'),
+                        json={'template_inputs_schema': template_inputs_schema},
+                        timeout=self._timeout,
+                    )
+                    UnexpectedResponse.raise_for_status(response)
+        except (UnexpectedResponse, RequestException) as e:
+            raise VariableWriteError(f'Failed to create prompt: {e}') from e
+
+        # Refresh cache after successful write
+        self.refresh(force=True)
 
     def delete_variable(self, name: str) -> None:
         """Delete a variable configuration via the remote API.
