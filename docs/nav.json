@@ -104,7 +104,7 @@
           {
             "label": "HTTP Clients",
             "items": [
-              { "label": "HTTPX", "link": "/logfire/integrations/http-clients/httpx/" },
+              { "label": "HTTPX and HTTPX2", "link": "/logfire/integrations/http-clients/httpx/" },
               { "label": "Requests", "link": "/logfire/integrations/http-clients/requests/" },
               { "label": "AIOHTTP", "link": "/logfire/integrations/http-clients/aiohttp/" }
             ]
