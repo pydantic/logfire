@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
+import os
 from pathlib import Path
 
 import pytest
@@ -70,10 +71,14 @@ def test_dependencies_are_prepared_when_missing(tmp_path: Path, monkeypatch: pyt
 def test_checkout_is_not_reinstalled_when_dependencies_exist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     checkout = tmp_path / 'unified-docs'
     _make_checkout(checkout)
+    astro = 'astro.cmd' if os.name == 'nt' else 'astro'
+    python = (
+        checkout / '.venv' / 'Scripts' / 'python.exe' if os.name == 'nt' else checkout / '.venv' / 'bin' / 'python3'
+    )
     (checkout / 'node_modules' / '.bin').mkdir(parents=True)
-    (checkout / 'node_modules' / '.bin' / 'astro').write_text('')
-    (checkout / '.venv' / 'bin').mkdir(parents=True)
-    (checkout / '.venv' / 'bin' / 'python3').write_text('')
+    (checkout / 'node_modules' / '.bin' / astro).write_text('')
+    python.parent.mkdir(parents=True)
+    python.write_text('')
     calls: list[list[str]] = []
 
     def run(command: list[str], *, cwd: Path | None = None, capture: bool = False) -> str:
