@@ -48,6 +48,13 @@ if TYPE_CHECKING:
 
 __all__ = ('LogfireRemoteVariableProvider',)
 
+_CONSECUTIVE_FAILURES_BEFORE_ERROR = 5
+"""Number of consecutive refresh failures after which transient errors are logged at error level.
+
+With the default 60s polling interval this escalates after roughly five minutes of continuous
+failure, riding out rolling deploys and load-balancer blips without producing error-level noise.
+"""
+
 
 class LogfireRemoteVariableProvider(VariableProvider):
     """Variable provider that fetches configuration from a remote Logfire API.
@@ -94,6 +101,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._reset_once = Once()
         self._has_attempted_fetch: bool = False
         self._last_fetched_at: datetime | None = None
+        self._consecutive_refresh_failures: int = 0
 
         self._config: VariablesConfig | None = None
 
@@ -187,6 +195,41 @@ class LogfireRemoteVariableProvider(VariableProvider):
             self._logfire.error('{message}: {error}', message=message, error=str(exc), _exc_info=exc)
         else:
             warnings.warn(f'{message}: {exc}', category=RuntimeWarning)
+
+    def _log_warning(self, message: str, exc: Exception) -> None:
+        """Log a warning using logfire if available, otherwise warnings.
+
+        Unlike `_log_error`, no traceback is attached: this is for transient failures that are
+        expected to self-heal, and recording the exception would turn every blip into an
+        exception record (and a tracked issue) in the receiving project.
+
+        Args:
+            message: The warning message.
+            exc: The exception that occurred.
+        """
+        if self._logfire is not None:
+            self._logfire.warn('{message}: {error}', message=message, error=str(exc))
+        else:
+            warnings.warn(f'{message}: {exc}', category=RuntimeWarning)
+
+    @staticmethod
+    def _is_transient_error(exc: Exception) -> bool:
+        """Whether a refresh failure is likely to resolve on its own by the next poll.
+
+        Connection errors, timeouts, and 5xx/408/429 responses are transient (server restarts,
+        rolling deploys, load-balancer blips). Other HTTP statuses, notably 401/403, indicate a
+        misconfiguration that will not fix itself.
+
+        Ambiguous failures (e.g. an SSL handshake error, or a malformed body on a 2xx response)
+        are deliberately classified as transient: a misclassified persistent failure still
+        escalates to error level via the consecutive-failure counter within a few polls, whereas
+        classifying a genuinely transient blip as persistent would log an error-level exception
+        record on every blip, which is exactly the noise this classification exists to avoid.
+        """
+        if isinstance(exc, UnexpectedResponse):
+            status = exc.response.status_code
+            return status >= 500 or status in (408, 429)
+        return isinstance(exc, RequestException)
 
     def _start_sse_listener(self):  # pragma: no cover
         """Start the SSE listener thread for real-time updates."""
@@ -346,8 +389,23 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 # (when `block_before_first_resolve` is set) while the server is unreachable, despite
                 # the background worker already polling.
                 self._has_attempted_fetch = True
-                self._log_error('Error retrieving variables', e)
+                self._consecutive_refresh_failures += 1
+                if (
+                    self._config is not None
+                    and self._consecutive_refresh_failures < _CONSECUTIVE_FAILURES_BEFORE_ERROR
+                    and self._is_transient_error(e)
+                ):
+                    # A transient failure while we still hold a previously fetched config is
+                    # low-impact: slightly stale values are served and the next poll (or SSE
+                    # nudge) retries within the polling interval. Reserve error level for
+                    # persistent failures (e.g. auth errors), sustained outages, and fetches
+                    # that fail before any config exists (the app is running on code defaults).
+                    self._log_warning('Error retrieving variables', e)
+                else:
+                    self._log_error('Error retrieving variables', e)
                 return
+
+            self._consecutive_refresh_failures = 0
 
             try:
                 new_config = VariablesConfig.model_validate(variables_config_data)
