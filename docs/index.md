@@ -5,9 +5,9 @@ description: "Install the Logfire SDK, add a few lines to your app, and watch yo
 
 # Get started with Logfire
 
-See what your app is actually doing: every request, database query, and error, with how long each one took, in your browser. This page takes you from install to your first trace in Logfire in about 5 minutes.
+Logfire is an observability platform that shows you what your application is actually doing: every request, database query, LLM call, and error, with how long each one took, in your browser. It is built on OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs, and works across your whole stack, from traditional backends to AI agents.
 
-Logfire is an observability platform (a place to see what your running software is doing) built on OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs. A trace is the journey of one request, made of nested spans, and a span is one operation, with a name, a start, and a duration. Logfire has native SDKs for Python, JavaScript/TypeScript, and Rust, and works with any language through OpenTelemetry. General application observability and AI applications get the same treatment: the tools that show you a slow endpoint also show you a slow model call. [Read why Logfire exists](why.md).
+This page takes you from install to your first trace in about 5 minutes. Logfire has native SDKs for Python, JavaScript/TypeScript, and Rust, plus any language through OpenTelemetry. A trace is the journey of one request, made of nested spans; a span is one operation, with a name, a start, and a duration. [Read why Logfire exists](why.md).
 
 ## Before you start
 
