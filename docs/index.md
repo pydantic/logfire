@@ -111,7 +111,7 @@ Each row is one span, with its service, name, and duration. Click a span to open
 
 The `greeting` span is a manual example. Most of your traces should come automatically: add one line to instrument a framework or library you already use, and Logfire records every request, query, and outgoing call as a trace, without writing spans by hand.
 
-```py
+```py skip="true" skip-reason="incomplete"
 logfire.instrument_httpx()  # trace every outgoing HTTP request
 ```
 
@@ -129,6 +129,6 @@ See [Integrations](integrations/index.md) for FastAPI, Django, SQLAlchemy, HTTPX
 
 - **New to tracing?** [Core concepts](concepts.md) explains spans and traces and how to read them.
 - **Already using a framework?** [Integrations](integrations/index.md) add rich tracing to FastAPI, Django, SQLAlchemy, HTTPX, and many more with one line.
-- **Building with AI?** [AI & LLM Observability](ai-observability.md) shows the calls, tool use, tokens, and cost behind your model-powered features.
+- **Building with AI?** [AI & LLM Observability](ai-observability.md) shows the requests, tool calls, tokens, and cost behind your model-powered features.
 - **Not sure where to focus?** [Choose your path](get-started/choose-your-path.md) gives a short, ordered route for your role.
 - **Ready to deploy?** Use a [write token](how-to-guides/create-write-tokens.md) in an environment variable instead of the CLI.
