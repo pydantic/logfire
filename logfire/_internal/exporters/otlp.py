@@ -9,7 +9,6 @@ import weakref
 from collections import deque
 from collections.abc import Mapping, Sequence
 from functools import cached_property
-from importlib.metadata import version as package_version
 from pathlib import Path
 from tempfile import mkdtemp
 from threading import Lock, Thread
@@ -17,6 +16,7 @@ from typing import Any
 
 import requests.exceptions
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.version import __version__ as otlp_exporter_version
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs._internal.export import LogRecordExportResult
 from opentelemetry.sdk.trace import ReadableSpan
@@ -33,11 +33,11 @@ from .wrapper import WrapperLogExporter, WrapperSpanExporter
 # entirely when custom headers include a `User-Agent`. The OTLP exporter spec recommends that a
 # distribution's identifier be *prepended* while the exporter's default identifier is retained
 # (https://opentelemetry.io/docs/specs/otel/protocol/exporter/#user-agent), so rebuild that
-# default here and prepend ours. `tests/test_user_agent.py` guards against the upstream format
-# drifting.
-OTLP_EXPORTER_UA_HEADER = (
-    f'{UA_HEADER} OTel-OTLP-Exporter-Python/{package_version("opentelemetry-exporter-otlp-proto-http")}'
-)
+# default here and prepend ours, reading the version from the same module the exporter uses
+# (rather than `importlib.metadata`, which is slow and fails at import time when dist-info
+# metadata is stripped, e.g. by some AWS Lambda bundlers). `tests/test_user_agent.py` guards
+# against the upstream format drifting.
+OTLP_EXPORTER_UA_HEADER = f'{UA_HEADER} OTel-OTLP-Exporter-Python/{otlp_exporter_version}'
 
 _DISK_RETRYERS: list[weakref.ref[DiskRetryer]] = []
 
