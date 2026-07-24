@@ -1718,9 +1718,15 @@ class TestSSEHardening:
             # Pre-set the follow-up timer to a time that has already elapsed.
             provider._followup_refresh_at = _time.monotonic() - 1.0
 
+            wait_calls = 0
+
             def capturing_wait(timeout: float | None = None) -> bool:
-                # Signal shutdown so the worker exits after this one iteration.
-                provider._shutdown = True
+                nonlocal wait_calls
+                wait_calls += 1
+                # Signal shutdown only on the second call so that the first iteration can
+                # fire the follow-up refresh before the worker exits.
+                if wait_calls >= 2:
+                    provider._shutdown = True
                 return False
 
             monkeypatch.setattr(provider._worker_awaken, 'wait', capturing_wait)
@@ -1732,6 +1738,43 @@ class TestSSEHardening:
                 # Normal poll + follow-up forced refresh = at least 2 HTTP calls.
                 assert request_mocker.call_count >= 2, (
                     f'Expected >= 2 requests (poll + follow-up), got {request_mocker.call_count}'
+                )
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+    def test_worker_skips_follow_up_refresh_on_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When shutdown begins the worker exits before firing a pending follow-up refresh."""
+        import time as _time
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            # Pre-set the follow-up timer to a time that has already elapsed.
+            provider._followup_refresh_at = _time.monotonic() - 1.0
+
+            def capturing_wait(timeout: float | None = None) -> bool:
+                # Signal shutdown immediately -- the worker should exit without firing the follow-up.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', capturing_wait)
+            try:
+                provider._worker()
+
+                # The follow-up timer must NOT have been cleared (it was not fired).
+                assert provider._followup_refresh_at is not None, 'Follow-up timer should not be cleared on shutdown'
+                # Only the initial poll request should have been made; no follow-up.
+                assert request_mocker.call_count == 1, (
+                    f'Expected exactly 1 request (no follow-up on shutdown), got {request_mocker.call_count}'
                 )
             finally:
                 provider._shutdown = True

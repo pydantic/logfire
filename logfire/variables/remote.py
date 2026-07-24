@@ -137,6 +137,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._force_refresh_event = threading.Event()
         # Only restart threads if we were started before the fork
         if self._started and not was_shutdown:
+            # Clear the follow-up timer before the child worker starts so that an inherited
+            # elapsed timer cannot fire before we have a chance to reset it.
+            self._followup_refresh_at = None
             self._worker_thread = threading.Thread(
                 name='LogfireRemoteProvider',
                 target=self._worker,
@@ -147,7 +150,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # child's next successful SSE connection is treated as a REconnect -- triggering a
             # forced refresh to catch any events published while the stream was torn down.
             self._sse_connected = False
-            self._followup_refresh_at = None
             self._start_sse_listener()
         self._pid = os.getpid()
 
@@ -345,15 +347,17 @@ class LogfireRemoteVariableProvider(VariableProvider):
             if awakened:  # pragma: no branch
                 self._worker_awaken.clear()
 
+            # Do not fire the follow-up refresh if shutdown has begun -- the request
+            # would be unnecessary and could exceed the shutdown timeout budget.
+            if self._shutdown:
+                break
+
             # Gap 5 (continued): if the follow-up window has elapsed, do a forced refresh
             # and clear the pending timer.
             followup_at = self._followup_refresh_at
             if followup_at is not None and time.monotonic() >= followup_at:
                 self._followup_refresh_at = None
                 self.refresh(force=True)
-
-            if self._shutdown:  # pragma: no branch
-                break
 
     def refresh(self, force: bool = False):
         """Fetch the latest variable configuration from the remote API.
