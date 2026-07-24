@@ -1,0 +1,14 @@
+CHANGELOG.md
+  h_d9dd17644dded9 3-7,1210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "3513f73af4e5ec04434ba9dd62185a3d885b8869",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
