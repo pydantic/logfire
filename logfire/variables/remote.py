@@ -219,6 +219,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Connection errors, timeouts, and 5xx/408/429 responses are transient (server restarts,
         rolling deploys, load-balancer blips). Other HTTP statuses, notably 401/403, indicate a
         misconfiguration that will not fix itself.
+
+        Ambiguous failures (e.g. an SSL handshake error, or a malformed body on a 2xx response)
+        are deliberately classified as transient: a misclassified persistent failure still
+        escalates to error level via the consecutive-failure counter within a few polls, whereas
+        classifying a genuinely transient blip as persistent would log an error-level exception
+        record on every blip, which is exactly the noise this classification exists to avoid.
         """
         if isinstance(exc, UnexpectedResponse):
             status = exc.response.status_code
