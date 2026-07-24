@@ -815,6 +815,14 @@ redirects:
     to: "integrations/aws-lambda"
   - from: "get-started/integrations"
     to: "integrations"
+  # These three guides moved outside Observe, so they must take precedence over
+  # the name-preserving web-ui catch-all below.
+  - from: "guides/web-ui/evals"
+    to: "evaluate/evals"
+  - from: "guides/web-ui/live-evals"
+    to: "evaluate/live-evals"
+  - from: "guides/web-ui/organizations-and-projects"
+    to: "manage/organizations-and-projects"
   - from: "guides/web-ui/*"
     to: "observe/:splat"
 
