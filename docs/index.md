@@ -21,7 +21,7 @@ You need a Logfire account and a project to send your data to:
 
 ## Send your first trace
 
-Pick your language. Each tab is a complete, runnable example.
+Pick your language. The Python and JavaScript/TypeScript tabs are complete, runnable examples.
 
 === "Python"
 
@@ -66,8 +66,6 @@ Pick your language. Each tab is a complete, runnable example.
     npm install @pydantic/logfire-node
     export LOGFIRE_TOKEN="your-write-token"
     ```
-
-    For local development you can log in with the CLI instead: `npx logfire auth`, then `npx logfire projects use <your-project>`.
 
     **2. Add Logfire to your app**
 
@@ -115,7 +113,7 @@ The `greeting` span is a manual example. Most of your traces should come automat
 logfire.instrument_httpx()  # trace every outgoing HTTP request
 ```
 
-See [Integrations](integrations/index.md) for FastAPI, Django, SQLAlchemy, HTTPX, and many more.
+Each integration ships as an extra, so install the matching one first: `pip install 'logfire[httpx]'` for the example above. See [Integrations](integrations/index.md) for FastAPI, Django, SQLAlchemy, HTTPX, and many more.
 
 ## Troubleshooting
 
