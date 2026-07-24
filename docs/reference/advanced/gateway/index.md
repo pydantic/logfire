@@ -162,6 +162,6 @@ Or run just the proxy and configure a tool manually with `logfire gateway serve`
 
 ## See also
 
-- [Embeddings](/logfire/manage/ai-gateway/embeddings/): discover and call embedding models through the gateway.
+- [Embeddings](embeddings.md): discover and call embedding models through the gateway.
 - [Prompt Management: Access and Prerequisites](../prompt-management/plan-requirements.md): prompt runs execute through the gateway and spend gateway budget.
 - [Cost & Usage](../../../logfire-costs.md): plan tiers and how usage is billed.

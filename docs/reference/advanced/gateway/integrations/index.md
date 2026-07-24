@@ -7,11 +7,11 @@ description: "Use the Logfire AI Gateway with agent frameworks and model SDKs."
 
 Connect the framework, prompts, tools, and agent workflow you already use to the Logfire AI Gateway.
 
-Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider or at a [routing group](/logfire/manage/ai-gateway/#routing-groups), which can fail over to another provider or distribute requests across several providers.
+Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider or at a [routing group](../index.md#routing-groups), which can fail over to another provider or distribute requests across several providers.
 
 ## Before you start
 
-1. If your organization has not enabled the gateway, follow [Enable the gateway](/logfire/manage/ai-gateway/#enable-the-gateway). You need to be an organization admin.
+1. If your organization has not enabled the gateway, follow [Enable the gateway](../index.md#enable-the-gateway). You need to be an organization admin.
 2. In Logfire, open your organization, then select **AI Engineering** > **Gateway** > **API Keys**.
 3. Create or copy a gateway API key, then set it in the terminal where you will run the example:
 
@@ -23,7 +23,7 @@ Each guide shows the two client settings you need to change: the API key and gat
 
 The examples use the OpenAI-compatible route for the US region, `https://gateway-us.pydantic.dev/proxy/openai`. For the EU region, use `gateway-eu` instead. For a self-hosted organization, copy the URL from the **Connect** tab.
 
-Most examples use an OpenAI-compatible client. The provider or routing group you select must support the OpenAI request format and the model name in the example. Provider-native APIs, such as Anthropic Messages, require that provider's client. See [Connect an SDK](/logfire/manage/ai-gateway/#connect-an-sdk) for both patterns.
+Most examples use an OpenAI-compatible client. The provider or routing group you select must support the OpenAI request format and the model name in the example. Provider-native APIs, such as Anthropic Messages, require that provider's client. See [Connect an SDK](../index.md#connect-an-sdk) for both patterns.
 
 !!! note "Model data passes through Logfire"
     These settings send prompts, tool inputs, and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire records the model, latency, token usage, and conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
@@ -51,4 +51,4 @@ Most examples use an OpenAI-compatible client. The provider or routing group you
 
 ## Next steps
 
-Read the [AI Gateway overview](/logfire/manage/ai-gateway/) to learn how providers, routing groups, spending limits, and telemetry work together.
+Read the [AI Gateway overview](../index.md) to learn how providers, routing groups, spending limits, and telemetry work together.
