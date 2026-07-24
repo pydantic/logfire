@@ -12,24 +12,14 @@ navigation:
         slug: "get-started"
         aliases:
           - "guides/first_steps"
-          - "guides"
       - page: "Why Logfire?"
         path: "why.md"
         source: "plain"
         slug: "get-started/why"
-        aliases:
-          - "why-logfire"
-          - "why-logfire/pydantic"
-          - "why-logfire/opentelemetry"
-          - "why-logfire/simplicity"
-          - "why-logfire/python-centric"
-          - "why-logfire/sql"
       - page: "Core Concepts"
         path: "concepts.md"
         source: "plain"
         slug: "get-started/concepts"
-        aliases:
-          - "get-started/traces"
       - page: "FAQ"
         path: "faq.md"
         source: "plain"
@@ -67,42 +57,28 @@ navigation:
           - page: "Onboarding Checklist"
             path: "guides/onboarding-checklist/index.md"
             slug: "instrument/onboarding-checklist"
-            aliases:
-              - "guides/onboarding_checklist"
           - page: "Integrate Logfire"
             path: "guides/onboarding-checklist/integrate.md"
             slug: "instrument/integrate"
-            aliases:
-              - "guides/onboarding_checklist/integrate"
           - page: "Manual Tracing"
             path: "guides/onboarding-checklist/add-manual-tracing.md"
             slug: "instrument/add-manual-tracing"
-            aliases:
-              - "guides/onboarding_checklist/add_manual_tracing"
           - page: "Auto Tracing"
             path: "guides/onboarding-checklist/add-auto-tracing.md"
             slug: "instrument/add-auto-tracing"
-            aliases:
-              - "guides/onboarding_checklist/add_auto_tracing"
             title: "Auto-Tracing"
           - page: "Metrics"
             path: "guides/onboarding-checklist/add-metrics.md"
             slug: "instrument/add-metrics"
-            aliases:
-              - "guides/onboarding_checklist/add_metrics"
           - page: "Distributed Tracing"
             path: "how-to-guides/distributed-tracing.md"
             slug: "instrument/distributed-tracing"
           - page: "Sampling Strategies"
             path: "how-to-guides/sampling.md"
             slug: "instrument/sampling"
-            aliases:
-              - "guides/advanced/sampling"
           - page: "Scrub Sensitive Data"
             path: "how-to-guides/scrubbing.md"
             slug: "instrument/scrubbing"
-            aliases:
-              - "guides/advanced/scrubbing"
           - page: "Suppress Spans and Metrics"
             path: "how-to-guides/suppress.md"
             slug: "instrument/suppress"
@@ -111,16 +87,11 @@ navigation:
             slug: "instrument/otel-collector-scrubbing"
             aliases:
               - "instrument/opentelemetry-collector/otel-collector-scrubbing"
-              - "get-started/how-to-guides/otel-collector/otel-collector-scrubbing"
       - section: "Integrations"
         contents:
           - page: "Integrations"
             path: "integrations/index.md"
             slug: "integrations"
-            aliases:
-              - "get-started/integrations"
-              - "integrations/third_party"
-              - "integrations/third-party"
           - section: "AI & LLM Frameworks"
             contents:
               - page: "Pydantic AI"
@@ -129,25 +100,18 @@ navigation:
               - page: "OpenAI"
                 path: "integrations/llms/openai.md"
                 slug: "integrations/llms/openai"
-                aliases:
-                  - "integrations/openai"
               - page: "Google Gen AI"
                 path: "integrations/llms/google-genai.md"
                 slug: "integrations/llms/google-genai"
               - page: "Anthropic"
                 path: "integrations/llms/anthropic.md"
                 slug: "integrations/llms/anthropic"
-                aliases:
-                  - "integrations/anthropic"
               - page: "LangChain"
                 path: "integrations/llms/langchain.md"
                 slug: "integrations/llms/langchain"
               - page: "LiteLLM"
                 path: "integrations/llms/litellm.md"
                 slug: "integrations/llms/litellm"
-                aliases:
-                  - "integrations/third_party/litellm"
-                  - "integrations/third-party/litellm"
               - page: "DSPy"
                 path: "integrations/llms/dspy.md"
                 slug: "integrations/llms/dspy"
@@ -163,55 +127,35 @@ navigation:
               - page: "Mirascope"
                 path: "integrations/llms/mirascope.md"
                 slug: "integrations/llms/mirascope"
-                aliases:
-                  - "integrations/third_party/mirascope"
-                  - "integrations/third-party/mirascope"
               - page: "Magentic"
                 path: "integrations/llms/magentic.md"
                 slug: "integrations/llms/magentic"
-                aliases:
-                  - "integrations/third_party/magentic"
           - section: "Web Frameworks"
             contents:
               - page: "Web Frameworks"
                 path: "integrations/web-frameworks/index.md"
                 slug: "integrations/web-frameworks"
-                aliases:
-                  - "integrations/use_cases/web_frameworks"
-                  - "integrations/use-cases/web_frameworks"
               - page: "FastAPI"
                 path: "integrations/web-frameworks/fastapi.md"
                 slug: "integrations/web-frameworks/fastapi"
-                aliases:
-                  - "integrations/fastapi"
               - page: "Django"
                 path: "integrations/web-frameworks/django.md"
                 slug: "integrations/web-frameworks/django"
-                aliases:
-                  - "integrations/django"
               - page: "Flask"
                 path: "integrations/web-frameworks/flask.md"
                 slug: "integrations/web-frameworks/flask"
-                aliases:
-                  - "integrations/flask"
               - page: "Starlette"
                 path: "integrations/web-frameworks/starlette.md"
                 slug: "integrations/web-frameworks/starlette"
-                aliases:
-                  - "integrations/starlette"
               - page: "AIOHTTP"
                 path: "integrations/web-frameworks/aiohttp.md"
                 slug: "integrations/web-frameworks/aiohttp"
               - page: "ASGI"
                 path: "integrations/web-frameworks/asgi.md"
                 slug: "integrations/web-frameworks/asgi"
-                aliases:
-                  - "integrations/asgi"
               - page: "WSGI"
                 path: "integrations/web-frameworks/wsgi.md"
                 slug: "integrations/web-frameworks/wsgi"
-                aliases:
-                  - "integrations/wsgi"
               - page: "Gunicorn"
                 path: "integrations/web-frameworks/gunicorn.md"
                 slug: "integrations/web-frameworks/gunicorn"
@@ -220,77 +164,49 @@ navigation:
               - page: "Psycopg"
                 path: "integrations/databases/psycopg.md"
                 slug: "integrations/databases/psycopg"
-                aliases:
-                  - "integrations/psycopg"
               - page: "SQLAlchemy"
                 path: "integrations/databases/sqlalchemy.md"
                 slug: "integrations/databases/sqlalchemy"
-                aliases:
-                  - "integrations/sqlalchemy"
               - page: "Asyncpg"
                 path: "integrations/databases/asyncpg.md"
                 slug: "integrations/databases/asyncpg"
-                aliases:
-                  - "integrations/asyncpg"
               - page: "PyMongo"
                 path: "integrations/databases/pymongo.md"
                 slug: "integrations/databases/pymongo"
-                aliases:
-                  - "integrations/pymongo"
               - page: "MySQL"
                 path: "integrations/databases/mysql.md"
                 slug: "integrations/databases/mysql"
-                aliases:
-                  - "integrations/mysql"
               - page: "SQLite3"
                 path: "integrations/databases/sqlite3.md"
                 slug: "integrations/databases/sqlite3"
-                aliases:
-                  - "integrations/sqlite3"
               - page: "Redis"
                 path: "integrations/databases/redis.md"
                 slug: "integrations/databases/redis"
-                aliases:
-                  - "integrations/redis"
               - page: "BigQuery"
                 path: "integrations/databases/bigquery.md"
                 slug: "integrations/databases/bigquery"
-                aliases:
-                  - "integrations/bigquery"
           - section: "HTTP Clients"
             contents:
               - page: "HTTPX"
                 path: "integrations/http-clients/httpx.md"
                 slug: "integrations/http-clients/httpx"
-                aliases:
-                  - "integrations/httpx"
               - page: "Requests"
                 path: "integrations/http-clients/requests.md"
                 slug: "integrations/http-clients/requests"
-                aliases:
-                  - "integrations/requests"
               - page: "AIOHTTP"
                 path: "integrations/http-clients/aiohttp.md"
                 slug: "integrations/http-clients/aiohttp"
-                aliases:
-                  - "integrations/aiohttp"
           - section: "Task Queues & Pipelines"
             contents:
               - page: "Airflow"
                 path: "integrations/event-streams/airflow.md"
                 slug: "integrations/event-streams/airflow"
-                aliases:
-                  - "integrations/airflow"
               - page: "FastStream"
                 path: "integrations/event-streams/faststream.md"
                 slug: "integrations/event-streams/faststream"
-                aliases:
-                  - "integrations/faststream"
               - page: "Celery"
                 path: "integrations/event-streams/celery.md"
                 slug: "integrations/event-streams/celery"
-                aliases:
-                  - "integrations/celery"
           - section: "Logging"
             contents:
               - page: "Logging"
@@ -316,17 +232,12 @@ navigation:
           - page: "System Metrics"
             path: "integrations/system-metrics.md"
             slug: "integrations/system-metrics"
-            aliases:
-              - "get-started/integrations/system-metrics"
-              - "integrations/system_metrics"
           - page: "Stripe"
             path: "integrations/stripe.md"
             slug: "integrations/stripe"
           - page: "AWS Lambda"
             path: "integrations/aws-lambda.md"
             slug: "integrations/aws-lambda"
-            aliases:
-              - "get-started/integrations/aws-lambda"
       - section: "TypeScript SDK"
         contents:
           - page: "Overview"
@@ -520,13 +431,9 @@ navigation:
           - page: "Evals: Datasets & Experiments"
             path: "guides/web-ui/evals.md"
             slug: "evaluate/evals"
-            aliases:
-              - "guides/web-ui/evals"
           - page: "Evals: Live Monitoring"
             path: "guides/web-ui/live-evals.md"
             slug: "evaluate/live-evals"
-            aliases:
-              - "guides/web-ui/live-evals"
           - page: "Human Review"
             path: "evaluate/human-review.md"
             slug: "evaluate/human-review"
@@ -684,9 +591,7 @@ navigation:
         path: "guides/web-ui/live.md"
         slug: "observe/live"
         aliases:
-          - "guides/web_ui"
           - "guides/web-ui"
-          - "guides/web_ui/live"
       - page: "Services"
         path: "guides/web-ui/services.md"
         slug: "observe/services"
@@ -711,8 +616,6 @@ navigation:
       - page: "Collect Cloud Provider Metrics"
         path: "how-to-guides/cloud-metrics.md"
         slug: "guides/cloud-metrics"
-        aliases:
-          - "get-started/how-to-guides/cloud-metrics"
       - section: "OpenTelemetry Collector"
         contents:
           - page: "Overview"
@@ -720,42 +623,33 @@ navigation:
             slug: "guides/otel-collector/otel-collector-overview"
             aliases:
               - "instrument/opentelemetry-collector/otel-collector-overview"
-              - "get-started/how-to-guides/otel-collector/otel-collector-overview"
-              - "how-to-guides/otel-collector"
           - page: "Host Monitoring"
             path: "how-to-guides/otel-collector/host-monitoring.md"
             slug: "guides/otel-collector/host-monitoring"
             aliases:
               - "instrument/opentelemetry-collector/host-monitoring"
-              - "get-started/how-to-guides/otel-collector/host-monitoring"
           - page: "Kubernetes Monitoring"
             path: "how-to-guides/otel-collector/kubernetes-monitoring.md"
             slug: "guides/otel-collector/kubernetes-monitoring"
             aliases:
               - "instrument/opentelemetry-collector/kubernetes-monitoring"
-              - "get-started/how-to-guides/otel-collector/kubernetes-monitoring"
           - page: "Back up to AWS S3"
             path: "how-to-guides/otel-collector/s3-backup.md"
             slug: "guides/otel-collector/s3-backup"
             aliases:
               - "instrument/opentelemetry-collector/s3-backup"
-              - "get-started/how-to-guides/otel-collector/s3-backup"
   - section: "Dashboards, Alerts & Query"
     slug: ""
     contents:
       - page: "Dashboards"
         path: "guides/web-ui/dashboards.md"
         slug: "observe/dashboards"
-        aliases:
-          - "guides/web_ui/dashboards"
       - page: "Write Dashboard Queries"
         path: "how-to-guides/write-dashboard-queries.md"
         slug: "observe/write-dashboard-queries"
       - page: "Alerts"
         path: "guides/web-ui/alerts.md"
         slug: "observe/alerts"
-        aliases:
-          - "guides/web_ui/alerts"
       - page: "Setup Slack Alerts"
         path: "how-to-guides/setup-slack-alerts.md"
         slug: "observe/setup-slack-alerts"
@@ -765,8 +659,6 @@ navigation:
       - page: "SQL Workbench"
         path: "guides/web-ui/explore.md"
         slug: "observe/explore"
-        aliases:
-          - "guides/web_ui/explore"
       - page: "SQL"
         path: "reference/sql.md"
         slug: "reference/sql"
@@ -777,14 +669,10 @@ navigation:
         path: "how-to-guides/query-api.md"
         slug: "manage/query-api"
         aliases:
-          - "guides/advanced/query_api"
-          - "guides/advanced/query-api"
           - "reference/query-api"
       - page: "Use Alternative Clients"
         path: "how-to-guides/alternative-clients.md"
         slug: "guides/alternative-clients"
-        aliases:
-          - "guides/advanced/alternative-clients"
   - section: "Product & Experimentation"
     slug: ""
     contents:
@@ -828,20 +716,13 @@ navigation:
         path: "guides/web-ui/organizations-and-projects.md"
         slug: "manage/organizations-and-projects"
         aliases:
-          - "guides/web-ui/organizations-and-projects"
           - "reference/organization-structure"
       - page: "Environments"
         path: "how-to-guides/environments.md"
         slug: "manage/environments"
-        aliases:
-          - "guides/advanced"
-          - "guides/advanced/environments"
       - page: "Write Tokens"
         path: "how-to-guides/create-write-tokens.md"
         slug: "manage/create-write-tokens"
-        aliases:
-          - "guides/advanced/creating_write_tokens"
-          - "guides/advanced/creating-write-tokens"
       - page: "API Keys"
         path: "reference/advanced/use-api-keys.md"
         slug: "manage/use-api-keys"
@@ -981,8 +862,6 @@ navigation:
               - page: "Generators"
                 path: "reference/advanced/generators.md"
                 slug: "reference/generators"
-                aliases:
-                  - "guides/advanced/generators"
                 title: "Pydantic Logfire Generators References"
               - page: "Aggregating Metrics in Spans"
                 path: "reference/advanced/metrics-in-spans.md"
@@ -991,8 +870,6 @@ navigation:
               - page: "Testing Logfire Instrumentation"
                 path: "reference/advanced/testing.md"
                 slug: "reference/testing"
-                aliases:
-                  - "guides/advanced/testing"
               - page: "Migrating Projects"
                 path: "reference/advanced/migrate-to-new-project.md"
                 slug: "reference/migrate-to-new-project"
@@ -1000,15 +877,11 @@ navigation:
               - page: "Link to Code Source"
                 path: "how-to-guides/link-to-code-source.md"
                 slug: "guides/link-to-code-source"
-                aliases:
-                  - "guides/advanced/link-to-code-source"
                 title: "Logfire GitHub Integration Guide: Link to Code Source"
               - page: "Use Alternative Backends"
                 path: "how-to-guides/alternative-backends.md"
                 slug: "guides/alternative-backends"
                 aliases:
-                  - "guides/advanced/alternative_backends"
-                  - "guides/advanced/alternative-backends"
                   - "reference/advanced/alternative-backends"
                 title: "How to use Alternative Backends with Logfire"
               - page: "Multiple Configurations"
