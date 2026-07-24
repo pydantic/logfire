@@ -110,6 +110,21 @@ codex mcp login logfire
 
 Start a new Codex conversation after switching so the MCP tools reload.
 
+#### Inspect a trace in Codex
+
+If you already know a trace ID, ask Codex to display it through Logfire, for example:
+
+```text
+Using Logfire, show trace 019f5b8e8034fafc2aa54d55413f2839 from project my-project.
+```
+
+Codex renders the result as an inline span tree and timing waterfall. Expand a span to load its attributes,
+OpenTelemetry status and events, HTTP fields, and exception information. Select **Open in Logfire** when you need
+the complete trace view.
+
+The inline trace viewer is initially supported in Codex. Other MCP clients still receive a concise text and structured
+trace summary, and can open the supplied Logfire link.
+
 ### Cline
 
 Add to your Cline settings in `cline_mcp_settings.json`:
@@ -205,5 +220,6 @@ The table below lists the full tool set for the `/mcp` endpoint.
 | Notification channels | Create and manage organization-level destinations for alert notifications (for example webhooks/Opsgenie). | `channel_create_webhook`, `channel_create_opsgenie`, `channel_list`, `channel_get`, `channel_update_webhook`, `channel_update_opsgenie`, `channel_delete` |
 | Notification schedules | Create and manage schedule windows that gate alert notification delivery. | `schedule_create`, `schedule_list`, `schedule_get`, `schedule_update`, `schedule_delete` |
 | Issue tracking | List tracked exception issues and triage them by state. | `issue_list`, `issue_set_states` |
+| Traces | Retrieve a bounded trace summary for inline inspection and load details for individual spans. | `trace_get`, `trace_span_get` |
 | Managed variables (feature flags) | Create and manage variables, versions, labels, and rollout behavior. | `variable_create`, `variable_list`, `variable_get`, `variable_list_versions`, `variable_update`, `variable_delete`, `variable_update_rollout`, `variable_create_version`, `variable_assign_label` |
 | Local development bootstrap | Create a local dev session (including token/env setup) for sending telemetry. | `local_dev_session` |
