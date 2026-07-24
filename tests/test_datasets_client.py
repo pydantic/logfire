@@ -416,6 +416,9 @@ class TestValidateDatasetName:
         _validate_dataset_name('a')
         _validate_dataset_name('123')
         _validate_dataset_name('test_dataset-1.0')
+        # `/` is allowed as a namespace separator between well-formed segments.
+        _validate_dataset_name('team-a/support-routing')
+        _validate_dataset_name('team-a/rag/retrieval')
 
     def test_invalid_names(self):
         with pytest.raises(ValueError, match='Invalid dataset name'):
@@ -424,8 +427,13 @@ class TestValidateDatasetName:
             _validate_dataset_name('-starts-with-dash')
         with pytest.raises(ValueError, match='Invalid dataset name'):
             _validate_dataset_name('has spaces')
+        # A `/` must separate two well-formed segments: no leading, trailing, or repeated slashes.
         with pytest.raises(ValueError, match='Invalid dataset name'):
-            _validate_dataset_name('special/chars')
+            _validate_dataset_name('/leading-slash')
+        with pytest.raises(ValueError, match='Invalid dataset name'):
+            _validate_dataset_name('trailing-slash/')
+        with pytest.raises(ValueError, match='Invalid dataset name'):
+            _validate_dataset_name('double//slash')
 
 
 class TestPushDatasetHelpers:
