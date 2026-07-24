@@ -1,4 +1,4 @@
-from logfire._internal.db_statement_summary import message_from_db_statement
+from logfire._internal.db_statement_summary import MAX_QUERY_MESSAGE_LENGTH, message_from_db_statement
 
 
 def test_no_db_statement():
@@ -153,3 +153,13 @@ def test_insert():
         message_from_db_statement(attrs(q), None, 'INSERT')
         == 'INSERT INTO table (apple, bana…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
     )
+
+
+def test_insert_long_table():
+    # The table name isn't truncated on its own, so this was 112 chars before the bound.
+    q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple, banana, carrot, durian, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    # insert_assert(message_from_db_statement(attrs(q), None, 'INSERT'))
+    result = message_from_db_statement(attrs(q), None, 'INSERT')
+    assert result == 'INSERT INTO "analytics"."very_long_event…a…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    # +1: truncate() returns 2 * (length // 2) + 1 chars for even lengths, as it does for SELECT.
+    assert len(result) <= MAX_QUERY_MESSAGE_LENGTH + 1
