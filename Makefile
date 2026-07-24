@@ -57,9 +57,13 @@ test-pyodide:
 	uv build
 	cd pyodide_test && npm install && npm test
 
-.PHONY: docs docs-serve  # Documentation is built by pydantic/unified-docs
-docs docs-serve:
+.PHONY: docs  # Documentation is built by pydantic/unified-docs
+docs:
 	@echo "Logfire docs are built by pydantic/unified-docs; this repo no longer runs MkDocs."
+
+.PHONY: docs-serve  # Preview documentation with pydantic/unified-docs
+docs-serve:
+	uv run --no-project python scripts/docs_serve.py
 
 .PHONY: all
 all: format lint test
