@@ -1301,3 +1301,125 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_validate_call_exception_not_logged_as_validation_error(exporter: TestExporter) -> None:
+    """Test that exceptions raised inside @validate_call decorated functions are NOT logged as validation errors.
+    
+    This is a regression test for https://github.com/pydantic/logfire/issues/1516
+    """
+    from pydantic import validate_call
+
+    @validate_call(config=ConfigDict(plugin_settings={'logfire': {'record': 'all'}}))
+    def my_test_function(value: int) -> None:
+        raise RuntimeError('Test error from function')
+
+    with pytest.raises(RuntimeError, match='Test error from function'):
+        my_test_function(1)
+
+    # The span should show successful validation, not a validation error
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    span = spans[0]
+    
+    # The validation should be marked as successful since arguments validated correctly
+    assert span['attributes']['success'] is True
+    # Should not have error-related attributes
+    assert 'error_count' not in span['attributes']
+    assert 'errors' not in span['attributes']
+    # Should NOT have exception events (unlike when a validator raises an exception)
+    assert 'events' not in span or len(span.get('events', [])) == 0
+    # Message should show success, not an error
+    assert 'succeeded' in span['attributes']['logfire.msg']
+
+
+def test_validate_call_exception_record_failure_mode(exporter: TestExporter, metrics_reader: InMemoryMetricReader) -> None:
+    """Test that @validate_call exceptions are not logged in 'failure' mode.
+    
+    In failure mode, only validation failures should be logged, not exceptions
+    from the decorated function's execution.
+    """
+    from pydantic import validate_call
+
+    @validate_call(config=ConfigDict(plugin_settings={'logfire': {'record': 'failure'}}))
+    def my_test_function(value: int) -> None:
+        raise RuntimeError('Test error from function')
+
+    with pytest.raises(RuntimeError, match='Test error from function'):
+        my_test_function(1)
+
+    # No spans should be exported since this is not a validation failure
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == []
+    
+    # Metrics should show successful validation
+    metrics_collected = get_collected_metrics(metrics_reader)
+    assert len(metrics_collected) == 1
+    data_points = metrics_collected[0]['data']['data_points']
+    assert len(data_points) == 1
+    assert data_points[0]['attributes']['success'] is True
+
+
+def test_validate_call_validation_error_still_logged(exporter: TestExporter) -> None:
+    """Test that actual validation errors in @validate_call are still logged correctly."""
+    from pydantic import validate_call
+
+    @validate_call(config=ConfigDict(plugin_settings={'logfire': {'record': 'all'}}))
+    def my_test_function(value: int) -> None:
+        pass
+
+    with pytest.raises(ValidationError):
+        my_test_function('not an int')  # type: ignore
+
+    # The span should show a validation failure
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    span = spans[0]
+    
+    # The validation should be marked as failed
+    assert span['attributes']['success'] is False
+    # Should have error attributes
+    assert span['attributes']['error_count'] == 1
+    assert 'errors' in span['attributes']
+    # Message should show failure
+    assert 'failed' in span['attributes']['logfire.msg']
+
+
+def test_validate_call_validator_exception_not_logged_as_validation_error(exporter: TestExporter) -> None:
+    """Test that validator exceptions in @validate_call are NOT logged as validation errors.
+    
+    Due to Pydantic's current design, we cannot distinguish between exceptions raised
+    by validators and exceptions raised by the decorated function. Both are raised
+    without being wrapped in ValidationError for @validate_call.
+    
+    Since we cannot distinguish, we take the conservative approach of not logging
+    any non-ValidationError exceptions as validation errors for @validate_call.
+    This prevents function exceptions from being incorrectly logged as validation
+    errors (the issue reported in #1516), at the cost of also not logging validator
+    exceptions.
+    
+    The proper fix would be in Pydantic itself, to separate argument validation
+    from function execution.
+    """
+
+    from pydantic import validate_call
+
+    def raise_error(v: int) -> int:
+        raise TypeError('Validator error')
+
+    @validate_call(config=ConfigDict(plugin_settings={'logfire': {'record': 'all'}}))
+    def my_test_function(value: Annotated[int, AfterValidator(raise_error)]) -> None:
+        pass
+
+    with pytest.raises(TypeError, match='Validator error'):
+        my_test_function(1)
+
+    # The span should show successful validation because we can't distinguish
+    # validator exceptions from function exceptions for @validate_call
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    span = spans[0]
+    
+    # The validation is marked as successful (conservative approach)
+    assert span['attributes']['success'] is True
+    # Should NOT have exception events
+    assert 'events' not in span or len(span.get('events', [])) == 0
