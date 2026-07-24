@@ -36,7 +36,7 @@ def test_checkout_path_discovers_sibling(tmp_path: Path) -> None:
 
 
 def test_checkout_path_explains_private_preview_requirement(tmp_path: Path) -> None:
-    with pytest.raises(docs_serve._DocsServeError, match='requires access.*UNIFIED_DOCS_PATH'):
+    with pytest.raises(docs_serve._DocsServeError, match=r'requires access.*UNIFIED_DOCS_PATH'):
         docs_serve._checkout_path(tmp_path / 'logfire', {})
 
 
@@ -131,5 +131,5 @@ def test_wrong_node_version_is_actionable(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(docs_serve, '_run', run)
 
-    with pytest.raises(docs_serve._DocsServeError, match='Node.js 24.*22.0.0'):
+    with pytest.raises(docs_serve._DocsServeError, match=r'Node.js 24.*22.0.0'):
         docs_serve._check_node_version()
