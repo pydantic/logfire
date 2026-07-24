@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import platform
 import sys
 from datetime import datetime, timezone
 from types import TracebackType
@@ -8,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, ove
 
 from typing_extensions import Self, deprecated
 
-from logfire import VERSION
+from logfire._internal.client import UA_HEADER
 from logfire._internal.config import get_base_url_from_token
 from logfire._internal.stack_info import warn_at_user_stacklevel
 
@@ -18,7 +17,7 @@ else:
     UTC = timezone.utc
 
 try:
-    from httpx import AsyncClient, Client, Response, Timeout
+    from httpx import AsyncClient, Client, Headers, Response, Timeout
     from httpx._client import BaseClient
 except ImportError as e:  # pragma: no cover
     raise ImportError('httpx is required to use the Logfire query clients') from e
@@ -138,7 +137,6 @@ T = TypeVar('T', bound=BaseClient)
 
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
-_USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
 _MIN_DATETIME = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
 
 
@@ -147,9 +145,11 @@ class _BaseLogfireQueryClient(Generic[T]):
         self.base_url = base_url
         self.read_token = read_token
         self.timeout = timeout
-        headers = client_kwargs.pop('headers', {})
+        # `Headers` is case-insensitive, so a caller-supplied `User-Agent` (any casing) is
+        # respected rather than a second `user-agent` entry being added alongside it.
+        headers = Headers(client_kwargs.pop('headers', None))
         headers['authorization'] = read_token
-        headers.setdefault('user-agent', _USER_AGENT)
+        headers.setdefault('user-agent', UA_HEADER)
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
     def _build_v2_body(
