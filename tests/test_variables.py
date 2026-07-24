@@ -1698,6 +1698,45 @@ class TestSSEHardening:
                 provider._shutdown = True
                 provider.shutdown(timeout_millis=100)
 
+    # ---------- Gap 5: follow-up refresh after SSE-triggered refresh ----------
+
+    def test_worker_executes_follow_up_refresh_when_timer_elapsed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When _followup_refresh_at has already elapsed the worker fires a forced refresh and clears the timer."""
+        import time as _time
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            # Pre-set the follow-up timer to a time that has already elapsed.
+            provider._followup_refresh_at = _time.monotonic() - 1.0
+
+            def capturing_wait(timeout: float | None = None) -> bool:
+                # Signal shutdown so the worker exits after this one iteration.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', capturing_wait)
+            try:
+                provider._worker()
+
+                # Timer must be cleared once the follow-up refresh fires.
+                assert provider._followup_refresh_at is None, 'Follow-up timer must be cleared after firing'
+                # Normal poll + follow-up forced refresh = at least 2 HTTP calls.
+                assert request_mocker.call_count >= 2, (
+                    f'Expected >= 2 requests (poll + follow-up), got {request_mocker.call_count}'
+                )
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
     # ---------- Gap 4: ETag / conditional GET / 304 handling ----------
 
     def test_304_keeps_config_and_updates_last_fetched_at(self, monkeypatch: pytest.MonkeyPatch) -> None:
