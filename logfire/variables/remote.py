@@ -408,9 +408,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 return
 
             # Gap 4: remember the ETag from a successful 200 response for the next request.
-            etag = variables_response.headers.get('ETag')
-            if etag is not None:
-                self._etag = etag
+            # Always update (including clearing to None) so a server that stops sending ETags
+            # doesn't leave a stale validator that causes spurious 304s on subsequent requests.
+            self._etag = variables_response.headers.get('ETag')
 
             try:
                 new_config = VariablesConfig.model_validate(variables_config_data)

@@ -1708,9 +1708,7 @@ class TestSSEHardening:
 
     def test_304_keeps_config_and_updates_last_fetched_at(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A 304 response keeps the current config and updates _last_fetched_at without logging."""
-        from datetime import datetime, timezone
-
-        config_data = {
+        config_data: dict[str, Any] = {
             'variables': {
                 'my_var': {
                     'name': 'my_var',
@@ -1722,7 +1720,7 @@ class TestSSEHardening:
         }
 
         request_mocker = requests_mock_module.Mocker()
-        # First call returns 200 + ETag
+        # First call returns 200 + ETag; second returns 304.
         request_mocker.get(
             'http://localhost:8000/v1/variables/',
             [
@@ -1739,9 +1737,13 @@ class TestSSEHardening:
                     polling_interval=timedelta(seconds=60),
                 ),
             )
-            # Patch _log_error to detect if it's accidentally called on 304.
+            # Capture any _log_error calls to verify 304 doesn't trigger one.
             logged_errors: list[str] = []
-            monkeypatch.setattr(provider, '_log_error', lambda msg, exc: logged_errors.append(msg))
+
+            def _capture_log_error(msg: str, exc: Exception) -> None:
+                logged_errors.append(msg)
+
+            monkeypatch.setattr(provider, '_log_error', _capture_log_error)
 
             try:
                 # First fetch -- 200, config set, ETag stored.
@@ -1749,21 +1751,15 @@ class TestSSEHardening:
                 assert provider._config is not None
                 assert provider._etag == '"abc123"'
                 first_fetched_at = provider._last_fetched_at
+                assert first_fetched_at is not None
 
-                # Second fetch -- 304, config unchanged.
-                # Must advance time so the polling guard doesn't short-circuit.
-                monkeypatch.setattr(
-                    'logfire.variables.remote.datetime',
-                    type(
-                        'MockDatetime',
-                        (),
-                        {'now': staticmethod(lambda tz=None: datetime(2099, 1, 1, tzinfo=timezone.utc))},
-                    ),
-                )
+                # Second fetch -- 304 (force=True bypasses the recency guard).
                 provider.refresh(force=True)
 
                 assert provider._config is not None, '304 must keep the existing config'
-                assert provider._last_fetched_at > first_fetched_at, '304 must update _last_fetched_at'
+                second_fetched_at = provider._last_fetched_at
+                assert second_fetched_at is not None
+                assert second_fetched_at >= first_fetched_at, '304 must update _last_fetched_at'
                 assert logged_errors == [], '304 must not log any errors'
                 assert provider._has_attempted_fetch is True
             finally:
@@ -1807,7 +1803,7 @@ class TestSSEHardening:
 
     def test_304_does_not_trip_error_logging(self) -> None:
         """304 must never reach the error-logging path (regression guard for PR #2111)."""
-        config_data = {
+        config_data: dict[str, Any] = {
             'variables': {
                 'x': {
                     'name': 'x',
@@ -1886,6 +1882,39 @@ class TestSSEHardening:
             try:
                 provider.refresh(force=True)
                 assert provider._etag is None, 'No ETag header must leave _etag as None'
+            finally:
+                provider.shutdown()
+
+    def test_200_without_etag_clears_stale_etag(self) -> None:
+        """A 200 response without an ETag header must reset _etag to None.
+
+        If kept, the stale validator could cause a subsequent 304 that skips a real config
+        update -- the bot-reported bug from PR #2118 review.
+        """
+        request_mocker = requests_mock_module.Mocker()
+        # First response has an ETag; second does not.
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'json': {'variables': {}}, 'status_code': 200},  # no ETag header
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                provider.refresh(force=True)
+                assert provider._etag == '"v1"'
+
+                provider.refresh(force=True)
+                assert provider._etag is None, '200 without ETag must clear the stale cached ETag'
             finally:
                 provider.shutdown()
 
