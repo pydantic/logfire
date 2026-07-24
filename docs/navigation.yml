@@ -296,6 +296,8 @@ navigation:
               - page: "Logging"
                 path: "integrations/logging.md"
                 slug: "integrations/logging/logging"
+                aliases:
+                  - "logging"
               - page: "Print"
                 path: "integrations/print.md"
                 slug: "integrations/logging/print"
@@ -777,6 +779,7 @@ navigation:
         aliases:
           - "guides/advanced/query_api"
           - "guides/advanced/query-api"
+          - "reference/query-api"
       - page: "Use Alternative Clients"
         path: "how-to-guides/alternative-clients.md"
         slug: "guides/alternative-clients"
@@ -880,6 +883,9 @@ navigation:
             path: "reference/self-hosted/overview.md"
             source: "plain"
             slug: "deploy/self-hosted-deployment/overview"
+            aliases:
+              - "reference/self-hosted/overview"
+              - "self-hosted"
           - page: "Local Quickstart"
             path: "reference/self-hosted/local-quickstart.md"
             source: "plain"
@@ -892,6 +898,8 @@ navigation:
             path: "reference/self-hosted/installation.md"
             source: "plain"
             slug: "deploy/self-hosted-deployment/installation"
+            aliases:
+              - "self-hosted/installation"
           - page: "Examples"
             path: "reference/self-hosted/examples.md"
             source: "plain"
@@ -917,6 +925,8 @@ navigation:
             path: "reference/configuration.md"
             slug: "manage/configuration"
             title: "Logfire Configuration Guide & Environment Variables"
+            aliases:
+              - "reference/configuration"
           - section: "API"
             contents:
               - page: "Logfire"
@@ -999,6 +1009,7 @@ navigation:
                 aliases:
                   - "guides/advanced/alternative_backends"
                   - "guides/advanced/alternative-backends"
+                  - "reference/advanced/alternative-backends"
                 title: "How to use Alternative Backends with Logfire"
               - page: "Multiple Configurations"
                 path: "how-to-guides/different-configurations.md"
@@ -1018,6 +1029,7 @@ navigation:
         slug: "resources/release-notes"
         aliases:
           - "release_notes"
+          - "release-notes"
 
 redirects:
   # Exact internal redirects live as aliases on their destination pages. These
