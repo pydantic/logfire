@@ -45,7 +45,7 @@ Trace entire conversation flows across multiple turns and tool calls.
 
 ### Evaluations
 
-Logfire covers evals from both directions. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that can evaluate any Python function, not just LLM calls. Define evals in Python, version-control them, and run them locally or in CI. The results land in Logfire's [Evals web UI](guides/web-ui/evals.md), where you can manage [datasets](evaluate/datasets/index.md), compare experiment runs side by side, and monitor [live evaluations](guides/web-ui/live-evals.md) grading real production traffic in the background.
+The [Evaluations](evaluate/overview.md) area covers evals from both directions. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that can evaluate any Python function, not just LLM calls. Define evals in Python, version-control them, and run them locally or in CI. The results land in Logfire's [Evals web UI](evaluate/datasets-and-experiments.md), where you can manage [datasets](evaluate/datasets-and-experiments.md), compare experiment runs side by side, and monitor [live evaluations](evaluate/live-evals.md) grading real production traffic in the background.
 
 ### Prompt Management & Playground
 
