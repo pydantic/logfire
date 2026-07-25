@@ -45,7 +45,7 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 - <span class="lf-icon lf-icon--evals"></span> [__Evaluate and ship AI features__](evaluate/overview.md)
 
-  Run evals, manage prompts, and route models through the AI gateway.
+  Run evaluations, manage prompts, and route models through the AI gateway.
 
 - <span class="lf-icon lf-icon--metrics"></span> [__Metrics and infrastructure__](guides/web-ui/metrics-explorer.md)
 
