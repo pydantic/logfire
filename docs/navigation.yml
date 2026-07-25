@@ -10,6 +10,7 @@ navigation:
         path: "index.md"
         source: "plain"
         slug: "get-started"
+        title: "Getting started with Pydantic Logfire"
         aliases:
           - "guides/first_steps"
           - "band-get-started"

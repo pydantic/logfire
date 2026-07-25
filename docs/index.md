@@ -1,11 +1,11 @@
 ---
-title: "Get started with Logfire"
-description: "Logfire is an observability platform for your whole stack, from backends to AI agents. Pick a quickstart and send your first trace."
+title: "Getting started with Pydantic Logfire"
+description: "Logfire is Pydantic's end-to-end AI engineering platform for seeing what your agents, services, applications, and hosts are doing. Pick a quickstart and send your first trace."
 ---
 
-# Get started with Logfire
+# Getting started with Pydantic Logfire
 
-Logfire is an observability platform that shows you what your application is actually doing: every request, database query, LLM call, and error, with how long each one took, in your browser. It is built on OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs, and works across your whole stack, from traditional backends to AI agents. [Read why Logfire exists](why.md).
+Logfire is Pydantic's end-to-end AI engineering platform. It shows you what your agents, services, applications, and hosts are actually doing: every LLM call, request, and query, and how long each one took. Built on OpenTelemetry (OTel), the open standard for traces, metrics, and logs, it spans your whole stack, from AI agents to the databases and servers behind them. [Read why Logfire exists](why.md).
 
 New here? [Create a free account](https://logfire.pydantic.dev/login), then pick a starting point below, or follow a [guided path for your role](get-started/choose-your-path.md).
 
