@@ -12,6 +12,10 @@ navigation:
         slug: "get-started"
         aliases:
           - "guides/first_steps"
+      - page: "Send your first trace"
+        path: "first-trace.md"
+        source: "plain"
+        slug: "get-started/first-trace"
       - page: "Why Logfire?"
         path: "why.md"
         source: "plain"
