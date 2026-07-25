@@ -29,17 +29,17 @@ In prose, the flow is: the **dataset** feeds each case into your **task**; each 
 
 The dataset, the collection of test cases, can live in either of two places, and you can move cases between them:
 
-- **In code**, with [pydantic-evals](datasets/index.md). You define the cases in Python; when you run an experiment with Logfire configured, its results appear in Logfire automatically. This is the right home when your cases are generated from code or checked into your repo alongside your tests.
+- **In code**, with [pydantic-evals](datasets-and-experiments.md). You define the cases in Python; when you run an experiment with Logfire configured, its results appear in Logfire automatically. This is the right home when your cases are generated from code or checked into your repo alongside your tests.
 - **Hosted on Logfire.** You create the dataset in the **Evals → Datasets** screen (click **New dataset**), edit its cases directly in the web UI, give it a schema, and share it with your team. Experiments are still always run from Python. A hosted dataset shows up next to your code-defined ones, and you can import cases from one into the other.
 
-Reach for a hosted dataset when non-engineers need to add or edit test cases, or when a team wants one shared set of cases to evaluate against; reach for a code dataset when the cases belong with your source. See [Datasets](datasets/index.md) for both.
+Reach for a hosted dataset when non-engineers need to add or edit test cases, or when a team wants one shared set of cases to evaluate against; reach for a code dataset when the cases belong with your source. See [Datasets](datasets-and-experiments.md) for both.
 
 ## Offline vs online: a test suite vs monitoring
 
 The two modes use these pieces differently, and the easiest way to hold them apart is an analogy you already know:
 
-- **Offline eval**: running evals against a fixed dataset, like a test suite. You control the inputs, you run it on demand or in continuous integration (CI), and you compare experiments over time. Use this to catch regressions before you ship. See [Run an evaluation](datasets/evaluations.md).
-- **Online (live) eval**: scoring real production traffic as it happens, like monitoring. The inputs are whatever your real users sent; scorers run against live outputs and stream results in. Use this to catch quality drops in production that your test set never anticipated. See [Live Evaluations](../guides/web-ui/live-evals.md).
+- **Offline eval**: running evals against a fixed dataset, like a test suite. You control the inputs, you run it on demand or in continuous integration (CI), and you compare experiments over time. Use this to catch regressions before you ship. See [Run an evaluation](evals-in-code.md).
+- **Online (live) eval**: scoring real production traffic as it happens, like monitoring. The inputs are whatever your real users sent; scorers run against live outputs and stream results in. Use this to catch quality drops in production that your test set never anticipated. See [Live Evaluations](live-evals.md).
 
 Offline is your test suite; online is your production monitoring. Most teams need both: the test suite proves a change is safe to ship, monitoring proves it stayed good once real traffic hit it.
 
@@ -74,9 +74,9 @@ When you design a scorer, the score's *shape* is the real decision. Reach for th
 
 ## Next steps
 
-- **[Run an evaluation](datasets/evaluations.md)**: the offline path end to end, with a worked example and a real report.
-- **[Datasets](datasets/index.md)**: build and curate the test cases you evaluate against.
-- **[Evals SDK](datasets/sdk.md)**: manage datasets and evaluations programmatically.
-- **[Evals in the web UI](datasets/ui.md)**: create datasets and compare experiments in Logfire.
-- **[Live Evaluations](../guides/web-ui/live-evals.md)**: score real production traffic as it happens.
+- **[Run an evaluation](evals-in-code.md)**: the offline path end to end, with a worked example and a real report.
+- **[Datasets](datasets-and-experiments.md)**: build and curate the test cases you evaluate against.
+- **[Evals SDK](datasets-sdk.md)**: manage datasets and evaluations programmatically.
+- **[Evals in the web UI](datasets-and-experiments.md)**: create datasets and compare experiments in Logfire.
+- **[Live Evaluations](live-evals.md)**: score real production traffic as it happens.
 - **[Human review](human-review.md)**: turn human judgment and user feedback into scores that sit next to your automated ones.
