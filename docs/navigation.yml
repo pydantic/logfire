@@ -14,6 +14,7 @@ navigation:
         aliases:
           - "guides/first_steps"
           - "band-get-started"
+          - "logfire/get-started"
       - page: "Send your first trace"
         path: "first-trace.md"
         source: "plain"
@@ -26,6 +27,8 @@ navigation:
         path: "concepts.md"
         source: "plain"
         slug: "get-started/concepts"
+        aliases:
+          - "logfire/get-started/concepts"
       - page: "FAQ"
         path: "faq.md"
         source: "plain"
@@ -81,6 +84,7 @@ navigation:
             slug: "instrument/distributed-tracing"
             aliases:
               - "how-to-guides/distributed-tracing"
+              - "logfire/instrument/distributed-tracing"
           - page: "Sampling Strategies"
             path: "how-to-guides/sampling.md"
             slug: "instrument/sampling"
@@ -179,6 +183,8 @@ navigation:
               - page: "Psycopg"
                 path: "integrations/databases/psycopg.md"
                 slug: "integrations/databases/psycopg"
+                aliases:
+                  - "logfire/integrations/databases/psycopg"
               - page: "SQLAlchemy"
                 path: "integrations/databases/sqlalchemy.md"
                 slug: "integrations/databases/sqlalchemy"
@@ -433,6 +439,8 @@ navigation:
             path: "comparisons/grafana.md"
             source: "plain"
             slug: "get-started/comparisons/grafana"
+            aliases:
+              - "logfire/get-started/comparisons/grafana"
   - section: "AI Engineering"
     slug: ""
     contents:
@@ -494,18 +502,24 @@ navigation:
           - page: "Writing Templates"
             path: "reference/advanced/prompt-management/templates.md"
             slug: "prompt-management/templates"
+            aliases:
+              - "logfire/prompt-management/templates"
           - page: "Prompt Composition Walkthrough"
             path: "reference/advanced/prompt-management/composition-walkthrough.md"
             slug: "prompt-management/composition-walkthrough"
           - page: "Promote and Roll Out Prompts"
             path: "reference/advanced/prompt-management/promotion-and-rollouts.md"
             slug: "prompt-management/promotion-and-rollouts"
+            aliases:
+              - "logfire/prompt-management/promotion-and-rollouts"
           - page: "Test Prompts"
             path: "reference/advanced/prompt-management/scenarios.md"
             slug: "prompt-management/scenarios"
           - page: "Use Prompts in Your Application"
             path: "reference/advanced/prompt-management/application.md"
             slug: "prompt-management/application"
+            aliases:
+              - "logfire/prompt-management/application"
           - page: "Template Reference"
             path: "reference/advanced/prompt-management/template-reference.md"
             slug: "prompt-management/template-reference"
@@ -663,6 +677,7 @@ navigation:
             aliases:
               - "instrument/opentelemetry-collector/host-monitoring"
               - "how-to-guides/otel-collector/host-monitoring"
+              - "logfire/guides/otel-collector/host-monitoring"
           - page: "Kubernetes Monitoring"
             path: "how-to-guides/otel-collector/kubernetes-monitoring.md"
             slug: "guides/otel-collector/kubernetes-monitoring"
@@ -742,6 +757,8 @@ navigation:
           - page: "Remote Variables"
             path: "reference/advanced/managed-variables/remote.md"
             slug: "manage/managed-variables/remote"
+            aliases:
+              - "logfire/manage/managed-variables/remote"
           - page: "External Variables & OFREP"
             path: "reference/advanced/managed-variables/external.md"
             slug: "manage/managed-variables/external"
@@ -907,6 +924,8 @@ navigation:
           - page: "CLI"
             path: "reference/cli.md"
             slug: "reference/cli"
+            aliases:
+              - "logfire/reference/cli"
             title: "Logfire SDK CLI: SDK Command Line Interface Guide"
           - page: "Examples"
             path: "reference/examples.md"
@@ -948,6 +967,7 @@ navigation:
                 aliases:
                   - "reference/advanced/alternative-backends"
                   - "how-to-guides/alternative-backends"
+                  - "logfire/guides/alternative-backends"
                 title: "How to use Alternative Backends with Logfire"
               - page: "Multiple Configurations"
                 path: "how-to-guides/different-configurations.md"
@@ -963,6 +983,8 @@ navigation:
         path: "roadmap.md"
         source: "plain"
         slug: "resources/roadmap"
+        aliases:
+          - "logfire/resources/roadmap"
       - page: "Release Notes"
         path: "release-notes.md"
         source: "plain"
