@@ -12,6 +12,7 @@ navigation:
         slug: "get-started"
         aliases:
           - "guides/first_steps"
+          - "band-get-started"
       - page: "Send your first trace"
         path: "first-trace.md"
         source: "plain"
@@ -77,20 +78,29 @@ navigation:
           - page: "Distributed Tracing"
             path: "how-to-guides/distributed-tracing.md"
             slug: "instrument/distributed-tracing"
+            aliases:
+              - "how-to-guides/distributed-tracing"
           - page: "Sampling Strategies"
             path: "how-to-guides/sampling.md"
             slug: "instrument/sampling"
+            aliases:
+              - "how-to-guides/sampling"
           - page: "Scrub Sensitive Data"
             path: "how-to-guides/scrubbing.md"
             slug: "instrument/scrubbing"
+            aliases:
+              - "how-to-guides/scrubbing"
           - page: "Suppress Spans and Metrics"
             path: "how-to-guides/suppress.md"
             slug: "instrument/suppress"
+            aliases:
+              - "how-to-guides/suppress"
           - page: "Advanced Scrubbing"
             path: "how-to-guides/otel-collector/otel-collector-scrubbing.md"
             slug: "instrument/otel-collector-scrubbing"
             aliases:
               - "instrument/opentelemetry-collector/otel-collector-scrubbing"
+              - "how-to-guides/otel-collector/otel-collector-scrubbing"
       - section: "Integrations"
         contents:
           - page: "Integrations"
@@ -218,15 +228,20 @@ navigation:
                 slug: "integrations/logging/logging"
                 aliases:
                   - "logging"
+                  - "integrations/logging"
               - page: "Print"
                 path: "integrations/print.md"
                 slug: "integrations/logging/print"
               - page: "Structlog"
                 path: "integrations/structlog.md"
                 slug: "integrations/logging/structlog"
+                aliases:
+                  - "integrations/structlog"
               - page: "Loguru"
                 path: "integrations/loguru.md"
                 slug: "integrations/logging/loguru"
+                aliases:
+                  - "integrations/loguru"
           - page: "Pytest"
             path: "integrations/pytest.md"
             slug: "integrations/pytest"
@@ -347,12 +362,18 @@ navigation:
           - page: "Connect to MCP Server"
             path: "how-to-guides/mcp-server.md"
             slug: "guides/mcp-server"
+            aliases:
+              - "how-to-guides/mcp-server"
           - page: "Coding Agent Skills"
             path: "how-to-guides/skills.md"
             slug: "guides/skills"
+            aliases:
+              - "how-to-guides/skills"
           - page: "Export Codex Activity"
             path: "how-to-guides/codex-logfire-exporter.md"
             slug: "guides/codex-logfire-exporter"
+            aliases:
+              - "how-to-guides/codex-logfire-exporter"
       - section: "Cookbook"
         contents:
           - page: "Overview"
@@ -461,6 +482,8 @@ navigation:
           - page: "Overview"
             path: "reference/advanced/prompt-management/index.md"
             slug: "prompt-management"
+            aliases:
+              - "reference/advanced/prompt-management"
           - page: "Core Concepts"
             path: "reference/advanced/prompt-management/concepts.md"
             slug: "prompt-management/concepts"
@@ -496,6 +519,8 @@ navigation:
             aliases:
               - "gateway-migration"
               - "manage/gateway-migration"
+              - "manage/gateway"
+              - "reference/gateway"
           - page: "Embeddings"
             path: "reference/advanced/gateway/embeddings.md"
             slug: "manage/ai-gateway/embeddings"
@@ -616,9 +641,13 @@ navigation:
       - page: "Detect Service is Down"
         path: "how-to-guides/detect-service-is-down.md"
         slug: "observe/detect-service-is-down"
+        aliases:
+          - "how-to-guides/detect-service-is-down"
       - page: "Collect Cloud Provider Metrics"
         path: "how-to-guides/cloud-metrics.md"
         slug: "guides/cloud-metrics"
+        aliases:
+          - "how-to-guides/cloud-metrics"
       - section: "OpenTelemetry Collector"
         contents:
           - page: "Overview"
@@ -626,21 +655,25 @@ navigation:
             slug: "guides/otel-collector/otel-collector-overview"
             aliases:
               - "instrument/opentelemetry-collector/otel-collector-overview"
+              - "how-to-guides/otel-collector/otel-collector-overview"
           - page: "Host Monitoring"
             path: "how-to-guides/otel-collector/host-monitoring.md"
             slug: "guides/otel-collector/host-monitoring"
             aliases:
               - "instrument/opentelemetry-collector/host-monitoring"
+              - "how-to-guides/otel-collector/host-monitoring"
           - page: "Kubernetes Monitoring"
             path: "how-to-guides/otel-collector/kubernetes-monitoring.md"
             slug: "guides/otel-collector/kubernetes-monitoring"
             aliases:
               - "instrument/opentelemetry-collector/kubernetes-monitoring"
+              - "how-to-guides/otel-collector/kubernetes-monitoring"
           - page: "Back up to AWS S3"
             path: "how-to-guides/otel-collector/s3-backup.md"
             slug: "guides/otel-collector/s3-backup"
             aliases:
               - "instrument/opentelemetry-collector/s3-backup"
+              - "how-to-guides/otel-collector/s3-backup"
   - section: "Dashboards, Alerts & Query"
     slug: ""
     contents:
@@ -650,12 +683,16 @@ navigation:
       - page: "Write Dashboard Queries"
         path: "how-to-guides/write-dashboard-queries.md"
         slug: "observe/write-dashboard-queries"
+        aliases:
+          - "how-to-guides/write-dashboard-queries"
       - page: "Alerts"
         path: "guides/web-ui/alerts.md"
         slug: "observe/alerts"
       - page: "Setup Slack Alerts"
         path: "how-to-guides/setup-slack-alerts.md"
         slug: "observe/setup-slack-alerts"
+        aliases:
+          - "how-to-guides/setup-slack-alerts"
       - page: "Issues"
         path: "guides/web-ui/issues.md"
         slug: "observe/issues"
@@ -673,9 +710,12 @@ navigation:
         slug: "manage/query-api"
         aliases:
           - "reference/query-api"
+          - "how-to-guides/query-api"
       - page: "Use Alternative Clients"
         path: "how-to-guides/alternative-clients.md"
         slug: "guides/alternative-clients"
+        aliases:
+          - "how-to-guides/alternative-clients"
   - section: "Product & Experimentation"
     slug: ""
     contents:
@@ -684,6 +724,8 @@ navigation:
           - page: "Overview"
             path: "reference/advanced/managed-variables/index.md"
             slug: "manage/managed-variables"
+            aliases:
+              - "reference/advanced/managed-variables"
           - page: "UI Guide"
             path: "reference/advanced/managed-variables/ui.md"
             slug: "manage/managed-variables/ui"
@@ -711,6 +753,8 @@ navigation:
       - page: "Client Side flags (ofrep)"
         path: "how-to-guides/client-side-feature-flags.md"
         slug: "manage/client-side-feature-flags"
+        aliases:
+          - "how-to-guides/client-side-feature-flags"
         title: "Feature Flags (OFREP)"
   - section: "Configure & Operate"
     slug: ""
@@ -723,15 +767,22 @@ navigation:
       - page: "Environments"
         path: "how-to-guides/environments.md"
         slug: "manage/environments"
+        aliases:
+          - "how-to-guides/environments"
       - page: "Write Tokens"
         path: "how-to-guides/create-write-tokens.md"
         slug: "manage/create-write-tokens"
+        aliases:
+          - "how-to-guides/create-write-tokens"
       - page: "API Keys"
         path: "reference/advanced/use-api-keys.md"
         slug: "manage/use-api-keys"
       - page: "Infrastructure as Code"
         path: "how-to-guides/infrastructure-as-code.md"
         slug: "manage/infrastructure-as-code"
+        aliases:
+          - "how-to-guides/infrastructure-as-code"
+          - "guides/infrastructure-as-code"
       - page: "Cost & Usage"
         path: "logfire-costs.md"
         slug: "manage/logfire-costs"
@@ -741,6 +792,8 @@ navigation:
       - page: "Convert to Organization"
         path: "how-to-guides/convert-to-organization.md"
         slug: "manage/convert-to-organization"
+        aliases:
+          - "how-to-guides/convert-to-organization"
       - page: "Compliance"
         path: "compliance.md"
         source: "plain"
@@ -753,6 +806,8 @@ navigation:
         path: "how-to-guides/sso-setup.md"
         source: "plain"
         slug: "deploy/sso-setup"
+        aliases:
+          - "how-to-guides/sso-setup"
       - page: "Enterprise"
         path: "enterprise.md"
         source: "plain"
@@ -761,6 +816,8 @@ navigation:
         path: "enterprise-single-tenant.md"
         source: "plain"
         slug: "deploy/enterprise-single-tenant"
+        aliases:
+          - "enterprise-single-tenant"
       - section: "Self Hosted deployment"
         contents:
           - page: "Overview"
@@ -770,6 +827,7 @@ navigation:
             aliases:
               - "reference/self-hosted/overview"
               - "self-hosted"
+              - "self-hosted/introduction"
           - page: "Local Quickstart"
             path: "reference/self-hosted/local-quickstart.md"
             source: "plain"
@@ -880,16 +938,21 @@ navigation:
               - page: "Link to Code Source"
                 path: "how-to-guides/link-to-code-source.md"
                 slug: "guides/link-to-code-source"
+                aliases:
+                  - "how-to-guides/link-to-code-source"
                 title: "Logfire GitHub Integration Guide: Link to Code Source"
               - page: "Use Alternative Backends"
                 path: "how-to-guides/alternative-backends.md"
                 slug: "guides/alternative-backends"
                 aliases:
                   - "reference/advanced/alternative-backends"
+                  - "how-to-guides/alternative-backends"
                 title: "How to use Alternative Backends with Logfire"
               - page: "Multiple Configurations"
                 path: "how-to-guides/different-configurations.md"
                 slug: "manage/different-configurations"
+                aliases:
+                  - "how-to-guides/different-configurations"
                 title: "Combining Multiple Configurations in Logfire"
       - page: "Languages"
         path: "languages.md"
