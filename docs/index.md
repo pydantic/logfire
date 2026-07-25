@@ -7,7 +7,7 @@ description: "Logfire is an observability platform for your whole stack, from ba
 
 Logfire is an observability platform that shows you what your application is actually doing: every request, database query, LLM call, and error, with how long each one took, in your browser. It is built on OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs, and works across your whole stack, from traditional backends to AI agents. [Read why Logfire exists](why.md).
 
-New here? [Create a free account](https://logfire.pydantic.dev/login), then pick a starting point below.
+New here? [Create a free account](https://logfire.pydantic.dev/login), then pick a starting point below, or follow a [guided path for your role](get-started/choose-your-path.md).
 
 ## Quickstarts
 
@@ -31,21 +31,29 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 <div class="grid cards" markdown>
 
-- <span class="lf-icon lf-icon--live"></span> [__Live view__](guides/web-ui/live.md)
+- <span class="lf-icon lf-icon--live"></span> [__Watch it live__](guides/web-ui/live.md)
 
-  Watch traces stream in and drill into any span to read its full detail.
+  See traces and logs stream in, and drill into any span to read its full detail.
+
+- <span class="lf-icon lf-icon--sql"></span> [__Query with SQL__](guides/web-ui/explore.md)
+
+  Slice your data with the SQL you already know, not a proprietary query language.
+
+- <span class="lf-icon lf-icon--dashboards"></span> [__Dashboards and alerts__](guides/web-ui/dashboards.md)
+
+  Chart what matters and get notified in Slack when it changes.
+
+- <span class="lf-icon lf-icon--evals"></span> [__Evaluate and ship AI features__](guides/web-ui/evals.md)
+
+  Run evals, manage prompts, and route models through the AI gateway.
+
+- <span class="lf-icon lf-icon--metrics"></span> [__Metrics and infrastructure__](guides/web-ui/metrics-explorer.md)
+
+  Monitor hosts, Kubernetes, and Docker next to your application metrics.
 
 - <span class="lf-icon lf-icon--integrations"></span> [__Integrations__](integrations/index.md)
 
   FastAPI, Django, SQLAlchemy, HTTPX, and 40+ more, each with one line of setup.
-
-- <span class="lf-icon lf-icon--dashboards"></span> [__Dashboards and alerts__](guides/web-ui/dashboards.md)
-
-  Build charts over your data and get notified in Slack when something changes.
-
-- <span class="lf-icon lf-icon--path"></span> [__Choose your path__](get-started/choose-your-path.md)
-
-  A short, ordered route through the docs for your role.
 
 </div>
 
