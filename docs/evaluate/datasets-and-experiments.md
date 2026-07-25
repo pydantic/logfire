@@ -25,7 +25,7 @@ Because cases can come from real traces, edited by anyone on the team, and valid
 All tasks below start from the **Evals: Datasets & Experiments** page in the sidebar.
 
 - **Create**: click **+ New dataset** and enter a name (or type a name into the empty state and click **Create**). Then edit it to add a description and schemas.
-- **Edit**: on the dataset detail page, click **Edit**. The **General** section holds name and description; the **Schemas** section defines JSON schemas for inputs, expected outputs, and metadata. The **Generate schema** toggle has Pydantic AI draft schemas from a plain-language description of your data shape.
+- **Edit**: on the dataset detail page, click **Edit**. The **General** section holds name and description; the **Schemas** section defines JSON schemas for inputs, expected outputs, and metadata. Use the **Generate schema** toggle to have Pydantic AI draft the schemas from a plain-language description of your data shape.
 - **Manage cases**: on the **Cases** tab, click **+ Add case** to open the editor (with labeled, typed fields when a schema is defined, raw JSON otherwise), the pencil icon to edit, or the trash icon to delete.
 - **Export**: click **Export** to download as raw **JSON** or as a **pydantic-evals** YAML file compatible with `pydantic_evals.Dataset.from_file()`.
 

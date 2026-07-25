@@ -16,7 +16,7 @@ Your test cases can live in either of two places, and the evaluation step is ide
 
 Here is a complete, runnable evaluation. The system under test is deterministic so the example is reproducible; in real use, `classify_sentiment` would call your LLM or agent. Two scorers run on every case: a custom `ExactMatch` and the built-in `IsInstance`.
 
-```py title="sentiment_eval.py"
+```py title="sentiment_eval.py" skip-run="true" skip-reason="requires-new-pydantic-version"
 from dataclasses import dataclass
 
 from pydantic_evals import Case, Dataset
