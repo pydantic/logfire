@@ -43,7 +43,7 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
   Chart what matters and get notified in Slack when it changes.
 
-- <span class="lf-icon lf-icon--evals"></span> [__Evaluate and ship AI features__](guides/web-ui/evals.md)
+- <span class="lf-icon lf-icon--evals"></span> [__Evaluate and ship AI features__](evaluate/overview.md)
 
   Run evals, manage prompts, and route models through the AI gateway.
 
