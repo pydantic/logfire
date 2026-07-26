@@ -5,7 +5,7 @@ description: "Logfire is Pydantic's end-to-end AI engineering platform for seein
 
 # Getting started with Pydantic Logfire
 
-Logfire is Pydantic's end-to-end AI engineering platform. It shows you what your agents, services, applications, and hosts are actually doing: every LLM call, request, and query, and how long each one took. Built on OpenTelemetry (OTel), the open standard for traces, metrics, and logs, it spans your whole stack, from AI agents to the databases and servers behind them. [Read why Logfire exists](why.md).
+Logfire is Pydantic's end-to-end AI engineering platform. It shows you what your agents, services, applications, and hosts are actually doing: every LLM call, request, and query, and how long each one took. Built on OpenTelemetry (OTel), the open standard for traces, metrics, and logs, it spans your whole stack, from AI agents to the databases and servers behind them.
 
 New here? [Create a free account](https://logfire.pydantic.dev/login), then pick a starting point below, or follow a [guided path for your role](get-started/choose-your-path.md).
 
@@ -23,7 +23,7 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 - <span class="lf-icon lf-icon--agent"></span> [__Let an AI coding agent set it up__](first-trace.md#let-an-ai-agent-set-it-up)
 
-  Paste one prompt into Claude Code, Cursor, or a similar tool and let it wire up Logfire for you.
+  Instructions for getting started with Logfire from Claude Code, Codex, Cursor, or a similar tool.
 
 </div>
 
@@ -59,4 +59,4 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 ## New to observability?
 
-[Core concepts](concepts.md) explains spans, traces, and logs, and how to read them in Logfire.
+[Core concepts](concepts.md) explains spans, traces, and logs, and how to read them in Logfire. [Read why Logfire exists](why.md).
