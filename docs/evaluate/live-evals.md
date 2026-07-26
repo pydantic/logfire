@@ -15,7 +15,7 @@ Open **Evals: Live Monitoring** from the sidebar. The directory lists targets wi
 
 1. Choose a time range at the top of the page. Start with **24h** for a normal operating view, then narrow it when investigating a recent deployment or broaden it to compare a longer period.
 2. Find the target you want to inspect. Each row shows the target type, its evaluators, the number of events, and when the last event arrived.
-3. Read the evaluator summaries. They show a pass rate for pass/fail checks, an average for numeric scores, or the most common value for label-based checks. The small activity bars show when results arrived in the selected time range.
+3. Read the evaluator summaries. They show a pass rate for pass/fail checks, an average for numeric scores, or one label plus the number of other labels seen. The small activity bars show when results arrived in the selected time range.
 
 ![The Live Evaluations directory, showing two targets and summaries for their pass/fail, numeric, and label-based evaluators](../images/live-evaluations-directory.png)
 
@@ -27,7 +27,7 @@ Select a target to open its detail page. It brings together the evaluation resul
 
 1. Start with the evaluator cards. They show the current summary, recent activity, and any errors raised while running that evaluator.
 2. Review **Recent events** for the individual results and their explanations. Use the evaluator filter to focus on one check.
-3. Select the trace link on an event to open it in Live View. A trace is the complete record of that request, including the call that produced the evaluated result. It gives you the prompt, response, tool calls, and other context needed to explain a low score or evaluator error.
+3. Select the trace link on an event to open it in Live View. A trace is the record of the request that produced the evaluated result. It lets you inspect the evaluation event and any prompt, response, tool-call, or other context that your application recorded.
 
 ![A target detail page, with evaluator cards and a recent-events table including a failing evaluator result](../images/live-evaluations-target-detail.png)
 
@@ -41,13 +41,13 @@ The page presents a result according to the value returned by the evaluator:
 | --- | --- |
 | `bool` | Pass rate, with individual `pass` or `fail` results |
 | Number | Average score over the selected time range |
-| String | Most common label, plus the number of other labels seen |
+| String | One label, plus the number of other labels seen |
 
 An evaluator that returns multiple named scores appears as one result for each score. If you deploy a new evaluator version, use the detail page to compare the version badges and recent events while both versions are running.
 
 ## Hide evaluators without deleting telemetry
 
-Use a hide rule when an old experiment, test evaluator, or retired version makes the monitoring view harder to read. Open an evaluator's overflow menu on the target detail page and choose the matching hide action. You can hide that evaluator for the target, a specific recorded version, or data that arrived before the current time.
+Use a hide rule when an old experiment, test evaluator, or retired version makes the monitoring view harder to read. Open an evaluator's overflow menu on the target detail page and choose the matching hide action. You can hide that evaluator for the target or data that arrived before the current time. When the selected range contains one recorded evaluator version, the menu also offers an action for that version.
 
 Hide rules affect **Evals: Live Monitoring** only. They do not delete telemetry, change traces, or remove evaluation events from alerts and SQL queries. Manage or remove rules from the **Hidden Evaluators** project settings page when you want the results to reappear.
 
