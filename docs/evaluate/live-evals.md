@@ -1,113 +1,76 @@
 ---
-title: "Live Evaluations: Monitor AI Systems in Production"
-description: "View real-time online-evaluation activity for your agents and functions in Pydantic Logfire. Track pass rates, categorical labels, and numeric scores across production traffic."
+title: "Monitor live AI quality"
+description: "Use Live Evaluations to spot changes in online evaluation results, investigate the underlying traces, and keep retired evaluators out of view."
 ---
-# Live Evaluations
 
-The **Evals: Live Monitoring** page streams evaluator results from live application traffic (e.g., from a production deployment) into the Pydantic Logfire web UI. Every target that emits evaluation events appears here as a single row, with a sparkline for each attached evaluator and a summary of activity over the selected time window. This is the Logfire view of what Pydantic AI calls [online evaluation](https://pydantic.dev/docs/ai/evals/online-evaluation/).
+# Monitor live AI quality
 
-To wire up evaluators on the Python side, see the [Online Evaluation guide](https://pydantic.dev/docs/ai/evals/online-evaluation/) in the Pydantic AI docs. The page renders any ingested `gen_ai.evaluation.result` OpenTelemetry events that follow the [GenAI evaluation semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/#event-gen_aievaluationresult). The [`@evaluate`](https://pydantic.dev/docs/ai/evals/online-evaluation/#quick-start) decorator and the [`OnlineEvaluation`](https://pydantic.dev/docs/ai/evals/online-evaluation/#agent-integration) agent capability from `pydantic-evals` are the supported entry points today.
+Use **Evals: Live Monitoring** to watch the results of [online evaluations](https://pydantic.dev/docs/ai/evals/online-evaluation/) running against real traffic. An online evaluation scores an agent or function after it runs, so it helps you notice a production regression, investigate an unexpected result, or follow a new evaluator rollout.
 
-## The Directory
+This page is for monitoring results that already reach Logfire. To add an evaluator to your application, follow the [Pydantic AI online evaluation guide](https://pydantic.dev/docs/ai/evals/online-evaluation/). For a curated test set before deployment, use [offline evaluations](index.md) instead.
 
-Click **Evals: Live Monitoring** in the sidebar to open the directory. Each row is one **target**: the name of the function or agent that produced the evaluation event. Expanding a row (via the chevron on the left) reveals a larger sparkline for each of its evaluators.
+## Find the signal
 
-Each row shows:
+Open **Evals: Live Monitoring** from the sidebar. The directory lists targets with recent online-evaluation activity. A target is the agent or function that produced an evaluation result.
 
-- **Target**: the target name, with an agent or function icon
-- **Type**: `agent` or `function`. Evaluations dispatched by the [`OnlineEvaluation`](https://pydantic.dev/docs/ai/evals/online-evaluation/#agent-integration) capability on a Pydantic AI agent appear as `agent`; `@evaluate`-decorated functions appear as `function`, even when the decorated function runs inside an agent
-- **Evaluations**: one compact cell per evaluator with a pass rate, numeric average, or categorical label summary plus a sparkline
-- **Events**: total number of evaluation events in the window
-- **Last activity**: when the most recent event arrived
+1. Choose a time range at the top of the page. Start with **24h** for a normal operating view, then narrow it when investigating a recent deployment or broaden it to compare a longer period.
+2. Find the target you want to inspect. Each row shows the target type, its evaluators, the number of events, and when the last event arrived.
+3. Read the evaluator summaries. They show a pass rate for pass/fail checks, an average for numeric scores, or the most common value for label-based checks. The small activity bars show when results arrived in the selected time range.
 
-Use the time-window tabs in the page header (**1h**, **6h**, **24h**, **7d**, **30d**) to adjust the range. Narrowing the window never empties the page: a target that was active anywhere in the last 30 days still appears as a silent row so you can see that evaluators are configured even if traffic is quiet right now.
+![The Live Evaluations directory, showing two targets and summaries for their pass/fail, numeric, and label-based evaluators](../images/live-evaluations-directory.png)
 
-The column headers are sortable. Click **Target**, **Type**, **Events**, or **Last activity** to re-order. The sort state is persisted in the URL so you can share a specific view.
+The directory is a fast health check, not the whole story. A target can have several evaluators, and an average or label summary can hide a small number of important failures. Open the target when a summary changes or looks unfamiliar.
 
-If you haven't wired up any evaluators yet, the empty state shows getting-started snippets for the two entry points (the `@evaluate` decorator for any function, and the `OnlineEvaluation` capability for a Pydantic AI agent). Once events arrive, the same snippets remain accessible via the collapsible **How do I send events here?** strip above the directory.
+## Investigate an evaluator
 
-## Target Detail Page
+Select a target to open its detail page. It brings together the evaluation results for that target in the selected time range.
 
-Click a target row to open its detail page. The page shows:
+1. Start with the evaluator cards. They show the current summary, recent activity, and any errors raised while running that evaluator.
+2. Review **Recent events** for the individual results and their explanations. Use the evaluator filter to focus on one check.
+3. Select the trace link on an event to open it in Live View. A trace is the complete record of that request, including the call that produced the evaluated result. It gives you the prompt, response, tool calls, and other context needed to explain a low score or evaluator error.
 
-- Each evaluator attached to the target as its own row, with a larger sparkline, numeric/pass-rate/categorical summary, and an error count when evaluators raised
-- A **Recent events** table with the 50 most recent evaluation events for the target
+![A target detail page, with evaluator cards and a recent-events table including a failing evaluator result](../images/live-evaluations-target-detail.png)
 
-The **Evaluator** filter dropdown narrows the recent-events table to a single evaluator. The time-window tabs behave the same as on the directory.
+An evaluator error is different from a failed evaluation: it means the evaluator itself could not produce a result. Open its trace and explanation first, then decide whether the application behavior or the evaluator needs attention.
 
-Each recent-events row includes an **Open trace in live view** link that jumps to the live trace view for the span the evaluation was attached to (useful for seeing the full context of a low-scoring call).
+## Interpret result shapes
 
-Each evaluator row also shows the distinct `evaluator_version` values seen in the window as small version badges. During a deploy rollout where two versions of the same evaluator are live at once, both versions appear side-by-side. See [Evaluator Versioning](https://pydantic.dev/docs/ai/evals/online-evaluation/#evaluator-versioning) in the Pydantic AI docs for how to set the version tag.
+The page presents a result according to the value returned by the evaluator:
 
-## Evaluator Shapes
+| Evaluator output | Directory and detail-page summary |
+| --- | --- |
+| `bool` | Pass rate, with individual `pass` or `fail` results |
+| Number | Average score over the selected time range |
+| String | Most common label, plus the number of other labels seen |
 
-The **Evaluations** cell adapts to the shape of scores an evaluator produces:
+An evaluator that returns multiple named scores appears as one result for each score. If you deploy a new evaluator version, use the detail page to compare the version badges and recent events while both versions are running.
 
-- **Pass rate**: evaluators that return `bool`. The cell shows a percentage and colors a dot based on health (≥95% green, ≥80% amber, otherwise red).
-- **Numeric average**: evaluators that return `int` or `float`. The cell shows the average score over the window.
-- **Categorical labels**: evaluators that return a string. The cell shows the most common label with a **`+N`** badge indicating how many other distinct labels were seen.
-- **Error-only**: evaluators that only raised in the window. The cell shows the error count in red.
+## Hide evaluators without deleting telemetry
 
-Evaluators that emit multiple score keys (a mapping return type) show up as one row per key.
+Use a hide rule when an old experiment, test evaluator, or retired version makes the monitoring view harder to read. Open an evaluator's overflow menu on the target detail page and choose the matching hide action. You can hide that evaluator for the target, a specific recorded version, or data that arrived before the current time.
 
-## Hiding Evaluators
+Hide rules affect **Evals: Live Monitoring** only. They do not delete telemetry, change traces, or remove evaluation events from alerts and SQL queries. Manage or remove rules from the **Hidden Evaluators** project settings page when you want the results to reappear.
 
-Sometimes the directory ends up cluttered with evaluators you no longer want shown: an old experiment, an evaluator left over from a test script, or a deprecated revision that's still emitting events from a long-running deployment. **Hide rules** let you suppress matching events from the directory without deleting any underlying telemetry.
+## Verify your setup
 
-### Hiding from the Live Monitoring page
+After adding online evaluations to an application and sending traffic through it, you should see:
 
-Each evaluator row (in the expanded directory and on the per-target detail page) has a `⋮` overflow menu with three actions, all scoped to the current target:
+- a target row for the evaluated agent or function;
+- one summary for each evaluator or named score; and
+- a recent event that opens the parent trace in Live View.
 
-- **Hide this evaluator**: hides the evaluator on this target across all versions and all time
-- **Hide version `vN`**: appears when an `evaluator_version` is recorded; hides only that specific version on this target
-- **Hide data older than now**: hides existing events on this target up to the current timestamp; new events keep arriving as normal. Use this as a "soft reset" after a meaningful change to an evaluator without bumping its version
+If all three appear, Logfire is receiving evaluation results and preserving their link to the request that produced them.
 
-After clicking, the evaluator disappears from the directory immediately. A banner appears above the directory (`N hide rules active`) with a **Manage** link to the project's **Hidden Evaluators** settings page. The count is of rules, not evaluators, since a single rule can suppress more than one evaluator.
+## Troubleshoot missing or unexpected results
 
-The same overflow menu also includes a **Manage hidden evaluators** entry that takes you to the same page.
+**No evaluation activity yet:** Confirm the application is configured to send telemetry to the intended Logfire project, then exercise the evaluated code path. Try a wider time range before assuming no events arrived.
 
-### Managing rules
+**An evaluator shows an error:** Open its recent event and follow the trace link. The event explanation and trace identify whether the evaluator raised or the application result failed the check.
 
-The **Hidden Evaluators** project-settings sub-page (also reachable from the project sidebar under Settings) lists every active rule. Each row shows the rule's scope as badges (`evaluator: <name>`, `target: <name>`, `version: <value>`, `older than: <timestamp>`) plus when it was created. From this page you can:
+**A result appears under an unfamiliar target:** Check the target name passed by your evaluation integration. The directory groups results by that agent or function name.
 
-- **Add rule**: author a rule with any combination of fields. At least one of `target`, `evaluator name`, `evaluator version`, or `hide before` must be set
-- **Edit** (pencil icon): change any field on an existing rule
-- **Remove** (trash icon): delete a rule; the matching evaluator entries reappear in Live Monitoring immediately
+## Next steps
 
-Rules created from the overflow menu are always target-scoped. Rules authored on the settings page can be broader: for example, leaving `target` blank and setting only `evaluator name` hides that evaluator across every target in the project.
-
-### How rules match
-
-A rule is a partial filter. An evaluation event is hidden when **every non-empty field on the rule** matches the event:
-
-| Rule field          | Matched against                       |
-| ------------------- | ------------------------------------- |
-| `target`            | `gen_ai.evaluation.target`            |
-| `evaluator_name`    | `gen_ai.evaluation.name`              |
-| `evaluator_version` | `gen_ai.evaluation.evaluator.version` |
-| `hide_before`       | event's `start_timestamp` (`<=`)      |
-
-Empty fields on the rule act as wildcards. An event is hidden if **any** active rule matches it. Rules are project-scoped. They don't affect other projects.
-
-### What hide rules do *not* do
-
-- **They don't delete telemetry.** The underlying OpenTelemetry events are untouched. Removing a rule (or going through the trace view directly) restores full visibility immediately.
-- **They don't filter trace views.** The `gen_ai.evaluation.result` events still appear nested under their parent spans wherever you open a trace.
-- **They aren't an alerting filter.** Alerts and SQL queries against your telemetry still see every event.
-
-If you need to permanently delete telemetry, use the **Data Deletion** project-settings page instead.
-
-## Integration with Traces
-
-Each `gen_ai.evaluation.result` event is parented to the span whose call was evaluated, so the evaluation appears nested inside the original function call in the trace view. This makes it easy to jump from a failing evaluator back to the exact prompt, tool calls, and response that produced the result.
-
-The event attributes follow the [OTel GenAI evaluation semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/#event-gen_aievaluationresult):
-
-- `gen_ai.evaluation.target`: the function or agent name
-- `gen_ai.evaluation.name`: the evaluator name
-- `gen_ai.evaluation.score.value` / `gen_ai.evaluation.score.label`: score payload
-- `gen_ai.evaluation.explanation`: optional free-text reason
-- `gen_ai.evaluation.evaluator.source`: JSON-serialized `EvaluatorSpec` (evaluator class + constructor args). Live Evaluations groups by `(target, name)`, so two events with the same target and name but different sources land in the same row; the `source` is visible on individual events in the trace view so you can tell them apart there
-- `gen_ai.evaluation.evaluator.version`: optional version tag so retired evaluator revisions can be filtered out
-- `gen_ai.agent.name`: set by the `OnlineEvaluation` capability, and also propagated via OTel baggage onto any evaluation emitted inside a Pydantic AI agent run (useful for drill-down, but not used to classify the target; see the Type column above)
-- `error.type`: set when the evaluator raised
+- [Configure online evaluations in Pydantic AI](https://pydantic.dev/docs/ai/evals/online-evaluation/)
+- [Run offline evaluations against a dataset](index.md)
+- [Add human judgment with annotations and review](human-review.md)
