@@ -19,7 +19,9 @@ You need a Logfire account and a project to send your data to:
 
 ## Let an AI agent set it up
 
-To have an AI coding agent wire this up for you, paste this prompt into Claude Code, Cursor, or a similar tool:
+To have an AI coding agent wire this up for you, copy this prompt into Claude Code, Cursor, or a similar tool:
+
+<CopyPrompt>
 
 ```text
 Set up Pydantic Logfire in this project. Read https://pydantic.dev/docs/logfire/get-started/first-trace/
@@ -28,6 +30,8 @@ instrument its web framework. Authenticate with a write token from the Logfire p
 Settings > Write tokens (set the LOGFIRE_TOKEN environment variable), not interactive
 login. Then run the app and confirm a trace reaches the Logfire Live view.
 ```
+
+</CopyPrompt>
 
 ## Or do it by hand
 
