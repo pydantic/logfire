@@ -11,6 +11,8 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 ## Quickstarts
 
+We recommend [letting your AI agent set you up with Logfire](first-trace.md#let-an-ai-agent-set-it-up).
+
 <div class="grid cards" markdown>
 
 - <span class="lf-icon lf-icon--trace"></span> [__Send your first trace__](first-trace.md)
@@ -21,9 +23,9 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
   See the spans, tokens, cost, and tool calls behind your model-powered features.
 
-- <span class="lf-icon lf-icon--agent"></span> [__Let an AI coding agent set it up__](first-trace.md#let-an-ai-agent-set-it-up)
+- <span class="lf-icon lf-icon--metrics"></span> [__Monitor your infrastructure__](guides/web-ui/hosts.md)
 
-  Instructions for getting started with Logfire from Claude Code, Codex, Cursor, or a similar tool.
+  Monitor hosts, Kubernetes, and cloud infrastructure alongside your application.
 
 </div>
 
