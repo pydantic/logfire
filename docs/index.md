@@ -49,9 +49,9 @@ We recommend [letting your AI agent set you up with Logfire](first-trace.md#let-
 
   Run evaluations, manage prompts, and route models through the AI gateway.
 
-- <span class="lf-icon lf-icon--metrics"></span> [__Metrics and infrastructure__](guides/web-ui/metrics-explorer.md)
+- <span class="lf-icon lf-icon--metrics"></span> [__Metrics explorer__](guides/web-ui/metrics-explorer.md)
 
-  Monitor hosts, Kubernetes, and Docker next to your application metrics.
+  Browse the metrics you're sending and break any of them down by dimension, no SQL required.
 
 - <span class="lf-icon lf-icon--integrations"></span> [__Integrations__](integrations/index.md)
 
