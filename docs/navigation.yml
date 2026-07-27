@@ -141,6 +141,9 @@ navigation:
   - section: "Instrumentation"
     slug: ""
     contents:
+      - page: "Overview"
+        path: "instrument/index.md"
+        slug: "instrument"
       - section: "Python"
         contents:
           - page: "Onboarding Checklist"
@@ -298,6 +301,12 @@ navigation:
       - page: "Java"
         path: "languages/java.md"
         slug: "instrument/java"
+      - page: "Ruby"
+        path: "languages/ruby.md"
+        slug: "instrument/ruby"
+      - page: "PHP"
+        path: "languages/php.md"
+        slug: "instrument/php"
   - section: "Integrations"
     slug: ""
     contents:
