@@ -256,7 +256,7 @@ Run `python eval.py` again. Now that the agent can't call `order_status`, it ans
 
 Look at the order rows: `✗✔`. `MentionsFact` failed, but the `LLMJudge` still **passed**. "I don't have access to your order information" reads polite and helpful, so the judge waves it through; only the deterministic scorer catches that the answer is useless. That's the judge-fooling failure mode from step 3, caught live.
 
-**What you'll see in Logfire:** open the [Evals: Datasets & Experiments](../evaluate/datasets-and-experiments.md) page, select both experiments (`support-agent-baseline` and `support-agent-no-tools`) with the checkboxes, and click **Compare**. Logfire lines the two runs up case by case and highlights the differences. You'll see the pass rate fall and can click straight into a failing case's trace to confirm the agent never called the tool.
+**What you'll see in Logfire:** open **AI Evaluations**, then **Datasets**, and select the support-agent dataset. Open `support-agent-baseline`, select **Compare runs**, and choose `support-agent-no-tools` as the candidate. The comparison overview shows the pass-rate change. Open **Cases**, choose the failing scorer as the primary metric, and open a regressed case to confirm in its trace that the agent never called the tool.
 
 That comparison is the whole reason evals exist: "it feels worse" becomes "the pass rate went from 100% to 66.7% on these cases, and here's the trace showing why." Wire this eval into your continuous integration (the automated checks that run on every change), asserting on the pass rate the report gives you, so a regression like this fails the build before it reaches a user.
 

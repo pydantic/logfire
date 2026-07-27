@@ -1,74 +1,158 @@
 ---
-title: "Datasets and experiments"
-description: "Build evaluation datasets from production traces or the SDK, run experiments against them, and compare results in the Pydantic Logfire web UI."
+title: "Review and compare evaluation results"
+description: "Find regressions, inspect case evidence, and compare experiment runs in the Pydantic Logfire web UI."
 ---
 
-# Datasets and experiments
+# Review and compare evaluation results
 
-A **dataset** is a collection of test cases (inputs, and optionally the output you expect) that you evaluate your AI system against. An **experiment** is one run of your system over that dataset, producing a table of [scores](overview.md) you can line up against previous runs. Together they are how you answer "did that change help?" with numbers instead of a re-read.
+Use the **Datasets** workspace to answer three questions in order: which dataset should I inspect, what changed between runs, and which cases explain the change?
 
-This page covers building and running datasets from the Logfire web UI. To do the same from code, see [Evals in code](evals-in-code.md); for the concepts (scorers, scores, offline vs online), start with the [evals overview](overview.md).
+A **dataset** is a collection of test cases. An **experiment** is one run of your AI system over that dataset. Each experiment records the outputs and the **evaluators** (also called scorers) that judged them.
 
-## Hosted vs local datasets
+This page follows the review workflow in the Logfire web UI. To create and run an evaluation from Python, see [Evals in code](evals-in-code.md). For the underlying concepts, start with the [evals overview](overview.md).
 
-When you open the **Evals: Datasets & Experiments** page in the sidebar, you see two kinds of dataset:
+## Choose where dataset cases live
 
-- **Hosted** datasets have their cases stored and editable on Logfire. You create them in the UI or via the [SDK](datasets-sdk.md), and can add, edit, and delete individual cases. Reach for a hosted dataset when non-engineers need to edit cases, or when a team wants one shared set to evaluate against.
-- **Local** datasets are discovered automatically from experiment runs in your code (via [pydantic-evals](https://pydantic.dev/docs/ai/evals/evals/)). They appear in the list alongside hosted datasets, but their cases are read-only: they reflect what your code defined. Reach for a local dataset when the cases belong with your source. A run with no `dataset_name` still appears, using its experiment ID as a fallback name.
+Open **AI Evaluations**, then **Datasets**. Select **New dataset** to choose who owns the cases:
 
-A dataset can be both. Create a hosted dataset with the same name as one in your code and they merge into a single entry with both hosted cases and experiment history. Use the **All**, **Hosted**, and **Local** tabs at the top of the list to filter by source.
+- **Manage in Logfire** stores the cases in Logfire so teammates can create and edit them in the UI.
+- **Manage in code** keeps the cases alongside your evaluation code. You can then **Sync cases to Logfire** so teammates can browse them, or **Keep cases in code** and send only experiment results.
 
-Because cases can come from real traces, edited by anyone on the team, and validated against a typed schema, your evaluations stay grounded in real usage rather than a handful of examples someone made up once.
+Experiments run from Python in either workflow.
 
-## Create and manage a dataset in the UI
+![The New dataset dialog offers Manage in Logfire and Manage in code as the two starting points.](../images/evaluate/new-dataset-choice.webp)
 
-All tasks below start from the **Evals: Datasets & Experiments** page in the sidebar.
+!!! tip "Choose ownership before storage"
 
-- **Create**: click **+ New dataset** and enter a name (or type a name into the empty state and click **Create**). Then edit it to add a description and schemas.
-- **Edit**: on the dataset detail page, click **Edit**. The **General** section holds name and description; the **Schemas** section defines JSON schemas for inputs, expected outputs, and metadata. Use the **Generate schema** toggle to have Pydantic AI draft the schemas from a plain-language description of your data shape.
-- **Manage cases**: on the **Cases** tab, click **+ Add case** to open the editor (with labeled, typed fields when a schema is defined, raw JSON otherwise), the pencil icon to edit, or the trash icon to delete.
-- **Export**: click **Export** to download as raw **JSON** or as a **pydantic-evals** YAML file compatible with `pydantic_evals.Dataset.from_file()`.
+    Manage a dataset in Logfire when several people need to curate cases together. Manage it in code when the cases should be versioned and reviewed with the system under test. Syncing a code-defined dataset gives you both code ownership and a browsable copy in Logfire.
 
-!!! tip "Prefer the SDK when your schema is Python types"
-    If your inputs and outputs are already Python types (dataclasses, Pydantic models), publishing the dataset from code is easier: the SDK generates the hosted JSON schemas from your type definitions. See [Evals in code](evals-in-code.md) and the [Datasets SDK reference](datasets-sdk.md).
+For the Python API used to create, publish, and fetch datasets, see the [Datasets SDK](datasets-sdk.md).
 
-### Add cases from production traces
+### Build a hosted dataset
 
-The highest-signal test cases are the ones your real users produced:
+After you choose **Manage in Logfire**:
 
-1. Open the [live view](../guides/web-ui/live.md) and find a span that represents a good test case.
-2. Click the database icon (**+**) on the span details panel.
-3. Select an existing dataset or create a new one.
-4. Review the inputs and outputs the AI extracts from the span, edit if needed, and save.
+1. Enter the dataset name and an optional description.
+2. Select **Set up schemas**. Input, expected-output, and metadata schemas are optional, but they give teammates labeled and validated fields instead of raw JSON.
+3. Select **Add first case**, then enter an input, optional expected output, and optional metadata. You can also create the dataset without a case and add one later.
+4. Create the dataset. Use its **Cases** and **Schemas** tabs to curate it, or **Export** to download JSON or pydantic-evals YAML.
 
-This keeps a link back to the source trace, so you always know where a case came from.
+You can also turn a production interaction into a test case. Open its span in [Live View](../guides/web-ui/live.md), select the database-plus action, choose a hosted dataset, review the extracted input and output, then save.
 
-## Run and view experiments
+## Find the dataset that needs attention
 
-Experiments are always run from Python (see [Evals in code](evals-in-code.md)); with `logfire.configure()` set, their results appear here automatically. Open a dataset to see its detail page, which has tabs for **Experiments** (all runs), **Cases** (editable for hosted datasets), and **Schema**. The header shows the experiment count, case count, and aggregate pass rate. The **Export**, **Edit**, and **`<> SDK`** buttons download cases, modify the dataset, or show code snippets for working with it programmatically.
+The dataset directory combines hosted and code-defined datasets with their recent experiment activity.
 
-The **Experiments** tab lists every run. Click one to see each case's inputs, expected and actual outputs, per-evaluator pass/fail assertions, performance metrics (duration, token usage), and detailed scores.
+1. Set the time range. The run count, latest run, result, and change columns use this range.
+2. Search by dataset name, or press <kbd>/</kbd> to focus the search.
+3. Use **Group by** to separate hosted and code-defined datasets or to browse slash-separated names as folders.
+4. Select a dataset row to open its recent runs.
 
-### Compare experiments
+![The Datasets workspace lists code-defined datasets, latest runs, run counts, and aggregate results.](../images/evaluate/datasets-directory.webp)
 
-To see whether a change helped or hurt, put two runs side by side:
+The result column shows the aggregate value reported by the run. A blank result does not mean the run failed; its producer may not have reported an aggregate.
 
-1. Select experiments with the checkboxes.
-2. Click **Compare**.
-3. Read the side-by-side results for the same cases.
+## Start with the latest run
 
-The comparison highlights output differences, score variations, performance changes, and regressions between runs.
+The dataset page turns recent activity into two direct next steps:
 
-!!! tip "Link to a comparison from code"
-    `logfire.url_from_eval(report)` takes a `pydantic_evals` report and returns the URL to view it in the web UI, or `None` if the project URL or trace and span IDs are not available (for example when Logfire was not configured when the report was created).
+1. Select **Review latest run** to inspect the newest experiment.
+2. Select **Compare runs** to choose another run without leaving the dataset.
 
-## Every experiment is also a trace
+The summary shows the dataset source, number of experiments, latest result, and case count when the producer reported it. **Recent experiments** gives each run an explicit **Review** action. Use **Advanced table** when you need deeper filtering or columns that are not part of the normal review workflow.
 
-Each experiment emits OpenTelemetry traces you can open in Logfire: a root **experiment span** with the run's metadata, a **case span** per test case, **task spans** tracing your system under test, and **evaluator spans** for each scorer. From any experiment result you can jump straight to the full trace, so a low score takes you to the exact prompt, tool calls, and response that produced it.
+![A dataset page recommends reviewing the latest run and lists recent experiments with their results.](../images/evaluate/dataset-detail.webp)
+
+## Review one experiment
+
+The experiment **Overview** answers whether the run deserves deeper review:
+
+- **Results** is the number of evaluator results reported by the experiment.
+- **Assertions** is the aggregate pass rate for pass/fail evaluators.
+- **Task errors** counts cases where the system under test raised an error.
+- **Average task duration** is the mean time spent running the task.
+- **Evaluator analysis** shows one aggregate per evaluator. Select **Review cases** to inspect the evidence behind it.
+- **Reported metrics** contains averages emitted by the task, such as token use, request count, or cost. These are not evaluator scores.
+
+![An experiment overview shows aggregate results, evaluator analysis, and task-reported metrics.](../images/evaluate/experiment-overview.webp)
+
+Select **Cases** to review individual inputs and outputs. Open a case to see its input, expected output when provided, actual output, evaluator results, and links to the underlying trace.
+
+!!! tip "Open a run from Python"
+
+    `logfire.url_from_eval(report)` returns the Logfire URL for a pydantic-evals report when Logfire was configured before the evaluation and the report contains its trace and span IDs.
+
+## Compare two experiments
+
+From a dataset or experiment page, select **Compare runs**, then choose the run you want to compare. Logfire keeps the current run as the **baseline** and treats the selected run as the **candidate**. Use **Swap baseline** if the trusted or earlier run is on the wrong side.
+
+Start on **Overview**. It compares aggregate results, pass rates, task errors, duration, and each evaluator's raw change before you inspect individual cases.
+
+![The comparison overview places the baseline and candidate above aggregate evaluator changes.](../images/evaluate/comparison-overview.webp)
+
+### Turn aggregate change into a review queue
+
+Select **Cases** to find the evidence behind an aggregate change:
+
+1. Choose a **Primary metric**. This evaluator determines whether each case is grouped as improved, regressed, or unchanged.
+2. For a numeric metric, set **Better score** to higher or lower when that direction is meaningful. If you leave it unset, Logfire describes raw score movement without calling it an improvement or regression.
+3. Select **Metrics** to add other evaluator columns for context. The primary metric stays visible, and you can show up to seven metrics at once.
+4. Keep **Group by: Outcome** to put regressions and errors before unchanged cases, or choose **None** for a flat case-name order.
+5. Select **Open case** on the first result that needs explanation.
+
+![The comparison case list groups cases by outcome and shows several evaluator changes in each row.](../images/evaluate/comparison-cases.webp)
+
+The primary metric prioritizes the queue; it does not hide the other evidence. A case can be unchanged on the primary metric while another evaluator changed, so keep the supporting metric columns that matter to your decision.
+
+### Inspect case evidence
+
+Opening a case keeps the review queue beside the evidence. Read the case from top to bottom:
+
+1. Confirm the input and expected output.
+2. Compare the baseline and candidate outputs.
+3. Expand evaluator explanations and task metrics when you need them.
+4. Open the result trace to inspect prompts, model calls, tool calls, and errors.
+
+Use **Previous case** and **Next case**, or press <kbd>K</kbd> and <kbd>J</kbd>, to move through the visible queue. Hide the case list when you need more room for a large output, then show it again to resume triage.
+
+![An open comparison case keeps the queue on the left and input, outputs, scores, and trace evidence on the right.](../images/evaluate/comparison-case-detail.webp)
+
+## Verify the review
+
+You have completed a comparison when you can name:
+
+- the baseline and candidate;
+- the primary metric and its better-score direction, when applicable;
+- the cases responsible for the aggregate change; and
+- the output, evaluator explanation, or trace evidence that explains each important regression.
+
+The **How it works** button on each page summarizes the workflow for that page if you need a quick orientation.
+
+## Troubleshooting
+
+### A dataset or run is missing
+
+Widen the time range and clear the search. Confirm the evaluation was sent to the same Logfire project and that the dataset has a name.
+
+### A run has no aggregate result
+
+Some evaluation producers report case-level scores without an experiment summary. Open the run and inspect its evaluator analysis or cases. Do not interpret a blank aggregate as a zero.
+
+### A case cannot be compared
+
+The baseline and candidate must report the same case identity. A metric also needs values from both runs to show a change. Check whether the case or evaluator was renamed between runs.
+
+### Improved and regressed are not available
+
+Numeric scores need a **Better score** direction before an increase can be classified as good or bad. Set higher or lower, or leave the direction unset and review score movement instead.
+
+### The normal workflow does not expose the field I need
+
+Use **Advanced table** for detailed filtering and telemetry fields. The dataset, experiment, and comparison pages are optimized for the common evidence-first review path.
 
 ## Next steps
 
-- **[Evals in code](evals-in-code.md)**: run experiments and print a real score table with pydantic-evals.
-- **[Datasets SDK](datasets-sdk.md)**: create, publish, and fetch datasets programmatically.
-- **[Live evals](live-evals.md)**: score real production traffic as it happens.
-- **[Human review](human-review.md)**: turn human judgment into scores that sit next to your automated ones.
+- [Evals in code](evals-in-code.md): run experiments and send their results to Logfire.
+- [Datasets SDK](datasets-sdk.md): create, publish, and fetch datasets programmatically.
+- [Live evals](live-evals.md): score real production traffic as it happens.
+- [Human review](human-review.md): add human judgment alongside automated evaluator results.

@@ -9,7 +9,7 @@ Run an evaluation from Python and you get a score table you can read at a glance
 
 Your test cases can live in either of two places, and the evaluation step is identical once you have a `Dataset` in hand:
 
-- **Local datasets** are defined in code (or loaded from a YAML file) as a [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. No server round-trip. This is the simplest way to start and is all many projects need.
+- **Code-defined datasets** are defined in code (or loaded from a YAML file) as a [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. No server round-trip. This is the simplest way to start and is all many projects need.
 - **Hosted datasets** are stored on Logfire, editable in the [web UI](datasets-and-experiments.md), and fetched back as a typed `Dataset`. Useful when you curate cases from production traces or collaborate with teammates.
 
 ## A worked example
@@ -125,7 +125,7 @@ async def run_evaluation():
 ```
 
 !!! note "Storing the dataset and sending results are independent choices"
-    Whether you *store* the dataset on Logfire and whether you *send* results to Logfire are two separate decisions. You can fetch a hosted dataset and run a purely local evaluation that only prints to the console by omitting `logfire.configure()`. We recommend configuring Logfire during evaluation so runs show up alongside your dataset in the UI. You can also load local datasets from YAML files, see the [pydantic-evals docs](https://pydantic.dev/docs/ai/evals/evals/).
+    Whether you *store* the dataset on Logfire and whether you *send* results to Logfire are two separate decisions. You can fetch a hosted dataset and run an evaluation that only prints to the console by omitting `logfire.configure()`. We recommend configuring Logfire during evaluation so runs show up alongside your dataset in the UI. You can also load code-defined datasets from YAML files, see the [pydantic-evals docs](https://pydantic.dev/docs/ai/evals/evals/).
 
 ## Evaluating a hosted dataset
 
