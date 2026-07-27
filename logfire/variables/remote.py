@@ -257,10 +257,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
                         line = line.strip()
 
-                        # Gap 2: any received line -- including ": keepalive" comments and blank
-                        # SSE separator lines -- proves the stream is healthy.  Reset the
-                        # reconnect backoff BEFORE the empty-line continue so separators count.
-                        reconnect_delay = 1.0
+                        # Gap 2: an SSE-framed line -- a ": keepalive" comment or any named
+                        # field -- proves the stream is healthy, so reset the reconnect backoff.
+                        # Only SSE framing counts: a misbehaving proxy that answers 200 with a
+                        # short non-SSE body (an HTML error page, say) and closes immediately
+                        # delivers lines every cycle, and resetting on those would pin the
+                        # backoff at 1s and turn reconnects into a busy loop.
+                        if line.startswith((':', 'data:', 'event:', 'id:', 'retry:')):
+                            reconnect_delay = 1.0
 
                         if not line:
                             continue
