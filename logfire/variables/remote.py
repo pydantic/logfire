@@ -97,6 +97,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._last_fetched_at: datetime | None = None
 
         self._config: VariablesConfig | None = None
+        self._etag: str | None = None  # ETag from last successful response for conditional GETs
 
         self._shutdown = False
         self._shutdown_timeout_exceeded = False
@@ -360,9 +361,21 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
             try:
                 with self._session_lock:
+                    # Send a conditional GET when we have a cached ETag so the server can respond
+                    # with 304 Not Modified and skip the response body entirely.
+                    # Servers that don't support ETags (all current ones) simply ignore the header.
+                    headers: dict[str, str] = {}
+                    if self._etag is not None:
+                        headers['If-None-Match'] = self._etag
                     variables_response = self._session.get(
-                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
+                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout, headers=headers
                     )
+                    # 304 Not Modified -- config is current, just refresh the timestamp.
+                    # Do NOT call raise_for_status here (304 is outside 2xx).
+                    if variables_response.status_code == 304:
+                        self._last_fetched_at = datetime.now(tz=timezone.utc)
+                        self._has_attempted_fetch = True
+                        return
                     UnexpectedResponse.raise_for_status(variables_response)
                     variables_config_data = variables_response.json()
             except Exception as e:
@@ -375,6 +388,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._has_attempted_fetch = True
                 self._log_error('Error retrieving variables', e)
                 return
+
+            # Remember the ETag from a successful 200 response for the next request.
+            # Always update (including clearing to None) so a server that stops sending ETags
+            # doesn't leave a stale validator that causes spurious 304s.
+            self._etag = variables_response.headers.get('ETag')
 
             try:
                 new_config = VariablesConfig.model_validate(variables_config_data)
