@@ -101,4 +101,4 @@ Each row is one span, with its service, name, and duration. The screenshot shows
 
 - **New to tracing?** [Core concepts](../concepts.md) explains spans and traces and how to read them.
 - **Want automatic traces?** The [OpenTelemetry Go contrib packages](https://github.com/open-telemetry/opentelemetry-go-contrib) instrument `net/http`, gRPC, and database drivers; they use the global provider you set with `otel.SetTracerProvider`.
-- **Another language?** See [Language support](../languages.md), or [Alternative clients](../how-to-guides/alternative-clients.md) for the generic pattern.
+- **Another language?** See [Language support](../instrument/index.md), or [Alternative clients](../how-to-guides/alternative-clients.md) for the generic pattern.
