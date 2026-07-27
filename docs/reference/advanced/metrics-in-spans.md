@@ -70,7 +70,7 @@ import logfire
 logfire.configure(metrics=logfire.MetricsOptions(collect_in_spans=True))
 logfire.instrument_pydantic_ai()
 
-agent = Agent('gpt-4o')
+agent = Agent('openai:gpt-4o')
 
 
 @agent.tool_plain

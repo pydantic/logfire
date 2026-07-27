@@ -34,8 +34,6 @@ This works with your existing Magentic install; there's no extra to add. If you 
 Magentic needs no setup of its own; it starts emitting spans as soon as you call `logfire.configure()`. To also capture the underlying model calls (the full conversation and token usage), instrument the provider you use: [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] and/or [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic].
 
 ```python hl_lines="11-12" skip-run="true" skip-reason="external-connection"
-from __future__ import annotations
-
 from typing import Annotated
 
 from magentic import OpenaiChatModel, SystemMessage, UserMessage, chatprompt
