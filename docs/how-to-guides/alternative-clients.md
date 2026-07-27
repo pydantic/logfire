@@ -1,8 +1,10 @@
 ---
 title: Logfire OTel Integration with Alternative Clients
-description: "Guide on how to use the standard OpenTelemetry SDK to export Node.js, Rust or Go data to Logfire."
+description: "Use the standard OpenTelemetry SDK to send data to Logfire from any language, with worked Python, Node.js, and Rust examples."
 ---
 # Alternative clients
+
+Several languages have a dedicated page. Send data with the standard OpenTelemetry SDK from [Go](../languages/go.md), [.NET](../languages/dotnet.md), or [Java](../languages/java.md), or use a first-party SDK for [Python](https://github.com/pydantic/logfire), [Rust](../languages/rust.md), or [TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/). If your language is not listed, this page shows the generic pattern that works anywhere.
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs
 in many languages to export to the **Logfire** backend, including those outside our
@@ -96,7 +98,7 @@ node main.js
 
 ## Example with Rust
 
-> See also our [Rust SDK](https://github.com/pydantic/logfire-rust) which provides a more streamlined developer experience for Rust applications.
+> See the dedicated [Rust](../languages/rust.md) page for the first-party `logfire` crate, which gives you a native Rust API over OpenTelemetry. The example below uses the raw OpenTelemetry SDK instead.
 
 First, set up a new Cargo project:
 
@@ -162,44 +164,3 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ```
 
 Finally, use `cargo run` to execute.
-
-## Example with Go
-
-Create a file `main.go` containing the following:
-
-```go
-package main
-
-import (
-    "context"
-    "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-    "go.opentelemetry.io/otel/sdk/trace"
-)
-
-func main() {
-    ctx := context.Background()
-    traceExporter, _ := otlptracehttp.New(ctx)
-    batchSpanProcessor := trace.NewBatchSpanProcessor(traceExporter)
-    tracerProvider := trace.NewTracerProvider(trace.WithSpanProcessor(batchSpanProcessor))
-    tracer := tracerProvider.Tracer("my_tracer")
-
-    ctx, span := tracer.Start(ctx, "Hello World")
-    span.End()
-
-    tracerProvider.Shutdown(ctx)
-}
-```
-
-Then run these commands:
-
-```sh
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
-export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
-
-# Optional, but otherwise you will see the service name set to `unknown_service:otel_example`
-export OTEL_RESOURCE_ATTRIBUTES="service.name=my_service"
-
-go mod init otel_example
-go mod tidy
-go run .
-```
