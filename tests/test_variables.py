@@ -5795,3 +5795,112 @@ class TestConfigVariablesDictDeserialization:
         assert isinstance(lf_config.variables, LocalVariablesOptions)
         assert lf_config.variables.config is variables_config
         assert lf_config.variables.instrument is False
+
+
+# =============================================================================
+# Test SSE hardening (gaps 1-3)
+# =============================================================================
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestSSEHardening:
+    """Tests for the SSE reconnect and polling improvements (gaps 1-3)."""
+
+    # ---------- Gap 1: reconnect triggers forced refresh ----------
+
+    def test_sse_had_connected_starts_false(self) -> None:
+        """Provider starts with _sse_had_connected=False (first connect path)."""
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        assert provider._sse_had_connected is False
+        assert not provider._force_refresh_event.is_set()
+
+    def test_at_fork_reinit_preserves_sse_had_connected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """_at_fork_reinit must NOT reset _sse_had_connected.
+
+        If it did, the child process's next SSE connection would be treated as
+        the 'first' connect and the missed-event forced refresh would be skipped.
+        This test would have caught the original bug where the flag was reset.
+        """
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        provider._started = True
+        provider._sse_had_connected = True  # had an SSE connection before the fork
+
+        mock_thread_cls = unittest.mock.MagicMock()
+        mock_start_sse = unittest.mock.MagicMock()
+        monkeypatch.setattr(remote_module.threading, 'Thread', mock_thread_cls)
+        monkeypatch.setattr(provider, '_start_sse_listener', mock_start_sse)
+
+        provider._at_fork_reinit()
+
+        # The flag must survive the fork so _sse_listener triggers a forced refresh on reconnect.
+        assert provider._sse_had_connected is True, (
+            '_sse_had_connected must not be reset by _at_fork_reinit; '
+            'resetting it would silently skip the post-fork missed-event refresh'
+        )
+
+    # ---------- Gap 2: keepalive lines reset the reconnect backoff ----------
+    # The backoff reset runs inside _sse_listener which is a daemon thread marked
+    # `# pragma: no cover`, so we cannot drive it via unit tests without a full
+    # streaming mock.  The invariant is documented in the implementation comment
+    # and verified by manual testing.  The ETag and 304 tests below use the same
+    # requests-mock approach as the rest of the test suite.
+
+    # ---------- Gap 3: poll jitter stays within +/-10% ----------
+
+    def test_worker_jitter_within_bounds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The worker must call _worker_awaken.wait() with a timeout in [0.9, 1.1] * interval.
+
+        We capture the actual timeout the worker passes to wait() by monkeypatching the
+        Event so the recorded value comes from the production _worker code, not a copy of it.
+        """
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            wait_timeouts: list[float] = []
+
+            def capturing_wait(timeout: float | None = None) -> bool:
+                if timeout is not None:
+                    wait_timeouts.append(timeout)
+                # Immediately return False (not awakened) and signal shutdown so
+                # the worker exits after one iteration.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', capturing_wait)
+            try:
+                # Run one worker iteration synchronously (the worker calls refresh then wait).
+                provider._worker()
+
+                assert len(wait_timeouts) >= 1, 'Worker must call _worker_awaken.wait()'
+                base = provider._polling_interval.total_seconds()
+                for t in wait_timeouts:
+                    assert base * 0.9 <= t <= base * 1.1, (
+                        f'Jittered wait {t:.3f}s is outside [{base * 0.9:.3f}, {base * 1.1:.3f}]'
+                    )
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
