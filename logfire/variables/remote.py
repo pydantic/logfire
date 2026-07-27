@@ -357,10 +357,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 break
 
             # Execute the follow-up refresh if its timer has elapsed.
+            # Clear the timer here; the natural next iteration's top-of-loop
+            # refresh(force=True) performs the actual follow-up fetch, so no
+            # explicit call is needed -- and adding one would cause a spurious
+            # third fetch before the next wait.
             followup_at = self._followup_refresh_at
             if followup_at is not None and time.monotonic() >= followup_at:
                 self._followup_refresh_at = None
-                self.refresh(force=True)
 
     def refresh(self, force: bool = False):
         """Fetch the latest variable configuration from the remote API.

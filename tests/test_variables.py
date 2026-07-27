@@ -6195,9 +6195,11 @@ class TestSSEHardening:
                 provider._shutdown = True
                 provider.shutdown(timeout_millis=100)
 
-        # First loop: normal refresh + follow-up fires a second refresh.
-        # The second wait triggers shutdown before a third refresh.
-        assert call_count >= 2
+        # First loop: top-of-loop refresh (call 1), follow-up timer fires and clears the flag.
+        # Second loop: top-of-loop refresh IS the follow-up (call 2).
+        # Second wait triggers shutdown before a third refresh.
+        # Exactly 2 calls -- a third would mean the old spurious fetch is back.
+        assert call_count == 2
 
     def test_worker_skips_follow_up_refresh_on_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When _shutdown is set before the follow-up fires, the follow-up must not execute."""
