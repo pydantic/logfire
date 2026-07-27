@@ -389,13 +389,15 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._log_error('Error retrieving variables', e)
                 return
 
-            # Remember the ETag from a successful 200 response for the next request.
-            # Always update (including clearing to None) so a server that stops sending ETags
-            # doesn't leave a stale validator that causes spurious 304s.
-            self._etag = variables_response.headers.get('ETag')
-
             try:
                 new_config = VariablesConfig.model_validate(variables_config_data)
+                # Only commit the ETag once we know the response body is valid.
+                # If we stored it before validation and validation failed, every
+                # subsequent poll would send the stale If-None-Match and get a 304,
+                # permanently locking the provider into an outdated config.
+                # Always overwrite (including clearing to None) so a server that stops
+                # sending ETags doesn't leave a stale validator that causes spurious 304s.
+                self._etag = variables_response.headers.get('ETag')
                 self._config = new_config
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
             except ValidationError as e:

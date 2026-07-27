@@ -6066,3 +6066,47 @@ class TestSSEHardening:
             assert provider._etag == '"v1"'
             provider.refresh(force=True)
             assert provider._etag is None  # cleared because 200 had no ETag
+
+    def test_etag_not_stored_after_invalid_200(self) -> None:
+        """A malformed 200 must not update _etag (guards against a permanently-stale validator).
+
+        If we stored the ETag before validation and validation failed, every subsequent
+        poll would send the stale If-None-Match and receive a 304, permanently locking
+        the provider into the outdated config.
+        """
+        valid_data: dict[str, Any] = {'variables': {}}
+        # A body where ``variables`` is a string -- not a dict -- triggers a ValidationError.
+        malformed_data: dict[str, Any] = {'variables': 'not-a-dict'}
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': valid_data, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'json': malformed_data, 'status_code': 200, 'headers': {'ETag': '"v2"'}},
+                {'status_code': 304},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # valid 200 -- config and ETag set
+            assert provider._etag == '"v1"'
+
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                provider.refresh(force=True)  # malformed 200 -- must NOT update ETag
+
+            assert provider._etag == '"v1"', 'ETag must not change after a malformed 200 response'
+
+            # The 304 should be accepted (ETag "v1" is still valid on the server)
+            # and must not log an error.
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                provider.refresh(force=True)  # 304 -- silent, config unchanged
