@@ -5,6 +5,7 @@ import os
 import random
 import re
 import threading
+import time
 import warnings
 import weakref
 from collections.abc import Mapping
@@ -97,12 +98,16 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._last_fetched_at: datetime | None = None
 
         self._config: VariablesConfig | None = None
+        self._etag: str | None = None  # ETag from last successful response for conditional GETs
 
         self._shutdown = False
         self._shutdown_timeout_exceeded = False
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
         self._force_refresh_event = threading.Event()  # Set by SSE listener to force immediate refresh
+        # Monotonic timestamp after which the worker should do a follow-up forced refresh (gap 5).
+        # Set after an SSE-triggered refresh to catch the 1s server-side cache window.
+        self._followup_refresh_at: float | None = None
 
         # SSE listener for real-time updates
         self._sse_connected = False
@@ -132,6 +137,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._force_refresh_event = threading.Event()
         # Only restart threads if we were started before the fork
         if self._started and not was_shutdown:
+            # Clear the follow-up timer before the child worker starts so that an inherited
+            # elapsed timer cannot fire before we have a chance to reset it.
+            self._followup_refresh_at = None
             self._worker_thread = threading.Thread(
                 name='LogfireRemoteProvider',
                 target=self._worker,
@@ -314,10 +322,23 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
             self.refresh(force=force)
 
+            # Gap 5: after an SSE-event-triggered forced refresh, schedule a single follow-up
+            # refresh ~2s later.  The server-side in-memory cache (platform PR #28877) has a 1s
+            # per-pod TTL, so the immediate refetch can race and return the pre-update config.
+            # One debounced follow-up guarantees convergence without adding new threads.
+            if force:
+                self._followup_refresh_at = time.monotonic() + 2.0
+
             # Gap 3: add uniform +/-10% jitter to the wait so that fleets deployed
             # simultaneously don't poll in lockstep.
             base_interval = self._polling_interval.total_seconds()
             wait_timeout = base_interval * random.uniform(0.9, 1.1)
+
+            # If a follow-up refresh is pending, shorten the wait accordingly.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None:
+                followup_remaining = max(0.0, followup_at - time.monotonic())
+                wait_timeout = min(wait_timeout, followup_remaining)
 
             # Use wait(timeout) then clear() to avoid lost wakeups:
             # If SSE sets the event during refresh(), wait() returns immediately
@@ -325,8 +346,18 @@ class LogfireRemoteVariableProvider(VariableProvider):
             awakened = self._worker_awaken.wait(wait_timeout)
             if awakened:  # pragma: no branch
                 self._worker_awaken.clear()
-            if self._shutdown:  # pragma: no branch
+
+            # Do not fire the follow-up refresh if shutdown has begun -- the request
+            # would be unnecessary and could exceed the shutdown timeout budget.
+            if self._shutdown:
                 break
+
+            # Gap 5 (continued): if the follow-up window has elapsed, do a forced refresh
+            # and clear the pending timer.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None and time.monotonic() >= followup_at:
+                self._followup_refresh_at = None
+                self.refresh(force=True)
 
     def refresh(self, force: bool = False):
         """Fetch the latest variable configuration from the remote API.
@@ -352,9 +383,22 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
             try:
                 with self._session_lock:
+                    # Gap 4: send a conditional GET when we have a cached ETag so the server
+                    # can respond with 304 Not Modified and skip the response body entirely.
+                    # Servers that don't support ETags (all current ones) see identical
+                    # behaviour -- they simply ignore the header.
+                    headers: dict[str, str] = {}
+                    if self._etag is not None:
+                        headers['If-None-Match'] = self._etag
                     variables_response = self._session.get(
-                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
+                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout, headers=headers
                     )
+                    # Gap 4: 304 Not Modified -- config is current, just refresh the timestamp.
+                    # Do NOT call raise_for_status here (304 is outside 2xx).
+                    if variables_response.status_code == 304:
+                        self._last_fetched_at = datetime.now(tz=timezone.utc)
+                        self._has_attempted_fetch = True
+                        return
                     UnexpectedResponse.raise_for_status(variables_response)
                     variables_config_data = variables_response.json()
             except Exception as e:
@@ -367,6 +411,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._has_attempted_fetch = True
                 self._log_error('Error retrieving variables', e)
                 return
+
+            # Gap 4: remember the ETag from a successful 200 response for the next request.
+            # Always update (including clearing to None) so a server that stops sending ETags
+            # doesn't leave a stale validator that causes spurious 304s on subsequent requests.
+            self._etag = variables_response.headers.get('ETag')
 
             try:
                 new_config = VariablesConfig.model_validate(variables_config_data)
