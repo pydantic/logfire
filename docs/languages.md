@@ -1,16 +1,23 @@
 ---
 title: "Pydantic Logfire: Supported Languages"
-description: "Logfire offers streamlined SDKs for Python, Rust, and JavaScript/TypeScript. Use OpenTelemetry compatibility to support tracing in other languages."
+description: "Logfire has first-party SDKs for Python, TypeScript, and Rust, and works with any other language through OpenTelemetry."
 ---
-Logfire is built on top of OpenTelemetry, which means that it supports all the languages that OpenTelemetry supports.
+Logfire is built on [OpenTelemetry (OTel)](https://opentelemetry.io/), the open industry standard for collecting traces, metrics, and logs. That means Logfire works with every language OpenTelemetry supports.
 
-In addition, we currently have custom SDKs for:
+## First-party SDKs
+
+These SDKs wrap OpenTelemetry in a native API for each language:
 
 - [Python](https://github.com/pydantic/logfire)
 - [JavaScript/TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/)
-- [Rust](https://github.com/pydantic/logfire-rust)
+- [Rust](languages/rust.md)
 
-These SDKs offer a streamlined developer experience.
+## Other languages via OpenTelemetry
 
-You can check our [Alternative Clients](how-to-guides/alternative-clients.md) section to see how
-you can send data to Logfire from other languages.
+For a language without a dedicated SDK, you send data with the standard OpenTelemetry SDK. We have setup guides for:
+
+- [Go](languages/go.md)
+- [.NET](languages/dotnet.md)
+- [Java](languages/java.md)
+
+For any other language, see [Alternative clients](how-to-guides/alternative-clients.md).
