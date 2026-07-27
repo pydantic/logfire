@@ -199,11 +199,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def _log_warning(self, message: str, exc: Exception) -> None:
         """Log a warning using logfire if available, otherwise warnings.
 
-        Unlike `_log_error`, the exception is not recorded on the span; its type and message are
-        included as plain attributes instead. This is for transient failures that are expected to
-        self-heal, and recording the exception would attach an exception event to every blip, which
-        marks the record as an exception and so counts towards error rates (e.g. the services
-        error-rate views) even at warning level.
+        Unlike `_log_error`, the exception is not attached to the record; its type and message are
+        recorded as attributes instead. These are transient failures expected to self-heal, and the
+        traceback runs through `requests` internals rather than any user code, so attaching it would
+        add a stacktrace to every blip without saying anything the type and message don't.
 
         Args:
             message: The warning message.
