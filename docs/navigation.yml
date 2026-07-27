@@ -141,6 +141,9 @@ navigation:
   - section: "Instrumentation"
     slug: ""
     contents:
+      - page: "Overview"
+        path: "instrument/index.md"
+        slug: "instrument"
       - section: "Python"
         contents:
           - page: "Onboarding Checklist"
