@@ -306,6 +306,9 @@ navigation:
         slug: "integrations"
       - section: "AI & LLM Frameworks"
         contents:
+          - page: "AI & LLM integrations"
+            path: "integrations/llms/index.md"
+            slug: "integrations/llms"
           - page: "Pydantic AI"
             path: "integrations/llms/pydanticai.md"
             slug: "integrations/llms/pydanticai"
