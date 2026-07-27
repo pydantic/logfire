@@ -24,6 +24,8 @@ Human review shows up in three places in Logfire. They differ in *who* does the 
 
 The most direct form: open a **span** (one unit of work: a single operation, with a name, a start, and a duration) or a whole **run** in the [live view](../guides/web-ui/live.md), and record your judgment on it directly: a pass/fail flag, a label, a numeric rating, or a free-text note. Reach for this when you're already looking at a trace and want to capture what you see.
 
+For the agent-run workflow in the web UI, see [Annotate an agent run](annotate-agent-runs.md).
+
 - **Span annotation**: rate a single operation: this one LLM call, this one tool call.
 - **Run annotation** (Beta): rate a whole run of your AI (an end-to-end agent invocation across many spans) as one unit, rather than a single span inside it. Enable it with the `run_annotations` feature flag.
 
