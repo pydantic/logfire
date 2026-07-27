@@ -478,6 +478,9 @@ navigation:
             slug: "integrations/llms/magentic"
       - section: "Observe & debug"
         contents:
+          - page: "Agents"
+            path: "guides/web-ui/agents.md"
+            slug: "observe/agents"
           - page: "LLMs"
             path: "guides/web-ui/llms.md"
             slug: "observe/llms"
