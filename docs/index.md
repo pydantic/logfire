@@ -19,10 +19,6 @@ We recommend [letting your AI agent set you up with Logfire](first-trace.md#let-
 
   Install the SDK and watch a trace arrive in the Live view, in about 5 minutes.
 
-- <span class="lf-icon lf-icon--ai"></span> [__Trace your AI and LLM calls__](ai-observability.md)
-
-  See the spans, tokens, cost, and tool calls behind your model-powered features.
-
 - <span class="lf-icon lf-icon--metrics"></span> [__Monitor your infrastructure__](guides/web-ui/hosts.md)
 
   Monitor hosts, Kubernetes, and cloud infrastructure alongside your application.
@@ -32,6 +28,10 @@ We recommend [letting your AI agent set you up with Logfire](first-trace.md#let-
 ## Explore
 
 <div class="grid cards" markdown>
+
+- <span class="lf-icon lf-icon--agent"></span> [__Understand agent observability__](ai-observability.md)
+
+  See how one trace connects an agent's model calls, tools, and the services behind them.
 
 - <span class="lf-icon lf-icon--live"></span> [__Watch it live__](guides/web-ui/live.md)
 
