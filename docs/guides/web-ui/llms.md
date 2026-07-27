@@ -113,7 +113,7 @@ If you build with another framework that emits the same conventions (directly or
 The smallest path from an empty project to a populated LLMs row, using the OpenAI instrumentation:
 
 ```bash
-pip install 'logfire[openai]'
+pip install logfire openai
 export LOGFIRE_TOKEN=<your write token from project Settings → Write tokens>
 ```
 
