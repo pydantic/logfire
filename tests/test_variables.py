@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import time
 import unittest.mock
@@ -1476,7 +1477,10 @@ class TestLogfireRemoteVariableProviderErrors:
 
                 mock_logfire.warn.assert_called_once()
                 assert mock_logfire.warn.call_args[1]['message'] == 'Error retrieving variables'
+                # The exception isn't recorded on the span (that would count towards error rates),
+                # so the type has to be carried as a plain attribute instead.
                 assert '_exc_info' not in mock_logfire.warn.call_args[1]
+                assert mock_logfire.warn.call_args[1]['error_type'] == 'UnexpectedResponse'
                 mock_logfire.error.assert_not_called()
                 assert provider._config is not None
             finally:
@@ -1589,6 +1593,83 @@ class TestLogfireRemoteVariableProviderErrors:
                 mock_logfire.error.assert_not_called()
             finally:
                 provider.shutdown()
+
+
+# =============================================================================
+# Test LogfireRemoteVariableProvider instrumentation suppression
+# =============================================================================
+
+
+class TestLogfireRemoteVariableProviderInstrumentation:
+    """The provider's own API traffic must not show up in the user's telemetry."""
+
+    @contextlib.contextmanager
+    def _instrumented_mocker(self):
+        """A `requests_mock` mocker with `logfire.instrument_requests()` applied on top of it.
+
+        `requests_mock` patches `Session.send`, so it has to be started *before* instrumenting
+        (and stopped after uninstrumenting), otherwise it replaces the instrumented method.
+        """
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+        with requests_mock_module.Mocker() as request_mocker:
+            logfire.instrument_requests()
+            try:
+                yield request_mocker
+            finally:
+                RequestsInstrumentor().uninstrument()
+
+    def test_api_requests_are_not_instrumented(self, exporter: TestExporter) -> None:
+        """Users who instrument `requests` shouldn't get a span for every poll and write."""
+        with self._instrumented_mocker() as request_mocker:
+            request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+            request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'new_var'})
+            request_mocker.put('http://localhost:8000/v1/variables/new_var/', json={'name': 'new_var'})
+            request_mocker.delete('http://localhost:8000/v1/variables/new_var/', json={})
+            request_mocker.get('http://localhost:8000/v1/variable-types/', json=[])
+
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='new_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    description='Test variable',
+                )
+                provider.refresh(force=True)
+                provider.create_variable(config)
+                provider.update_variable('new_var', config)
+                provider.delete_variable('new_var')
+                provider.list_variable_types()
+            finally:
+                provider.shutdown()
+
+        assert exporter.exported_spans_as_dict() == []
+
+    def test_user_requests_are_still_instrumented(self, exporter: TestExporter) -> None:
+        """Suppression is scoped to the provider's own requests, not left on for the caller."""
+        with self._instrumented_mocker() as request_mocker:
+            request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+            request_mocker.get('https://example.com/', text='hello')
+
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+                Session().get('https://example.com/')
+            finally:
+                provider.shutdown()
+
+        span_urls = {span['attributes'].get('http.url') for span in exporter.exported_spans_as_dict()}
+        assert span_urls == {'https://example.com/'}
 
 
 # =============================================================================
