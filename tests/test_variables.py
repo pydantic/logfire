@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 import unittest.mock
 import warnings
@@ -6110,3 +6111,135 @@ class TestSSEHardening:
             with warnings.catch_warnings():
                 warnings.filterwarnings('error')
                 provider.refresh(force=True)  # 304 -- silent, config unchanged
+
+    # ---------- Gap 5: follow-up refresh after SSE-triggered fetch ----------
+
+    def test_worker_schedules_follow_up_after_forced_refresh(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A forced (SSE-triggered) _worker iteration must set _followup_refresh_at ~2 s ahead."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        def patched_wait(self_event: threading.Event, timeout: float | None = None) -> bool:
+            # Stop the loop after the first wait (follow-up must already be scheduled by now).
+            provider._shutdown = True
+            return False
+
+        monkeypatch.setattr(threading.Event, 'wait', patched_wait)
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Simulate SSE wakeup with a forced refresh.
+            provider._force_refresh_event.set()
+
+            before = time.monotonic()
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+            after = time.monotonic()
+            assert provider._followup_refresh_at is not None
+            assert before + 1.9 <= provider._followup_refresh_at <= after + 2.1
+
+    def test_worker_executes_follow_up_refresh_when_timer_elapsed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When the follow-up timer has elapsed, the worker must call refresh(force=True) once more."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        call_count = 0
+        original_refresh = LogfireRemoteVariableProvider.refresh
+
+        def counting_refresh(self_provider: LogfireRemoteVariableProvider, force: bool = False) -> None:
+            nonlocal call_count
+            call_count += 1
+            original_refresh(self_provider, force=force)
+
+        monkeypatch.setattr(LogfireRemoteVariableProvider, 'refresh', counting_refresh)
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Pre-set the follow-up timer to a time already elapsed so it fires on the first loop.
+            provider._followup_refresh_at = time.monotonic() - 0.1
+
+            wait_calls = 0
+
+            def patched_wait(self_event: threading.Event, timeout: float | None = None) -> bool:
+                nonlocal wait_calls
+                wait_calls += 1
+                if wait_calls >= 2:
+                    provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(threading.Event, 'wait', patched_wait)
+
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+        # First loop: normal refresh + follow-up fires a second refresh.
+        # The second wait triggers shutdown before a third refresh.
+        assert call_count >= 2
+
+    def test_worker_skips_follow_up_refresh_on_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When _shutdown is set before the follow-up fires, the follow-up must not execute."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        call_count = 0
+        original_refresh = LogfireRemoteVariableProvider.refresh
+
+        def counting_refresh(self_provider: LogfireRemoteVariableProvider, force: bool = False) -> None:
+            nonlocal call_count
+            call_count += 1
+            original_refresh(self_provider, force=force)
+
+        monkeypatch.setattr(LogfireRemoteVariableProvider, 'refresh', counting_refresh)
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Pre-set an elapsed follow-up timer.
+            provider._followup_refresh_at = time.monotonic() - 0.1
+
+            def patched_wait(self_event: threading.Event, timeout: float | None = None) -> bool:
+                # Signal shutdown as soon as the worker sleeps -- before the follow-up check.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(threading.Event, 'wait', patched_wait)
+
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+        # The worker must break out of the loop (due to shutdown) BEFORE executing the follow-up,
+        # so only the single normal refresh at the top of the loop should have been called.
+        assert call_count == 1

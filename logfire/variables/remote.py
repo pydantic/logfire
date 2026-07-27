@@ -5,6 +5,7 @@ import os
 import random
 import re
 import threading
+import time
 import warnings
 import weakref
 from collections.abc import Mapping
@@ -98,6 +99,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         self._config: VariablesConfig | None = None
         self._etag: str | None = None  # ETag from last successful response for conditional GETs
+        self._followup_refresh_at: float | None = None  # monotonic time for the post-SSE follow-up refresh
 
         self._shutdown = False
         self._shutdown_timeout_exceeded = False
@@ -138,6 +140,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 target=self._worker,
                 daemon=True,
             )
+            # Clear the follow-up timer so the child worker does not fire a stale refresh
+            # against the parent's timeline; keep _sse_had_connected so the first SSE
+            # connection after fork is treated as a REconnect and triggers a forced refresh.
+            self._followup_refresh_at = None
             self._worker_thread.start()
             # Restart SSE listener.  Keep _sse_had_connected at its pre-fork value so the
             # child's next successful SSE connection is treated as a REconnect -- triggering a
@@ -323,10 +329,22 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # downstream logic (Gap 5 follow-up) can still detect SSE-triggered iterations.
             self.refresh(force=True)
 
+            # Gap 5: after an SSE-triggered (forced) refresh, schedule a follow-up refresh
+            # ~2 s later to beat any server-side caching layer that may have served a stale
+            # response to the first request.
+            if force:
+                self._followup_refresh_at = time.monotonic() + 2.0
+
             # Gap 3: add uniform +/-10% jitter to the wait so that fleets deployed
             # simultaneously don't poll in lockstep.
             base_interval = self._polling_interval.total_seconds()
             wait_timeout = base_interval * random.uniform(0.9, 1.1)
+
+            # Clamp the wait to the follow-up timer so we wake up in time.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None:
+                followup_remaining = max(0.0, followup_at - time.monotonic())
+                wait_timeout = min(wait_timeout, followup_remaining)
 
             # Use wait(timeout) then clear() to avoid lost wakeups:
             # If SSE sets the event during refresh(), wait() returns immediately
@@ -334,8 +352,15 @@ class LogfireRemoteVariableProvider(VariableProvider):
             awakened = self._worker_awaken.wait(wait_timeout)
             if awakened:  # pragma: no branch
                 self._worker_awaken.clear()
-            if self._shutdown:  # pragma: no branch
+
+            if self._shutdown:
                 break
+
+            # Execute the follow-up refresh if its timer has elapsed.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None and time.monotonic() >= followup_at:
+                self._followup_refresh_at = None
+                self.refresh(force=True)
 
     def refresh(self, force: bool = False):
         """Fetch the latest variable configuration from the remote API.
