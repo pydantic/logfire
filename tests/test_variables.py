@@ -5866,8 +5866,11 @@ class TestSSEHardening:
         2. a 200 stream that delivers NO data must NOT reset the delay (waits 2s,
            doubles to 4s) -- resetting on a bare 200 would busy-loop against a
            misbehaving endpoint that accepts connections but immediately closes them;
-        3. a 200 stream that delivers only a `: keepalive` comment must reset the
-           delay, so the wait after that stream ends is back to 1s (not 4s).
+        3. a 200 stream carrying a non-SSE body (an HTML error page from a proxy)
+           must NOT reset the delay either (waits 4s, doubles to 8s), otherwise every
+           cycle delivers lines and the backoff is pinned at 1s forever;
+        4. a 200 stream that delivers only a `: keepalive` comment must reset the
+           delay, so the wait after that stream ends is back to 1s (not 8s).
         """
         import logfire.variables.remote as remote_module
 
@@ -5884,7 +5887,7 @@ class TestSSEHardening:
 
         def recording_wait(delay: float) -> None:
             recorded_delays.append(delay)
-            if len(recorded_delays) >= 3:
+            if len(recorded_delays) >= 4:
                 provider._shutdown = True
 
         monkeypatch.setattr(provider, '_wait_for_reconnect', recording_wait)
@@ -5892,18 +5895,26 @@ class TestSSEHardening:
         response_non_200 = unittest.mock.MagicMock(status_code=401)
         response_empty_stream = unittest.mock.MagicMock(status_code=200)
         response_empty_stream.iter_lines.return_value = []
+        response_html_body = unittest.mock.MagicMock(status_code=200)
+        response_html_body.iter_lines.return_value = ['<html>', '<body>502 Bad Gateway</body>', '</html>']
         response_keepalive = unittest.mock.MagicMock(status_code=200)
         response_keepalive.iter_lines.return_value = [': keepalive']
 
         mock_session = unittest.mock.MagicMock()
         mock_session.__enter__.return_value = mock_session
-        mock_session.get.side_effect = [response_non_200, response_empty_stream, response_keepalive]
+        mock_session.get.side_effect = [
+            response_non_200,
+            response_empty_stream,
+            response_html_body,
+            response_keepalive,
+        ]
         monkeypatch.setattr(remote_module, 'Session', unittest.mock.MagicMock(return_value=mock_session))
 
         provider._sse_listener()
 
-        assert recorded_delays == [1.0, 2.0, 1.0], (
-            f'Expected [1.0, 2.0, 1.0] (keepalive resets the backoff; a dataless 200 does not), got {recorded_delays}'
+        assert recorded_delays == [1.0, 2.0, 4.0, 1.0], (
+            f'Expected [1.0, 2.0, 4.0, 1.0]: only SSE framing resets the backoff, so a dataless '
+            f'200 and a non-SSE HTML body keep backing off. Got {recorded_delays}'
         )
 
     # ---------- Gap 3: poll jitter stays within +/-10% ----------
