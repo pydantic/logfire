@@ -255,12 +255,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
                             continue
 
                         line = line.strip()
+
+                        # Gap 2: any received line -- including ": keepalive" comments and blank
+                        # SSE separator lines -- proves the stream is healthy.  Reset the
+                        # reconnect backoff BEFORE the empty-line continue so separators count.
+                        reconnect_delay = 1.0
+
                         if not line:
                             continue
-
-                        # Gap 2: any received line (including ": keepalive" comments) proves the
-                        # stream is healthy, so reset the reconnect backoff immediately.
-                        reconnect_delay = 1.0
 
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
@@ -312,7 +314,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
             if force:
                 self._force_refresh_event.clear()
 
-            self.refresh(force=force)
+            # The worker is the sole scheduled caller and already manages its own timing via
+            # the jittered wait below.  Always bypass the interval gate so that a 54-second
+            # jittered wait does not silently skip the fetch because the gate still requires
+            # the full 60-second base interval -- which would push the effective interval to
+            # up to 2x the intended range.  The `force` local variable is preserved so
+            # downstream logic (Gap 5 follow-up) can still detect SSE-triggered iterations.
+            self.refresh(force=True)
 
             # Gap 3: add uniform +/-10% jitter to the wait so that fleets deployed
             # simultaneously don't poll in lockstep.
