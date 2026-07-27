@@ -14,15 +14,15 @@ Logfire is built on [OpenTelemetry (OTel)](https://opentelemetry.io/), the open 
 These wrap OpenTelemetry in an idiomatic API for each language, with streamlined setup and extra features. Each guide takes you from install to your first trace in a few minutes:
 
 <div class="integration-grid">
-  <a class="integration-card" href="onboarding-checklist/">
+  <a class="integration-card" href="../guides/onboarding-checklist/index.md">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/python.svg)"></span>
     <span class="integration-name">Python</span>
   </a>
-  <a class="integration-card" href="../typescript-sdk/">
+  <a class="integration-card" href="https://pydantic.dev/docs/logfire/typescript-sdk/">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/typescript.svg)"></span>
     <span class="integration-name">JavaScript / TypeScript</span>
   </a>
-  <a class="integration-card" href="rust/">
+  <a class="integration-card" href="../languages/rust.md">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/rust.svg)"></span>
     <span class="integration-name">Rust</span>
   </a>
@@ -33,27 +33,27 @@ These wrap OpenTelemetry in an idiomatic API for each language, with streamlined
 For a language without a dedicated SDK, send data with the standard OpenTelemetry SDK. We have setup guides for:
 
 <div class="integration-grid">
-  <a class="integration-card" href="go/">
+  <a class="integration-card" href="../languages/go.md">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/go.svg)"></span>
     <span class="integration-name">Go</span>
   </a>
-  <a class="integration-card" href="dotnet/">
+  <a class="integration-card" href="../languages/dotnet.md">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/dotnet.svg)"></span>
     <span class="integration-name">.NET</span>
   </a>
-  <a class="integration-card" href="java/">
+  <a class="integration-card" href="../languages/java.md">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/java.svg)"></span>
     <span class="integration-name">Java</span>
   </a>
-  <a class="integration-card" href="ruby/">
+  <a class="integration-card" href="../languages/ruby.md">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/ruby.svg)"></span>
     <span class="integration-name">Ruby</span>
   </a>
-  <a class="integration-card" href="php/">
+  <a class="integration-card" href="../languages/php.md">
     <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/php.svg)"></span>
     <span class="integration-name">PHP</span>
   </a>
-  <a class="integration-card" href="../guides/alternative-clients/">
+  <a class="integration-card" href="../how-to-guides/alternative-clients.md">
     <span class="integration-logo integration-logo--plainmark">+</span>
     <span class="integration-name">Any other language</span>
   </a>
