@@ -5856,11 +5856,55 @@ class TestSSEHardening:
         )
 
     # ---------- Gap 2: keepalive lines reset the reconnect backoff ----------
-    # The backoff reset runs inside _sse_listener which is a daemon thread marked
-    # `# pragma: no cover`, so we cannot drive it via unit tests without a full
-    # streaming mock.  The invariant is documented in the implementation comment
-    # and verified by manual testing.  The ETag and 304 tests below use the same
-    # requests-mock approach as the rest of the test suite.
+
+    def test_keepalive_line_resets_reconnect_backoff(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A `: keepalive` comment line must reset the SSE reconnect backoff to 1s.
+
+        Drives _sse_listener synchronously with a mocked Session:
+
+        1. a non-200 connect waits 1s and doubles the delay to 2s;
+        2. a 200 stream that delivers NO data must NOT reset the delay (waits 2s,
+           doubles to 4s) -- resetting on a bare 200 would busy-loop against a
+           misbehaving endpoint that accepts connections but immediately closes them;
+        3. a 200 stream that delivers only a `: keepalive` comment must reset the
+           delay, so the wait after that stream ends is back to 1s (not 4s).
+        """
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        recorded_delays: list[float] = []
+
+        def recording_wait(delay: float) -> None:
+            recorded_delays.append(delay)
+            if len(recorded_delays) >= 3:
+                provider._shutdown = True
+
+        monkeypatch.setattr(provider, '_wait_for_reconnect', recording_wait)
+
+        response_non_200 = unittest.mock.MagicMock(status_code=401)
+        response_empty_stream = unittest.mock.MagicMock(status_code=200)
+        response_empty_stream.iter_lines.return_value = []
+        response_keepalive = unittest.mock.MagicMock(status_code=200)
+        response_keepalive.iter_lines.return_value = [': keepalive']
+
+        mock_session = unittest.mock.MagicMock()
+        mock_session.__enter__.return_value = mock_session
+        mock_session.get.side_effect = [response_non_200, response_empty_stream, response_keepalive]
+        monkeypatch.setattr(remote_module, 'Session', unittest.mock.MagicMock(return_value=mock_session))
+
+        provider._sse_listener()
+
+        assert recorded_delays == [1.0, 2.0, 1.0], (
+            f'Expected [1.0, 2.0, 1.0] (keepalive resets the backoff; a dataless 200 does not), got {recorded_delays}'
+        )
 
     # ---------- Gap 3: poll jitter stays within +/-10% ----------
 
@@ -5906,6 +5950,49 @@ class TestSSEHardening:
                 provider._shutdown = True
                 provider.shutdown(timeout_millis=100)
 
+    def test_worker_scheduled_iteration_bypasses_interval_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An ordinary scheduled worker iteration must call refresh(force=True).
+
+        The worker manages its own timing via the jittered wait, so it must bypass the
+        interval gate in refresh(): a jittered wait that lands below the base interval
+        (e.g. 54s of a 60s interval) would otherwise be silently skipped by the gate,
+        pushing the effective polling interval up to 2x the configured value. The SSE
+        force-event path is covered elsewhere; this guards the no-event path.
+        """
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        refresh_force_args: list[bool] = []
+
+        def capturing_refresh(force: bool = False) -> None:
+            refresh_force_args.append(force)
+
+        monkeypatch.setattr(provider, 'refresh', capturing_refresh)
+
+        def stopping_wait(timeout: float | None = None) -> bool:
+            provider._shutdown = True
+            return False
+
+        monkeypatch.setattr(provider._worker_awaken, 'wait', stopping_wait)
+
+        assert not provider._force_refresh_event.is_set()
+        try:
+            provider._worker()
+        finally:
+            provider._shutdown = True
+            provider.shutdown(timeout_millis=100)
+
+        assert refresh_force_args == [True], (
+            'The worker must force-refresh on ordinary scheduled iterations so the '
+            'interval gate cannot skip a jittered wait that lands below the base interval'
+        )
+
     # ---------- Gap 4: ETag / conditional GET / 304 handling ----------
 
     def test_304_keeps_config_and_updates_last_fetched_at(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -5947,15 +6034,21 @@ class TestSSEHardening:
             monkeypatch.setattr(provider, '_log_error', _capture_log_error)
 
             provider.refresh(force=True)  # 200 -- populates config and ETag
-            assert provider._config is not None
-            first_fetched_at = provider._last_fetched_at
+            first_config = provider._config
+            assert first_config is not None
+            assert provider._last_fetched_at is not None
+            # Rewind the recorded timestamp so the strict later-than assertion below can
+            # only pass if the 304 path actually refreshed it -- clock granularity could
+            # otherwise let an unchanged timestamp slip through a >= comparison.
+            rewound_fetched_at = provider._last_fetched_at - timedelta(hours=1)
+            provider._last_fetched_at = rewound_fetched_at
 
             provider.refresh(force=True)  # 304 -- must not replace config or log an error
-            assert provider._config is not None
+            assert provider._config is first_config, '304 must leave the cached config object untouched'
+            assert provider.get_serialized_value('my_var').value == '"hello"'
             assert not logged_errors, f'Unexpected errors logged on 304: {logged_errors}'
             assert provider._last_fetched_at is not None
-            assert first_fetched_at is not None
-            assert provider._last_fetched_at >= first_fetched_at
+            assert provider._last_fetched_at > rewound_fetched_at, '304 must refresh _last_fetched_at'
 
     def test_if_none_match_sent_when_etag_known(self) -> None:
         """When a previous response set an ETag the next request must include If-None-Match."""
