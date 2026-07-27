@@ -366,11 +366,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
             if self._shutdown:
                 break
 
-            # Execute the follow-up refresh if its timer has elapsed.
-            # Clear the timer here; the natural next iteration's top-of-loop
-            # refresh(force=True) performs the actual follow-up fetch, so no
-            # explicit call is needed -- and adding one would cause a spurious
-            # third fetch before the next wait.
+            # Retire the follow-up deadline once it has elapsed. No fetch happens here:
+            # the next iteration's top-of-loop refresh(force=True) *is* the follow-up
+            # fetch, so an explicit call would cause a spurious third fetch. Retiring
+            # the deadline also stops the clamp above from pinning wait_timeout to 0.
             followup_at = self._followup_refresh_at
             if followup_at is not None and time.monotonic() >= followup_at:
                 self._followup_refresh_at = None

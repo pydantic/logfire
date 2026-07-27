@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import os
-import threading
 import time
 import unittest.mock
 import warnings
@@ -6223,13 +6222,6 @@ class TestSSEHardening:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
 
-        def patched_wait(self_event: threading.Event, timeout: float | None = None) -> bool:
-            # Stop the loop after the first wait (follow-up must already be scheduled by now).
-            provider._shutdown = True
-            return False
-
-        monkeypatch.setattr(threading.Event, 'wait', patched_wait)
-
         with request_mocker:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
@@ -6242,6 +6234,13 @@ class TestSSEHardening:
 
             # Simulate SSE wakeup with a forced refresh.
             provider._force_refresh_event.set()
+
+            def patched_wait(timeout: float | None = None) -> bool:
+                # Stop the loop after the first wait (follow-up must already be scheduled by now).
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
 
             before = time.monotonic()
             try:
@@ -6284,14 +6283,14 @@ class TestSSEHardening:
 
             wait_calls = 0
 
-            def patched_wait(self_event: threading.Event, timeout: float | None = None) -> bool:
+            def patched_wait(timeout: float | None = None) -> bool:
                 nonlocal wait_calls
                 wait_calls += 1
                 if wait_calls >= 2:
                     provider._shutdown = True
                 return False
 
-            monkeypatch.setattr(threading.Event, 'wait', patched_wait)
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
 
             try:
                 provider._worker()
@@ -6333,12 +6332,12 @@ class TestSSEHardening:
             # Pre-set an elapsed follow-up timer.
             provider._followup_refresh_at = time.monotonic() - 0.1
 
-            def patched_wait(self_event: threading.Event, timeout: float | None = None) -> bool:
+            def patched_wait(timeout: float | None = None) -> bool:
                 # Signal shutdown as soon as the worker sleeps -- before the follow-up check.
                 provider._shutdown = True
                 return False
 
-            monkeypatch.setattr(threading.Event, 'wait', patched_wait)
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
 
             try:
                 provider._worker()
