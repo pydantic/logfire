@@ -8,7 +8,7 @@ Several languages have a dedicated page. Send data with the standard OpenTelemet
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs
 in many languages to export to the **Logfire** backend, including those outside our
-[first-class supported languages](../languages.md). Depending on your SDK, you may need to set only
+[first-class supported languages](../instrument/index.md). Depending on your SDK, you may need to set only
 these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
 
 - `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for both traces and metrics, or:

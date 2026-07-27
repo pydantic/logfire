@@ -79,4 +79,4 @@ Each row is one span, with its service, name, and duration. The screenshot shows
 
 - **New to tracing?** [Core concepts](../concepts.md) explains spans and traces and how to read them.
 - **Want to add your own spans?** Use the [OpenTelemetry Java API](https://opentelemetry.io/docs/languages/java/api/) on top of the automatic ones.
-- **Another language?** See [Language support](../languages.md), or [Alternative clients](../how-to-guides/alternative-clients.md) for the generic pattern.
+- **Another language?** See [Language support](../instrument/index.md), or [Alternative clients](../how-to-guides/alternative-clients.md) for the generic pattern.

@@ -144,6 +144,8 @@ navigation:
       - page: "Overview"
         path: "instrument/index.md"
         slug: "instrument"
+        aliases:
+          - "resources/languages"
       - section: "Python"
         contents:
           - page: "Onboarding Checklist"
@@ -572,7 +574,7 @@ navigation:
           - page: "Embeddings"
             path: "reference/advanced/gateway/embeddings.md"
             slug: "manage/ai-gateway/embeddings"
-          - section: "Connect a framework"
+          - section: "Connect an agent"
             contents:
               - page: "Overview"
                 path: "reference/advanced/gateway/integrations/index.md"
@@ -1007,10 +1009,6 @@ navigation:
                 aliases:
                   - "how-to-guides/different-configurations"
                 title: "Combining Multiple Configurations in Logfire"
-      - page: "Languages"
-        path: "languages.md"
-        source: "plain"
-        slug: "resources/languages"
       - page: "Roadmap"
         path: "roadmap.md"
         source: "plain"
