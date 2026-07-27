@@ -6033,15 +6033,21 @@ class TestSSEHardening:
             monkeypatch.setattr(provider, '_log_error', _capture_log_error)
 
             provider.refresh(force=True)  # 200 -- populates config and ETag
-            assert provider._config is not None
-            first_fetched_at = provider._last_fetched_at
+            first_config = provider._config
+            assert first_config is not None
+            assert provider._last_fetched_at is not None
+            # Rewind the recorded timestamp so the strict later-than assertion below can
+            # only pass if the 304 path actually refreshed it -- clock granularity could
+            # otherwise let an unchanged timestamp slip through a >= comparison.
+            rewound_fetched_at = provider._last_fetched_at - timedelta(hours=1)
+            provider._last_fetched_at = rewound_fetched_at
 
             provider.refresh(force=True)  # 304 -- must not replace config or log an error
-            assert provider._config is not None
+            assert provider._config is first_config, '304 must leave the cached config object untouched'
+            assert provider.get_serialized_value('my_var').value == '"hello"'
             assert not logged_errors, f'Unexpected errors logged on 304: {logged_errors}'
             assert provider._last_fetched_at is not None
-            assert first_fetched_at is not None
-            assert provider._last_fetched_at >= first_fetched_at
+            assert provider._last_fetched_at > rewound_fetched_at, '304 must refresh _last_fetched_at'
 
     def test_if_none_match_sent_when_etag_known(self) -> None:
         """When a previous response set an ETag the next request must include If-None-Match."""
