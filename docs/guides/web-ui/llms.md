@@ -4,7 +4,7 @@ description: "Browse every model and provider your application calls. See cost, 
 ---
 # LLMs
 
-The **LLMs** page is the per-model inventory of every LLM your application is calling. Each row shows calls, latency, tokens and cost for one (provider, model) pair, and the LLM detail page links into the trace for each individual call.
+The <OpenInLogfire path="llms" variant="inline" label="LLMs" /> page is the per-model inventory of every LLM your application is calling. Each row shows calls, latency, tokens and cost for one (provider, model) pair, and the LLM detail page links into the trace for each individual call.
 
 For inspecting an individual LLM call inside a trace, the [LLM Panels](llm-panels.md) guide covers the in-trace view; this page covers the per-model and per-agent analytics surfaces.
 

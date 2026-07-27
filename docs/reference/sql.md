@@ -12,7 +12,7 @@ description: Use Logfire to query your observability data using SQL (via Postgre
 
 Data is stored in two main tables: `records` and `metrics`.
 
-`records` is the table you'll usually care about and is what you'll see in the Live View. Each row in `records` is a span or log (essentially a span with no duration). A _trace_ is a collection of spans that share the same `trace_id`, structured as a tree.
+`records` is the table you'll usually care about and is what you'll see in the <OpenInLogfire path="" variant="inline" label="Live View" />. Each row in `records` is a span or log (essentially a span with no duration). A _trace_ is a collection of spans that share the same `trace_id`, structured as a tree.
 
 `metrics` contains pre-aggregated numerical data which is usually more efficient to query than `records` for certain use cases. There's currently no dedicated UI for metrics, but you can query it directly using SQL in SQL Workbench, Dashboards, Alerts, or the API, just like you would with `records`.
 

@@ -73,7 +73,7 @@ Both variants include the following metrics:
 
 To enable a standard dashboard:
 
-1. Go to the **Dashboards** tab in the top navigation bar.
+1. Go to the <OpenInLogfire path="dashboards" variant="inline" label="Dashboards" /> tab in the top navigation bar.
 2. Click the **+ Dashboard** button.
 3. Browse the list of available dashboards under the **Standard** tab.
 ![Standard dashboards](../../images/guide/browser-standard-dashboards-list.png)
