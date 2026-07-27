@@ -19,5 +19,7 @@ For a language without a dedicated SDK, you send data with the standard OpenTele
 - [Go](languages/go.md)
 - [.NET](languages/dotnet.md)
 - [Java](languages/java.md)
+- [Ruby](languages/ruby.md)
+- [PHP](languages/php.md)
 
 For any other language, see [Alternative clients](how-to-guides/alternative-clients.md).
