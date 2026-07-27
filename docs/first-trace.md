@@ -106,11 +106,11 @@ Pick your language below; the Python and JavaScript/TypeScript tabs are complete
     node hello.mjs
     ```
 
-    For browsers, Cloudflare Workers, and frameworks, see [Language support](languages.md).
+    For browsers, Cloudflare Workers, and frameworks, see [Language support](instrument/index.md).
 
 === "Any other language"
 
-    Logfire works with any language that supports OpenTelemetry (OTel), the open standard it is built on. See [Language support](languages.md) for Go, Rust, Java, .NET, and more.
+    Logfire works with any language that supports OpenTelemetry (OTel), the open standard it is built on. See [Language support](instrument/index.md) for Go, Rust, Java, .NET, and more.
 
 ## See it in the Live view
 
