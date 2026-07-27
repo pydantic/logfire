@@ -2,7 +2,7 @@
 title: "Logfire SQL Workbench: Query & Inspect Your Data"
 description: Run arbitrary SQL queries against traces and metric data. Use the Logfire SQL Workbench to investigate and analyze records.
 ---
-With **Logfire**, you can use SQL Workbench to run arbitrary SQL queries against your trace and metric data to
+With **Logfire**, you can use the <OpenInLogfire path="explore" variant="inline" label="SQL Workbench" /> to run arbitrary SQL queries against your trace and metric data to
 analyze and investigate your system.
 
 ![Logfire SQL Workbench](../../images/guide/browser-explore-full.png)
@@ -37,7 +37,7 @@ See the [SQL Reference](../../reference/sql.md) for details on the SQL syntax su
 After running a query, you can take any `trace_id` and/or `span_id` and use it to look up data shown as traces
 in the Live View.
 
-Simply go to the Live View and enter a query like:
+Simply go to the <OpenInLogfire path="" variant="inline" label="Live View" /> and enter a query like:
 
 ```
 trace_id = '7bda3ddf6e6d4a0c8386093209eb0bfc' -- replace with a real trace_id of your own
