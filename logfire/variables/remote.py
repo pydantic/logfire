@@ -332,6 +332,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # Gap 5: after an SSE-triggered (forced) refresh, schedule a follow-up refresh
             # ~2 s later to beat any server-side caching layer that may have served a stale
             # response to the first request.
+            # The follow-up deliberately keeps sending If-None-Match. Dropping it would not
+            # bypass a stale cache: an HTTP cache answers conditional and unconditional
+            # requests out of the same stored entry, so a stale 304 and a stale 200 leave us
+            # equally stale, and the platform-side variables cache is keyed server-side and
+            # ignores request headers entirely. Elapsed time is what clears a stale entry,
+            # which is exactly what the ~2 s delay buys.
             if force:
                 self._followup_refresh_at = time.monotonic() + 2.0
 
