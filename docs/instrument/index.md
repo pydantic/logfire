@@ -15,15 +15,15 @@ These wrap OpenTelemetry in an idiomatic API for each language, with streamlined
 
 <div class="integration-grid">
   <a class="integration-card" href="../guides/onboarding-checklist/index.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/python.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/python.svg) center/contain no-repeat; mask: url(../images/languages/python.svg) center/contain no-repeat"></span>
     <span class="integration-name">Python</span>
   </a>
   <a class="integration-card" href="https://pydantic.dev/docs/logfire/typescript-sdk/">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/typescript.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/typescript.svg) center/contain no-repeat; mask: url(../images/languages/typescript.svg) center/contain no-repeat"></span>
     <span class="integration-name">JavaScript / TypeScript</span>
   </a>
   <a class="integration-card" href="../languages/rust.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/rust.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/rust.svg) center/contain no-repeat; mask: url(../images/languages/rust.svg) center/contain no-repeat"></span>
     <span class="integration-name">Rust</span>
   </a>
 </div>
@@ -34,23 +34,23 @@ For a language without a dedicated SDK, send data with the standard OpenTelemetr
 
 <div class="integration-grid">
   <a class="integration-card" href="../languages/go.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/go.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/go.svg) center/contain no-repeat; mask: url(../images/languages/go.svg) center/contain no-repeat"></span>
     <span class="integration-name">Go</span>
   </a>
   <a class="integration-card" href="../languages/dotnet.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/dotnet.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/dotnet.svg) center/contain no-repeat; mask: url(../images/languages/dotnet.svg) center/contain no-repeat"></span>
     <span class="integration-name">.NET</span>
   </a>
   <a class="integration-card" href="../languages/java.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/java.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/java.svg) center/contain no-repeat; mask: url(../images/languages/java.svg) center/contain no-repeat"></span>
     <span class="integration-name">Java</span>
   </a>
   <a class="integration-card" href="../languages/ruby.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/ruby.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/ruby.svg) center/contain no-repeat; mask: url(../images/languages/ruby.svg) center/contain no-repeat"></span>
     <span class="integration-name">Ruby</span>
   </a>
   <a class="integration-card" href="../languages/php.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../images/languages/php.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/php.svg) center/contain no-repeat; mask: url(../images/languages/php.svg) center/contain no-repeat"></span>
     <span class="integration-name">PHP</span>
   </a>
   <a class="integration-card" href="../how-to-guides/alternative-clients.md">
