@@ -58,7 +58,7 @@ Real-time observability is table stakes for debugging. Logfire's Live View shows
 
 Getting equivalent functionality in Grafana requires significant configuration and often doesn't work as reliably.
 
-### Query Language — Essential for Agentic Coding
+### Query Language: Essential for Agentic Coding
 
 **Grafana** requires learning multiple query languages:
 
@@ -68,10 +68,10 @@ Getting equivalent functionality in Grafana requires significant configuration a
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax for everything. This is a significant advantage for AI-assisted development:
 
-- **One language** — No context-switching between query syntaxes
-- **AI assistants excel at SQL** — GPT-5, Claude, and coding agents write excellent SQL
-- **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
-- **Familiar syntax** — No new query language to learn
+- **One language**: No context-switching between query syntaxes
+- **AI assistants excel at SQL**: GPT-5, Claude, and coding agents write excellent SQL
+- **Agentic workflows**: When coding agents debug your AI application, they can write arbitrary queries
+- **Familiar syntax**: No new query language to learn
 
 When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. With multiple proprietary DSLs, it's constrained to what someone anticipated for each query type.
 

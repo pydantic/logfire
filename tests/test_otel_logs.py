@@ -152,11 +152,16 @@ def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
         def export(self, batch: Sequence[ReadableLogRecord]):
             raise requests.exceptions.ConnectionError()
 
+        def force_flush(self, timeout_millis: int = 10_000) -> bool:
+            return True
+
     connection_error_exporter = ConnectionErrorExporter()
     exporter = QuietLogExporter(connection_error_exporter)
 
     assert exporter.export([]) == LogRecordExportResult.FAILURE
     assert not caplog.messages
+
+    assert exporter.force_flush() is True
 
     assert not connection_error_exporter.shutdown_called
     exporter.shutdown()

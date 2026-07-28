@@ -169,6 +169,16 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     def func() -> None: ...
 
     func()
+
+    if module_name == 'logfire_api.':
+
+        @logfire_api.instrument
+        def bare_instrumented() -> str:
+            return 'ok'
+
+        assert bare_instrumented() == 'ok'
+        assert bare_instrumented.__name__ == 'bare_instrumented'
+
     logfire__all__.remove('instrument')
 
     assert hasattr(logfire_api, 'instrument_aws_lambda'), 'instrument_aws_lambda'

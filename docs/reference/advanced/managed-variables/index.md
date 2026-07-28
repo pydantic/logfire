@@ -21,7 +21,7 @@ Managed variables are a way to externalize runtime configuration from your code.
 Managed variables use a **versions + labels** model inspired by how Docker tags and git branches work:
 
 - **Versions** are immutable, sequentially numbered snapshots of a variable's value (v1, v2, v3, ...). Once created, a version's value never changes.
-- **Labels** are mutable pointers that reference a specific version. You can move a label to point to a different version at any time — instantly changing what value is served to traffic assigned to that label.
+- **Labels** are mutable pointers that reference a specific version. You can move a label to point to a different version at any time, instantly changing what value is served to traffic assigned to that label.
 
 For example, you might have a prompt variable with three versions:
 
@@ -38,13 +38,13 @@ And two labels pointing to those versions:
 | `production` | v2 | Most users get the concise prompt |
 | `canary` | v3 | 10% of traffic tests the detailed prompt |
 
-To roll out v3 to everyone, just move the `production` label from v2 to v3. To roll back, move it back to v2. No new versions need to be created — the label is just a pointer.
+To roll out v3 to everyone, just move the `production` label from v2 to v3. To roll back, move it back to v2. No new versions need to be created: the label is just a pointer.
 
 !!! tip "Code default fallback"
     If no labels are configured in the rollout, or if rollout weights sum to less than 1.0, the remaining traffic uses the **code default** (the `default` value passed to `logfire.var()`). To direct remaining traffic to the latest version instead, create a label that references `latest` and include it in your rollout.
 
 !!! note "Code default as safety net"
-    The `default` value you pass to `logfire.var()` serves as an always-available fallback hard-coded into your source code. If no versions have been created yet, or if the remote configuration is unreachable due to a networking issue, or if a remote value fails validation against your type, the SDK returns the code default instead of raising an error. This means your application always has a working value — the remote configuration improves it, but never breaks it.
+    The `default` value you pass to `logfire.var()` serves as an always-available fallback hard-coded into your source code. If no versions have been created yet, or if the remote configuration is unreachable due to a networking issue, or if a remote value fails validation against your type, the SDK returns the code default instead of raising an error. This means your application always has a working value. The remote configuration improves it, but never breaks it.
 
 ## Structured Configuration
 
@@ -161,7 +161,7 @@ Here's the typical workflow using the `AgentConfig` example from above:
 2. **Deploy your application**: it starts using the default immediately
 3. **Push the variable to Logfire** using `logfire.variables_push()` to sync metadata and schemas
 4. **Create versions** in the Logfire UI or programmatically via `logfire.variables_push_config()`: add your initial value as version 1, then create additional versions with different configurations
-5. **Assign labels**: create labels like `production` and `canary`, pointing them at specific versions — from the UI or programmatically
+5. **Assign labels**: create labels like `production` and `canary`, pointing them at specific versions, from the UI or programmatically
 6. **Set up a rollout**: configure 90% of traffic to the `production` label and 10% to `canary`
 7. **Monitor in real-time**: filter traces by label to compare response quality, latency, and token usage
 8. **Adjust based on data**: if the canary version performs better, move the `production` label to that version

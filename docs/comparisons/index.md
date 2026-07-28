@@ -51,7 +51,8 @@ Logfire is a great fit when you:
 - **AI enabled workflows** - Use the [Logfire MCP server](https://pydantic.dev/docs/logfire/guides/mcp-server/?utm_source=comparison_docs) to query your app's telemetry data, analyze distributed traces, and fix errors with AI using Logfire's OTel-native API
 - **Have polyglot architectures** - Python backend + TypeScript frontend, microservices in different languages
 - **Want exceptional Python, TS/JS, Rust support** - While also supporting other languages via OTel
-- **Need code-first evals** - [pydantic-evals](https://pydantic.dev/docs/logfire/evaluate/evals/?utm_source=comparison_docs) tests any Python function, not just LLM calls
+- **Want evals both ways** - [code-first evals with pydantic-evals](https://pydantic.dev/docs/logfire/evaluate/datasets/?utm_source=comparison_docs) that test any Python function, plus a [web UI for datasets, experiments, and live production monitoring](https://pydantic.dev/docs/logfire/evaluate/evals/?utm_source=comparison_docs)
+- **Want the full AI engineering loop in one place** - [prompt management](https://pydantic.dev/docs/logfire/prompt-management/?utm_source=comparison_docs), a playground, and an [AI gateway](../reference/advanced/gateway/index.md) with key management and spending controls, next to your traces
 - **Prefer SQL-based querying** - Familiar PostgreSQL syntax over proprietary query languages
 - **Value simple, predictable pricing** - $2/million spans, scales to billions of spans per month
-- **Need enterprise features** - [SOC2, HIPAA, self-hosting](https://pydantic.dev/pricing#enterprise?utm_source=comparison_docs options
+- **Need enterprise features** - [SOC2, HIPAA, self-hosting](https://pydantic.dev/pricing?utm_source=comparison_docs#enterprise) options

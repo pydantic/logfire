@@ -89,7 +89,7 @@ of your choice (S3, GCS etc.)
 
 See **[Query API docs](how-to-guides/query-api.md)** for Arrow/CSV examples, auth tokens, and tips.
 
-Enterprise plans support native extended retention — email `sales@logfire.dev` if that's what you need.
+Enterprise plans support native extended retention. Email `sales@logfire.dev` if that's what you need.
 
 ---
 

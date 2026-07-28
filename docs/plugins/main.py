@@ -21,6 +21,7 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = build_environment_variables_table(markdown, page)
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
+    markdown = before_you_start(markdown, page)
     markdown = integrations_metadata(markdown, page)
     markdown = footer_excluded_urls_and_headers(markdown, page)
     return markdown
@@ -147,6 +148,31 @@ def install_logfire(markdown: str, page: Page) -> str:
 
         markdown = re.sub(r'(?P<indent> *){{ *install_logfire\(.*\) *}}', replace_match, markdown, count=1)
     return markdown
+
+
+def before_you_start(markdown: str, page: Page) -> str:
+    """Expand ``{{ before_you_start() }}`` into the shared onboarding block for integration pages.
+
+    Keeps the "get a project + credential" instructions in one place so they stay consistent and
+    track the product (the Add data wizard) instead of drifting across dozens of pages.
+    """
+    if not page.file.src_uri.startswith('integrations/'):
+        return markdown
+    if 'before_you_start()' not in markdown:
+        return markdown
+
+    # Relative path from this page back to docs/index.md (the Getting Started page).
+    depth = page.file.src_uri.count('/')
+    index_link = '../' * depth + 'index.md'
+    block = (
+        '## Before you start\n'
+        '\n'
+        "You'll need a Logfire project. Open **Add data** in your project (top navigation) and follow the\n"
+        'setup for your language: it signs your machine in with `logfire auth` (a browser sign-in, no token\n'
+        'to copy) and, for production or other languages, creates a **write token** (the credential your app\n'
+        f'uses to send data). New to Logfire? Start with [Getting Started]({index_link}).'
+    )
+    return re.sub(r'{{ *before_you_start\(\) *}}', lambda _match: block, markdown)
 
 
 def warning_on_third_party(markdown: str, page: Page) -> str:

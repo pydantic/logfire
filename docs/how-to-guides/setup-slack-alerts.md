@@ -37,8 +37,8 @@ There are a few ways to create an alert.  You can:
 We'll create an alert that will let us know if any HTTP request takes longer than a second to execute.
 
 * Login to **Logfire** and [navigate to your project](https://logfire-us.pydantic.dev/-/redirect/latest-project)
-* Click on **Alerts** in the top navigation bar
-* Select the **New Alert** button in the top right
+* Click on **Alerts** in the **Notify** section of the left sidebar
+* Select the **New alert** button in the top right, then pick **Custom query**
 * Let's give this Alert a name of **Slow Requests**
 * For the query, we'll group results by the http path and duration.  We want to include the **max** duration in a given time frame.  We also want to filter out any traces that aren't http requests, and order by the max duration, so we can see which routes are the slowest.  This query looks like:
   ```sql
@@ -59,10 +59,10 @@ We'll create an alert that will let us know if any HTTP request takes longer tha
 
     ![](../images/guide/browser-alerts-create-alert.png)
 
-* You can adjust when alerts are sent based upon the alert parameters.  With this style of alert, we just want to know if anything within the last 5 minutes has been slow.  So we can use the following options:
-    * **Execute the query**: every 5 minutes
-    * **Include rows from**: the last 5 minutes
-    * **Notify me when**: the query has any results
+* You can adjust when alerts are sent under the **When this alert fires** section.  With this style of alert, we just want to know if anything within the last 5 minutes has been slow.  So we can use the following options:
+    * **Fire when**: the query has any results
+    * **Look at rows from**: the last 5 minutes
+    * **Check every**: 5 minutes
 
     ![](../images/guide/browser-alerts-parameters.png)
 
@@ -72,14 +72,15 @@ Our alert is almost done, let's send it to a slack channel.
 
 For this, you will need the [Webhook URL](#creating-a-slack-incoming-webhook) you created & copied from the  Slack [Apps Management Dashboard](https://api.slack.com/apps).
 
-Let's set up a channel, then test that alerts can be sent with the URL:
+Let's set up a channel, then test that alerts can be sent with the URL.
+In the **Send notifications to** section of the alert form:
 
-* Select **New channel** to open the New Channel dialog
-* Put in a name such as **Logfire Alerts**.  This does need to be the name of your Slack     channel
-* Select **Slack** as the format
-* Paste in your Webhook URL from the Slack [Apps Management Dashboard]    (https://api.slack.com/apps)
-* Click on **Send a test alert** and check that you can see the alert in Slack.
-* Click **Create Channel** to create the channel and close the dialog
+* Select **Add channel** to open the New channel dialog (channels can also be managed from **Delivery** → **Channels** in the **Notify** section of the left sidebar; they are shared across all projects in your organization)
+* Put in a name such as **Logfire Alerts**.  This does not need to be the name of your Slack channel
+* Select **Slack Webhook** as the type (or leave it as **Auto**; the Slack format is inferred from `hooks.slack.com` URLs)
+* Paste in your Webhook URL from the Slack [Apps Management Dashboard](https://api.slack.com/apps)
+* Click on **Send a test alert** and check that you can see the alert in Slack.  A successful test is required before you can create the channel
+* Click **Create channel** to create the channel and close the dialog
 * Click the checkbox next to your new channel to select it
 
     ![](../images/guide/browser-alerts-create-channel.png)

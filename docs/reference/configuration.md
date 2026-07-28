@@ -20,6 +20,17 @@ You can use the following environment variables to configure **Logfire**:
 
 {{ env_var_table }}
 
+Some parameters also accept an alternative environment variable, used only if the primary one above is not set:
+
+| Primary variable | Alias |
+|---|---|
+| `LOGFIRE_SERVICE_NAME` | `OTEL_SERVICE_NAME` |
+| `LOGFIRE_SERVICE_VERSION` | `OTEL_SERVICE_VERSION` |
+| `LOGFIRE_TRACE_SAMPLE_RATE` | `OTEL_TRACES_SAMPLER_ARG` |
+| `LOGFIRE_CONSOLE_SHOW_PROJECT_LINK` | `LOGFIRE_SHOW_SUMMARY` |
+
+In addition, `LOGFIRE_CONFIG_DIR` sets the directory containing the [configuration file](#using-a-configuration-file-pyprojecttoml) (defaults to the current directory).
+
 When using environment variables, you still need to call [`logfire.configure()`][logfire.configure],
 but you can leave out the arguments.
 

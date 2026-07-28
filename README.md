@@ -1,4 +1,4 @@
-# Pydantic Logfire — Know more. Build faster.
+# Pydantic Logfire: Know more. Build faster.
 
 <p align="center">
   <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>
@@ -9,13 +9,13 @@
   <a href="https://pydantic.dev/docs/logfire/join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
 </p>
 
-From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.
+From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open-source library: that the most powerful tools can be easy to use.
 
 What sets Logfire apart:
 
 - **Simple and Powerful:** Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it.
 - **Python-centric Insights:** From rich display of Python objects, to event-loop telemetry, to profiling Python code and database queries, Logfire gives you unparalleled visibility into your Python application's behavior.
-- **SQL:** Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
+- **SQL:** Query your data using standard SQL: all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 - **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language. We offer full support for all OpenTelemetry signals (traces, metrics and logs).
 - **Pydantic Integration:** Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
 

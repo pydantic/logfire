@@ -48,12 +48,12 @@ with prompt.get(PromptInputs(user_name='Bob')) as resolved:
 
 The full resolution pipeline is:
 
-1. **Resolve** — fetch the serialized value from the provider (or use the code default)
-2. **Compose** — expand any `@{variable_name}@` references (see [Composition](#variable-composition) below)
-3. **Render** — render `{{placeholder}}` Handlebars templates using the provided inputs
-4. **Deserialize** — validate and deserialize to the variable's type
+1. **Resolve**: fetch the serialized value from the provider (or use the code default)
+2. **Compose**: expand any `@{variable_name}@` references (see [Composition](#variable-composition) below)
+3. **Render**: render `{{placeholder}}` Handlebars templates using the provided inputs
+4. **Deserialize**: validate and deserialize to the variable's type
 
-`logfire.template_var()` accepts the same parameters as `logfire.var()` plus an `inputs_type` parameter — a Pydantic `BaseModel` (or any type supported by `TypeAdapter`) describing the expected template inputs. It is used for type-safe `.get(inputs)` calls and generates a `template_inputs_schema` for validation.
+`logfire.template_var()` accepts the same parameters as `logfire.var()` plus an `inputs_type` parameter, a Pydantic `BaseModel` (or any type supported by `TypeAdapter`) describing the expected template inputs. It is used for type-safe `.get(inputs)` calls and generates a `template_inputs_schema` for validation.
 
 ### Handlebars Syntax
 
@@ -71,7 +71,7 @@ Template variables use [Handlebars](https://handlebarsjs.com/) syntax, powered b
 
 ### Structured Template Variables
 
-Template variables work with structured types too. Only string fields containing `{{placeholders}}` are rendered — other fields pass through unchanged:
+Template variables work with structured types too. Only string fields containing `{{placeholders}}` are rendered. Other fields pass through unchanged:
 
 ```python
 from pydantic import BaseModel
@@ -118,13 +118,13 @@ For example, if your `inputs_type` declares `user_name: str` and `is_premium: bo
 
 #### Render-time mismatch policy
 
-Push-time validation is a pre-flight check. At **render time**, `TemplateVariable.get(inputs)` can also react when the resolved (post-composition) template references a `{{field}}` not declared in `inputs_type` — an undeclared field otherwise renders to the empty string (matching Handlebars). The behaviour is controlled by `template_mismatch_policy`:
+Push-time validation is a pre-flight check. At **render time**, `TemplateVariable.get(inputs)` can also react when the resolved (post-composition) template references a `{{field}}` not declared in `inputs_type`. An undeclared field otherwise renders to the empty string (matching Handlebars). The behaviour is controlled by `template_mismatch_policy`:
 
-- `'warn'` (default) — emit a `RuntimeWarning` and render anyway (undeclared fields become empty strings).
-- `'error'` — raise `TemplateInputsMismatchError` instead of rendering.
-- `'ignore'` — render silently, no warning.
+- `'warn'` (default): emit a `RuntimeWarning` and render anyway (undeclared fields become empty strings).
+- `'error'`: raise `TemplateInputsMismatchError` instead of rendering.
+- `'ignore'`: render silently, no warning.
 
-Set it per-variable on [`template_var()`][logfire.Logfire.template_var], or per-Logfire-instance on `VariablesOptions` / `LocalVariablesOptions`. The variable-level value wins when set — even when it *relaxes* the instance setting; otherwise the instance setting applies, falling back to `'warn'`.
+Set it per-variable on [`template_var()`][logfire.Logfire.template_var], or per-Logfire-instance on `VariablesOptions` / `LocalVariablesOptions`. The variable-level value wins when set (even when it *relaxes* the instance setting); otherwise the instance setting applies, falling back to `'warn'`.
 
 ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
 from pydantic import BaseModel
@@ -177,11 +177,11 @@ with agent_prompt.get() as resolved:
     #> You are a helpful assistant. Never share personal data. Always be respectful.
 ```
 
-When `safety_rules` is updated in the Logfire UI, all variables that reference `@{safety_rules}@` automatically pick up the new value — no code changes or redeployment required.
+When `safety_rules` is updated in the Logfire UI, all variables that reference `@{safety_rules}@` automatically pick up the new value: no code changes or redeployment required.
 
 ### Composition Control Flow
 
-The `@{}@` syntax runs through the full Handlebars engine (just with `@{` / `}@` as the delimiter pair instead of the default `{{` / `}}`), so any expression form that works in Handlebars also works here — simple references, dotted field reads, block helpers, and helper sub-expressions:
+The `@{}@` syntax runs through the full Handlebars engine (just with `@{` / `}@` as the delimiter pair instead of the default `{{` / `}}`), so any expression form that works in Handlebars also works here: simple references, dotted field reads, block helpers, and helper sub-expressions:
 
 | Syntax | Description |
 |--------|-------------|
@@ -247,14 +247,14 @@ with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolv
 ```
 
 !!! warning "Don't compose a template variable into a plain variable"
-    Composition flows one way: a `template_var()` may compose plain `var()` fragments (as above), but a plain `var()` should **not** compose a `template_var()`. A plain variable has no `inputs_type`, so a composed template's `{{placeholder}}` expressions can never receive inputs when resolved through it — they'd just render empty. Logfire emits a `RuntimeWarning` at declaration time if you do this. If you need to render the composed template's inputs, make the composing variable a `template_var()` too, with an `inputs_type` that covers the placeholders.
+    Composition flows one way: a `template_var()` may compose plain `var()` fragments (as above), but a plain `var()` should **not** compose a `template_var()`. A plain variable has no `inputs_type`, so a composed template's `{{placeholder}}` expressions can never receive inputs when resolved through it. They'd just render empty. Logfire emits a `RuntimeWarning` at declaration time if you do this. If you need to render the composed template's inputs, make the composing variable a `template_var()` too, with an `inputs_type` that covers the placeholders.
 
 ### Recursive Resolution
 
 !!! warning "Different from plain Handlebars"
-    Standard Handlebars expressions like `{{greeting}}` perform a **one-shot string substitution**: whatever string `greeting` resolves to appears verbatim in the output. If that string happens to contain `{{name}}`, the inner `{{name}}` is *not* re-evaluated — it ends up in the output as the literal text `{{name}}`.
+    Standard Handlebars expressions like `{{greeting}}` perform a **one-shot string substitution**: whatever string `greeting` resolves to appears verbatim in the output. If that string happens to contain `{{name}}`, the inner `{{name}}` is *not* re-evaluated. It ends up in the output as the literal text `{{name}}`.
 
-    `@{...}@` composition does the opposite: when the SDK substitutes a referenced variable, it first **fully resolves** that variable — including expanding any `@{...}@` references *inside* it — before splicing the result in.
+    `@{...}@` composition does the opposite: when the SDK substitutes a referenced variable, it first **fully resolves** that variable (including expanding any `@{...}@` references *inside* it) before splicing the result in.
 
 Concretely, composition walks the reference graph at resolution time. A tree like `parent → @{middle}@ → @{leaf}@` resolves leaf-first, builds `middle`, then substitutes the result into `parent`:
 
@@ -275,7 +275,7 @@ with parent.get() as resolved:
     #> middle -> leaf
 ```
 
-Contrast with plain Handlebars rendering, where `{{...}}` only substitutes — no graph walk, no re-rendering of values that happen to look template-like:
+Contrast with plain Handlebars rendering, where `{{...}}` only substitutes: no graph walk, no re-rendering of values that happen to look template-like:
 
 ```python
 from pydantic_handlebars import render
@@ -288,9 +288,9 @@ print(render('{{greeting}}', {'greeting': 'Hello, {{name}}!', 'name': 'Alice'}))
 
 Composition follows standard Handlebars semantics, with one extra rule for choosing *which* value to render. Where a broken reference lives determines what happens.
 
-**A provider/stored value (and an `override()`) is composed strictly.** If any `@{ref}@` — or a dotted `@{ref.field}@` — in it can't be resolved, the value is discarded and resolution falls back to the variable's **code default**, with a `RuntimeWarning`. Cycles (`A → @{B}@`, `B → @{A}@`) and deep chains (`MAX_COMPOSITION_DEPTH = 20`) fall back the same way. The triggering exception is recorded on `ResolvedVariable.exception` and `reason` becomes `'other_error'`, so callers can detect and react.
+**A provider/stored value (and an `override()`) is composed strictly.** If any `@{ref}@` (or a dotted `@{ref.field}@`) in it can't be resolved, the value is discarded and resolution falls back to the variable's **code default**, with a `RuntimeWarning`. Cycles (`A → @{B}@`, `B → @{A}@`) and deep chains (`MAX_COMPOSITION_DEPTH = 20`) fall back the same way. The triggering exception is recorded on `ResolvedVariable.exception` and `reason` becomes `'other_error'`, so callers can detect and react.
 
-This is the useful part: rather than serve a value that's been assembled *around* a missing fragment, resolution falls back to a value that's known to be complete on its own. A prompt that composes `@{persona}@ @{safety_rules}@` won't be served as just the persona with the safety rules silently dropped — if `@{safety_rules}@` can't be resolved, you get the variable's self-contained code default instead.
+This is the useful part: rather than serve a value that's been assembled *around* a missing fragment, resolution falls back to a value that's known to be complete on its own. A prompt that composes `@{persona}@ @{safety_rules}@` won't be served as just the persona with the safety rules silently dropped. If `@{safety_rules}@` can't be resolved, you get the variable's self-contained code default instead.
 
 ```python
 import warnings
@@ -310,7 +310,7 @@ with warnings.catch_warnings(record=True) as caught:
     warnings.simplefilter('always')
     # Simulate a stored value (via override, which is composed strictly too) that builds the
     # prompt from one resolvable fragment and one that's been deleted or mistyped. Instead of
-    # serving "You are a helpful assistant. " — silently missing the safety policy — resolution
+    # serving "You are a helpful assistant. " (silently missing the safety policy), resolution
     # falls back to the complete, self-contained code default.
     with system_prompt.override('@{persona}@ @{safety_rules}@'):
         with system_prompt.get() as resolved:
@@ -320,7 +320,7 @@ with warnings.catch_warnings(record=True) as caught:
     #> True
 ```
 
-**The code default is the lenient last resort.** When resolution composes the code default — whether it's the active value or the target of a fallback — there is nowhere further to go, so a missing `@{ref}@` in it renders as an **empty string** (and `@{#if missing}@` takes the else branch), like standard Handlebars and like a missing `{{field}}` input. A `RuntimeWarning` still names the issue; only a *structural* failure (a cycle or unparseable template) falls back one more step, to the raw uncomposed default.
+**The code default is the lenient last resort.** When resolution composes the code default (whether it's the active value or the target of a fallback) there is nowhere further to go, so a missing `@{ref}@` in it renders as an **empty string** (and `@{#if missing}@` takes the else branch), like standard Handlebars and like a missing `{{field}}` input. A `RuntimeWarning` still names the issue; only a *structural* failure (a cycle or unparseable template) falls back one more step, to the raw uncomposed default.
 
 The trade-off is worth understanding: because the code default is itself composed (so it too can be built from `@{fragments}@`), a broken reference *in a code default* has nothing to fall back to and will surface an incomplete value at runtime. Keep code defaults self-contained where correctness matters, and lean on push / sync-time validation (below) to catch broken references before they ship.
 
@@ -345,7 +345,7 @@ with warnings.catch_warnings(record=True) as caught:
     #> True
 ```
 
-**Push / sync time is the real safety net.** `logfire.variables_validate()` reports missing references and cycles, and `logfire.variables_push(strict=True)` refuses to apply an invalid configuration. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a missing reference — or a cycle whose midpoint is a server-only variable — is caught before it ever ships.
+**Push / sync time is the real safety net.** `logfire.variables_validate()` reports missing references and cycles, and `logfire.variables_push(strict=True)` refuses to apply an invalid configuration. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a missing reference (or a cycle whose midpoint is a server-only variable) is caught before it ever ships.
 
 A cycle (or depth overflow) is always a structural failure. When it occurs while composing a stored value, resolution falls back to the code default; the example below puts the cycle in the code defaults themselves, so resolution can only return the raw, uncomposed default:
 
@@ -357,7 +357,7 @@ from logfire.variables import VariableCompositionError
 
 logfire.configure()
 
-# A pair of variables that reference each other — push-time validation
+# A pair of variables that reference each other. Push-time validation
 # would catch this; we register them here just to show what the runtime
 # guard does when it does have to step in.
 left = logfire.var('cycle_left', type=str, default='@{cycle_right}@')
