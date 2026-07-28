@@ -24,4 +24,4 @@ Prompt Management currently uses variable-level permissions:
 
 Because run history includes model outputs, treat `read_variables` as sensitive if your prompts handle sensitive data.
 
-For pricing details, plan tiers, and how gateway usage is metered, see [Cost & Usage](../../../logfire-costs.md). The gateway documentation in [Gateway Migration](../../../gateway-migration.md) covers the legacy-vs-integrated distinction that some projects may still be navigating.
+For pricing details and plan tiers, see [Cost & Usage](../../../logfire-costs.md). For how the gateway itself works (providers, API keys, and spending controls), see the [AI Gateway overview](../gateway/index.md).

@@ -2,7 +2,7 @@
 
 ## Versions, Labels, and Rollouts
 
-**VariableConfig** — Full configuration for a variable:
+**VariableConfig**: Full configuration for a variable:
 
 | Field | Description |
 |-------|-------------|
@@ -17,14 +17,14 @@
 | `example` | JSON-serialized example value, used as starting point when creating versions in the UI (optional) |
 | `template_inputs_schema` | JSON Schema for template `{{placeholder}}` inputs (optional, set automatically when template inputs are declared via `logfire.template_var()`) |
 
-**LabeledValue** — A label with an inline serialized value:
+**LabeledValue**: A label with an inline serialized value:
 
 | Field | Description |
 |-------|-------------|
 | `version` | The version number this label points to |
 | `serialized_value` | JSON-serialized value for this version |
 
-**LabelRef** — A label that references another label, `'latest'`, or `'code_default'`:
+**LabelRef**: A label that references another label, `'latest'`, or `'code_default'`:
 
 | Field | Description |
 |-------|-------------|
@@ -33,18 +33,18 @@
 
 Use `LabeledValue` when the label has its own inline value. Use `LabelRef` when the label should follow a reference:
 
-- **Another label name**: Keeps two labels in sync — when the target label is moved, this label follows automatically. Useful when you want e.g. `staging` to always match `production`.
+- **Another label name**: Keeps two labels in sync: when the target label is moved, this label follows automatically. Useful when you want e.g. `staging` to always match `production`.
 - **`'latest'`**: Always resolves to the most recently created version. This avoids duplicating large values when multiple labels point to the same version.
 - **`'code_default'`**: Resolves to `None`, causing the SDK to fall back to the default value defined in code. Useful for disabling remote config for a specific label without removing it.
 
-**LatestVersion** — The most recent version of a variable:
+**LatestVersion**: The most recent version of a variable:
 
 | Field | Description |
 |-------|-------------|
 | `version` | The version number |
 | `serialized_value` | JSON-serialized value |
 
-**Rollout** — Label selection weights:
+**Rollout**: Label selection weights:
 
 | Field | Description |
 |-------|-------------|
@@ -54,7 +54,7 @@ If the `labels` dict is empty, all traffic uses the code default (the `default` 
 
 ## VariableTypeConfig
 
-**VariableTypeConfig** — Configuration for a reusable type definition:
+**VariableTypeConfig**: Configuration for a reusable type definition:
 
 | Field | Description |
 |-------|-------------|
@@ -134,9 +134,9 @@ def test_premium_config_handling():
 
 #### Overrides and composition
 
-A JSON-serializable override runs through the same `@{ref}@` composition → `{{}}` rendering → deserialization pipeline as a stored value, so it resolves identically to how it would once pushed — making it a faithful stand-in for a candidate value when iterating (e.g. during optimization).
+A JSON-serializable override runs through the same `@{ref}@` composition → `{{}}` rendering → deserialization pipeline as a stored value, so it resolves identically to how it would once pushed, making it a faithful stand-in for a candidate value when iterating (e.g. during optimization).
 
-The case worth calling out is a **non-serializable** override. If the value can't be dumped to JSON through the variable's type adapter — an arbitrary Python object on a `Variable[SomeClass]`, a live client, a model instance — it's returned exactly as passed, with `reason='context_override'` and no round-trip at all. That's deliberate: such a value has no string form, so there's nothing to compose, render, or re-validate. The trade-off is that any `@{ref}@` or `{{...}}` *inside* a non-serializable override is left untouched, since there's no serialized form to run the engine against.
+The case worth calling out is a **non-serializable** override. If the value can't be dumped to JSON through the variable's type adapter (an arbitrary Python object on a `Variable[SomeClass]`, a live client, a model instance) it's returned exactly as passed, with `reason='context_override'` and no round-trip at all. That's deliberate: such a value has no string form, so there's nothing to compose, render, or re-validate. The trade-off is that any `@{ref}@` or `{{...}}` *inside* a non-serializable override is left untouched, since there's no serialized form to run the engine against.
 
 ```python
 import logfire
@@ -150,7 +150,7 @@ greeting = logfire.var('greeting', type=str, default='Hello, @{user}@!')
 print(greeting.get().value)
 #> Hello, Alice!
 
-# Override composes too — @{user}@ is expanded against the live config.
+# Override composes too: @{user}@ is expanded against the live config.
 with greeting.override('Hi @{user}@'):
     print(greeting.get().value)
     #> Hi Alice

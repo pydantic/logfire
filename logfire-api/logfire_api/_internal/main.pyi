@@ -1,5 +1,6 @@
 import anthropic
 import httpx
+import httpx2
 import openai
 import opentelemetry.trace as trace_api
 import pydantic_ai
@@ -481,9 +482,9 @@ class Logfire:
                 Exclude specific modules from instrumentation.
         """
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -712,9 +713,9 @@ class Logfire:
             kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
         """
     @overload
-    def instrument_httpx(self, client: httpx.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.Client | httpx2.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.AsyncClient | httpx2.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_httpx(self, client: None = None, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, async_request_hook: HttpxAsyncRequestHook | None = None, async_response_hook: HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     def instrument_celery(self, **kwargs: Any) -> None:
@@ -1450,7 +1451,7 @@ class Logfire:
                 If the body exceeds this size, the response will be a 413, rejecting the payload.
 
         Returns:
-            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+            A `ForwardExportRequestResponse` containing the response status code, body, and headers.
         '''
     async def forward_export_request_starlette(self, request: Request, *, max_body_size: int = ...) -> Response:
         """Forward an OpenTelemetry export request to the Logfire backend.

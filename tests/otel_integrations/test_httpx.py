@@ -2,17 +2,23 @@ from __future__ import annotations
 
 import importlib
 import os
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Generic, TypeAlias, TypeVar, cast
 from unittest import mock
 
 import httpx
+import httpx2
 import pytest
 from dirty_equals import IsAnyStr, IsStr
-from httpx import Request
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
-from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
+from opentelemetry.instrumentation.httpx import (
+    HTTPX2ClientInstrumentor,
+    HTTPXClientInstrumentor,
+    RequestInfo,
+    ResponseInfo,
+)
 from opentelemetry.trace.span import Span
 
 import logfire
@@ -22,14 +28,99 @@ from logfire.testing import TestExporter
 
 pytestmark = pytest.mark.anyio
 
+RESPONSE_BODY = b'{"good": "response"}'
 
-# The purpose of this mock transport is to ensure that the traceparent header is provided
-# without needing to actually make a network request
-def create_transport() -> httpx.MockTransport:
-    def handler(request: Request):
-        return httpx.Response(200, headers=request.headers, stream=httpx.ByteStream(b'{"good": "response"}'))
+RequestT = TypeVar('RequestT', httpx.Request, httpx2.Request)
+ResponseT = TypeVar('ResponseT', httpx.Response, httpx2.Response)
 
-    return httpx.MockTransport(handler)
+
+class HTTPXFamily(ABC, Generic[RequestT, ResponseT]):
+    name: str
+
+    @staticmethod
+    @abstractmethod
+    def response_handler(request: RequestT, response_body: bytes = RESPONSE_BODY) -> ResponseT:
+        raise NotImplementedError
+
+    @staticmethod
+    @abstractmethod
+    def transport_response_handler(_transport: object, request: RequestT) -> ResponseT:
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_transport(self, response_body: bytes = RESPONSE_BODY) -> httpx.MockTransport | httpx2.MockTransport:
+        raise NotImplementedError
+
+    @abstractmethod
+    def patch_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def client(self, response_body: bytes = RESPONSE_BODY) -> httpx.Client | httpx2.Client:
+        raise NotImplementedError
+
+    @abstractmethod
+    def async_client(self, response_body: bytes = RESPONSE_BODY) -> httpx.AsyncClient | httpx2.AsyncClient:
+        raise NotImplementedError
+
+
+class HTTPXClientFamily(HTTPXFamily[httpx.Request, httpx.Response]):
+    name = 'httpx'
+
+    @staticmethod
+    def response_handler(request: httpx.Request, response_body: bytes = RESPONSE_BODY) -> httpx.Response:
+        return httpx.Response(200, headers=request.headers, stream=httpx.ByteStream(response_body))
+
+    @staticmethod
+    def transport_response_handler(_transport: object, request: httpx.Request) -> httpx.Response:
+        return HTTPXClientFamily.response_handler(request)
+
+    def create_transport(self, response_body: bytes = RESPONSE_BODY) -> httpx.MockTransport:
+        return httpx.MockTransport(lambda request: self.response_handler(request, response_body))
+
+    def patch_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', self.transport_response_handler)
+
+    def client(self, response_body: bytes = RESPONSE_BODY) -> httpx.Client:
+        return httpx.Client(transport=self.create_transport(response_body))
+
+    def async_client(self, response_body: bytes = RESPONSE_BODY) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=self.create_transport(response_body))
+
+
+class HTTPX2ClientFamily(HTTPXFamily[httpx2.Request, httpx2.Response]):
+    name = 'httpx2'
+
+    @staticmethod
+    def response_handler(request: httpx2.Request, response_body: bytes = RESPONSE_BODY) -> httpx2.Response:
+        return httpx2.Response(200, headers=request.headers, stream=httpx2.ByteStream(response_body))
+
+    @staticmethod
+    def transport_response_handler(_transport: object, request: httpx2.Request) -> httpx2.Response:
+        return HTTPX2ClientFamily.response_handler(request)
+
+    def create_transport(self, response_body: bytes = RESPONSE_BODY) -> httpx2.MockTransport:
+        return httpx2.MockTransport(lambda request: self.response_handler(request, response_body))
+
+    def patch_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(httpx2.HTTPTransport, 'handle_request', self.transport_response_handler)
+
+    def client(self, response_body: bytes = RESPONSE_BODY) -> httpx2.Client:
+        return httpx2.Client(transport=self.create_transport(response_body))
+
+    def async_client(self, response_body: bytes = RESPONSE_BODY) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=self.create_transport(response_body))
+
+
+HTTPX_CLIENT_FAMILY = HTTPXClientFamily()
+HTTPX2_CLIENT_FAMILY = HTTPX2ClientFamily()
+HTTPXFamilyType: TypeAlias = HTTPXClientFamily | HTTPX2ClientFamily
+HTTPX_FAMILIES: tuple[HTTPXFamilyType, ...] = (HTTPX_CLIENT_FAMILY, HTTPX2_CLIENT_FAMILY)
+
+
+@pytest.fixture(params=HTTPX_FAMILIES, ids=lambda family: family.name)
+def httpx_family(request: pytest.FixtureRequest) -> HTTPXFamilyType:
+    return cast(HTTPXFamilyType, request.param)
 
 
 @contextmanager
@@ -38,7 +129,7 @@ def check_traceparent_header():
         assert span.context
         trace_id = span.context.trace_id
 
-        def checker(response: httpx.Response):
+        def checker(response: httpx.Response | httpx2.Response):
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
@@ -54,9 +145,9 @@ def without_metrics(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return spans
 
 
-def test_httpx_client_instrumentation(exporter: TestExporter):
+def test_httpx_client_instrumentation(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
-        with httpx.Client(transport=create_transport()) as client:
+        with httpx_family.client() as client:
             logfire.instrument_httpx(client)
             response = client.get('https://example.org:8080/foo')
             checker(response)
@@ -108,9 +199,115 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
     )
 
 
-def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter):
+def test_global_httpx_and_httpx2_instrumentation(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    for family in HTTPX_FAMILIES:
+        family.patch_transport(monkeypatch)
+    try:
+        logfire.instrument_httpx()
+        with check_traceparent_header() as checker:
+            with httpx.Client() as httpx_client:
+                response = httpx_client.get('https://example.org/httpx')
+                checker(response)
+            with httpx2.Client() as httpx2_client:
+                response = httpx2_client.get('https://example.org/httpx2')
+                checker(response)
+    finally:
+        HTTPXClientInstrumentor().uninstrument()
+        HTTPX2ClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert [span['attributes'].get('url.full') for span in spans] == snapshot(
+        ['https://example.org/httpx', 'https://example.org/httpx2', None]
+    )
+
+
+def test_global_httpx_instrumentation_with_old_otel(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, 'HTTPX2ClientInstrumentor', None)
+    HTTPX_CLIENT_FAMILY.patch_transport(monkeypatch)
+    try:
+        with pytest.warns(
+            UserWarning,
+            match='`httpx2` will not be instrumented because it requires '
+            '`opentelemetry-instrumentation-httpx>=0.65b0`.',
+        ):
+            logfire.instrument_httpx()
+        with httpx.Client() as client:
+            client.get('https://example.org/httpx')
+    finally:
+        HTTPXClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert [span['attributes']['url.full'] for span in spans] == ['https://example.org/httpx']
+
+
+def test_httpx2_client_without_httpx_module(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', None)
+    with HTTPX2_CLIENT_FAMILY.client() as client:
+        logfire.instrument_httpx(client)
+        client.get('https://example.org/httpx2')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert [span['attributes']['url.full'] for span in spans] == ['https://example.org/httpx2']
+
+
+def test_instrumentors_for_optional_client_modules(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx2', None)
+    instrumentors = logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
+    assert [type(instrumentor) for instrumentor in instrumentors] == [HTTPXClientInstrumentor]
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', None)
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx2', httpx2)
+    instrumentors = logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
+    assert [type(instrumentor) for instrumentor in instrumentors] == [HTTPX2ClientInstrumentor]
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx2', None)
+    with pytest.raises(RuntimeError, match='requires either the `httpx` or `httpx2` package'):
+        logfire._internal.integrations.httpx._instrumentors_for_installed_modules()  # pyright: ignore[reportPrivateUsage]
+
+
+def test_httpx2_requires_new_otel(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(logfire._internal.integrations.httpx, 'HTTPX2ClientInstrumentor', None)
+    with HTTPX2_CLIENT_FAMILY.client() as client:
+        with pytest.raises(RuntimeError) as exc_info:
+            logfire.instrument_httpx(client)
+    assert str(exc_info.value) == snapshot("""\
+Instrumenting `httpx2` requires `opentelemetry-instrumentation-httpx>=0.65b0`.
+You can update this with:
+    pip install -U 'logfire[httpx]' 'opentelemetry-instrumentation-httpx>=0.65b0'\
+""")
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, '_httpx', None)
+    with pytest.raises(RuntimeError, match='Instrumenting `httpx2` requires'):
+        logfire.instrument_httpx()
+
+
+def test_invalid_httpx_client():
+    with pytest.raises(TypeError, match='Expected an `httpx` or `httpx2` client, got object'):
+        logfire.instrument_httpx(cast(Any, object()))
+
+
+@pytest.mark.parametrize('missing_name', ['httpx', 'httpcore'])
+def test_import_optional_client_module(missing_name: str, monkeypatch: pytest.MonkeyPatch):
+    def import_missing_module(name: str):
+        raise ModuleNotFoundError(name=missing_name)
+
+    monkeypatch.setattr(logfire._internal.integrations.httpx, 'import_module', import_missing_module)
+    if missing_name == 'httpx':
+        assert (
+            logfire._internal.integrations.httpx._import_optional_client_module('httpx')  # pyright: ignore[reportPrivateUsage]
+            is None
+        )
+    else:
+        with pytest.raises(ModuleNotFoundError) as exc_info:
+            logfire._internal.integrations.httpx._import_optional_client_module(  # pyright: ignore[reportPrivateUsage]
+                'httpx'
+            )
+        assert exc_info.value.name == 'httpcore'
+
+
+def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with mock.patch.dict('os.environ', {'OTEL_SEMCONV_STABILITY_OPT_IN': ''}):
-        with httpx.Client(transport=create_transport()) as client:
+        with httpx_family.client() as client:
             # Pick up the new value of OTEL_SEMCONV_STABILITY_OPT_IN
             _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
 
@@ -141,9 +338,9 @@ def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter):
     )
 
 
-async def test_async_httpx_client_instrumentation(exporter: TestExporter):
+async def test_async_httpx_client_instrumentation(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
-        async with httpx.AsyncClient(transport=create_transport()) as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(client)
             response = await client.get('https://example.org:8080/foo')
             checker(response)
@@ -243,10 +440,13 @@ RESPONSE_ATTRIBUTES = {
     ],
 )
 def test_httpx_client_instrumentation_with_capture_headers(
-    exporter: TestExporter, instrument_kwargs: dict[str, Any], expected_attributes: set[str]
+    exporter: TestExporter,
+    httpx_family: HTTPXFamilyType,
+    instrument_kwargs: dict[str, Any],
+    expected_attributes: set[str],
 ):
     with check_traceparent_header() as checker:
-        with httpx.Client(transport=create_transport()) as client:
+        with httpx_family.client() as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
             response = client.get('https://example.org:8080/foo')
             checker(response)
@@ -276,11 +476,12 @@ def test_httpx_client_instrumentation_with_capture_headers(
 )
 async def test_async_httpx_client_instrumentation_with_capture_headers(
     exporter: TestExporter,
+    httpx_family: HTTPXFamilyType,
     instrument_kwargs: dict[str, Any],
     expected_attributes: set[str],
 ):
     with check_traceparent_header() as checker:
-        async with httpx.AsyncClient(transport=create_transport()) as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
             response = await client.get('https://example.org:8080/foo')
             checker(response)
@@ -307,10 +508,14 @@ CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[Any]] = (
 
 @pytest.mark.parametrize(*CAPTURE_JSON_BODY_PARAMETERS)
 def test_httpx_client_instrumentation_with_capture_json_body(
-    exporter: TestExporter, content_type: str, body: Any, expected_http_request_body_text: str
+    exporter: TestExporter,
+    httpx_family: HTTPXFamilyType,
+    content_type: str,
+    body: Any,
+    expected_http_request_body_text: str,
 ):
     with check_traceparent_header() as checker:
-        with httpx.Client(transport=create_transport()) as client:
+        with httpx_family.client() as client:
             logfire.instrument_httpx(client, capture_request_body=True)
             headers = {'Content-Type': content_type} if content_type else {}
             response = client.post('https://example.org:8080/foo', headers=headers, content=body)
@@ -322,10 +527,14 @@ def test_httpx_client_instrumentation_with_capture_json_body(
 
 @pytest.mark.parametrize(*CAPTURE_JSON_BODY_PARAMETERS)
 async def test_async_httpx_client_instrumentation_with_capture_json_body(
-    exporter: TestExporter, content_type: str, body: Any, expected_http_request_body_text: str
+    exporter: TestExporter,
+    httpx_family: HTTPXFamilyType,
+    content_type: str,
+    body: Any,
+    expected_http_request_body_text: str,
 ):
     with check_traceparent_header() as checker:
-        async with httpx.AsyncClient(transport=create_transport()) as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(client, capture_request_body=True)
             response = await client.post(
                 'https://example.org:8080/foo', headers={'Content-Type': content_type}, content=body
@@ -344,13 +553,13 @@ CAPTURE_FULL_REQUEST_ATTRIBUTES = {
 }
 
 
-def test_httpx_client_capture_stream_body(exporter: TestExporter):
+def test_httpx_client_capture_stream_body(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     def stream():
         yield b'{"hello": '
         yield b'"world"}'
 
     with check_traceparent_header() as checker:
-        with httpx.Client(transport=create_transport()) as client:
+        with httpx_family.client() as client:
             logfire.instrument_httpx(client, capture_request_body=True)
             response = client.post(
                 'https://example.org:8080/foo', headers={'Content-Type': 'application/json'}, content=stream()
@@ -362,9 +571,9 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
     assert 'http.request.body.json' not in span['attributes']
 
 
-def test_httpx_client_capture_full_request(exporter: TestExporter):
+def test_httpx_client_capture_full_request(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
-        with httpx.Client(transport=create_transport()) as client:
+        with httpx_family.client() as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
             response = client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
@@ -373,9 +582,9 @@ def test_httpx_client_capture_full_request(exporter: TestExporter):
     assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
 
 
-async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
+async def test_async_httpx_client_capture_full_request(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
-        async with httpx.AsyncClient(transport=create_transport()) as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
             response = await client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
@@ -384,9 +593,9 @@ async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
     assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
 
 
-def test_httpx_client_capture_full(exporter: TestExporter):
+def test_httpx_client_capture_full(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
-        with httpx.Client(transport=create_transport()) as client:
+        with httpx_family.client() as client:
             logfire.instrument_httpx(
                 client, capture_headers=True, capture_request_body=True, capture_response_body=True
             )
@@ -487,9 +696,9 @@ def test_httpx_client_capture_full(exporter: TestExporter):
     )
 
 
-async def test_async_httpx_client_capture_full(exporter: TestExporter):
+async def test_async_httpx_client_capture_full(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
-        async with httpx.AsyncClient(transport=create_transport()) as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(
                 client, capture_headers=True, capture_request_body=True, capture_response_body=True
             )
@@ -590,12 +799,11 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
     )
 
 
-def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: TestExporter):
-    def handler(request: Request):
-        return httpx.Response(200, headers=request.headers, stream=httpx.ByteStream(b'\x80\x81\x82'))
-
+def test_httpx_client_not_capture_response_body_on_wrong_encoding(
+    exporter: TestExporter, httpx_family: HTTPXFamilyType
+):
     with check_traceparent_header() as checker:
-        with httpx.Client(transport=httpx.MockTransport(handler=handler)) as client:
+        with httpx_family.client(response_body=b'\x80\x81\x82') as client:
             logfire.instrument_httpx(client, capture_response_body=True)
             response = client.post('https://example.org:8080/foo')
             checker(response)
@@ -662,11 +870,22 @@ def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: Test
     )
 
 
-def test_httpx_client_capture_request_form_data(exporter: TestExporter):
-    assert len({code.co_filename for code in CODES_FOR_METHODS_WITH_DATA_PARAM}) == 1
-    assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == ['request', 'stream', 'request', 'stream']
+def test_codes_for_methods_with_data_param():
+    assert len({code.co_filename for code in CODES_FOR_METHODS_WITH_DATA_PARAM}) == 2
+    assert [code.co_name for code in CODES_FOR_METHODS_WITH_DATA_PARAM] == [
+        'request',
+        'stream',
+        'request',
+        'stream',
+        'request',
+        'stream',
+        'request',
+        'stream',
+    ]
 
-    with httpx.Client(transport=create_transport()) as client:
+
+def test_httpx_client_capture_request_form_data(exporter: TestExporter, httpx_family: HTTPXFamilyType):
+    with httpx_family.client() as client:
         logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org:8080/foo', data={'form': 'values'})
 
@@ -707,8 +926,8 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
     )
 
 
-def test_httpx_client_capture_request_text_body(exporter: TestExporter):
-    with httpx.Client(transport=create_transport()) as client:
+def test_httpx_client_capture_request_text_body(exporter: TestExporter, httpx_family: HTTPXFamilyType):
+    with httpx_family.client() as client:
         logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org:8080/foo', headers={'Content-Type': 'text/plain'}, content='hello')
 
@@ -766,9 +985,9 @@ def test_is_json_type():
     assert not is_json_type('application//json')
 
 
-async def test_httpx_client_capture_all(exporter: TestExporter):
+async def test_httpx_client_capture_all(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
-        async with httpx.AsyncClient(transport=create_transport()) as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(client, capture_all=True)
             response = await client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
@@ -802,7 +1021,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                         IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.request.header.connection': ('keep-alive',),
-                    'http.request.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.request.header.user-agent': (IsAnyStr(regex=r'^python-httpx2?/\d+(?:\.\d+)+$'),),
                     'http.request.header.content-length': ('17',),
                     'http.request.header.content-type': ('application/json',),
                     'logfire.json_schema': {
@@ -820,7 +1039,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                         IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
                     ),
                     'http.response.header.connection': ('keep-alive',),
-                    'http.response.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.response.header.user-agent': (IsAnyStr(regex=r'^python-httpx2?/\d+(?:\.\d+)+$'),),
                     'http.response.header.content-length': ('17',),
                     'http.response.header.content-type': ('application/json',),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
@@ -867,11 +1086,11 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
     )
 
 
-async def test_httpx_client_capture_all_environment_variable(exporter: TestExporter):
+async def test_httpx_client_capture_all_environment_variable(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with mock.patch.dict(os.environ, {'LOGFIRE_HTTPX_CAPTURE_ALL': 'true'}):
-        with httpx.Client(transport=create_transport()) as client:
+        async with httpx_family.async_client() as client:
             logfire.instrument_httpx(client)
-            response = client.get('https://example.org:8080/foo')
+            response = await client.get('https://example.org:8080/foo')
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
@@ -900,7 +1119,7 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
                     'http.request.header.accept': ('*/*',),
                     'http.request.header.accept-encoding': ('gzip, deflate, zstd',),
                     'http.request.header.connection': ('keep-alive',),
-                    'http.request.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.request.header.user-agent': (IsAnyStr(regex=r'^python-httpx2?/\d+(?:\.\d+)+$'),),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -909,7 +1128,7 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
                     'http.response.header.accept': ('*/*',),
                     'http.response.header.accept-encoding': ('gzip, deflate, zstd',),
                     'http.response.header.connection': ('keep-alive',),
-                    'http.response.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.response.header.user-agent': (IsAnyStr(regex=r'^python-httpx2?/\d+(?:\.\d+)+$'),),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000001-01',),
                     'http.target': '/foo',
                 },
@@ -938,8 +1157,8 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
     )
 
 
-async def test_httpx_client_no_capture_empty_body(exporter: TestExporter):
-    async with httpx.AsyncClient(transport=create_transport()) as client:
+async def test_httpx_client_no_capture_empty_body(exporter: TestExporter, httpx_family: HTTPXFamilyType):
+    async with httpx_family.async_client() as client:
         logfire.instrument_httpx(client, capture_request_body=True)
         await client.get('https://example.org:8080/foo')
 
@@ -975,15 +1194,16 @@ async def test_httpx_client_no_capture_empty_body(exporter: TestExporter):
     )
 
 
-def test_httpx_capture_all_and_other_flags_should_warn(exporter: TestExporter):
-    with httpx.Client(transport=create_transport()) as client:
+def test_httpx_capture_all_and_other_flags_should_warn(exporter: TestExporter, httpx_family: HTTPXFamilyType):
+    with httpx_family.client() as client:
         with pytest.warns(
             UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
         ):
             logfire.instrument_httpx(client, capture_all=True, capture_request_body=True)
 
 
-def test_missing_opentelemetry_dependency() -> None:
+def test_missing_opentelemetry_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delattr(importlib.import_module('opentelemetry.instrumentation'), 'httpx')
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.httpx': None}):
         with pytest.raises(RuntimeError) as exc_info:
             importlib.reload(logfire._internal.integrations.httpx)

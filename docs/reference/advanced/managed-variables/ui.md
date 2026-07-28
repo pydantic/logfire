@@ -35,13 +35,13 @@ The left sidebar shows all labels (both active and inactive), while the right pa
 
 - Select a label in the sidebar to view its current value
 - Click the **copy** button to copy the displayed value to your clipboard
-- Click the **compare** button to diff the selected label's value against another label — useful for reviewing differences between production and staging prompts, for example
+- Click the **compare** button to diff the selected label's value against another label: useful for reviewing differences between production and staging prompts, for example
 - Click **Edit** to modify the value, then **Save new version** to create a new version and assign it to the selected label
 - Click **Add label** to create new labels pointing to a specific version, another label, the latest version, or the code default
 
 ![Variable detail values](../images/variable-detail-values.png)
 
-**Labels** are mutable pointers to specific versions. They work like Docker tags or git branch names — you can move them to point at any version at any time.
+**Labels** are mutable pointers to specific versions. They work like Docker tags or git branch names: you can move them to point at any version at any time.
 
 Common label patterns:
 
@@ -54,7 +54,7 @@ Common label patterns:
 
 ## Browsing Version History
 
-Each variable has a **linear version history** — an append-only sequence of immutable value snapshots. Versions are numbered sequentially (1, 2, 3, ...) and once created, a version's value never changes.
+Each variable has a **linear version history**: an append-only sequence of immutable value snapshots. Versions are numbered sequentially (1, 2, 3, ...) and once created, a version's value never changes.
 
 The **History tab** lets you browse all saved versions:
 
@@ -74,7 +74,7 @@ The **Targeting tab > Default** section controls what percentage of requests rec
 
 - Set `production` to `90` and `canary` to `10` for a 10% canary deployment
 - Set `control` to `50` and `treatment` to `50` for a 50/50 A/B test
-- To send some traffic to the latest version, create a label that references `latest` and include it in the routing — for example, a `latest` label referencing latest at `10` and `control` at `50` sends 10% of traffic to the latest version, 50% to the control label, and the remaining 40% falls back to the code default
+- To send some traffic to the latest version, create a label that references `latest` and include it in the routing: for example, a `latest` label referencing latest at `10` and `control` at `50` sends 10% of traffic to the latest version, 50% to the control label, and the remaining 40% falls back to the code default
 - If weights sum to less than 100%, the remaining percentage uses the **code default**
 - If no labels are in the routing (empty), all traffic uses the code default
 

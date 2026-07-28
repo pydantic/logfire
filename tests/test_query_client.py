@@ -195,7 +195,7 @@ def test_query_arrow_read_sync():
         """
         with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
             arrow_result = client.query_arrow(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
-        assert arrow_result.to_pylist() == snapshot(  # type: ignore
+        assert arrow_result.to_pylist() == snapshot(
             [
                 {
                     'kind': 'log',
@@ -339,7 +339,7 @@ async def test_query_arrow_read_async():
         """
         with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
             arrow_result = await client.query_arrow(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
-        assert arrow_result.to_pylist() == snapshot(  # type: ignore
+        assert arrow_result.to_pylist() == snapshot(
             [
                 {
                     'kind': 'log',

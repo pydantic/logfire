@@ -75,6 +75,7 @@ if TYPE_CHECKING:
 
     import anthropic
     import httpx
+    import httpx2
     import openai
     import pydantic_ai.models
     import requests
@@ -165,11 +166,14 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
-        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
 
     @property
     def config(self) -> LogfireConfig:
         return self._config
+
+    @property
+    def _variables(self) -> dict[str, Variable[Any] | TemplateVariable[Any, Any]]:
+        return self._config._variables  # pyright: ignore[reportPrivateUsage]
 
     @property
     def resource_attributes(self) -> Mapping[str, Any]:
@@ -1098,7 +1102,7 @@ class Logfire:
         *,
         include_binary_content: bool | None = None,
         include_content: bool | None = None,
-        version: Literal[1, 2, 3] | None = None,
+        version: Literal[1, 2, 3, 4, 5] | None = None,
         event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> None: ...
@@ -1111,7 +1115,7 @@ class Logfire:
         *,
         include_binary_content: bool | None = None,
         include_content: bool | None = None,
-        version: Literal[1, 2, 3] | None = None,
+        version: Literal[1, 2, 3, 4, 5] | None = None,
         event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> pydantic_ai.models.Model: ...
@@ -1123,7 +1127,7 @@ class Logfire:
         *,
         include_binary_content: bool | None = None,
         include_content: bool | None = None,
-        version: Literal[1, 2, 3] | None = None,
+        version: Literal[1, 2, 3, 4, 5] | None = None,
         event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> pydantic_ai.models.Model | None:
@@ -1139,17 +1143,16 @@ class Logfire:
             include_content: Whether to include prompts, completions, and tool call arguments and responses
                 in the telemetry. On by default. Requires Pydantic AI 0.3.4 or newer.
             version: Version of the data format. This is unrelated to the Pydantic AI package version.
-                Requires Pydantic AI 0.7.5 or newer.
-                Version 1 is based on the legacy event-based OpenTelemetry GenAI spec
-                    and will be removed in a future release.
-                    The parameter `event_mode` is only relevant for version 1.
+                Supported values depend on the installed Pydantic AI version.
+                Version 1 is available only in older Pydantic AI releases and is based on the legacy
+                    event-based OpenTelemetry GenAI spec.
                 Version 2 uses the newer OpenTelemetry GenAI spec and stores messages in the following attributes:
                     - `gen_ai.system_instructions` for instructions passed to the agent.
                     - `gen_ai.input.messages` and `gen_ai.output.messages` on model request spans.
                     - `pydantic_ai.all_messages` on agent run spans.
                 Version 3 changes the names of some attributes and spans but not the shape of the data.
-                The default version depends on Pydantic AI.
-            event_mode: The mode for emitting events in version 1.
+                Versions 2 through 4 are deprecated in Pydantic AI 2.x, where version 5 is the default.
+            event_mode: The mode for emitting events in version 1 with older Pydantic AI releases.
                 If `'attributes'`, events are attached to the span as attributes.
                 If `'logs'`, events are emitted as OpenTelemetry log-based events.
             kwargs: Additional keyword arguments to pass to
@@ -1538,7 +1541,7 @@ class Logfire:
     @overload
     def instrument_httpx(
         self,
-        client: httpx.Client,
+        client: httpx.Client | httpx2.Client,
         *,
         capture_all: bool = False,
         capture_headers: bool = False,
@@ -1552,7 +1555,7 @@ class Logfire:
     @overload
     def instrument_httpx(
         self,
-        client: httpx.AsyncClient,
+        client: httpx.AsyncClient | httpx2.AsyncClient,
         *,
         capture_all: bool = False,
         capture_headers: bool = False,
@@ -1581,7 +1584,7 @@ class Logfire:
 
     def instrument_httpx(
         self,
-        client: httpx.Client | httpx.AsyncClient | None = None,
+        client: httpx.Client | httpx.AsyncClient | httpx2.Client | httpx2.AsyncClient | None = None,
         *,
         capture_all: bool | None = None,
         capture_headers: bool = False,
@@ -1593,17 +1596,18 @@ class Logfire:
         async_response_hook: HttpxAsyncResponseHook | None = None,
         **kwargs: Any,
     ) -> None:
-        """Instrument the `httpx` module so that spans are automatically created for each request.
+        """Instrument the `httpx` and `httpx2` modules so that spans are automatically created for each request.
 
-        Optionally, pass an `httpx.Client` instance to instrument only that client.
+        Optionally, pass an `httpx` or `httpx2` client instance to instrument only that client.
 
         Uses the
         [OpenTelemetry HTTPX Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html)
-        library, specifically `HTTPXClientInstrumentor().instrument()`, to which it passes `**kwargs`.
+        library, specifically `HTTPXClientInstrumentor().instrument()` (or `HTTPX2ClientInstrumentor` for `httpx2`),
+        to which it passes `**kwargs`.
 
         Args:
-            client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
-                If `None`, the default, all clients will be instrumented.
+            client: The `httpx` or `httpx2` client instance to instrument.
+                If `None`, the default, all clients from both installed libraries will be instrumented.
             capture_all: Set to `True` to capture all HTTP headers, request and response bodies.
                 By default checks the environment variable `LOGFIRE_HTTPX_CAPTURE_ALL`.
             capture_headers: Set to `True` to capture all HTTP headers.
@@ -2748,17 +2752,18 @@ class Logfire:
         return variable
 
     def variables_clear(self) -> None:
-        """Clear all registered variables from this Logfire instance.
+        """Clear all variables registered with this Logfire instance's config.
 
         This removes all variables previously registered via [`var()`][logfire.Logfire.var]
-        or [`template_var()`][logfire.Logfire.template_var],
-        allowing them to be re-registered. This is primarily intended for use in tests
-        to ensure a clean state between test cases.
+        or [`template_var()`][logfire.Logfire.template_var] on this instance or any
+        [`with_settings()`][logfire.Logfire.with_settings] sibling that shares its config,
+        allowing them to be re-registered. This is primarily intended for use in tests to
+        ensure a clean state between test cases.
         """
         self._variables.clear()
 
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
-        """Get all variables registered with this Logfire instance."""
+        """Get all variables registered with this Logfire instance's config."""
         return list(self._variables.values())
 
     def variables_push(
@@ -2781,7 +2786,8 @@ class Logfire:
 
         Args:
             variables: Variable instances to push. If None, all variables
-                registered with this Logfire instance will be pushed.
+                registered with this Logfire instance's config will be pushed, including
+                variables registered on `with_settings()` siblings.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, fail if any existing label values are incompatible with new schemas
@@ -2890,7 +2896,8 @@ class Logfire:
 
         Args:
             variables: Variable instances to validate. If None, all variables
-                registered with this Logfire instance will be validated.
+                registered with this Logfire instance's config will be validated, including
+                variables registered on `with_settings()` siblings.
 
         Returns:
             A ValidationReport containing any errors found. Use `report.is_valid` to check
@@ -2992,7 +2999,9 @@ class Logfire:
         No labels or versions are created - use this to build a template config that can be edited.
 
         Args:
-            variables: Variable instances to include. If None, uses all registered variables.
+            variables: Variable instances to include. If None, uses all variables registered
+                with this Logfire instance's config, including variables registered on
+                `with_settings()` siblings.
 
         Returns:
             A VariablesConfig with minimal configs for each variable.
@@ -3044,7 +3053,7 @@ class Logfire:
                 If the body exceeds this size, the response will be a 413, rejecting the payload.
 
         Returns:
-            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+            A `ForwardExportRequestResponse` containing the response status code, body, and headers.
         """
         from ..experimental.forwarding import forward_export_request
 

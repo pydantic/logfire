@@ -5,10 +5,11 @@ import importlib
 import importlib.metadata
 import os
 import runpy
+import shlex
 import shutil
 import sys
 import warnings
-from collections.abc import Generator
+from collections.abc import Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import cast
@@ -20,9 +21,23 @@ from rich.rule import Rule
 from rich.text import Text
 
 import logfire
+from logfire._internal.utils import get_version
 
 STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 AMBIGUOUS_RECOMMENDATION_PACKAGES = {'requests', 'sqlite3', 'urllib'}
+
+# Most instrumentation packages target one import package with the same name as the Logfire instrumentation method.
+# HTTPX has one OTel package for two clients; Psycopg has two OTel packages routed through one Logfire method.
+INSTRUMENTATION_TARGETS = {
+    'opentelemetry-instrumentation-httpx': ('httpx', 'httpx2'),
+    'opentelemetry-instrumentation-psycopg2': ('psycopg2',),
+}
+TARGET_PACKAGE_ALIASES = {'psycopg2': ('psycopg2', 'psycopg2-binary')}
+INSTRUMENTATION_CALL_ARGUMENTS = {
+    'opentelemetry-instrumentation-psycopg': ('psycopg',),
+    'opentelemetry-instrumentation-psycopg2': ('psycopg2',),
+}
+MINIMUM_INSTRUMENTATION_VERSIONS = {('opentelemetry-instrumentation-httpx', 'httpx2'): '0.65b0'}
 
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
@@ -71,19 +86,34 @@ OTEL_INSTRUMENTATION_MAP = {
 }
 
 
+@dataclass(frozen=True, order=True)
+class InstrumentationRecommendation:
+    package_name: str
+    target_packages: tuple[str, ...]
+    minimum_version: str | None = None
+    already_installed: bool = False
+
+    @property
+    def package_spec(self) -> str:
+        if self.minimum_version:
+            return f'{self.package_name}>={self.minimum_version}'
+        return self.package_name
+
+
 @dataclass
 class InstrumentationContext:
     instrument_pkg_map: dict[str, str]
     installed_pkgs: set[str]
     installed_otel_pkgs: set[str]
-    recommendations: set[tuple[str, str]]
+    installed_versions: dict[str, str]
+    recommendations: set[InstrumentationRecommendation]
 
 
 def parse_run(args: argparse.Namespace) -> None:
     logfire.configure()
 
     summary = cast(bool, args.summary)
-    exclude = cast(set[str], args.exclude)
+    exclude = cast(Collection[str], args.exclude)
 
     ctx = collect_instrumentation_context(exclude)
 
@@ -92,7 +122,7 @@ def parse_run(args: argparse.Namespace) -> None:
     if summary:
         console = Console(file=sys.stderr)
         instrumentation_text = instrumented_packages_text(
-            ctx.installed_otel_pkgs, instrumented_packages, ctx.installed_pkgs
+            ctx.installed_otel_pkgs, instrumented_packages, ctx.installed_pkgs, ctx.installed_versions
         )
         print_otel_summary(
             console=console, instrumented_packages_text=instrumentation_text, recommendations=ctx.recommendations
@@ -158,92 +188,139 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
     os.environ.setdefault('LANGSMITH_TRACING_ENABLED', 'true')
 
     # Process all installed OpenTelemetry packages
-    for otel_pkg_name in installed_otel_packages:
+    for otel_pkg_name in sorted(installed_otel_packages):
         base_pkg = otel_pkg_name.replace('opentelemetry-instrumentation-', '')
 
         import_name = instrument_pkg_map[otel_pkg_name]
         try:
-            instrument_package(import_name)
+            instrument_package(import_name, *INSTRUMENTATION_CALL_ARGUMENTS.get(otel_pkg_name, ()))
         except Exception:
             continue
         instrumented.append(base_pkg)
     return instrumented
 
 
-def instrument_package(import_name: str):
+def instrument_package(import_name: str, *args: str) -> None:
     instrument_attr = f'instrument_{import_name}'
-    getattr(logfire, instrument_attr)()
+    getattr(logfire, instrument_attr)(*args)
 
 
 def find_recommended_instrumentations_to_install(
     instrument_pkg_map: dict[str, str],
     installed_otel_pkgs: set[str],
     installed_pkgs: set[str],
-) -> set[tuple[str, str]]:
+    installed_versions: Mapping[str, str] | None = None,
+) -> set[InstrumentationRecommendation]:
     """Determine which OpenTelemetry instrumentation packages are recommended for installation.
 
     Args:
         instrument_pkg_map: Mapping of instrumentation package names to the packages they instrument.
         installed_otel_pkgs: Set of already installed instrumentation package names.
         installed_pkgs: Set of all installed package names.
+        installed_versions: Installed versions keyed by instrumentation package name.
 
     Returns:
-        Set of tuples where each tuple is (instrumentation_package, target_package) that
-            is recommended for installation.
+        Instrumentation packages that should be installed or upgraded.
     """
-    recommendations: set[tuple[str, str]] = set()
+    installed_versions = installed_versions or {}
+    recommendations: set[InstrumentationRecommendation] = set()
 
-    for otel_pkg, required_pkg in instrument_pkg_map.items():
-        # Skip if this instrumentation is already installed
-        if otel_pkg in installed_otel_pkgs:
+    for otel_pkg, import_name in instrument_pkg_map.items():
+        target_packages = _installed_target_packages(otel_pkg, import_name, installed_pkgs)
+        if not target_packages:
             continue
 
-        # Include only if the package it instruments is installed or in sys.stdlib_module_names
-        if required_pkg in installed_pkgs or required_pkg in STANDARD_LIBRARY_PACKAGES:
-            recommendations.add((otel_pkg, required_pkg))
+        if otel_pkg in installed_otel_pkgs:
+            unsupported_targets = tuple(
+                target for target in target_packages if not _target_is_supported(otel_pkg, target, installed_versions)
+            )
+            if unsupported_targets:
+                recommendations.add(
+                    InstrumentationRecommendation(
+                        otel_pkg,
+                        unsupported_targets,
+                        _minimum_instrumentation_version(otel_pkg, unsupported_targets),
+                        already_installed=True,
+                    )
+                )
+        else:
+            recommendations.add(
+                InstrumentationRecommendation(
+                    otel_pkg,
+                    target_packages,
+                    _minimum_instrumentation_version(otel_pkg, target_packages),
+                )
+            )
 
     # Special case: if fastapi is installed, don't show starlette instrumentation.
     if 'fastapi' in installed_pkgs:
-        recommendations.discard(('opentelemetry-instrumentation-starlette', 'starlette'))
+        recommendations = {
+            recommendation
+            for recommendation in recommendations
+            if recommendation.package_name != 'opentelemetry-instrumentation-starlette'
+        }
     # Special case: if requests is installed, don't show urllib3 instrumentation.
     if 'requests' in installed_pkgs:
-        recommendations.discard(('opentelemetry-instrumentation-urllib3', 'urllib3'))
+        recommendations = {
+            recommendation
+            for recommendation in recommendations
+            if recommendation.package_name != 'opentelemetry-instrumentation-urllib3'
+        }
 
     return recommendations
 
 
 def instrumented_packages_text(
-    installed_otel_pkgs: set[str], instrumented_packages: list[str], installed_pkgs: set[str]
+    installed_otel_pkgs: set[str],
+    instrumented_packages: list[str],
+    installed_pkgs: set[str],
+    installed_versions: Mapping[str, str] | None = None,
 ) -> Text:
+    installed_versions = installed_versions or {}
+
     # Filter out special cases for display
     if 'fastapi' in installed_pkgs:
-        installed_otel_pkgs.discard('opentelemetry-instrumentation-starlette')
+        installed_otel_pkgs = installed_otel_pkgs - {'opentelemetry-instrumentation-starlette'}
     if 'requests' in installed_pkgs:
-        installed_otel_pkgs.discard('opentelemetry-instrumentation-urllib3')
+        installed_otel_pkgs = installed_otel_pkgs - {'opentelemetry-instrumentation-urllib3'}
 
     text = Text('Your instrumentation checklist:\n\n')
     for pkg_name in sorted(installed_otel_pkgs):
         base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
-        if base_pkg in instrumented_packages:
-            text.append(f'✓ {base_pkg} (installed and instrumented)\n', style='green')
-        else:
-            # This is the case on OTel packages that don't have a logfire method, and methods that need the app
-            # like Starlette, FastAPI and Flask.
-            text.append(f'⚠️ {base_pkg} (installed but not automatically instrumented)\n', style='yellow')
+        import_name = OTEL_INSTRUMENTATION_MAP.get(pkg_name, base_pkg)
+        target_packages = _installed_target_packages(pkg_name, import_name, installed_pkgs) or _instrumentation_targets(
+            pkg_name, import_name
+        )
+        for target_package in target_packages:
+            is_instrumented = base_pkg in instrumented_packages and _target_is_supported(
+                pkg_name, target_package, installed_versions
+            )
+            if is_instrumented:
+                text.append(f'✓ {target_package} (installed and instrumented)\n', style='green')
+            else:
+                # This is the case on OTel packages that don't have a Logfire method, methods that need the app
+                # like Starlette, FastAPI and Flask, and client families unsupported by an older OTel package.
+                text.append(f'⚠️ {target_package} (installed but not automatically instrumented)\n', style='yellow')
     return text
 
 
-def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Text, Text]:
+def get_recommendation_texts(recommendations: set[InstrumentationRecommendation]) -> tuple[Text, Text]:
     """Return (recommended_packages_text, install_all_text) as Text objects."""
     sorted_recommendations = sorted(recommendations)
     recommended_text = Text()
     ambiguous_recommendations: list[str] = []
-    for pkg_name, instrumented_pkg in sorted_recommendations:
+    for recommendation in sorted_recommendations:
+        instrumented_pkgs = recommendation.target_packages
         marker = ''
-        if instrumented_pkg in AMBIGUOUS_RECOMMENDATION_PACKAGES:
+        ambiguous_targets = [target for target in instrumented_pkgs if target in AMBIGUOUS_RECOMMENDATION_PACKAGES]
+        if ambiguous_targets:
             marker = ' [*]'
-            ambiguous_recommendations.append(instrumented_pkg)
-        recommended_text.append(f'☐ {instrumented_pkg}{marker} (need to install {pkg_name})\n', style='grey50')
+            ambiguous_recommendations.extend(ambiguous_targets)
+        action = 'upgrade' if recommendation.already_installed else 'install'
+        recommended_text.append(
+            f'☐ {_format_target_list(instrumented_pkgs)}{marker} (need to {action} {recommendation.package_spec})\n',
+            style='grey50',
+        )
     if ambiguous_recommendations:
         special_cases = _format_package_list(ambiguous_recommendations)
         recommendation = 'this recommendation' if len(ambiguous_recommendations) == 1 else 'these recommendations'
@@ -256,7 +333,8 @@ def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Tex
 
     install_text = Text()
     if recommendations:  # pragma: no branch
-        install_text.append('To install all recommended packages at once, run:\n\n')
+        action = 'install or upgrade' if any(item.already_installed for item in recommendations) else 'install'
+        install_text.append(f'To {action} all recommended packages at once, run:\n\n')
         install_text.append(_full_install_command(sorted_recommendations), style='bold')
         install_text.append('\n')
     return recommended_text, install_text
@@ -271,11 +349,19 @@ def _format_package_list(package_names: list[str]) -> str:
     return f'{", ".join(quoted_names[:-1])}, and {quoted_names[-1]}'
 
 
+def _format_target_list(package_names: tuple[str, ...]) -> str:
+    if len(package_names) == 1:
+        return package_names[0]
+    if len(package_names) == 2:
+        return f'{package_names[0]} and {package_names[1]}'
+    return f'{", ".join(package_names[:-1])}, and {package_names[-1]}'
+
+
 def print_otel_summary(
     *,
     console: Console,
     instrumented_packages_text: Text | None = None,
-    recommendations: set[tuple[str, str]],
+    recommendations: set[InstrumentationRecommendation],
 ) -> None:
     # Create note about hiding the summary
     hide_note = Text('\nTo hide this summary box, use: ', style='italic')
@@ -330,32 +416,95 @@ def installed_packages() -> set[str]:
             return {pkg.key for pkg in pkg_resources.working_set}  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
 
 
-def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
+def _full_install_command(recommendations: list[InstrumentationRecommendation]) -> str:
     """Generate a command to install all recommended packages at once."""
     if not recommendations:
         return ''  # pragma: no cover
 
-    package_names = [pkg_name for pkg_name, _ in recommendations]
+    package_specs = [shlex.quote(recommendation.package_spec) for recommendation in recommendations]
 
     # TODO(Marcelo): We should customize this. If the user uses poetry, they'd use `poetry add`.
     # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
     if is_uv_installed():
-        return f'uv add {" ".join(package_names)}'
-    else:
-        return f'pip install {" ".join(package_names)}'  # pragma: no cover
+        return f'uv add {" ".join(package_specs)}'
+
+    if any(
+        recommendation.package_name == 'opentelemetry-instrumentation-httpx' and recommendation.minimum_version
+        for recommendation in recommendations
+    ):
+        package_specs.insert(0, shlex.quote('logfire[httpx]'))
+        return f'pip install -U {" ".join(package_specs)}'
+
+    return f'pip install {" ".join(package_specs)}'
 
 
-def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext:
+def _instrumentation_targets(otel_pkg: str, import_name: str) -> tuple[str, ...]:
+    return INSTRUMENTATION_TARGETS.get(otel_pkg, (import_name,))
+
+
+def _installed_target_packages(otel_pkg: str, import_name: str, installed_pkgs: set[str]) -> tuple[str, ...]:
+    return tuple(
+        target
+        for target in _instrumentation_targets(otel_pkg, import_name)
+        if any(
+            package_name in installed_pkgs or package_name in STANDARD_LIBRARY_PACKAGES
+            for package_name in TARGET_PACKAGE_ALIASES.get(target, (target,))
+        )
+    )
+
+
+def _minimum_instrumentation_version(otel_pkg: str, target_packages: tuple[str, ...]) -> str | None:
+    minimum_versions = [
+        MINIMUM_INSTRUMENTATION_VERSIONS[(otel_pkg, target)]
+        for target in target_packages
+        if (otel_pkg, target) in MINIMUM_INSTRUMENTATION_VERSIONS
+    ]
+    if not minimum_versions:
+        return None
+    return str(max(map(get_version, minimum_versions)))
+
+
+def _target_is_supported(otel_pkg: str, target_package: str, installed_versions: Mapping[str, str]) -> bool:
+    minimum_version = MINIMUM_INSTRUMENTATION_VERSIONS.get((otel_pkg, target_package))
+    installed_version = installed_versions.get(otel_pkg)
+    return (
+        minimum_version is None
+        or installed_version is None
+        or get_version(installed_version) >= get_version(minimum_version)
+    )
+
+
+def _installed_package_versions(package_names: set[str]) -> dict[str, str]:
+    versions: dict[str, str] = {}
+    for package_name in package_names:
+        try:
+            versions[package_name] = importlib.metadata.version(package_name)
+        except importlib.metadata.PackageNotFoundError:  # pragma: no cover
+            pass
+    return versions
+
+
+def collect_instrumentation_context(exclude: Collection[str]) -> InstrumentationContext:
     """Collects all relevant context for instrumentation and recommendations."""
-    instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in exclude}
+    instrument_pkg_map = {
+        otel_pkg: pkg
+        for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items()
+        if not any(
+            package_name in exclude
+            for target in _instrumentation_targets(otel_pkg, pkg)
+            for package_name in TARGET_PACKAGE_ALIASES.get(target, (target,))
+        )
+    }
     installed_pkgs = installed_packages()
     installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
+    installed_versions = _installed_package_versions(installed_otel_pkgs)
     recommendations = find_recommended_instrumentations_to_install(
-        instrument_pkg_map, installed_otel_pkgs, installed_pkgs
+        instrument_pkg_map, installed_otel_pkgs, installed_pkgs, installed_versions
     )
     return InstrumentationContext(
         instrument_pkg_map=instrument_pkg_map,
         installed_pkgs=installed_pkgs,
         installed_otel_pkgs=installed_otel_pkgs,
+        installed_versions=installed_versions,
         recommendations=recommendations,
     )

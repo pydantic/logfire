@@ -2299,8 +2299,15 @@ def get_span_processors() -> Iterable[SpanProcessor]:
     return result[1:]
 
 
-def get_metric_readers() -> Iterable[SpanProcessor]:
-    return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
+def get_metric_readers() -> Iterable[object]:
+    provider = get_meter_provider().provider  # type: ignore
+    result = provider._logfire_metric_readers  # type: ignore
+    try:
+        # This only works on older OTel versions and is just a sanity check now.
+        assert result == provider._sdk_config.metric_readers  # type: ignore
+    except AttributeError:
+        pass
+    return result  # type: ignore
 
 
 def get_log_record_processors() -> Iterable[LogRecordProcessor]:
@@ -2877,6 +2884,13 @@ def test_quiet_span_exporter(caplog: LogCaptureFixture):
 def test_staging_token_regions():
     assert get_base_url_from_token('pylf_v1_stagingeu_123456') == 'https://logfire-eu.pydantic.info'
     assert get_base_url_from_token('pylf_v1_stagingus_123456') == 'https://logfire-us.pydantic.info'
+    # Backend routing must not depend on validation of the evolving token suffix format.
+    assert (
+        get_base_url_from_token(
+            'pylf_v2_stagingeu_9F9BA85A-B759-4181-9527-D812E03F9F7F_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
+        )
+        == 'https://logfire-eu.pydantic.info'
+    )
 
 
 def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:

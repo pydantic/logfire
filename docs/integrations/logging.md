@@ -1,12 +1,39 @@
 ---
-title: "Logfire Logging: Standard Library Logging"
-description: "Guide to standard library logging via Logfire: Use LogfireLoggingHandler for simple, centralized Python logging and observability."
+title: "Send standard library logs to Logfire"
+description: "Route the logs from Python's built-in logging module into Logfire, so your existing log output shows up alongside your traces with no change to how you log."
 integration: logfire
 ---
-# Standard Library Logging
+# Standard library logging
 
-**Logfire** can act as a sink for [standard library logging][logging] by emitting a **Logfire** log for
-every standard library log record.
+Attach Logfire to Python's built-in [logging](https://docs.python.org/3/library/logging.html) module and your existing log output shows up in
+Logfire as structured **logs** (individual timestamped records of something that happened), next to
+the **traces** (the full journey of one request through your app) from the rest of your code. Every
+message written through the standard `logging` module (including logs from third-party libraries
+that use it) becomes a Logfire log, with no change to how you call `logger.info(...)` and friends.
+
+## What you'll capture
+
+- Each standard-library log message
+- Its severity level (debug, info, warning, error, and so on)
+- Its timestamp
+- The logger name and any structured fields attached to the record
+
+{{ before_you_start() }}
+
+## Installation
+
+Install `logfire`:
+
+{{ install_logfire() }}
+
+No extra library needed: this works with Python's built-in `logging` module.
+
+## Usage
+
+Call `logfire.configure()` to connect to your project, then attach
+[`LogfireLoggingHandler`][logfire.LogfireLoggingHandler] to your logging configuration so every log
+record is also sent to Logfire. You can wire it up with either
+[`basicConfig()`][logging.basicConfig] or [`dictConfig()`][logging.config.dictConfig]:
 
 === "Using [`basicConfig()`][logging.basicConfig]"
 
@@ -58,13 +85,17 @@ unless [instrumentation is suppressed](../how-to-guides/suppress.md#suppress-ins
 a [fallback][logfire.LogfireLoggingHandler(fallback)] handler will be used (defaults to
 [`StreamHandler`][logging.StreamHandler], writing to [`sys.stderr`][]).
 
-## Oh no! Too many logs from...
+## Verify it worked
 
-A common issue with logging is that it can be **too verbose**... Right? :sweat_smile:
+Run your program, then open the [Live view](../guides/web-ui/live.md) in the Logfire web app.
+Within a few seconds you'll see your message as a record.
 
-Don't worry! We are here to help you.
+## Advanced
 
-In those cases, you can set the log level to a higher value to suppress logs that are less important.
+### Quiet a noisy logger
+
+Logging can be too verbose, especially from third-party libraries.
+You can raise a logger's level to suppress logs that are less important.
 Let's see an example with the [`apscheduler`](https://apscheduler.readthedocs.io/en/stable/) logger:
 
 ```py title="main.py"
@@ -77,7 +108,7 @@ logger.setLevel(logging.WARNING)
 In this example, we set the log level of the `apscheduler` logger to `WARNING`, which means that
 only logs with a level of `WARNING` or higher will be emitted.
 
-## Disabling `urllib3` debug logs
+### Disabling `urllib3` debug logs
 
 As instrumentation is suppressed when sending log data to **Logfire**, unexpected [`DEBUG`][logging.DEBUG] logs
 can appear in the console (through the use of the [fallback][logfire.LogfireLoggingHandler(fallback)] handler),
@@ -139,3 +170,13 @@ To disable such logs, a [filter](https://docs.python.org/3/library/logging.html#
         }
     )
     ```
+
+## Troubleshooting
+
+Not seeing your logs in Logfire? Check that `logfire.configure()` ran first, your write token is set,
+and the `LogfireLoggingHandler` is attached to your logging configuration (via `basicConfig()`,
+`dictConfig()`, or added to the relevant logger).
+
+## Reference
+
+- API reference: [`logfire.LogfireLoggingHandler`][logfire.LogfireLoggingHandler]

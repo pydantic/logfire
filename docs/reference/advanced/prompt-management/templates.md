@@ -46,7 +46,7 @@ The standard Handlebars block helpers work:
 
     ```handlebars
     {{#if customer.vip}}
-    This customer is VIP — escalate immediately.
+    This customer is VIP. Escalate immediately.
     {{/if}}
     ```
 
@@ -115,9 +115,9 @@ See [Test Prompts](./scenarios.md) for the workflow and [Template reference](./t
 
 Only the standard Handlebars.js helper set is enabled on both the editor and the server. In particular, the following are *not* available:
 
-- **Custom helpers** — for example, `{{uppercase name}}`, `{{json obj}}`, `{{eq a b}}`. (The server's Handlebars engine can be extended with a set of 16 extra helpers, but the prompt-rendering pipeline explicitly disables them to keep editor preview and server execution identical.)
-- **Partials** — `{{> partialName}}` is not used by the feature.
-- **Inline helpers** — Handlebars' `{{#*inline "name"}}` block is not used.
+- **Custom helpers**: for example, `{{uppercase name}}`, `{{json obj}}`, `{{eq a b}}`. (The server's Handlebars engine can be extended with a set of 16 extra helpers, but the prompt-rendering pipeline explicitly disables them to keep editor preview and server execution identical.)
+- **Partials**: `{{> partialName}}` is not used by the feature.
+- **Inline helpers**: Handlebars' `{{#*inline "name"}}` block is not used.
 
 If you need transformation logic that is not expressible in plain Handlebars, do that work in your application code against the rendered template, not inside the template itself.
 

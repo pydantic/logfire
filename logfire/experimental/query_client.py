@@ -339,7 +339,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
     # Note: on the next major version, move the keyword-only marker after `sql`:
     @overload
     @deprecated('Using query_arrow() without a min_timestamp is deprecated')
-    def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+    def query_arrow(
         self,
         sql: str,
         min_timestamp: None = None,
@@ -351,7 +351,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
     ) -> Table: ...
 
     @overload
-    def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+    def query_arrow(
         self,
         sql: str,
         min_timestamp: datetime,
@@ -362,7 +362,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         environment: str | list[str] | None = None,
     ) -> Table: ...
 
-    def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+    def query_arrow(
         self,
         sql: str,
         min_timestamp: datetime | None = None,
@@ -413,7 +413,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         )
         with pyarrow.ipc.open_stream(response.content) as reader:
             arrow_table: Table = reader.read_all()
-        return arrow_table  # pyright: ignore[reportUnknownVariableType]
+        return arrow_table
 
     # Note: on the next major version, move the keyword-only marker after `sql`:
     @overload
@@ -646,7 +646,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     # Note: on the next major version, move the keyword-only marker after `sql`:
     @overload
     @deprecated('Using query_arrow() without a min_timestamp is deprecated')
-    async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+    async def query_arrow(
         self,
         sql: str,
         min_timestamp: None = None,
@@ -658,7 +658,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     ) -> Table: ...
 
     @overload
-    async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+    async def query_arrow(
         self,
         sql: str,
         min_timestamp: datetime,
@@ -669,7 +669,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         environment: str | list[str] | None = None,
     ) -> Table: ...
 
-    async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
+    async def query_arrow(
         self,
         sql: str,
         min_timestamp: datetime | None = None,
@@ -720,7 +720,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         )
         with pyarrow.ipc.open_stream(response.content) as reader:
             arrow_table: Table = reader.read_all()
-        return arrow_table  # pyright: ignore[reportUnknownVariableType]
+        return arrow_table
 
     # Note: on the next major version, move the keyword-only marker after `sql`:
     @overload

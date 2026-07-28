@@ -1,18 +1,50 @@
 ---
-title: Logfire FastStream Integration via OpenTelemetry
-description: Guide on instrumenting FastStream with OpenTelemetry via middleware.
+title: "Instrument FastStream: trace messages through your brokers"
+description: "Add FastStream's OpenTelemetry middleware to see messages flow through your brokers as traces in Logfire."
 integration: "built-in"
 ---
 # FastStream
 
-To instrument [FastStream][faststream] with OpenTelemetry, you need to:
+See every message your [FastStream][faststream] app publishes and consumes: which channel it went
+to, how long handling took, and whether it failed, as a **span** (one unit of work with a name, a
+start, and a duration) in Logfire. Spans link together into a **trace** (the full journey of one
+message), so you can follow a message from where it was published to where it was handled.
 
-1. Call `logfire.configure()`.
-2. Add the needed middleware according to your broker.
+FastStream ships its own OpenTelemetry middleware: a small piece that wraps each broker to record
+this. So instead of a `logfire.instrument_*` call, you add FastStream's middleware for your broker;
+Logfire receives what it emits.
 
-Let's see an example:
+## What you'll capture
 
-```python title="main.py" skip-run="true" skip-reason="external-connection"
+- Each published and consumed message as a span, with its duration and status
+- The channel or subject the message went to
+- Failed message handling, with the error
+
+{{ before_you_start() }}
+
+## Installation
+
+FastStream has no separate Logfire extra, but its OpenTelemetry middleware needs FastStream's own
+`otel` extra (which pulls in the OpenTelemetry SDK). Install `logfire` alongside it:
+
+{{ install_logfire() }}
+
+```bash
+pip install 'faststream[otel]'
+```
+
+## Usage
+
+Two steps:
+
+1. Call `logfire.configure()` to connect to your project.
+2. Add FastStream's OpenTelemetry middleware for your broker.
+
+The example below uses Redis, so it adds the
+[`RedisTelemetryMiddleware`][faststream.redis.opentelemetry.RedisTelemetryMiddleware]. If you use a
+different broker, add that broker's matching middleware instead.
+
+```python title="main.py" hl_lines="7 9" skip-run="true" skip-reason="external-connection"
 from faststream import FastStream
 from faststream.redis import RedisBroker
 from faststream.redis.opentelemetry import RedisTelemetryMiddleware
@@ -42,10 +74,24 @@ async def test():
     await broker.publish('', channel='test-channel')
 ```
 
-Since we are using Redis, we added the [`RedisTelemetryMiddleware`][faststream.redis.opentelemetry.RedisTelemetryMiddleware]
-to the broker. In case you use a different broker, you need to add the corresponding middleware.
+## Verify it worked
 
-See more about FastStream OpenTelemetry integration in [their documentation][faststream-otel].
+Run your app so it publishes a message, then open the [Live view](../../guides/web-ui/live.md). Within
+a few seconds you'll see spans for the published and consumed messages: click one to see the channel
+and how long handling took.
+
+## Troubleshooting
+
+Not seeing your messages? Check that `logfire.configure()` ran before your app started, that your
+write token is set (run `logfire projects use <your-project>` locally, or set the `LOGFIRE_TOKEN`
+environment variable in production; see [Getting Started](../../index.md)), and that you added the
+telemetry middleware for the broker you're actually using.
+
+## Reference
+
+- [FastStream OpenTelemetry integration][faststream-otel]: how FastStream's middleware works, and the
+  middleware for each broker.
+- [FastStream documentation][faststream]: the project docs.
 
 [faststream]: https://faststream.airt.ai/latest/
 [faststream-otel]: https://faststream.airt.ai/latest/getting-started/opentelemetry/#faststream-tracing

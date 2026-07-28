@@ -1283,6 +1283,39 @@ def test_get_variables_returns_all_registered() -> None:
     assert var3 in variables
 
 
+def test_with_settings_shares_registered_variables() -> None:
+    """Variables registered on with_settings() siblings share one config registry."""
+    lf2 = logfire.with_settings(tags=['other'])
+
+    var1 = logfire.var(name='feature_a', default=False, type=bool)
+    var2 = lf2.var(name='feature_b', default='hello', type=str)
+
+    assert logfire.variables_get() == [var1, var2]
+    assert lf2.variables_get() == [var1, var2]
+
+
+def test_with_settings_duplicate_variable_names_conflict() -> None:
+    """Duplicate variable names are rejected across with_settings() siblings."""
+    lf2 = logfire.with_settings(tags=['other'])
+
+    logfire.var(name='feature_enabled', default=False, type=bool)
+    with pytest.raises(ValueError, match="A variable with name 'feature_enabled' has already been registered"):
+        lf2.var(name='feature_enabled', default=True, type=bool)
+
+
+def test_variables_clear_clears_with_settings_siblings() -> None:
+    """variables_clear() clears the shared config registry."""
+    lf2 = logfire.with_settings(tags=['other'])
+
+    logfire.var(name='feature_a', default=False, type=bool)
+    lf2.var(name='feature_b', default='hello', type=str)
+
+    logfire.variables_clear()
+
+    assert logfire.variables_get() == []
+    assert lf2.variables_get() == []
+
+
 # --- Validation tests ---
 
 
