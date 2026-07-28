@@ -2,12 +2,12 @@
 title: "Get started with Logfire in Python"
 description: "Instrument your Python app with Logfire: initial integration, tracing setup (manual and auto), and collecting metrics."
 ---
-Instrument your **Python** app with Logfire. Whether you're starting a new project or integrating Logfire with an
-existing application, this guide helps you quickly instrument your code and start sending as much data to
-Logfire with as little development effort as possible.
+You've already [sent your first trace](../../first-trace.md). Now go deeper: this guide takes your **Python** app from that
+first trace to full instrumentation: integrating Logfire with your logging, adding manual and automatic tracing, and
+recording metrics.
 
-Once you've worked through these steps, you'll be collecting all the data necessary to monitor performance, identify and
-fix bugs, analyze user behavior, and make data-driven decisions.
+Once you've worked through these steps, you'll be collecting all the data you need to monitor performance, find and
+fix bugs, understand behavior, and make data-driven decisions.
 
 !!! note
     If you aren't familiar with traces and spans, start with the [Tracing with Spans](../../concepts.md) page.
@@ -33,4 +33,4 @@ introduction to the Logfire Web UI and show you how to interact with the data yo
 !!! note
     For a more comprehensive walkthrough of the Logfire Web UI and its features, you may be interested in our [Logfire Web UI Guide](../web-ui/live.md).
 
-Let's get started! :rocket:
+Let's get started!
