@@ -13,7 +13,7 @@ If you're new to scores and evaluations, read the [evals overview](overview.md) 
 
 - You need a ground-truth label a machine can't produce: "was this answer genuinely helpful?"
 - You're building the ~20–100 hand-labeled cases you need to [benchmark an LLM judge](overview.md#best-practices-with-the-reason-attached) before trusting it.
-- You want to curate real production interactions into a [dataset](datasets/index.md) of good and bad examples.
+- You want to curate real production interactions into a [dataset](datasets-and-experiments.md) of good and bad examples.
 - You want to hear directly from your end users: a thumbs-up/down on an answer, in your own product.
 
 ## Three ways to do one job
@@ -23,6 +23,8 @@ Human review shows up in three places in Logfire. They differ in *who* does the 
 ### Annotate a span or a run
 
 The most direct form: open a **span** (one unit of work: a single operation, with a name, a start, and a duration) or a whole **run** in the [live view](../guides/web-ui/live.md), and record your judgment on it directly: a pass/fail flag, a label, a numeric rating, or a free-text note. Reach for this when you're already looking at a trace and want to capture what you see.
+
+For the agent-run workflow in the web UI, see [Annotate an agent run](annotate-agent-runs.md).
 
 - **Span annotation**: rate a single operation: this one LLM call, this one tool call.
 - **Run annotation** (Beta): rate a whole run of your AI (an end-to-end agent invocation across many spans) as one unit, rather than a single span inside it. Enable it with the `run_annotations` feature flag.
@@ -75,7 +77,7 @@ The value's type sets the score's **shape** (a **bool** records a pass/fail, a *
 Because all three produce scores, human review isn't a separate island:
 
 - **Ground truth for judges.** Hand-labeled scores are what you [benchmark an LLM judge against](overview.md#best-practices-with-the-reason-attached). If the judge disagrees with your humans a third of the time, you know its automated scores aren't trustworthy yet.
-- **Seeds for datasets.** An interaction a human flagged as bad is exactly the case you want in your [dataset](datasets/index.md), so your offline evals re-test it on every future version.
+- **Seeds for datasets.** An interaction a human flagged as bad is exactly the case you want in your [dataset](datasets-and-experiments.md), so your offline evals re-test it on every future version.
 - **One picture of quality.** On any given output, you can see the code scorer, the LLM judge, the human reviewer, and the end user's feedback together, not four disconnected tools.
 
 ## Consequences to know
@@ -86,6 +88,6 @@ Because all three produce scores, human review isn't a separate island:
 ## Next steps
 
 - [Evals overview](overview.md): how scores, scorers, and experiments fit together.
-- [Datasets](datasets/index.md): turn the interactions you reviewed into re-runnable test cases.
-- [Run an evaluation](datasets/evaluations.md): score a whole dataset offline.
-- [Live Evaluations](../guides/web-ui/live-evals.md): score production traffic automatically, then send the uncertain cases to human review.
+- [Datasets](datasets-and-experiments.md): turn the interactions you reviewed into re-runnable test cases.
+- [Run an evaluation](evals-in-code.md): score a whole dataset offline.
+- [Live Evaluations](live-evals.md): score production traffic automatically, then send the uncertain cases to human review.

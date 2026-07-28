@@ -52,7 +52,7 @@ logfire.instrument_anthropic()  # instrument all Anthropic clients globally
 
 response = client.messages.create(
     max_tokens=1000,
-    model='claude-3-haiku-20240307',
+    model='claude-haiku-4-5',
     system='You are a helpful assistant.',
     messages=[{'role': 'user', 'content': 'Please write me a limerick about Python logging.'}],
 )
@@ -136,7 +136,7 @@ async def main():
     with logfire.span('Asking Anthropic to write some code'):
         response = client.messages.stream(
             max_tokens=1000,
-            model='claude-3-haiku-20240307',
+            model='claude-haiku-4-5',
             system='Reply in markdown.',
             messages=[{'role': 'user', 'content': 'Write Python to show a tree of files.'}],
         )

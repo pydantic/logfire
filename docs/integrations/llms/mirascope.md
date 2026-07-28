@@ -26,7 +26,7 @@ Install `logfire`:
 
 {{ install_logfire() }}
 
-This works with your existing Mirascope install; there's no extra to add. If you don't have it yet, `pip install mirascope`.
+These examples use Mirascope v1's [`@with_logfire`][mirascope-logfire] integration: `pip install 'mirascope[anthropic,openai]<2'` (the examples below use both providers). (Mirascope v2 reorganized its API and moved tracing into a separate `mirascope.ops` module; the Logfire integration for v2 is tracked separately.)
 
 ## Usage
 
@@ -42,7 +42,7 @@ logfire.configure()
 
 
 @with_logfire()
-@anthropic.call('claude-3-5-sonnet-20240620')
+@anthropic.call('claude-sonnet-4-5')
 @prompt_template('Please recommend some {genre} books')
 def recommend_books(genre: str): ...
 

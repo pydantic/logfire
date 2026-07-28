@@ -4,7 +4,7 @@ description: "Browse every service shipping spans to your Logfire project. See r
 ---
 # Services
 
-The **Services view** is the entry point for finding the service you want to investigate. Each service that ships spans to your project appears as one row, sorted by whatever metric matters right now (requests, error rate, latency). Click a row to drill into its detail page, click a recent failed trace, and you land in the [Live View](live.md) with the failing trace open.
+The <OpenInLogfire path="services" variant="inline" label="Services view" /> is the entry point for finding the service you want to investigate. Each service that ships spans to your project appears as one row, sorted by whatever metric matters right now (requests, error rate, latency). Click a row to drill into its detail page, click a recent failed trace, and you land in the [Live View](live.md) with the failing trace open.
 
 You'll find Services in the project sidebar, between [SQL Workbench](explore.md) and [Hosts](hosts.md).
 

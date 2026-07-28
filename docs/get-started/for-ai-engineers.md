@@ -11,9 +11,7 @@ Follow these in order. Each link says why it's here.
 
 ## Your path
 
-1. **[See what your AI is actually doing](../ai-observability.md)**: start here for the big picture: how Logfire records the model's conversation, its tool calls, tokens (the units a model reads and writes, and bills by), and cost, alongside the code around it. A **trace** is the full record of one request; a **span** is one step inside it.
-
-2. **Instrument your LLM library**: one line turns on tracing for the library you already use:
+1. **[Send your first trace](../first-trace.md)**: configure Logfire and instrument the LLM library you already use:
     - [OpenAI](../integrations/llms/openai.md)
     - [Anthropic](../integrations/llms/anthropic.md)
     - [Pydantic AI](../integrations/llms/pydanticai.md) (for agents)
@@ -21,7 +19,9 @@ Follow these in order. Each link says why it's here.
 
     See the full list under [LLM integrations](../integrations/index.md).
 
-3. **[Read every LLM call, with tokens and cost](../guides/web-ui/llms.md)**: once data is flowing, the LLMs and providers view breaks down which models you're calling, how many tokens each request used, and what it's costing you.
+2. **[Understand an agent run](../ai-observability.md)**: once data is flowing, see how Logfire records the model's conversation, tool calls, tokens, cost, and the code around them. A **trace** is the full record of one request; a **span** is one step inside it.
+
+3. **[Read every LLM call, with tokens and cost](../guides/web-ui/llms.md)**: the LLMs and providers view breaks down which models you're calling, how many tokens each request used, and what it's costing you.
 
 4. **[Evaluate your AI: measure output quality](../evaluate/overview.md)**: move from "it looks fine" to a number. An **evaluation** runs your AI over a set of test cases and scores the output. A **scorer** is the rule that produces a **score**: one saved rating from a human, your own code, or an LLM acting as judge.
 

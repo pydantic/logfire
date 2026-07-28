@@ -1,230 +1,83 @@
 ---
 title: "AI & LLM Observability"
-description: "Monitor, debug, and optimize your AI agents and LLM applications with Pydantic Logfire. Full-stack observability for the AI era."
+description: "See every agent decision, tool call, and downstream service in one trace with Pydantic Logfire."
 ---
 
 # AI & LLM Observability
 
-**Pydantic Logfire** is an AI-native observability platform built by the team behind Pydantic (the validation layer used by OpenAI, Anthropic, and most AI frameworks).
+<div class="agent-observability-intro">
 
-What does "AI-native" mean? Two things:
+<p class="agent-observability-intro__lede">See every decision your agent makes and everything it triggers. Tell a prompt problem from a service problem before you change production.</p>
 
-1. **Designed for AI development workflows.** Logfire has purpose-built features for LLM applications: conversation panels, token tracking, cost monitoring, tool call inspection. It integrates with [pydantic-evals](https://github.com/pydantic/pydantic-evals) for systematic testing. And unlike AI-only observability tools that only see the LLM layer, Logfire is built on [OpenTelemetry](https://opentelemetry.io/) and traces your entire application stack, so you can debug whether a problem is in the AI or the backend.
+<div class="agent-observability-intro__detail">
 
-2. **Designed to be queried by AI.** Logfire exposes all observability data via SQL (PostgreSQL-compatible syntax). This means your coding agent can query production data directly, asking arbitrary questions without being limited to predefined dashboards or APIs. We provide an [MCP server](how-to-guides/mcp-server.md) that makes this easy. Other tools may offer MCP integrations, but without raw SQL access, agents are constrained to whatever queries someone anticipated. With Logfire, they can ask anything.
+<div class="agent-observability-intro__detail-copy">
 
-If your framework has OTel instrumentation, it works with Logfire automatically.
+<p>Logfire turns an agent run into one trace (the full journey of one request, made of nested spans): the model calls, tool calls, database queries, API requests, and response your user receives.</p>
 
-## AI-Specific Features
+</div>
 
-Logfire includes purpose-built features for AI/LLM workloads:
+<figure class="agent-trace-hero">
+  <svg class="agent-trace" viewBox="0 0 760 280" role="img" aria-labelledby="agent-trace-title agent-trace-desc"><title id="agent-trace-title">An agent trace with model, tool, and database work</title><desc id="agent-trace-desc">A complete agent run: the agent calls a model, then an inventory tool, which queries a database, before the agent returns a response. The database span is visibly slow, showing why full-stack context matters.</desc><rect class="agent-trace__frame" x="0.5" y="0.5" width="759" height="279" rx="14"/><text class="agent-trace__heading" x="28" y="29">trace · inventory-agent.run</text><text class="agent-trace__sample" x="682" y="29" text-anchor="end">sample run</text><g class="agent-trace__axis" aria-hidden="true"><line x1="170" y1="52" x2="718" y2="52"/><line x1="170" y1="47" x2="170" y2="57"/><line x1="307" y1="47" x2="307" y2="57"/><line x1="444" y1="47" x2="444" y2="57"/><line x1="581" y1="47" x2="581" y2="57"/><line x1="718" y1="47" x2="718" y2="57"/><text x="164" y="70">0</text><text x="293" y="70">500 ms</text><text x="433" y="70">1 s</text><text x="566" y="70">1.5 s</text><text x="701" y="70">2 s</text></g><g class="agent-trace__lanes" aria-hidden="true"><line x1="170" y1="95" x2="718" y2="95"/><line x1="170" y1="127" x2="718" y2="127"/><line x1="170" y1="159" x2="718" y2="159"/><line x1="170" y1="191" x2="718" y2="191"/></g><g class="agent-trace__labels"><text x="28" y="99">Agent</text><text x="28" y="131">LLM</text><text x="28" y="163">Tool</text><text x="28" y="195">Database</text></g><g class="agent-trace__spans"><rect class="agent-trace__span agent-trace__span--agent" x="170" y="85" width="548" height="20" rx="5"/><text class="agent-trace__span-label" x="182" y="99">inventory-agent.run</text><rect class="agent-trace__span agent-trace__span--llm" x="202" y="117" width="174" height="20" rx="5"/><text class="agent-trace__span-label" x="214" y="131">model.generate</text><text class="agent-trace__metric" x="388" y="131">1.8k tokens</text><rect class="agent-trace__span agent-trace__span--tool" x="398" y="149" width="306" height="20" rx="5"/><text class="agent-trace__span-label" x="410" y="163">search_inventory</text><rect class="agent-trace__span agent-trace__span--database" x="432" y="181" width="259" height="20" rx="5"/><text class="agent-trace__span-label" x="444" y="195">SELECT inventory</text><text class="agent-trace__span-label" x="678" y="195" text-anchor="end">1.2 s</text></g><line class="agent-trace__annotation-divider" x1="28" y1="218" x2="732" y2="218"/><text class="agent-trace__annotation-heading" x="28" y="238">Here's what happened</text><text class="agent-trace__annotation-static" x="28" y="262">One trace gives you evidence to investigate a wrong or slow answer.</text><g class="agent-trace__annotations" aria-hidden="true"><text class="agent-trace__annotation agent-trace__annotation--agent" x="28" y="262">The agent starts working on the question.</text><text class="agent-trace__annotation agent-trace__annotation--llm" x="28" y="262">The model decides it needs inventory information.</text><text class="agent-trace__annotation agent-trace__annotation--tool" x="28" y="262">The tool asks the inventory service for that information.</text><text class="agent-trace__annotation agent-trace__annotation--database" x="28" y="262">The inventory lookup takes 1.2 seconds.</text></g></svg>
+</figure>
 
-### LLM Panels
+</div>
 
-Visual inspection of conversations, tool calls, and responses. See the full context of every LLM interaction.
+<div class="agent-observability-intro__prerequisite" markdown>
 
-### Token Tracking
+**Before you explore:** this page explains what Logfire can show once your application is sending traces. [Send your first trace →](first-trace.md)
 
-See token usage per request and per model. Understand where your tokens are going.
+</div>
 
-### Cost Monitoring
+</div>
 
-Track spending across providers. Set up alerts when costs exceed thresholds.
+## Follow the complete agent loop
 
-### Tool Call Inspection
+<div class="grid cards" markdown>
 
-See arguments, responses, and latency for each tool call. Essential for debugging agent behavior.
+- <span class="lf-icon lf-icon--agent"></span> [__Inspect a single run__](guides/web-ui/llm-panels.md)
 
-### Streaming Support
+  Read the messages, model settings, tool arguments, results, tokens, cost, and latency that produced one answer.
 
-Debug streaming responses with full visibility into each chunk.
+- <span class="lf-icon lf-icon--trace"></span> [__See the work behind each tool__](guides/web-ui/live.md)
 
-### Multi-turn Conversations
+  Follow a tool call into the database, API, queue, or service it touched. The trace keeps the causal chain intact.
 
-Trace entire conversation flows across multiple turns and tool calls.
+- <span class="lf-icon lf-icon--metrics"></span> [__Find expensive or unreliable paths__](guides/web-ui/llms.md)
 
-### Evaluations
+  Compare models and agent runs by cost, error rate, latency, tokens, tool calls, and turns. Then drill into the trace.
 
-Logfire covers evals from both directions. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that can evaluate any Python function, not just LLM calls. Define evals in Python, version-control them, and run them locally or in CI. The results land in Logfire's [Evals web UI](guides/web-ui/evals.md), where you can manage [datasets](evaluate/datasets/index.md), compare experiment runs side by side, and monitor [live evaluations](guides/web-ui/live-evals.md) grading real production traffic in the background.
+</div>
 
-### Prompt Management & Playground
+## From a bad answer to a useful diagnosis
 
-Author, version, and test prompts in the [prompt editor](reference/advanced/prompt-management/index.md), compose reusable fragments, and promote new versions with labeled rollouts: no redeploy needed. The Playground lets you iterate on prompts, models, and tools interactively against real captured runs.
+An agent recommends an item that cannot arrive by Friday. The trace can show two very different failures.
 
-### AI Gateway
+- The agent never passed the delivery constraint to `search_inventory`. That is a prompt, model, or tool-selection problem.
+- The agent passed the constraint, but the inventory service returned stale delivery data. That is a system problem.
 
-Route LLM calls from any SDK through the [AI Gateway](reference/advanced/gateway/index.md) for unified key management, spending limits, provider failover, and automatic tracing of every call: one endpoint across OpenAI, Anthropic, Google, Bedrock, and more.
+Both failures look like a bad answer to the user. They need different fixes. Logfire keeps the agent's decisions and the work they triggered in the same trace, so you can change the right part of the system.
 
-### LLMs Page
+## Improve the next run with evidence
 
-A per-provider, per-model breakdown of every model call your project records (calls, error rate, latency, token mix, and cost) with click-through to the underlying traces. See the [LLMs view](guides/web-ui/llms.md).
+<div class="grid cards" markdown>
 
-## Quick Start
+- <span class="lf-icon lf-icon--evals"></span> [__Turn failures into evals__](evaluate/overview.md)
 
-```py skip-run="true" skip-reason="external-connection"
-from openai import OpenAI
+  Build datasets from the cases that matter, compare changes before release, and score live traffic after it ships.
 
-import logfire
+- <span class="lf-icon lf-icon--path"></span> [__Iterate on prompts safely__](reference/advanced/prompt-management/index.md)
 
-logfire.configure()
-logfire.instrument_openai()
+  Version prompts, test them against representative inputs, and promote the version that performs better.
 
-client = OpenAI()
-response = client.chat.completions.create(
-    model='gpt-5-mini',
-    messages=[{'role': 'user', 'content': 'Hello!'}],
-)
-```
+- <span class="lf-icon lf-icon--sql"></span> [__Ask production data better questions__](how-to-guides/mcp-server.md)
 
-That's it. Three lines to instrument your AI calls.
+  Query traces with SQL yourself, or connect the Logfire MCP server so your coding agent can investigate with you.
 
-## Framework Integrations
+</div>
 
-Logfire works with any framework that has OpenTelemetry instrumentation. Our convenient wrappers are optional shortcuts, not requirements.
+## Instrument the stack you have
 
-### Python Frameworks with Logfire Wrappers
+Start with a one-line integration for [Pydantic AI](integrations/llms/pydanticai.md), [OpenAI](integrations/llms/openai.md), [Anthropic](integrations/llms/anthropic.md), [LangChain](integrations/llms/langchain.md), or another supported framework. Logfire also accepts [OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs](how-to-guides/alternative-clients.md), so a TypeScript frontend, Python agent service, and Go backend can all appear in the same trace.
 
-One function call instruments each framework:
-
-- [Pydantic AI](integrations/llms/pydanticai.md) - `logfire.instrument_pydantic_ai()`
-- [OpenAI](integrations/llms/openai.md) - `logfire.instrument_openai()`
-- [Anthropic](integrations/llms/anthropic.md) - `logfire.instrument_anthropic()`
-- [LangChain](integrations/llms/langchain.md) - Built-in OTel support
-- [LlamaIndex](integrations/llms/llamaindex.md) - `logfire.instrument_llamaindex()`
-- [LiteLLM](integrations/llms/litellm.md) - `logfire.instrument_litellm()`
-- [Google GenAI](integrations/llms/google-genai.md) - `logfire.instrument_google_genai()`
-- [MCP](integrations/llms/mcp.md) - Model Context Protocol support
-
-### JavaScript/TypeScript
-
-The [Logfire JS SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) supports Node.js, browsers, Next.js, Cloudflare Workers, and Deno.
-
-Frameworks like [Vercel AI SDK](https://pydantic.dev/docs/logfire/typescript-sdk/frameworks/vercel-ai/) have built-in OpenTelemetry support. Configure OTel to send to Logfire and it works automatically.
-
-### Any OTel-Compatible Framework
-
-If your framework has OpenTelemetry instrumentation, it works with Logfire. No special integration needed, just standard OTel configuration.
-
-## Why Full-Stack Context Matters for AI
-
-The core limitation of AI-only observability tools is that they only see the LLM layer.
-
-When debugging AI applications, you need to answer three questions:
-
-1. What triggered this LLM call?
-2. What did the AI access (databases, APIs, tools)?
-3. What happened with the response?
-
-AI-only tools can only show you the middle part. They're missing the context that makes debugging possible.
-
-### Why This Matters for Agents
-
-What separates agents from simple chat completions is the agentic loop of tool calling. An agent doesn't just generate text. It reasons, calls tools, observes results, and iterates.
-
-Here's the problem: tool execution data comes from application tracing, not from the LLM framework.
-
-When an agent calls a tool to query a database, the LLM framework knows:
-
-- "Tool `search_products` was called with `query='red shoes'`"
-- "Tool returned 47 results"
-
-But it has no idea:
-
-- That the database query took 3 seconds because it did a full table scan
-- That 200 products matched but were filtered by inventory status
-- That the connection pool was exhausted so it waited 2 seconds for a connection
-
-AI-only observability tools only see what the LLM framework sees. They'll show you the tool call and the result, but not what happened inside the tool.
-
-### A Concrete Example
-
-User asks your e-commerce agent: "What shoes can I get by Friday?" The agent recommends products that won't arrive until next week. Why?
-
-With an AI-only tool, you see the agent called `search_products(category='shoes')` and returned 5 products. You can see the tool call and response, but you can't tell why the delivery constraint wasn't respected.
-
-With Logfire, you can diagnose both types of problems:
-
-**Scenario A** (AI problem):
-The trace shows: Agent called `search_products(category='shoes')` with no delivery filter → tool returned products sorted by relevance → agent presented them without checking delivery dates.
-
-*Diagnosis:* The agent didn't realize it needed to account for the "by Friday" constraint. It needs better instructions about handling delivery requirements. This is an AI/prompt problem, and an AI-only tool could catch this too.
-
-**Scenario B** (tool/backend problem):
-The trace shows: Agent called `search_products(category='shoes', delivery_by='2025-01-24')` → tool executed query with `WHERE estimated_delivery <= '2025-01-24'` → but the `estimated_delivery` column is stale (last updated 3 days ago) → returned products with outdated delivery estimates.
-
-*Diagnosis:* The agent did the right thing! The problem is stale data in the backend. This is an infrastructure problem, not an AI problem. An AI-only tool would just show "agent called tool, got results" with no visibility into why the results were wrong.
-
-The point is that you often can't tell which type of problem you have until you see both the AI reasoning and what actually happened in the backend. AI-only tools can help you catch Scenario A. Only full-stack observability catches Scenario B, and helps you fix the right thing.
-
-## Works With Any Language
-
-Logfire is built on OpenTelemetry, the industry standard for observability. We provide polished SDKs for Python, JavaScript/TypeScript, and Rust, but any language with OpenTelemetry support can send data to Logfire.
-
-### First-Party SDKs
-
-We maintain SDKs for **Python**, **JavaScript/TypeScript** (Node.js, browsers, Next.js, Cloudflare Workers, Deno), and **Rust**. The Python SDK has the deepest integrations since that's where most AI development happens, but the JS/TS SDK is fully featured for polyglot applications.
-
-### Any OTel-Compatible Language
-
-Go, Java, .NET, Ruby, PHP, Elixir: if it has an OTel SDK, it works with Logfire. See [alternative clients](how-to-guides/alternative-clients.md) for setup examples.
-
-### Polyglot Architectures
-
-Modern AI applications are rarely single-language. A Python AI backend with a TypeScript frontend, or Go microservices calling Python ML models, are common patterns. Since Logfire accepts data from any OTel source, you can see spans from all of these in the same trace without stitching together data from multiple tools.
-
-## No Lock-In
-
-Logfire is built on OpenTelemetry, which means your instrumentation is portable. If you instrument your code with the Logfire SDK, you're really just configuring OpenTelemetry with sensible defaults. You can [configure the SDK to send data to other backends](how-to-guides/alternative-backends.md) if you want, or use standard OTel libraries directly and just point them at Logfire's OTLP endpoint. No proprietary agents or formats to worry about.
-
-## SQL-Based Analysis
-
-Logfire exposes your observability data via a SQL interface powered by [DataFusion](https://datafusion.apache.org/), which uses PostgreSQL-compatible syntax:
-
-```sql
-SELECT
-    span_name,
-    attributes->>'gen_ai.usage.input_tokens' as input_tokens,
-    attributes->>'gen_ai.usage.output_tokens' as output_tokens,
-    duration
-FROM records
-WHERE span_name LIKE 'llm%'
-ORDER BY start_timestamp DESC
-LIMIT 100
-```
-
-No proprietary query language to learn. This matters for two reasons:
-
-**For humans:** SQL is familiar. You can write ad-hoc queries, build custom dashboards, export to any BI tool.
-
-**For agents:** Your coding agent probably writes better SQL than you do anyway. Point it at your Logfire data via our [MCP server](how-to-guides/mcp-server.md) and let it answer questions about production behavior. "Why did latency spike yesterday?" "Which users are hitting token limits?" "Show me all traces where the agent made more than 5 tool calls." The agent can ask anything because it has full SQL access, not just predefined API endpoints.
-
-## Comparison to AI-Only Tools
-
-Tools like Langfuse, Arize, and LangSmith focus specifically on LLM observability. They're good at what they do, but they only see the LLM layer. When your agent calls a tool that queries a database or hits an API, those tools see the tool call and the result, not what happened in between.
-
-Logfire takes a different approach: since it's built on OpenTelemetry and can ingest traces from your entire application, you get AI observability as part of full-stack observability rather than in isolation. The [concrete example above](#a-concrete-example) illustrates why this matters in practice.
-
-[See detailed comparisons →](comparisons/index.md)
-
-## Getting Started
-
-1. [Create a Logfire account](https://logfire.pydantic.dev)
-2. Install the SDK: `pip install logfire`
-3. Configure and instrument:
-
-```python
-import logfire
-
-logfire.configure()
-logfire.instrument_openai()  # Or your framework of choice
-```
-
-[Full getting started guide →](index.md)
-
-## Learn More
-
-- [LLM Panels](guides/web-ui/llm-panels.md) - Detailed guide to LLM visualization
-- [Integrations](integrations/index.md) - All supported frameworks
-- [Why Logfire?](why.md) - General platform overview
-
-- [Comparisons](comparisons/index.md) - How Logfire compares to alternatives
+[See all integrations →](integrations/index.md)

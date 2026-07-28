@@ -221,7 +221,7 @@ On the good agent, every case passes both scorers (output columns trimmed here f
 
 **How to read it, and where a judge can fool you.** The two marks are your two scorers. `MentionsFact` is deterministic: it either found the expected substring or it didn't. The `LLMJudge` is graded by a model, so it measures only what its rubric asks: "polite, concise, helpful." That's exactly where it can pass an answer a human wouldn't: if the agent replied *"Your order A100 shipped and arrives Monday"* when the real answer is Friday, the judge would likely still pass it. The reply *reads* polite and helpful, and the rubric never mentioned the delivery date. The `MentionsFact` scorer, checking for `'Friday'`, would catch it. This is the reason to pair a cheap code scorer with a judge, and to [benchmark your judge against hand-labeled cases](../evaluate/overview.md#best-practices-with-the-reason-attached) before you trust its pass rate.
 
-Because you called `logfire.configure()`, this run also lands on the [Evals: Datasets & Experiments](../guides/web-ui/evals.md) page as one **experiment** (one full pass of your agent over the dataset), where the next step compares it against a second run. See [Run an evaluation](../evaluate/datasets/evaluations.md) for the full offline path, and the [evals overview](../evaluate/overview.md) for the concepts.
+Because you called `logfire.configure()`, this run also lands on the [Evals: Datasets & Experiments](../evaluate/datasets-and-experiments.md) page as one **experiment** (one full pass of your agent over the dataset), where the next step compares it against a second run. See [Run an evaluation](../evaluate/evals-in-code.md) for the full offline path, and the [evals overview](../evaluate/overview.md) for the concepts.
 
 ## Step 4: Catch a regression
 
@@ -256,7 +256,7 @@ Run `python eval.py` again. Now that the agent can't call `order_status`, it ans
 
 Look at the order rows: `✗✔`. `MentionsFact` failed, but the `LLMJudge` still **passed**. "I don't have access to your order information" reads polite and helpful, so the judge waves it through; only the deterministic scorer catches that the answer is useless. That's the judge-fooling failure mode from step 3, caught live.
 
-**What you'll see in Logfire:** open the [Evals: Datasets & Experiments](../guides/web-ui/evals.md) page, select both experiments (`support-agent-baseline` and `support-agent-no-tools`) with the checkboxes, and click **Compare**. Logfire lines the two runs up case by case and highlights the differences. You'll see the pass rate fall and can click straight into a failing case's trace to confirm the agent never called the tool.
+**What you'll see in Logfire:** open the [Evals: Datasets & Experiments](../evaluate/datasets-and-experiments.md) page, select both experiments (`support-agent-baseline` and `support-agent-no-tools`) with the checkboxes, and click **Compare**. Logfire lines the two runs up case by case and highlights the differences. You'll see the pass rate fall and can click straight into a failing case's trace to confirm the agent never called the tool.
 
 That comparison is the whole reason evals exist: "it feels worse" becomes "the pass rate went from 100% to 66.7% on these cases, and here's the trace showing why." Wire this eval into your continuous integration (the automated checks that run on every change), asserting on the pass rate the report gives you, so a regression like this fails the build before it reaches a user.
 
@@ -312,6 +312,6 @@ The insight the journey produces: observability and evaluation aren't separate t
 
 - [AI observability](../ai-observability.md): the full picture of what Logfire captures from your agent, and why seeing the whole stack (not just the model) matters.
 - [Evaluate your AI](../evaluate/overview.md): the concepts behind datasets, scorers, scores, and experiments, plus best practices for LLM judges.
-- [Run an evaluation](../evaluate/datasets/evaluations.md): the offline eval path in full, including hosted datasets shared with your team.
+- [Run an evaluation](../evaluate/evals-in-code.md): the offline eval path in full, including hosted datasets shared with your team.
 - [Human review](../evaluate/human-review.md): annotate traces, work an annotation queue, and capture user feedback as scores.
-- [Live Evaluations](../guides/web-ui/live-evals.md): score real production traffic automatically, then send the uncertain cases here to human review.
+- [Live Evaluations](../evaluate/live-evals.md): score real production traffic automatically, then send the uncertain cases here to human review.

@@ -9,7 +9,7 @@ description: "Complete method and exception reference for the Logfire datasets S
 
     The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
-For usage examples, see the [SDK Guide](../../evaluate/datasets/sdk.md).
+For usage examples, see the [SDK Guide](../../evaluate/datasets-sdk.md).
 
 ## LogfireAPIClient
 
