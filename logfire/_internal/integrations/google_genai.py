@@ -66,6 +66,30 @@ def default_json(x: Any) -> str:
     return base64.b64encode(x).decode('utf-8') if isinstance(x, bytes) else x
 
 
+def _strip_cycles(obj: Any, _seen: set[int] | None = None) -> Any:
+    """Return a copy of `obj` with any container cycles replaced by `safe_repr`.
+
+    `json.dumps` raises `ValueError: Circular reference detected` when a dict or list
+    contains itself anywhere in its descendants. This can happen when upstream
+    instrumentation captures Gemini SDK objects (e.g. an uploaded `File`) whose
+    `_to_dict` representation contains self-references. See pydantic/logfire#1881.
+    """
+    if _seen is None:
+        _seen = set()
+    if not isinstance(obj, (dict, list, tuple)):
+        return obj
+    obj_id = id(obj)
+    if obj_id in _seen:
+        return safe_repr(obj)
+    _seen.add(obj_id)
+    try:
+        if isinstance(obj, dict):
+            return {k: _strip_cycles(v, _seen) for k, v in obj.items()}
+        return [_strip_cycles(v, _seen) for v in obj]
+    finally:
+        _seen.discard(obj_id)
+
+
 class SpanEventLogger(Logger):
     @handle_internal_errors
     def emit(self, record: LogRecord) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -86,7 +110,13 @@ class SpanEventLogger(Logger):
                     body['content'] = transform_part(body['content'])
             body['role'] = body.get('role', record.event_name.split('.')[1])
 
-        span.add_event(record.event_name, attributes={'event_body': json.dumps(body, default=default_json)})
+        try:
+            event_body = json.dumps(body, default=default_json)
+        except ValueError:
+            # `json.dumps` raises ValueError for circular references. Strip the cycles
+            # so a single bad payload cannot silently drop the entire span event.
+            event_body = json.dumps(_strip_cycles(body), default=default_json)
+        span.add_event(record.event_name, attributes={'event_body': event_body})
 
 
 def transform_part(part: Part) -> Part:

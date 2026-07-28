@@ -330,3 +330,76 @@ def test_span_event_logger_with_none_parts(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_span_event_logger_with_circular_reference(exporter: TestExporter) -> None:
+    """SpanEventLogger must not drop the event when the body contains a circular reference.
+
+    The upstream google_genai instrumentation can produce dicts whose `_to_dict`
+    representation contains self-loops (e.g. an uploaded `google.genai.types.File`).
+    Without the fallback in `emit`, `json.dumps` would raise
+    `ValueError: Circular reference detected` and the event would be swallowed by
+    `handle_internal_errors`. See https://github.com/pydantic/logfire/issues/1881.
+    """
+    from typing import Any as _Any
+
+    from logfire._internal.integrations.google_genai import SpanEventLogger
+
+    # Dict with a self-loop — mimics a Gemini File-like object whose _to_dict has a cycle.
+    file_part: dict[str, _Any] = {'name': 'files/abc123', 'mime_type': 'audio/wav'}
+    file_part['self'] = file_part
+
+    # List with a self-loop — exercises the list branch of _strip_cycles.
+    circular_list: list[_Any] = [1, 2, 3]
+    circular_list.append(circular_list)
+
+    with logfire.span('test'):
+        logger = SpanEventLogger('test_logger')
+        # Emit a record with a circular dict in the body.
+        record = LogRecord(
+            event_name='gen_ai.user.message',
+            timestamp=2,
+            severity_number=SeverityNumber.INFO,
+            body={'content': file_part, 'role': 'user'},
+        )
+        logger.emit(record)
+
+        # Emit a record with a circular list nested inside a non-circular dict.
+        record2 = LogRecord(
+            event_name='gen_ai.user.message',
+            timestamp=3,
+            severity_number=SeverityNumber.INFO,
+            body={'content': {'data': circular_list, 'text': 'hello'}, 'role': 'user'},
+        )
+        logger.emit(record2)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    events = spans[0]['events']
+    assert len(events) == 2
+
+    # First event: circular dict.
+    # transform_part copies file_part into a new dict (new_part), so file_part is seen at
+    # depth 3 (body -> new_part -> file_part). _strip_cycles expands the first occurrence
+    # of file_part normally; the back-edge (file_part['self'] == file_part) is replaced
+    # with safe_repr once the id is already in the seen-set.
+    e1 = events[0]
+    assert e1['name'] == 'gen_ai.user.message'
+    body1 = e1['attributes']['event_body']
+    assert body1['role'] == 'user'
+    assert body1['content']['name'] == 'files/abc123'
+    assert body1['content']['mime_type'] == 'audio/wav'
+    # content['self'] is file_part — it is expanded once, then its own 'self' back-edge
+    # becomes a safe_repr string.
+    assert body1['content']['self']['name'] == 'files/abc123'
+    assert isinstance(body1['content']['self']['self'], str)
+
+    # Second event: circular list — non-cyclic items preserved; back-edge becomes a string.
+    e2 = events[1]
+    assert e2['name'] == 'gen_ai.user.message'
+    body2 = e2['attributes']['event_body']
+    assert body2['role'] == 'user'
+    assert body2['content']['text'] == 'hello'
+    data = body2['content']['data']
+    assert data[:3] == [1, 2, 3]
+    assert isinstance(data[3], str)  # the self-loop replaced by safe_repr
