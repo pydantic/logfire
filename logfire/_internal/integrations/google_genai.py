@@ -76,18 +76,25 @@ def _strip_cycles(obj: Any, _seen: set[int] | None = None) -> Any:
     """
     if _seen is None:
         _seen = set()
-    if not isinstance(obj, (dict, list, tuple)):
-        return obj
-    obj_id = id(obj)
-    if obj_id in _seen:
-        return safe_repr(obj)
-    _seen.add(obj_id)
-    try:
-        if isinstance(obj, dict):
-            return {k: _strip_cycles(v, _seen) for k, v in obj.items()}
-        return [_strip_cycles(v, _seen) for v in obj]
-    finally:
-        _seen.discard(obj_id)
+    if isinstance(obj, dict):
+        obj_id = id(obj)  # pyright: ignore[reportUnknownArgumentType]
+        if obj_id in _seen:
+            return safe_repr(obj)
+        _seen.add(obj_id)
+        try:
+            return {k: _strip_cycles(v, _seen) for k, v in obj.items()}  # pyright: ignore[reportUnknownVariableType]
+        finally:
+            _seen.discard(obj_id)
+    if isinstance(obj, (list, tuple)):
+        obj_id = id(obj)  # pyright: ignore[reportUnknownArgumentType]
+        if obj_id in _seen:
+            return safe_repr(obj)
+        _seen.add(obj_id)
+        try:
+            return [_strip_cycles(v, _seen) for v in obj]  # pyright: ignore[reportUnknownVariableType]
+        finally:
+            _seen.discard(obj_id)
+    return obj
 
 
 class SpanEventLogger(Logger):
