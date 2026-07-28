@@ -23,6 +23,8 @@ navigation:
         path: "why.md"
         source: "plain"
         slug: "get-started/why"
+        aliases:
+          - "logfire/get-started/why"
       - page: "Core Concepts"
         path: "concepts.md"
         source: "plain"
@@ -37,11 +39,15 @@ navigation:
         path: "help.md"
         source: "plain"
         slug: "get-started/help"
+        aliases:
+          - "get-started/join-slack"
       - section: "Choose your path"
         contents:
           - page: "Choose your path"
             path: "get-started/choose-your-path.md"
             slug: "get-started/choose-your-path"
+            aliases:
+              - "get-started/choose-your-path/choose-your-path"
           - page: "For AI engineers"
             path: "get-started/for-ai-engineers.md"
             slug: "get-started/for-ai-engineers"
@@ -52,6 +58,8 @@ navigation:
           - page: "For platform & security"
             path: "get-started/for-platform-and-security.md"
             slug: "get-started/for-platform-and-security"
+            aliases:
+              - "get-started/choose-your-path/for-platform-and-security"
             title: "For platform and security engineers"
           - page: "For product & growth"
             path: "get-started/for-product-and-growth.md"
@@ -60,6 +68,8 @@ navigation:
           - page: "Solo builder"
             path: "get-started/solo-builder.md"
             slug: "get-started/solo-builder"
+            aliases:
+              - "get-started/choose-your-path/solo-builder"
             title: "Solo builder: just me and my app"
       - section: "Coding Agents & MCP"
         contents:
@@ -97,6 +107,8 @@ navigation:
           - page: "Manual Tracing"
             path: "guides/onboarding-checklist/add-manual-tracing.md"
             slug: "instrument/add-manual-tracing"
+            aliases:
+              - "guides/onboarding_checklist/03_add_manual_tracing"
           - page: "Auto Tracing"
             path: "guides/onboarding-checklist/add-auto-tracing.md"
             slug: "instrument/add-auto-tracing"
@@ -115,6 +127,7 @@ navigation:
             slug: "instrument/sampling"
             aliases:
               - "how-to-guides/sampling"
+              - "sampling"
           - page: "Scrub Sensitive Data"
             path: "how-to-guides/scrubbing.md"
             slug: "instrument/scrubbing"
@@ -131,6 +144,7 @@ navigation:
             aliases:
               - "instrument/opentelemetry-collector/otel-collector-scrubbing"
               - "how-to-guides/otel-collector/otel-collector-scrubbing"
+              - "guides/otel-collector/otel-collector-scrubbing"
       - section: "TypeScript"
         contents:
           - page: "Overview"
@@ -249,6 +263,11 @@ navigation:
       - page: "PHP"
         path: "languages/php.md"
         slug: "instrument/php"
+      - page: "Use Alternative Clients"
+        path: "how-to-guides/alternative-clients.md"
+        slug: "guides/alternative-clients"
+        aliases:
+          - "how-to-guides/alternative-clients"
   - section: "Integrations"
     slug: ""
     contents:
@@ -260,6 +279,8 @@ navigation:
           - page: "Web Frameworks"
             path: "integrations/web-frameworks/index.md"
             slug: "integrations/web-frameworks"
+            aliases:
+              - "integrations/use-cases/web-frameworks"
           - page: "FastAPI"
             path: "integrations/web-frameworks/fastapi.md"
             slug: "integrations/web-frameworks/fastapi"
@@ -377,6 +398,8 @@ navigation:
         path: "ai-observability.md"
         source: "plain"
         slug: "get-started/ai-observability"
+        aliases:
+          - "logfire/get-started/ai-observability"
       - section: "Instrument a framework"
         contents:
           - page: "AI & LLM integrations"
@@ -385,6 +408,9 @@ navigation:
           - page: "Pydantic AI"
             path: "integrations/llms/pydanticai.md"
             slug: "integrations/llms/pydanticai"
+            aliases:
+              - "integrations/pydantic-ai"
+              - "integrations/llms/pydantic-ai"
           - page: "OpenAI"
             path: "integrations/llms/openai.md"
             slug: "integrations/llms/openai"
@@ -683,6 +709,7 @@ navigation:
         slug: "observe/setup-slack-alerts"
         aliases:
           - "how-to-guides/setup-slack-alerts"
+          - "guides/setup-slack-alerts"
       - page: "Issues"
         path: "guides/web-ui/issues.md"
         slug: "observe/issues"
@@ -701,11 +728,6 @@ navigation:
         aliases:
           - "reference/query-api"
           - "how-to-guides/query-api"
-      - page: "Use Alternative Clients"
-        path: "how-to-guides/alternative-clients.md"
-        slug: "guides/alternative-clients"
-        aliases:
-          - "how-to-guides/alternative-clients"
   - section: "Product & Experimentation"
     slug: ""
     contents:
@@ -761,6 +783,7 @@ navigation:
         slug: "manage/environments"
         aliases:
           - "how-to-guides/environments"
+          - "get-started/environments"
       - page: "Write Tokens"
         path: "how-to-guides/create-write-tokens.md"
         slug: "manage/create-write-tokens"
@@ -866,6 +889,9 @@ navigation:
               - page: "Logfire"
                 path: "reference/api/logfire.md"
                 slug: "api/logfire"
+                aliases:
+                  - "api"
+                  - "reference/logfire"
               - page: "Testing"
                 path: "reference/api/testing.md"
                 slug: "api/testing"
@@ -913,6 +939,8 @@ navigation:
               - page: "Baggage"
                 path: "reference/advanced/baggage.md"
                 slug: "reference/baggage"
+                aliases:
+                  - "reference/advanced/baggage"
                 title: "Pydantic Logfire OTel Baggage Reference"
               - page: "Generators"
                 path: "reference/advanced/generators.md"
