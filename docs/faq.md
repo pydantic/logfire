@@ -105,7 +105,7 @@ Go, Java, .NET, Ruby, PHP, Elixir: if your language has an OpenTelemetry SDK, it
 
 **Polyglot architectures are first-class:** Building a Python AI backend with a TypeScript frontend? See traces from both in a single, unified view. This is the reality of modern applications.
 
-[Language support](languages.md) | [Alternative clients](how-to-guides/alternative-clients.md)
+[Language support](instrument/index.md) | [Alternative clients](how-to-guides/alternative-clients.md)
 
 ### Q: Does Logfire work with JavaScript/TypeScript?
 

@@ -1,18 +1,18 @@
 ---
-title: "Logfire: Getting Started - Onboarding Checklist"
-description: "Get started with Logfire. This onboarding checklist guides you through initial integration, tracing setup (manual/auto), and collecting metrics data."
+title: "Get started with Logfire in Python"
+description: "Instrument your Python app with Logfire: initial integration, tracing setup (manual and auto), and collecting metrics."
 ---
-Welcome to the **Logfire** Onboarding Checklist! Whether you're starting a new project or integrating Logfire with an
-existing application, this guide is intended to help you quickly instrument your code and start sending as much data to
+Instrument your **Python** app with Logfire. Whether you're starting a new project or integrating Logfire with an
+existing application, this guide helps you quickly instrument your code and start sending as much data to
 Logfire with as little development effort as possible.
 
-Once you've completed the checklist, you'll be collecting all the data necessary to monitor performance, identify and
+Once you've worked through these steps, you'll be collecting all the data necessary to monitor performance, identify and
 fix bugs, analyze user behavior, and make data-driven decisions.
 
 !!! note
     If you aren't familiar with traces and spans, start with the [Tracing with Spans](../../concepts.md) page.
 
-#### Logfire Onboarding Checklist
+#### What you'll set up
 
 * [ ] **[Integrate Logfire](integrate.md)**: Fully integrate Logfire with your logging system and the packages you are
   using.
@@ -26,7 +26,7 @@ fix bugs, analyze user behavior, and make data-driven decisions.
 * [ ] **[Add Logfire metrics](add-metrics.md)**: Learn how to create and use metrics to track and measure important
   aspects of your application's performance and behavior.
 
-We'll walk you through the checklist step by step, introducing relevant features and concepts as we go. While the main
+We'll walk you through each step, introducing relevant features and concepts as we go. While the main
 focus of this guide is on getting data into Logfire so you can use it in the future, we'll also provide an
 introduction to the Logfire Web UI and show you how to interact with the data you're generating.
 

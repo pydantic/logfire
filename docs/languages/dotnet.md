@@ -111,4 +111,4 @@ If you would rather not set environment variables, pass the options to `AddOtlpE
 
 - **New to tracing?** [Core concepts](../concepts.md) explains spans and traces and how to read them.
 - **Building an ASP.NET Core app?** Add the `OpenTelemetry.Extensions.Hosting` package and automatic instrumentation for incoming requests, HTTP clients, and databases. See the [OpenTelemetry .NET docs](https://opentelemetry.io/docs/languages/dotnet/).
-- **Another language?** See [Language support](../languages.md), or [Alternative clients](../how-to-guides/alternative-clients.md) for the generic pattern.
+- **Another language?** See [Language support](../instrument/index.md), or [Alternative clients](../how-to-guides/alternative-clients.md) for the generic pattern.
