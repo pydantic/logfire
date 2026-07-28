@@ -9,7 +9,7 @@ Trace the model calls, agent steps, and tool calls in your AI app. Instrument th
 
 <div class="integration-grid">
   <a class="integration-card" href="pydanticai.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/pydantic-ai.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/pydantic-ai.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/pydantic-ai.svg) center/contain no-repeat"></span>
     <span class="integration-name">Pydantic AI</span>
   </a>
   <a class="integration-card" href="openai.md">
@@ -17,15 +17,15 @@ Trace the model calls, agent steps, and tool calls in your AI app. Instrument th
     <span class="integration-name">OpenAI</span>
   </a>
   <a class="integration-card" href="google-genai.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/google-gemini.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat"></span>
     <span class="integration-name">Google Gen AI</span>
   </a>
   <a class="integration-card" href="anthropic.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/anthropic.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat"></span>
     <span class="integration-name">Anthropic</span>
   </a>
   <a class="integration-card" href="langchain.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/langchain.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/langchain.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/langchain.svg) center/contain no-repeat"></span>
     <span class="integration-name">LangChain</span>
   </a>
   <a class="integration-card" href="litellm.md">
@@ -33,23 +33,23 @@ Trace the model calls, agent steps, and tool calls in your AI app. Instrument th
     <span class="integration-name">LiteLLM</span>
   </a>
   <a class="integration-card" href="dspy.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/dspy.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/dspy.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/dspy.svg) center/contain no-repeat"></span>
     <span class="integration-name">DSPy</span>
   </a>
   <a class="integration-card" href="mcp.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/mcp.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/mcp.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/mcp.svg) center/contain no-repeat"></span>
     <span class="integration-name">MCP</span>
   </a>
   <a class="integration-card" href="claude-agent-sdk.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/claude-agent-sdk.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/claude-agent-sdk.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/claude-agent-sdk.svg) center/contain no-repeat"></span>
     <span class="integration-name">Claude Agent SDK</span>
   </a>
   <a class="integration-card" href="llamaindex.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/llamaindex.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/llamaindex.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/llamaindex.svg) center/contain no-repeat"></span>
     <span class="integration-name">LlamaIndex</span>
   </a>
   <a class="integration-card" href="mirascope.md">
-    <span class="integration-logo integration-logo--glyph" style="--glyph: url(../../images/integrations/llms/mirascope.svg)"></span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/mirascope.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/mirascope.svg) center/contain no-repeat"></span>
     <span class="integration-name">Mirascope</span>
   </a>
   <a class="integration-card" href="magentic.md">
