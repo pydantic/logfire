@@ -373,33 +373,62 @@ def test_span_event_logger_with_circular_reference(exporter: TestExporter) -> No
         )
         logger.emit(record2)
 
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert len(spans) == 1
-    events = spans[0]['events']
-    assert len(events) == 2
-
-    # First event: circular dict.
-    # transform_part copies file_part into a new dict (new_part), so file_part is seen at
-    # depth 3 (body -> new_part -> file_part). _strip_cycles expands the first occurrence
-    # of file_part normally; the back-edge (file_part['self'] == file_part) is replaced
-    # with safe_repr once the id is already in the seen-set.
-    e1 = events[0]
-    assert e1['name'] == 'gen_ai.user.message'
-    body1 = e1['attributes']['event_body']
-    assert body1['role'] == 'user'
-    assert body1['content']['name'] == 'files/abc123'
-    assert body1['content']['mime_type'] == 'audio/wav'
-    # content['self'] is file_part — it is expanded once, then its own 'self' back-edge
-    # becomes a safe_repr string.
-    assert body1['content']['self']['name'] == 'files/abc123'
-    assert isinstance(body1['content']['self']['self'], str)
-
-    # Second event: circular list — non-cyclic items preserved; back-edge becomes a string.
-    e2 = events[1]
-    assert e2['name'] == 'gen_ai.user.message'
-    body2 = e2['attributes']['event_body']
-    assert body2['role'] == 'user'
-    assert body2['content']['text'] == 'hello'
-    data = body2['content']['data']
-    assert data[:3] == [1, 2, 3]
-    assert isinstance(data[3], str)  # the self-loop replaced by safe_repr
+    # Both events are recorded on the same span; the cycle back-edges become IsStr()
+    # because safe_repr produces an implementation-defined string for circular containers.
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_google_genai.py',
+                    'code.function': 'test_span_event_logger_with_circular_reference',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test',
+                },
+                'events': [
+                    {
+                        'name': 'gen_ai.user.message',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'event_body': {
+                                # transform_part copies file_part into a new dict, so
+                                # file_part is first seen at depth 3 (body→new_part→file_part).
+                                # The first occurrence expands normally; the back-edge
+                                # (file_part['self'] == file_part) is replaced with IsStr().
+                                'content': {
+                                    'name': 'files/abc123',
+                                    'mime_type': 'audio/wav',
+                                    'self': {
+                                        'name': 'files/abc123',
+                                        'mime_type': 'audio/wav',
+                                        'self': IsStr(),
+                                    },
+                                },
+                                'role': 'user',
+                            }
+                        },
+                    },
+                    {
+                        'name': 'gen_ai.user.message',
+                        'timestamp': 3000000000,
+                        'attributes': {
+                            'event_body': {
+                                # The circular list's back-edge is replaced with IsStr().
+                                'content': {
+                                    'data': [1, 2, 3, IsStr()],
+                                    'text': 'hello',
+                                },
+                                'role': 'user',
+                            }
+                        },
+                    },
+                ],
+            }
+        ]
+    )
