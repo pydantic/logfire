@@ -9,9 +9,9 @@ A prompt template is a string. At render time, Logfire walks that string with a 
 
 !!! note "Runtime inputs are supplied by your application"
     Prompt Management stores the template. In application code, prefer
-    `logfire.template_var()` to substitute runtime variables before sending the
+    `logfire.template_prompt()` to substitute runtime variables before sending the
     rendered prompt to your model client. If you fetch the raw template with
-    `logfire.var()`, your application must render the remaining `{{...}}`
+    `logfire.prompt()`, your application must render the remaining `{{...}}`
     placeholders itself. See [Use Prompts in Your Application](./application.md).
 
 If you already know Handlebars, the short version is: Logfire uses the standard Handlebars.js helper set, with no custom helpers enabled by default.
@@ -123,8 +123,8 @@ If you need transformation logic that is not expressible in plain Handlebars, do
 
 ## Rendering from your application
 
-The Logfire SDK can render prompt templates for you with `logfire.template_var()`.
-If you fetch a prompt with `logfire.var()` instead, `.get()` returns the prompt
+The Logfire SDK can render prompt templates for you with `logfire.template_prompt()`.
+If you fetch a prompt with `logfire.prompt()` instead, `.get()` returns the prompt
 template after `@{...}@` composition has been expanded, and your application
 renders the remaining `{{...}}` placeholders before passing the result to your
 model client.

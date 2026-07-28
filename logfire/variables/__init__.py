@@ -4,6 +4,7 @@ from __future__ import annotations as _annotations
 
 from typing import TYPE_CHECKING
 
+from logfire.variables._prompt import PROMPT_VARIABLE_PREFIX, prompt_variable_name
 from logfire.variables.abstract import (
     ResolutionReason,
     ResolvedVariable,
@@ -79,6 +80,9 @@ __all__ = [
     'ValueDoesNotMatchRegex',
     # Context managers and utilities
     'targeting_context',
+    # Prompt naming
+    'PROMPT_VARIABLE_PREFIX',
+    'prompt_variable_name',
     # Types
     'ComposedReference',
     'ResolutionReason',

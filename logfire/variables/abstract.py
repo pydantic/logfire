@@ -9,6 +9,8 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 
+from logfire.variables._prompt import PROMPT_VARIABLE_PREFIX
+
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
@@ -1311,6 +1313,42 @@ class VariableProvider(ABC):
             stacklevel=2,
         )
 
+    def create_prompt(
+        self,
+        *,
+        slug: str,
+        name: str,
+        description: str | None = None,
+        template: str | None = None,
+        template_inputs_schema: dict[str, Any] | None = None,
+    ) -> None:
+        """Create a prompt, optionally publishing its first version from `template`.
+
+        Prompts are managed variables under the hood (backed by a `prompt__<slug>`
+        variable), but they are authored through the prompts surface rather than the
+        variables API — the variables API rejects writes to prompt identity/schema.
+
+        Args:
+            slug: The prompt slug, e.g. `support-agent`.
+            name: Human-readable prompt name shown on the Prompts page.
+            description: Optional prompt description.
+            template: When set, published as the prompt's first version so the prompt
+                is immediately editable (and served) with this content.
+            template_inputs_schema: JSON Schema for the prompt's `{{field}}` template
+                inputs, set on the backing variable.
+
+        Raises:
+            VariableAlreadyExistsError: If a prompt with this slug already exists.
+
+        Note:
+            Subclasses should override this method to provide actual implementations.
+            The default implementation emits a warning.
+        """
+        warnings.warn(
+            f'{type(self).__name__} does not persist prompt writes',
+            stacklevel=2,
+        )
+
     def batch_update(self, updates: dict[str, VariableConfig | None]) -> None:
         """Update multiple variables atomically.
 
@@ -1507,7 +1545,17 @@ class VariableProvider(ABC):
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
         """
-        if not variables:
+        # Prompt-backed variables (declared via `logfire.prompt()` / `logfire.template_prompt()`)
+        # go through the prompts surface instead of the variables API (which rejects writes to
+        # prompt identity/schema): missing prompts are created — publishing a static-string code
+        # default as version 1 — and existing prompts are never modified from here.
+        from logfire.variables._prompt import prompt_slug_from_variable_name
+        from logfire.variables.variable import get_template_inputs_schema
+
+        prompt_variables = [v for v in variables if v.name.startswith(PROMPT_VARIABLE_PREFIX)]
+        variables = [v for v in variables if not v.name.startswith(PROMPT_VARIABLE_PREFIX)]
+
+        if not variables and not prompt_variables:
             print('No variables to push. Create variables using logfire.var() first.')
             return False
 
@@ -1524,11 +1572,37 @@ class VariableProvider(ABC):
             print(f'{ANSI_RED}Error fetching current config: {e}{ANSI_RESET}')
             return False
 
+        existing_prompts = [v for v in prompt_variables if v.name in server_config.variables]
+        missing_prompts = [v for v in prompt_variables if v.name not in server_config.variables]
+
         # Compute diff
         diff = _compute_diff(variables, server_config)
+        # Prompt-backed rows aren't "orphaned variables" — they have their own sections below
+        # (and their own page in the UI), so keep the server-only list to general variables.
+        diff.orphaned_server_variables = [
+            name for name in diff.orphaned_server_variables if not name.startswith(PROMPT_VARIABLE_PREFIX)
+        ]
 
         # Show diff
         print(_format_diff(diff))
+
+        if existing_prompts:
+            existing_slugs = ', '.join(sorted(prompt_slug_from_variable_name(v.name) for v in existing_prompts))
+            print(
+                f'{len(existing_prompts)} prompt(s) already exist and are left untouched ({existing_slugs}). '
+                'Publish new versions on the Prompts page, over MCP, or via the prompts API.'
+            )
+        if missing_prompts:
+            print(f'\n{ANSI_GREEN}=== Prompts to CREATE ==={ANSI_RESET}')
+            for prompt_variable in missing_prompts:
+                slug = prompt_slug_from_variable_name(prompt_variable.name)
+                if isinstance(prompt_variable.default, str):
+                    detail = ' (publishes version 1 from the code default)'
+                else:
+                    detail = ' (no initial version — the code default is a function)'
+                print(f'  {ANSI_GREEN}+ {slug}{detail}{ANSI_RESET}')
+                if prompt_variable.description:
+                    print(f'    {ANSI_DIM}{prompt_variable.description}{ANSI_RESET}')
 
         # Cycles are unconditionally unresolvable (no environment satisfies `A -> B -> A`),
         # so block them even in non-strict mode. Missing references, by contrast, may
@@ -1595,7 +1669,7 @@ class VariableProvider(ABC):
             else:
                 print(f'\n{ANSI_YELLOW}Warning: {message}{ANSI_RESET}')
 
-        if not diff.has_changes:
+        if not diff.has_changes and not missing_prompts:
             print(f'\n{ANSI_GREEN}No changes needed. Provider is up to date.{ANSI_RESET}')
             return False
 
@@ -1620,6 +1694,16 @@ class VariableProvider(ABC):
         print('\nApplying changes...')
         try:
             _apply_changes(self, diff, server_config)
+            for prompt_variable in missing_prompts:
+                slug = prompt_slug_from_variable_name(prompt_variable.name)
+                self.create_prompt(
+                    slug=slug,
+                    name=slug.replace('-', ' ').capitalize(),
+                    description=prompt_variable.description,
+                    template=prompt_variable.default if isinstance(prompt_variable.default, str) else None,
+                    template_inputs_schema=get_template_inputs_schema(prompt_variable),
+                )
+                print(f'  {ANSI_GREEN}Created prompt: {slug}{ANSI_RESET}')
         except Exception as e:
             print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}')
             return False

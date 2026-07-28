@@ -132,12 +132,12 @@ Rendering errors fall into a small set of categories:
 
 ## Compatibility with the SDK
 
-Use `logfire.template_var()` when you want the SDK to render prompt templates
-with typed runtime inputs. It resolves the prompt variable, expands `@{...}@`
+Use `logfire.template_prompt()` when you want the SDK to render prompt templates
+with typed runtime inputs. It resolves the prompt, expands `@{...}@`
 composition references, renders the remaining `{{...}}` placeholders, and
 returns the final prompt text.
 
-If you fetch the prompt with `logfire.var()` instead, the SDK returns the
+If you fetch the prompt with `logfire.prompt()` instead, the SDK returns the
 post-composition template string. Your application then renders the remaining
 `{{...}}` placeholders locally before passing the result to your model.
 

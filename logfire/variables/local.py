@@ -1,16 +1,25 @@
 from __future__ import annotations as _annotations
 
+import json
 import threading
 from collections.abc import Mapping
 from typing import Any
 
+from logfire.variables._prompt import prompt_variable_name
 from logfire.variables.abstract import (
     ResolvedVariable,
     VariableAlreadyExistsError,
     VariableNotFoundError,
     VariableProvider,
 )
-from logfire.variables.config import VariableConfig, VariablesConfig
+from logfire.variables.config import (
+    LabeledValue,
+    LabelRef,
+    LatestVersion,
+    Rollout,
+    VariableConfig,
+    VariablesConfig,
+)
 
 __all__ = ('LocalVariableProvider',)
 
@@ -117,6 +126,56 @@ class LocalVariableProvider(VariableProvider):
             self._config.variables[name] = config
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
         return config
+
+    def create_prompt(
+        self,
+        *,
+        slug: str,
+        name: str,
+        description: str | None = None,
+        template: str | None = None,
+        template_inputs_schema: dict[str, Any] | None = None,
+    ) -> None:
+        """Create a prompt in the local configuration.
+
+        Mirrors the platform shape: a `prompt__<slug>` variable with no JSON schema; when
+        `template` is given, a first version is stored and served via the implicit `latest`
+        label (matching a fresh platform prompt's default rollout).
+
+        Args:
+            slug: The prompt slug, e.g. `support-agent`.
+            name: Human-readable prompt name (not represented in the local config model).
+            description: Optional prompt description.
+            template: When set, stored as version 1 and served as `latest`.
+            template_inputs_schema: JSON Schema for `{{field}}` template inputs.
+
+        Raises:
+            VariableAlreadyExistsError: If a prompt with this slug already exists.
+        """
+        variable_name = prompt_variable_name(slug)
+        labels: dict[str, LabeledValue | LabelRef] = {}
+        rollout = Rollout(labels={})
+        latest_version: LatestVersion | None = None
+        if template is not None:
+            labels = {'latest': LabelRef(version=1, ref='latest')}
+            rollout = Rollout(labels={'latest': 1.0})
+            latest_version = LatestVersion(version=1, serialized_value=json.dumps(template))
+
+        config = VariableConfig(
+            name=variable_name,
+            description=description,
+            labels=labels,
+            rollout=rollout,
+            overrides=[],
+            latest_version=latest_version,
+            json_schema=None,
+            template_inputs_schema=template_inputs_schema,
+        )
+        with self._lock:
+            if variable_name in self._config.variables:
+                raise VariableAlreadyExistsError(f"Prompt '{slug}' already exists")
+            self._config.variables[variable_name] = config
+            self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
 
     def delete_variable(self, name: str) -> None:
         """Delete a variable configuration.

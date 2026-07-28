@@ -59,7 +59,7 @@ correct `prompt__...` name when preview or run validation fails.
 Template parameters are the `{{...}}` values that must be available at render
 time. In the editor, those values usually come from the active scenario's
 variables. In production, your application supplies the same values to
-`logfire.template_var().get(inputs)` or to its own renderer before passing the
+`logfire.template_prompt().get(inputs)` or to its own renderer before passing the
 prompt to the model.
 
 Use plain names for simple values:
