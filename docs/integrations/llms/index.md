@@ -7,6 +7,9 @@ description: "Instrument the LLM SDK or agent framework you already use and see 
 
 Trace the model calls, agent steps, and tool calls in your AI app. Instrument the SDK or agent framework you already use with a few lines, and the resulting spans show up in Logfire, with prompts, tokens, cost, and latency where the integration captures them.
 
+!!! note "Instrument vs. gateway"
+    These pages **instrument** the calls you already make, so you can see them in Logfire. To instead **route** your calls through Logfire for spending caps and provider failover, see [Connect an agent to the AI Gateway](../../reference/advanced/gateway/integrations/index.md).
+
 <div class="integration-grid">
   <a class="integration-card" href="pydanticai.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/pydantic-ai.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/pydantic-ai.svg) center/contain no-repeat"></span>

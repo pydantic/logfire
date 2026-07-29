@@ -11,12 +11,17 @@ in many languages to export to the **Logfire** backend, including those outside 
 [first-class supported languages](../instrument/index.md). Depending on your SDK, you may need to set only
 these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
 
-- `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for both traces and metrics, or:
+- `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for traces, metrics, and logs, or set one signal at a time:
     - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-us.pydantic.dev/v1/traces` for just traces
     - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-us.pydantic.dev/v1/metrics` for just metrics
     - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://logfire-us.pydantic.dev/v1/logs` for just logs
+- `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` so the SDK exports over HTTP (see the warning below).
 - `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` - see [Create Write Tokens](./create-write-tokens.md)
   to obtain a write token and replace `your-write-token` with it.
+- `OTEL_SERVICE_NAME=your-service-name` to set the name your service is grouped under in Logfire. Without it, your data appears under `(unknown)` in the [Services](../guides/web-ui/services.md) view.
+
+!!! warning "Set the protocol to `http/protobuf`"
+    Logfire receives OpenTelemetry data over HTTP, but many SDKs (for example Java, .NET, and anything using a gRPC exporter) default to gRPC. When an SDK exports over gRPC, it sends nothing to Logfire, often with only a connection error, or no error at all. Setting `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` (or the equivalent in code) is the most common fix when data never arrives.
 
 !!! note
     This page shows `https://logfire-us.pydantic.dev` as the base URL which is for the US [region](../reference/data-regions.md).
@@ -30,6 +35,7 @@ First, run these commands:
 pip install opentelemetry-exporter-otlp
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+export OTEL_SERVICE_NAME=my-service
 ```
 
 Then run this script with `python`:
@@ -106,6 +112,7 @@ First, set up a new Cargo project:
 cargo new --bin otel-example && cd otel-example
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+export OTEL_SERVICE_NAME=my-service
 ```
 
 Update the `Cargo.toml` and `main.rs` files with the following contents:
@@ -164,3 +171,16 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ```
 
 Finally, use `cargo run` to execute.
+
+## Verify
+
+Run your program, then open the [Live view](../guides/web-ui/live.md) for your project. You should see a trace with a single span named `Hello World`.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| Nothing arrives, with a connection error or no error at all | The SDK is exporting over its default gRPC protocol | Set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` (or the equivalent in code). Logfire receives data over HTTP only. |
+| Requests rejected with `401` or `403` | Missing or invalid write token | Set `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` with a valid [write token](./create-write-tokens.md). |
+| Data appears under `(unknown)` in the [Services](../guides/web-ui/services.md) view | No service name set | Set `OTEL_SERVICE_NAME=your-service-name`. |
+| Connection or TLS errors | The endpoint points at the wrong region | Use `https://logfire-us.pydantic.dev` (US) or `https://logfire-eu.pydantic.dev` (EU). |

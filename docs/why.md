@@ -4,21 +4,21 @@ description: "Logfire unifies metrics, tracing, and structured data logging into
 ---
 # Introducing Pydantic Logfire
 
-From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open-source library: that the most powerful tools can be easy to use.
+From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open-source library: that a tool can be genuinely capable and still be quick to pick up.
 
 ## What sets Logfire apart
 
 <div class="grid cards" markdown>
 
-- :rocket:{ .lg .middle } **Simplicity and Power**
+- :rocket:{ .lg .middle } **Simple to use, deep when you need it**
 
   ***
 
-  Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it. Time-to-first-log should be less than 5 minutes.
+  Logfire is approachable enough that your whole engineering team will actually use it, and you'll see your first data within about five minutes.
 
   [:octicons-arrow-right-24: Read more](#simplicity-and-power)
 
-- :material-robot-outline:{ .lg .middle } **The Full AI Engineering Loop**
+- :material-robot-outline:{ .lg .middle } **The full AI engineering loop**
 
   ***
 
@@ -26,7 +26,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   [:octicons-arrow-right-24: Read more](ai-observability.md)
 
-- :material-code-braces:{ .lg .middle } **Deep Language Integration**
+- :material-code-braces:{ .lg .middle } **Deep language integration**
 
   ***
 
@@ -34,7 +34,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   [:octicons-arrow-right-24: Read more](#deep-language-integration)
 
-- :simple-pydantic:{ .lg .middle } **Pydantic Integration**
+- :simple-pydantic:{ .lg .middle } **Pydantic integration**
 
   ***
 
@@ -50,7 +50,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   [:octicons-arrow-right-24: Read more](#opentelemetry-under-the-hood)
 
-- :simple-instructure:{ .lg .middle } **Structured Data**
+- :simple-instructure:{ .lg .middle } **Structured data**
 
   ***
 
@@ -74,7 +74,7 @@ Pydantic Logfire was built by developers who understand real applications: from 
 
 ![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
-## Simplicity and Power :rocket:
+## Simple to use, deep when you need it {#simplicity-and-power}
 
 Emulating the Pydantic library's philosophy, Pydantic Logfire offers an
 intuitive start for beginners while providing the depth experts desire. It's the same balance of ease, sophistication,
@@ -84,7 +84,7 @@ Within a few minutes you'll have your first logs:
 
 ![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
 
-This might look similar to simple logging, but it's much more powerful. You get:
+This might look like ordinary logging, but it does much more. You get:
 
 - **Structured data** from your logs
 - **Nested logs &amp; traces** to contextualize what you're viewing
@@ -93,10 +93,10 @@ This might look similar to simple logging, but it's much more powerful. You get:
 
 Ready to try Logfire? [Get Started](index.md)!
 
-## Deep language integration :material-code-braces:
+## Deep language integration {#deep-language-integration}
 
-**Pydantic Logfire** automatically instruments your code for minimal manual effort, provides
-exceptional insights into async code, offers detailed performance analytics, and displays Python
+**Pydantic Logfire** automatically instruments your code for minimal manual effort, gives you clear
+visibility into async code, offers detailed performance analytics, and displays Python
 objects the same as the interpreter. Python has the deepest integration, but Logfire also has native SDKs for JavaScript/TypeScript and Rust, and works with any OpenTelemetry-compatible language.
 
 ### Rich display of Python objects
@@ -113,9 +113,9 @@ In this simple app example, you can see every interaction the user makes with th
 
 ## Pydantic integration
 
-**Logfire** has an out-of-the-box **Pydantic** integration that lets you understand the data
+**Logfire** has a built-in **Pydantic** integration that lets you understand the data
 passing through your Pydantic models and get analytics on validations. For existing Pydantic users,
-it delivers unparalleled insights into your usage of Pydantic models.
+it shows you exactly how your Pydantic models are being used.
 
 We can record Pydantic models directly:
 
@@ -174,7 +174,7 @@ Learn more about the [Pydantic Plugin here](integrations/pydantic.md).
 
 ![Logfire pydantic plugin screenshot](images/index/logfire-screenshot-pydantic-plugin.png)
 
-## OpenTelemetry under the hood :telescope:
+## OpenTelemetry under the hood {#opentelemetry-under-the-hood}
 
 Because **Pydantic Logfire** is built on [OpenTelemetry](https://opentelemetry.io/), you can
 use a wealth of existing tooling and infrastructure, including
@@ -230,9 +230,9 @@ And, importantly, details of failed input validations:
 
 ![Logfire FastAPI 422 response screenshot](images/index/logfire-screenshot-fastapi-422.png)
 
-In the example above, we can see the FastAPI arguments failing (`user` is null when it should always be populated). This demonstrates type-checking from Pydantic used out-of-the-box in FastAPI.
+In the example above, we can see the FastAPI arguments failing (`user` is null when it should always be populated). This demonstrates type-checking from Pydantic used built-in with FastAPI.
 
-## Structured Data and SQL :abacus: {#sql}
+## Structured data and SQL {#sql}
 
 Query your data with SQL using familiar PostgreSQL-compatible syntax: all the control and (for many) nothing new to learn.
 
