@@ -134,7 +134,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         'var',
         'template_var',
         'variables',
-        'variables_clear',
         'variables_get',
         'variables_push',
         'variables_push_types',
