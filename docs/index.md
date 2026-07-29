@@ -18,7 +18,7 @@ Set up Pydantic Logfire in this project so it sends traces to Logfire. Follow th
 
 1. Install the Logfire SDK for this project's language and initialize it at startup the way the guide describes for that language (for Python and JavaScript that is logfire.configure(); other languages may use OpenTelemetry), then instrument its web framework plus any LLM and HTTP clients. Don't refactor unrelated code.
 
-2. Authenticate. If this is a Python project, run "uv add logfire" then "uv run logfire auth" (or "uvx logfire auth"): this opens a browser to sign in, creating a free Logfire account and a project if there isn't one, and saves credentials locally so nothing is hard-coded. For other languages you can't create a token yourself, so ask me to create a write token (the credential that lets your app send data to Logfire) under Project > Settings > Write tokens and set it as the LOGFIRE_TOKEN environment variable.
+2. Authenticate. If a `LOGFIRE_TOKEN` environment variable is already set, use it as-is. Otherwise, for a local Python project, install Logfire with the project's dependency manager (for example `uv add logfire`, `poetry add logfire`, or `pip install logfire`), then run `logfire auth` (or `uvx logfire auth`): this opens a browser where you sign in or create a free Logfire account (no credit card required) and a project, then links this machine, so nothing is hard-coded. For another language, a non-interactive shell, or a deployment, ask me for a write token (the credential that lets an app send data to Logfire) from Project > Settings > Write tokens and set it as the `LOGFIRE_TOKEN` environment variable; never commit it.
 
 3. Run the app and confirm a trace reaches the Logfire Live view, then share the link.
 ```
