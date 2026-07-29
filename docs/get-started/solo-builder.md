@@ -9,7 +9,7 @@ It's just you and your app, and you want to see what it's doing without wading t
 
 ## Your path
 
-1. **[Send your first trace to Logfire](../index.md)**: about five minutes. You install Logfire, sign in through your browser (no secret key to copy and paste), and run a small program. A **trace** is the record of what your code did on one run (the steps it took and how long each one took) and you'll see one appear on screen.
+1. **[Send your first trace to Logfire](../first-trace.md)**: about five minutes. You install Logfire, sign in through your browser (no secret key to copy and paste), and run a small program. A **trace** is the record of what your code did on one run (the steps it took and how long each one took) and you'll see one appear on screen.
 
 2. **Turn on tracing for what you already use**: pick the one that matches your app and add its single line of setup:
     - Building with an LLM (the AI that generates text)? [OpenAI](../integrations/llms/openai.md), [Anthropic](../integrations/llms/anthropic.md), or an [agent framework](../integrations/llms/pydanticai.md).

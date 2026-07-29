@@ -24,11 +24,13 @@ To have an AI coding agent wire this up for you, copy this prompt into Claude Co
 <CopyPrompt>
 
 ```text
-Set up Pydantic Logfire in this project. Read https://pydantic.dev/docs/logfire/get-started/first-trace/
-and follow it to install the Logfire SDK, call logfire.configure() at the app's startup, and
-instrument its web framework. Authenticate with a write token from the Logfire project's
-Settings > Write tokens (set the LOGFIRE_TOKEN environment variable), not interactive
-login. Then run the app and confirm a trace reaches the Logfire Live view.
+Set up Pydantic Logfire in this project so it sends traces to Logfire. Follow the guide at https://pydantic.dev/docs/logfire/get-started/first-trace/.
+
+1. Install the Logfire SDK for this project's language and initialize it at startup the way the guide describes for that language (for Python and JavaScript that is logfire.configure(); other languages may use OpenTelemetry), then instrument its web framework plus any LLM and HTTP clients. Don't refactor unrelated code.
+
+2. Authenticate. If a `LOGFIRE_TOKEN` environment variable is already set, use it as-is. Otherwise, for a local Python project, install Logfire with the project's dependency manager (for example `uv add logfire`, `poetry add logfire`, or `pip install logfire`), then run `logfire auth` (or `uvx logfire auth`): this opens a browser where you sign in or create a free Logfire account (no credit card required) and a project, then links this machine, so nothing is hard-coded. For another language, a non-interactive shell, or a deployment, ask me for a write token (the credential that lets an app send data to Logfire) from Project > Settings > Write tokens and set it as the `LOGFIRE_TOKEN` environment variable; never commit it.
+
+3. Run the app and confirm a trace reaches the Logfire Live view, then share the link.
 ```
 
 </CopyPrompt>
@@ -141,6 +143,7 @@ Each integration ships as an extra, so install the matching one first: `pip inst
 ## Next steps
 
 - **New to tracing?** [Core concepts](concepts.md) explains spans and traces and how to read them.
+- **Want the full Python walkthrough?** The [Python onboarding guide](guides/onboarding-checklist/index.md) adds manual tracing, auto-tracing, and metrics, step by step.
 - **Already using a framework?** [Integrations](integrations/index.md) add rich tracing to FastAPI, Django, SQLAlchemy, HTTPX, and many more with one line.
 - **Building with AI?** [AI & LLM Observability](ai-observability.md) shows the requests, tool calls, tokens, and cost behind your model-powered features.
 - **Not sure where to focus?** [Choose your path](get-started/choose-your-path.md) gives a short, ordered route for your role.
