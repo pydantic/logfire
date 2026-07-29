@@ -28,9 +28,11 @@ Set up Pydantic Logfire in this project so it sends traces to Logfire. Follow th
 
 1. Install the Logfire SDK for this project's language and initialize it at startup the way the guide describes for that language (for Python and JavaScript that is logfire.configure(); other languages may use OpenTelemetry), then instrument its web framework plus any LLM and HTTP clients. Don't refactor unrelated code.
 
-2. Authenticate. If a `LOGFIRE_TOKEN` environment variable is already set, use it as-is. Otherwise, for a local Python project, install Logfire with the project's dependency manager (for example `uv add logfire`, `poetry add logfire`, or `pip install logfire`), then run `logfire auth` (or `uvx logfire auth`): this opens a browser where you sign in or create a free Logfire account (no credit card required) and a project, then links this machine, so nothing is hard-coded. For another language, a non-interactive shell, or a deployment, ask me for a write token (the credential that lets an app send data to Logfire) from Project > Settings > Write tokens and set it as the `LOGFIRE_TOKEN` environment variable; never commit it.
+2. Authenticate. If a `LOGFIRE_TOKEN` environment variable is already set, use it as-is. Otherwise, for a local Python project, install Logfire with the project's dependency manager (for example `uv add logfire`, `poetry add logfire`, or `pip install logfire`), then run `logfire auth` (or `uvx logfire auth`): this opens a browser where you sign in or create a free Logfire account (no credit card required) and a project, then links this machine. For another language, a non-interactive shell, or a deployment, ask me for a write token (the credential that lets an app send data to Logfire) from Project > Settings > Write tokens and set it as the `LOGFIRE_TOKEN` environment variable. Keep any token out of your replies: `logfire auth` saves credentials to a gitignored `.logfire/` file, and if you create or receive a token, append it to a gitignored `.env` rather than printing it; never commit it.
 
-3. Run the app and confirm a trace reaches the Logfire Live view, then share the link.
+3. Run the app so it sends a trace, then give me the Logfire Live view link on its own line and in bold so I can open it and confirm the trace arrived.
+
+4. Once the trace is arriving, offer a few next steps and do the ones I want: run `logfire inspect` to find other dependencies Logfire can instrument and add the relevant ones; set up the Logfire MCP server so you can query my Logfire data going forward (https://pydantic.dev/docs/logfire/guides/mcp-server/, it logs in through the browser); or set up alerts or evals.
 ```
 
 </CopyPrompt>
