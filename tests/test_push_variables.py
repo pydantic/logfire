@@ -1310,7 +1310,7 @@ def test_variables_clear_clears_with_settings_siblings() -> None:
     logfire.var(name='feature_a', default=False, type=bool)
     lf2.var(name='feature_b', default='hello', type=str)
 
-    logfire.variables_clear()
+    logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
 
     assert logfire.variables_get() == []
     assert lf2.variables_get() == []
