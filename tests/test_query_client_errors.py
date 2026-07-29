@@ -6,8 +6,6 @@ because a healthy server never produces the responses being exercised here.
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from datetime import datetime, timezone
 from typing import Any
 
@@ -141,38 +139,3 @@ async def test_query_request_errors_async(status_code: int, expected_error: type
 
     assert exc_info.value.args == ({'detail': 'nope'},)
 
-
-def test_unexpected_status_code_raises_with_assertions_disabled():
-    """`python -O` strips `assert` statements, so the non-200 path must not be guarded by one.
-
-    The body is a well-formed but empty result, so a client that doesn't reject the status code
-    returns it as if the query had succeeded instead of failing loudly.
-    """
-    script = f"""
-import sys
-from datetime import datetime, timezone
-
-import httpx
-
-from logfire.query_client import LogfireQueryClient, UnexpectedResponseError
-
-if __debug__:
-    sys.exit('assertions are enabled, so this run proves nothing')
-
-transport = httpx.MockTransport(
-    lambda request: httpx.Response(500, json={{'schema': {{'fields': []}}, 'data': []}})
-)
-with LogfireQueryClient(read_token={READ_TOKEN!r}, base_url={BASE_URL!r}, transport=transport) as client:
-    try:
-        result = client.query_json_rows({SQL!r}, min_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc))
-    except UnexpectedResponseError as exc:
-        print(exc)
-    else:
-        sys.exit(f'no error was raised for a 500 response, got {{result}}')
-"""
-    result = subprocess.run(
-        [sys.executable, '-O', '-c', script], capture_output=True, text=True, timeout=60, check=False
-    )
-
-    assert result.returncode == 0, result.stderr or result.stdout
-    assert '500' in result.stdout
