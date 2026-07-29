@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
@@ -304,6 +305,16 @@ class AnthropicMessageStreamState(StreamState):
         return result
 
 
+# Bedrock model IDs are the Anthropic model name behind a `anthropic.` vendor prefix,
+# optionally behind a geography prefix for cross-region inference profiles, and optionally
+# behind a full inference profile ARN:
+#   anthropic.claude-3-haiku-20240307-v1:0
+#   eu.anthropic.claude-3-7-sonnet-20250219-v1:0
+#   arn:aws:bedrock:eu-west-1:123456789012:inference-profile/eu.anthropic.claude-3-7-sonnet-20250219-v1:0
+# Native Anthropic model names never take that shape, so this only matches Bedrock.
+_BEDROCK_MODEL_RE = re.compile(r'^(arn:aws:bedrock:|([a-z]{2,4}\.)?anthropic\.)')
+
+
 def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
     """Extract usage attributes from an Anthropic response object.
 
@@ -313,8 +324,28 @@ def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
     usage = getattr(response, 'usage', None)
     if usage is None:
         return {}
-    input_tokens = usage.input_tokens + (usage.cache_read_input_tokens or 0) + (usage.cache_creation_input_tokens or 0)
+    cache_read_tokens = usage.cache_read_input_tokens or 0
+    cache_write_tokens = usage.cache_creation_input_tokens or 0
+    input_tokens = usage.input_tokens + cache_read_tokens + cache_write_tokens
     output_tokens = usage.output_tokens
+
+    model = getattr(response, 'model', None)
+    if isinstance(model, str) and _BEDROCK_MODEL_RE.match(model):
+        # Bedrock-hosted models are priced under the `aws` provider, not `anthropic`.
+        # We can't hand the response to genai_prices' `aws` extractor though: that expects the
+        # Bedrock Converse shape (`usage.inputTokens`), while AnthropicBedrock returns the
+        # Anthropic Messages shape (`usage.input_tokens`). Price off our own counts instead.
+        return get_usage_attributes(
+            response,
+            usage,
+            input_tokens,
+            output_tokens,
+            provider_id='aws',
+            model_ref=model,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
+        )
+
     return get_usage_attributes(response, usage, input_tokens, output_tokens, provider_id='anthropic')
 
 
