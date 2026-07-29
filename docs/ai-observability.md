@@ -13,7 +13,7 @@ description: "See every agent decision, tool call, and downstream service in one
 
 <div class="agent-observability-intro__detail-copy">
 
-<p>Logfire turns an agent run into one trace (the full journey of one request, made of nested spans): the model calls, tool calls, database queries, API requests, and response your user receives.</p>
+<p>Logfire turns an agent run into one trace (the full journey of one request or agent run, made of nested spans): the model calls, tool calls, database queries, API requests, and response your user receives.</p>
 
 </div>
 

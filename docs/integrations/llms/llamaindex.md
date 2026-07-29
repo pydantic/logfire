@@ -7,7 +7,7 @@ integration: otel
 
 See every step your [LlamaIndex](https://www.llamaindex.ai/) query pipeline takes (loading and
 indexing documents, retrieving context, and calling the model), how long each took, and any errors,
-as a **trace** (the full journey of one request, made of nested **spans**, where each span is one unit
+as a **trace** (the full journey of one request or agent run, made of nested **spans**, where each span is one unit
 of work with a name, a start, and a duration) in Logfire.
 
 We recommend instrumenting LlamaIndex with the OpenTelemetry instrumentation from

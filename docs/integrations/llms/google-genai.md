@@ -8,7 +8,7 @@ integration: logfire
 See every call your app makes to Google's Gemini models through the
 [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/): the full
 conversation, how many **tokens** (the units a model reads and bills by, a few characters of text
-each) it used, how long it took, and any errors, as a **trace** (the full journey of one request,
+each) it used, how long it took, and any errors, as a **trace** (the full journey of one request or agent run,
 made of nested **spans**, where each span is one unit of work with a name, a start, and a duration)
 in Logfire.
 
