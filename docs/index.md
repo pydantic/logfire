@@ -11,7 +11,19 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 ## Quickstarts
 
-We recommend [letting your AI agent set you up with Logfire](first-trace.md#let-an-ai-agent-set-it-up).
+<AgentSetup>
+
+```text
+Set up Pydantic Logfire in this project so it sends traces to Logfire. Follow the guide at https://pydantic.dev/docs/logfire/get-started/first-trace/.
+
+1. Install the Logfire SDK for this project's language and initialize it at startup the way the guide describes for that language (for Python and JavaScript that is logfire.configure(); other languages may use OpenTelemetry), then instrument its web framework plus any LLM and HTTP clients. Don't refactor unrelated code.
+
+2. Authenticate. If a `LOGFIRE_TOKEN` environment variable is already set, use it as-is. Otherwise, for a local Python project, install Logfire with the project's dependency manager (for example `uv add logfire`, `poetry add logfire`, or `pip install logfire`), then run `logfire auth` (or `uvx logfire auth`): this opens a browser where you sign in or create a free Logfire account (no credit card required) and a project, then links this machine, so nothing is hard-coded. For another language, a non-interactive shell, or a deployment, ask me for a write token (the credential that lets an app send data to Logfire) from Project > Settings > Write tokens and set it as the `LOGFIRE_TOKEN` environment variable; never commit it.
+
+3. Run the app and confirm a trace reaches the Logfire Live view, then share the link.
+```
+
+</AgentSetup>
 
 <div class="grid cards" markdown>
 
