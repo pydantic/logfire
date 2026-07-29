@@ -337,6 +337,13 @@ filterwarnings = [
     "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
     # anthropic SDK warns when using older models that are still recorded in test cassettes
     "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
+    # py-key-value-aio (a pydantic-ai dependency) type-checks itself at import time with
+    # beartype's import hook, which is designed to warn rather than fail. Promoting those
+    # warnings to errors breaks `import pydantic_ai`, e.g. on pydantic 2.10 where
+    # `JsonSchemaValue` is still a `typing.Dict` alias, triggering beartype's PEP 585
+    # deprecation warning during decoration of py-key-value-aio's pydantic adapter.
+    "ignore::beartype.roar.BeartypeClawDecorWarning",
+    "ignore::beartype.roar.BeartypeDecorHintPep585DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

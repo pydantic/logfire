@@ -260,6 +260,17 @@ logfire.metric_up_down_counter_callback(
 
 You can read more about the Up-Down Counter metric in the [OpenTelemetry documentation][up-down-counter-callback-metric].
 
+## You're done
+
+You've integrated Logfire, added manual and automatic tracing, and started recording metrics. Your Python app is now
+sending the data you need to monitor performance, find bugs, and understand behavior.
+
+From here:
+
+- **Watch it live**: open the [Live view](../web-ui/live.md) and use your app.
+- **Instrument the libraries you use**: [Integrations](../../integrations/index.md) add rich tracing to your web framework, database, and HTTP clients with one line each.
+- **Build dashboards and alerts**: turn the questions you check often into [Dashboards](../web-ui/dashboards.md), and get told about problems with [Alerts](../web-ui/alerts.md).
+
 [counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#counter
 [histogram-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#histogram
 [up-down-counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#updowncounter

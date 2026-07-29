@@ -7,53 +7,56 @@ description: "Instrument the LLM SDK or agent framework you already use and see 
 
 Trace the model calls, agent steps, and tool calls in your AI app. Instrument the SDK or agent framework you already use with a few lines, and the resulting spans show up in Logfire, with prompts, tokens, cost, and latency where the integration captures them.
 
+!!! note "Instrument vs. gateway"
+    These pages **instrument** the calls you already make, so you can see them in Logfire. To instead **route** your calls through Logfire for spending caps and provider failover, see [Connect an agent to the AI Gateway](../../reference/advanced/gateway/integrations/index.md).
+
 <div class="integration-grid">
-  <a class="integration-card" href="pydanticai/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/pydantic-ai.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="pydanticai.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/pydantic-ai.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/pydantic-ai.svg) center/contain no-repeat"></span>
     <span class="integration-name">Pydantic AI</span>
   </a>
-  <a class="integration-card" href="openai/">
-    <span class="integration-logo integration-logo--mark">O</span>
+  <a class="integration-card" href="openai.md">
+    <span class="integration-logo integration-logo--plainmark">O</span>
     <span class="integration-name">OpenAI</span>
   </a>
-  <a class="integration-card" href="google-genai/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/google-gemini.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="google-genai.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat"></span>
     <span class="integration-name">Google Gen AI</span>
   </a>
-  <a class="integration-card" href="anthropic/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/anthropic.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="anthropic.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/anthropic.svg) center/contain no-repeat"></span>
     <span class="integration-name">Anthropic</span>
   </a>
-  <a class="integration-card" href="langchain/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/langchain.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="langchain.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/langchain.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/langchain.svg) center/contain no-repeat"></span>
     <span class="integration-name">LangChain</span>
   </a>
-  <a class="integration-card" href="litellm/">
-    <span class="integration-logo integration-logo--mark">Li</span>
+  <a class="integration-card" href="litellm.md">
+    <span class="integration-logo integration-logo--plainmark">Li</span>
     <span class="integration-name">LiteLLM</span>
   </a>
-  <a class="integration-card" href="dspy/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/dspy.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="dspy.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/dspy.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/dspy.svg) center/contain no-repeat"></span>
     <span class="integration-name">DSPy</span>
   </a>
-  <a class="integration-card" href="mcp/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/mcp.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="mcp.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/mcp.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/mcp.svg) center/contain no-repeat"></span>
     <span class="integration-name">MCP</span>
   </a>
-  <a class="integration-card" href="claude-agent-sdk/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/claude-agent-sdk.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="claude-agent-sdk.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/claude-agent-sdk.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/claude-agent-sdk.svg) center/contain no-repeat"></span>
     <span class="integration-name">Claude Agent SDK</span>
   </a>
-  <a class="integration-card" href="llamaindex/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/llamaindex.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="llamaindex.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/llamaindex.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/llamaindex.svg) center/contain no-repeat"></span>
     <span class="integration-name">LlamaIndex</span>
   </a>
-  <a class="integration-card" href="mirascope/">
-    <span class="integration-logo"><img src="../../images/integrations/llms/mirascope.svg" alt="" loading="lazy"></span>
+  <a class="integration-card" href="mirascope.md">
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/mirascope.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/mirascope.svg) center/contain no-repeat"></span>
     <span class="integration-name">Mirascope</span>
   </a>
-  <a class="integration-card" href="magentic/">
-    <span class="integration-logo integration-logo--mark">Ma</span>
+  <a class="integration-card" href="magentic.md">
+    <span class="integration-logo integration-logo--plainmark">Ma</span>
     <span class="integration-name">Magentic</span>
   </a>
 </div>
