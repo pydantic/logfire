@@ -1,6 +1,8 @@
 from collections.abc import Iterator
+from urllib.parse import quote
 
 import httpx
+import pydantic
 import pytest
 from anthropic import Anthropic, AsyncAnthropic
 from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
@@ -11,39 +13,56 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.integrations.llm_providers.anthropic import is_async_client
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.5'),
+        reason='Requires Pydantic 2.5 or higher to import genai-prices and set operation.cost attribute.',
+    ),
+]
+
+
+def make_request_handler(model_id: str):
+    """Build an httpx mock handler for a Bedrock invocation of `model_id`."""
+
+    def request_handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == 'POST'
+        assert request.url == (
+            f'https://bedrock-runtime.us-east-1.amazonaws.com/model/{quote(model_id, safe=":")}/invoke'
+        )
+
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id',
+                content=[
+                    TextBlock(
+                        text='Nine',
+                        type='text',
+                    )
+                ],
+                # Bedrock echoes back the model ID it was invoked with, so this is what
+                # the instrumentation has to price.
+                model=model_id,
+                role='assistant',
+                type='message',
+                stop_reason='end_turn',
+                usage=Usage(input_tokens=2, output_tokens=3),  # Match the snapshot values
+            ).model_dump(mode='json'),
+        )
+
+    return request_handler
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:
     """Used to mock httpx requests"""
-    model_id = 'anthropic.claude-3-haiku-20240307-v1:0'
-
-    assert request.method == 'POST'
-    assert request.url == f'https://bedrock-runtime.us-east-1.amazonaws.com/model/{model_id}/invoke'
-
-    return httpx.Response(
-        200,
-        json=Message(
-            id='test_id',
-            content=[
-                TextBlock(
-                    text='Nine',
-                    type='text',
-                )
-            ],
-            model=model_id,
-            role='assistant',
-            type='message',
-            stop_reason='end_turn',
-            usage=Usage(input_tokens=2, output_tokens=3),  # Match the snapshot values
-        ).model_dump(mode='json'),
-    )
+    return make_request_handler('anthropic.claude-3-haiku-20240307-v1:0')(request)
 
 
-@pytest.fixture
-def mock_client() -> Iterator[AnthropicBedrock]:
-    """Fixture that provides a mocked Anthropic client with AWS credentials"""
-    with httpx.Client(transport=MockTransport(request_handler)) as http_client:
+def make_client(model_id: str) -> Iterator[AnthropicBedrock]:
+    with httpx.Client(transport=MockTransport(make_request_handler(model_id))) as http_client:
         client = AnthropicBedrock(
             aws_region='us-east-1',
             aws_access_key='test-access-key',
@@ -53,6 +72,12 @@ def mock_client() -> Iterator[AnthropicBedrock]:
         )
         with logfire.instrument_anthropic(version=[1, 'latest']):
             yield client
+
+
+@pytest.fixture
+def mock_client() -> Iterator[AnthropicBedrock]:
+    """Fixture that provides a mocked Anthropic client with AWS credentials"""
+    yield from make_client('anthropic.claude-3-haiku-20240307-v1:0')
 
 
 @pytest.mark.filterwarnings('ignore:datetime.datetime.utcnow:DeprecationWarning')
@@ -132,6 +157,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
                     'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
+                    'operation.cost': 4.25e-06,
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -161,6 +187,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
@@ -168,6 +195,37 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
             }
         ]
     )
+
+
+@pytest.mark.filterwarnings('ignore:datetime.datetime.utcnow:DeprecationWarning')
+@pytest.mark.parametrize(
+    'model_id,expected_cost',
+    [
+        # Plain Bedrock model ID.
+        ('anthropic.claude-3-haiku-20240307-v1:0', 4.25e-06),
+        # Cross-region inference profiles, which prefix the ID with a geography.
+        ('us.anthropic.claude-3-7-sonnet-20250219-v1:0', 5.1e-05),
+        ('eu.anthropic.claude-3-7-sonnet-20250219-v1:0', 5.1e-05),
+        # The full inference profile ARN, which is what `BedrockConverseModel` is often given.
+        (
+            'arn:aws:bedrock:eu-west-1:123456789012:inference-profile/eu.anthropic.claude-3-7-sonnet-20250219-v1:0',
+            5.1e-05,
+        ),
+    ],
+)
+def test_bedrock_model_ids_are_priced(model_id: str, expected_cost: float, exporter: TestExporter):
+    """Bedrock model IDs are priced under the `aws` provider, in every ID form Bedrock accepts."""
+    for client in make_client(model_id):
+        client.messages.create(
+            max_tokens=1000,
+            model=model_id,
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['gen_ai.usage.input_tokens'] == 2
+    assert span['attributes']['gen_ai.usage.output_tokens'] == 3
+    assert span['attributes']['operation.cost'] == expected_cost
 
 
 def test_is_async_client() -> None:
