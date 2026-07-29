@@ -306,13 +306,18 @@ class AnthropicMessageStreamState(StreamState):
 
 
 # Bedrock model IDs are the Anthropic model name behind a `anthropic.` vendor prefix,
-# optionally behind a geography prefix for cross-region inference profiles, and optionally
+# optionally behind a scope prefix for cross-region inference profiles, and optionally
 # behind a full inference profile ARN:
 #   anthropic.claude-3-haiku-20240307-v1:0
 #   eu.anthropic.claude-3-7-sonnet-20250219-v1:0
+#   global.anthropic.claude-sonnet-4-5-20250929-v1:0
+#   us-gov.anthropic.claude-3-5-sonnet-20240620-v1:0
 #   arn:aws:bedrock:eu-west-1:123456789012:inference-profile/eu.anthropic.claude-3-7-sonnet-20250219-v1:0
-# Native Anthropic model names never take that shape, so this only matches Bedrock.
-_BEDROCK_MODEL_RE = re.compile(r'^(arn:aws:bedrock:|([a-z]{2,4}\.)?anthropic\.)')
+# The scope prefix is matched loosely on purpose: AWS keeps adding them (`global` and `us-gov`
+# are neither two nor three letters) and pricing differs between them, so an ID we fail to
+# recognise here loses its cost entirely. `anthropic.` is what actually identifies Bedrock,
+# since native Anthropic model names never contain it.
+_BEDROCK_MODEL_RE = re.compile(r'^(arn:aws:bedrock:|([a-z][a-z0-9-]*\.)?anthropic\.)')
 
 
 def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:

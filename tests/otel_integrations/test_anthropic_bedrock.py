@@ -203,9 +203,14 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
     [
         # Plain Bedrock model ID.
         ('anthropic.claude-3-haiku-20240307-v1:0', 4.25e-06),
-        # Cross-region inference profiles, which prefix the ID with a geography.
+        # Cross-region inference profiles, which prefix the ID with a scope.
         ('us.anthropic.claude-3-7-sonnet-20250219-v1:0', 5.1e-05),
         ('eu.anthropic.claude-3-7-sonnet-20250219-v1:0', 5.1e-05),
+        ('apac.anthropic.claude-3-7-sonnet-20250219-v1:0', 5.1e-05),
+        # `global` and `us-gov` are longer than the other scopes, and genai-prices resolves
+        # `global` to its own model entry rather than the regional one.
+        ('us-gov.anthropic.claude-3-7-sonnet-20250219-v1:0', 5.1e-05),
+        ('global.anthropic.claude-sonnet-4-5-20250929-v1:0', 5.1e-05),
         # The full inference profile ARN, which is what `BedrockConverseModel` is often given.
         (
             'arn:aws:bedrock:eu-west-1:123456789012:inference-profile/eu.anthropic.claude-3-7-sonnet-20250219-v1:0',
