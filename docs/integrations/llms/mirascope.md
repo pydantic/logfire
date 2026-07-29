@@ -5,7 +5,7 @@ integration: "third-party"
 ---
 # Mirascope
 
-See what your [Mirascope][mirascope-repo] functions do: the prompt template they built, the conversation with the model, and the tokens each call used, as a **trace** (the full journey of one request, made of nested **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
+See what your [Mirascope][mirascope-repo] functions do: the prompt template they built, the conversation with the model, and the tokens each call used, as a **trace** (the full journey of one request or agent run, made of nested **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
 
 Mirascope is a library for building with models. It adds this instrumentation through its own [`@with_logfire`][mirascope-logfire] decorator, which works with every [model provider it supports][mirascope-supported-providers].
 

@@ -11,7 +11,7 @@ Follow these in order. Each link says why it's here.
 
 ## Your path
 
-1. **[Send your first trace to Logfire](../first-trace.md)**: install Logfire and link this machine to a project. A **trace** is the full record of one request; a **span** is one step inside it (a database query, an outgoing API call). This is the five-minute foundation everything else builds on.
+1. **[Send your first trace to Logfire](../first-trace.md)**: install Logfire and link this machine to a project. A **trace** is the full record of one request or job; a **span** is one step inside it (a database query, an outgoing API call). This is the five-minute foundation everything else builds on.
 
 2. **Instrument your framework and dependencies**: one line each turns on tracing for the request path:
     - Web frameworks: [FastAPI](../integrations/web-frameworks/fastapi.md), [Django](../integrations/web-frameworks/django.md), [Flask](../integrations/web-frameworks/flask.md), [Starlette](../integrations/web-frameworks/starlette.md) (see [all web frameworks](../integrations/web-frameworks/index.md))

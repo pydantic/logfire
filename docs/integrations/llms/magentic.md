@@ -5,7 +5,7 @@ integration: "third-party"
 ---
 # Magentic
 
-See what [Magentic](https://github.com/jackmpcollins/magentic) does when it turns a model's reply into structured output: the prompt it built, each retry it needed, and the tool or function calls it made, as a **trace** (the full journey of one request, made of nested **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
+See what [Magentic](https://github.com/jackmpcollins/magentic) does when it turns a model's reply into structured output: the prompt it built, each retry it needed, and the tool or function calls it made, as a **trace** (the full journey of one request or agent run, made of nested **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
 
 Magentic is a library for getting structured output from models, built around standard Python type annotations and Pydantic. It emits its own spans as soon as Logfire is configured; there's no separate Magentic instrument call.
 

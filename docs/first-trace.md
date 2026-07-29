@@ -5,7 +5,7 @@ description: "Install the Logfire SDK, add a few lines to your app, and watch yo
 
 # Send your first trace
 
-Go from install to your first trace in about 5 minutes. A trace is the journey of one request, made of nested spans; a span is one operation, with a name, a start, and a duration. Logfire has native SDKs for Python, JavaScript/TypeScript, and Rust, plus any language through OpenTelemetry (OTel), the open industry standard it is built on.
+Go from install to your first trace in about 5 minutes. A trace is the full record of one request, job, task, or agent run from start to finish, made of nested spans; a span is one operation within it, with a name, a start, and a duration. Logfire has native SDKs for Python, JavaScript/TypeScript, and Rust, plus any language through OpenTelemetry (OTel), the open industry standard it is built on.
 
 ## Before you start
 
