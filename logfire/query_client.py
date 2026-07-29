@@ -10,12 +10,14 @@ from .experimental.query_client import (
     QueryResults,
     ReadTokenInfo,
     RowQueryResults,
+    UnexpectedResponseError,
 )
 
 __all__ = [
     'QueryExecutionError',
     'QueryRequestError',
     'InfoRequestError',
+    'UnexpectedResponseError',
     'ReadTokenInfo',
     'ColumnDetails',
     'ColumnData',
