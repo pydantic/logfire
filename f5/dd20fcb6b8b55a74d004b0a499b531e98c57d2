@@ -1,0 +1,19 @@
+tests/test_docs.py
+  s_e6e57aef5672b8::t_3432e1a2babae0 19-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f5dd20fcb6b8b55a74d004b0a499b531e98c57d2",
+  "prompts": {},
+  "sessions": {
+    "s_e6e57aef5672b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5248f6a3-7065-4c6e-aa8b-847e255c0057",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
