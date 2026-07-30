@@ -1,0 +1,70 @@
+docs/comparisons/arize-phoenix.md
+  s_e6e57aef5672b8::t_54208f7037a593 70
+docs/reference/advanced/managed-variables/remote.md
+  s_e6e57aef5672b8::t_54208f7037a593 9,63,162,193-198
+docs/evaluate/datasets-sdk.md
+  s_e6e57aef5672b8::t_54208f7037a593 115,188,200
+docs/reference/advanced/managed-variables/index.md
+  s_e6e57aef5672b8::t_54208f7037a593 149
+docs/integrations/llms/litellm.md
+  s_e6e57aef5672b8::t_54208f7037a593 56
+docs/integrations/llms/mirascope.md
+  s_e6e57aef5672b8::t_54208f7037a593 52,101
+docs/reference/advanced/managed-variables/configuration-reference.md
+  s_e6e57aef5672b8::t_54208f7037a593 151,156,168
+logfire/.agents/skills/logfire-instrumentation/references/python/logging-patterns.md
+  s_e6e57aef5672b8::t_54208f7037a593 8-14,23-24,26,28,52-60,79-80,82-83,85,96,101
+logfire/.agents/skills/logfire-instrumentation/references/python/integrations.md
+  s_e6e57aef5672b8::t_54208f7037a593 64
+docs/reference/sql.md
+  s_e6e57aef5672b8::t_54208f7037a593 136,138
+docs/integrations/databases/sqlite3.md
+  s_e6e57aef5672b8::t_54208f7037a593 48,97
+logfire/.agents/skills/logfire-instrumentation/SKILL.md
+  s_e6e57aef5672b8::t_54208f7037a593 123,138,167-168
+docs/guides/onboarding-checklist/add-manual-tracing.md
+  s_e6e57aef5672b8::t_54208f7037a593 221,233-234
+docs/reference/advanced/managed-variables/templates-and-composition.md
+  s_e6e57aef5672b8::t_54208f7037a593 42,46,108,110,177,210,246,272,275,284,318,320,341,343,345,373,375
+docs/comparisons/sentry.md
+  s_e6e57aef5672b8::t_54208f7037a593 62
+docs/integrations/system-metrics.md
+  s_e6e57aef5672b8::t_54208f7037a593 81-88,109-174
+docs/guides/onboarding-checklist/add-auto-tracing.md
+  s_e6e57aef5672b8::t_54208f7037a593 82,86,93,99
+docs/integrations/pytest.md
+  s_e6e57aef5672b8::t_54208f7037a593 193,195,261
+docs/guides/web-ui/llm-panels.md
+  s_e6e57aef5672b8::t_54208f7037a593 93-94,103-104
+CLAUDE.md
+  s_e6e57aef5672b8::t_54208f7037a593 65,68,82-87
+docs/comparisons/signoz.md
+  s_e6e57aef5672b8::t_54208f7037a593 40
+docs/comparisons/braintrust.md
+  s_e6e57aef5672b8::t_54208f7037a593 74,76-78
+docs/integrations/llms/pydanticai.md
+  s_e6e57aef5672b8::t_54208f7037a593 64,68
+docs/reference/advanced/managed-variables/targeting.md
+  s_e6e57aef5672b8::t_54208f7037a593 28
+  s_e6e57aef5672b8::t_517227ce1acde1 50
+docs/reference/advanced/baggage.md
+  s_e6e57aef5672b8::t_54208f7037a593 41
+docs/integrations/structlog.md
+  s_e6e57aef5672b8::t_54208f7037a593 67,97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "b8574a64132210092859a5aab59e8ad29fa48fce",
+  "prompts": {},
+  "sessions": {
+    "s_e6e57aef5672b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5248f6a3-7065-4c6e-aa8b-847e255c0057",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
