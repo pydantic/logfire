@@ -12,3 +12,7 @@ paths:
       - 'shellcheck reported issue in this script: SC2086:.+'  # Double-quote to prevent globbing/word splitting
       - 'shellcheck reported issue in this script: SC2129:.+'  # Consider using { cmd1; cmd2; } >> file
       - 'shellcheck reported issue in this script: SC2155:.+'  # Declare and assign separately to avoid masking return values
+  ".github/workflows/main.yml":
+    ignore:
+      # test-pyodide uses matrix.python-version without a matrix definition; evaluates to "" at runtime.
+      - 'property "python-version" is not defined in object type \{\}'
