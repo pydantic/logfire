@@ -1620,14 +1620,10 @@ wheels = [
 [[package]]
 name = "genai-prices"
 version = "0.0.73"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/pydantic/genai-prices?subdirectory=packages%2Fpython&branch=codex%2Funit-registry-06-data-v2#9ab2c61dae4295bd72271827c24bdb662aceb1c3" }
 dependencies = [
     { name = "httpx2" },
     { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/84/0b/4b430d9c6ff0c76e42b91fc4cedff84dfbefa1a35b885fad45a22d29303f/genai_prices-0.0.73.tar.gz", hash = "sha256:ddad5b23dadd7aac8a58ab5af7506addb062114037e96427324703e50bc35077", size = 88406, upload-time = "2026-07-29T12:48:58.215Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/85/527a729ecd58b7169430e47febdab2e3f91193d0e3f5a56d721c04525709/genai_prices-0.0.73-py3-none-any.whl", hash = "sha256:64dfbbf55df91db6b74ff2b24ac752b8154952e0aed4e62868d6cd42710bf742", size = 92507, upload-time = "2026-07-29T12:48:57.194Z" },
 ]
 
 [[package]]
@@ -2631,6 +2627,7 @@ dev = [
     { name = "fastapi" },
     { name = "faststream", extra = ["redis"] },
     { name = "flask" },
+    { name = "genai-prices" },
     { name = "google-genai" },
     { name = "greenlet" },
     { name = "httpx" },
@@ -2646,7 +2643,6 @@ dev = [
     { name = "mysql-connector-python" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
-    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_version < '0'" },
     { name = "openai" },
     { name = "openai-agents", extra = ["voice"] },
     { name = "openinference-instrumentation-dspy" },
@@ -2781,6 +2777,7 @@ dev = [
     { name = "fastapi", specifier = "!=0.124.3,!=0.124.4" },
     { name = "faststream", extras = ["redis"], specifier = ">=0.5.0" },
     { name = "flask", specifier = ">=3.0.3" },
+    { name = "genai-prices", git = "https://github.com/pydantic/genai-prices?subdirectory=packages%2Fpython&branch=codex%2Funit-registry-06-data-v2" },
     { name = "google-genai", specifier = ">=0" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "httpx", specifier = ">=0.27.2" },
