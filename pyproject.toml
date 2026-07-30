@@ -295,6 +295,10 @@ convention = "google"
 [tool.ruff.format]
 docstring-code-format = true
 quote-style = "single"
+# Ruff 0.16 formats Python code blocks in Markdown files by default,
+# but that mangles the `#>` output markers checked by pytest-examples,
+# which is the authority on docs code formatting.
+exclude = ["*.md"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
