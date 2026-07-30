@@ -256,6 +256,9 @@ line-length = 120
 extend-exclude = ["logfire-api/logfire_api/*", "tests/auto_trace_samples/param_spec.py"]
 
 [tool.ruff.lint]
+# Ruff 0.16 greatly expanded the default rule set (59 -> 413 rules).
+# Restore the pre-0.16 defaults until we deliberately migrate to the new defaults.
+select = ["E4", "E7", "E9", "F"]
 extend-select = [
     "Q", # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
     "RUF100", # https://docs.astral.sh/ruff/rules/unused-noqa/
