@@ -190,7 +190,7 @@ jobs:
 
       - run: make test-pyodide
         env:
-          UV_PYTHON: ${{ matrix.python-version }}
+          UV_PYTHON: ${{ matrix.python-version }}  # actionlint:ignore[expression]
 
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
