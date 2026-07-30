@@ -133,9 +133,9 @@ logfire.configure()
 with logfire.span('foo') as span:
     trace_id = span.get_span_context().trace_id
     print(trace_id)
-    # > 2135173042243855739684686441807112708
+    #> 2135173042243855739684686441807112708
     print(format_trace_id(trace_id))
-    # > 019b38289f5dfbf64cd7de68d37c6a04
+    #> 019b38289f5dfbf64cd7de68d37c6a04
 ```
 
 The formatted trace ID `019b38289f5dfbf64cd7de68d37c6a04` is what you'll see in the database and in the UI.

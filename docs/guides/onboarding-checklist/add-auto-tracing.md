@@ -79,24 +79,26 @@ To exclude a function from auto-tracing, add the [`no_auto_trace`][logfire.no_au
 ```py skip="true" skip-reason="incomplete"
 import logfire
 
-
 @logfire.no_auto_trace
 def my_function():
     # Nested functions will also be excluded
-    def inner_function(): ...
+    def inner_function():
+        ...
 
     return other_function()
 
 
 # This function is *not* excluded from auto-tracing.
 # It will still be traced even when called from the excluded `my_function` above.
-def other_function(): ...
+def other_function():
+    ...
 
 
 # All methods of a decorated class will also be excluded
 @no_auto_trace
 class MyClass:
-    def my_method(self): ...
+    def my_method(self):
+        ...
 ```
 
 The decorator is detected at import time.

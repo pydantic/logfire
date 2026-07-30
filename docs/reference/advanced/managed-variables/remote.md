@@ -6,7 +6,6 @@ To enable remote variables, you can explicitly opt in using `VariablesOptions`:
 
 ```python skip="true"
 import logfire
-
 # Enable remote variables
 logfire.configure(
     variables=logfire.VariablesOptions(),
@@ -60,7 +59,6 @@ The primary benefit of pushing from code is **automatic JSON schema generation**
 from pydantic import BaseModel
 
 import logfire
-
 logfire.configure(
     variables=logfire.VariablesOptions(),
 )
@@ -159,7 +157,6 @@ When you have multiple variables that share the same type (e.g., several variabl
 from pydantic import BaseModel
 
 import logfire
-
 logfire.configure(
     variables=logfire.VariablesOptions(),
 )
@@ -190,12 +187,10 @@ if __name__ == '__main__':
 By default, types are named using their `__name__` attribute (e.g., `FeatureConfig`). You can provide explicit names using tuples:
 
 ```python skip="true"
-logfire.variables_push_types(
-    [
-        (FeatureConfig, 'feature_config'),
-        (UserSettings, 'user_settings'),
-    ]
-)
+logfire.variables_push_types([
+    (FeatureConfig, 'feature_config'),
+    (UserSettings, 'user_settings'),
+])
 ```
 
 **Options:**

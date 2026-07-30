@@ -78,14 +78,12 @@ and query resource attributes.
 By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics (Logfire)' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
 
 ```py skip="true" skip-reason="incomplete"
-logfire.instrument_system_metrics(
-    {
-        'process.cpu.utilization': None,  # (1)!
-        'system.cpu.simple_utilization': None,  # (2)!
-        'system.memory.utilization': ['available'],  # (3)!
-        'system.swap.utilization': ['used'],  # (4)!
-    }
-)
+logfire.instrument_system_metrics({
+    'process.cpu.utilization': None,  # (1)!
+    'system.cpu.simple_utilization': None,  # (2)!
+    'system.memory.utilization': ['available'],  # (3)!
+    'system.swap.utilization': ['used'],  # (4)!
+})
 ```
 
 1. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.Process().cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent)`/100`, i.e. the fraction of CPU time used by this process, where 1 means using 100% of a single CPU core. The value can be greater than 1 if the process uses multiple cores.
@@ -106,72 +104,36 @@ To collect lots of detailed data about all available metrics, use `logfire.instr
 `logfire.instrument_system_metrics(base='full')` is equivalent to:
 
 ```py skip="true" skip-reason="incomplete"
-logfire.instrument_system_metrics(
-    {
-        'system.cpu.simple_utilization': None,
-        'system.cpu.time': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
-        'system.cpu.utilization': [
-            'idle',
-            'user',
-            'system',
-            'irq',
-            'softirq',
-            'nice',
-            'iowait',
-            'steal',
-            'interrupt',
-            'dpc',
-        ],
-        'system.memory.usage': [
-            'available',
-            'used',
-            'free',
-            'active',
-            'inactive',
-            'buffers',
-            'cached',
-            'shared',
-            'wired',
-            'slab',
-            'total',
-        ],
-        'system.memory.utilization': [
-            'available',
-            'used',
-            'free',
-            'active',
-            'inactive',
-            'buffers',
-            'cached',
-            'shared',
-            'wired',
-            'slab',
-        ],
-        'system.swap.usage': ['used', 'free'],
-        'system.swap.utilization': ['used'],
-        'system.disk.io': ['read', 'write'],
-        'system.disk.operations': ['read', 'write'],
-        'system.disk.time': ['read', 'write'],
-        'system.network.dropped.packets': ['transmit', 'receive'],
-        'system.network.packets': ['transmit', 'receive'],
-        'system.network.errors': ['transmit', 'receive'],
-        'system.network.io': ['transmit', 'receive'],
-        'system.thread_count': None,
-        'process.context_switches': ['involuntary', 'voluntary'],
-        'process.runtime.gc_count': None,
-        'process.open_file_descriptor.count': None,
-        'process.cpu.time': ['user', 'system'],
-        'process.cpu.utilization': None,
-        'process.cpu.core_utilization': None,
-        'process.disk.io': ['read', 'write'],
-        'process.memory.usage': None,
-        'process.memory.virtual': None,
-        'process.thread.count': None,
-        'cpython.gc.collected_objects': None,
-        'cpython.gc.collections': None,
-        'cpython.gc.uncollectable_objects': None,
-    }
-)
+logfire.instrument_system_metrics({
+    'system.cpu.simple_utilization': None,
+    'system.cpu.time': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
+    'system.cpu.utilization': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],
+    'system.memory.usage': ['available', 'used', 'free', 'active', 'inactive', 'buffers', 'cached', 'shared', 'wired', 'slab', 'total'],
+    'system.memory.utilization': ['available', 'used', 'free', 'active', 'inactive', 'buffers', 'cached', 'shared', 'wired', 'slab'],
+    'system.swap.usage': ['used', 'free'],
+    'system.swap.utilization': ['used'],
+    'system.disk.io': ['read', 'write'],
+    'system.disk.operations': ['read', 'write'],
+    'system.disk.time': ['read', 'write'],
+    'system.network.dropped.packets': ['transmit', 'receive'],
+    'system.network.packets': ['transmit', 'receive'],
+    'system.network.errors': ['transmit', 'receive'],
+    'system.network.io': ['transmit', 'receive'],
+    'system.thread_count': None,
+    'process.context_switches': ['involuntary', 'voluntary'],
+    'process.runtime.gc_count': None,
+    'process.open_file_descriptor.count': None,
+    'process.cpu.time': ['user', 'system'],
+    'process.cpu.utilization': None,
+    'process.cpu.core_utilization': None,
+    'process.disk.io': ['read', 'write'],
+    'process.memory.usage': None,
+    'process.memory.virtual': None,
+    'process.thread.count': None,
+    'cpython.gc.collected_objects': None,
+    'cpython.gc.collections': None,
+    'cpython.gc.uncollectable_objects': None,
+})
 ```
 
 Each key here is a metric name. The values have different meanings for different metrics. For example, for `system.cpu.utilization`, the value is a list of CPU modes. So there will be a separate row for each CPU core saying what percentage of time it spent idle, another row for the time spent waiting for IO, etc. There are no fields to configure for `system.thread_count`, so the value is `None`.

@@ -61,7 +61,6 @@
 # gunicorn.conf.py
 import logfire
 
-
 def post_fork(server, worker):
     logfire.configure()
     logfire.instrument_fastapi(app)

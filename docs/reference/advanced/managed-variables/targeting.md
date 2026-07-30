@@ -25,7 +25,6 @@ Instead of passing `targeting_key` to every `.get()` call, you can set it once a
 ```python skip="true"
 from logfire.variables import targeting_context
 
-
 async def handle_request(user_id: str, message: str) -> str:
     # Set targeting key once for all variables in this context
     with targeting_context(user_id):
@@ -46,7 +45,6 @@ from logfire.variables import targeting_context
 # Define variables
 personalization_config = logfire.var(name='personalization', type=PersonalizationConfig, default=...)
 billing_config = logfire.var(name='billing', type=BillingConfig, default=...)
-
 
 async def handle_request(user_id: str, org_id: str) -> None:
     # Set different targeting keys for different variables

@@ -37,7 +37,6 @@ Both SaaS platforms handle infrastructure for you: no ClickHouse to manage, no c
 
 ```python skip="true" skip-reason="incomplete"
 import logfire
-
 logfire.configure()
 logfire.instrument_openai()
 ```

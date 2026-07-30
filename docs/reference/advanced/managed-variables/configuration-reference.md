@@ -148,12 +148,12 @@ greeting = logfire.var('greeting', type=str, default='Hello, @{user}@!')
 
 # Without an override: composition expands @{user}@.
 print(greeting.get().value)
-# > Hello, Alice!
+#> Hello, Alice!
 
 # Override composes too: @{user}@ is expanded against the live config.
 with greeting.override('Hi @{user}@'):
     print(greeting.get().value)
-    # > Hi Alice
+    #> Hi Alice
 ```
 
 ### Dynamic Override Functions
@@ -165,7 +165,9 @@ from collections.abc import Mapping
 from typing import Any
 
 
-def get_config_for_context(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> AgentConfig:
+def get_config_for_context(
+    targeting_key: str | None, attributes: Mapping[str, Any] | None
+) -> AgentConfig:
     """Compute configuration based on context."""
     if attributes and attributes.get('mode') == 'creative':
         return AgentConfig(

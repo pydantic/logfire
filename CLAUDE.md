@@ -62,10 +62,9 @@ from inline_snapshot import snapshot
 from logfire.testing import TestExporter
 import logfire
 
-
 def test_my_thing(exporter: TestExporter):
     # create spans, e.g:
-    with logfire.span('a span'):
+    with logfire.span("a span"):
         ...
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot()
@@ -79,12 +78,10 @@ If the output changes, running again will automatically update the snapshot in t
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
-assert ... == snapshot(
-    {
-        'name': 'foo',
-        'random_id': IsStr(),
-    }
-)
+assert ... == snapshot({
+    'name': 'foo',
+    'random_id': IsStr(),
+})
 ```
 
 Use `@pytest.mark.anyio` for async tests.

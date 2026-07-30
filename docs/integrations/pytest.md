@@ -190,9 +190,9 @@ pytest: my-project
 
 ```python skip="true" skip-reason="incomplete"
 def test_operation(logfire_pytest):
-    logfire_pytest.info('Starting operation')
+    logfire_pytest.info("Starting operation")
     result = perform_operation()
-    logfire_pytest.info('Operation completed', result=result)
+    logfire_pytest.info("Operation completed", result=result)
     assert result == expected
 ```
 
@@ -258,7 +258,7 @@ If you were previously using a manual tracing pattern in `conftest.py`:
 # Old pattern - no longer needed
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(item):
-    with logfire.span('test: {test_name}', test_name=item.name):
+    with logfire.span("test: {test_name}", test_name=item.name):
         yield
 ```
 

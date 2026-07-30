@@ -38,7 +38,7 @@ logfire.configure()
 
 with logfire.set_baggage(user_id='scolvin'):
     print(logfire.get_baggage())  # (just for demonstration, not usually needed)
-    # > {'user_id': 'scolvin'}
+    #> {'user_id': 'scolvin'}
 
     # All spans opened here (and their descendants)
     # will have the attribute `user_id` set to 'scolvin'

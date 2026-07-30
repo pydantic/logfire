@@ -146,7 +146,7 @@ prompt = logfire.template_var(
 
 with prompt.get(PromptInputs(user_name='Alice', is_premium=True)) as resolved:
     print(resolved.value)
-    # > Hello Alice! Welcome back, valued member.
+    #> Hello Alice! Welcome back, valued member.
 ```
 
 Variables can also reference other variables using `@{variable_name}@` syntax, allowing you to compose values from reusable fragments that can be independently updated in the UI.

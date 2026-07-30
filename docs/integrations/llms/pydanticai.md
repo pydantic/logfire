@@ -61,11 +61,11 @@ async def roulette_wheel(ctx: RunContext[int], square: int) -> str:
 success_number = 18
 result = roulette_agent.run_sync('Put my money on square eighteen', deps=success_number)
 print(result.output)
-# > True
+#> True
 
 result = roulette_agent.run_sync('I bet five is the winner', deps=success_number)
 print(result.output)
-# > False
+#> False
 ```
 
 You can use Pydantic AI with a [large variety of models][pydantic_ai.models.KnownModelName]; the example just happens to show `gpt-5-mini`.

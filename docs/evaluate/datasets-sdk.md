@@ -112,7 +112,7 @@ with LogfireAPIClient(api_key='your-api-key') as client:
         local_dataset,
         description='Golden test cases for the Q&A system',
     )
-    print(f'Published dataset: {dataset["name"]} (ID: {dataset["id"]})')
+    print(f"Published dataset: {dataset['name']} (ID: {dataset['id']})")
 ```
 
 `push_dataset(...)` is designed to be rerunnable:
@@ -185,7 +185,7 @@ client.add_cases(
 # List all cases in a dataset
 cases = client.list_cases('qa-golden-set')
 for case in cases:
-    print(f'  {case["name"]}: {case["inputs"]}')
+    print(f"  {case['name']}: {case['inputs']}")
 
 # Get a specific case
 case = client.get_case('qa-golden-set', case_id='some-case-uuid')
@@ -197,7 +197,7 @@ case = client.get_case('qa-golden-set', case_id='some-case-uuid')
 # List all datasets in the project
 datasets = client.list_datasets()
 for ds in datasets:
-    print(f'{ds["name"]}: {ds["case_count"]} cases')
+    print(f"{ds['name']}: {ds['case_count']} cases")
 
 # Retrieve only dataset-level metadata for a specific dataset by name or ID
 dataset_info = client.get_dataset('qa-golden-set', include_cases=False)
