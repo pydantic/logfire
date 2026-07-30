@@ -236,6 +236,7 @@ pydantic-evals = false
 pydantic = false
 pydantic-core = false
 pydantic-handlebars = false
+genai-prices = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
