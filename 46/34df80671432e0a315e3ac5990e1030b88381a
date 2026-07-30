@@ -1,0 +1,21 @@
+tests/otel_integrations/test_pydantic_ai_mcp.py
+  s_e6e57aef5672b8::t_908bd164a2ed5f 195-198,245-248,669-672,701-704
+tests/otel_integrations/test_anthropic.py
+  s_e6e57aef5672b8::t_908bd164a2ed5f 2021
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "4634df80671432e0a315e3ac5990e1030b88381a",
+  "prompts": {},
+  "sessions": {
+    "s_e6e57aef5672b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5248f6a3-7065-4c6e-aa8b-847e255c0057",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
