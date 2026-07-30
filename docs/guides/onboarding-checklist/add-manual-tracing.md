@@ -218,8 +218,7 @@ you can use the [`@logfire.instrument`][logfire.Logfire.instrument] decorator:
 
 ```python skip="true" skip-reason="incomplete"
 @logfire.instrument()
-def my_function(x, y):
-    ...
+def my_function(x, y): ...
 ```
 
 By default, this will add the function arguments to the span as attributes.
@@ -231,8 +230,8 @@ into which arguments will be formatted, e.g:
 
 ```python skip="true" skip-reason="incomplete"
 @logfire.instrument('Applying my_function to {x=} and {y=}')
-def my_function(x, y):
-    ...
+def my_function(x, y): ...
+
 
 my_function(3, 4)
 # Logs: Applying my_function to x=3 and y=4

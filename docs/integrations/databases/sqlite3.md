@@ -45,7 +45,7 @@ with sqlite3.connect(':memory:') as connection:
 
     cursor.execute('SELECT * FROM users')
     print(cursor.fetchall())
-    #> [(1, 'Alice')]
+    # > [(1, 'Alice')]
 
 connection.close()
 ```
@@ -94,7 +94,7 @@ with sqlite3.connect(':memory:') as connection:
 
     cursor.execute('SELECT * FROM users')
     print(cursor.fetchall())
-    #> [(1, 'Alice')]
+    # > [(1, 'Alice')]
 
 connection.close()
 ```

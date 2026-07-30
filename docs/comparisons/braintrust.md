@@ -71,10 +71,11 @@ Different philosophies: Choose based on your team's workflow.
 
 ```python skip="true" skip-reason="incomplete"
 import logfire
+
 logfire.configure()
-logfire.instrument_openai()     # AI
-logfire.instrument_fastapi(app) # API
-logfire.instrument_asyncpg()    # Database
+logfire.instrument_openai()  # AI
+logfire.instrument_fastapi(app)  # API
+logfire.instrument_asyncpg()  # Database
 ```
 
 Same simple interface for everything.

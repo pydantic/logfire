@@ -64,7 +64,7 @@ class User:
 
 
 logger.info('Login', user=User(id=42, name='Fred'))
-#> 2024-03-22 12:57:33 [info     ] Login                          user=User(id=42, name='Fred')
+# > 2024-03-22 12:57:33 [info     ] Login                          user=User(id=42, name='Fred')
 ```
 
 The Logfire processor **MUST** come before the last processor that renders the logs in the structlog
@@ -94,7 +94,7 @@ structlog. If you want to log with Logfire's console output as well, use
 
     ```py skip="true" skip-reason="incomplete"
     logger.error('Hello %s!', 'Fred')
-    #> 2024-03-22 13:39:26 [error    ] Hello Fred!
+    # > 2024-03-22 13:39:26 [error    ] Hello Fred!
     ```
 
     The string `'Fred'` will not be collected by the processor as an attribute, just formatted with

@@ -39,11 +39,11 @@ prompt = logfire.template_var(
 
 with prompt.get(PromptInputs(user_name='Alice', is_premium=True)) as resolved:
     print(resolved.value)
-    #> Hello Alice! Thank you for being a premium member.
+    # > Hello Alice! Thank you for being a premium member.
 
 with prompt.get(PromptInputs(user_name='Bob')) as resolved:
     print(resolved.value)
-    #> Hello Bob!
+    # > Hello Bob!
 ```
 
 The full resolution pipeline is:
@@ -105,9 +105,9 @@ agent_config = logfire.template_var(
 
 with agent_config.get(UserContext(user_name='Alice', tier='premium')) as resolved:
     print(resolved.value.instructions)
-    #> You are helping Alice, a premium customer.
+    # > You are helping Alice, a premium customer.
     print(resolved.value.model)
-    #> openai:gpt-4o-mini
+    # > openai:gpt-4o-mini
 ```
 
 ### Template Validation
@@ -174,7 +174,7 @@ agent_prompt = logfire.var(
 
 with agent_prompt.get() as resolved:
     print(resolved.value)
-    #> You are a helpful assistant. Never share personal data. Always be respectful.
+    # > You are a helpful assistant. Never share personal data. Always be respectful.
 ```
 
 When `safety_rules` is updated in the Logfire UI, all variables that reference `@{safety_rules}@` automatically pick up the new value: no code changes or redeployment required.
@@ -207,7 +207,7 @@ report = logfire.var('report', type=str, default='Weather in @{city}@: sunny.')
 with report.get() as resolved:
     for ref in resolved.composed_from:
         print(f'{ref.name}={ref.value!r} reason={ref.reason}')
-        #> city='Paris' reason=code_default
+        # > city='Paris' reason=code_default
 ```
 
 These composition details are also recorded as span attributes, so you can see the full composition chain in your Logfire traces.
@@ -243,7 +243,7 @@ chat_prompt = logfire.template_var(
 # Resolution: compose @{tone_instructions}@ first, then render {{user_name}} and {{language}}
 with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolved:
     print(resolved.value)
-    #> You are helping Alice. Respond in French. Be friendly and concise.
+    # > You are helping Alice. Respond in French. Be friendly and concise.
 ```
 
 !!! warning "Don't compose a template variable into a plain variable"
@@ -269,10 +269,10 @@ parent = logfire.var('parent', type=str, default='top: @{middle}@')
 
 with parent.get() as resolved:
     print(resolved.value)
-    #> top: middle wraps LEAF
+    # > top: middle wraps LEAF
     # composed_from mirrors the tree:
     print(f'{resolved.composed_from[0].name} -> {resolved.composed_from[0].composed_from[0].name}')
-    #> middle -> leaf
+    # > middle -> leaf
 ```
 
 Contrast with plain Handlebars rendering, where `{{...}}` only substitutes: no graph walk, no re-rendering of values that happen to look template-like:
@@ -281,7 +281,7 @@ Contrast with plain Handlebars rendering, where `{{...}}` only substitutes: no g
 from pydantic_handlebars import render
 
 print(render('{{greeting}}', {'greeting': 'Hello, {{name}}!', 'name': 'Alice'}))
-#> Hello, {{name}}!
+# > Hello, {{name}}!
 ```
 
 ### Failure handling: missing references, cycles, and depth
@@ -315,9 +315,9 @@ with warnings.catch_warnings(record=True) as caught:
     with system_prompt.override('@{persona}@ @{safety_rules}@'):
         with system_prompt.get() as resolved:
             print(resolved.value)
-            #> You are a helpful assistant. Always follow the safety policy.
+            # > You are a helpful assistant. Always follow the safety policy.
     print(any('composition failed' in str(w.message) for w in caught))
-    #> True
+    # > True
 ```
 
 **The code default is the lenient last resort.** When resolution composes the code default (whether it's the active value or the target of a fallback) there is nowhere further to go, so a missing `@{ref}@` in it renders as an **empty string** (and `@{#if missing}@` takes the else branch), like standard Handlebars and like a missing `{{field}}` input. A `RuntimeWarning` still names the issue; only a *structural* failure (a cycle or unparseable template) falls back one more step, to the raw uncomposed default.
@@ -338,11 +338,11 @@ with warnings.catch_warnings(record=True) as caught:
     with greeting.get() as resolved:
         # `@{absent_name}@` has nowhere to fall back, so it renders empty.
         print(resolved.value)
-        #> Hello , welcome!
+        # > Hello , welcome!
         print(resolved.reason)
-        #> code_default
+        # > code_default
     print(any('code default has unresolved composition reference' in str(w.message) for w in caught))
-    #> True
+    # > True
 ```
 
 **Push / sync time is the real safety net.** `logfire.variables_validate()` reports missing references and cycles, and `logfire.variables_push(strict=True)` refuses to apply an invalid configuration. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a missing reference (or a cycle whose midpoint is a server-only variable) is caught before it ever ships.
@@ -370,7 +370,7 @@ with warnings.catch_warnings(record=True) as caught:
         # and `resolved.exception` is a `VariableCompositionError` (or a
         # subclass like `VariableCompositionCycleError` for cycles).
         print(resolved.reason, isinstance(resolved.exception, VariableCompositionError))
-        #> other_error True
+        # > other_error True
     print(any('composition failed' in str(w.message) for w in caught))
-    #> True
+    # > True
 ```

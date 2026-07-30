@@ -49,7 +49,7 @@ def recommend_books(genre: str): ...
 
 response = recommend_books('fantasy')  # this will automatically get logged with logfire
 print(response.content)
-#> Certainly! Here are some popular and well-regarded fantasy books and series: ...
+# > Certainly! Here are some popular and well-regarded fantasy books and series: ...
 ```
 
 ## Verify it worked
@@ -98,7 +98,7 @@ task = 'Submit quarterly report by next Friday. Task is high priority.'
 task_details = extract_task_details(task)  # this will be logged automatically with logfire
 assert isinstance(task_details, TaskDetails)
 print(task_details)
-#> description='Submit quarterly report' due_date='next Friday' priority='high'
+# > description='Submit quarterly report' due_date='next Friday' priority='high'
 ```
 
 This adds validation tracking for the `TaskDetails` model alongside the call span and conversation:

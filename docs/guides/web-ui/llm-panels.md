@@ -90,8 +90,8 @@ If `operation.cost` isn't present on the span, then the Logfire UI will use `gen
 ### Single‑prompt calls
 
 ```python skip="true" skip-reason="incomplete"
-agent = Agent("google:gemini-2.5-flash")
-result = agent.run_sync("Which city is the capital of France?")
+agent = Agent('google:gemini-2.5-flash')
+result = agent.run_sync('Which city is the capital of France?')
 print(result.output)
 ```
 
@@ -100,11 +100,8 @@ print(result.output)
 Add a system prompt and Logfire captures it too:
 
 ```python skip="true" skip-reason="incomplete"
-agent = Agent(
-    "google:gemini-2.5-flash",
-    system_prompt="You are a helpful assistant."
-)
-result = agent.run_sync("Please write me a limerick about Python logging.")
+agent = Agent('google:gemini-2.5-flash', system_prompt='You are a helpful assistant.')
+result = agent.run_sync('Please write me a limerick about Python logging.')
 ```
 
 ![Panel with system prompt](../../images/llm-panels/basic-llm-panel-with-system-prompt.png)

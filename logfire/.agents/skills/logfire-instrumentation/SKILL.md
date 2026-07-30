@@ -120,8 +120,7 @@ For grouping related operations and measuring duration, use spans:
 import logfire
 
 
-async def process_order(order_id: int):
-    ...
+async def process_order(order_id: int): ...
 
 
 async def handle_order(order_id: int):
@@ -136,8 +135,7 @@ For exceptions, use `logfire.exception()` which automatically captures the trace
 import logfire
 
 
-async def process_order(order_id: int):
-    ...
+async def process_order(order_id: int): ...
 
 
 async def handle_order(order_id: int):
@@ -166,8 +164,8 @@ import logfire
 logfire.configure()
 logfire.instrument_pydantic_ai()  # captures agent runs, tool calls, LLM request/response
 # or:
-logfire.instrument_openai()       # captures chat completions, embeddings, token counts
-logfire.instrument_anthropic()    # captures messages, token usage
+logfire.instrument_openai()  # captures chat completions, embeddings, token counts
+logfire.instrument_anthropic()  # captures messages, token usage
 ```
 
 For PydanticAI, each agent run becomes a parent span containing child spans for every tool call and LLM request.
