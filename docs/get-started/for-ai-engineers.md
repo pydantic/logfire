@@ -17,9 +17,9 @@ Follow these in order. Each link says why it's here.
     - [Pydantic AI](../integrations/llms/pydanticai.md) (for agents)
     - [LangChain](../integrations/llms/langchain.md), [LlamaIndex](../integrations/llms/llamaindex.md), [LiteLLM](../integrations/llms/litellm.md), [Google GenAI](../integrations/llms/google-genai.md)
 
-    See the full list under [LLM integrations](../integrations/index.md).
+    See the full list under [LLM integrations](../integrations/llms/index.md).
 
-2. **[Understand an agent run](../ai-observability.md)**: once data is flowing, see how Logfire records the model's conversation, tool calls, tokens, cost, and the code around them. A **trace** is the full record of one request; a **span** is one step inside it.
+2. **[Understand an agent run](../ai-observability.md)**: once data is flowing, see how Logfire records the model's conversation, tool calls, tokens, cost, and the code around them. A **trace** is the full record of one agent run or request; a **span** is one step inside it.
 
 3. **[Read every LLM call, with tokens and cost](../guides/web-ui/llms.md)**: the LLMs and providers view breaks down which models you're calling, how many tokens each request used, and what it's costing you.
 

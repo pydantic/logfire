@@ -8,7 +8,7 @@ integration: "built-in"
 See every step your [LangChain](https://www.langchain.com/) chains and
 [LangGraph](https://www.langchain.com/langgraph) agents take: the model calls, tool calls, how many
 **tokens** (the units a model reads and bills by, a few characters of text each) they used, how long
-they took, and any errors, as a **trace** (the full journey of one request, made of nested
+they took, and any errors, as a **trace** (the full journey of one request or agent run, made of nested
 **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
 
 LangChain has built-in tracing through LangSmith that speaks OpenTelemetry (the open standard Logfire
