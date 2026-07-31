@@ -236,6 +236,7 @@ pydantic-evals = false
 pydantic = false
 pydantic-core = false
 pydantic-handlebars = false
+genai-prices = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
@@ -255,6 +256,9 @@ line-length = 120
 extend-exclude = ["logfire-api/logfire_api/*", "tests/auto_trace_samples/param_spec.py"]
 
 [tool.ruff.lint]
+# Ruff 0.16 greatly expanded the default rule set (59 -> 413 rules).
+# Restore the pre-0.16 defaults until we deliberately migrate to the new defaults.
+select = ["E4", "E7", "E9", "F"]
 extend-select = [
     "Q", # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
     "RUF100", # https://docs.astral.sh/ruff/rules/unused-noqa/
@@ -291,6 +295,10 @@ convention = "google"
 [tool.ruff.format]
 docstring-code-format = true
 quote-style = "single"
+# Ruff 0.16 formats Python code blocks in Markdown files by default,
+# but that mangles the `#>` output markers checked by pytest-examples,
+# which is the authority on docs code formatting.
+exclude = ["*.md"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -337,6 +345,13 @@ filterwarnings = [
     "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
     # anthropic SDK warns when using older models that are still recorded in test cassettes
     "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
+    # py-key-value-aio (a pydantic-ai dependency) type-checks itself at import time with
+    # beartype's import hook, which is designed to warn rather than fail. Promoting those
+    # warnings to errors breaks `import pydantic_ai`, e.g. on pydantic 2.10 where
+    # `JsonSchemaValue` is still a `typing.Dict` alias, triggering beartype's PEP 585
+    # deprecation warning during decoration of py-key-value-aio's pydantic adapter.
+    "ignore::beartype.roar.BeartypeClawDecorWarning",
+    "ignore::beartype.roar.BeartypeDecorHintPep585DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

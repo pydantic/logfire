@@ -1,8 +1,8 @@
 ---
-title: "Logfire LLMs view: per-model inventory and agent run analytics"
+title: "Logfire LLMs and Providers view: per-model inventory and agent run analytics"
 description: "Browse every model and provider your application calls. See cost, latency, error rate, tokens, truncation rate and tool-call rate per model. Drill into an LLM for a detail page that links straight to traces, and see avg + p90 distributions for tool calls and turns on every agent run."
 ---
-# LLMs
+# LLMs and Providers
 
 The <OpenInLogfire path="llms" variant="inline" label="LLMs" /> page is the per-model inventory of every LLM your application is calling. Each row shows calls, latency, tokens and cost for one (provider, model) pair, and the LLM detail page links into the trace for each individual call.
 
