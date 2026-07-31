@@ -101,7 +101,7 @@ response = client.chat.completions.create(
         {'role': 'user', 'content': 'Write a one-line haiku about observability.'},
     ],
 )
-print(response.choices[0].message)
+print(response.choices[0].message.content)
 ```
 
 Notes:
