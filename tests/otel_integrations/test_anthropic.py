@@ -2018,6 +2018,7 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
                             'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
                             'cache_creation_input_tokens': 0,
                             'cache_read_input_tokens': 0,
+                            'fallback_credit': None,
                             'inference_geo': 'not_available',
                             'input_tokens': 19,
                             'iterations': None,

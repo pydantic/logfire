@@ -13,7 +13,7 @@ description: "See every agent decision, tool call, and downstream service in one
 
 <div class="agent-observability-intro__detail-copy">
 
-<p>Logfire turns an agent run into one trace (the full journey of one request, made of nested spans): the model calls, tool calls, database queries, API requests, and response your user receives.</p>
+<p>Logfire turns an agent run into one trace (the full journey of one request or agent run, made of nested spans): the model calls, tool calls, database queries, API requests, and response your user receives.</p>
 
 </div>
 
@@ -81,3 +81,7 @@ Both failures look like a bad answer to the user. They need different fixes. Log
 Start with a one-line integration for [Pydantic AI](integrations/llms/pydanticai.md), [OpenAI](integrations/llms/openai.md), [Anthropic](integrations/llms/anthropic.md), [LangChain](integrations/llms/langchain.md), or another supported framework. Logfire also accepts [OpenTelemetry (OTel), the open industry standard for collecting traces, metrics, and logs](how-to-guides/alternative-clients.md), so a TypeScript frontend, Python agent service, and Go backend can all appear in the same trace.
 
 [See all integrations →](integrations/index.md)
+
+## Control cost and routing (optional)
+
+To cap what your app can spend on models, fail over between providers, or keep one API key for many models, route your calls through the [AI Gateway](reference/advanced/gateway/index.md). This is optional: the instrumentation above is all you need to trace and debug your agents.

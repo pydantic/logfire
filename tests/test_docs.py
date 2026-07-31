@@ -16,6 +16,17 @@ ruff_ignore = [
     'D101',  # ignore missing docstring in public classes
     'D102',  # ignore missing docstring in public methods
     'D103',  # ignore missing docstring in public functions
+    # Rules newly enabled by default in ruff 0.16 that docs examples trip.
+    # Examples favour brevity and realism over lint strictness.
+    'B017',  # pytest.raises(Exception)
+    'B018',  # useless expression
+    'BLE001',  # blind except Exception
+    'DTZ011',  # date.today() without timezone
+    'PIE790',  # unnecessary pass/ellipsis
+    'SIM117',  # nested with statements
+    'SIM118',  # key in dict.keys()
+    'TRY002',  # raise plain Exception
+    'UP035',  # deprecated import (e.g. typing.List)
 ]
 
 SKIP_RUN_TAGS = ['skip', 'skip-run']

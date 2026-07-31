@@ -6,7 +6,7 @@ integration: logfire
 # OpenAI
 
 See every call your app makes to OpenAI: the full conversation, each tool call, how many tokens it
-used, how long it took, and any errors, as a **trace** (the full journey of one request, made of
+used, how long it took, and any errors, as a **trace** (the full journey of one request or agent run, made of
 nested **spans**, where each span is one unit of work with a name, a start, and a duration) in
 Logfire.
 
