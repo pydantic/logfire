@@ -6027,3 +6027,210 @@ class TestConfigVariablesDictDeserialization:
         assert isinstance(lf_config.variables, LocalVariablesOptions)
         assert lf_config.variables.config is variables_config
         assert lf_config.variables.instrument is False
+
+
+# =============================================================================
+# Test SSE hardening (gaps 1-3)
+# =============================================================================
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestSSEHardening:
+    """Tests for the SSE reconnect and polling improvements (gaps 1-3)."""
+
+    # ---------- Gap 1: reconnect triggers forced refresh ----------
+
+    def test_sse_had_connected_starts_false(self) -> None:
+        """Provider starts with _sse_had_connected=False (first connect path)."""
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        assert provider._sse_had_connected is False
+        assert not provider._force_refresh_event.is_set()
+
+    def test_at_fork_reinit_preserves_sse_had_connected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """_at_fork_reinit must NOT reset _sse_had_connected.
+
+        If it did, the child process's next SSE connection would be treated as
+        the 'first' connect and the missed-event forced refresh would be skipped.
+        This test would have caught the original bug where the flag was reset.
+        """
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        provider._started = True
+        provider._sse_had_connected = True  # had an SSE connection before the fork
+
+        mock_thread_cls = unittest.mock.MagicMock()
+        mock_start_sse = unittest.mock.MagicMock()
+        monkeypatch.setattr(remote_module.threading, 'Thread', mock_thread_cls)
+        monkeypatch.setattr(provider, '_start_sse_listener', mock_start_sse)
+
+        provider._at_fork_reinit()
+
+        # The flag must survive the fork so _sse_listener triggers a forced refresh on reconnect.
+        assert provider._sse_had_connected is True, (
+            '_sse_had_connected must not be reset by _at_fork_reinit; '
+            'resetting it would silently skip the post-fork missed-event refresh'
+        )
+
+    # ---------- Gap 2: keepalive lines reset the reconnect backoff ----------
+
+    def test_keepalive_line_resets_reconnect_backoff(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A `: keepalive` comment line must reset the SSE reconnect backoff to 1s.
+
+        Drives _sse_listener synchronously with a mocked Session:
+
+        1. a non-200 connect waits 1s and doubles the delay to 2s;
+        2. a 200 stream that delivers NO data must NOT reset the delay (waits 2s,
+           doubles to 4s) -- resetting on a bare 200 would busy-loop against a
+           misbehaving endpoint that accepts connections but immediately closes them;
+        3. a 200 stream carrying a non-SSE body (an HTML error page from a proxy)
+           must NOT reset the delay either (waits 4s, doubles to 8s), otherwise every
+           cycle delivers lines and the backoff is pinned at 1s forever;
+        4. a 200 stream that delivers only a `: keepalive` comment must reset the
+           delay, so the wait after that stream ends is back to 1s (not 8s).
+        """
+        import logfire.variables.remote as remote_module
+
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        recorded_delays: list[float] = []
+
+        def recording_wait(delay: float) -> None:
+            recorded_delays.append(delay)
+            if len(recorded_delays) >= 4:
+                provider._shutdown = True
+
+        monkeypatch.setattr(provider, '_wait_for_reconnect', recording_wait)
+
+        response_non_200 = unittest.mock.MagicMock(status_code=401)
+        response_empty_stream = unittest.mock.MagicMock(status_code=200)
+        response_empty_stream.iter_lines.return_value = []
+        response_html_body = unittest.mock.MagicMock(status_code=200)
+        response_html_body.iter_lines.return_value = ['<html>', '<body>502 Bad Gateway</body>', '</html>']
+        response_keepalive = unittest.mock.MagicMock(status_code=200)
+        response_keepalive.iter_lines.return_value = [': keepalive']
+
+        mock_session = unittest.mock.MagicMock()
+        mock_session.__enter__.return_value = mock_session
+        mock_session.get.side_effect = [
+            response_non_200,
+            response_empty_stream,
+            response_html_body,
+            response_keepalive,
+        ]
+        monkeypatch.setattr(remote_module, 'Session', unittest.mock.MagicMock(return_value=mock_session))
+
+        provider._sse_listener()
+
+        assert recorded_delays == [1.0, 2.0, 4.0, 1.0], (
+            f'Expected [1.0, 2.0, 4.0, 1.0]: only SSE framing resets the backoff, so a dataless '
+            f'200 and a non-SSE HTML body keep backing off. Got {recorded_delays}'
+        )
+
+    # ---------- Gap 3: poll jitter stays within +/-10% ----------
+
+    def test_worker_jitter_within_bounds(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The worker must call _worker_awaken.wait() with a timeout in [0.9, 1.1] * interval.
+
+        We capture the actual timeout the worker passes to wait() by monkeypatching the
+        Event so the recorded value comes from the production _worker code, not a copy of it.
+        """
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            wait_timeouts: list[float] = []
+
+            def capturing_wait(timeout: float | None = None) -> bool:
+                if timeout is not None:
+                    wait_timeouts.append(timeout)
+                # Immediately return False (not awakened) and signal shutdown so
+                # the worker exits after one iteration.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', capturing_wait)
+            try:
+                # Run one worker iteration synchronously (the worker calls refresh then wait).
+                provider._worker()
+
+                assert len(wait_timeouts) >= 1, 'Worker must call _worker_awaken.wait()'
+                base = provider._polling_interval.total_seconds()
+                for t in wait_timeouts:
+                    assert base * 0.9 <= t <= base * 1.1, (
+                        f'Jittered wait {t:.3f}s is outside [{base * 0.9:.3f}, {base * 1.1:.3f}]'
+                    )
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+    def test_worker_scheduled_iteration_bypasses_interval_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An ordinary scheduled worker iteration must call refresh(force=True).
+
+        The worker manages its own timing via the jittered wait, so it must bypass the
+        interval gate in refresh(): a jittered wait that lands below the base interval
+        (e.g. 54s of a 60s interval) would otherwise be silently skipped by the gate,
+        pushing the effective polling interval up to 2x the configured value. The SSE
+        force-event path is covered elsewhere; this guards the no-event path.
+        """
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        refresh_force_args: list[bool] = []
+
+        def capturing_refresh(force: bool = False) -> None:
+            refresh_force_args.append(force)
+
+        monkeypatch.setattr(provider, 'refresh', capturing_refresh)
+
+        def stopping_wait(timeout: float | None = None) -> bool:
+            provider._shutdown = True
+            return False
+
+        monkeypatch.setattr(provider._worker_awaken, 'wait', stopping_wait)
+
+        assert not provider._force_refresh_event.is_set()
+        try:
+            provider._worker()
+        finally:
+            provider._shutdown = True
+            provider.shutdown(timeout_millis=100)
+
+        assert refresh_force_args == [True], (
+            'The worker must force-refresh on ordinary scheduled iterations so the '
+            'interval gate cannot skip a jittered wait that lands below the base interval'
+        )

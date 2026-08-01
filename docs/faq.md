@@ -27,7 +27,7 @@ Built by the Pydantic team (the same people behind Pydantic AI), Logfire provide
 Logfire is for teams building AI applications who need to actually debug them:
 
 - **AI developers** who want to understand why their AI agent failed (was it the LLM? the database? the API it called?)
-- **Teams tired of correlating** between AI monitoring and APM tools manually
+- **Teams tired of correlating** between AI monitoring and application performance monitoring (APM) tools manually
 - **Polyglot architectures** with Python AI + TypeScript frontend, etc.
 - **Developers who want SQL-based querying**, which is essential for agentic coding workflows
 - **Organizations needing enterprise features** like SOC2, HIPAA, and self-hosting
@@ -119,7 +119,7 @@ Yes. We provide a full JavaScript/TypeScript SDK.
 - Cloudflare Workers
 - Deno
 
-The JS SDK provides the same core features as Python: spans, structured logging, error tracking, and distributed tracing.
+The JS SDK provides the same core features as Python: spans, structured logging, error tracking, and distributed tracing (stitching spans from several services into one trace).
 
 [JavaScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/)
 
@@ -137,7 +137,7 @@ The JS SDK provides the same core features as Python: spans, structured logging,
 - Next.js, Express, Cloudflare Workers
 - Vercel AI SDK
 
-**Other languages:** Any framework following OpenTelemetry semantic conventions.
+**Other languages:** Any framework following OpenTelemetry semantic conventions (its standard names for common telemetry).
 
 [Full integrations list](integrations/index.md)
 
@@ -208,11 +208,11 @@ SQL is the most widely-known query language, and AI assistants are exceptionally
 This matters especially for **agentic coding workflows**:
 
 - **Coding agents can query freely:** No limitation to predefined APIs. Ask any question, get any answer.
-- **Arbitrary analysis:** JOINs, aggregations, window functions, CTEs. Full SQL power.
+- **Arbitrary analysis:** JOINs, aggregations, window functions, CTEs (common table expressions). Full SQL power.
 - **AI-native:** GPT-5, Claude, and other assistants write excellent SQL
 - **Familiar syntax:** No new query language to learn
 
-When you're iterating on AI applications with a coding agent, the agent needs to understand production behavior. With SQL, it can ask any question. With proprietary DSLs or limited APIs, it's constrained to what someone anticipated.
+When you're iterating on AI applications with a coding agent, the agent needs to understand production behavior. With SQL, it can ask any question. With a proprietary query language or limited APIs, it's constrained to what someone anticipated.
 
 *Logfire uses [Apache DataFusion](https://datafusion.apache.org/) as its query engine, with syntax designed to match PostgreSQL conventions.*
 

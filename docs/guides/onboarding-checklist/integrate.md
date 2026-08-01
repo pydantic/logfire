@@ -2,13 +2,14 @@
 title: "Logfire Onboarding: OpenTelemetry & Logging Setup"
 description: "This guide shows how to integrate Logfire using OpenTelemetry instrumentation. Get set up with Python's standard logging, Loguru, or Structlog quickly."
 ---
-In this section, we'll focus on integrating **Logfire** with your application.
+This step assumes you've already [sent your first trace](../../first-trace.md), which installs the SDK and calls
+`logfire.configure()`. Here we integrate **Logfire** more fully with your application: the instrumentation packages for
+the libraries you already use, and your existing logging.
 
 ## OpenTelemetry Instrumentation
 
-Harnessing the power of [OpenTelemetry], **Logfire** not only offers broad compatibility with any [OpenTelemetry]
-instrumentation package, but also includes a CLI command that highlights any
-missing components in your project.
+**Logfire** works with any [OpenTelemetry] instrumentation package (a plug-in that automatically traces a specific
+library or framework), and includes a CLI command that highlights instrumentation your project is missing.
 
 To inspect your project, run the following command:
 
@@ -16,7 +17,7 @@ To inspect your project, run the following command:
 logfire inspect
 ```
 
-This will output the projects you need to install to have optimal OpenTelemetry instrumentation:
+This lists the packages you need to install for OpenTelemetry instrumentation:
 
 ![Logfire inspect command](../../images/cli/terminal-screenshot-inspect.png)
 
@@ -77,8 +78,6 @@ If you go to the link, you will see the `"Hello Fred!"` log in the Web UI:
 
 ![Logfire Web UI with logs](../../images/guide/browser-integrate.png)
 
-It is simple as that! Cool, right? 🤘
-
 ### Loguru
 
 To integrate with Loguru, check out the [Loguru] page.
@@ -86,6 +85,10 @@ To integrate with Loguru, check out the [Loguru] page.
 ### Structlog
 
 To integrate with Structlog, check out the [Structlog] page.
+
+## Next step
+
+**[Add manual tracing](add-manual-tracing.md)**: create your own spans and logs to record exactly the operations you care about.
 
 [inspect-command]: ../../reference/cli.md#inspect-inspect
 [integrations]: ../../integrations/index.md

@@ -1,36 +1,38 @@
 ---
-title: "Logfire Concepts: Spans, Traces, Metrics & Logs"
+title: "Core concepts: traces, spans, metrics, and logs"
 description: "Explore how Logfire handles spans, traces, metrics, and event data to help you monitor, debug, and optimize your application."
 ---
 ## Overview
 
-Understanding the core building blocks of observability helps you monitor, debug, and optimize your applications. The four key concepts work together to give you complete insight into your application's behavior: spans and traces show you what's happening and how long it takes, metrics reveal trends and performance over time, and logs capture specific events and details.
+Observability is the practice of understanding what your running software is doing from the outside, from the data it emits. That data is called **telemetry**. Logfire is built on four kinds of telemetry that work together: **spans** and **traces** show you what happened and how long it took, **metrics** reveal trends over time, and **logs** capture individual events. This page explains each one.
 
-New to observability? Another great resource is the [OpenTelemetry primer](https://opentelemetry.io/docs/concepts/observability-primer/).
+New to observability? The [OpenTelemetry primer](https://opentelemetry.io/docs/concepts/observability-primer/) is another good introduction.
 
 ## Concepts
 
-| Concept | Description                                                     |
-| ------- | --------------------------------------------------------------- |
-| Span    | Atomic unit of telemetry data                                   |
-| Trace   | Contains spans, tree structure shows parent/child relationships |
-| Metric  | Values calculated using telemetry data                          |
-| Log     | No duration, timestamped, emitted by services/loggers           |
+| Concept | What it is |
+| ------- | ---------- |
+| Span    | One unit of work: a single operation, with a name, a start, and a duration |
+| Trace   | A tree of spans showing the parent/child path of one request |
+| Metric  | A value measured over time, such as latency, CPU load, or queue length |
+| Log     | A timestamped record of a single event, with no duration |
 
 ## What is a Span?
 
-A **span** is the building block of a trace. You might also think of spans as logs with extra functionality: a single row in our live view.
+A **span** records one unit of work: a single operation, with a name, a start, and a duration (for example, "count the files in this directory" or "read this file"). Spans are the building block of a trace, and each one appears as a single row in the Live view.
+
+If you've used logging before, think of a span as a log with a duration and structure: as well as recording that something happened, it measures how long that something took, and it can contain other spans nested inside it.
 
 !!! info
-    Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
+    Spans let you **add context** to your logs and **measure how long code takes to run**. Multiple spans combine to form a trace, giving a complete picture of an operation's journey through your system.
 
 ![Spans](images/concepts/spans.png)
 
 ## What is a Trace?
 
-A trace is a tree structure of spans which shows the path of any client request, LLM run, API call through your application.
+A trace is a tree of spans that shows the path of one request (a client request, an LLM run, an API call) through your application.
 
-Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned.
+Spans are ordered and nested: a span can contain other spans, so a trace reads like an outline of everything that happened, in order, with each step's duration. It shows the whole history of the services touched and the responses returned.
 
 !!! info
     Traces are not limited to a single service. They can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
@@ -97,9 +99,9 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 
 ---
 
-By instrumenting your code with traces and spans, you can see how long operations take, identify bottlenecks,
-and get a high-level view of request flows in your system: all invaluable for maintaining the performance and
-reliability of your applications.
+By instrumenting your code (adding a few lines so Logfire can record what it does) with traces and spans, you can see
+how long operations take, identify bottlenecks, and get a high-level view of request flows in your system: all
+invaluable for maintaining the performance and reliability of your applications.
 
 ## What is a Metric?
 
@@ -150,4 +152,10 @@ see the [adding metrics guide](guides/onboarding-checklist/add-metrics.md).
 
 Logs record something which happened in your application. Importantly, they do not have a duration, compared to spans and traces.
 
-A log is a timestamped text record, either structured (recommended) or unstructured, with optional metadata. Of all telemetry signals, logs are the best known and have the largest footprint on our collective understanding. Most programming languages have built-in logging capabilities or well-known, widely used logging libraries. Most Python users are familiar with the [`logging`][] module for example.
+A log is a timestamped text record, either structured (recommended) or unstructured, with optional metadata. Of all telemetry signals, logs are the best known: most programming languages have built-in logging, and most Python users are familiar with the standard-library [`logging`](https://docs.python.org/3/library/logging.html) module, for example.
+
+## Next steps
+
+- **Send your first trace**: the [quickstart](first-trace.md) gets you from install to a trace in about five minutes.
+- **Instrument a framework**: [Integrations](integrations/index.md) record traces from FastAPI, Django, SQLAlchemy, HTTPX, and many more with one line each.
+- **Read your traces**: the [Live view](guides/web-ui/live.md) is where traces arrive and where you explore them.

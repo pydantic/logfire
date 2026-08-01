@@ -14,7 +14,7 @@ Logfire is built on [OpenTelemetry (OTel)](https://opentelemetry.io/), the open 
 These wrap OpenTelemetry in an idiomatic API for each language, with streamlined setup and extra features. Each guide takes you from install to your first trace in a few minutes:
 
 <div class="integration-grid">
-  <a class="integration-card" href="../guides/onboarding-checklist/index.md">
+  <a class="integration-card" href="../first-trace.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../images/languages/python.svg) center/contain no-repeat; mask: url(../images/languages/python.svg) center/contain no-repeat"></span>
     <span class="integration-name">Python</span>
   </a>

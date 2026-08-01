@@ -7,7 +7,7 @@ integration: logfire
 
 See every call your app makes to Anthropic's Claude models: the full conversation, each tool call,
 how many **tokens** (the units a model reads and bills by, a few characters of text each) it used,
-how long it took, and any errors, as a **trace** (the full journey of one request, made of nested
+how long it took, and any errors, as a **trace** (the full journey of one request or agent run, made of nested
 **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
 
 ## What you'll capture

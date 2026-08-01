@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import json
 import os
+import random
 import re
 import threading
 import warnings
@@ -113,6 +114,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         # SSE listener for real-time updates
         self._sse_connected = False
+        self._sse_had_connected = False  # True after the first successful SSE connection
         self._sse_thread: threading.Thread | None = None
 
         # Logfire instance for error logging, set via start()
@@ -144,7 +146,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 daemon=True,
             )
             self._worker_thread.start()
-            # Restart SSE listener
+            # Restart SSE listener.  Keep _sse_had_connected at its pre-fork value so the
+            # child's next successful SSE connection is treated as a REconnect -- triggering a
+            # forced refresh to catch any events published while the stream was torn down.
             self._sse_connected = False
             self._start_sse_listener()
         self._pid = os.getpid()
@@ -292,6 +296,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     # receive data (below), which proves the stream is healthy.
                     self._sse_connected = True
 
+                    # Gap 1: on REconnect (not the very first connection) trigger a forced refresh
+                    # to catch any events that arrived while the stream was down.
+                    if self._sse_had_connected:
+                        self._force_refresh_event.set()
+                        self._worker_awaken.set()
+                    self._sse_had_connected = True
+
                     # Process SSE events
                     for line in response.iter_lines(decode_unicode=True):
                         if self._shutdown:
@@ -301,12 +312,21 @@ class LogfireRemoteVariableProvider(VariableProvider):
                             continue
 
                         line = line.strip()
+
+                        # Gap 2: an SSE-framed line -- a ": keepalive" comment or any named
+                        # field -- proves the stream is healthy, so reset the reconnect backoff.
+                        # Only SSE framing counts: a misbehaving proxy that answers 200 with a
+                        # short non-SSE body (an HTML error page, say) and closes immediately
+                        # delivers lines every cycle, and resetting on those would pin the
+                        # backoff at 1s and turn reconnects into a busy loop.
+                        if line.startswith((':', 'data:', 'event:', 'id:', 'retry:')):
+                            reconnect_delay = 1.0
+
                         if not line:
                             continue
 
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
-                            reconnect_delay = 1.0
                             data_str = line[5:].strip()
                             try:
                                 event_data = json.loads(data_str)
@@ -355,12 +375,23 @@ class LogfireRemoteVariableProvider(VariableProvider):
             if force:
                 self._force_refresh_event.clear()
 
-            self.refresh(force=force)
+            # The worker is the sole scheduled caller and already manages its own timing via
+            # the jittered wait below.  Always bypass the interval gate so that a 54-second
+            # jittered wait does not silently skip the fetch because the gate still requires
+            # the full 60-second base interval -- which would push the effective interval to
+            # up to 2x the intended range.  The `force` local variable is preserved so
+            # downstream logic (Gap 5 follow-up) can still detect SSE-triggered iterations.
+            self.refresh(force=True)
+
+            # Gap 3: add uniform +/-10% jitter to the wait so that fleets deployed
+            # simultaneously don't poll in lockstep.
+            base_interval = self._polling_interval.total_seconds()
+            wait_timeout = base_interval * random.uniform(0.9, 1.1)
 
             # Use wait(timeout) then clear() to avoid lost wakeups:
             # If SSE sets the event during refresh(), wait() returns immediately
             # and we loop again without sleeping for the full polling interval.
-            awakened = self._worker_awaken.wait(self._polling_interval.total_seconds())
+            awakened = self._worker_awaken.wait(wait_timeout)
             if awakened:  # pragma: no branch
                 self._worker_awaken.clear()
             if self._shutdown:  # pragma: no branch

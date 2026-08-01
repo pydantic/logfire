@@ -18,7 +18,7 @@ Along the way you'll touch three Logfire features, each covered in depth on its 
 A few terms, defined once:
 
 - A **span** is one unit of work: a single operation, with a name, a start, and a duration.
-- A **trace** is the full journey of one request, made of nested spans (the agent run, its model call, each tool call).
+- A **trace** is the full journey of one request or agent run, made of nested spans (the agent run, its model call, each tool call).
 - A **token** is the unit language models read and bill by: a few characters of text.
 - A **scorer** (also called an **evaluator**) is the thing that judges an output. Each scorer produces a **score**: one saved quality rating for an output.
 
