@@ -272,7 +272,7 @@ For long-running deployments, wrap that in a systemd unit (or your init system o
 Within a minute or two of the Collector starting, the host shows up on the **Hosts** page keyed by `host.name`. From there:
 
 - Click the host to drill into per-host CPU, memory, disk, and network charts.
-- Open **SQL Workbench** to query the raw metric series: useful for ad-hoc questions like "show me every host where filesystem utilization is above 90%".
+- Open the <OpenInLogfire path="explore" variant="inline" label="SQL Workbench" /> to query the raw metric series: useful for ad-hoc questions like "show me every host where filesystem utilization is above 90%".
 - Build a dashboard on top of the metrics if you want a persistent view.
 
 If a host doesn't appear, the cause is almost always one of: missing `resourcedetection` (no `host.name`), wrong region in the `otlphttp` endpoint, or (in Kubernetes) a missing `root_path: /host` or one of the `hostPath` mounts, so the receiver is happily scraping the container's view instead of the node's.

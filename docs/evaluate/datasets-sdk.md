@@ -9,7 +9,7 @@ description: "Manage evaluation datasets programmatically with the Logfire Pytho
 
     The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
-The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define datasets in code, publish them to hosted storage, and later fetch them back for evaluation. You can also manage datasets through the [Web UI](ui.md).
+The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define datasets in code, publish them to hosted storage, and later fetch them back for evaluation. You can also manage datasets through the [Web UI](datasets-and-experiments.md).
 
 ## Installation
 
@@ -203,7 +203,7 @@ for ds in datasets:
 dataset_info = client.get_dataset('qa-golden-set', include_cases=False)
 ```
 
-To fetch the full hosted dataset back as a typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset], see [Running Evaluations](evaluations.md).
+To fetch the full hosted dataset back as a typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset], see [Running Evaluations](evals-in-code.md).
 
 ## Updating and Deleting
 
@@ -227,6 +227,6 @@ client.delete_dataset('qa-golden-set')
 
 ## What's Next?
 
-- **[Running Evaluations](evaluations.md)** --- Fetch your dataset and run evaluations with pydantic-evals.
-- **[SDK Reference](../../reference/api/datasets.md)** --- Complete method signatures and exception reference.
-- **[Web UI Guide](ui.md)** --- Manage datasets through the Logfire web interface.
+- **[Running Evaluations](evals-in-code.md)** --- Fetch your dataset and run evaluations with pydantic-evals.
+- **[SDK Reference](../reference/api/datasets.md)** --- Complete method signatures and exception reference.
+- **[Web UI Guide](datasets-and-experiments.md)** --- Manage datasets through the Logfire web interface.
