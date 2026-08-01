@@ -66,14 +66,12 @@ jobs:
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
     # Use Ubicloud premium 4-core runners for maintainer PRs and merge queue runs (faster CPUs/more cores)
-    # Use 'ci:slow' label to force standard GitHub runners on a PR; merge queue runs have no
-    # labels, so during a runner-provider outage set the FAST_RUNNERS_DISABLED repository
-    # variable to 'true' to force standard GitHub runners everywhere
+    # During a runner-provider outage, set the FAST_RUNNERS_DISABLED repository variable to
+    # 'true' to force standard GitHub runners everywhere
     # Use 'ci:fast' label to opt-in fork PRs to Ubicloud runners
     runs-on: >-
       ${{
         vars.FAST_RUNNERS_DISABLED != 'true'
-        && !contains(github.event.pull_request.labels.*.name, 'ci:slow')
         && (
           github.event_name == 'merge_group'
           || github.event.pull_request.head.repo.full_name == github.repository
