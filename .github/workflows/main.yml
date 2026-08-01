@@ -125,7 +125,7 @@ jobs:
           uv pip install 'opentelemetry-exporter-otlp-proto-http==${{ matrix.otel-version }}.*'
 
       - run: mkdir coverage
-      - run: uv run --no-sync coverage run -m pytest --junitxml=coverage/test-results.xml
+      - run: uv run --no-sync coverage run -m pytest -n logical --dist=loadgroup --junitxml=coverage/test-results.xml
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}-otel-${{ matrix.otel-version }}
       - name: store coverage files
