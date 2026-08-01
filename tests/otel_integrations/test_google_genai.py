@@ -330,3 +330,105 @@ def test_span_event_logger_with_none_parts(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_span_event_logger_with_circular_reference(exporter: TestExporter) -> None:
+    """SpanEventLogger must not drop the event when the body contains a circular reference.
+
+    The upstream google_genai instrumentation can produce dicts whose `_to_dict`
+    representation contains self-loops (e.g. an uploaded `google.genai.types.File`).
+    Without the fallback in `emit`, `json.dumps` would raise
+    `ValueError: Circular reference detected` and the event would be swallowed by
+    `handle_internal_errors`. See https://github.com/pydantic/logfire/issues/1881.
+    """
+    from typing import Any as _Any
+
+    from logfire._internal.integrations.google_genai import SpanEventLogger
+
+    # Dict with a self-loop — mimics a Gemini File-like object whose _to_dict has a cycle.
+    file_part: dict[str, _Any] = {'name': 'files/abc123', 'mime_type': 'audio/wav'}
+    file_part['self'] = file_part
+
+    # List with a self-loop — exercises the list branch of _strip_cycles.
+    circular_list: list[_Any] = [1, 2, 3]
+    circular_list.append(circular_list)
+
+    with logfire.span('test'):
+        logger = SpanEventLogger('test_logger')
+        # Emit a record with a circular dict in the body.
+        record = LogRecord(
+            event_name='gen_ai.user.message',
+            timestamp=2,
+            severity_number=SeverityNumber.INFO,
+            body={'content': file_part, 'role': 'user'},
+        )
+        logger.emit(record)
+
+        # Emit a record with a circular list nested inside a non-circular dict.
+        record2 = LogRecord(
+            event_name='gen_ai.user.message',
+            timestamp=3,
+            severity_number=SeverityNumber.INFO,
+            body={'content': {'data': circular_list, 'text': 'hello'}, 'role': 'user'},
+        )
+        logger.emit(record2)
+
+    # Both events are recorded on the same span; the cycle back-edges become IsStr()
+    # because safe_repr produces an implementation-defined string for circular containers.
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_google_genai.py',
+                    'code.function': 'test_span_event_logger_with_circular_reference',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test',
+                },
+                'events': [
+                    {
+                        'name': 'gen_ai.user.message',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'event_body': {
+                                # transform_part copies file_part into a new dict, so
+                                # file_part is first seen at depth 3 (body→new_part→file_part).
+                                # The first occurrence expands normally; the back-edge
+                                # (file_part['self'] == file_part) is replaced with IsStr().
+                                'content': {
+                                    'name': 'files/abc123',
+                                    'mime_type': 'audio/wav',
+                                    'self': {
+                                        'name': 'files/abc123',
+                                        'mime_type': 'audio/wav',
+                                        'self': IsStr(),
+                                    },
+                                },
+                                'role': 'user',
+                            }
+                        },
+                    },
+                    {
+                        'name': 'gen_ai.user.message',
+                        'timestamp': 3000000000,
+                        'attributes': {
+                            'event_body': {
+                                # The circular list's back-edge is replaced with IsStr().
+                                'content': {
+                                    'data': [1, 2, 3, IsStr()],
+                                    'text': 'hello',
+                                },
+                                'role': 'user',
+                            }
+                        },
+                    },
+                ],
+            }
+        ]
+    )
