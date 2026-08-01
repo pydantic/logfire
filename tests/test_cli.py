@@ -258,6 +258,47 @@ def test_clean(
     ]
 
 
+def test_clean_then_write_creds_file_restores_gitignore(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+    data_dir = tmp_dir_cwd / '.logfire'
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').read_text() == '*'
+
+    main(shlex.split(f'clean --data-dir {str(data_dir)}'))
+    assert not (data_dir / '.gitignore').exists()
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').read_text() == '*'
+
+
+@pytest.mark.parametrize(
+    'existing_files,gitignored',
+    [
+        ([], True),
+        (['logfire_credentials.json'], True),
+        (['main.py'], False),
+    ],
+)
+def test_write_creds_file_gitignores_existing_data_dir(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    existing_files: list[str],
+    gitignored: bool,
+) -> None:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    for name in existing_files:
+        (data_dir / name).touch()
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').exists() is gitignored
+
+
 def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         main(shlex.split('clean --data-dir potato'))
