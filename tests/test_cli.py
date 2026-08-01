@@ -276,6 +276,27 @@ def test_clean_then_write_creds_file_restores_gitignore(
     assert (data_dir / '.gitignore').read_text() == '*'
 
 
+def test_write_creds_file_keeps_existing_gitignore(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials) -> None:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    (data_dir / '.gitignore').write_text('logfire_credentials.json\n')
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').read_text() == 'logfire_credentials.json\n'
+
+
+def test_write_creds_file_does_not_follow_gitignore_symlink(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials
+) -> None:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    outside = tmp_dir_cwd / 'outside'
+    (data_dir / '.gitignore').symlink_to(outside)
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert not outside.exists()
+
+
 @pytest.mark.parametrize(
     'existing_files,gitignored',
     [

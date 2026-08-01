@@ -221,14 +221,19 @@ def ensure_data_dir_exists(data_dir: Path) -> None:
             raise ValueError(f'Data directory {data_dir} exists but is not a directory')
     else:
         data_dir.mkdir(parents=True, exist_ok=True)
-    gitignore = data_dir / '.gitignore'
     # Seed the .gitignore for a newly created directory, and for an existing one holding nothing
     # but the files Logfire writes itself. That covers a directory emptied by `logfire clean`, and
     # restores the ignore rule for one left with an unignored credentials file, since this runs
     # before that file is rewritten. Skip a directory with any other contents: `--data-dir` can
     # point at a directory of the user's own, and a `.gitignore` of `*` there would ignore all of it.
-    if not gitignore.exists() and {path.name for path in data_dir.iterdir()} <= DATA_DIR_FILENAMES:
-        gitignore.write_text('*')
+    if {path.name for path in data_dir.iterdir()} <= DATA_DIR_FILENAMES:
+        try:
+            # Exclusive creation, so an existing .gitignore keeps its rules, and a symlink planted
+            # in a data directory that arrived from elsewhere is refused rather than followed.
+            with (data_dir / '.gitignore').open('x') as gitignore:
+                gitignore.write('*')
+        except FileExistsError:
+            pass
 
 
 def get_version(version: str) -> Version:
