@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import time
 import unittest.mock
@@ -38,7 +39,7 @@ from logfire.variables.config import (
     VariablesConfig,
 )
 from logfire.variables.local import LocalVariableProvider
-from logfire.variables.remote import LogfireRemoteVariableProvider
+from logfire.variables.remote import _CONSECUTIVE_FAILURES_BEFORE_ERROR, LogfireRemoteVariableProvider
 from logfire.variables.variable import is_resolve_function
 
 # =============================================================================
@@ -1438,6 +1439,237 @@ class TestLogfireRemoteVariableProviderErrors:
                 assert result.reason == 'missing_config'
             finally:
                 provider.shutdown()
+
+    def _provider_with_mock_logfire(
+        self, request_mocker: requests_mock_module.Mocker
+    ) -> tuple[LogfireRemoteVariableProvider, unittest.mock.MagicMock]:
+        """Create an unstarted provider with a mocked logfire instance for log-level assertions."""
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        mock_logfire = unittest.mock.MagicMock(spec=logfire.Logfire)
+        provider._logfire = mock_logfire
+        return provider, mock_logfire
+
+    def test_transient_failure_with_cached_config_logs_warning(self) -> None:
+        """A transient failure after a successful fetch logs a warning, not an error.
+
+        Stale values keep being served and the next poll retries, so a single 503/timeout
+        must not produce an error-level exception record.
+        """
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get(
+                    'http://localhost:8000/v1/variables/', status_code=503, text='upstream connect error'
+                )
+                provider.refresh(force=True)
+
+                mock_logfire.warn.assert_called_once()
+                assert mock_logfire.warn.call_args[1]['message'] == 'Error retrieving variables'
+                # The exception isn't recorded on the span (that would count towards error rates),
+                # so the type has to be carried as a plain attribute instead.
+                assert '_exc_info' not in mock_logfire.warn.call_args[1]
+                assert mock_logfire.warn.call_args[1]['error_type'] == 'UnexpectedResponse'
+                mock_logfire.error.assert_not_called()
+                assert provider._config is not None
+            finally:
+                provider.shutdown()
+
+    def test_transient_failure_escalates_after_consecutive_failures(self) -> None:
+        """Sustained transient failures escalate to error level once the threshold is reached."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                for _ in range(_CONSECUTIVE_FAILURES_BEFORE_ERROR - 1):
+                    provider.refresh(force=True)
+                assert mock_logfire.warn.call_count == _CONSECUTIVE_FAILURES_BEFORE_ERROR - 1
+                mock_logfire.error.assert_not_called()
+
+                provider.refresh(force=True)
+                mock_logfire.error.assert_called_once()
+                assert mock_logfire.error.call_args[1]['message'] == 'Error retrieving variables'
+            finally:
+                provider.shutdown()
+
+    def test_auth_failure_logs_error_despite_cached_config(self) -> None:
+        """A 401/403 is a misconfiguration that won't self-heal, so it logs an error immediately."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get(
+                    'http://localhost:8000/v1/variables/',
+                    status_code=401,
+                    json={'detail': 'Could not validate credentials'},
+                )
+                provider.refresh(force=True)
+
+                mock_logfire.error.assert_called_once()
+                mock_logfire.warn.assert_not_called()
+            finally:
+                provider.shutdown()
+
+    def test_transient_failure_warns_without_logfire_instance(self) -> None:
+        """With no logfire instance bound, transient failures fall back to a RuntimeWarning."""
+        from requests.exceptions import ConnectionError as RequestsConnectionError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get('http://localhost:8000/v1/variables/', exc=RequestsConnectionError('boom'))
+                with pytest.warns(RuntimeWarning, match='Error retrieving variables'):
+                    provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == 1
+            finally:
+                provider.shutdown()
+
+    def test_transient_failure_without_cached_config_logs_error(self) -> None:
+        """A failure before any config has been fetched logs an error: the app runs on code defaults."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                provider.refresh(force=True)
+
+                mock_logfire.error.assert_called_once()
+                mock_logfire.warn.assert_not_called()
+            finally:
+                provider.shutdown()
+
+    def test_successful_refresh_resets_failure_counter(self) -> None:
+        """A successful fetch resets the consecutive-failure counter, so later blips warn again."""
+        request_mocker = requests_mock_module.Mocker()
+        with request_mocker:
+            provider, mock_logfire = self._provider_with_mock_logfire(request_mocker)
+            try:
+                provider.refresh(force=True)
+                assert provider._config is not None
+
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                for _ in range(_CONSECUTIVE_FAILURES_BEFORE_ERROR - 1):
+                    provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == _CONSECUTIVE_FAILURES_BEFORE_ERROR - 1
+
+                # Recover, then fail once more: the counter restarted, so this is a warning again
+                request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+                provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == 0
+
+                request_mocker.get('http://localhost:8000/v1/variables/', status_code=503, text='unavailable')
+                provider.refresh(force=True)
+                assert provider._consecutive_refresh_failures == 1
+                mock_logfire.error.assert_not_called()
+            finally:
+                provider.shutdown()
+
+
+# =============================================================================
+# Test LogfireRemoteVariableProvider instrumentation suppression
+# =============================================================================
+
+
+class TestLogfireRemoteVariableProviderInstrumentation:
+    """The provider's own API traffic must not show up in the user's telemetry."""
+
+    @contextlib.contextmanager
+    def _instrumented_mocker(self):
+        """A `requests_mock` mocker with `logfire.instrument_requests()` applied on top of it.
+
+        `requests_mock` patches `Session.send`, so it has to be started *before* instrumenting
+        (and stopped after uninstrumenting), otherwise it replaces the instrumented method.
+        """
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+        with requests_mock_module.Mocker() as request_mocker:
+            logfire.instrument_requests()
+            try:
+                yield request_mocker
+            finally:
+                RequestsInstrumentor().uninstrument()
+
+    def test_api_requests_are_not_instrumented(self, exporter: TestExporter) -> None:
+        """Users who instrument `requests` shouldn't get a span for every poll and write."""
+        with self._instrumented_mocker() as request_mocker:
+            request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+            request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'new_var'})
+            request_mocker.put('http://localhost:8000/v1/variables/new_var/', json={'name': 'new_var'})
+            request_mocker.delete('http://localhost:8000/v1/variables/new_var/', json={})
+            request_mocker.get('http://localhost:8000/v1/variable-types/', json=[])
+
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='new_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    description='Test variable',
+                )
+                provider.refresh(force=True)
+                provider.create_variable(config)
+                provider.update_variable('new_var', config)
+                provider.delete_variable('new_var')
+                provider.list_variable_types()
+            finally:
+                provider.shutdown()
+
+        assert exporter.exported_spans_as_dict() == []
+
+    def test_user_requests_are_still_instrumented(self, exporter: TestExporter) -> None:
+        """Suppression is scoped to the provider's own requests, not left on for the caller."""
+        with self._instrumented_mocker() as request_mocker:
+            request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+            request_mocker.get('https://example.com/', text='hello')
+
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+                Session().get('https://example.com/')
+            finally:
+                provider.shutdown()
+
+        span_urls = {span['attributes'].get('http.url') for span in exporter.exported_spans_as_dict()}
+        assert span_urls == {'https://example.com/'}
 
 
 # =============================================================================
