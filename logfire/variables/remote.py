@@ -470,6 +470,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     # 304 Not Modified -- config is current, just refresh the timestamp.
                     # Do NOT call raise_for_status here (304 is outside 2xx).
                     if variables_response.status_code == 304:
+                        self._consecutive_refresh_failures = 0
                         self._last_fetched_at = datetime.now(tz=timezone.utc)
                         self._has_attempted_fetch = True
                         return

@@ -6342,6 +6342,37 @@ class TestSSEHardening:
                 provider.refresh(force=True)  # 200
                 provider.refresh(force=True)  # 304 -- must not warn
 
+    def test_304_resets_consecutive_failure_counter(self) -> None:
+        """A 304 response must reset _consecutive_refresh_failures like a normal 200 success does."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'status_code': 500},  # transient failure -- increments counter
+                {'status_code': 304},  # success -- must reset counter
+            ],
+        )
+        with request_mocker, warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # 200 -- establishes config
+            assert provider._consecutive_refresh_failures == 0
+            provider.refresh(force=True)  # 500 -- increments counter
+            assert provider._consecutive_refresh_failures == 1
+            provider.refresh(force=True)  # 304 -- must reset counter to 0
+            assert provider._consecutive_refresh_failures == 0, (
+                '304 is a successful round-trip; the failure counter must be reset so a subsequent '
+                'transient failure starts from zero and is correctly logged as a warning, not an error.'
+            )
+
     def test_etag_stored_from_200_response(self) -> None:
         """A 200 response with an ETag header must store the ETag on the provider."""
         request_mocker = requests_mock_module.Mocker()
