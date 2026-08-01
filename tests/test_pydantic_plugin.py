@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Annotated, Any, cast
 from unittest.mock import patch
 
 import cloudpickle
+import pydantic
 import pytest
 import sqlmodel
 from dirty_equals import IsInt
 from inline_snapshot import snapshot
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import (
     AfterValidator,
@@ -327,7 +328,7 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                             'exemplars': [],
                         },
                     ],
-                    'aggregation_temporality': 1,
+                    'aggregation_temporality': AggregationTemporality.DELTA,
                     'is_monotonic': True,
                 },
             }
@@ -381,7 +382,7 @@ def test_pydantic_plugin_metrics(metrics_reader: InMemoryMetricReader) -> None:
                             'exemplars': [],
                         },
                     ],
-                    'aggregation_temporality': 1,
+                    'aggregation_temporality': AggregationTemporality.DELTA,
                     'is_monotonic': True,
                 },
             }
@@ -443,7 +444,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                             'exemplars': [],
                         }
                     ],
-                    'aggregation_temporality': 1,
+                    'aggregation_temporality': AggregationTemporality.DELTA,
                     'is_monotonic': True,
                 },
             }
@@ -529,7 +530,7 @@ def test_pydantic_plugin_python_error_record_failure(
                             'exemplars': [],
                         }
                     ],
-                    'aggregation_temporality': 1,
+                    'aggregation_temporality': AggregationTemporality.DELTA,
                     'is_monotonic': True,
                 },
             }
@@ -1383,7 +1384,9 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
                     'logfire.level_num': 9,
                     'logfire.span_type': 'span',
                     'success': True,
-                    'result': '{"id":1}',
+                    'result': '{"id":1}'
+                    if get_version(pydantic.__version__) >= get_version('2.7.0')
+                    else '"Hero(id=1)"',
                     'logfire.msg': 'Pydantic Hero validate_python succeeded',
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"Hero","x-python-datatype":"PydanticModel"}}}',
                 },
