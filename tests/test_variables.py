@@ -6234,3 +6234,380 @@ class TestSSEHardening:
             'The worker must force-refresh on ordinary scheduled iterations so the '
             'interval gate cannot skip a jittered wait that lands below the base interval'
         )
+
+    # ---------- Gap 4: ETag / conditional GET / 304 handling ----------
+
+    def test_304_keeps_config_and_updates_last_fetched_at(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A 304 response keeps the current config and updates _last_fetched_at without logging."""
+        config_data: dict[str, Any] = {
+            'variables': {
+                'my_var': {
+                    'name': 'my_var',
+                    'labels': {'v1': {'version': 1, 'serialized_value': '"hello"'}},
+                    'rollout': {'labels': {'v1': 1.0}},
+                    'overrides': [],
+                }
+            }
+        }
+
+        request_mocker = requests_mock_module.Mocker()
+        # First call returns 200 + ETag; second returns 304.
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': config_data, 'status_code': 200, 'headers': {'ETag': '"abc123"'}},
+                {'status_code': 304},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            logged_errors: list[str] = []
+
+            def _capture_log_error(msg: str, exc: Exception) -> None:
+                logged_errors.append(msg)
+
+            monkeypatch.setattr(provider, '_log_error', _capture_log_error)
+
+            provider.refresh(force=True)  # 200 -- populates config and ETag
+            first_config = provider._config
+            assert first_config is not None
+            assert provider._last_fetched_at is not None
+            # Rewind the recorded timestamp so the strict later-than assertion below can
+            # only pass if the 304 path actually refreshed it -- clock granularity could
+            # otherwise let an unchanged timestamp slip through a >= comparison.
+            rewound_fetched_at = provider._last_fetched_at - timedelta(hours=1)
+            provider._last_fetched_at = rewound_fetched_at
+
+            provider.refresh(force=True)  # 304 -- must not replace config or log an error
+            assert provider._config is first_config, '304 must leave the cached config object untouched'
+            assert provider.get_serialized_value('my_var').value == '"hello"'
+            assert not logged_errors, f'Unexpected errors logged on 304: {logged_errors}'
+            assert provider._last_fetched_at is not None
+            assert provider._last_fetched_at > rewound_fetched_at, '304 must refresh _last_fetched_at'
+
+    def test_if_none_match_sent_when_etag_known(self) -> None:
+        """When a previous response set an ETag the next request must include If-None-Match."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"deadbeef"'}},
+                {'json': {'variables': {}}, 'status_code': 200},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # stores ETag
+            provider.refresh(force=True)  # sends If-None-Match
+
+            assert request_mocker.call_count == 2
+            second_request = request_mocker.request_history[1]
+            assert second_request.headers.get('If-None-Match') == '"deadbeef"'
+
+    def test_304_does_not_trip_error_logging(self) -> None:
+        """A 304 response must never cause _log_error to be called (regression guard for PR #2111)."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'status_code': 304},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                provider.refresh(force=True)  # 200
+                provider.refresh(force=True)  # 304 -- must not warn
+
+    def test_304_resets_consecutive_failure_counter(self) -> None:
+        """A 304 response must reset _consecutive_refresh_failures like a normal 200 success does."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'status_code': 500},  # transient failure -- increments counter
+                {'status_code': 304},  # success -- must reset counter
+            ],
+        )
+        with request_mocker, warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # 200 -- establishes config
+            assert provider._consecutive_refresh_failures == 0
+            provider.refresh(force=True)  # 500 -- increments counter
+            assert provider._consecutive_refresh_failures == 1
+            provider.refresh(force=True)  # 304 -- must reset counter to 0
+            assert provider._consecutive_refresh_failures == 0, (
+                '304 is a successful round-trip; the failure counter must be reset so a subsequent '
+                'transient failure starts from zero and is correctly logged as a warning, not an error.'
+            )
+
+    def test_etag_stored_from_200_response(self) -> None:
+        """A 200 response with an ETag header must store the ETag on the provider."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+            headers={'ETag': '"deadbeef"'},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            assert provider._etag is None
+            provider.refresh(force=True)
+            assert provider._etag == '"deadbeef"'
+
+    def test_no_etag_header_leaves_etag_none(self) -> None:
+        """A 200 response without an ETag header must leave _etag as None."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)
+            assert provider._etag is None
+
+    def test_200_without_etag_clears_stale_etag(self) -> None:
+        """A 200 response without ETag must clear a previously stored ETag (prevents stale validator)."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': {'variables': {}}, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'json': {'variables': {}}, 'status_code': 200},  # no ETag
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)
+            assert provider._etag == '"v1"'
+            provider.refresh(force=True)
+            assert provider._etag is None  # cleared because 200 had no ETag
+
+    def test_etag_not_stored_after_invalid_200(self) -> None:
+        """A malformed 200 must not update _etag (guards against a permanently-stale validator).
+
+        If we stored the ETag before validation and validation failed, every subsequent
+        poll would send the stale If-None-Match and receive a 304, permanently locking
+        the provider into the outdated config.
+        """
+        valid_data: dict[str, Any] = {'variables': {}}
+        # A body where ``variables`` is a string -- not a dict -- triggers a ValidationError.
+        malformed_data: dict[str, Any] = {'variables': 'not-a-dict'}
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            [
+                {'json': valid_data, 'status_code': 200, 'headers': {'ETag': '"v1"'}},
+                {'json': malformed_data, 'status_code': 200, 'headers': {'ETag': '"v2"'}},
+                {'status_code': 304},
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            provider.refresh(force=True)  # valid 200 -- config and ETag set
+            assert provider._etag == '"v1"'
+
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', RuntimeWarning)
+                provider.refresh(force=True)  # malformed 200 -- must NOT update ETag
+
+            assert provider._etag == '"v1"', 'ETag must not change after a malformed 200 response'
+
+            # The 304 should be accepted (ETag "v1" is still valid on the server)
+            # and must not log an error.
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                provider.refresh(force=True)  # 304 -- silent, config unchanged
+
+    # ---------- Gap 5: follow-up refresh after SSE-triggered fetch ----------
+
+    def test_worker_schedules_follow_up_after_forced_refresh(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A forced (SSE-triggered) _worker iteration must set _followup_refresh_at ~2 s ahead."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Simulate SSE wakeup with a forced refresh.
+            provider._force_refresh_event.set()
+
+            def patched_wait(timeout: float | None = None) -> bool:
+                # Stop the loop after the first wait (follow-up must already be scheduled by now).
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
+
+            before = time.monotonic()
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+            after = time.monotonic()
+            assert provider._followup_refresh_at is not None
+            assert before + 1.9 <= provider._followup_refresh_at <= after + 2.1
+
+    def test_worker_executes_follow_up_refresh_when_timer_elapsed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When the follow-up timer has elapsed, the worker must call refresh(force=True) once more."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        call_count = 0
+        original_refresh = LogfireRemoteVariableProvider.refresh
+
+        def counting_refresh(self_provider: LogfireRemoteVariableProvider, force: bool = False) -> None:
+            nonlocal call_count
+            call_count += 1
+            original_refresh(self_provider, force=force)
+
+        monkeypatch.setattr(LogfireRemoteVariableProvider, 'refresh', counting_refresh)
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Pre-set the follow-up timer to a time already elapsed so it fires on the first loop.
+            provider._followup_refresh_at = time.monotonic() - 0.1
+
+            wait_calls = 0
+
+            def patched_wait(timeout: float | None = None) -> bool:
+                nonlocal wait_calls
+                wait_calls += 1
+                if wait_calls >= 2:
+                    provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
+
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+        # First loop: top-of-loop refresh (call 1), follow-up timer fires and clears the flag.
+        # Second loop: top-of-loop refresh IS the follow-up (call 2).
+        # Second wait triggers shutdown before a third refresh.
+        # Exactly 2 calls -- a third would mean the old spurious fetch is back.
+        assert call_count == 2
+
+    def test_worker_skips_follow_up_refresh_on_shutdown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When _shutdown is set before the follow-up fires, the follow-up must not execute."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+
+        call_count = 0
+        original_refresh = LogfireRemoteVariableProvider.refresh
+
+        def counting_refresh(self_provider: LogfireRemoteVariableProvider, force: bool = False) -> None:
+            nonlocal call_count
+            call_count += 1
+            original_refresh(self_provider, force=force)
+
+        monkeypatch.setattr(LogfireRemoteVariableProvider, 'refresh', counting_refresh)
+
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+
+            # Pre-set an elapsed follow-up timer.
+            provider._followup_refresh_at = time.monotonic() - 0.1
+
+            def patched_wait(timeout: float | None = None) -> bool:
+                # Signal shutdown as soon as the worker sleeps -- before the follow-up check.
+                provider._shutdown = True
+                return False
+
+            monkeypatch.setattr(provider._worker_awaken, 'wait', patched_wait)
+
+            try:
+                provider._worker()
+            finally:
+                provider._shutdown = True
+                provider.shutdown(timeout_millis=100)
+
+        # The worker must break out of the loop (due to shutdown) BEFORE executing the follow-up,
+        # so only the single normal refresh at the top of the loop should have been called.
+        assert call_count == 1
