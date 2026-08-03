@@ -13,7 +13,8 @@ trace through **LangSmith**, whose JS SDK ships native OpenTelemetry export. Poi
 
 ```bash
 npm install langchain @langchain/core @langchain/openai langsmith \
-  @opentelemetry/api @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto
+  @opentelemetry/api @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto \
+  @opentelemetry/context-async-hooks
 ```
 
 (Add `@langchain/langgraph` if you build with LangGraph.)

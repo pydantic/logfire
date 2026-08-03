@@ -37,15 +37,18 @@ const weather = tool({
 });
 
 async function main() {
-  const { text } = await generateText({
-    model: openai('gpt-4o-mini'),
-    prompt: 'What is the weather in Paris? Use the tool.',
-    tools: { weather },
-    stopWhen: stepCountIs(5),
-    telemetry: { functionId: 'weather-agent' },
-  });
-  console.log(text);
-  await logfire.shutdown(); // flush spans before exit
+  try {
+    const { text } = await generateText({
+      model: openai('gpt-4o-mini'),
+      prompt: 'What is the weather in Paris? Use the tool.',
+      tools: { weather },
+      stopWhen: stepCountIs(5),
+      telemetry: { functionId: 'weather-agent' },
+    });
+    console.log(text);
+  } finally {
+    await logfire.shutdown(); // flush success and error spans before exit
+  }
 }
 
 main();

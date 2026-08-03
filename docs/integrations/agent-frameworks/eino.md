@@ -92,11 +92,19 @@ func main() {
 	callbacks.AppendGlobalHandlers(&otelHandler{tr: tp.Tracer("eino")})
 
 	// 3. One model call -> traced to Logfire.
-	cm, _ := openai.NewChatModel(ctx, &openai.ChatModelConfig{APIKey: "sk-...", Model: "gpt-4o-mini"})
-	out, _ := cm.Generate(ctx,
+	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{APIKey: "sk-...", Model: "gpt-4o-mini"})
+	if err != nil {
+		fmt.Println("model setup error:", err)
+		return
+	}
+	out, err := cm.Generate(ctx,
 		[]*schema.Message{schema.UserMessage("One-line joke about Go?")},
 		model.WithTemperature(0.7),
 	)
+	if err != nil {
+		fmt.Println("model error:", err)
+		return
+	}
 	fmt.Println(out.Content)
 }
 ```
