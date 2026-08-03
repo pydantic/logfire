@@ -267,6 +267,10 @@ def _default_span_name_from_func_name(func: Callable[..., Any]) -> str:
     return getattr(func, '__name__', '')
 
 
+def _raising_default_span_name(func: Callable[..., Any]) -> str:
+    raise ValueError('boom')
+
+
 def test_instrument_default_span_name_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs['advanced'].instrument_default_span_name = _default_span_name_from_func_name
     logfire.configure(**config_kwargs)
@@ -330,6 +334,25 @@ def test_instrument_default_span_name_ignored_when_msg_template_given(
                 },
             }
         ]
+    )
+
+
+def test_internal_exception_in_instrument_default_span_name_falls_back_to_default(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    # Name must contain "test_internal_exception" so log_internal_error swallows instead of re-raising here.
+    config_kwargs['advanced'].instrument_default_span_name = _raising_default_span_name
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument()
+    def foo(x: int):
+        return x * 2
+
+    assert foo(2) == 4
+    [span] = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert span['attributes']['logfire.msg_template'] == (
+        'Calling tests.test_logfire.'
+        'test_internal_exception_in_instrument_default_span_name_falls_back_to_default.<locals>.foo'
     )
 
 
