@@ -231,14 +231,23 @@ class AdvancedOptions:
 
     ```python
     import logfire
+    from logfire.types import InstrumentMessageTemplateHelper
+
+    def simple_function_name(helper: InstrumentMessageTemplateHelper) -> str:
+        return helper.name
 
     logfire.configure(
-        advanced=logfire.AdvancedOptions(instrument_default_msg_template=lambda helper: helper.name)
+        advanced=logfire.AdvancedOptions(instrument_default_msg_template=simple_function_name)
     )
     ```
 
     The callback receives an instance of
     [`InstrumentMessageTemplateHelper`][logfire.types.InstrumentMessageTemplateHelper].
+
+    When using `ProcessPoolExecutor`, define the callback at module level, not as a lambda or local function,
+    so it can be pickled and sent to child processes. See the
+    [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors)
+    for details.
 
     This is experimental and may be modified or removed.
     """

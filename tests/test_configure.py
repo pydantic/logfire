@@ -85,9 +85,14 @@ from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter
+from logfire.types import InstrumentMessageTemplateHelper
 from logfire.version import VERSION
 
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
+
+
+def _instrument_default_msg_template(helper: InstrumentMessageTemplateHelper) -> str:
+    return helper.name
 
 
 @pytest.fixture(autouse=True)
@@ -1283,7 +1288,10 @@ def test_config_serializable():
                 block_before_first_resolve=False,
                 include_baggage_in_context=False,
             ),
-            advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
+            advanced=logfire.AdvancedOptions(
+                id_generator=SeededRandomIdGenerator(seed=42),
+                instrument_default_msg_template=_instrument_default_msg_template,
+            ),
         )
 
         for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -1314,6 +1322,7 @@ def test_config_serializable():
         assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
         assert isinstance(GLOBAL_CONFIG.variables, logfire.VariablesOptions)
         assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
+        assert GLOBAL_CONFIG.advanced.instrument_default_msg_template is _instrument_default_msg_template
 
         # Clean up the remote variable provider to stop the background thread
         logfire.configure(send_to_logfire=False)
