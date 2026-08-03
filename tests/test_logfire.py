@@ -263,6 +263,53 @@ def test_instrument_with_no_parameters(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_default_span_name_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['advanced'].instrument_default_span_name = lambda func: func.__name__
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument()
+    def foo(x: int):
+        return x * 2
+
+    assert foo(2) == 4
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_default_span_name_customized.<locals>.foo',
+                    'logfire.msg_template': 'foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'foo',
+                    'x': 2,
+                    'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_default_span_name_ignored_when_msg_template_given(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['advanced'].instrument_default_span_name = lambda func: func.__name__
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('explicit template')
+    def foo(x: int):
+        return x * 2
+
+    assert foo(2) == 4
+    [span] = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert span['attributes']['logfire.msg_template'] == 'explicit template'
+
+
 def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
     @logfire.instrument()
     def foo():

@@ -222,6 +222,22 @@ class AdvancedOptions:
     This log and configuration is experimental and may be modified or removed.
     """
 
+    instrument_default_span_name: Callable[[Callable[..., Any]], str] | None = None
+    """Customize the default span name/message used by `@logfire.instrument` when no `msg_template` is given.
+
+    Called with the instrumented function and should return the message template to use, e.g:
+
+    ```python
+    AdvancedOptions(instrument_default_span_name=lambda func: func.__name__)
+    ```
+
+    Defaults to `None`, which keeps the existing `f'Calling {module_name}.{qualname}'` format.
+    Changing the default behavior globally would be a breaking change for existing queries that
+    rely on the current format, hence this being opt-in.
+
+    This is experimental and may be modified or removed.
+    """
+
     server_response_hook: ServerResponseCallback | None = None
     """Optional callback invoked for every HTTP response received from the Logfire API.
 

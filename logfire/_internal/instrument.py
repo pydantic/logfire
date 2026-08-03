@@ -20,7 +20,7 @@ from .constants import (
     log_level_attributes,
 )
 from .stack_info import get_filepath_attribute
-from .utils import safe_repr, uniquify_sequence
+from .utils import handle_internal_errors, safe_repr, uniquify_sequence
 
 if TYPE_CHECKING:
     from .main import Logfire
@@ -69,7 +69,7 @@ def instrument(
                 stacklevel=2,
             )
 
-        attributes = get_attributes(func, msg_template, tags)
+        attributes = get_attributes(func, msg_template, tags, logfire.config.advanced.instrument_default_span_name)
         open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, level=level)
 
         if inspect.isgeneratorfunction(func):
@@ -227,7 +227,10 @@ def get_open_span(
 
 
 def get_attributes(
-    func: Any, msg_template: str | None, tags: Sequence[str] | None
+    func: Any,
+    msg_template: str | None,
+    tags: Sequence[str] | None,
+    default_span_name: Callable[[Callable[..., Any]], str] | None = None,
 ) -> dict[str, otel_types.AttributeValue]:
     func = inspect.unwrap(func)
     if not inspect.isfunction(func) and hasattr(func, '__call__'):
@@ -235,10 +238,14 @@ def get_attributes(
         func = inspect.unwrap(func)
     func_name = getattr(func, '__qualname__', getattr(func, '__name__', safe_repr(func)))
     if not msg_template:
-        try:
-            msg_template = f'Calling {inspect.getmodule(func).__name__}.{func_name}'  # pyright: ignore[reportOptionalMemberAccess]
-        except Exception:  # pragma: no cover
-            msg_template = f'Calling {func_name}'
+        if default_span_name is not None:
+            with handle_internal_errors:
+                msg_template = default_span_name(func)
+        if not msg_template:
+            try:
+                msg_template = f'Calling {inspect.getmodule(func).__name__}.{func_name}'  # pyright: ignore[reportOptionalMemberAccess]
+            except Exception:  # pragma: no cover
+                msg_template = f'Calling {func_name}'
     attributes: dict[str, otel_types.AttributeValue] = {
         'code.function': func_name,
         ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
