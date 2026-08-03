@@ -29,7 +29,10 @@ def get_mysql_connection(mysql_container: MySqlContainer):
 
 
 def test_mysql_instrumentation(exporter: TestExporter, mysql_container: MySqlContainer):
-    logfire.instrument_mysql()
+    # The instrumentation's declared upper bound (mysql-connector-python < 10.0) rejects the
+    # server-version-aligned 26.x releases even though they're functionally unchanged:
+    # https://github.com/open-telemetry/opentelemetry-python-contrib/issues/4921
+    logfire.instrument_mysql(skip_dep_check=True)
 
     with get_mysql_connection(mysql_container) as conn:
         with conn.cursor() as cursor:

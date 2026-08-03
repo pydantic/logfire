@@ -175,10 +175,7 @@ dev = [
     "faststream[redis]>=0.5.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
     "testcontainers<4.13",
-    # opentelemetry-instrumentation-mysql requires mysql-connector-python < 10.0,
-    # so it refuses to instrument the server-version-aligned 26.x releases.
-    # https://github.com/open-telemetry/opentelemetry-python-contrib/issues/4921
-    "mysql-connector-python>=8.0,<10.0",
+    "mysql-connector-python>=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",
     # pyarrow 25.0.0 dropped its py.typed marker and type stubs; pyarrow-stubs restores pyright typing.
