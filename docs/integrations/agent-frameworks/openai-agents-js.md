@@ -1,126 +1,31 @@
 ---
-title: "Pydantic Logfire Integrations: OpenAI Agents SDK (TypeScript)"
-description: "Send OpenAI Agents SDK (TypeScript / @openai/agents) traces to Pydantic Logfire by bridging the Agents tracing API to OpenTelemetry."
-integration: otel
+title: "OpenAI Agents SDK TypeScript compatibility with Pydantic Logfire"
+description: "Current support status for sending OpenAI Agents SDK TypeScript agent telemetry to Pydantic Logfire."
 ---
 # OpenAI Agents SDK (TypeScript)
 
-The [OpenAI Agents SDK for TypeScript](https://openai.github.io/openai-agents-js/) (`@openai/agents`) has its
-own tracing system but ships no built-in OpenTelemetry exporter. To send its traces to **Logfire**, configure
-the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) (which registers a global
-OpenTelemetry tracer provider exporting to **Logfire**) and add a small custom `TracingProcessor` that turns
-Agents spans into OpenTelemetry spans.
+The [OpenAI Agents SDK for TypeScript](https://openai.github.io/openai-agents-js/) (`@openai/agents`) has a
+native tracing system, but it does not currently ship an OpenTelemetry exporter or a maintained OpenTelemetry
+adapter. There is therefore no complete, supported path for sending its agent and tool traces to **Logfire**.
 
-!!! note
-    The first-class `logfire.instrument_openai_agents()` helper on the
-    [OpenAI](../llms/openai.md#openai-agents) page is
-    **Python-only**. For the TypeScript SDK, the bridge below is the working pattern.
+## Current support
 
-## Installation
+The SDK exposes a `TracingProcessor` interface, so an application can write its own exporter. A small custom
+processor can create generic OpenTelemetry spans, but doing that correctly requires mapping every supported
+agent, model, tool, handoff, guardrail, error, and streaming event to stable semantic attributes and preserving
+their parent-child relationships. A partial bridge can make a trace look plausible while silently losing the
+data needed by Logfire's specialized LLMs, Agents, and conversation views.
 
-```bash
-npm install @openai/agents @pydantic/logfire-node @opentelemetry/api zod
-```
+For that reason, this guide does not recommend a hand-written span bridge or claim full TypeScript support.
+Instrumenting the underlying OpenAI model client separately may show model requests in Logfire, but it does not
+trace the OpenAI Agents SDK's agent or tool lifecycle.
 
-!!! note "Zod version"
-    `@openai/agents` 0.11+ requires **Zod v4** (`zod@^4`). Older 0.0.x releases required pinning to
-    `zod@<=3.25`. Match the Zod version to your installed `@openai/agents`.
+## Supported alternative
 
-## Usage
+The OpenAI Agents SDK for Python has first-class Logfire instrumentation. If Python is an option, use
+[`logfire.instrument_openai_agents()`](../llms/openai.md#openai-agents) to capture its native agent runs, model
+calls, and tools without creating synthetic wrapper spans.
 
-```typescript title="index.ts"
-// Run with: OPENAI_API_KEY=... LOGFIRE_TOKEN=... node --experimental-strip-types index.ts
-import * as logfire from '@pydantic/logfire-node';
-import { context, trace, SpanStatusCode } from '@opentelemetry/api';
-import { Agent, Runner, addTraceProcessor } from '@openai/agents';
-import type { Span, Trace } from '@openai/agents';
-
-// 1. Configure Logfire -> registers a global OTel tracer provider exporting to Logfire.
-//    Reads LOGFIRE_TOKEN from env; region (US/EU) is inferred from the token.
-logfire.configure({ serviceName: 'agents-demo' });
-
-const tracer = trace.getTracer('openai-agents');
-const includeSensitiveData = process.env.LOGFIRE_INCLUDE_SENSITIVE_DATA === 'true';
-
-// 2. Bridge: turn each Agents span into an OTel span on Logfire's provider.
-const otelSpans = new Map<string, ReturnType<typeof tracer.startSpan>>();
-const spanKey = (span: Span<any>) => `${span.traceId}:${span.spanId}`;
-addTraceProcessor({
-  async onTraceStart(_t: Trace) {},
-  async onSpanStart(span: Span<any>) {
-    const parent = span.parentId ? otelSpans.get(`${span.traceId}:${span.parentId}`) : undefined;
-    const parentContext = parent ? trace.setSpan(context.active(), parent) : undefined;
-    const s = tracer.startSpan(span.spanData?.type ?? 'agent.span', undefined, parentContext);
-    s.setAttribute('agents.span_id', span.spanId);
-    s.setAttribute('agents.trace_id', span.traceId);
-    otelSpans.set(spanKey(span), s);
-  },
-  async onSpanEnd(span: Span<any>) {
-    const key = spanKey(span);
-    const s = otelSpans.get(key);
-    if (!s) return;
-    if (includeSensitiveData) s.setAttribute('agents.data', JSON.stringify(span.spanData ?? {}));
-    if (span.error) s.setStatus({ code: SpanStatusCode.ERROR, message: String(span.error) });
-    s.end();
-    otelSpans.delete(key);
-  },
-  async onTraceEnd(_t: Trace) {},
-  async forceFlush() {},
-  async shutdown() {},
-});
-
-// 3. Tiny agent + one LLM call.
-const agent = new Agent({ name: 'Haiku bot', instructions: 'Reply with one short haiku.' });
-const runner = new Runner({ traceIncludeSensitiveData: includeSensitiveData });
-try {
-  const result = await runner.run(agent, 'Write a haiku about telemetry.');
-  console.log(result.finalOutput);
-} finally {
-  await logfire.forceFlush?.(); // export success and error spans before exit
-}
-```
-
-`addTraceProcessor` keeps OpenAI's own default trace backend too; use `setTraceProcessors([...])` instead to
-send **only** to **Logfire**.
-
-!!! warning "Common pitfalls"
-    - **Configure Logfire first**, before registering the bridge, so the global provider exists when
-      `trace.getTracer()` is called. **Flush on exit** or short-lived scripts drop spans.
-    - **`OPENAI_API_KEY` is required** for the model call (and for the SDK's default trace exporter, unless you
-      use `setTraceProcessors`).
-    - **Tracing is on by default** in Node/Deno/Bun, disabled in browsers and when `NODE_ENV=test`. Disable
-      globally with `OPENAI_AGENTS_DISABLE_TRACING=1`.
-    - **Inputs and outputs are private by default in this bridge.** Set `LOGFIRE_INCLUDE_SENSITIVE_DATA=true`
-      only if you intend to send model and tool inputs and outputs to Logfire. Those values can contain secrets
-      or personally identifiable information.
-    - **ESM / Node version.** Both packages are ESM — use a recent Node LTS with `"type": "module"` (or `tsx`).
-    - The bridge preserves parent-child nesting, but maps only basic span metadata. Add the attributes your
-      application needs rather than exporting arbitrary payloads by default.
-
-If you prefer pure env-var OTLP config instead of `@pydantic/logfire-node`, point any standard OTel `NodeSDK`
-at `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` with
-`OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'`, then register the bridge processor.
-
-## Managed prompts
-
-Author and version prompts in [Prompt Management](../../reference/advanced/prompt-management/index.md) and
-fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/):
-
-```typescript
-import { defineTemplateVar } from '@pydantic/logfire-node/vars';
-
-const instructions = defineTemplateVar<string, { style: string }>('prompt__agent_instructions', {
-  default: 'Reply with one short {{style}}.',
-  templateInputsSchema: {
-    type: 'object',
-    properties: { style: { type: 'string' } },
-    required: ['style'],
-  },
-});
-
-const resolved = await instructions.get({ style: 'haiku' });
-const agent = new Agent({ name: 'Poet', instructions: resolved.value });
-```
-
-See [Use Prompts in Your Application](../../reference/advanced/prompt-management/application.md) for the full
-workflow.
+Complete TypeScript support requires a maintained OpenTelemetry processor that follows the generative AI
+semantic conventions. Until one exists and is verified end to end, treat the TypeScript SDK as **not fully
+supported** by Logfire.

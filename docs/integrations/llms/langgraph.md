@@ -34,39 +34,58 @@ os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_OTEL_ONLY'] = 'true'  # OTel only; no LangSmith backend, no API key needed
 os.environ['LANGSMITH_TRACING'] = 'true'
 
+from langchain_core.messages import HumanMessage
+from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, StateGraph
-from typing_extensions import TypedDict
+from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
 
 import logfire
 
 logfire.configure()  # sets the global OTel tracer provider that LangSmith detects
 
 
-class State(TypedDict):
-    topic: str
-    joke: str
+tool_calls: list[str] = []
 
 
-llm = ChatOpenAI(model='gpt-5-mini')
+@tool
+def lookup_incident(incident_id: str) -> str:
+    """Look up the current status and owner of an incident by ID."""
+    tool_calls.append(incident_id)
+    return f'{incident_id} is resolved; owner=platform-observability'
 
 
-def tell_joke(state: State) -> dict:
-    response = llm.invoke(f"Tell me a joke about {state['topic']}")
-    return {'joke': response.content}
+llm = ChatOpenAI(model='gpt-5-mini', temperature=0).bind_tools([lookup_incident])
 
 
-builder = StateGraph(State)
-builder.add_node('tell_joke', tell_joke)
-builder.add_edge(START, 'tell_joke')
-builder.add_edge('tell_joke', END)
+def call_model(state: MessagesState) -> dict:
+    return {'messages': [llm.invoke(state['messages'])]}
+
+
+builder = StateGraph(MessagesState)
+builder.add_node('agent', call_model)
+builder.add_node('tools', ToolNode([lookup_incident]))
+builder.add_edge(START, 'agent')
+builder.add_conditional_edges('agent', tools_condition, {'tools': 'tools', END: END})
+builder.add_edge('tools', 'agent')
 graph = builder.compile()
 
-print(graph.invoke({'topic': 'otters'})['joke'])
+result = graph.invoke(
+    {
+        'messages': [
+            HumanMessage(
+                content="Use lookup_incident with incident_id='incident-42', then report the status and owner."
+            )
+        ]
+    }
+)
+if tool_calls != ['incident-42']:
+    raise RuntimeError(f'expected one tool call for incident-42, received {tool_calls}')
+print(result['messages'][-1].content)
 ```
 
-You'll see a trace in **Logfire** with a span for the graph run, a span per node, and the underlying LLM and
-tool calls nested beneath them.
+The example fails unless the graph executes its native `ToolNode`. You'll see a trace in **Logfire** with a span
+for the graph run, a span per node, and the underlying LLM and `lookup_incident` tool calls nested beneath them.
 
 !!! tip
     `LANGSMITH_OTEL_ONLY=true` stops LangSmith from also sending traces to its own backend, so you get

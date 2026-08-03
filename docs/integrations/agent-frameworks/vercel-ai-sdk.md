@@ -6,9 +6,9 @@ integration: otel
 # Vercel AI SDK
 
 The [Vercel AI SDK](https://ai-sdk.dev/) (the `ai` npm package) supports OpenTelemetry through its official
-`@ai-sdk/otel` integration. Register that integration at application startup and it writes spans to the global
-OpenTelemetry tracer. Configure the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/)
-to point that global tracer at **Logfire**, and your spans flow in.
+`@ai-sdk/otel` integration. Attach that integration to a native `ToolLoopAgent` and configure the
+[Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) as the global tracer provider to send
+the resulting agent, model, and tool spans to **Logfire**.
 
 ## Installation
 
@@ -22,29 +22,41 @@ Configure Logfire **first** so the global tracer exists before any `ai` call:
 
 ```typescript title="agent.ts"
 import * as logfire from '@pydantic/logfire-node';
-import { generateText, isStepCount, registerTelemetry, tool } from 'ai';
+import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 import { OpenTelemetry } from '@ai-sdk/otel';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 
 logfire.configure({ serviceName: 'vercel-ai-agent' }); // sets the global OTel tracer provider
-registerTelemetry(new OpenTelemetry());
 
+let toolCalls = 0;
 const weather = tool({
   description: 'Get the weather for a city',
   inputSchema: z.object({ city: z.string() }),
-  execute: async ({ city }) => ({ city, tempC: 21 }),
+  execute: async ({ city }) => {
+    toolCalls += 1;
+    return { city, tempC: 21 };
+  },
+});
+
+const agent = new ToolLoopAgent({
+  model: openai('gpt-4o-mini'),
+  instructions: 'Use the weather tool before answering.',
+  tools: { weather },
+  stopWhen: stepCountIs(3),
+  telemetry: {
+    functionId: 'weather-agent',
+    integrations: [new OpenTelemetry()],
+    isEnabled: true,
+  },
 });
 
 async function main() {
   try {
-    const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
+    const { text } = await agent.generate({
       prompt: 'What is the weather in Paris? Use the tool.',
-      tools: { weather },
-      stopWhen: isStepCount(5),
-      telemetry: { functionId: 'weather-agent' },
     });
+    if (toolCalls !== 1) throw new Error(`Expected one tool call, received ${toolCalls}`);
     console.log(text);
   } finally {
     await logfire.shutdown(); // flush success and error spans before exit
@@ -54,12 +66,13 @@ async function main() {
 main();
 ```
 
-Set your `OPENAI_API_KEY` and `LOGFIRE_TOKEN`, then run with `npx tsx agent.ts`. You'll see spans for the
-prompt, response, token counts, and tool calls in **Logfire**.
+Set your `OPENAI_API_KEY` and `LOGFIRE_TOKEN`, then run with `npx tsx agent.ts`. The example fails unless the
+native `ToolLoopAgent` executes `weather`. You'll see spans for the agent, prompt, response, token counts, and
+tool call in **Logfire**.
 
 !!! warning "Common pitfalls"
-    - **Register both pieces at startup.** Configure Logfire's global tracer provider, then call
-      `registerTelemetry(new OpenTelemetry())` before the first AI SDK operation.
+    - **Register both pieces before running the agent.** Configure Logfire's global tracer provider and attach
+      `new OpenTelemetry()` in the agent's `telemetry.integrations`.
     - **Flush on exit.** Short-lived scripts must `await logfire.shutdown()` or the batch processor drops
       unflushed spans.
     - **Content capture.** `recordInputs` / `recordOutputs` default to `true`, so prompts and completions are
@@ -91,7 +104,7 @@ const promptVar = defineTemplateVar<string, { city: string }>('prompt__weather',
 });
 
 const resolved = await promptVar.get({ city: 'Paris' });
-// Pass resolved.value as the `prompt` to generateText.
+// Pass resolved.value as the `prompt` to agent.generate().
 ```
 
 See [Use Prompts in Your Application](../../reference/advanced/prompt-management/application.md) for the full

@@ -34,7 +34,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 const string LogfireBase = "https://logfire-us.pydantic.dev"; // or logfire-eu.pydantic.dev
-const string SourceName = "weather-agent";                    // one name for client + agent
+const string SourceName = "incident-agent";                   // one name for client + agent
 string logfireToken = Environment.GetEnvironmentVariable("LOGFIRE_TOKEN")!;
 
 var resource = ResourceBuilder.CreateDefault().AddService("maf-agent");
@@ -42,7 +42,7 @@ var resource = ResourceBuilder.CreateDefault().AddService("maf-agent");
 // HttpProtobuf + per-signal exporter => supply the FULL /v1/traces path.
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .SetResourceBuilder(resource)
-    .AddSource(SourceName) // must match the UseOpenTelemetry/WithOpenTelemetry sourceName
+    .AddSource(SourceName) // must match the UseOpenTelemetry sourceName
     .AddOtlpExporter(o =>
     {
         o.Endpoint = new Uri($"{LogfireBase}/v1/traces");
@@ -60,17 +60,37 @@ IChatClient chatClient = new OpenAIClient(
     .UseOpenTelemetry(sourceName: SourceName, configure: cfg => cfg.EnableSensitiveData = true)
     .Build();
 
+int toolCalls = 0;
 AIAgent agent = new ChatClientAgent(
         chatClient,
-        name: "WeatherAgent",
-        instructions: "You are a concise, helpful assistant.")
-    .WithOpenTelemetry(sourceName: SourceName, configure: cfg => cfg.EnableSensitiveData = true);
+        name: "IncidentAgent",
+        instructions: "Use lookup_incident to verify the incident before answering.",
+        tools:
+        [
+            AIFunctionFactory.Create(
+                (string incidentId) =>
+                {
+                    toolCalls++;
+                    return $"{incidentId} is resolved; owner=platform-observability";
+                },
+                name: "lookup_incident",
+                description: "Look up the current status and owner of an incident by ID.")
+        ])
+    .AsBuilder()
+    .UseOpenTelemetry(sourceName: SourceName, configure: cfg => cfg.EnableSensitiveData = true)
+    .Build();
 
-var response = await agent.RunAsync("Why is the sky blue in one sentence?");
+var response = await agent.RunAsync(
+    "Use lookup_incident with incidentId incident-42, then report the status and owner.");
+if (toolCalls != 1)
+{
+    throw new InvalidOperationException($"Expected one tool call, received {toolCalls}.");
+}
 Console.WriteLine(response);
 ```
 
-You'll see `invoke_agent`, `chat`, and (if the agent calls tools) `execute_tool` spans in **Logfire**. To also
+This uses Microsoft Agent Framework's real `ChatClientAgent` and `AIFunction`; no wrapper spans are added.
+You'll see `invoke_agent`, `chat`, and `execute_tool` spans in **Logfire**. To also
 collect `gen_ai.client.*` metrics, configure a `MeterProvider` with `AddMeter(SourceName)` and an OpenTelemetry
 Protocol metrics exporter.
 

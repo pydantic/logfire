@@ -14,6 +14,7 @@ telemetry to **Logfire** with the standard OpenTelemetry .NET SDK plus an OTLP e
 
 ```bash
 dotnet add package Microsoft.SemanticKernel
+dotnet add package Microsoft.SemanticKernel.Agents.Core
 dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
 ```
 
@@ -24,7 +25,10 @@ Semantic Kernel emits GenAI spans only when you enable its experimental diagnost
 meters, and export over OTLP to **Logfire**:
 
 ```csharp title="Program.cs"
+using System.ComponentModel;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.ChatCompletion;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -63,16 +67,53 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
     .Build();
 
 var kernel = Kernel.CreateBuilder()
-    .AddOpenAIChatCompletion("gpt-4o", Environment.GetEnvironmentVariable("OPENAI_API_KEY")!)
+    .AddOpenAIChatCompletion("gpt-4o-mini", Environment.GetEnvironmentVariable("OPENAI_API_KEY")!)
     .Build();
+kernel.Plugins.AddFromType<IncidentPlugin>();
 
-var answer = await kernel.InvokePromptAsync("Why is the sky blue in one sentence?");
-Console.WriteLine(answer);
+var agent = new ChatCompletionAgent
+{
+    Name = "incident_agent",
+    Instructions = "Use lookup_incident to verify the incident before answering.",
+    Kernel = kernel,
+    Arguments = new KernelArguments(
+        new PromptExecutionSettings { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() }
+    ),
+};
+
+var thread = new ChatHistoryAgentThread();
+var message = new ChatMessageContent(
+    AuthorRole.User,
+    "Use lookup_incident with incident_id incident-42, then report the status and owner."
+);
+await foreach (ChatMessageContent response in agent.InvokeAsync(message, thread))
+{
+    Console.WriteLine(response.Content);
+}
+if (IncidentPlugin.Calls == 0)
+{
+    throw new InvalidOperationException("The agent did not call lookup_incident.");
+}
 // Providers flush on Dispose (end of `using` scope).
+
+sealed class IncidentPlugin
+{
+    public static int Calls { get; private set; }
+
+    [KernelFunction("lookup_incident")]
+    [Description("Look up the current status and owner of an incident by ID.")]
+    public string LookupIncident(string incidentId)
+    {
+        Calls++;
+        return $"{incidentId} is resolved; owner=platform-observability";
+    }
+}
 ```
 
-You'll see the LLM call span with model, token usage, and (because the sensitive switch is on) the prompt and
-completion in **Logfire**.
+The example fails unless `ChatCompletionAgent` invokes its native `lookup_incident` kernel function. You'll see
+the model and function spans with model and token data and, because the sensitive switch is on, the prompt and
+completion in **Logfire**. Semantic Kernel does not currently emit every attribute required for all specialized
+Agents-view features, so use Live or Explore to inspect the complete trace.
 
 !!! warning "Common pitfalls"
     - **Default OTLP protocol is gRPC.** **Logfire** ingests OTLP/HTTP, so you must set

@@ -71,7 +71,26 @@ func main() {
 		genkit.WithDefaultModel("googleai/gemini-2.5-flash"),
 	)
 
-	resp, err := genkit.Generate(ctx, g, ai.WithPrompt("Tell me a one-line joke about Go."))
+	type incidentInput struct {
+		IncidentID string `json:"incident_id" jsonschema:"description=The incident identifier"`
+	}
+	toolCalls := 0
+	lookupIncident := genkit.DefineTool(
+		g,
+		"lookup_incident",
+		"Look up the current status and owner of an incident by ID.",
+		func(_ *ai.ToolContext, input incidentInput) (string, error) {
+			toolCalls++
+			return fmt.Sprintf("%s is resolved; owner=platform-observability", input.IncidentID), nil
+		},
+	)
+
+	resp, err := genkit.Generate(
+		ctx,
+		g,
+		ai.WithPrompt("Call lookup_incident exactly once with incident_id incident-42, then report the result."),
+		ai.WithTools(lookupIncident),
+	)
 	if err != nil {
 		fmt.Println("model error:", err)
 		return
@@ -80,12 +99,17 @@ func main() {
 		fmt.Println("model returned no response")
 		return
 	}
+	if toolCalls != 1 {
+		fmt.Printf("expected one tool call, received %d\n", toolCalls)
+		return
+	}
 	fmt.Println(resp.Text())
 }
 ```
 
-Set `GEMINI_API_KEY` (or your provider's key) and run `go run .`. You'll see the generation span with model and
-token attributes in **Logfire**. Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU region.
+Set `GEMINI_API_KEY` (or your provider's key) and run `go run .`. The example verifies that Genkit executes its
+native `lookup_incident` tool. You'll see the generation, model, and tool spans in **Logfire**. Use
+`https://logfire-eu.pydantic.dev/v1/traces` for the EU region.
 
 !!! warning "Common pitfalls"
     - **Set the global provider before `genkit.Init`**, or early spans are dropped.

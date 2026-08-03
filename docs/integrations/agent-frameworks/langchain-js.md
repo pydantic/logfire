@@ -14,7 +14,7 @@ trace through **LangSmith**, whose JS SDK ships native OpenTelemetry export. Poi
 ```bash
 npm install langchain @langchain/core @langchain/openai langsmith \
   @opentelemetry/api @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto \
-  @opentelemetry/context-async-hooks
+  @opentelemetry/context-async-hooks zod
 ```
 
 (Add `@langchain/langgraph` if you build with LangGraph.)
@@ -42,29 +42,52 @@ import { initializeOTEL } from 'langsmith/experimental/otel/setup';
 
 const { DEFAULT_LANGSMITH_SPAN_PROCESSOR } = initializeOTEL();
 
-try {
-  const { runAgent } = await import('./agent.js');
-  await runAgent();
-} finally {
-  // Flush spans to Logfire before the process exits.
-  await DEFAULT_LANGSMITH_SPAN_PROCESSOR.forceFlush?.();
-  await DEFAULT_LANGSMITH_SPAN_PROCESSOR.shutdown();
+async function main() {
+  try {
+    const { runAgent } = await import('./agent.js');
+    await runAgent();
+  } finally {
+    // Flush spans to Logfire before the process exits.
+    await DEFAULT_LANGSMITH_SPAN_PROCESSOR.forceFlush?.();
+    await DEFAULT_LANGSMITH_SPAN_PROCESSOR.shutdown();
+  }
 }
+
+main();
 ```
 
 ```typescript title="agent.ts"
 import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage } from '@langchain/core/messages';
+import { createAgent, tool } from 'langchain';
+import { z } from 'zod';
 
 export async function runAgent() {
+  let toolCalls = 0;
+  const lookupIncident = tool(
+    ({ incidentId }) => {
+      toolCalls += 1;
+      return `${incidentId} is resolved; owner=platform-observability`;
+    },
+    {
+      name: 'lookup_incident',
+      description: 'Look up an incident by ID.',
+      schema: z.object({ incidentId: z.string() }),
+    },
+  );
   const model = new ChatOpenAI({ model: 'gpt-4o-mini', temperature: 0 });
-  const res = await model.invoke([new HumanMessage("What's 123 + 456?")]);
-  console.log(res.content);
+  const agent = createAgent({ model, tools: [lookupIncident], name: 'incident-agent' });
+  const result = await agent.invoke({
+    messages: [
+      {
+        role: 'user',
+        content: "Use lookup_incident with incidentId='incident-42', then report the status and owner.",
+      },
+    ],
+  });
+  if (toolCalls !== 1) throw new Error(`Expected one tool call, received ${toolCalls}`);
+  console.log(result.messages.at(-1)?.content);
 }
 ```
-
-For a LangGraph agent, swap the model call for `createReactAgent({ llm: model, tools: [...] })` from
-`@langchain/langgraph/prebuilt` and `.invoke(...)` it — the same OTel setup captures the graph and tool spans.
 
 !!! warning "Common pitfalls"
     - **Set configuration before process start.** Static ESM imports are evaluated before code in `index.ts`,

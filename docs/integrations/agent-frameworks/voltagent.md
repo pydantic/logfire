@@ -13,16 +13,17 @@ pointed at **Logfire**, then pass it to `new VoltAgent({ ... })`.
 
 ```bash
 npm install @voltagent/core 'ai@^6' '@ai-sdk/openai@^3' \
-  @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto
+  @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto zod
 ```
 
 ## Usage
 
 ```typescript title="agent.ts"
-import { VoltAgent, Agent, VoltAgentObservability } from '@voltagent/core';
+import { VoltAgent, Agent, VoltAgentObservability, createTool } from '@voltagent/core';
 import { openai } from '@ai-sdk/openai';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
+import { z } from 'zod';
 
 const logfireExporter = new OTLPTraceExporter({
   url: 'https://logfire-us.pydantic.dev/v1/traces', // full path; EU: logfire-eu.pydantic.dev
@@ -33,27 +34,47 @@ const observability = new VoltAgentObservability({
   spanProcessors: [new BatchSpanProcessor(logfireExporter)],
 });
 
-const agent = new Agent({
-  name: 'weather-agent',
-  instructions: 'A helpful assistant that answers questions.',
-  model: openai('gpt-4o-mini'),
+let toolCalls = 0;
+const lookupIncident = createTool({
+  name: 'lookup_incident',
+  description: 'Look up an incident by ID.',
+  parameters: z.object({ incidentId: z.string() }),
+  execute: async ({ incidentId }) => {
+    toolCalls += 1;
+    return `${incidentId} is resolved; owner=platform-observability`;
+  },
 });
 
-new VoltAgent({
+const agent = new Agent({
+  name: 'incident-agent',
+  instructions: 'Use operational tools to verify facts before answering.',
+  model: openai('gpt-4o-mini'),
+  tools: [lookupIncident],
+  maxSteps: 3,
+});
+
+const voltAgent = new VoltAgent({
   agents: { agent },
   observability,
 });
 
-try {
-  const res = await agent.generateText('What is a good city to visit in spring?');
-  console.log(res.text);
-} finally {
-  await observability.forceFlush();
-  await observability.shutdown();
+async function main() {
+  try {
+    const res = await agent.generateText(
+      "Use lookup_incident with incidentId='incident-42', then report the status and owner.",
+    );
+    if (toolCalls !== 1) throw new Error(`Expected one tool call, received ${toolCalls}`);
+    console.log(res.text);
+  } finally {
+    await voltAgent.shutdown();
+  }
 }
+
+main();
 ```
 
-Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The agent run and model call appear in **Logfire**.
+Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The example fails unless VoltAgent executes the
+native `lookup_incident` tool. The agent run, model call, and tool call appear in **Logfire**.
 
 !!! warning "Common pitfalls"
     - **Full `/v1/traces` URL.** When you pass `url` explicitly to `OTLPTraceExporter`, it does not append the

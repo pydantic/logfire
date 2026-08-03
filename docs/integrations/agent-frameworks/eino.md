@@ -1,155 +1,33 @@
 ---
-title: "Pydantic Logfire Integrations: Eino (Go)"
-description: "Send CloudWeGo Eino (Go) agent telemetry to Pydantic Logfire with a small OpenTelemetry callback handler over OTLP."
-integration: otel
+title: "Eino (Go) compatibility with Pydantic Logfire"
+description: "Current support status for sending CloudWeGo Eino agent and tool telemetry to Pydantic Logfire."
 ---
 # Eino (Go)
 
-[Eino](https://www.cloudwego.io/docs/eino/) is ByteDance/CloudWeGo's Go framework for LLM and agent
-applications. Its observability is built on a **callbacks** system rather than automatic OpenTelemetry. To send
-Eino traces to **Logfire**, register a standard OpenTelemetry OTLP exporter (pointed at **Logfire**) and a
-small custom `callbacks.Handler` that opens a span per node on that provider.
+[Eino](https://www.cloudwego.io/docs/eino/) is ByteDance/CloudWeGo's Go framework for large language model
+(LLM) and agent applications. Eino can run native ReAct agents and tools, but it does not currently provide a
+complete, general-purpose OpenTelemetry integration that can send those agent operations to **Logfire**.
 
-!!! note
-    The official `eino-ext` callback handlers (`apmplus`, `cozeloop`, `langfuse`) are vendor-specific and don't
-    expose a generic OTLP endpoint with auth headers, so a tiny custom handler is the cleanest path to Logfire.
+## Current support
 
-## Installation
+Eino's observability API is based on callback handlers. The official handlers in `eino-ext` target specific
+vendors, including APMPlus, CozeLoop, Langfuse, and LangSmith. Its OpenTelemetry helper configures a standard
+tracer provider, but it does not turn Eino agent, model, and tool callbacks into spans.
 
-```bash
-go get github.com/cloudwego/eino
-go get github.com/cloudwego/eino-ext/components/model/openai
-go get go.opentelemetry.io/otel \
-       go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp \
-       go.opentelemetry.io/otel/sdk
-```
+That means:
 
-## Usage
+- Pointing an OpenTelemetry Protocol (OTLP) exporter at Logfire does not instrument an Eino agent by itself.
+- A native Eino ReAct agent and its tools can run successfully without producing Eino telemetry in Logfire.
+- Hand-writing a callback that opens generic spans would omit important agent semantics and is not a supported
+  Eino integration. This guide intentionally does not present that as full support.
 
-```go title="main.go"
-package main
+You can separately instrument an underlying model client when an instrumentation library supports it. Those
+model spans can appear in Logfire, but they do not prove that the Eino agent or its tool loop is traced.
 
-import (
-	"context"
-	"fmt"
-	"os"
+## What complete support requires
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/trace"
-	oteltrace "go.opentelemetry.io/otel/trace"
-)
+A complete integration needs a maintained callback handler that maps Eino's agent, model, tool, streaming, and
+error lifecycle to OpenTelemetry spans and established generative AI semantic conventions. Once Eino or a
+maintained adapter provides that mapping, its standard OTLP exporter can send those spans to Logfire.
 
-// Minimal handler that wraps each Eino node in an OTel span.
-type otelHandler struct{ tr oteltrace.Tracer }
-
-func spanName(info *callbacks.RunInfo) string {
-	if info != nil && info.Name != "" {
-		return info.Name
-	}
-	return "eino.operation"
-}
-
-func (h *otelHandler) OnStart(ctx context.Context, info *callbacks.RunInfo, in callbacks.CallbackInput) context.Context {
-	ctx, _ = h.tr.Start(ctx, spanName(info))
-	return ctx
-}
-func (h *otelHandler) OnEnd(ctx context.Context, info *callbacks.RunInfo, out callbacks.CallbackOutput) context.Context {
-	if s := oteltrace.SpanFromContext(ctx); s != nil {
-		s.End()
-	}
-	return ctx
-}
-func (h *otelHandler) OnError(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
-	if s := oteltrace.SpanFromContext(ctx); s != nil {
-		s.RecordError(err)
-		s.SetStatus(codes.Error, err.Error())
-		s.End()
-	}
-	return ctx
-}
-func (h *otelHandler) OnStartWithStreamInput(ctx context.Context, info *callbacks.RunInfo, in *schema.StreamReader[callbacks.CallbackInput]) context.Context {
-	in.Close()
-	ctx, _ = h.tr.Start(ctx, spanName(info))
-	return ctx
-}
-func (h *otelHandler) OnEndWithStreamOutput(ctx context.Context, _ *callbacks.RunInfo, out *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
-	out.Close()
-	if s := oteltrace.SpanFromContext(ctx); s != nil {
-		s.End()
-	}
-	return ctx
-}
-
-func main() {
-	ctx := context.Background()
-	writeToken := os.Getenv("LOGFIRE_WRITE_TOKEN")
-	if writeToken == "" {
-		fmt.Println("LOGFIRE_WRITE_TOKEN is required; copy it from your Logfire project settings")
-		return
-	}
-
-	// 1. OTel -> Logfire (HTTP/protobuf).
-	exp, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpointURL("https://logfire-us.pydantic.dev/v1/traces"),
-		otlptracehttp.WithHeaders(map[string]string{"Authorization": writeToken}),
-	)
-	if err != nil {
-		fmt.Println("telemetry setup error:", err)
-		return
-	}
-	tp := trace.NewTracerProvider(trace.WithBatcher(exp))
-	defer tp.Shutdown(ctx)
-	otel.SetTracerProvider(tp)
-
-	// 2. Register the handler globally (init only — not thread-safe).
-	callbacks.AppendGlobalHandlers(&otelHandler{tr: tp.Tracer("eino")})
-
-	// 3. One model call -> traced to Logfire.
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		fmt.Println("OPENAI_API_KEY is required")
-		return
-	}
-	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{APIKey: apiKey, Model: "gpt-4o-mini"})
-	if err != nil {
-		fmt.Println("model setup error:", err)
-		return
-	}
-	out, err := cm.Generate(ctx,
-		[]*schema.Message{schema.UserMessage("One-line joke about Go?")},
-		model.WithTemperature(0.7),
-	)
-	if err != nil {
-		fmt.Println("model error:", err)
-		return
-	}
-	fmt.Println(out.Content)
-}
-```
-
-Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU region.
-
-!!! warning "Common pitfalls"
-    - **`callbacks.AppendGlobalHandlers` is not thread-safe** — call it only at process init.
-    - **Trace and close streaming callbacks.** Eino calls the streaming hooks instead of `OnStart` and `OnEnd`
-      for streaming nodes, so they need their own span lifecycle as shown above. Close the duplicated stream
-      readers or you'll leak them.
-    - **Use the HTTP exporter** with the `/v1/traces` path, and **flush on exit** via `defer tp.Shutdown(ctx)`.
-    - Component constructors (the OpenAI chat model here) live in the separate `eino-ext` module, not core
-      `eino`.
-
-## Managed prompts
-
-Managed prompts are authored and versioned in
-[Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
-helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Go you can consume managed variables
-over the language-agnostic
-[OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md), or resolve
-the prompt in a small Python/TypeScript sidecar and pass the rendered text into your Eino messages.
+Until then, treat Eino as **not fully supported** rather than adding synthetic spans around a working agent.

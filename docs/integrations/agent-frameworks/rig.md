@@ -1,138 +1,141 @@
 ---
 title: "Pydantic Logfire Integrations: Rig (Rust)"
-description: "Send Rig (rig-core) agent telemetry to Pydantic Logfire using the native Logfire Rust SDK or a standard OpenTelemetry OTLP exporter."
+description: "Send Rig agent, model, and tool telemetry to Pydantic Logfire using the Logfire Rust SDK."
 integration: otel
 ---
 # Rig (Rust)
 
-[Rig](https://docs.rig.rs/) (the `rig-core` crate) is a Rust framework for building LLM and agent applications.
-It is instrumented with the [`tracing`](https://docs.rs/tracing) crate and emits **GenAI semantic-convention**
-spans for completions, agents, and tools. Because Rig uses `tracing`, you export its spans to **Logfire** by
-installing a subscriber that ships them over OpenTelemetry — the simplest being the native
-[Logfire Rust SDK](https://github.com/pydantic/logfire-rust).
+[Rig](https://docs.rig.rs/) is a Rust framework for building large language model (LLM) and agent applications.
+Rig emits [`tracing`](https://docs.rs/tracing) spans for agent, completion, and tool operations. The
+[Logfire Rust SDK](https://github.com/pydantic/logfire-rust) installs the subscriber and OpenTelemetry exporter
+that send those native spans to **Logfire**.
 
-!!! note
-    Rig emits spans, but nothing is exported until you install a subscriber. Set one up **before** building and
-    prompting your agent.
-
-## Option A — Logfire Rust SDK (recommended)
-
-The `logfire` crate sets up the whole `tracing` + OpenTelemetry + OTLP-to-Logfire pipeline for you, so Rig's
-spans flow through automatically.
+## Installation
 
 ```toml title="Cargo.toml"
 [dependencies]
-rig-core = "0.38"
-logfire = "0.10"
+logfire = "0.11"
+rig-agent = "0.41"
+rig-core = "0.41"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-tracing = "0.1"
 ```
+
+## Usage
+
+Configure Logfire before building the agent, then give the agent a real Rig `Tool`:
 
 ```rust title="src/main.rs"
 use logfire::config::SendToLogfire;
-use rig::{completion::Prompt, providers::openai};
+use rig_agent::{
+    client::AgentClientExt,
+    completion::Prompt,
+    tool::{Tool, ToolContext},
+};
+use rig_core::providers::openai;
+use serde::Deserialize;
+use std::{
+    convert::Infallible,
+    sync::{Arc, Mutex},
+};
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Installs the global tracing subscriber + OTLP exporter to Logfire.
-    // Reads LOGFIRE_TOKEN from the environment.
-    let logfire = logfire::configure()
-        .send_to_logfire(SendToLogfire::IfTokenPresent)
-        .finish()?;
-    let _guard = logfire.shutdown_guard(); // flushes spans on drop
-
-    // Rig agent — spans emitted via `tracing` are captured automatically.
-    let client = openai::Client::from_env();
-    let agent = client
-        .agent(openai::GPT_4O)
-        .preamble("You are a helpful assistant.")
-        .build();
-
-    let answer = agent.prompt("In one sentence, what is observability?").await?;
-    println!("{answer}");
-
-    Ok(()) // `_guard` drops here, flushing to Logfire
+#[derive(Deserialize)]
+struct IncidentInput {
+    incident_id: String,
 }
-```
 
-Run with `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> cargo run`. You'll see the agent's completion span
-with GenAI attributes (model, token usage) in **Logfire**.
+#[derive(Clone)]
+struct LookupIncident(Arc<Mutex<Vec<String>>>);
 
-For an EU-region project, use its EU write token. The Logfire Rust SDK infers the data region from the token.
+impl Tool for LookupIncident {
+    const NAME: &'static str = "lookup_incident";
+    type Args = IncidentInput;
+    type Output = String;
+    type Error = Infallible;
 
-## Option B — Standard OpenTelemetry OTLP exporter
+    fn description(&self) -> String {
+        "Look up the current status and owner of an incident by ID.".into()
+    }
 
-If you'd rather not use the Logfire crate, wire `tracing-subscriber` → `tracing-opentelemetry` →
-`opentelemetry-otlp` and point the exporter at **Logfire**'s OTLP/HTTP endpoint.
+    fn parameters(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": { "incident_id": { "type": "string" } },
+            "required": ["incident_id"]
+        })
+    }
 
-```toml title="Cargo.toml"
-[dependencies]
-rig-core = "0.38"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-opentelemetry = "0.31"
-opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.31", features = ["http-proto", "reqwest-client", "reqwest-rustls"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-opentelemetry = "0.32" # 0.32 pairs with opentelemetry 0.31
-```
-
-```rust title="src/main.rs"
-use opentelemetry::trace::TracerProvider as _;
-use opentelemetry::KeyValue;
-use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
-use rig::{completion::Prompt, providers::openai};
-use tracing_subscriber::prelude::*;
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> Result<Self::Output, Self::Error> {
+        self.0.lock().unwrap().push(args.incident_id.clone());
+        Ok(format!(
+            "{} is resolved; owner=platform-observability",
+            args.incident_id
+        ))
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Reads OTEL_EXPORTER_OTLP_ENDPOINT and
-    // OTEL_EXPORTER_OTLP_HEADERS (Authorization=<write-token>) from env.
-    let exporter = opentelemetry_otlp::SpanExporter::builder().with_http().build()?;
-    let provider = SdkTracerProvider::builder()
-        .with_batch_exporter(exporter)
-        .with_resource(Resource::builder().with_attributes([KeyValue::new("service.name", "rig-demo")]).build())
+    // Requires LOGFIRE_TOKEN and installs the global tracing subscriber and exporter.
+    let logfire = logfire::configure()
+        .send_to_logfire(SendToLogfire::Yes)
+        .finish()?;
+    let guard = logfire.shutdown_guard();
+
+    let client = openai::CompletionsClient::builder()
+        .api_key(std::env::var("OPENAI_API_KEY")?)
+        .build()?;
+    let tool_calls = Arc::new(Mutex::new(Vec::new()));
+    let agent = client
+        .agent("gpt-4o-mini")
+        .name("Incident agent")
+        .preamble("Use the supplied tool to verify incidents before answering.")
+        .default_max_turns(3)
+        .tool(LookupIncident(tool_calls.clone()))
         .build();
 
-    let tracer = provider.tracer("rig-demo");
-    tracing_subscriber::registry()
-        .with(tracing_opentelemetry::layer().with_tracer(tracer))
-        .init();
-
-    let client = openai::Client::from_env();
-    let agent = client.agent(openai::GPT_4O).preamble("You are a helpful assistant.").build();
-    let answer = agent.prompt("In one sentence, what is observability?").await?;
+    let answer = agent
+        .prompt(
+            "Call lookup_incident exactly once with incident_id incident-42, then report the status and owner.",
+        )
+        .await?;
+    if tool_calls.lock().unwrap().as_slice() != ["incident-42"] {
+        return Err("the agent did not execute lookup_incident exactly once".into());
+    }
     println!("{answer}");
 
-    provider.shutdown()?; // MUST flush the batch exporter before exit, or spans are lost
+    guard.shutdown()?; // flushes spans before exit
     Ok(())
 }
 ```
 
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT="https://logfire-us.pydantic.dev"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=your-write-token"
-```
+Run `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> cargo run` in your terminal. The program fails unless the
+native Rig agent executes `lookup_incident`. In Logfire, the trace contains Rig's agent, completion, and tool
+spans; the Logfire SDK does not add a synthetic agent wrapper.
 
-For an EU-region project using this standard exporter, set `OTEL_EXPORTER_OTLP_ENDPOINT` to
-`https://logfire-eu.pydantic.dev` instead.
+For an EU-region project, use its EU write token. The Logfire Rust SDK infers the data region from the token.
 
 !!! warning "Common pitfalls"
-    - **Install a subscriber.** Rig's spans are dropped unless a subscriber is registered, before the agent
-      runs.
-    - **Flush on shutdown** — the most common cause of "no data". Keep the `ShutdownGuard` alive (Option A) or
-      call `provider.shutdown()` (Option B) before the process exits.
-    - **Version compatibility is the sharpest edge.** All `opentelemetry*` crates must share the same minor
-      (all `0.31`), and `tracing-opentelemetry` is one minor ahead (`0.32` ↔ `opentelemetry 0.31`). The
-      `logfire` crate already pins a consistent set. Verify current versions on crates.io before pinning.
-    - **Use OTLP HTTP/protobuf** (feature `http-proto`); the SDK appends `/v1/traces` to the base endpoint.
+    - **Configure before constructing the agent.** Rig uses `tracing`; spans emitted before a subscriber is
+      installed are lost.
+    - **Flush before exit.** Keep the shutdown guard alive and call `guard.shutdown()` in short-lived programs.
+    - **Use compatible crate generations.** The example was compiled with `rig-agent`/`rig-core` 0.41 and
+      `logfire` 0.11. Rig split its agent APIs into `rig-agent`; examples written only against older `rig-core`
+      releases do not use the current API.
+    - For a hand-configured OpenTelemetry pipeline, all `opentelemetry*` crates must use compatible versions.
+      The Logfire SDK already selects and configures a compatible set.
 
 ## Managed prompts
 
 Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers are currently available in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Rust, you can still consume managed
-variables over the language-agnostic
-[OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md), or resolve the prompt in a small
-Python/TypeScript sidecar and pass the rendered text into your Rig `preamble`/prompt.
+[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Rust, consume managed variables over
+the language-agnostic
+[OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md),
+or resolve the prompt in a small Python or TypeScript sidecar and pass the rendered text into the Rig agent.

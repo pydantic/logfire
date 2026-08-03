@@ -27,11 +27,15 @@ import { OtelExporter } from '@mastra/otel-exporter';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 
+let toolCalls = 0;
 const weatherTool = createTool({
   id: 'get-weather',
   description: 'Get the weather for a city',
   inputSchema: z.object({ city: z.string() }),
-  execute: async ({ city }) => ({ city, tempC: 21 }),
+  execute: async ({ city }) => {
+    toolCalls += 1;
+    return { city, tempC: 21 };
+  },
 });
 
 const agent = new Agent({
@@ -65,16 +69,23 @@ export const mastra = new Mastra({
   }),
 });
 
-try {
-  const res = await mastra.getAgent('agent').generate('Weather in Paris?');
-  console.log(res.text);
-} finally {
-  await mastra.observability.flush();
+async function main() {
+  try {
+    const res = await mastra
+      .getAgent('agent')
+      .generate('Use get-weather to find the weather in Paris, then report it.', { maxSteps: 3 });
+    if (toolCalls !== 1) throw new Error(`Expected one tool call, received ${toolCalls}`);
+    console.log(res.text);
+  } finally {
+    await mastra.shutdown();
+  }
 }
+
+main();
 ```
 
-Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The agent run, model call, and tool call appear as a
-nested trace in **Logfire**.
+Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The example fails unless Mastra executes the native
+`get-weather` tool. The agent run, model call, and tool call appear as a nested trace in **Logfire**.
 
 !!! warning "Common pitfalls"
     - **Use the current `observability` config.** The older top-level `telemetry: {}` (`OtelConfig`) on
