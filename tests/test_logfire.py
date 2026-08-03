@@ -364,11 +364,13 @@ def test_instrument_default_msg_template_initialized_once_concurrently(config_kw
 def test_instrument_default_msg_template_initializes_functions_independently(config_kwargs: dict[str, Any]) -> None:
     foo_initializing = threading.Event()
     bar_initialized = threading.Event()
+    foo_saw_bar_initialized = False
 
     def default_msg_template(helper: InstrumentMessageTemplateHelper) -> str:
+        nonlocal foo_saw_bar_initialized
         if helper.name == 'foo':
             foo_initializing.set()
-            assert bar_initialized.wait(timeout=5)
+            foo_saw_bar_initialized = bar_initialized.wait(timeout=5)
         else:
             bar_initialized.set()
         return helper.name
@@ -390,6 +392,7 @@ def test_instrument_default_msg_template_initializes_functions_independently(con
         bar_future = executor.submit(bar)
         assert foo_future.result() == 1
         assert bar_future.result() == 2
+    assert foo_saw_bar_initialized
 
 
 def test_instrument_default_msg_template_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
