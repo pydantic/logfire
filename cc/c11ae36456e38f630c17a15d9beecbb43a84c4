@@ -1,0 +1,19 @@
+docs/integrations/llms/google-genai.md
+  s_196e0b8dce4470::t_5f7364e5884401 39-41,50-51,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "ccc11ae36456e38f630c17a15d9beecbb43a84c4",
+  "prompts": {},
+  "sessions": {
+    "s_196e0b8dce4470": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc8a8-975d-7871-bd96-7194ca1bbf96",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
