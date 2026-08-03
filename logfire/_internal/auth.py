@@ -25,6 +25,7 @@ DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 """File used to store user tokens."""
 
 
+LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
 PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
     r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_'
     r'(?:(?P<organization_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_)?)'
@@ -88,14 +89,18 @@ class UserToken:
 
     def __str__(self) -> str:
         region = 'us'
-        if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token):
-            region = match.group('region')
+        token_match = PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token)
+        region_match = token_match or LOGFIRE_TOKEN_REGION_PATTERN.match(self.token)
+        if region_match:
+            region = region_match.group('region')
             if region not in REGIONS:
                 region = 'us'
 
         token_repr = f'{region.upper()} ({self.base_url}) - '
-        if match:
-            token_repr += match.group('safe_part') + match.group('token')[:5]
+        if token_match:
+            token_repr += token_match.group('safe_part') + token_match.group('token')[:5]
+        elif region_match:
+            token_repr += self.token[region_match.end() : region_match.end() + 5]
         else:
             token_repr += self.token[:5]
         token_repr += '****'
