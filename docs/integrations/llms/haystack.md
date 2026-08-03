@@ -1,6 +1,6 @@
 ---
 title: "Pydantic Logfire Integrations: Haystack"
-description: "Send deepset Haystack's native OpenTelemetry agent and pipeline traces to Pydantic Logfire with the first-party opentelemetry-haystack package."
+description: "Send deepset Haystack agent and pipeline traces to Pydantic Logfire with its first-party OpenTelemetry adapter."
 integration: otel
 ---
 # Haystack

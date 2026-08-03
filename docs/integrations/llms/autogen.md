@@ -45,21 +45,33 @@ logfire.instrument_openai()
 
 async def main():
     model_client = OpenAIChatCompletionClient(model='gpt-4o')  # needs OPENAI_API_KEY
-    agent = AssistantAgent(
-        name='assistant',
-        model_client=model_client,
-        system_message='You are a helpful assistant.',
-    )
-    result = await agent.run(task='Say hello to Logfire in one short sentence.')
-    print(result.messages[-1].content)
-    await model_client.close()
+
+    def lookup_incident(incident_id: str) -> str:
+        """Look up the current status and owner of an incident by ID."""
+        return f'{incident_id} is resolved; owner=platform-observability'
+
+    try:
+        agent = AssistantAgent(
+            name='assistant',
+            model_client=model_client,
+            tools=[lookup_incident],
+            reflect_on_tool_use=True,
+            max_tool_iterations=2,
+            system_message='Use operational tools to verify facts before answering.',
+        )
+        result = await agent.run(
+            task="Use lookup_incident for incident_id='incident-42', then report its status and owner."
+        )
+        print(result.messages[-1].content)
+    finally:
+        await model_client.close()
 
 
 asyncio.run(main())
 ```
 
-You'll see a trace in **Logfire** with AutoGen's native agent run at the top, with model requests and any tool
-calls nested beneath it.
+You'll see the native AutoGen agent run in **Live** and **Agents**, with the `lookup_incident` tool call and
+instrumented OpenAI model requests nested beneath it.
 
 !!! warning
     Don't also enable `openinference-instrumentation-autogen-agentchat`. It wraps the same agent and tool methods

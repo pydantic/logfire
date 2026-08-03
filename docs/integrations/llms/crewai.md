@@ -1,12 +1,12 @@
 ---
 title: "Pydantic Logfire Integrations: CrewAI"
-description: "Instrument CrewAI multi-agent crews with Pydantic Logfire using OpenInference. Trace every agent, task, tool call, and LLM request."
+description: "Instrument CrewAI multi-agent crews with Pydantic Logfire using OpenInference. Trace every agent, task, tool call, and model request."
 integration: otel
 ---
 # CrewAI
 
 [CrewAI](https://docs.crewai.com/) orchestrates role-playing autonomous agents into collaborating "crews".
-You can send full traces of every agent, task, tool call, and LLM request to **Logfire**.
+You can send full traces of every agent, task, tool call, and large language model (LLM) request to **Logfire**.
 
 CrewAI doesn't have a dedicated `logfire.instrument_crewai()` method, but it works out of the box with the
 [OpenInference](https://github.com/Arize-ai/openinference) CrewAI instrumentor. This is possible because
@@ -26,29 +26,40 @@ pip install logfire crewai openinference-instrumentation-crewai
 Call [`logfire.configure()`][logfire.configure] and then `CrewAIInstrumentor().instrument()` **before** you
 build and run your crew:
 
-```python skip-run="true" skip-reason="external-connection"
-import os
+Set `OPENAI_API_KEY` in your terminal before starting the script:
 
+```bash
+export OPENAI_API_KEY='<your-openai-key>'
+```
+
+```python skip-run="true" skip-reason="external-connection"
 from crewai import Agent, Crew, Process, Task
+from crewai.tools import tool
 from openinference.instrumentation.crewai import CrewAIInstrumentor
 
 import logfire
 
-os.environ['OPENAI_API_KEY'] = 'your-openai-key'
-
 logfire.configure()
 CrewAIInstrumentor().instrument()
 
+
+@tool('lookup_incident')
+def lookup_incident(incident_id: str) -> str:
+    """Look up the current status and owner of an incident by ID."""
+    return f'{incident_id} is resolved; owner=platform-observability'
+
+
 researcher = Agent(
     role='Researcher',
-    goal='Explain a topic clearly and concisely',
-    backstory='You are a knowledgeable analyst who values brevity.',
+    goal='Resolve incident questions using the available operational tools',
+    backstory='You are a reliability engineer who verifies facts with tools.',
     llm='openai/gpt-4o-mini',
+    tools=[lookup_incident],
 )
 
 task = Task(
-    description='Summarize what OpenTelemetry is in two sentences.',
-    expected_output='A two-sentence summary.',
+    description="Use lookup_incident for incident_id='incident-42', then report its status and owner.",
+    expected_output='The status and owner returned by lookup_incident.',
     agent=researcher,
 )
 
@@ -56,8 +67,15 @@ crew = Crew(agents=[researcher], tasks=[task], process=Process.sequential)
 print(crew.kickoff())
 ```
 
-You'll see a nested trace in **Logfire** with the crew kickoff at the top, a span per task and agent, and the
-underlying LLM and tool calls beneath them.
+You'll see a nested trace in **Live** and **Explore** with the crew kickoff at the top, a span per task and agent,
+and the underlying `lookup_incident` and LLM calls beneath them. CrewAI's OpenInference agent spans do not
+currently populate Logfire's specialized **Agents** view.
+
+!!! warning "Prompt and tool content"
+    OpenInference can include task descriptions, outputs, tool arguments, and tool results in spans sent to
+    Logfire. For sensitive workloads, pass
+    `config=TraceConfig(hide_inputs=True, hide_outputs=True)` to `instrument()` after importing `TraceConfig`
+    from `openinference.instrumentation`.
 
 !!! tip
     CrewAI uses [LiteLLM](./litellm.md)-style model strings, so the provider-prefixed form
@@ -74,7 +92,7 @@ underlying LLM and tool calls beneath them.
 
 You can keep your agents' prompts (roles, goals, backstories, and task descriptions) in
 [Prompt Management](../../reference/advanced/prompt-management/index.md) and fetch them at runtime with the
-Logfire SDK, so non-engineers can iterate on them without redeploying.
+Logfire software development kit (SDK), so non-engineers can iterate on them without redeploying.
 
 Install the variables extra:
 

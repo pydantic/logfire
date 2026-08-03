@@ -23,26 +23,23 @@ pip install logfire semantic-kernel
 
 ## Usage
 
-Set `SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE=true` (to record prompts and
-completions; use the non-`SENSITIVE` variant for metadata only) and call
-[`logfire.configure()`][logfire.configure]:
+Set the diagnostics flag in your terminal before starting the script. The `SENSITIVE` variant records prompts
+and completions; use `SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS=true` instead for metadata only.
+
+```bash
+export SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE=true
+```
+
+Then call [`logfire.configure()`][logfire.configure] before creating the agent:
 
 ```python skip-run="true" skip-reason="external-connection"
 import asyncio
-import os
 
-from semantic_kernel import Kernel
-from semantic_kernel.connectors.ai import FunctionChoiceBehavior
-from semantic_kernel.connectors.ai.open_ai import (
-    OpenAIChatCompletion,
-    OpenAIChatPromptExecutionSettings,
-)
-from semantic_kernel.functions import KernelArguments, kernel_function
+from semantic_kernel.agents import ChatCompletionAgent
+from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
+from semantic_kernel.functions import kernel_function
 
 import logfire
-
-# Emit gen_ai spans including prompts/completions. Set before configuring.
-os.environ['SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE'] = 'true'
 
 # Sets the global OTel tracer + meter provider exporting to Logfire.
 logfire.configure(service_name='semantic-kernel-agent')
@@ -55,24 +52,22 @@ class WeatherPlugin:
 
 
 async def main() -> None:
-    kernel = Kernel()
-    kernel.add_service(OpenAIChatCompletion(ai_model_id='gpt-4o-mini'))  # uses OPENAI_API_KEY
-    kernel.add_plugin(WeatherPlugin(), plugin_name='weather')
-
-    settings = OpenAIChatPromptExecutionSettings(function_choice_behavior=FunctionChoiceBehavior.Auto())
-    arguments = KernelArguments(settings=settings)
-    answer = await kernel.invoke_prompt(
-        "What's the weather in Paris? Use the weather plugin.", arguments=arguments
+    agent = ChatCompletionAgent(
+        service=OpenAIChatCompletion(ai_model_id='gpt-4o-mini'),  # uses OPENAI_API_KEY
+        name='weather_agent',
+        instructions='Use the weather plugin before answering.',
+        plugins=[WeatherPlugin()],
     )
-    print(answer)
+    response = await agent.get_response(messages="What's the weather in Paris?")
+    print(response.message.content)
 
 
 if __name__ == '__main__':
     asyncio.run(main())
 ```
 
-You'll see SK's `chat.completions` spans (with `gen_ai.*` attributes), token-usage metrics, and
-function-invocation spans in **Logfire**.
+You'll see an `invoke_agent` span in **Live** and **Agents**, with child `chat.completions` and function-invocation
+spans. With the `SENSITIVE` flag enabled, the conversation is also available in the agent-run detail.
 
 !!! warning "Common pitfalls"
     - **No diagnostics, no `gen_ai` spans.** Without the `SEMANTICKERNEL_EXPERIMENTAL_GENAI_*` env var, you get
@@ -94,7 +89,8 @@ pip install 'logfire[variables]'
 import asyncio
 
 from pydantic import BaseModel
-from semantic_kernel import Kernel
+from semantic_kernel.agents import ChatCompletionAgent
+from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 
 import logfire
 
@@ -106,9 +102,9 @@ class WeatherInputs(BaseModel):
 
 
 prompt_var = logfire.template_var(
-    name='prompt__weather',
+    name='prompt__weather_instructions',
     type=str,
-    default="What's the weather in {{city}}? Use the weather plugin.",
+    default='Use the weather plugin to answer questions about {{city}}.',
     inputs_type=WeatherInputs,
 )
 
@@ -116,10 +112,14 @@ with prompt_var.get(WeatherInputs(city='Paris'), label='production') as resolved
     prompt = resolved.value
 
 async def main():
-    kernel = Kernel()
-    # ... add services/plugins ...
-    answer = await kernel.invoke_prompt(prompt)
-    print(answer)
+    agent = ChatCompletionAgent(
+        service=OpenAIChatCompletion(ai_model_id='gpt-4o-mini'),
+        name='weather_agent',
+        instructions=prompt,
+        # Add the WeatherPlugin from the main example with plugins=[WeatherPlugin()].
+    )
+    response = await agent.get_response(messages="What's the weather in Paris?")
+    print(response.message.content)
 
 
 if __name__ == '__main__':
