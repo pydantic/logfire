@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -15,7 +17,7 @@ from logfire._internal.constants import (
 )
 from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.tracer import get_parent_span
-from logfire._internal.utils import canonicalize_exception_traceback
+from logfire._internal.utils import canonicalize_exception_traceback, safe_repr
 from logfire.exceptions import LogfireServerWarning
 
 if TYPE_CHECKING:
@@ -301,3 +303,60 @@ ServerResponseCallback = Callable[[ServerResponseCallbackHelper], None]
 
 This is experimental and may change significantly in future releases.
 """
+
+
+@dataclass
+class InstrumentMessageTemplateHelper:
+    """Helper object passed to AdvancedOptions.instrument_default_msg_template.
+
+    This is experimental and may change significantly in future releases.
+    """
+
+    raw_callable: Callable[..., Any]
+    """The original callable passed to `logfire.instrument`."""
+
+    @cached_property
+    def callable(self) -> Callable[..., Any]:
+        """A callable that's more likely than `raw_callable` to be the real function you want to inspect.
+
+        Unwraps decorators and handles callable non-functions.
+        """
+        func: Callable[..., Any] = inspect.unwrap(self.raw_callable)
+        if not inspect.isfunction(func) and hasattr(func, '__call__'):
+            func = func.__call__
+            func = inspect.unwrap(func)
+        return func
+
+    @cached_property
+    def name(self) -> str:
+        """The simple name of the callable, or a safe representation if it has no `__name__` attribute."""
+        func = self.callable
+        return getattr(func, '__name__', '') or safe_repr(func)
+
+    @cached_property
+    def qualname(self) -> str:
+        """The qualified name of the callable, falling back to the simple name if it has no `__qualname__` attribute."""
+        return getattr(self.callable, '__qualname__', '') or self.name
+
+    @cached_property
+    def module_name(self) -> str:
+        """The name of the module the callable is defined in, or an empty string if it can't be determined."""
+        try:
+            module = inspect.getmodule(self.callable)
+            if module:
+                return module.__name__
+        except Exception:  # pragma: no cover
+            pass
+        return ''
+
+    @cached_property
+    def _module_qualified_name(self) -> str:
+        result = self.qualname
+        module_name = self.module_name
+        if module_name:
+            result = f'{module_name}.{result}'
+        return result
+
+    def default_template(self) -> str:
+        """The default message template for this callable."""
+        return f'Calling {self._module_qualified_name}'
