@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 P = ParamSpec('P')
 R = TypeVar('R')
+_PreparedExtractArgs = tuple[inspect.Signature, Sequence[str] | None] | None
 
 
 @contextmanager
@@ -70,8 +71,9 @@ def instrument(
                 stacklevel=2,
             )
 
+        prepared_extract_args = _prepare_extract_args(func, extract_args)
         attributes = get_attributes(func, msg_template, tags, logfire.config.advanced.instrument_default_msg_template)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, level=level)
+        open_span = get_open_span(logfire, attributes, span_name, prepared_extract_args, func, new_trace, level=level)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -127,7 +129,7 @@ def get_open_span(
     logfire: Logfire,
     attributes: dict[str, otel_types.AttributeValue],
     span_name: str | None,
-    extract_args: bool | Iterable[str],
+    extract_args: _PreparedExtractArgs,
     func: Callable[P, R],
     new_trace: bool,
     level: LevelName | int | None = None,
@@ -177,28 +179,34 @@ def get_open_span(
             return NoopSpan()
         return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
 
+    if extract_args:
+        sig, extract_args_final = extract_args
+
+        def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+            if level_num is not None and level_num < get_logfire().config.min_level:
+                return NoopSpan()
+            bound = sig.bind(*func_args, **func_kwargs)
+            bound.apply_defaults()
+            args_dict = bound.arguments
+            if extract_args_final is not None:
+                args_dict = {key: args_dict[key] for key in extract_args_final}
+
+            return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
+                final_span_name, attributes, args_dict, **extra_span_kwargs()
+            )
+
+    return open_span
+
+
+def _prepare_extract_args(func: Callable[..., Any], extract_args: bool | Iterable[str]) -> _PreparedExtractArgs:
     if extract_args is True:
         sig = inspect.signature(func)
-        if sig.parameters:  # only extract args if there are any
-
-            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                if level_num is not None and level_num < get_logfire().config.min_level:
-                    return NoopSpan()
-                bound = sig.bind(*func_args, **func_kwargs)
-                bound.apply_defaults()
-                args_dict = bound.arguments
-                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
-                    final_span_name, attributes, args_dict, **extra_span_kwargs()
-                )
-
-        return open_span
-
-    if extract_args:  # i.e. extract_args should be an iterable of argument names
+        if sig.parameters:
+            return sig, None
+    elif extract_args:
         sig = inspect.signature(func)
-
         if isinstance(extract_args, str):
             extract_args = [extract_args]
-
         extract_args_final = uniquify_sequence(list(extract_args))
         missing = set(extract_args_final) - set(sig.parameters)
         if missing:
@@ -207,24 +215,9 @@ def get_open_span(
                 f'Ignoring missing arguments to extract: {", ".join(sorted(missing))}',
                 stacklevel=3,
             )
-
-        if extract_args_final:  # check that there are still arguments to extract
-
-            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                if level_num is not None and level_num < get_logfire().config.min_level:
-                    return NoopSpan()
-                bound = sig.bind(*func_args, **func_kwargs)
-                bound.apply_defaults()
-                args_dict = bound.arguments
-
-                # This line is the only difference from the extract_args=True case
-                args_dict = {k: args_dict[k] for k in extract_args_final}
-
-                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
-                    final_span_name, attributes, args_dict, **extra_span_kwargs()
-                )
-
-    return open_span
+        if extract_args_final:
+            return sig, extract_args_final
+    return None
 
 
 def get_attributes(
