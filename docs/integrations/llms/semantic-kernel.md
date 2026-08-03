@@ -114,7 +114,8 @@ async def main():
     print(answer)
 
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())
 ```
 
 See [Use Prompts in Your Application](../../reference/advanced/prompt-management/application.md) for the full
