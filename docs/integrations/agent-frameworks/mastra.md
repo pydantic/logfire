@@ -13,7 +13,7 @@ configure it with an `Observability` instance whose exporters send OpenTelemetry
 
 ```bash
 npm install @mastra/core @mastra/observability @mastra/otel-exporter \
-  @opentelemetry/exporter-trace-otlp-proto @ai-sdk/openai zod
+  @opentelemetry/exporter-trace-otlp-proto @ai-sdk/openai zod @pydantic/logfire-node
 ```
 
 ## Usage

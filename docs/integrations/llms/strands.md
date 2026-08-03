@@ -61,7 +61,9 @@ as a nested timeline.
 
 !!! note "Model provider"
     A bare `Agent(...)` defaults to **Amazon Bedrock** (and needs AWS credentials). To run without AWS, pass
-    another model, e.g. `Agent(model='gpt-4o', ...)` with `OPENAI_API_KEY` set.
+    an OpenAI model instance instead. Install it with `pip install 'strands-agents[openai]'`, then construct
+    `OpenAIModel(model_id='gpt-4o')` from `strands.models.openai` and pass that object as `Agent(model=model)`.
+    The OpenAI client reads `OPENAI_API_KEY` from your environment.
 
 ## Managed prompts
 

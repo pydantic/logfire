@@ -63,14 +63,15 @@ You'll see a trace in **Logfire** with the agent run, the underlying LLM (Gemini
 tool call nested as a timeline.
 
 !!! note "Capturing message content"
-    ADK attaches prompt and response text to spans only when you opt in. Set these environment variables
-    before running for the richest traces:
+    ADK includes prompt and response text in spans by default. That content is therefore sent to Logfire and
+    may contain sensitive data. To omit it, set `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` in your terminal
+    or deployment environment before starting the application. You can separately opt in to the latest
+    generative AI semantic conventions:
 
-    ```python skip="true"
-    import os
-
-    os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
-    os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'gen_ai_latest_experimental'
+    ```bash
+    export ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false
+    export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+    python app.py
     ```
 
 !!! tip "Optional: OpenInference attributes"

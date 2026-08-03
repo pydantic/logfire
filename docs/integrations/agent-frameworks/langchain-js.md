@@ -20,45 +20,55 @@ npm install langchain @langchain/core @langchain/openai langsmith \
 
 ## Usage
 
-Set the LangSmith env vars and the OTLP endpoint **before importing** any LangChain code, and call
-`initializeOTEL()` once at process start:
+Set the LangSmith environment variables and the OTLP endpoint in your terminal **before starting** the
+application. ECMAScript module (ESM) imports run before statements in the importing file, so assigning these
+variables inside `index.ts` would be too late.
+
+```bash
+export LANGSMITH_OTEL_ENABLED=true
+export LANGSMITH_TRACING=true
+export LANGSMITH_OTEL_ONLY=true
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev/v1/traces
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=$LOGFIRE_WRITE_TOKEN"
+npx tsx index.ts
+```
+
+Then initialize OpenTelemetry in a small bootstrap file before dynamically importing the module that uses
+LangChain:
 
 ```typescript title="index.ts"
-// Run with: OPENAI_API_KEY=... LOGFIRE_WRITE_TOKEN=... npx tsx index.ts
-
-// 1. Env MUST be set before importing langchain/langsmith.
-process.env.LANGSMITH_OTEL_ENABLED = 'true';
-process.env.LANGSMITH_TRACING = 'true';
-process.env.LANGSMITH_OTEL_ONLY = 'true';
-process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'https://logfire-us.pydantic.dev/v1/traces';
-process.env.OTEL_EXPORTER_OTLP_HEADERS = `Authorization=${process.env.LOGFIRE_WRITE_TOKEN}`;
-
-// 2. Initialize OTel before importing LangChain.
 import { initializeOTEL } from 'langsmith/experimental/otel/setup';
+
 const { DEFAULT_LANGSMITH_SPAN_PROCESSOR } = initializeOTEL();
 
-import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage } from '@langchain/core/messages';
-
-async function main() {
-  const model = new ChatOpenAI({ model: 'gpt-4o-mini', temperature: 0 });
-  const res = await model.invoke([new HumanMessage("What's 123 + 456?")]);
-  console.log(res.content);
-
-  // 3. Flush spans to Logfire before the process exits.
+try {
+  const { runAgent } = await import('./agent.js');
+  await runAgent();
+} finally {
+  // Flush spans to Logfire before the process exits.
   await DEFAULT_LANGSMITH_SPAN_PROCESSOR.forceFlush?.();
   await DEFAULT_LANGSMITH_SPAN_PROCESSOR.shutdown();
 }
+```
 
-main();
+```typescript title="agent.ts"
+import { ChatOpenAI } from '@langchain/openai';
+import { HumanMessage } from '@langchain/core/messages';
+
+export async function runAgent() {
+  const model = new ChatOpenAI({ model: 'gpt-4o-mini', temperature: 0 });
+  const res = await model.invoke([new HumanMessage("What's 123 + 456?")]);
+  console.log(res.content);
+}
 ```
 
 For a LangGraph agent, swap the model call for `createReactAgent({ llm: model, tools: [...] })` from
 `@langchain/langgraph/prebuilt` and `.invoke(...)` it — the same OTel setup captures the graph and tool spans.
 
 !!! warning "Common pitfalls"
-    - **Import order is critical.** The `LANGSMITH_*` env vars and `initializeOTEL()` must run before importing
-      `langchain` / `langsmith` / `@langchain/*`.
+    - **Set configuration before process start.** Static ESM imports are evaluated before code in `index.ts`,
+      so set the `LANGSMITH_*` and `OTEL_*` variables in your terminal or deployment environment and keep the
+      LangChain imports behind the dynamic import shown above.
     - **Endpoint URL.** The LangSmith JS exporter treats `OTEL_EXPORTER_OTLP_ENDPOINT` as the full URL, so give
       it the `/v1/traces` form (use `logfire-eu.pydantic.dev` for the EU region).
     - **Header format.** `Authorization=<write-token>` — the raw Logfire write token, no `Bearer` prefix.

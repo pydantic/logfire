@@ -65,9 +65,10 @@ underlying LLM and tool calls beneath them.
 
 !!! note
     If you also call [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] (or another LLM
-    instrumentation), you may get duplicate LLM spans. Pass
-    `CrewAIInstrumentor().instrument(create_llm_spans=False)` to let your dedicated LLM instrumentation own
-    those spans instead.
+    instrumentation), you may get duplicate LLM spans. Use the instrumentor's event-listener mode and pass
+    `CrewAIInstrumentor().instrument(use_event_listener=True, create_llm_spans=False)` to let your dedicated
+    LLM instrumentation own those spans instead. The `create_llm_spans` option has no effect in the default
+    wrapper-based mode.
 
 ## Managed prompts
 

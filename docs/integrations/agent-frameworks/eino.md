@@ -63,12 +63,16 @@ func (h *otelHandler) OnError(ctx context.Context, info *callbacks.RunInfo, err 
 	}
 	return ctx
 }
-func (h *otelHandler) OnStartWithStreamInput(ctx context.Context, _ *callbacks.RunInfo, in *schema.StreamReader[callbacks.CallbackInput]) context.Context {
+func (h *otelHandler) OnStartWithStreamInput(ctx context.Context, info *callbacks.RunInfo, in *schema.StreamReader[callbacks.CallbackInput]) context.Context {
 	in.Close()
+	ctx, _ = h.tr.Start(ctx, info.Name)
 	return ctx
 }
 func (h *otelHandler) OnEndWithStreamOutput(ctx context.Context, _ *callbacks.RunInfo, out *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
 	out.Close()
+	if s := oteltrace.SpanFromContext(ctx); s != nil {
+		s.End()
+	}
 	return ctx
 }
 
@@ -101,7 +105,9 @@ Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU region.
 
 !!! warning "Common pitfalls"
     - **`callbacks.AppendGlobalHandlers` is not thread-safe** — call it only at process init.
-    - **Close the stream readers** in the streaming callback variants or you'll leak.
+    - **Trace and close streaming callbacks.** Eino calls the streaming hooks instead of `OnStart` and `OnEnd`
+      for streaming nodes, so they need their own span lifecycle as shown above. Close the duplicated stream
+      readers or you'll leak them.
     - **Use the HTTP exporter** with the `/v1/traces` path, and **flush on exit** via `defer tp.Shutdown(ctx)`.
     - Component constructors (the OpenAI chat model here) live in the separate `eino-ext` module, not core
       `eino`.
