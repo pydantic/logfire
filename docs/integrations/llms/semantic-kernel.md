@@ -32,8 +32,12 @@ import asyncio
 import os
 
 from semantic_kernel import Kernel
-from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
-from semantic_kernel.functions import kernel_function
+from semantic_kernel.connectors.ai import FunctionChoiceBehavior
+from semantic_kernel.connectors.ai.open_ai import (
+    OpenAIChatCompletion,
+    OpenAIChatPromptExecutionSettings,
+)
+from semantic_kernel.functions import KernelArguments, kernel_function
 
 import logfire
 
@@ -55,7 +59,11 @@ async def main() -> None:
     kernel.add_service(OpenAIChatCompletion(ai_model_id='gpt-4o-mini'))  # uses OPENAI_API_KEY
     kernel.add_plugin(WeatherPlugin(), plugin_name='weather')
 
-    answer = await kernel.invoke_prompt("What's the weather in Paris? Use the weather plugin.")
+    settings = OpenAIChatPromptExecutionSettings(function_choice_behavior=FunctionChoiceBehavior.Auto())
+    arguments = KernelArguments(settings=settings)
+    answer = await kernel.invoke_prompt(
+        "What's the weather in Paris? Use the weather plugin.", arguments=arguments
+    )
     print(answer)
 
 
