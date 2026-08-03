@@ -31,7 +31,23 @@ if TYPE_CHECKING:
 P = ParamSpec('P')
 R = TypeVar('R')
 _PreparedExtractArgs = tuple[inspect.Signature, Sequence[str] | None] | None
-_INSTRUMENT_INITIALIZATION_LOCK = threading.RLock()
+
+
+class _InstrumentInitializationLock:
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+
+    def __enter__(self) -> None:
+        self._lock.acquire()
+
+    def __exit__(self, *_args: Any) -> None:
+        self._lock.release()
+
+    def __getstate__(self) -> dict[str, Any]:
+        return {}
+
+    def __setstate__(self, _state: dict[str, Any]) -> None:
+        self.__init__()
 
 
 @contextmanager
@@ -42,12 +58,6 @@ def _cm():  # pragma: no cover
 @asynccontextmanager
 async def _acm():  # pragma: no cover
     yield
-
-
-@contextmanager
-def _instrument_initialization_lock():
-    with _INSTRUMENT_INITIALIZATION_LOCK:
-        yield
 
 
 CONTEXTMANAGER_HELPER_CODE = getattr(_cm, '__code__', None)
@@ -87,6 +97,7 @@ def instrument(
             )
         else:
             cached_open_span: Callable[P, AbstractContextManager[Any]] | None = None
+            initialization_lock = _InstrumentInitializationLock()
 
             def get_logfire():
                 # Avoid capturing the global instance, which would make the instrumented function
@@ -103,7 +114,7 @@ def instrument(
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs) -> AbstractContextManager[Any]:
                 nonlocal cached_open_span
                 if cached_open_span is None:
-                    with _instrument_initialization_lock():
+                    with initialization_lock:
                         if cached_open_span is None:
                             current_logfire = get_logfire()
                             attributes = get_attributes(

@@ -361,6 +361,37 @@ def test_instrument_default_msg_template_initialized_once_concurrently(config_kw
     assert callback_calls == 1
 
 
+def test_instrument_default_msg_template_initializes_functions_independently(config_kwargs: dict[str, Any]) -> None:
+    foo_initializing = threading.Event()
+    bar_initialized = threading.Event()
+
+    def default_msg_template(helper: InstrumentMessageTemplateHelper) -> str:
+        if helper.name == 'foo':
+            foo_initializing.set()
+            assert bar_initialized.wait(timeout=5)
+        else:
+            bar_initialized.set()
+        return helper.name
+
+    config_kwargs['advanced'].instrument_default_msg_template = default_msg_template
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument(extract_args=False)
+    def foo() -> int:
+        return 1
+
+    @logfire.instrument(extract_args=False)
+    def bar() -> int:
+        return 2
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        foo_future = executor.submit(foo)
+        assert foo_initializing.wait(timeout=5)
+        bar_future = executor.submit(bar)
+        assert foo_future.result() == 1
+        assert bar_future.result() == 2
+
+
 def test_instrument_default_msg_template_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs['advanced'].instrument_default_msg_template = _default_msg_template_from_function_name
     logfire.configure(**config_kwargs)
