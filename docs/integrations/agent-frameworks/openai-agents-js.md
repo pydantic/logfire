@@ -12,7 +12,8 @@ OpenTelemetry tracer provider exporting to **Logfire**) and add a small custom `
 Agents spans into OpenTelemetry spans.
 
 !!! note
-    The first-class `logfire.instrument_openai_agents()` helper on the [OpenAI](../llms/openai.md) page is
+    The first-class `logfire.instrument_openai_agents()` helper on the
+    [OpenAI](../llms/openai.md#openai-agents) page is
     **Python-only**. For the TypeScript SDK, the bridge below is the working pattern.
 
 ## Installation

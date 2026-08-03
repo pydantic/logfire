@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 Run with `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> cargo run`. You'll see the agent's completion span
 with GenAI attributes (model, token usage) in **Logfire**.
 
-For an EU-region project, set `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-eu.pydantic.dev`.
+For an EU-region project, use its EU write token. The Logfire Rust SDK infers the data region from the token.
 
 ## Option B — Standard OpenTelemetry OTLP exporter
 
@@ -113,6 +113,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://logfire-us.pydantic.dev"
 export OTEL_EXPORTER_OTLP_HEADERS="Authorization=your-write-token"
 ```
+
+For an EU-region project using this standard exporter, set `OTEL_EXPORTER_OTLP_ENDPOINT` to
+`https://logfire-eu.pydantic.dev` instead.
 
 !!! warning "Common pitfalls"
     - **Install a subscriber.** Rig's spans are dropped unless a subscriber is registered, before the agent

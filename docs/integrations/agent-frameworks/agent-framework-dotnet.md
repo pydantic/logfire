@@ -70,8 +70,9 @@ var response = await agent.RunAsync("Why is the sky blue in one sentence?");
 Console.WriteLine(response);
 ```
 
-You'll see `invoke_agent`, `chat`, and (if the agent calls tools) `execute_tool` spans, plus
-`gen_ai.client.*` metrics, in **Logfire**.
+You'll see `invoke_agent`, `chat`, and (if the agent calls tools) `execute_tool` spans in **Logfire**. To also
+collect `gen_ai.client.*` metrics, configure a `MeterProvider` with `AddMeter(SourceName)` and an OpenTelemetry
+Protocol metrics exporter.
 
 !!! warning "Common pitfalls"
     - **Default OTLP protocol is gRPC.** Set `OtlpExportProtocol.HttpProtobuf` and supply the full `/v1/traces`
