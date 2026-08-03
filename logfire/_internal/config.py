@@ -243,6 +243,8 @@ class AdvancedOptions:
 
     The callback receives an instance of
     [`InstrumentMessageTemplateHelper`][logfire.types.InstrumentMessageTemplateHelper].
+    It is evaluated on the first execution of each instrumented function, after configuration,
+    and the resulting template is cached for subsequent executions.
 
     When using `ProcessPoolExecutor`, define the callback at module level, not as a lambda or local function,
     so it can be pickled and sent to child processes. See the

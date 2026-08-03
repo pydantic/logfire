@@ -72,8 +72,46 @@ def instrument(
             )
 
         prepared_extract_args = _prepare_extract_args(func, extract_args)
-        attributes = get_attributes(func, msg_template, tags, logfire.config.advanced.instrument_default_msg_template)
-        open_span = get_open_span(logfire, attributes, span_name, prepared_extract_args, func, new_trace, level=level)
+        if msg_template:
+            attributes = get_attributes(func, msg_template, tags, InstrumentMessageTemplateHelper.default_template)
+            open_span = get_open_span(
+                logfire, attributes, span_name, prepared_extract_args, func, new_trace, level=level
+            )
+        else:
+            cached_open_span: Callable[P, AbstractContextManager[Any]] | None = None
+
+            def get_logfire():
+                # Avoid capturing the global instance, which would make the instrumented function
+                # unpicklable with cloudpickle.
+                from logfire import DEFAULT_LOGFIRE_INSTANCE
+
+                return DEFAULT_LOGFIRE_INSTANCE
+
+            if get_logfire() != logfire:
+
+                def get_logfire():
+                    return logfire
+
+            def open_span(*func_args: P.args, **func_kwargs: P.kwargs) -> AbstractContextManager[Any]:
+                nonlocal cached_open_span
+                if cached_open_span is None:
+                    current_logfire = get_logfire()
+                    attributes = get_attributes(
+                        func,
+                        msg_template,
+                        tags,
+                        current_logfire.config.advanced.instrument_default_msg_template,
+                    )
+                    cached_open_span = get_open_span(
+                        current_logfire,
+                        attributes,
+                        span_name,
+                        prepared_extract_args,
+                        func,
+                        new_trace,
+                        level=level,
+                    )
+                return cached_open_span(*func_args, **func_kwargs)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:

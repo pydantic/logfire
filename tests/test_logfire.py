@@ -272,6 +272,65 @@ def _raising_default_msg_template(_helper: InstrumentMessageTemplateHelper) -> s
     raise ValueError('boom')
 
 
+def _changed_default_msg_template(_helper: InstrumentMessageTemplateHelper) -> str:
+    return 'changed'
+
+
+def test_instrument_default_msg_template_resolved_and_cached_on_first_call(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    @logfire.instrument()
+    def foo(x: int):
+        return x * 2
+
+    config_kwargs['advanced'].instrument_default_msg_template = _default_msg_template_from_function_name
+    logfire.configure(**config_kwargs)
+    assert foo(2) == 4
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
+    config_kwargs['advanced'].instrument_default_msg_template = _changed_default_msg_template
+    assert foo(3) == 6
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False, parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_default_msg_template_resolved_and_cached_on_first_call.<locals>.foo',
+                    'logfire.msg_template': 'foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'foo',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
+                    'x': 2,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'foo',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_default_msg_template_resolved_and_cached_on_first_call.<locals>.foo',
+                    'logfire.msg_template': 'foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'foo',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
+                    'x': 3,
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
 def test_instrument_default_msg_template_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
     config_kwargs['advanced'].instrument_default_msg_template = _default_msg_template_from_function_name
     logfire.configure(**config_kwargs)
