@@ -1,0 +1,36 @@
+logfire/_internal/instrument.py
+  s_057cde6591697a::t_4137742b8107bd 36-50,100,117
+  s_196e0b8dce4470::t_a8381f9a043f63 34-35
+tests/test_logfire.py
+  s_057cde6591697a::t_f9a9cd7678f12d 371,389
+  s_057cde6591697a::t_4137742b8107bd 364-370,372-388,390-394
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "398fd47c83161f50fdb2a4038e19746d8d62da0b",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_057cde6591697a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc7aa-47a9-7883-893e-4ca319dd3fe3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_196e0b8dce4470": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc8a8-975d-7871-bd96-7194ca1bbf96",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
