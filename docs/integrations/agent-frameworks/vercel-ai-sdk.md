@@ -13,7 +13,7 @@ to point that global tracer at **Logfire**, and your spans flow in.
 ## Installation
 
 ```bash
-npm install ai @ai-sdk/openai @ai-sdk/otel @pydantic/logfire-node zod
+npm install 'ai@^7' '@ai-sdk/openai@^4' '@ai-sdk/otel@^1' @pydantic/logfire-node zod
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ Configure Logfire **first** so the global tracer exists before any `ai` call:
 
 ```typescript title="agent.ts"
 import * as logfire from '@pydantic/logfire-node';
-import { generateText, registerTelemetry, stepCountIs, tool } from 'ai';
+import { generateText, isStepCount, registerTelemetry, tool } from 'ai';
 import { OpenTelemetry } from '@ai-sdk/otel';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
@@ -42,7 +42,7 @@ async function main() {
       model: openai('gpt-4o-mini'),
       prompt: 'What is the weather in Paris? Use the tool.',
       tools: { weather },
-      stopWhen: stepCountIs(5),
+      stopWhen: isStepCount(5),
       telemetry: { functionId: 'weather-agent' },
     });
     console.log(text);

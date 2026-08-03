@@ -32,12 +32,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -46,8 +48,15 @@ import (
 // Minimal handler that wraps each Eino node in an OTel span.
 type otelHandler struct{ tr oteltrace.Tracer }
 
+func spanName(info *callbacks.RunInfo) string {
+	if info != nil && info.Name != "" {
+		return info.Name
+	}
+	return "eino.operation"
+}
+
 func (h *otelHandler) OnStart(ctx context.Context, info *callbacks.RunInfo, in callbacks.CallbackInput) context.Context {
-	ctx, _ = h.tr.Start(ctx, info.Name)
+	ctx, _ = h.tr.Start(ctx, spanName(info))
 	return ctx
 }
 func (h *otelHandler) OnEnd(ctx context.Context, info *callbacks.RunInfo, out callbacks.CallbackOutput) context.Context {
@@ -59,13 +68,14 @@ func (h *otelHandler) OnEnd(ctx context.Context, info *callbacks.RunInfo, out ca
 func (h *otelHandler) OnError(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
 	if s := oteltrace.SpanFromContext(ctx); s != nil {
 		s.RecordError(err)
+		s.SetStatus(codes.Error, err.Error())
 		s.End()
 	}
 	return ctx
 }
 func (h *otelHandler) OnStartWithStreamInput(ctx context.Context, info *callbacks.RunInfo, in *schema.StreamReader[callbacks.CallbackInput]) context.Context {
 	in.Close()
-	ctx, _ = h.tr.Start(ctx, info.Name)
+	ctx, _ = h.tr.Start(ctx, spanName(info))
 	return ctx
 }
 func (h *otelHandler) OnEndWithStreamOutput(ctx context.Context, _ *callbacks.RunInfo, out *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
@@ -78,12 +88,21 @@ func (h *otelHandler) OnEndWithStreamOutput(ctx context.Context, _ *callbacks.Ru
 
 func main() {
 	ctx := context.Background()
+	writeToken := os.Getenv("LOGFIRE_WRITE_TOKEN")
+	if writeToken == "" {
+		fmt.Println("LOGFIRE_WRITE_TOKEN is required; copy it from your Logfire project settings")
+		return
+	}
 
 	// 1. OTel -> Logfire (HTTP/protobuf).
-	exp, _ := otlptracehttp.New(ctx,
+	exp, err := otlptracehttp.New(ctx,
 		otlptracehttp.WithEndpointURL("https://logfire-us.pydantic.dev/v1/traces"),
-		otlptracehttp.WithHeaders(map[string]string{"Authorization": "your-write-token"}),
+		otlptracehttp.WithHeaders(map[string]string{"Authorization": writeToken}),
 	)
+	if err != nil {
+		fmt.Println("telemetry setup error:", err)
+		return
+	}
 	tp := trace.NewTracerProvider(trace.WithBatcher(exp))
 	defer tp.Shutdown(ctx)
 	otel.SetTracerProvider(tp)
@@ -92,7 +111,12 @@ func main() {
 	callbacks.AppendGlobalHandlers(&otelHandler{tr: tp.Tracer("eino")})
 
 	// 3. One model call -> traced to Logfire.
-	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{APIKey: "sk-...", Model: "gpt-4o-mini"})
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		fmt.Println("OPENAI_API_KEY is required")
+		return
+	}
+	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{APIKey: apiKey, Model: "gpt-4o-mini"})
 	if err != nil {
 		fmt.Println("model setup error:", err)
 		return
@@ -126,5 +150,6 @@ Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
 [TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Go you can consume managed variables
-over the language-agnostic [OFREP HTTP API](../../reference/advanced/managed-variables/external.md), or resolve
+over the language-agnostic
+[OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md), or resolve
 the prompt in a small Python/TypeScript sidecar and pass the rendered text into your Eino messages.

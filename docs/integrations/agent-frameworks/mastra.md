@@ -13,7 +13,7 @@ configure it with an `Observability` instance whose exporters send OpenTelemetry
 
 ```bash
 npm install @mastra/core @mastra/observability @mastra/otel-exporter \
-  @opentelemetry/exporter-trace-otlp-proto @ai-sdk/openai zod @pydantic/logfire-node
+  @opentelemetry/exporter-trace-otlp-proto '@ai-sdk/openai@^3' zod @pydantic/logfire-node
 ```
 
 ## Usage
@@ -31,10 +31,11 @@ const weatherTool = createTool({
   id: 'get-weather',
   description: 'Get the weather for a city',
   inputSchema: z.object({ city: z.string() }),
-  execute: async ({ context }) => ({ city: context.city, tempC: 21 }),
+  execute: async ({ city }) => ({ city, tempC: 21 }),
 });
 
 const agent = new Agent({
+  id: 'weather-agent',
   name: 'weather-agent',
   instructions: 'You are a helpful weather assistant. Use the tool.',
   model: openai('gpt-4o-mini'),
@@ -64,8 +65,12 @@ export const mastra = new Mastra({
   }),
 });
 
-const res = await mastra.getAgent('agent').generate('Weather in Paris?');
-console.log(res.text);
+try {
+  const res = await mastra.getAgent('agent').generate('Weather in Paris?');
+  console.log(res.text);
+} finally {
+  await mastra.observability.flush();
+}
 ```
 
 Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The agent run, model call, and tool call appear as a

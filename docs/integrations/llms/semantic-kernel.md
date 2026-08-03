@@ -83,6 +83,8 @@ pip install 'logfire[variables]'
 ```
 
 ```python skip="true"
+import asyncio
+
 from pydantic import BaseModel
 from semantic_kernel import Kernel
 
@@ -105,9 +107,14 @@ prompt_var = logfire.template_var(
 with prompt_var.get(WeatherInputs(city='Paris'), label='production') as resolved:
     prompt = resolved.value
 
-kernel = Kernel()
-# ... add services/plugins ...
-answer = await kernel.invoke_prompt(prompt)
+async def main():
+    kernel = Kernel()
+    # ... add services/plugins ...
+    answer = await kernel.invoke_prompt(prompt)
+    print(answer)
+
+
+asyncio.run(main())
 ```
 
 See [Use Prompts in Your Application](../../reference/advanced/prompt-management/application.md) for the full

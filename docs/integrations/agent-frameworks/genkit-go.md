@@ -32,6 +32,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -43,14 +44,23 @@ import (
 
 func main() {
 	ctx := context.Background()
+	writeToken := os.Getenv("LOGFIRE_WRITE_TOKEN")
+	if writeToken == "" {
+		fmt.Println("LOGFIRE_WRITE_TOKEN is required; copy it from your Logfire project settings")
+		return
+	}
 
 	// 1. Point the global OTel TracerProvider at Logfire (HTTP/protobuf).
 	//    Endpoint + Authorization can also come from
 	//    OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_HEADERS.
-	exp, _ := otlptracehttp.New(ctx,
+	exp, err := otlptracehttp.New(ctx,
 		otlptracehttp.WithEndpointURL("https://logfire-us.pydantic.dev/v1/traces"),
-		otlptracehttp.WithHeaders(map[string]string{"Authorization": "your-write-token"}),
+		otlptracehttp.WithHeaders(map[string]string{"Authorization": writeToken}),
 	)
+	if err != nil {
+		fmt.Println("telemetry setup error:", err)
+		return
+	}
 	tp := trace.NewTracerProvider(trace.WithBatcher(exp))
 	defer tp.Shutdown(ctx)
 	otel.SetTracerProvider(tp) // MUST be before genkit.Init
@@ -61,7 +71,15 @@ func main() {
 		genkit.WithDefaultModel("googleai/gemini-2.5-flash"),
 	)
 
-	resp, _ := genkit.Generate(ctx, g, ai.WithPrompt("Tell me a one-line joke about Go."))
+	resp, err := genkit.Generate(ctx, g, ai.WithPrompt("Tell me a one-line joke about Go."))
+	if err != nil {
+		fmt.Println("model error:", err)
+		return
+	}
+	if resp == nil {
+		fmt.Println("model returned no response")
+		return
+	}
 	fmt.Println(resp.Text())
 }
 ```
@@ -82,5 +100,6 @@ Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
 [TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Go you can consume managed variables
-over the language-agnostic [OFREP HTTP API](../../reference/advanced/managed-variables/external.md), or resolve
+over the language-agnostic
+[OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md), or resolve
 the prompt in a small Python/TypeScript sidecar and pass the rendered text into `ai.WithPrompt(...)`.

@@ -12,7 +12,7 @@ pointed at **Logfire**, then pass it to `new VoltAgent({ ... })`.
 ## Installation
 
 ```bash
-npm install @voltagent/core @ai-sdk/openai \
+npm install @voltagent/core 'ai@^6' '@ai-sdk/openai@^3' \
   @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto
 ```
 
@@ -44,8 +44,12 @@ new VoltAgent({
   observability,
 });
 
-const res = await agent.generateText('What is a good city to visit in spring?');
-console.log(res.text);
+try {
+  const res = await agent.generateText('What is a good city to visit in spring?');
+  console.log(res.text);
+} finally {
+  await observability.forceFlush();
+}
 ```
 
 Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The agent run and model call appear in **Logfire**.

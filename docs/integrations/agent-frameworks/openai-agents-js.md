@@ -30,8 +30,8 @@ npm install @openai/agents @pydantic/logfire-node @opentelemetry/api zod
 ```typescript title="index.ts"
 // Run with: OPENAI_API_KEY=... LOGFIRE_TOKEN=... node --experimental-strip-types index.ts
 import * as logfire from '@pydantic/logfire-node';
-import { trace, SpanStatusCode } from '@opentelemetry/api';
-import { Agent, run, addTraceProcessor } from '@openai/agents';
+import { context, trace, SpanStatusCode } from '@opentelemetry/api';
+import { Agent, Runner, addTraceProcessor } from '@openai/agents';
 import type { Span, Trace } from '@openai/agents';
 
 // 1. Configure Logfire -> registers a global OTel tracer provider exporting to Logfire.
@@ -39,23 +39,29 @@ import type { Span, Trace } from '@openai/agents';
 logfire.configure({ serviceName: 'agents-demo' });
 
 const tracer = trace.getTracer('openai-agents');
+const includeSensitiveData = process.env.LOGFIRE_INCLUDE_SENSITIVE_DATA === 'true';
 
 // 2. Bridge: turn each Agents span into an OTel span on Logfire's provider.
 const otelSpans = new Map<string, ReturnType<typeof tracer.startSpan>>();
+const spanKey = (span: Span<any>) => `${span.traceId}:${span.spanId}`;
 addTraceProcessor({
   async onTraceStart(_t: Trace) {},
   async onSpanStart(span: Span<any>) {
-    const s = tracer.startSpan(span.spanData?.type ?? 'agent.span');
+    const parent = span.parentId ? otelSpans.get(`${span.traceId}:${span.parentId}`) : undefined;
+    const parentContext = parent ? trace.setSpan(context.active(), parent) : undefined;
+    const s = tracer.startSpan(span.spanData?.type ?? 'agent.span', undefined, parentContext);
     s.setAttribute('agents.span_id', span.spanId);
-    otelSpans.set(span.spanId, s);
+    s.setAttribute('agents.trace_id', span.traceId);
+    otelSpans.set(spanKey(span), s);
   },
   async onSpanEnd(span: Span<any>) {
-    const s = otelSpans.get(span.spanId);
+    const key = spanKey(span);
+    const s = otelSpans.get(key);
     if (!s) return;
-    s.setAttribute('agents.data', JSON.stringify(span.spanData ?? {}));
+    if (includeSensitiveData) s.setAttribute('agents.data', JSON.stringify(span.spanData ?? {}));
     if (span.error) s.setStatus({ code: SpanStatusCode.ERROR, message: String(span.error) });
     s.end();
-    otelSpans.delete(span.spanId);
+    otelSpans.delete(key);
   },
   async onTraceEnd(_t: Trace) {},
   async forceFlush() {},
@@ -64,10 +70,13 @@ addTraceProcessor({
 
 // 3. Tiny agent + one LLM call.
 const agent = new Agent({ name: 'Haiku bot', instructions: 'Reply with one short haiku.' });
-const result = await run(agent, 'Write a haiku about telemetry.');
-console.log(result.finalOutput);
-
-await logfire.forceFlush?.(); // ensure spans are exported before exit
+const runner = new Runner({ traceIncludeSensitiveData: includeSensitiveData });
+try {
+  const result = await runner.run(agent, 'Write a haiku about telemetry.');
+  console.log(result.finalOutput);
+} finally {
+  await logfire.forceFlush?.(); // export success and error spans before exit
+}
 ```
 
 `addTraceProcessor` keeps OpenAI's own default trace backend too; use `setTraceProcessors([...])` instead to
@@ -80,9 +89,12 @@ send **only** to **Logfire**.
       use `setTraceProcessors`).
     - **Tracing is on by default** in Node/Deno/Bun, disabled in browsers and when `NODE_ENV=test`. Disable
       globally with `OPENAI_AGENTS_DISABLE_TRACING=1`.
+    - **Inputs and outputs are private by default in this bridge.** Set `LOGFIRE_INCLUDE_SENSITIVE_DATA=true`
+      only if you intend to send model and tool inputs and outputs to Logfire. Those values can contain secrets
+      or personally identifiable information.
     - **ESM / Node version.** Both packages are ESM — use a recent Node LTS with `"type": "module"` (or `tsx`).
-    - The bridge above is minimal. For production fidelity (parent/child nesting via `span.parentId`, GenAI
-      semantic-convention attributes), expand it to set OTel context from each Agents span's `parentId`.
+    - The bridge preserves parent-child nesting, but maps only basic span metadata. Add the attributes your
+      application needs rather than exporting arbitrary payloads by default.
 
 If you prefer pure env-var OTLP config instead of `@pydantic/logfire-node`, point any standard OTel `NodeSDK`
 at `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` with
