@@ -5,7 +5,7 @@ description: "How to send telemetry from popular AI agent frameworks — in Pyth
 # Agent Frameworks
 
 **Pydantic Logfire** is built on [OpenTelemetry](https://opentelemetry.io/), so it can ingest traces from
-essentially any AI agent framework. Each guide below shows three things:
+essentially any artificial intelligence (AI) agent framework. Each guide below shows three things:
 
 - **How to send telemetry to Logfire** — the exact setup for that framework.
 - **A runnable sample agent** you can copy, run, and watch appear in the Logfire Live view.
@@ -14,13 +14,15 @@ essentially any AI agent framework. Each guide below shows three things:
 
 There are three integration patterns, depending on the framework:
 
-1. **Native OpenTelemetry** — the framework already emits OTel spans through the global tracer provider. In
-   Python, calling [`logfire.configure()`][logfire.configure] is enough (e.g. Pydantic AI, Google ADK, Strands,
-   Semantic Kernel). In other languages, point the standard OTel SDK at Logfire's OTLP endpoint.
+1. **Native OpenTelemetry (OTel)** — the framework already emits OTel spans through the global tracer provider. In
+   Python, calling [`logfire.configure()`][logfire.configure] is enough to collect those native spans (e.g. Pydantic
+   AI, AutoGen, Google ADK, Haystack, Strands, Semantic Kernel). A guide may also enable model-client tracing. In
+   other languages, point the standard OTel software development kit (SDK) at Logfire's OpenTelemetry Protocol
+   (OTLP) endpoint.
 2. **An instrumentor** — an [OpenInference](https://github.com/Arize-ai/openinference) or
    [OpenLLMetry](https://github.com/traceloop/openllmetry) package adds the spans. Because
    [`logfire.configure()`][logfire.configure] sets the global provider, the instrumentor's spans flow to
-   Logfire automatically (e.g. CrewAI, AutoGen, smolagents, Haystack, Agno).
+   Logfire automatically (e.g. CrewAI, smolagents, Agno).
 3. **OTLP over the wire** — for languages and frameworks without an in-process exporter, send to Logfire's
    OTLP endpoint directly (or via an [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md)).
 
