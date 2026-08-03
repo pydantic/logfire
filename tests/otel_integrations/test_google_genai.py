@@ -17,8 +17,10 @@ os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'SPAN_ONLY'
 os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 
 pytestmark = [
+    # google-genai >= 2.9.0 requires pydantic >= 2.12.5. On older pydantic its generated
+    # `_gaos` models (which declare `__pydantic_extra__` as a field) fail to import.
     pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
+        get_version(pydantic.__version__) < get_version('2.12.5'), reason='google-genai requires pydantic >= 2.12.5'
     ),
     pytest.mark.skipif(
         # opentelemetry-instrumentation-google-genai >= 1.0b0 depends on opentelemetry-util-genai, which

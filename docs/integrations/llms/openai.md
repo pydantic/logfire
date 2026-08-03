@@ -6,7 +6,7 @@ integration: logfire
 # OpenAI
 
 See every call your app makes to OpenAI: the full conversation, each tool call, how many tokens it
-used, how long it took, and any errors, as a **trace** (the full journey of one request, made of
+used, how long it took, and any errors, as a **trace** (the full journey of one request or agent run, made of
 nested **spans**, where each span is one unit of work with a name, a start, and a duration) in
 Logfire.
 
@@ -108,6 +108,9 @@ All methods are covered with both `openai.Client` and `openai.AsyncClient`.
 For example, here's instrumentation of an image generation call:
 
 ```python skip-run="true" skip-reason="external-connection"
+import base64
+from pathlib import Path
+
 import openai
 
 import logfire
@@ -119,13 +122,12 @@ async def main():
     logfire.instrument_openai(client)
 
     response = await client.images.generate(
-        prompt='Image of R2D2 running through a desert in the style of cyberpunk.',
-        model='dall-e-3',
+        prompt='A watercolor painting of a friendly robot reading a book in a sunlit library.',
+        model='gpt-image-1',
     )
-    url = response.data[0].url
-    import webbrowser
-
-    webbrowser.open(url)
+    # gpt-image-1 returns the image as base64-encoded data
+    image_bytes = base64.b64decode(response.data[0].b64_json)
+    Path('robot.png').write_bytes(image_bytes)
 
 
 if __name__ == '__main__':

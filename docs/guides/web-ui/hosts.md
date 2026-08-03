@@ -4,7 +4,7 @@ description: "Browse every host shipping system metrics to your Logfire project.
 ---
 # Hosts
 
-The **Hosts view** shows every host shipping system metrics to your project. It shows CPU, memory, load, disk and network alongside the application traces those hosts produced. Kubernetes nodes show up here too, tagged so you can tell them apart from bare VMs.
+The <OpenInLogfire path="hosts" variant="inline" label="Hosts view" /> shows every host shipping system metrics to your project. It shows CPU, memory, load, disk and network alongside the application traces those hosts produced. Kubernetes nodes show up here too, tagged so you can tell them apart from bare VMs.
 
 You'll find Hosts in the project sidebar, between **Services** and **Kubernetes**.
 

@@ -7,7 +7,7 @@ integration: logfire
 
 See every call your app makes to Anthropic's Claude models: the full conversation, each tool call,
 how many **tokens** (the units a model reads and bills by, a few characters of text each) it used,
-how long it took, and any errors, as a **trace** (the full journey of one request, made of nested
+how long it took, and any errors, as a **trace** (the full journey of one request or agent run, made of nested
 **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
 
 ## What you'll capture
@@ -52,7 +52,7 @@ logfire.instrument_anthropic()  # instrument all Anthropic clients globally
 
 response = client.messages.create(
     max_tokens=1000,
-    model='claude-3-haiku-20240307',
+    model='claude-haiku-4-5',
     system='You are a helpful assistant.',
     messages=[{'role': 'user', 'content': 'Please write me a limerick about Python logging.'}],
 )
@@ -136,7 +136,7 @@ async def main():
     with logfire.span('Asking Anthropic to write some code'):
         response = client.messages.stream(
             max_tokens=1000,
-            model='claude-3-haiku-20240307',
+            model='claude-haiku-4-5',
             system='Reply in markdown.',
             messages=[{'role': 'user', 'content': 'Write Python to show a tree of files.'}],
         )

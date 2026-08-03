@@ -44,11 +44,14 @@ try:
 
     get_trace_provider().shutdown()
     get_trace_provider().set_processors([])
-except (ImportError, UserWarning):
+except (ImportError, UserWarning, DeprecationWarning):
     # On pydantic <2.10, openai-agents 0.14+ emits a `model_info` protected-namespace
     # UserWarning during class construction that gets promoted to an exception by
-    # `filterwarnings=error`. Test modules that need the agents API guard themselves
-    # with `pytest.importorskip`, which silences warnings inside its own catch_warnings.
+    # `filterwarnings=error`. On pydantic <2.12, openai-agents 0.19+ uses
+    # `Field(exclude_if=...)` (added in pydantic 2.12), which old pydantic reports as a
+    # `PydanticDeprecatedSince20` extra-kwargs DeprecationWarning, likewise promoted to
+    # an exception. Test modules that need the agents API guard themselves with
+    # `pytest.importorskip`, which silences warnings inside its own catch_warnings.
     pass
 
 logfire.configure(send_to_logfire=False)
@@ -126,7 +129,7 @@ def config_kwargs(
 
 @pytest.fixture(autouse=True)
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
-    logfire.variables_clear()
+    logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
     configure(
         **config_kwargs,
         metrics=logfire.MetricsOptions(

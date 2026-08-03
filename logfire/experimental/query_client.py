@@ -47,6 +47,12 @@ class InfoRequestError(RuntimeError):
     pass
 
 
+class UnexpectedResponseError(RuntimeError):
+    """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
+
+    pass
+
+
 class ReadTokenInfo(TypedDict, total=False):
     """Information about the read token."""
 
@@ -196,13 +202,16 @@ class _BaseLogfireQueryClient(Generic[T]):
         # we assume text/plain if not set.
         content_type = response.headers.get('content-type', 'text/plain')
         media_type = content_type.split(';', 1)[0].strip().lower()
-        if response.status_code == 400:  # pragma: no cover
+        if response.status_code == 400:
             data = response.json() if media_type == 'application/json' else response.text
             raise QueryExecutionError(data)
-        if response.status_code == 422:  # pragma: no cover
+        if response.status_code == 422:
             data = response.json() if media_type == 'application/json' else response.text
             raise QueryRequestError(data)
-        assert response.status_code == 200, response.content
+        if response.status_code != 200:
+            # Unlike the statuses above, an unexpected response (e.g. a `5xx`, or an error page from a
+            # proxy) isn't guaranteed to have a well-formed body, so don't try to decode it as JSON.
+            raise UnexpectedResponseError(f'Unexpected response status code {response.status_code}: {response.text!r}')
 
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):

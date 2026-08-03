@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.38.0"
+version = "4.39.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -46,8 +46,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.39.0, < 1.44.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.44.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.45.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.45.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -105,6 +105,7 @@ pytest_logfire = "logfire._internal.integrations.pytest"
 [dependency-groups]
 dev = [
     "httpx >= 0.27.2",
+    "httpx2 >= 2.0.0",
     "aiohttp >= 3.10.9",
     "redis >= 5.1.1",
     "pymongo >= 4.10.1",
@@ -224,7 +225,7 @@ logfire-api = { workspace = true }
 
 [tool.uv]
 default-groups = ["dev"]
-exclude-newer = "1 week"
+exclude-newer = "4 days"
 
 [tool.uv.exclude-newer-package]
 # These are our own packages, not worth defending from supply chain attacks on them.
@@ -234,6 +235,7 @@ pydantic-evals = false
 pydantic = false
 pydantic-core = false
 pydantic-handlebars = false
+genai-prices = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
@@ -253,6 +255,9 @@ line-length = 120
 extend-exclude = ["logfire-api/logfire_api/*", "tests/auto_trace_samples/param_spec.py"]
 
 [tool.ruff.lint]
+# Ruff 0.16 greatly expanded the default rule set (59 -> 413 rules).
+# Restore the pre-0.16 defaults until we deliberately migrate to the new defaults.
+select = ["E4", "E7", "E9", "F"]
 extend-select = [
     "Q", # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
     "RUF100", # https://docs.astral.sh/ruff/rules/unused-noqa/
@@ -289,6 +294,10 @@ convention = "google"
 [tool.ruff.format]
 docstring-code-format = true
 quote-style = "single"
+# Ruff 0.16 formats Python code blocks in Markdown files by default,
+# but that mangles the `#>` output markers checked by pytest-examples,
+# which is the authority on docs code formatting.
+exclude = ["*.md"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -335,6 +344,13 @@ filterwarnings = [
     "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
     # anthropic SDK warns when using older models that are still recorded in test cassettes
     "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
+    # py-key-value-aio (a pydantic-ai dependency) type-checks itself at import time with
+    # beartype's import hook, which is designed to warn rather than fail. Promoting those
+    # warnings to errors breaks `import pydantic_ai`, e.g. on pydantic 2.10 where
+    # `JsonSchemaValue` is still a `typing.Dict` alias, triggering beartype's PEP 585
+    # deprecation warning during decoration of py-key-value-aio's pydantic adapter.
+    "ignore::beartype.roar.BeartypeClawDecorWarning",
+    "ignore::beartype.roar.BeartypeDecorHintPep585DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

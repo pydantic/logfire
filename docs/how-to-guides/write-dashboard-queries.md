@@ -4,7 +4,7 @@ description: "Practical recipes and patterns for writing SQL queries in Logfire 
 ---
 # Writing SQL Queries for Dashboards
 
-This guide provides practical recipes and patterns for writing useful SQL queries in **Logfire**. We'll focus on querying the [`records`](../reference/sql.md#records-columns) table, which contains your logs and spans. The goal is to help you create useful dashboards, but we recommend using the Explore view to learn and experiment.
+This guide provides practical recipes and patterns for writing useful SQL queries in **Logfire**. We'll focus on querying the [`records`](../reference/sql.md#records-columns) table, which contains your logs and spans. The goal is to help you create useful dashboards, but we recommend using SQL Workbench to learn and experiment.
 
 For a complete list of available tables and columns, please see the [SQL Reference](../reference/sql.md).
 
@@ -12,7 +12,7 @@ For a complete list of available tables and columns, please see the [SQL Referen
 
 ### Simple examples
 
-Here are two quick useful examples to try out immediately in the Explore view.
+Here are two quick useful examples to try out immediately in SQL Workbench.
 
 To find the most common operations based on [`span_name`](../reference/sql.md#span_name):
 
@@ -66,7 +66,7 @@ LIMIT 10
 - The alias `AS count` allows us to refer to the count in the `ORDER BY` clause.
 - `ORDER BY count DESC` sorts the results to show the most common groups first.
 - `WHERE <filter_conditions>` is optional and depends on your specific use case.
-- `LIMIT 10` isn't usually needed in the Explore view, but is helpful when creating charts.
+- `LIMIT 10` isn't usually needed in SQL Workbench, but is helpful when creating charts.
 - `<columns_to_group_by>` can be one or more columns and should be the same in the `SELECT` and `GROUP BY` clauses.
 
 ### Useful things to group by
@@ -194,7 +194,7 @@ FROM records
 GROUP BY x
 ```
 
-Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in the Explore view, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to the Explore view.
+Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in SQL Workbench, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to SQL Workbench.
 
 !!! warning
     If you're querying `metrics`, use `recorded_timestamp` instead of `start_timestamp`.
@@ -358,7 +358,7 @@ ORDER BY x
 
 ## Linking to the Live view
 
-While aggregating data with `GROUP BY` is powerful for seeing trends, sometimes you need to investigate specific events, like a single slow operation or a costly API call. In these cases, it's good to include the [`trace_id`](../reference/sql.md#trace_id) column in your `SELECT` clause. Tables in dashboards, the explore view, or alert run results with this column will render the `trace_id` values as clickable links to the Live View.
+While aggregating data with `GROUP BY` is powerful for seeing trends, sometimes you need to investigate specific events, like a single slow operation or a costly API call. In these cases, it's good to include the [`trace_id`](../reference/sql.md#trace_id) column in your `SELECT` clause. Tables in dashboards, SQL Workbench, or alert run results with this column will render the `trace_id` values as clickable links to the Live View.
 
 For example, to find the 10 slowest spans in your system, you can create a 'Table' panel with this query:
 

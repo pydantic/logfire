@@ -1,10 +1,10 @@
 ---
-title: "Logfire LLMs view: per-model inventory and agent run analytics"
+title: "Logfire LLMs and Providers view: per-model inventory and agent run analytics"
 description: "Browse every model and provider your application calls. See cost, latency, error rate, tokens, truncation rate and tool-call rate per model. Drill into an LLM for a detail page that links straight to traces, and see avg + p90 distributions for tool calls and turns on every agent run."
 ---
-# LLMs
+# LLMs and Providers
 
-The **LLMs** page is the per-model inventory of every LLM your application is calling. Each row shows calls, latency, tokens and cost for one (provider, model) pair, and the LLM detail page links into the trace for each individual call.
+The <OpenInLogfire path="llms" variant="inline" label="LLMs" /> page is the per-model inventory of every LLM your application is calling. Each row shows calls, latency, tokens and cost for one (provider, model) pair, and the LLM detail page links into the trace for each individual call.
 
 For inspecting an individual LLM call inside a trace, the [LLM Panels](llm-panels.md) guide covers the in-trace view; this page covers the per-model and per-agent analytics surfaces.
 
@@ -113,7 +113,7 @@ If you build with another framework that emits the same conventions (directly or
 The smallest path from an empty project to a populated LLMs row, using the OpenAI instrumentation:
 
 ```bash
-pip install 'logfire[openai]'
+pip install logfire openai
 export LOGFIRE_TOKEN=<your write token from project Settings → Write tokens>
 ```
 
@@ -134,7 +134,7 @@ Refresh the LLMs page. A row for `gpt-4o-mini` (provider `openai`) should appear
 
 ## Slicing by environment, agent or user
 
-The inventory groups rows by `(provider, model)`. Beyond the text search at the top, there are no dropdowns for filtering by environment, agent or user *on this page yet*. For per-environment, per-agent, per-user, per-feature or per-tenant breakdowns, query the `records` table directly in the [SQL Explorer](explore.md). Every GenAI span carries the `gen_ai.*` attributes alongside `deployment.environment.name` and any custom resource attributes you've set, so you can slice cost, latency or token usage by whatever dimension matters.
+The inventory groups rows by `(provider, model)`. Beyond the text search at the top, there are no dropdowns for filtering by environment, agent or user *on this page yet*. For per-environment, per-agent, per-user, per-feature or per-tenant breakdowns, query the `records` table directly in [SQL Workbench](explore.md). Every GenAI span carries the `gen_ai.*` attributes alongside `deployment.environment.name` and any custom resource attributes you've set, so you can slice cost, latency or token usage by whatever dimension matters.
 
 ## Troubleshooting
 

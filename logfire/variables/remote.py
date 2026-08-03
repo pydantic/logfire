@@ -2,8 +2,10 @@ from __future__ import annotations as _annotations
 
 import json
 import os
+import random
 import re
 import threading
+import time
 import warnings
 import weakref
 from collections.abc import Mapping
@@ -18,7 +20,7 @@ from requests import RequestException, Session
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
 from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
-from logfire._internal.utils import UnexpectedResponse
+from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation
 from logfire.variables.abstract import (
     ResolvedVariable,
     VariableAlreadyExistsError,
@@ -47,6 +49,13 @@ if TYPE_CHECKING:
 
 
 __all__ = ('LogfireRemoteVariableProvider',)
+
+_CONSECUTIVE_FAILURES_BEFORE_ERROR = 5
+"""Number of consecutive refresh failures after which transient errors are logged at error level.
+
+With the default 60s polling interval this escalates after roughly five minutes of continuous
+failure, riding out rolling deploys and load-balancer blips without producing error-level noise.
+"""
 
 
 class LogfireRemoteVariableProvider(VariableProvider):
@@ -94,8 +103,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._reset_once = Once()
         self._has_attempted_fetch: bool = False
         self._last_fetched_at: datetime | None = None
+        self._consecutive_refresh_failures: int = 0
 
         self._config: VariablesConfig | None = None
+        self._etag: str | None = None  # ETag from last successful response for conditional GETs
+        self._followup_refresh_at: float | None = None  # monotonic time for the post-SSE follow-up refresh
 
         self._shutdown = False
         self._shutdown_timeout_exceeded = False
@@ -105,6 +117,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         # SSE listener for real-time updates
         self._sse_connected = False
+        self._sse_had_connected = False  # True after the first successful SSE connection
         self._sse_thread: threading.Thread | None = None
 
         # Logfire instance for error logging, set via start()
@@ -135,8 +148,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 target=self._worker,
                 daemon=True,
             )
+            # Clear the follow-up timer so the child worker does not fire a stale refresh
+            # against the parent's timeline; keep _sse_had_connected so the first SSE
+            # connection after fork is treated as a REconnect and triggers a forced refresh.
+            self._followup_refresh_at = None
             self._worker_thread.start()
-            # Restart SSE listener
+            # Restart SSE listener.  Keep _sse_had_connected at its pre-fork value so the
+            # child's next successful SSE connection is treated as a REconnect -- triggering a
+            # forced refresh to catch any events published while the stream was torn down.
             self._sse_connected = False
             self._start_sse_listener()
         self._pid = os.getpid()
@@ -188,6 +207,47 @@ class LogfireRemoteVariableProvider(VariableProvider):
         else:
             warnings.warn(f'{message}: {exc}', category=RuntimeWarning)
 
+    def _log_warning(self, message: str, exc: Exception) -> None:
+        """Log a warning using logfire if available, otherwise warnings.
+
+        Unlike `_log_error`, the exception is not attached to the record; its type and message are
+        recorded as attributes instead. These are transient failures expected to self-heal, and the
+        traceback runs through `requests` internals rather than any user code, so attaching it would
+        add a stacktrace to every blip without saying anything the type and message don't.
+
+        Args:
+            message: The warning message.
+            exc: The exception that occurred.
+        """
+        if self._logfire is not None:
+            self._logfire.warn(
+                '{message}: {error_type}: {error}',
+                message=message,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+        else:
+            warnings.warn(f'{message}: {type(exc).__name__}: {exc}', category=RuntimeWarning)
+
+    @staticmethod
+    def _is_transient_error(exc: Exception) -> bool:
+        """Whether a refresh failure is likely to resolve on its own by the next poll.
+
+        Connection errors, timeouts, and 5xx/408/429 responses are transient (server restarts,
+        rolling deploys, load-balancer blips). Other HTTP statuses, notably 401/403, indicate a
+        misconfiguration that will not fix itself.
+
+        Ambiguous failures (e.g. an SSL handshake error, or a malformed body on a 2xx response)
+        are deliberately classified as transient: a misclassified persistent failure still
+        escalates to error level via the consecutive-failure counter within a few polls, whereas
+        classifying a genuinely transient blip as persistent would log an error-level exception
+        record on every blip, which is exactly the noise this classification exists to avoid.
+        """
+        if isinstance(exc, UnexpectedResponse):
+            status = exc.response.status_code
+            return status >= 500 or status in (408, 429)
+        return isinstance(exc, RequestException)
+
     def _start_sse_listener(self):  # pragma: no cover
         """Start the SSE listener thread for real-time updates."""
         if self._sse_thread is not None and self._sse_thread.is_alive():
@@ -202,6 +262,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     def _sse_listener(self):  # pragma: no cover
         """Listen for SSE updates from the server and trigger refresh on events."""
+        # suppress_instrumentation: this is Logfire's own bookkeeping traffic. Without this, users
+        # who have their HTTP client instrumented get a span per reconnect, each lasting as long as
+        # a stream that is meant to stay open indefinitely.
+        with suppress_instrumentation():
+            self._sse_listener_loop()
+
+    def _sse_listener_loop(self):  # pragma: no cover
+        """Connect to the SSE endpoint, reconnecting with backoff until shutdown."""
         sse_url = urljoin(self._base_url, '/v1/variable-updates/')
         reconnect_delay = 1.0  # Start with 1 second delay
         max_reconnect_delay = 60.0  # Max 60 seconds between reconnects
@@ -235,6 +303,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     # receive data (below), which proves the stream is healthy.
                     self._sse_connected = True
 
+                    # Gap 1: on REconnect (not the very first connection) trigger a forced refresh
+                    # to catch any events that arrived while the stream was down.
+                    if self._sse_had_connected:
+                        self._force_refresh_event.set()
+                        self._worker_awaken.set()
+                    self._sse_had_connected = True
+
                     # Process SSE events
                     for line in response.iter_lines(decode_unicode=True):
                         if self._shutdown:
@@ -244,12 +319,21 @@ class LogfireRemoteVariableProvider(VariableProvider):
                             continue
 
                         line = line.strip()
+
+                        # Gap 2: an SSE-framed line -- a ": keepalive" comment or any named
+                        # field -- proves the stream is healthy, so reset the reconnect backoff.
+                        # Only SSE framing counts: a misbehaving proxy that answers 200 with a
+                        # short non-SSE body (an HTML error page, say) and closes immediately
+                        # delivers lines every cycle, and resetting on those would pin the
+                        # backoff at 1s and turn reconnects into a busy loop.
+                        if line.startswith((':', 'data:', 'event:', 'id:', 'retry:')):
+                            reconnect_delay = 1.0
+
                         if not line:
                             continue
 
                         # SSE format: "data: {...json...}"
                         if line.startswith('data:'):
-                            reconnect_delay = 1.0
                             data_str = line[5:].strip()
                             try:
                                 event_data = json.loads(data_str)
@@ -298,16 +382,54 @@ class LogfireRemoteVariableProvider(VariableProvider):
             if force:
                 self._force_refresh_event.clear()
 
-            self.refresh(force=force)
+            # The worker is the sole scheduled caller and already manages its own timing via
+            # the jittered wait below.  Always bypass the interval gate so that a 54-second
+            # jittered wait does not silently skip the fetch because the gate still requires
+            # the full 60-second base interval -- which would push the effective interval to
+            # up to 2x the intended range.  The `force` local variable is preserved so
+            # downstream logic (Gap 5 follow-up) can still detect SSE-triggered iterations.
+            self.refresh(force=True)
+
+            # Gap 5: after an SSE-triggered (forced) refresh, schedule a follow-up refresh
+            # ~2 s later to beat any server-side caching layer that may have served a stale
+            # response to the first request.
+            # The follow-up deliberately keeps sending If-None-Match. Dropping it would not
+            # bypass a stale cache: an HTTP cache answers conditional and unconditional
+            # requests out of the same stored entry, so a stale 304 and a stale 200 leave us
+            # equally stale, and the platform-side variables cache is keyed server-side and
+            # ignores request headers entirely. Elapsed time is what clears a stale entry,
+            # which is exactly what the ~2 s delay buys.
+            if force:
+                self._followup_refresh_at = time.monotonic() + 2.0
+
+            # Gap 3: add uniform +/-10% jitter to the wait so that fleets deployed
+            # simultaneously don't poll in lockstep.
+            base_interval = self._polling_interval.total_seconds()
+            wait_timeout = base_interval * random.uniform(0.9, 1.1)
+
+            # Clamp the wait to the follow-up timer so we wake up in time.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None:
+                followup_remaining = max(0.0, followup_at - time.monotonic())
+                wait_timeout = min(wait_timeout, followup_remaining)
 
             # Use wait(timeout) then clear() to avoid lost wakeups:
             # If SSE sets the event during refresh(), wait() returns immediately
             # and we loop again without sleeping for the full polling interval.
-            awakened = self._worker_awaken.wait(self._polling_interval.total_seconds())
+            awakened = self._worker_awaken.wait(wait_timeout)
             if awakened:  # pragma: no branch
                 self._worker_awaken.clear()
-            if self._shutdown:  # pragma: no branch
+
+            if self._shutdown:
                 break
+
+            # Retire the follow-up deadline once it has elapsed. No fetch happens here:
+            # the next iteration's top-of-loop refresh(force=True) *is* the follow-up
+            # fetch, so an explicit call would cause a spurious third fetch. Retiring
+            # the deadline also stops the clamp above from pinning wait_timeout to 0.
+            followup_at = self._followup_refresh_at
+            if followup_at is not None and time.monotonic() >= followup_at:
+                self._followup_refresh_at = None
 
     def refresh(self, force: bool = False):
         """Fetch the latest variable configuration from the remote API.
@@ -332,10 +454,26 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 return  # nothing to do
 
             try:
-                with self._session_lock:
+                # suppress_instrumentation: this is Logfire's own bookkeeping traffic, so users who
+                # have their HTTP client instrumented shouldn't see a span for every poll.
+                # Failures are still logged: the `except` handler runs outside this block.
+                with self._session_lock, suppress_instrumentation():
+                    # Send a conditional GET when we have a cached ETag so the server can respond
+                    # with 304 Not Modified and skip the response body entirely.
+                    # Servers that don't support ETags (all current ones) simply ignore the header.
+                    headers: dict[str, str] = {}
+                    if self._etag is not None:
+                        headers['If-None-Match'] = self._etag
                     variables_response = self._session.get(
-                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
+                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout, headers=headers
                     )
+                    # 304 Not Modified -- config is current, just refresh the timestamp.
+                    # Do NOT call raise_for_status here (304 is outside 2xx).
+                    if variables_response.status_code == 304:
+                        self._consecutive_refresh_failures = 0
+                        self._last_fetched_at = datetime.now(tz=timezone.utc)
+                        self._has_attempted_fetch = True
+                        return
                     UnexpectedResponse.raise_for_status(variables_response)
                     variables_config_data = variables_response.json()
             except Exception as e:
@@ -346,11 +484,33 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 # (when `block_before_first_resolve` is set) while the server is unreachable, despite
                 # the background worker already polling.
                 self._has_attempted_fetch = True
-                self._log_error('Error retrieving variables', e)
+                self._consecutive_refresh_failures += 1
+                if (
+                    self._config is not None
+                    and self._consecutive_refresh_failures < _CONSECUTIVE_FAILURES_BEFORE_ERROR
+                    and self._is_transient_error(e)
+                ):
+                    # A transient failure while we still hold a previously fetched config is
+                    # low-impact: slightly stale values are served and the next poll (or SSE
+                    # nudge) retries within the polling interval. Reserve error level for
+                    # persistent failures (e.g. auth errors), sustained outages, and fetches
+                    # that fail before any config exists (the app is running on code defaults).
+                    self._log_warning('Error retrieving variables', e)
+                else:
+                    self._log_error('Error retrieving variables', e)
                 return
+
+            self._consecutive_refresh_failures = 0
 
             try:
                 new_config = VariablesConfig.model_validate(variables_config_data)
+                # Only commit the ETag once we know the response body is valid.
+                # If we stored it before validation and validation failed, every
+                # subsequent poll would send the stale If-None-Match and get a 304,
+                # permanently locking the provider into an outdated config.
+                # Always overwrite (including clearing to None) so a server that stops
+                # sending ETags doesn't leave a stale validator that causes spurious 304s.
+                self._etag = variables_response.headers.get('ETag')
                 self._config = new_config
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
             except ValidationError as e:
@@ -474,7 +634,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         """
         body = self._config_to_api_body(config)
         try:
-            with self._session_lock:
+            with self._session_lock, suppress_instrumentation():
                 response = self._session.post(
                     urljoin(self._base_url, '/v1/variables/'), json=body, timeout=self._timeout
                 )
@@ -504,7 +664,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         """
         body = self._config_to_api_body(config)
         try:
-            with self._session_lock:
+            with self._session_lock, suppress_instrumentation():
                 response = self._session.put(
                     urljoin(self._base_url, f'/v1/variables/{name}/'), json=body, timeout=self._timeout
                 )
@@ -529,7 +689,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             VariableWriteError: If the API request fails.
         """
         try:
-            with self._session_lock:
+            with self._session_lock, suppress_instrumentation():
                 response = self._session.delete(
                     urljoin(self._base_url, f'/v1/variables/{name}/'), timeout=self._timeout
                 )
@@ -646,7 +806,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         from logfire.variables.config import VariableTypeConfig
 
         try:
-            with self._session_lock:
+            with self._session_lock, suppress_instrumentation():
                 response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'), timeout=self._timeout)
                 UnexpectedResponse.raise_for_status(response)
                 types_data = response.json()
@@ -690,7 +850,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             body['source_hint'] = config.source_hint
 
         try:
-            with self._session_lock:
+            with self._session_lock, suppress_instrumentation():
                 # POST endpoint is an upsert (create or update by name)
                 response = self._session.post(
                     urljoin(self._base_url, '/v1/variable-types/'), json=body, timeout=self._timeout

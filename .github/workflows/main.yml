@@ -7,6 +7,7 @@ on:
     tags:
       - "**"
   pull_request: { }
+  merge_group: { }
 
 env:
   CI: true
@@ -64,17 +65,18 @@ jobs:
 
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
-    # Use Depot 4-core runners for maintainer PRs (faster CPUs/more cores)
-    # Use 'ci:slow' label to force standard GitHub runners (e.g. during Depot outages)
-    # Use 'ci:fast' label to opt-in fork PRs to Depot runners
+    # Use Ubicloud premium 4-core runners for maintainer PRs and merge queue runs (faster
+    # CPUs/more cores); fork PRs run on standard GitHub runners
+    # During a runner-provider outage, set the FAST_RUNNERS_DISABLED repository variable to
+    # 'true' to force standard GitHub runners everywhere
     runs-on: >-
       ${{
-        !contains(github.event.pull_request.labels.*.name, 'ci:slow')
+        vars.FAST_RUNNERS_DISABLED != 'true'
         && (
-          github.event.pull_request.head.repo.full_name == github.repository
-          || contains(github.event.pull_request.labels.*.name, 'ci:fast')
+          github.event_name == 'merge_group'
+          || github.event.pull_request.head.repo.full_name == github.repository
         )
-        && 'depot-ubuntu-24.04-4'
+        && 'ubicloud-premium-4'
         || 'ubuntu-latest'
       }}
     strategy:
