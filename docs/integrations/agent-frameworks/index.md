@@ -18,12 +18,13 @@ There are four integration patterns, depending on the framework:
 
 1. **Native OpenTelemetry (OTel)** — the framework already emits OTel spans through the global tracer provider. In
    Python, calling [`logfire.configure()`][logfire.configure] is enough to collect those native spans (e.g. Pydantic
-   AI, AutoGen, Google ADK, Strands, Semantic Kernel, and Rig). A guide may also enable model-client tracing. In
+   AI, AutoGen, Google ADK, Strands, and Semantic Kernel). A guide may also enable model-client tracing. In
    other languages, point the standard OTel software development kit (SDK) at Logfire's OpenTelemetry Protocol
    (OTLP) endpoint.
-2. **A first-party adapter** — the framework's maintainers provide an OTel integration package that connects its
-   own tracing system to the global provider (e.g. Haystack's `opentelemetry-haystack`, Vercel's `@ai-sdk/otel`,
-   and Mastra's `@mastra/otel-exporter`).
+2. **A first-party adapter or bridge** — an integration package connects the framework's own tracing system to
+   OTel (e.g. Haystack's `opentelemetry-haystack`, Vercel's `@ai-sdk/otel`, and Mastra's
+   `@mastra/otel-exporter`). Rig uses the Logfire Rust SDK to install a `tracing` subscriber that bridges its native
+   Rust `tracing` spans to OTel.
 3. **A third-party instrumentor** — an [OpenInference](https://github.com/Arize-ai/openinference) or
    [OpenLLMetry](https://github.com/traceloop/openllmetry) package adds the spans. Because
    [`logfire.configure()`][logfire.configure] sets the global provider, the instrumentor's spans flow to

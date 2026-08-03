@@ -91,10 +91,17 @@ import asyncio
 from pydantic import BaseModel
 from semantic_kernel.agents import ChatCompletionAgent
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
+from semantic_kernel.functions import kernel_function
 
 import logfire
 
 logfire.configure()
+
+
+class WeatherPlugin:
+    @kernel_function(description='Get the weather for a city')
+    def get_weather(self, city: str) -> str:
+        return f'The weather in {city} is sunny, 21C.'
 
 
 class WeatherInputs(BaseModel):
@@ -116,7 +123,7 @@ async def main():
         service=OpenAIChatCompletion(ai_model_id='gpt-4o-mini'),
         name='weather_agent',
         instructions=prompt,
-        # Add the WeatherPlugin from the main example with plugins=[WeatherPlugin()].
+        plugins=[WeatherPlugin()],
     )
     response = await agent.get_response(messages="What's the weather in Paris?")
     print(response.message.content)
