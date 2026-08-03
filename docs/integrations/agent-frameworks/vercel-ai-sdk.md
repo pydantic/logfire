@@ -66,6 +66,7 @@ prompt, response, token counts, and tool calls in **Logfire**.
       captured. Set them to `false` in `telemetry` to redact sensitive content.
 
 !!! tip "Next.js"
+    Install the Next.js OpenTelemetry helper with `npm install @vercel/otel`.
     In Next.js, call `registerOTel(...)` from `@vercel/otel` and
     `registerTelemetry(new OpenTelemetry())` from `ai` and `@ai-sdk/otel` inside the exported `register()`
     function in `instrumentation.ts`. Point the OpenTelemetry Protocol (OTLP) exporter at Logfire with

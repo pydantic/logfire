@@ -71,7 +71,7 @@ rig-core = "0.38"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 opentelemetry = "0.31"
 opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.31", features = ["http-proto", "reqwest-client"] }
+opentelemetry-otlp = { version = "0.31", features = ["http-proto", "reqwest-client", "reqwest-rustls"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-opentelemetry = "0.32" # 0.32 pairs with opentelemetry 0.31
