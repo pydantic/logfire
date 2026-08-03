@@ -330,3 +330,11 @@ def test_non_gemini_util_genai_span_not_transformed(exporter: TestExporter) -> N
     # The operation name is preserved (not rewritten to 'chat') and no chat json_schema is injected.
     assert span['attributes']['gen_ai.operation.name'] == 'generate_content'
     assert 'logfire.json_schema' not in span['attributes']
+
+
+def test_instrument_google_genai_without_capture_setting() -> None:
+    env_var = 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'
+    with patch.dict(os.environ):
+        os.environ.pop(env_var)
+        logfire.instrument_google_genai()
+        assert env_var not in os.environ
