@@ -1,0 +1,21 @@
+logfire/_internal/integrations/google_genai.py
+  s_196e0b8dce4470::t_6c88d774eb2346 3,9-11,39-44
+tests/otel_integrations/test_google_genai.py
+  s_196e0b8dce4470::t_6c88d774eb2346 16-17,52,167,169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "47861699009744091c2bdbb79030de5bcd8ede18",
+  "prompts": {},
+  "sessions": {
+    "s_196e0b8dce4470": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc8a8-975d-7871-bd96-7194ca1bbf96",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
