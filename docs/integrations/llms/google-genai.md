@@ -36,8 +36,9 @@ Gemini call.
 
 By default, the prompts and completions are hidden: the spans show `<elided>` in their place. To
 capture the actual message content (so you can read the conversation in Logfire), set the
-`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` environment variable to `true`. This sends the
-prompt and response text to Logfire, so leave it off if that content is sensitive.
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` environment variable to `SPAN_ONLY`. This sends
+the prompt and response text to Logfire, so leave it off if that content is sensitive. Logfire also
+accepts the earlier values `true` and `false`, mapping them to `SPAN_ONLY` and `NO_CONTENT`.
 
 ```python hl_lines="8 10-11" skip-run="true" skip-reason="external-connection"
 import os
@@ -46,8 +47,8 @@ from google.genai import Client
 
 import logfire
 
-# Set this to true to capture the actual prompts and completions in the spans.
-os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
+# Set this to SPAN_ONLY to capture the actual prompts and completions in the spans.
+os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'SPAN_ONLY'
 
 logfire.configure()
 logfire.instrument_google_genai()
@@ -81,7 +82,7 @@ Not seeing your model calls in Logfire? Check these first:
 - **Your Logfire write token is set.** In local development, run `logfire projects use <your-project>`;
   in production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **Prompts and completions show as `<elided>`?** Set
-  `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` before your app runs, as shown above.
+  `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_ONLY` before your app runs, as shown above.
 
 ## Reference
 
