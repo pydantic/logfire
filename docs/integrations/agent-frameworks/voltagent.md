@@ -49,6 +49,7 @@ try {
   console.log(res.text);
 } finally {
   await observability.forceFlush();
+  await observability.shutdown();
 }
 ```
 

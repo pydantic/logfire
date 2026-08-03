@@ -55,7 +55,7 @@ service:
 ```bash
 # 1. Start the collector (forwards to Logfire)
 export LOGFIRE_WRITE_TOKEN="your-logfire-write-token"
-docker run -p 4317:4317 \
+docker run -p 127.0.0.1:4317:4317 \
   -v "$PWD/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml" \
   -e LOGFIRE_WRITE_TOKEN \
   otel/opentelemetry-collector-contrib
