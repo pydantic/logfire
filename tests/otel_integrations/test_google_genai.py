@@ -13,7 +13,8 @@ import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
-os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'SPAN_ONLY'
+# Use the legacy value to verify that Logfire preserves compatibility with instrumentation < 1.0b0.
+os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
 os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 
 pytestmark = [
@@ -48,6 +49,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
     logfire.instrument_google_genai()
+    assert os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] == 'SPAN_ONLY'
 
     client = Client()
 
@@ -162,8 +164,9 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
 def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
-    with patch.dict(os.environ, {'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT': 'NO_CONTENT'}):
+    with patch.dict(os.environ, {'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT': 'false'}):
         logfire.instrument_google_genai()
+        assert os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] == 'NO_CONTENT'
 
         client = Client()
 
