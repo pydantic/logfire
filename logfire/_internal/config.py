@@ -72,7 +72,7 @@ from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-from ..types import ExceptionCallback
+from ..types import ExceptionCallback, InstrumentMessageTemplateHelper
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
@@ -222,22 +222,23 @@ class AdvancedOptions:
     This log and configuration is experimental and may be modified or removed.
     """
 
-    instrument_default_span_name: Callable[[Callable[..., Any]], str] | None = None
-    """Customize the default span name/message used by `@logfire.instrument` when no `msg_template` is given.
+    instrument_default_msg_template: Callable[[InstrumentMessageTemplateHelper], str] = (
+        InstrumentMessageTemplateHelper.default_template
+    )
+    """Customize the default message template used by `@logfire.instrument` when no `msg_template` is given.
 
-    Called with the instrumented function and should return the message template to use, e.g:
+    Example usage to only use the simple unqualified function name:
 
     ```python
     import logfire
 
     logfire.configure(
-        advanced=logfire.AdvancedOptions(instrument_default_span_name=lambda func: func.__name__)
+        advanced=logfire.AdvancedOptions(instrument_default_msg_template=lambda helper: helper.name)
     )
     ```
 
-    Defaults to `None`, which keeps the existing `f'Calling {module_name}.{qualname}'` format.
-    Changing the default behavior globally would be a breaking change for existing queries that
-    rely on the current format, hence this being opt-in.
+    The callback receives an instance of
+    [`InstrumentMessageTemplateHelper`][logfire.types.InstrumentMessageTemplateHelper].
 
     This is experimental and may be modified or removed.
     """

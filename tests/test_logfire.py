@@ -46,6 +46,7 @@ from logfire._internal.tracer import record_exception
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
+from logfire.types import InstrumentMessageTemplateHelper
 from tests.test_metrics import get_collected_metrics
 
 
@@ -263,16 +264,16 @@ def test_instrument_with_no_parameters(exporter: TestExporter) -> None:
     )
 
 
-def _default_span_name_from_func_name(func: Callable[..., Any]) -> str:
-    return getattr(func, '__name__', '')
+def _default_msg_template_from_function_name(helper: InstrumentMessageTemplateHelper) -> str:
+    return helper.name
 
 
-def _raising_default_span_name(func: Callable[..., Any]) -> str:
+def _raising_default_msg_template(_helper: InstrumentMessageTemplateHelper) -> str:
     raise ValueError('boom')
 
 
-def test_instrument_default_span_name_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
-    config_kwargs['advanced'].instrument_default_span_name = _default_span_name_from_func_name
+def test_instrument_default_msg_template_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['advanced'].instrument_default_msg_template = _default_msg_template_from_function_name
     logfire.configure(**config_kwargs)
 
     @logfire.instrument()
@@ -291,7 +292,7 @@ def test_instrument_default_span_name_customized(exporter: TestExporter, config_
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_default_span_name_customized.<locals>.foo',
+                    'code.function': 'test_instrument_default_msg_template_customized.<locals>.foo',
                     'logfire.msg_template': 'foo',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'foo',
@@ -303,10 +304,10 @@ def test_instrument_default_span_name_customized(exporter: TestExporter, config_
     )
 
 
-def test_instrument_default_span_name_ignored_when_msg_template_given(
+def test_instrument_default_msg_template_ignored_when_msg_template_given(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ) -> None:
-    config_kwargs['advanced'].instrument_default_span_name = _default_span_name_from_func_name
+    config_kwargs['advanced'].instrument_default_msg_template = _default_msg_template_from_function_name
     logfire.configure(**config_kwargs)
 
     @logfire.instrument('explicit template')
@@ -325,7 +326,7 @@ def test_instrument_default_span_name_ignored_when_msg_template_given(
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_default_span_name_ignored_when_msg_template_given.<locals>.foo',
+                    'code.function': 'test_instrument_default_msg_template_ignored_when_msg_template_given.<locals>.foo',
                     'logfire.msg_template': 'explicit template',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'explicit template',
@@ -337,11 +338,11 @@ def test_instrument_default_span_name_ignored_when_msg_template_given(
     )
 
 
-def test_internal_exception_in_instrument_default_span_name_falls_back_to_default(
+def test_internal_exception_in_instrument_default_msg_template_falls_back_to_default(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ) -> None:
     # Name must contain "test_internal_exception" so log_internal_error swallows instead of re-raising here.
-    config_kwargs['advanced'].instrument_default_span_name = _raising_default_span_name
+    config_kwargs['advanced'].instrument_default_msg_template = _raising_default_msg_template
     logfire.configure(**config_kwargs)
 
     @logfire.instrument()
@@ -352,7 +353,7 @@ def test_internal_exception_in_instrument_default_span_name_falls_back_to_defaul
     [span] = exporter.exported_spans_as_dict(_strip_function_qualname=False)
     assert span['attributes']['logfire.msg_template'] == (
         'Calling tests.test_logfire.'
-        'test_internal_exception_in_instrument_default_span_name_falls_back_to_default.<locals>.foo'
+        'test_internal_exception_in_instrument_default_msg_template_falls_back_to_default.<locals>.foo'
     )
 
 
