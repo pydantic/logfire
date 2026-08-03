@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import inspect
+import threading
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
 P = ParamSpec('P')
 R = TypeVar('R')
 _PreparedExtractArgs = tuple[inspect.Signature, Sequence[str] | None] | None
+_INSTRUMENT_INITIALIZATION_LOCK = threading.RLock()
 
 
 @contextmanager
@@ -40,6 +42,12 @@ def _cm():  # pragma: no cover
 @asynccontextmanager
 async def _acm():  # pragma: no cover
     yield
+
+
+@contextmanager
+def _instrument_initialization_lock():
+    with _INSTRUMENT_INITIALIZATION_LOCK:
+        yield
 
 
 CONTEXTMANAGER_HELPER_CODE = getattr(_cm, '__code__', None)
@@ -95,22 +103,24 @@ def instrument(
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs) -> AbstractContextManager[Any]:
                 nonlocal cached_open_span
                 if cached_open_span is None:
-                    current_logfire = get_logfire()
-                    attributes = get_attributes(
-                        func,
-                        msg_template,
-                        tags,
-                        current_logfire.config.advanced.instrument_default_msg_template,
-                    )
-                    cached_open_span = get_open_span(
-                        current_logfire,
-                        attributes,
-                        span_name,
-                        prepared_extract_args,
-                        func,
-                        new_trace,
-                        level=level,
-                    )
+                    with _instrument_initialization_lock():
+                        if cached_open_span is None:
+                            current_logfire = get_logfire()
+                            attributes = get_attributes(
+                                func,
+                                msg_template,
+                                tags,
+                                current_logfire.config.advanced.instrument_default_msg_template,
+                            )
+                            cached_open_span = get_open_span(
+                                current_logfire,
+                                attributes,
+                                span_name,
+                                prepared_extract_args,
+                                func,
+                                new_trace,
+                                level=level,
+                            )
                 return cached_open_span(*func_args, **func_kwargs)
 
         if inspect.isgeneratorfunction(func):

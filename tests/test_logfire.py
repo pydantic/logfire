@@ -4,6 +4,8 @@ import inspect
 import os
 import re
 import sys
+import threading
+import time
 import warnings
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -329,6 +331,34 @@ def test_instrument_default_msg_template_resolved_and_cached_on_first_call(
             },
         ]
     )
+
+
+def test_instrument_default_msg_template_initialized_once_concurrently(config_kwargs: dict[str, Any]) -> None:
+    callback_calls = 0
+    barrier = threading.Barrier(10)
+
+    def default_msg_template(helper: InstrumentMessageTemplateHelper) -> str:
+        nonlocal callback_calls
+        callback_calls += 1
+        time.sleep(0.05)
+        return helper.name
+
+    config_kwargs['advanced'].instrument_default_msg_template = default_msg_template
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument(extract_args=False)
+    def foo() -> int:
+        return 4
+
+    def call_foo() -> int:
+        barrier.wait()
+        return foo()
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(call_foo) for _ in range(10)]
+        assert [future.result() for future in futures] == [4] * 10
+
+    assert callback_calls == 1
 
 
 def test_instrument_default_msg_template_customized(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
