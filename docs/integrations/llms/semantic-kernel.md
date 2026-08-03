@@ -36,6 +36,7 @@ Then call [`logfire.configure()`][logfire.configure] before creating the agent:
 import asyncio
 
 from semantic_kernel.agents import ChatCompletionAgent
+from semantic_kernel.connectors.ai import FunctionChoiceBehavior
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_kernel.functions import kernel_function
 
@@ -56,6 +57,7 @@ async def main() -> None:
         service=OpenAIChatCompletion(ai_model_id='gpt-4o-mini'),  # uses OPENAI_API_KEY
         name='weather_agent',
         instructions='Use the weather plugin before answering.',
+        function_choice_behavior=FunctionChoiceBehavior.Required(),
         plugins=[WeatherPlugin()],
     )
     response = await agent.get_response(messages="What's the weather in Paris?")
@@ -90,6 +92,7 @@ import asyncio
 
 from pydantic import BaseModel
 from semantic_kernel.agents import ChatCompletionAgent
+from semantic_kernel.connectors.ai import FunctionChoiceBehavior
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_kernel.functions import kernel_function
 
@@ -123,6 +126,7 @@ async def main():
         service=OpenAIChatCompletion(ai_model_id='gpt-4o-mini'),
         name='weather_agent',
         instructions=prompt,
+        function_choice_behavior=FunctionChoiceBehavior.Required(),
         plugins=[WeatherPlugin()],
     )
     response = await agent.get_response(messages="What's the weather in Paris?")
