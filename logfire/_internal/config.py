@@ -228,7 +228,11 @@ class AdvancedOptions:
     Called with the instrumented function and should return the message template to use, e.g:
 
     ```python
-    AdvancedOptions(instrument_default_span_name=lambda func: func.__name__)
+    import logfire
+
+    logfire.configure(
+        advanced=logfire.AdvancedOptions(instrument_default_span_name=lambda func: func.__name__)
+    )
     ```
 
     Defaults to `None`, which keeps the existing `f'Calling {module_name}.{qualname}'` format.
