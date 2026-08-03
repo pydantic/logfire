@@ -2889,6 +2889,9 @@ def test_staging_token_regions():
         get_base_url_from_token(
             'pylf_v2_stagingeu_9F9BA85A-B759-4181-9527-D812E03F9F7F_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
         )
+        == get_base_url_from_token(
+            'pylf_v2_stagingeu_9F9BA85AB759181-9527-D81^&*%*&^%*&^    2E03F9F7F_0kYhc414Ys2FNDRdt5vFBcbcBMy4Kp6PH0W'
+        )
         == 'https://logfire-eu.pydantic.info'
     )
 
