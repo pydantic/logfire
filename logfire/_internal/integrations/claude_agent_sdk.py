@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, cast
 
+import anyio
 import claude_agent_sdk
 from claude_agent_sdk import (
     AssistantMessage,
@@ -177,6 +178,8 @@ async def pre_tool_use_hook(
         state = _get_state()
         if state is None:
             return {}
+
+        await state.wait_for_tool_announcement(tool_use_id)
 
         tool_name = str(input_data.get('tool_name', 'unknown_tool'))
         tool_input = input_data.get('tool_input', {})
@@ -443,6 +446,23 @@ class _ConversationState:
         self._current_output_parts: list[MessagePart] = []
         self._system_instructions = system_instructions
         self.model: str | None = None
+        # Tool call IDs from assistant messages that have been applied to this state.
+        self.announced_tool_ids: set[str] = set()
+        self._tool_announced = anyio.Event()
+        self.tool_announcement_timeout = 1.0
+
+    async def wait_for_tool_announcement(self, tool_use_id: str) -> None:
+        """Wait until the assistant message announcing `tool_use_id` has been handled.
+
+        The CLI sends the assistant message (containing the `tool_use` block) before it
+        invokes the PreToolUse hook, but hooks run in separate anyio tasks, so the hook
+        can be scheduled before the main task has applied that message to this state.
+        Closing the chat span at that point would lose its output and model attributes.
+        The timeout is a safety valve for tool calls that are never announced.
+        """
+        with anyio.move_on_after(self.tool_announcement_timeout):
+            while tool_use_id not in self.announced_tool_ids:
+                await self._tool_announced.wait()
 
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: Any) -> None:
         """Record a tool result to include in the next chat span's input messages."""
@@ -492,10 +512,20 @@ class _ConversationState:
 
     def handle_assistant_message(self, message: AssistantMessage) -> None:
         """Handle AssistantMessage: add output and usage to the current chat span."""
+        content = getattr(message, 'content', [])
+
+        new_tool_ids = {block.id for block in content if isinstance(block, ToolUseBlock)}
+        if new_tool_ids:
+            self.announced_tool_ids.update(new_tool_ids)
+            # Wake any PreToolUse hooks waiting for these tool calls, and replace the
+            # event so future waiters block until the next announcement.
+            event = self._tool_announced
+            self._tool_announced = anyio.Event()
+            event.set()
+
         if self._current_span is None:  # pragma: no cover
             return
 
-        content = getattr(message, 'content', [])
         output_messages = _content_blocks_to_output_messages(content)
         new_parts = output_messages[0]['parts'] if output_messages else []
 

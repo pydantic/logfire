@@ -21,8 +21,10 @@ from contextlib import suppress
 from pathlib import Path
 from unittest.mock import Mock
 
+import anyio
 import pytest
 from claude_agent_sdk import (
+    AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
     HookMatcher,
@@ -249,6 +251,10 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
 
     with logfire_instance.span('root') as root_span:
         state = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        # Normally the assistant message carrying the tool_use blocks announces the IDs
+        # before the CLI invokes the PreToolUse hooks; do the same here so the hooks
+        # don't wait for an announcement that never comes.
+        state.announced_tool_ids.update({'tool_1', 'tool_no_resp', 'tool_2'})
         _set_state(state)
         try:
             # Successful tool call
@@ -414,6 +420,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
 
     with logfire_instance.span('root') as root_span:
         state = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        state.announced_tool_ids.add('orphan_1')
         _set_state(state)
         try:
             # Start a tool span but never call post_tool_use_hook
@@ -476,6 +483,62 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+@pytest.mark.anyio
+async def test_pre_hook_waits_for_tool_announcement() -> None:
+    """A PreToolUse hook scheduled before the assistant message blocks until it's applied."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('root') as root_span:
+        state = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        _set_state(state)
+        try:
+            async with anyio.create_task_group() as tg:
+
+                async def call_hook() -> None:
+                    await pre_tool_use_hook(
+                        {'tool_name': 'Bash', 'tool_input': {'command': 'ls'}, 'tool_use_id': 'tool_1'},
+                        'tool_1',
+                        {'signal': None},
+                    )
+
+                tg.start_soon(call_hook)
+                await anyio.sleep(0.01)
+                # The hook is waiting for the announcement; no span has been created yet.
+                assert 'tool_1' not in state.active_tool_spans
+                state.handle_assistant_message(
+                    AssistantMessage(
+                        content=[ToolUseBlock(id='tool_1', name='Bash', input={'command': 'ls'})],
+                        model='claude-sonnet-4-6',
+                    )
+                )
+            # The announcement woke the hook, which then created the span.
+            assert 'tool_1' in state.active_tool_spans
+            state.close()
+        finally:
+            _clear_state()
+
+
+@pytest.mark.anyio
+async def test_pre_hook_announcement_timeout() -> None:
+    """A tool call that is never announced still gets a span after the safety-valve timeout."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+
+    with logfire_instance.span('root') as root_span:
+        state = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        state.tool_announcement_timeout = 0.01
+        _set_state(state)
+        try:
+            await pre_tool_use_hook(
+                {'tool_name': 'Bash', 'tool_input': {'command': 'ls'}, 'tool_use_id': 'tool_never'},
+                'tool_never',
+                {'signal': None},
+            )
+            assert 'tool_never' in state.active_tool_spans
+            state.close()
+        finally:
+            _clear_state()
 
 
 @pytest.mark.anyio
@@ -663,16 +726,29 @@ async def test_basic_conversation_cassette(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize('consumer_delay', [0, 0.05])
 async def test_tool_use_conversation_cassette(
-    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter, consumer_delay: float
 ) -> None:
-    """Tool use conversation: assistant calls Bash, gets result, then responds."""
+    """Tool use conversation: assistant calls Bash, gets result, then responds.
+
+    The delayed-consumer variant slows down message processing so the SDK's spawned
+    hook tasks are scheduled before the main task applies the assistant message,
+    exercising `wait_for_tool_announcement`. The spans must be identical either way.
+    """
     record = request.config.getoption('--record-claude-cassettes', default=False)
+    if record and consumer_delay:
+        pytest.skip('Only record the cassette once')
     client = _make_client('tool_use_conversation.json', monkeypatch=monkeypatch, record=bool(record))
     try:
         await client.connect()
         await client.query('List files in the current directory')
-        collected = [msg async for msg in client.receive_response()]
+        collected: list[object] = []
+        async for msg in client.receive_response():
+            if consumer_delay:
+                # Delay processing of the next message so hook tasks run first.
+                await anyio.sleep(consumer_delay)
+            collected.append(msg)
     finally:
         await _close_sdk_streams(client)
         await client.disconnect()
