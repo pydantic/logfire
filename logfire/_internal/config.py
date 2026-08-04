@@ -960,6 +960,49 @@ class _LogfireConfigData:
         self.metrics = metrics
 
 
+def _register_at_fork_resource_updates(
+    tracer_provider: SDKTracerProvider,
+    meter_provider: MeterProvider | NoOpMeterProvider,
+    logger_provider: SDKLoggerProvider,
+    proxy_tracer_provider: ProxyTracerProvider,
+    proxy_logger_provider: ProxyLoggerProvider,
+) -> None:
+    if not hasattr(os, 'register_at_fork'):  # pragma: no cover
+        return
+
+    def fix_pid():  # pragma: no cover
+        with handle_internal_errors:
+            pid_resource = Resource({'process.pid': os.getpid()})
+
+            if update_resource := getattr(tracer_provider, '_update_resource', None):
+                update_resource(pid_resource)
+            else:
+                new_resource = tracer_provider.resource.merge(pid_resource)
+                tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                for proxy_tracer in proxy_tracer_provider.tracers:
+                    if isinstance(proxy_tracer.tracer, SDKTracer):
+                        proxy_tracer.tracer.resource = new_resource
+
+            if isinstance(meter_provider, MeterProvider):
+                if update_resource := getattr(meter_provider, '_update_resource', None):
+                    update_resource(pid_resource)
+                else:
+                    meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                        pid_resource
+                    )
+
+            if update_resource := getattr(logger_provider, '_update_resource', None):
+                update_resource(pid_resource)
+            else:
+                new_resource = logger_provider.resource.merge(pid_resource)
+                logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                for proxy_logger in proxy_logger_provider.loggers:
+                    if isinstance(proxy_logger.logger, SDKLogger):
+                        proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+
+    os.register_at_fork(after_in_child=fix_pid)
+
+
 class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
@@ -1494,39 +1537,13 @@ class LogfireConfig(_LogfireConfigData):
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
 
-            if hasattr(os, 'register_at_fork'):  # pragma: no branch
-
-                def fix_pid():  # pragma: no cover
-                    with handle_internal_errors:
-                        pid_resource = Resource({'process.pid': os.getpid()})
-
-                        if update_resource := getattr(tracer_provider, '_update_resource', None):
-                            update_resource(pid_resource)
-                        else:
-                            new_resource = tracer_provider.resource.merge(pid_resource)
-                            tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                            for proxy_tracer in self._tracer_provider.tracers:
-                                if isinstance(proxy_tracer.tracer, SDKTracer):
-                                    proxy_tracer.tracer.resource = new_resource
-
-                        if isinstance(meter_provider, MeterProvider):
-                            if update_resource := getattr(meter_provider, '_update_resource', None):
-                                update_resource(pid_resource)
-                            else:
-                                meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
-                                    pid_resource
-                                )
-
-                        if update_resource := getattr(logger_provider, '_update_resource', None):
-                            update_resource(pid_resource)
-                        else:
-                            new_resource = logger_provider.resource.merge(pid_resource)
-                            logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                            for proxy_logger in self._logger_provider.loggers:
-                                if isinstance(proxy_logger.logger, SDKLogger):
-                                    proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-
-                os.register_at_fork(after_in_child=fix_pid)
+            _register_at_fork_resource_updates(
+                tracer_provider,
+                meter_provider,
+                logger_provider,
+                self._tracer_provider,
+                self._logger_provider,
+            )
 
             self._logger_provider.shutdown()
 
