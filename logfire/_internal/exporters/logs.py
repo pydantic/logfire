@@ -4,7 +4,7 @@ from opentelemetry.sdk._logs import ReadWriteLogRecord
 
 import logfire
 from logfire._internal.exporters.wrapper import WrapperLogProcessor
-from logfire._internal.scrubbing import BaseScrubber
+from logfire._internal.scrubbing import BaseScrubber, LazilyScrubbedLogRecord
 from logfire._internal.utils import is_instrumentation_suppressed
 
 
@@ -26,5 +26,5 @@ class MainLogProcessorWrapper(WrapperLogProcessor):
     scrubber: BaseScrubber
 
     def on_emit(self, log_record: ReadWriteLogRecord):
-        log_record.log_record = self.scrubber.scrub_log(log_record.log_record)
+        log_record.log_record = LazilyScrubbedLogRecord(log_record.log_record, self.scrubber)
         return super().on_emit(log_record)

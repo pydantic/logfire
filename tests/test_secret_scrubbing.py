@@ -406,6 +406,37 @@ def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporte
     )
 
 
+def test_scrubbing_is_deferred_until_the_data_is_read(
+    exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]
+):
+    """Scrubbing should happen in the exporter, not in the thread that ended the span or emitted the log."""
+    matches: list[logfire.ScrubMatch] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match)
+
+    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
+    logfire.configure(**config_kwargs, scrubbing=logfire.ScrubbingOptions(callback=callback))
+
+    logfire.info('hi', my_password='hunter2')
+    get_logger(__name__).emit(LogRecord(attributes={'my_password': 'hunter2'}))
+    assert not matches
+
+    [span] = exporter.exported_spans
+    assert span.to_json() == IsJson(IsPartialDict(attributes=IsPartialDict(my_password="[Scrubbed due to 'password']")))
+    assert span.attributes and span.attributes['my_password'] == "[Scrubbed due to 'password']"
+
+    [log] = logs_exporter.get_finished_logs()
+    assert log.log_record.attributes == snapshot(
+        {
+            'my_password': "[Scrubbed due to 'password']",
+            'logfire.scrubbed': '[{"path": ["attributes", "my_password"], "matched_substring": "password"}]',
+        }
+    )
+
+    assert len(matches) == snapshot(2)
+
+
 def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):  # pragma: no cover
         return str(match)

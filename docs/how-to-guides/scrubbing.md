@@ -82,6 +82,9 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
 
+Scrubbing runs when a span or log is about to be sent, which usually happens on a background thread, so
+the callback shouldn't rely on the state of the thread that created the span, e.g. context variables.
+
 ## Security tips
 
 ### Use message templates

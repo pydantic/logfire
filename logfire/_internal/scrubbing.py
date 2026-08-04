@@ -6,13 +6,15 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from threading import Lock
 from typing import Any, TypedDict, cast
 
 import typing_extensions
 from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
-from opentelemetry.sdk.trace import Event
+from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.trace import Link
+from opentelemetry.util import types as otel_types
 
 from .constants import (
     ATTRIBUTES_CONFIG,
@@ -33,7 +35,7 @@ from .constants import (
 )
 from .integrations.llm_providers import semconv as gen_ai_semconv
 from .stack_info import STACK_INFO_KEYS
-from .utils import ReadableSpanDict, truncate_string
+from .utils import ReadableSpanDict, handle_internal_errors, truncate_string
 
 DEFAULT_PATTERNS = [
     'password',
@@ -345,6 +347,83 @@ class SpanScrubber:
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
+
+
+class LazilyScrubbedReadableSpan(ReadableSpan):
+    """A span which is scrubbed the first time its contents are read.
+
+    Scrubbing is expensive, and spans end in application code (often an event loop)
+    but are read by exporters, which usually run in a background thread.
+    """
+
+    def __init__(self, span_dict: ReadableSpanDict, scrubber: BaseScrubber) -> None:
+        super().__init__(**span_dict)
+        self._span_dict = span_dict
+        self._scrubber = scrubber
+        self._scrub_lock = Lock()
+        self._scrub_done = False
+
+    def _scrub(self) -> None:
+        with self._scrub_lock:
+            if self._scrub_done:
+                return
+            self._scrub_done = True
+            with handle_internal_errors:
+                self._scrubber.scrub_span(self._span_dict)
+            self._attributes = self._span_dict['attributes']
+            self._events = self._span_dict['events']
+            self._links = self._span_dict['links']
+
+    @property
+    def attributes(self) -> otel_types.Attributes:
+        self._scrub()
+        return super().attributes
+
+    @property
+    def events(self) -> Sequence[Event]:
+        self._scrub()
+        return super().events
+
+    @property
+    def links(self) -> Sequence[Link]:
+        self._scrub()
+        return super().links
+
+    def to_json(self, indent: int | None = 4) -> str:
+        self._scrub()
+        # TODO(Marcelo): We should check if pydantic is installed, and if so use `pydantic_core.to_json()`.
+        return super().to_json(indent)
+
+
+class LazilyScrubbedLogRecord(LogRecord):
+    """A log record which is scrubbed the first time its contents are read.
+
+    See [`LazilyScrubbedReadableSpan`][logfire._internal.scrubbing.LazilyScrubbedReadableSpan].
+    """
+
+    def __init__(self, log_record: LogRecord, scrubber: BaseScrubber) -> None:
+        self._unscrubbed = log_record
+        self._scrubber = scrubber
+        self._scrub_lock = Lock()
+        self._scrubbed: LogRecord | None = None
+
+    def __getattr__(self, name: str) -> Any:
+        # Everything except the scrubbed `attributes` and `body` comes straight from the original record.
+        return getattr(self._unscrubbed, name)
+
+    def _scrub(self) -> LogRecord:
+        with self._scrub_lock:
+            if self._scrubbed is None:
+                self._scrubbed = self._scrubber.scrub_log(self._unscrubbed)
+            return self._scrubbed
+
+    @property
+    def attributes(self) -> otel_types._ExtendedAttributes | None:  # pyright: ignore[reportPrivateUsage]
+        return self._scrub().attributes
+
+    @property
+    def body(self) -> otel_types.AnyValue:
+        return self._scrub().body
 
 
 class MessageValueCleaner:

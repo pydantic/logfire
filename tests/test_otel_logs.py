@@ -56,7 +56,8 @@ def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogRecordExporter, conf
     with suppress_instrumentation():
         logger3.emit(record)
     [log_data] = logs_exporter.get_finished_logs()
-    assert log_data.log_record == record
+    assert log_data.log_record.body == record.body
+    assert log_data.log_record.attributes == record.attributes
     assert log_data.instrumentation_scope
     assert log_data.instrumentation_scope.name == 'scope3'
 

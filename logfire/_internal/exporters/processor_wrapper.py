@@ -27,7 +27,7 @@ from ..constants import (
 from ..db_statement_summary import message_from_db_statement
 from ..integrations.llm_providers.semconv import PROVIDER_NAME
 from ..json_schema import JsonSchemaProperties, attributes_json_schema
-from ..scrubbing import BaseScrubber
+from ..scrubbing import BaseScrubber, LazilyScrubbedReadableSpan
 from ..utils import (
     ReadableSpanDict,
     handle_internal_errors,
@@ -81,8 +81,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
-            self.scrubber.scrub_span(span_dict)
-            span = ReadableSpan(**span_dict)
+            span = LazilyScrubbedReadableSpan(span_dict, self.scrubber)
         super().on_end(span)
 
 
