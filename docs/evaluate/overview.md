@@ -29,10 +29,10 @@ In prose, the flow is: the **dataset** feeds each case into your **task**; each 
 
 The dataset, the collection of test cases, can live in either of two places, and you can move cases between them:
 
-- **In code**, with [pydantic-evals](evals-in-code.md). You define the cases in Python; when you run an experiment with Logfire configured, its results appear in Logfire automatically. This is the right home when your cases are generated from code or checked into your repo alongside your tests.
-- **Hosted on Logfire.** You create the dataset on the **Evals: Datasets & Experiments** page (click **New dataset**), edit its cases directly in the web UI, give it a schema, and share it with your team. Experiments are still always run from Python. A hosted dataset shows up next to your code-defined ones, and you can import cases from one into the other.
+- **Code-defined**, with [pydantic-evals](evals-in-code.md). You define the cases in Python; when you run an experiment with Logfire configured, its results appear in Logfire automatically. This is the right home when your cases are generated from code or checked into your repo alongside your tests.
+- **Hosted on Logfire.** Open **AI Evaluations** > **Datasets & experiments** > **Datasets**, select **New dataset**, and choose **Manage in Logfire**. Your team can edit its cases directly in the web UI, define schemas, and import cases from code.
 
-Reach for a hosted dataset when non-engineers need to add or edit test cases, or when a team wants one shared set of cases to evaluate against; reach for a code dataset when the cases belong with your source. See [Datasets](datasets-and-experiments.md) for both.
+Reach for a hosted dataset when teammates need to add or edit test cases, or when a team wants one shared set of cases to evaluate against. Reach for a code-defined dataset when the cases belong with your source. See [Manage datasets](manage-datasets.md) for both.
 
 ## Offline vs online: a test suite vs monitoring
 
@@ -75,8 +75,8 @@ When you design a scorer, the score's *shape* is the real decision. Reach for th
 ## Next steps
 
 - **[Run an evaluation](evals-in-code.md)**: the offline path end to end, with a worked example and a real report.
-- **[Datasets](datasets-and-experiments.md)**: build and curate the test cases you evaluate against.
+- **[Manage datasets](manage-datasets.md)**: build and curate the test cases you evaluate against.
 - **[Evals SDK](datasets-sdk.md)**: manage datasets and evaluations programmatically.
-- **[Evals in the web UI](datasets-and-experiments.md)**: create datasets and compare experiments in Logfire.
+- **[Review experiments](review-experiments.md)**: diagnose failed cases and compare a candidate with a baseline.
 - **[Live Evaluations](live-evals.md)**: score real production traffic as it happens.
 - **[Human review](human-review.md)**: turn human judgment and user feedback into scores that sit next to your automated ones.
