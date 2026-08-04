@@ -1227,11 +1227,13 @@ def test_host_and_os_resource_attributes_populated_by_default(
 
 
 @pytest.mark.skipif(not hasattr(os, 'register_at_fork'), reason='os.register_at_fork is not available')
+@pytest.mark.parametrize('use_otel_resource_updaters', [True, False])
 def test_register_at_fork_resource_updates(
     monkeypatch: pytest.MonkeyPatch,
     exporter: TestExporter,
     logs_exporter: TestLogExporter,
     metrics_reader: InMemoryMetricReader,
+    use_otel_resource_updaters: bool,
 ) -> None:
     callbacks: list[Callable[[], None]] = []
 
@@ -1250,6 +1252,11 @@ def test_register_at_fork_resource_updates(
     assert isinstance(tracer_provider, config_module.SDKTracerProvider)
     assert isinstance(meter_provider, config_module.MeterProvider)
     assert isinstance(logger_provider, config_module.SDKLoggerProvider)
+
+    if not use_otel_resource_updaters:
+        monkeypatch.delattr(config_module.SDKTracerProvider, '_update_resource', raising=False)
+        monkeypatch.delattr(config_module.MeterProvider, '_update_resource', raising=False)
+        monkeypatch.delattr(config_module.SDKLoggerProvider, '_update_resource', raising=False)
 
     counter = logfire.metric_counter('fork.callback.counter')
     counter.add(1)

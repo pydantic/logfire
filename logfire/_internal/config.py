@@ -984,25 +984,34 @@ def _register_at_fork_resource_updates(
 
             tracer_provider = proxy_tracer_provider.provider
             if isinstance(tracer_provider, SDKTracerProvider):
-                new_resource = tracer_provider.resource.merge(pid_resource)
-                tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                for proxy_tracer in proxy_tracer_provider.tracers:
-                    if isinstance(proxy_tracer.tracer, SDKTracer):
-                        proxy_tracer.tracer.resource = new_resource
+                if update_resource := getattr(tracer_provider, '_update_resource', None):
+                    update_resource(pid_resource)
+                else:
+                    new_resource = tracer_provider.resource.merge(pid_resource)
+                    tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                    for proxy_tracer in proxy_tracer_provider.tracers:
+                        if isinstance(proxy_tracer.tracer, SDKTracer):
+                            proxy_tracer.tracer.resource = new_resource
 
             meter_provider = proxy_meter_provider.provider
             if isinstance(meter_provider, MeterProvider):
-                meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
-                    pid_resource
-                )
+                if update_resource := getattr(meter_provider, '_update_resource', None):
+                    update_resource(pid_resource)
+                else:
+                    meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                        pid_resource
+                    )
 
             logger_provider = proxy_logger_provider.provider
             if isinstance(logger_provider, SDKLoggerProvider):
-                new_resource = logger_provider.resource.merge(pid_resource)
-                logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                for proxy_logger in proxy_logger_provider.loggers:
-                    if isinstance(proxy_logger.logger, SDKLogger):
-                        proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                if update_resource := getattr(logger_provider, '_update_resource', None):
+                    update_resource(pid_resource)
+                else:
+                    new_resource = logger_provider.resource.merge(pid_resource)
+                    logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                    for proxy_logger in proxy_logger_provider.loggers:
+                        if isinstance(proxy_logger.logger, SDKLogger):
+                            proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
 
     os.register_at_fork(after_in_child=fix_pid)
 
