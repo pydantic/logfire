@@ -1371,17 +1371,16 @@ def test_resource_process_pid_updated_after_fork(
         for lock in provider_locks:
             lock.acquire()
 
-    parent_pid = os.getpid()
     signal.alarm(10)
     try:
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
             child_pid = os.fork()
-    finally:
+    except BaseException:
         signal.alarm(0)
-        if os.getpid() == parent_pid:
-            for lock in provider_locks:
-                lock.release()
+        for lock in provider_locks:
+            lock.release()
+        raise
 
     if child_pid == 0:  # pragma: no cover
         os.close(read_fd)
@@ -1405,12 +1404,25 @@ def test_resource_process_pid_updated_after_fork(
             exit_code = 1
         os.write(write_fd, result.encode())
         os.close(write_fd)
+        signal.alarm(0)
         os._exit(exit_code)
 
+    for lock in provider_locks:
+        lock.release()
     os.close(write_fd)
-    with os.fdopen(read_fd) as read_file:
-        result = read_file.read()
-    _, status = os.waitpid(child_pid, 0)
+
+    def raise_fork_timeout(*_: object) -> None:
+        raise TimeoutError('forked child process timed out')
+
+    previous_alarm_handler = signal.signal(signal.SIGALRM, raise_fork_timeout)
+    signal.alarm(10)
+    try:
+        with os.fdopen(read_fd) as read_file:
+            result = read_file.read()
+        _, status = os.waitpid(child_pid, 0)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_alarm_handler)
 
     assert os.waitstatus_to_exitcode(status) == 0, result
     assert json.loads(result) == {'metric': child_pid, 'span': child_pid, 'log': child_pid}
