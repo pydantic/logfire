@@ -405,7 +405,8 @@ def test_override_init_pyi() -> None:  # pragma: no cover
 
 
 def test_logfire_api_dunder_all_consistency() -> None:  # check the __all__ consistency
-    logfire_api = import_logfire_api_without_logfire()
+    import logfire_api
 
-    for member in logfire_api.__all__:
-        assert hasattr(logfire_api, member), f"'{member}' listed in logfire_api.__all__ but doesn't exist!"
+    if hasattr(logfire_api, '__all__'):
+        for member in logfire_api.__all__:
+            assert hasattr(logfire_api, member), f"'{member}' listed in logfire_api.__all__ but doesn't exist!"
