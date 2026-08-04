@@ -132,6 +132,10 @@ def log_event_loop_pauses(
 
     See Logfire.log_event_loop_pauses.
     """
+    if slow_duration <= 0:
+        raise ValueError('slow_duration must be positive')
+    if check_interval is not None and check_interval <= 0:
+        raise ValueError('check_interval must be positive')
     loop = asyncio.get_running_loop()
     if check_interval is None:
         check_interval = slow_duration / 4

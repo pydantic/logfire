@@ -111,6 +111,14 @@ def test_requires_running_loop() -> None:
         logfire.log_event_loop_pauses()
 
 
+def test_requires_positive_durations() -> None:
+    # Non-positive values would make the heartbeat and the watchdog thread spin in a busy loop.
+    with pytest.raises(ValueError, match='slow_duration must be positive'):
+        logfire.log_event_loop_pauses(slow_duration=0)
+    with pytest.raises(ValueError, match='check_interval must be positive'):
+        logfire.log_event_loop_pauses(check_interval=-1)
+
+
 def test_log_event_loop_pauses_uvloop(exporter: TestExporter) -> None:
     # `log_slow_async_callbacks` can't detect anything under uvloop, whose callback handles
     # are implemented in Cython and never call the patched `asyncio.events.Handle._run`.
