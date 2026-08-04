@@ -970,7 +970,7 @@ def _register_at_fork_resource_updates(
     if not hasattr(os, 'register_at_fork'):  # pragma: no cover
         return
 
-    def fix_pid():  # pragma: no cover
+    def fix_pid():
         with handle_internal_errors:
             pid_resource = Resource({'process.pid': os.getpid()})
 

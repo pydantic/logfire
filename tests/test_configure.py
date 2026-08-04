@@ -9,7 +9,7 @@ import subprocess
 import sys
 import threading
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
@@ -1224,6 +1224,62 @@ def test_host_and_os_resource_attributes_populated_by_default(
     assert resource_attrs['os.version'] == (
         platform.version() if platform.system().lower() in ('windows', 'sunos') else platform.release()
     )
+
+
+@pytest.mark.skipif(not hasattr(os, 'register_at_fork'), reason='os.register_at_fork is not available')
+def test_register_at_fork_resource_updates(
+    monkeypatch: pytest.MonkeyPatch,
+    exporter: TestExporter,
+    logs_exporter: TestLogExporter,
+    metrics_reader: InMemoryMetricReader,
+) -> None:
+    callbacks: list[Callable[[], None]] = []
+
+    def register_at_fork(*, after_in_child: Callable[[], None]) -> None:
+        callbacks.append(after_in_child)
+
+    monkeypatch.setattr(config_module.os, 'register_at_fork', register_at_fork)
+    monkeypatch.setattr(config_module.os, 'getpid', lambda: 42)
+
+    proxy_tracer_provider = GLOBAL_CONFIG.get_tracer_provider()
+    proxy_meter_provider = GLOBAL_CONFIG.get_meter_provider()
+    proxy_logger_provider = GLOBAL_CONFIG.get_logger_provider()
+    tracer_provider = proxy_tracer_provider.provider
+    meter_provider = proxy_meter_provider.provider
+    logger_provider = proxy_logger_provider.provider
+    assert isinstance(tracer_provider, config_module.SDKTracerProvider)
+    assert isinstance(meter_provider, config_module.MeterProvider)
+    assert isinstance(logger_provider, config_module.SDKLoggerProvider)
+
+    counter = logfire.metric_counter('fork.callback.counter')
+    counter.add(1)
+    logger = get_logger('fork.callback.logger')
+    logger.emit(LogRecord(body='before callback'))
+    with logfire.span('before callback'):
+        pass
+    metrics_reader.get_metrics_data()
+    exporter.clear()
+    logs_exporter.clear()
+
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        tracer_provider,
+        meter_provider,
+        logger_provider,
+        proxy_tracer_provider,
+        proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+
+    counter.add(1)
+    logger.emit(LogRecord(body='after callback'))
+    with logfire.span('after callback'):
+        pass
+    metrics_data = metrics_reader.get_metrics_data()
+    assert metrics_data is not None
+    assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == 42
+    assert exporter.exported_spans[-1].resource.attributes['process.pid'] == 42
+    assert logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'] == 42
 
 
 @pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
