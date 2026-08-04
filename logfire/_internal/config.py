@@ -1510,9 +1510,12 @@ class LogfireConfig(_LogfireConfigData):
                                     proxy_tracer.tracer.resource = new_resource
 
                         if isinstance(meter_provider, MeterProvider):
-                            meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
-                                pid_resource
-                            )
+                            if update_resource := getattr(meter_provider, '_update_resource', None):
+                                update_resource(pid_resource)
+                            else:
+                                meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                                    pid_resource
+                                )
 
                         if update_resource := getattr(logger_provider, '_update_resource', None):
                             update_resource(pid_resource)
