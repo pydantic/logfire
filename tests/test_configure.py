@@ -1262,10 +1262,8 @@ def test_register_at_fork_resource_updates(
     logs_exporter.clear()
 
     config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
-        tracer_provider,
-        meter_provider,
-        logger_provider,
         proxy_tracer_provider,
+        proxy_meter_provider,
         proxy_logger_provider,
     )
     [callback] = callbacks
@@ -1287,17 +1285,38 @@ def test_register_at_fork_resource_updates(
     suppressed_tracer = proxy_tracer_provider.get_tracer(suppressed_scope)
     suppressed_logger = proxy_logger_provider.get_logger(suppressed_scope)
     callbacks.clear()
+    noop_proxy_meter_provider = config_module.ProxyMeterProvider(NoOpMeterProvider())
     config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
-        tracer_provider,
-        NoOpMeterProvider(),
-        logger_provider,
         proxy_tracer_provider,
+        noop_proxy_meter_provider,
         proxy_logger_provider,
     )
     [callback] = callbacks
     callback()
     assert suppressed_tracer.instrumenting_module_name == suppressed_scope
     assert suppressed_logger
+
+    callbacks.clear()
+    noop_proxy_tracer_provider = config_module.ProxyTracerProvider(
+        config_module.trace.NoOpTracerProvider(), GLOBAL_CONFIG
+    )
+    noop_proxy_logger_provider = config_module.ProxyLoggerProvider(config_module.NoOpLoggerProvider())
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        noop_proxy_tracer_provider,
+        noop_proxy_meter_provider,
+        noop_proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+
+    callbacks.clear()
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        config_module.ProxyTracerProvider(config_module.trace.NoOpTracerProvider(), GLOBAL_CONFIG),
+        config_module.ProxyMeterProvider(NoOpMeterProvider()),
+        config_module.ProxyLoggerProvider(config_module.NoOpLoggerProvider()),
+    )
+    [callback] = callbacks
+    callback()
 
 
 @pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')

@@ -961,49 +961,48 @@ class _LogfireConfigData:
 
 
 def _register_at_fork_resource_updates(
-    tracer_provider: SDKTracerProvider,
-    meter_provider: MeterProvider | NoOpMeterProvider,
-    logger_provider: SDKLoggerProvider,
     proxy_tracer_provider: ProxyTracerProvider,
+    proxy_meter_provider: ProxyMeterProvider,
     proxy_logger_provider: ProxyLoggerProvider,
 ) -> None:
     if not hasattr(os, 'register_at_fork'):  # pragma: no cover
         return
 
     proxy_tracer_provider_ref = weakref.ref(proxy_tracer_provider)
+    proxy_meter_provider_ref = weakref.ref(proxy_meter_provider)
     proxy_logger_provider_ref = weakref.ref(proxy_logger_provider)
 
     def fix_pid():
         with handle_internal_errors:
+            proxy_tracer_provider = proxy_tracer_provider_ref()
+            proxy_meter_provider = proxy_meter_provider_ref()
+            proxy_logger_provider = proxy_logger_provider_ref()
+            if not proxy_tracer_provider or not proxy_meter_provider or not proxy_logger_provider:
+                return
+
             pid_resource = Resource({'process.pid': os.getpid()})
 
-            if update_resource := getattr(tracer_provider, '_update_resource', None):
-                update_resource(pid_resource)
-            else:
+            tracer_provider = proxy_tracer_provider.provider
+            if isinstance(tracer_provider, SDKTracerProvider):
                 new_resource = tracer_provider.resource.merge(pid_resource)
                 tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                if proxy_tracer_provider := proxy_tracer_provider_ref():  # pragma: no branch
-                    for proxy_tracer in proxy_tracer_provider.tracers:
-                        if isinstance(proxy_tracer.tracer, SDKTracer):
-                            proxy_tracer.tracer.resource = new_resource
+                for proxy_tracer in proxy_tracer_provider.tracers:
+                    if isinstance(proxy_tracer.tracer, SDKTracer):
+                        proxy_tracer.tracer.resource = new_resource
 
+            meter_provider = proxy_meter_provider.provider
             if isinstance(meter_provider, MeterProvider):
-                if update_resource := getattr(meter_provider, '_update_resource', None):
-                    update_resource(pid_resource)
-                else:
-                    meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
-                        pid_resource
-                    )
+                meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                    pid_resource
+                )
 
-            if update_resource := getattr(logger_provider, '_update_resource', None):
-                update_resource(pid_resource)
-            else:
+            logger_provider = proxy_logger_provider.provider
+            if isinstance(logger_provider, SDKLoggerProvider):
                 new_resource = logger_provider.resource.merge(pid_resource)
                 logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                if proxy_logger_provider := proxy_logger_provider_ref():  # pragma: no branch
-                    for proxy_logger in proxy_logger_provider.loggers:
-                        if isinstance(proxy_logger.logger, SDKLogger):
-                            proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                for proxy_logger in proxy_logger_provider.loggers:
+                    if isinstance(proxy_logger.logger, SDKLogger):
+                        proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
 
     os.register_at_fork(after_in_child=fix_pid)
 
@@ -1072,6 +1071,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        _register_at_fork_resource_updates(self._tracer_provider, self._meter_provider, self._logger_provider)
         self._otlp_forwarding = OTLPForwardingManager([])
         self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
@@ -1541,14 +1541,6 @@ class LogfireConfig(_LogfireConfigData):
             )
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
-
-            _register_at_fork_resource_updates(
-                tracer_provider,
-                meter_provider,
-                logger_provider,
-                self._tracer_provider,
-                self._logger_provider,
-            )
 
             self._logger_provider.shutdown()
 
