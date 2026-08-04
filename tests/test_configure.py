@@ -24,7 +24,7 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import get_logger_provider
+from opentelemetry._logs import LogRecord, get_logger, get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -85,7 +85,7 @@ from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-from logfire.testing import TestExporter
+from logfire.testing import TestExporter, TestLogExporter
 from logfire.version import VERSION
 
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
@@ -1227,13 +1227,21 @@ def test_host_and_os_resource_attributes_populated_by_default(
 
 
 @pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
-def test_metric_resource_process_pid_updated_after_fork(metrics_reader: InMemoryMetricReader) -> None:
+def test_resource_process_pid_updated_after_fork(
+    exporter: TestExporter, logs_exporter: TestLogExporter, metrics_reader: InMemoryMetricReader
+) -> None:
     counter = logfire.metric_counter('fork.counter')
     counter.add(1)
+    logger = get_logger('fork.logger')
+    logger.emit(LogRecord(body='parent'))
+    with logfire.span('parent'):
+        pass
 
     metrics_data = metrics_reader.get_metrics_data()
     assert metrics_data is not None
     assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == os.getpid()
+    exporter.clear()
+    logs_exporter.clear()
 
     read_fd, write_fd = os.pipe()
     with warnings.catch_warnings():
@@ -1244,9 +1252,18 @@ def test_metric_resource_process_pid_updated_after_fork(metrics_reader: InMemory
         os.close(read_fd)
         try:
             counter.add(1)
+            logger.emit(LogRecord(body='child'))
+            with logfire.span('child'):
+                pass
             metrics_data = metrics_reader.get_metrics_data()
             assert metrics_data is not None
-            result = str(metrics_data.resource_metrics[0].resource.attributes['process.pid'])
+            result = json.dumps(
+                {
+                    'metric': metrics_data.resource_metrics[0].resource.attributes['process.pid'],
+                    'span': exporter.exported_spans[-1].resource.attributes['process.pid'],
+                    'log': logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'],
+                }
+            )
             exit_code = 0
         except BaseException as error:
             result = repr(error)
@@ -1261,7 +1278,7 @@ def test_metric_resource_process_pid_updated_after_fork(metrics_reader: InMemory
     _, status = os.waitpid(child_pid, 0)
 
     assert os.waitstatus_to_exitcode(status) == 0, result
-    assert int(result) == child_pid
+    assert json.loads(result) == {'metric': child_pid, 'span': child_pid, 'log': child_pid}
 
 
 def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(
