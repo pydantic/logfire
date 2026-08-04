@@ -1240,6 +1240,8 @@ def test_resource_process_pid_updated_after_fork(
     metrics_data = metrics_reader.get_metrics_data()
     assert metrics_data is not None
     assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == os.getpid()
+    assert exporter.exported_spans[-1].resource.attributes['process.pid'] == os.getpid()
+    assert logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'] == os.getpid()
     exporter.clear()
     logs_exporter.clear()
 
