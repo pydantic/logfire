@@ -970,6 +970,9 @@ def _register_at_fork_resource_updates(
     if not hasattr(os, 'register_at_fork'):  # pragma: no cover
         return
 
+    proxy_tracer_provider_ref = weakref.ref(proxy_tracer_provider)
+    proxy_logger_provider_ref = weakref.ref(proxy_logger_provider)
+
     def fix_pid():
         with handle_internal_errors:
             pid_resource = Resource({'process.pid': os.getpid()})
@@ -979,9 +982,10 @@ def _register_at_fork_resource_updates(
             else:
                 new_resource = tracer_provider.resource.merge(pid_resource)
                 tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                for proxy_tracer in proxy_tracer_provider.tracers:
-                    if isinstance(proxy_tracer.tracer, SDKTracer):
-                        proxy_tracer.tracer.resource = new_resource
+                if proxy_tracer_provider := proxy_tracer_provider_ref():  # pragma: no branch
+                    for proxy_tracer in proxy_tracer_provider.tracers:
+                        if isinstance(proxy_tracer.tracer, SDKTracer):
+                            proxy_tracer.tracer.resource = new_resource
 
             if isinstance(meter_provider, MeterProvider):
                 if update_resource := getattr(meter_provider, '_update_resource', None):
@@ -996,9 +1000,10 @@ def _register_at_fork_resource_updates(
             else:
                 new_resource = logger_provider.resource.merge(pid_resource)
                 logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                for proxy_logger in proxy_logger_provider.loggers:
-                    if isinstance(proxy_logger.logger, SDKLogger):
-                        proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                if proxy_logger_provider := proxy_logger_provider_ref():  # pragma: no branch
+                    for proxy_logger in proxy_logger_provider.loggers:
+                        if isinstance(proxy_logger.logger, SDKLogger):
+                            proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
 
     os.register_at_fork(after_in_child=fix_pid)
 

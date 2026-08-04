@@ -1281,6 +1281,24 @@ def test_register_at_fork_resource_updates(
     assert exporter.exported_spans[-1].resource.attributes['process.pid'] == 42
     assert logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'] == 42
 
+    suppressed_scope = 'fork.callback.suppressed'
+    proxy_tracer_provider.suppress_scopes(suppressed_scope)
+    proxy_logger_provider.suppress_scopes(suppressed_scope)
+    suppressed_tracer = proxy_tracer_provider.get_tracer(suppressed_scope)
+    suppressed_logger = proxy_logger_provider.get_logger(suppressed_scope)
+    callbacks.clear()
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        tracer_provider,
+        NoOpMeterProvider(),
+        logger_provider,
+        proxy_tracer_provider,
+        proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+    assert suppressed_tracer.instrumenting_module_name == suppressed_scope
+    assert suppressed_logger
+
 
 @pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
 def test_resource_process_pid_updated_after_fork(
