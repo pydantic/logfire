@@ -114,6 +114,7 @@ dev = [
     "Flask >= 3.0.3",
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
+    "uvloop >= 0.21.0; sys_platform != 'win32'",
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",
     "pytest-pretty >= 1.2.0",

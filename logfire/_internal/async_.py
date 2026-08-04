@@ -4,6 +4,9 @@ import asyncio
 import asyncio.events
 import asyncio.tasks
 import inspect
+import sys
+import threading
+import time
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from types import CoroutineType
@@ -120,3 +123,119 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
     name = name or safe_repr(callback)
     result['name'] = f'callback {name}'
     return result
+
+
+def log_event_loop_pauses(
+    logfire: Logfire, slow_duration: float, check_interval: float | None
+) -> AbstractContextManager[None]:
+    """Log a warning whenever the current event loop is unresponsive for too long.
+
+    See Logfire.log_event_loop_pauses.
+    """
+    loop = asyncio.get_running_loop()
+    if check_interval is None:
+        check_interval = slow_duration / 4
+    logfire = logfire.with_settings(custom_scope_suffix='asyncio')
+    watchdog = _EventLoopWatchdog(logfire, loop, slow_duration, check_interval)
+    watchdog.start()
+
+    @contextmanager
+    def stop_context():
+        # The user isn't required to use this context manager,
+        # monitoring has already started before this point.
+        try:
+            yield
+        finally:
+            watchdog.stop()
+
+    return stop_context()
+
+
+class _EventLoopWatchdog:
+    """Detects event loop pauses with a heartbeat scheduled on the loop and a thread watching it.
+
+    A `call_later` chain on the event loop records the time of each beat.
+    A daemon thread checks how overdue the next beat is: if the loop doesn't run the heartbeat
+    for `slow_duration` beyond its schedule, the loop is considered blocked, and the thread
+    samples the loop thread's stack right away to see what is blocking it.
+    Once the loop recovers, a warning is logged with the measured pause duration and that stack.
+
+    Unlike `log_slow_callbacks` this doesn't depend on `asyncio.events.Handle._run`,
+    so it works with any event loop implementation, including uvloop.
+    """
+
+    def __init__(self, logfire: Logfire, loop: asyncio.AbstractEventLoop, slow_duration: float, check_interval: float):
+        self.logfire = logfire
+        self.loop = loop
+        self.slow_duration = slow_duration
+        self.check_interval = check_interval
+        # `log_event_loop_pauses` requires a running loop, so the current thread is the loop's thread.
+        self.loop_thread_id = threading.get_ident()
+        self.last_beat = time.monotonic()
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(target=self._watch, name='logfire-event-loop-watchdog', daemon=True)
+
+    def start(self) -> None:
+        self._beat()
+        self.thread.start()
+
+    def stop(self) -> None:
+        self.stop_event.set()
+
+    def _beat(self) -> None:
+        # Runs on the event loop: record that the loop is responsive and schedule the next beat.
+        self.last_beat = time.monotonic()
+        if not self.stop_event.is_set():
+            self.loop.call_later(self.check_interval, self._beat)
+
+    def _watch(self) -> None:
+        # Runs on the watchdog thread.
+        while not self.stop_event.wait(self.check_interval):
+            if self.loop.is_closed():
+                return
+            beat = self.last_beat
+            # The next beat was due `check_interval` after the last one; anything beyond that is a pause.
+            if time.monotonic() - beat - self.check_interval < self.slow_duration:
+                continue
+            # The loop is blocked right now. Sample its thread's stack to see what's blocking it,
+            # then wait for the loop to recover to measure the total pause.
+            stack = self._sample_stack()
+            while self.last_beat == beat and not self.loop.is_closed():
+                if self.stop_event.wait(self.check_interval):
+                    # Stopped while the loop was still blocked; the pause's duration is unknown.
+                    return
+            if self.last_beat == beat:  # pragma: no cover
+                return  # The loop closed while blocked.
+            duration = self.last_beat - beat - self.check_interval
+            self._log_pause(duration, stack)
+
+    def _sample_stack(self) -> list[StackInfo]:
+        frame = sys._current_frames().get(self.loop_thread_id)  # pyright: ignore[reportPrivateUsage]
+        stack: list[StackInfo] = []
+        while frame is not None:
+            stack_info = get_stack_info_from_frame(frame)
+            # Ignore frames from the stdlib asyncio
+            if not stack_info.get('code.filepath', '').startswith(ASYNCIO_PATH):
+                stack.append(stack_info)
+            frame = frame.f_back
+        # Match the order of the 'stack' in `_callback_attributes`: outermost frame first.
+        stack.reverse()
+        return stack
+
+    def _log_pause(self, duration: float, stack: list[StackInfo]) -> None:
+        try:
+            attributes: _CallbackAttributes = {'stack': stack}
+            if stack:  # pragma: no branch
+                # The innermost frame is where the loop thread was blocked when sampled.
+                attributes = {**stack[-1], **attributes}
+            self.logfire.warn(
+                'Event loop blocked for {duration:.3f} seconds',
+                duration=duration,
+                **attributes,
+            )
+        except Exception:  # pragma: no cover
+            # Don't crash the watchdog thread for this.
+            try:
+                self.logfire.exception('Error in log_event_loop_pauses')
+            except Exception:
+                pass

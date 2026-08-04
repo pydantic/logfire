@@ -129,6 +129,9 @@ except ImportError:
             def log_slow_async_callbacks(self, *args, **kwargs) -> None:  # pragma: no cover
                 return nullcontext()
 
+            def log_event_loop_pauses(self, *args, **kwargs) -> None:  # pragma: no cover
+                return nullcontext()
+
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
 
             def instrument(self, msg_template=None, **kwargs):
@@ -232,6 +235,7 @@ except ImportError:
         with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
         force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
         log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
+        log_event_loop_pauses = DEFAULT_LOGFIRE_INSTANCE.log_event_loop_pauses
         install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
         instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
         instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi

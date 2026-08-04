@@ -953,6 +953,42 @@ class Logfire:
         """
         return async_.log_slow_callbacks(self, slow_duration)
 
+    def log_event_loop_pauses(
+        self, slow_duration: float = 0.1, check_interval: float | None = None
+    ) -> AbstractContextManager[None]:
+        """Log a warning whenever the current event loop is unresponsive for too long.
+
+        This must be called while the event loop to monitor is running.
+        It schedules a repeating heartbeat callback on the loop and starts a daemon thread which
+        watches it. When the heartbeat falls more than `slow_duration` behind schedule, the thread
+        samples the loop thread's stack to capture what is blocking it, and once the loop recovers
+        it logs a warning with the measured pause duration and the sampled stack.
+
+        Compared to `log_slow_async_callbacks` this works with any event loop implementation.
+        In particular, `log_slow_async_callbacks` silently detects nothing under uvloop
+        (which never calls the patched `asyncio.events.Handle._run`), whereas this works there too.
+        It also catches pauses which aren't caused by a single slow callback, such as garbage
+        collection or other threads holding the GIL. On the other hand, the blame it assigns is
+        a best-effort sample taken while the loop is blocked rather than exact callback timings,
+        so on a stock asyncio event loop `log_slow_async_callbacks` gives better attribution.
+
+        Only the loop running in the calling thread is monitored, and a pause is only logged once
+        the loop has recovered from it, so a permanently blocked loop logs nothing.
+
+        Args:
+            slow_duration: the threshold in seconds for when a pause is considered slow.
+            check_interval: how often (in seconds) the heartbeat runs and the watchdog thread checks it.
+                Defaults to a quarter of `slow_duration`. Measured pause durations are accurate
+                to within roughly this value.
+
+        Returns:
+            A context manager that stops the monitoring when exited.
+                Calling this method will immediately start monitoring
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
+        """
+        return async_.log_event_loop_pauses(self, slow_duration, check_interval)
+
     def install_auto_tracing(
         self,
         modules: Sequence[str] | Callable[[AutoTraceModule], bool],
