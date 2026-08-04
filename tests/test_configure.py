@@ -5,6 +5,7 @@ import getpass
 import json
 import os
 import pickle
+import signal
 import subprocess
 import sys
 import threading
@@ -1253,7 +1254,11 @@ def test_register_at_fork_resource_updates(
     assert isinstance(meter_provider, config_module.MeterProvider)
     assert isinstance(logger_provider, config_module.SDKLoggerProvider)
 
-    if not use_otel_resource_updaters:
+    otel_handles_resource_fork = use_otel_resource_updaters and all(
+        hasattr(provider, '_handle_fork') and hasattr(provider, '_update_resource')
+        for provider in (tracer_provider, meter_provider, logger_provider)
+    )
+    if not otel_handles_resource_fork:
         monkeypatch.delattr(config_module.SDKTracerProvider, '_update_resource', raising=False)
         monkeypatch.delattr(config_module.MeterProvider, '_update_resource', raising=False)
         monkeypatch.delattr(config_module.SDKLoggerProvider, '_update_resource', raising=False)
@@ -1330,6 +1335,13 @@ def test_register_at_fork_resource_updates(
 def test_resource_process_pid_updated_after_fork(
     exporter: TestExporter, logs_exporter: TestLogExporter, metrics_reader: InMemoryMetricReader
 ) -> None:
+    tracer_provider = GLOBAL_CONFIG.get_tracer_provider().provider
+    meter_provider = GLOBAL_CONFIG.get_meter_provider().provider
+    logger_provider = GLOBAL_CONFIG.get_logger_provider().provider
+    assert isinstance(tracer_provider, config_module.SDKTracerProvider)
+    assert isinstance(meter_provider, config_module.MeterProvider)
+    assert isinstance(logger_provider, config_module.SDKLoggerProvider)
+
     counter = logfire.metric_counter('fork.counter')
     counter.add(1)
     logger = get_logger('fork.logger')
@@ -1346,9 +1358,30 @@ def test_resource_process_pid_updated_after_fork(
     logs_exporter.clear()
 
     read_fd, write_fd = os.pipe()
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
-        child_pid = os.fork()
+    provider_locks = []
+    if all(
+        hasattr(provider, '_handle_fork') and hasattr(provider, '_update_resource')
+        for provider in (tracer_provider, meter_provider, logger_provider)
+    ):
+        provider_locks = [
+            tracer_provider._tracers_lock,  # pyright: ignore[reportPrivateUsage]
+            meter_provider._meter_lock,  # pyright: ignore[reportPrivateUsage]
+            logger_provider._active_loggers_lock,  # pyright: ignore[reportPrivateUsage]
+        ]
+        for lock in provider_locks:
+            lock.acquire()
+
+    parent_pid = os.getpid()
+    signal.alarm(10)
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+            child_pid = os.fork()
+    finally:
+        signal.alarm(0)
+        if os.getpid() == parent_pid:
+            for lock in provider_locks:
+                lock.release()
 
     if child_pid == 0:  # pragma: no cover
         os.close(read_fd)

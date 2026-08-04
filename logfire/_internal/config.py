@@ -982,9 +982,14 @@ def _register_at_fork_resource_updates(
 
             pid_resource = Resource({'process.pid': os.getpid()})
 
+            # This callback is registered before the OpenTelemetry providers' callbacks, so reset their locks before
+            # calling their lock-taking resource updaters. Their later callbacks can safely repeat the reset.
             tracer_provider = proxy_tracer_provider.provider
             if isinstance(tracer_provider, SDKTracerProvider):
-                if update_resource := getattr(tracer_provider, '_update_resource', None):
+                handle_fork = getattr(tracer_provider, '_handle_fork', None)
+                update_resource = getattr(tracer_provider, '_update_resource', None)
+                if handle_fork and update_resource:
+                    handle_fork()
                     update_resource(pid_resource)
                 else:
                     new_resource = tracer_provider.resource.merge(pid_resource)
@@ -995,7 +1000,10 @@ def _register_at_fork_resource_updates(
 
             meter_provider = proxy_meter_provider.provider
             if isinstance(meter_provider, MeterProvider):
-                if update_resource := getattr(meter_provider, '_update_resource', None):
+                handle_fork = getattr(meter_provider, '_handle_fork', None)
+                update_resource = getattr(meter_provider, '_update_resource', None)
+                if handle_fork and update_resource:
+                    handle_fork()
                     update_resource(pid_resource)
                 else:
                     meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
@@ -1004,7 +1012,10 @@ def _register_at_fork_resource_updates(
 
             logger_provider = proxy_logger_provider.provider
             if isinstance(logger_provider, SDKLoggerProvider):
-                if update_resource := getattr(logger_provider, '_update_resource', None):
+                handle_fork = getattr(logger_provider, '_handle_fork', None)
+                update_resource = getattr(logger_provider, '_update_resource', None)
+                if handle_fork and update_resource:
+                    handle_fork()
                     update_resource(pid_resource)
                 else:
                     new_resource = logger_provider.resource.merge(pid_resource)
