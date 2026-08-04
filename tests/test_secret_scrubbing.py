@@ -14,8 +14,75 @@ from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.scrubbing import NoopScrubber
+from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
 from logfire.testing import TestExporter, TestLogExporter
+
+DEFAULT_PATTERN_EXAMPLES = {
+    'password': 'has_password_value',
+    'passwd': 'has_passwd_value',
+    'mysql_pwd': 'has_mysql_pwd_value',
+    'secret': 'has_secret_value',
+    r'auth(?!ors?\b)': 'has_authorization_value',
+    'credential': 'has_credential_value',
+    'private[._ -]?key': 'has_private-key_value',
+    'api[._ -]?key': 'has_api.key_value',
+    'session': 'has_session_value',
+    'cookie': 'has_cookie_value',
+    'social[._ -]?security': 'has_social security_value',
+    'credit[._ -]?card': 'has_credit_card_value',
+    'logfire[._ -]?token': 'has_logfire-token_value',
+    r'pylf_v\d+_': 'has_pylf_v12_token',
+    r'(?:\b|_)csrf(?:\b|_)': 'has csrf value',
+    r'(?:\b|_)xsrf(?:\b|_)': 'has xsrf value',
+    r'(?:\b|_)jwt(?:\b|_)': 'has jwt value',
+    r'(?:\b|_)ssn(?:\b|_)': 'has ssn value',
+}
+
+
+def test_optimized_default_patterns_match_naive_pattern():
+    """The optimized prefilter must not change which default pattern matches first."""
+    assert DEFAULT_PATTERN_EXAMPLES.keys() == set(DEFAULT_PATTERNS)
+    naive_pattern = re.compile('|'.join(DEFAULT_PATTERNS), re.IGNORECASE | re.DOTALL)
+
+    for value in [*DEFAULT_PATTERN_EXAMPLES.values(), 'has ſecret value', 'has credentıal value']:
+        expected = naive_pattern.search(value)
+        assert expected is not None
+
+        scrub_matches: list[logfire.ScrubMatch] = []
+
+        def callback(match: logfire.ScrubMatch):
+            scrub_matches.append(match)
+            return match.value
+
+        result, scrubbed_notes = Scrubber(None, callback).scrub_value(('attributes', 'value'), value)
+
+        assert result == value
+        assert scrubbed_notes == []
+        assert len(scrub_matches) == 1
+        actual = scrub_matches[0].pattern_match
+        assert (actual.span(), actual.group(0)) == (expected.span(), expected.group(0))
+
+
+@pytest.mark.parametrize(
+    ('extra_pattern', 'value', 'expected_match'),
+    [
+        ('custom', 'custom before password', 'custom'),
+        ('pass', 'passwords', 'password'),
+        (r'\d+', '123 before password', '123'),
+    ],
+)
+def test_optimized_default_patterns_preserve_extra_pattern_order(extra_pattern: str, value: str, expected_match: str):
+    matches: list[str] = []
+
+    def callback(match: logfire.ScrubMatch):
+        matches.append(match.pattern_match.group(0))
+        return match.value
+
+    result, scrubbed_notes = Scrubber([extra_pattern], callback).scrub_value(('attributes', 'value'), value)
+
+    assert result == value
+    assert scrubbed_notes == []
+    assert matches == [expected_match]
 
 
 def test_scrub_attribute(exporter: TestExporter):
