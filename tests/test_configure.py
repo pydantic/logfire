@@ -8,6 +8,7 @@ import pickle
 import subprocess
 import sys
 import threading
+import warnings
 from collections.abc import Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
@@ -1223,6 +1224,44 @@ def test_host_and_os_resource_attributes_populated_by_default(
     assert resource_attrs['os.version'] == (
         platform.version() if platform.system().lower() in ('windows', 'sunos') else platform.release()
     )
+
+
+@pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
+def test_metric_resource_process_pid_updated_after_fork(metrics_reader: InMemoryMetricReader) -> None:
+    counter = logfire.metric_counter('fork.counter')
+    counter.add(1)
+
+    metrics_data = metrics_reader.get_metrics_data()
+    assert metrics_data is not None
+    assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == os.getpid()
+
+    read_fd, write_fd = os.pipe()
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+        child_pid = os.fork()
+
+    if child_pid == 0:  # pragma: no cover
+        os.close(read_fd)
+        try:
+            counter.add(1)
+            metrics_data = metrics_reader.get_metrics_data()
+            assert metrics_data is not None
+            result = str(metrics_data.resource_metrics[0].resource.attributes['process.pid'])
+            exit_code = 0
+        except BaseException as error:
+            result = repr(error)
+            exit_code = 1
+        os.write(write_fd, result.encode())
+        os.close(write_fd)
+        os._exit(exit_code)
+
+    os.close(write_fd)
+    with os.fdopen(read_fd) as read_file:
+        result = read_file.read()
+    _, status = os.waitpid(child_pid, 0)
+
+    assert os.waitstatus_to_exitcode(status) == 0, result
+    assert int(result) == child_pid
 
 
 def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(

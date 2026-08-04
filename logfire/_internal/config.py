@@ -1452,9 +1452,13 @@ class LogfireConfig(_LogfireConfigData):
 
                 def fix_pid():  # pragma: no cover
                     with handle_internal_errors:
-                        new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
+                        pid_resource = Resource({'process.pid': os.getpid()})
+                        new_resource = resource.merge(pid_resource)
                         tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                        meter_provider._resource = new_resource  # pyright: ignore[reportAttributeAccessIssue]
+                        if isinstance(meter_provider, MeterProvider):
+                            meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                                pid_resource
+                            )
                         logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
 
                 os.register_at_fork(after_in_child=fix_pid)
