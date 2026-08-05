@@ -44,7 +44,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     ToolCallPart,
     ToolCallResponsePart,
 )
-from logfire._internal.stack_info import get_user_stack_info
+from logfire._internal.stack_info import STACK_INFO_KEYS, get_user_stack_info
 from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
@@ -199,9 +199,12 @@ async def pre_tool_use_hook(
             span_name = f'execute_tool {tool_name}'
             span = state.logfire.span(span_name)
             # Replace the code attributes inferred from this hook task's stack with the
-            # ones captured at receive_response time; set directly on the OTLP attributes
-            # so they stay out of logfire.json_schema like other code attributes.
+            # ones captured at receive_response time (dropping them entirely if no user
+            # frame was found then); set directly on the OTLP attributes so they stay out
+            # of logfire.json_schema like other code attributes.
             # The cast is needed because a TypedDict doesn't satisfy Mapping's value variance.
+            for key in STACK_INFO_KEYS:
+                span._otlp_attributes.pop(key, None)  # pyright: ignore[reportPrivateUsage]
             span._otlp_attributes.update(cast('dict[str, str | int]', state.code_attrs))  # pyright: ignore[reportPrivateUsage]
             span.set_attributes(
                 {
