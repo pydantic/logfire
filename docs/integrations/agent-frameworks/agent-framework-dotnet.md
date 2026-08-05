@@ -21,8 +21,9 @@ dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol
 
 ## Usage
 
-Enable OpenTelemetry on the chat client and/or the agent with a shared `sourceName`, register that source, and
-export over OTLP to **Logfire**:
+Enable OpenTelemetry on the agent, register the same `sourceName` with the OpenTelemetry provider, and export
+over OTLP to **Logfire**. For a `ChatClientAgent`, the agent integration also instruments its underlying chat
+client, so you do not need to wrap the chat client separately:
 
 ```csharp title="Program.cs"
 using System.ClientModel;
@@ -51,14 +52,12 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     })
     .Build();
 
-// Build an instrumented IChatClient from the OpenAI client.
+// Build the IChatClient used by the real agent. The agent's OpenTelemetry
+// integration below automatically instruments this client too.
 IChatClient chatClient = new OpenAIClient(
         new ApiKeyCredential(Environment.GetEnvironmentVariable("OPENAI_API_KEY")!))
     .GetChatClient("gpt-4o")
-    .AsIChatClient()
-    .AsBuilder()
-    .UseOpenTelemetry(sourceName: SourceName, configure: cfg => cfg.EnableSensitiveData = true)
-    .Build();
+    .AsIChatClient();
 
 int toolCalls = 0;
 AIAgent agent = new ChatClientAgent(
@@ -100,10 +99,11 @@ Protocol metrics exporter.
     - **`sourceName` must match `AddSource`.** If you omit `sourceName`, register the defaults instead:
       `AddSource("Experimental.Microsoft.Agents.AI")` (agent) and
       `AddSource("Experimental.Microsoft.Extensions.AI")` (chat client).
-    - **Don't double-instrument unnecessarily.** Enabling OTel on **both** the chat client and the agent (with
-      `EnableSensitiveData`) duplicates prompt/response content across `chat` and `invoke_agent` spans.
-      Instrument one layer if duplication is a problem.
-    - **`EnableSensitiveData = true`** captures prompts, responses, and tool args — dev/test only.
+    - **Let the agent instrument its chat client.** Current `OpenTelemetryAgent` automatically adds the inner
+      `chat` and `execute_tool` spans for a `ChatClientAgent`. Wrapping the chat client yourself is unnecessary.
+    - **`EnableSensitiveData = true`** captures prompts, responses, function arguments, and function results on
+      the native `invoke_agent` and `chat` spans. This data may include personally identifiable information
+      (PII); enable it only for workloads whose telemetry destination and retention policy you trust.
 
 !!! tip "Env-var alternative"
     Set `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` (base URL),

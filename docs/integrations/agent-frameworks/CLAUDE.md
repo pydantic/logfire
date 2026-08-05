@@ -24,6 +24,9 @@ product behavior, not illustrative pseudocode.
 - Test the sample against current package releases using the exact installation and run commands in the guide.
 - Confirm the native agent completed its tool call; process exit success or a model response alone is insufficient.
 - Confirm telemetry was exported and inspect the resulting span names, attributes, and parent-child relationships.
+- When a guide promises prompts, responses, or tool content, use the framework's documented content-capture option
+  and verify the emitted attributes. Do not copy application inputs or outputs onto a manual span to satisfy this
+  check. Distinguish content recorded on spans from content emitted only as span events or log records.
 - Check TypeScript module mode and types, Python imports, Go compilation, Rust compilation, and .NET compilation as
   applicable. Pin versions only when a current API genuinely requires it, and explain why.
 - Keep secrets in environment variables. Never commit tokens, credentials, copied authorization headers, or real

@@ -18,21 +18,23 @@ pip install logfire strands-agents strands-agents-tools
 
 ## Usage
 
-Call [`logfire.configure()`][logfire.configure] **before** you construct your `Agent`:
+Set Strands' semantic-convention options in your terminal before starting the application. The first option
+selects the latest generative AI attributes; the second records messages as attributes on their spans instead
+of separate span events:
+
+```bash
+export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental,gen_ai_span_attributes_only
+```
+
+Then call [`logfire.configure()`][logfire.configure] **before** you construct your `Agent`:
 
 ```python skip-run="true" skip-reason="external-connection"
-import os
-
 from strands import Agent, tool
 
 import logfire
 
 # Logfire registers itself as the global OTel tracer provider.
 logfire.configure()
-
-# Opt in to the latest GenAI semantic conventions for rich prompt/tool/token rendering.
-os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'gen_ai_latest_experimental'
-
 
 @tool
 def weather(city: str) -> str:
@@ -51,7 +53,17 @@ print(result)
 ```
 
 You'll see a trace in **Logfire** with the agent invocation, the model (LLM) call, and the `weather` tool call
-as a nested timeline.
+as a nested timeline. The model and agent spans contain standard `gen_ai.input.messages` and
+`gen_ai.output.messages` attributes for the conversation.
+
+!!! warning "Message content is sensitive"
+    By default, Strands records message and system-prompt content without redaction. That data can include
+    personally identifiable information (PII) and will be sent to **Logfire**. For workloads that must not send
+    message content, add an empty native allowlist to redact all sensitive attributes:
+
+    ```bash
+    export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental,gen_ai_span_attributes_only,gen_ai_unredacted_attributes=
+    ```
 
 !!! warning
     Do **not** call `StrandsTelemetry().setup_otlp_exporter()` when using **Logfire**. Per the Strands docs,

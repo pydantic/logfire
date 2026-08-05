@@ -95,6 +95,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .agent("gpt-4o-mini")
         .name("Incident agent")
         .preamble("Use the supplied tool to verify incidents before answering.")
+        // Native Rig opt-in for prompt, response, and tool content on GenAI spans.
+        .record_content_telemetry(true)
         .default_max_turns(3)
         .tool(LookupIncident(tool_calls.clone()))
         .build();
@@ -116,13 +118,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 Run `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> cargo run` in your terminal. The program fails unless the
 native Rig agent executes `lookup_incident`. In Logfire, the trace contains Rig's agent, completion, and tool
-spans; the Logfire SDK does not add a synthetic agent wrapper.
+spans. Because `record_content_telemetry(true)` is enabled, the completion spans also contain
+`gen_ai.input.messages` and `gen_ai.output.messages`, and tool spans contain the arguments and results. The
+Logfire SDK does not add a synthetic agent wrapper.
 
 For an EU-region project, use its EU write token. The Logfire Rust SDK infers the data region from the token.
 
 !!! warning "Common pitfalls"
     - **Configure before constructing the agent.** Rig uses `tracing`; spans emitted before a subscriber is
       installed are lost.
+    - **Content telemetry defaults to off.** `.record_content_telemetry(true)` is Rig's native opt-in for prompts,
+      responses, retrieved context, tool arguments, and tool results. This data may include personally
+      identifiable information (PII), and larger attributes can increase storage costs. Leave it off unless the
+      telemetry destination and retention policy are appropriate for that content.
     - **Flush before exit.** Keep the shutdown guard alive and call `guard.shutdown()` in short-lived programs.
     - **Use compatible crate generations.** The example was compiled with `rig-agent`/`rig-core` 0.41 and
       `logfire` 0.11. Rig split its agent APIs into `rig-agent`; examples written only against older `rig-core`

@@ -18,7 +18,15 @@ pip install logfire google-adk
 
 ## Usage
 
-Call [`logfire.configure()`][logfire.configure] **before** you run the agent. That's the entire integration:
+First, opt in to the latest generative AI semantic conventions and tell ADK to put message content directly on
+model spans. Run these commands in your terminal before starting the application:
+
+```bash
+export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+export OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_ONLY
+```
+
+Then call [`logfire.configure()`][logfire.configure] **before** you run the agent:
 
 ```python skip-run="true" skip-reason="external-connection"
 import asyncio
@@ -63,14 +71,19 @@ You'll see a trace in **Logfire** with the agent run, the underlying LLM (Gemini
 tool call nested as a timeline.
 
 !!! note "Capturing message content"
-    ADK includes prompt and response text in spans by default. That content is therefore sent to Logfire and
-    may contain sensitive data. To omit it, set `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` in your terminal
-    or deployment environment before starting the application. You can separately opt in to the latest
-    generative AI semantic conventions:
+    `SPAN_ONLY` records prompts, responses, tool calls, and tool results in the standard
+    `gen_ai.input.messages` and `gen_ai.output.messages` span attributes. Use `SPAN_AND_EVENT` instead if you
+    also need OpenTelemetry log records containing that content. Do not use the older boolean value `true`:
+    current ADK versions require one of `NO_CONTENT`, `EVENT_ONLY`, `SPAN_ONLY`, or `SPAN_AND_EVENT` to control
+    where standard message content is recorded.
+
+    Message content may contain personally identifiable information (PII). To omit it from both the standard
+    attributes and ADK's legacy span attributes, set both controls before starting the application:
 
     ```bash
     export ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false
     export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
+    export OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=NO_CONTENT
     python app.py
     ```
 
