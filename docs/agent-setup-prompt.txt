@@ -1,0 +1,34 @@
+Note for the agent: This prompt was copied from the Logfire docs by the user. The user may not have read it. Briefly tell the user what you plan to do before starting.
+
+Set up Pydantic Logfire in this project so it sends traces to Logfire.
+
+Before any code changes, create a new git branch.
+
+If the logfire-instrumentation skill is available in your agent environment, read it now for detailed per-language instrumentation steps. For a Python project, find it in the installed package with:
+  cat "$(python -c 'import pathlib, logfire; print(pathlib.Path(logfire.__file__).parent / ".agents/skills/logfire-instrumentation/SKILL.md")')"
+Fetch reference material as plain text rather than opening HTML documentation URLs in browser tools.
+
+1. Install the Logfire SDK and initialize it at startup (logfire.configure() for Python and JS; OpenTelemetry for other languages). Instrument the web framework plus any LLM and HTTP clients. Do not refactor unrelated code.
+
+2. Authenticate. Keep any token out of replies and committed files.
+   - If `LOGFIRE_TOKEN` is already set, use it as-is.
+   - Preferred: ask the user to run `uvx logfire auth` in their own terminal. It opens a browser tab on their machine where they sign in or create a free account (no credit card required). Wait for the user to confirm before continuing.
+   - If you run it instead: `uvx logfire auth` opens a browser on the user's machine, not yours. Do not open your own browser. Poll `~/.logfire` every 5 seconds until credentials appear, then continue.
+   - For non-interactive shells or non-Python projects: ask the user to copy a write token from Project > Settings > Write tokens and set it as `LOGFIRE_TOKEN` in a gitignored `.env`. Never commit it or print it in a reply.
+   - Do not create a new Logfire project without asking the user which project to use.
+
+3. Set up the Logfire MCP server before verifying traces, so you can query traces through it:
+   - Claude Code: run `claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp`, then authenticate with /mcp.
+   - Cursor: create `.cursor/mcp.json` with `{"mcpServers":{"logfire":{"type":"http","url":"https://logfire-us.pydantic.dev/mcp"}}}`.
+   - Other agents: see https://pydantic.dev/docs/logfire/guides/mcp-server/.
+   Use the EU endpoint (logfire-eu.pydantic.dev/mcp) for EU-region data.
+
+4. Run the app to send a trace. Confirm it arrived using the MCP server. Do not verify by reading SDK internals or generating a read token; use the MCP server. Once confirmed, share the Logfire Live view link on its own line and in bold.
+
+5. Offer these next steps and do the ones the user wants:
+   - Dashboards: the Logfire Dashboards page (https://pydantic.dev/docs/logfire/observe/dashboards) lets you build charts and set alerts.
+   - Auto-tracing (Python): run `logfire inspect` to find uninstrumented dependencies and add them.
+   - System metrics: add logfire.instrument_system_metrics() to send CPU, memory, and disk data, visible in the Hosts page (https://pydantic.dev/docs/logfire/observe/hosts).
+   - Service metadata: set a meaningful service_name in logfire.configure() to unlock per-service RED metrics in the Services page (https://pydantic.dev/docs/logfire/observe/services).
+   - Manual tracing (optional): add logfire.span() and logfire.info() for operations not covered by auto-instrumentation.
+   - Logfire skills: install the Logfire agent skills for your environment and follow the logfire-instrumentation skill bundled in the package (.agents/skills/logfire-instrumentation/).
