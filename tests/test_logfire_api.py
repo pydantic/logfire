@@ -13,6 +13,7 @@ import pytest
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from pydantic import __version__ as pydantic_version
 
+from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
@@ -47,14 +48,14 @@ def uninstrument_global_instrumentors():
             (Server, '_handle_request'),
         ]
     saved = [(cls, name, getattr(cls, name)) for cls, name in mcp_patched]
-    # install_auto_tracing(modules=['all']) adds an import hook that would rewrite
-    # every module imported later in this process; drop it with any other finders
-    # added during the test.
-    original_meta_path = list(sys.meta_path)
 
     yield
 
-    sys.meta_path[:] = original_meta_path
+    # install_auto_tracing() adds an import hook that would stay active for every
+    # module imported later in this process; drop it. Only LogfireFinder is removed:
+    # imports during the test add unrelated finders (e.g. six._SixMetaPathImporter)
+    # that later imports still need.
+    sys.meta_path[:] = [finder for finder in sys.meta_path if not isinstance(finder, LogfireFinder)]
     for cls, name, value in saved:
         setattr(cls, name, value)
 
