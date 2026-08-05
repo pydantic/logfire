@@ -100,7 +100,8 @@ Protocol metrics exporter.
       `AddSource("Experimental.Microsoft.Agents.AI")` (agent) and
       `AddSource("Experimental.Microsoft.Extensions.AI")` (chat client).
     - **Let the agent instrument its chat client.** Current `OpenTelemetryAgent` automatically adds the inner
-      `chat` and `execute_tool` spans for a `ChatClientAgent`. Wrapping the chat client yourself is unnecessary.
+      `chat` and `execute_tool` spans for a `ChatClientAgent`. The inner client uses the same `sourceName`, and
+      changes to `EnableSensitiveData` are propagated to it. Wrapping the chat client yourself is unnecessary.
     - **`EnableSensitiveData = true`** captures prompts, responses, function arguments, and function results on
       the native `invoke_agent` and `chat` spans. This data may include personally identifiable information
       (PII); enable it only for workloads whose telemetry destination and retention policy you trust.

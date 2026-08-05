@@ -73,9 +73,9 @@ tool call nested as a timeline.
 !!! note "Capturing message content"
     `SPAN_ONLY` records prompts, responses, tool calls, and tool results in the standard
     `gen_ai.input.messages` and `gen_ai.output.messages` span attributes. Use `SPAN_AND_EVENT` instead if you
-    also need OpenTelemetry log records containing that content. Do not use the older boolean value `true`:
-    current ADK versions require one of `NO_CONTENT`, `EVENT_ONLY`, `SPAN_ONLY`, or `SPAN_AND_EVENT` to control
-    where standard message content is recorded.
+    also need OpenTelemetry log records containing that content. ADK accepts the older boolean value `true` for
+    compatibility, but treats it as `EVENT_ONLY`; it does not put the standard messages on spans. This is
+    specific to ADK. The Google Gen AI SDK integration interprets the same environment variable independently.
 
     Message content may contain personally identifiable information (PII). To omit it from both the standard
     attributes and ADK's legacy span attributes, set both controls before starting the application:
