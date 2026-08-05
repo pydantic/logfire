@@ -72,7 +72,7 @@ For more detailed information, you can check the
 Run the following commands to add and authenticate the Logfire MCP server:
 
 ```bash
-claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp
+claude mcp add --transport http logfire https://logfire-us.pydantic.dev/mcp
 claude mcp login logfire
 ```
 
