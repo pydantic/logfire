@@ -10,6 +10,9 @@ from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
+from mcp.client.session import ClientSession
+from mcp.server import Server
+from mcp.shared.session import BaseSession
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from pydantic import __version__ as pydantic_version
 
@@ -24,11 +27,27 @@ def uninstrument_global_instrumentors():
 
     `test_runtime`'s `with_logfire` variant really calls methods like
     `instrument_requests()`, which patch shared libraries via `BaseInstrumentor`
-    singletons. Left instrumented, they poison tests that run later in the same
-    process, e.g. by making `logfire.instrument_requests()` a warning no-op bound
-    to this test's long-gone configuration.
+    singletons, and `instrument_mcp()`, which wraps methods of MCP session classes
+    without any already-instrumented guard. Left in place, these poison tests that
+    run later in the same process: `logfire.instrument_requests()` becomes a
+    warning no-op bound to this test's long-gone configuration, and every MCP
+    span gets nested in a duplicate span from the leaked wrapper.
     """
+    # The attributes instrument_mcp patches, saved here and restored afterwards.
+    mcp_patched = [
+        (BaseSession, 'send_request'),
+        (BaseSession, 'send_notification'),
+        (ClientSession, '_received_notification'),
+        (ClientSession, '_received_request'),
+        (Server, '_handle_request'),
+    ]
+    saved = [(cls, name, getattr(cls, name)) for cls, name in mcp_patched]
+
     yield
+
+    for cls, name, value in saved:
+        setattr(cls, name, value)
+
     to_visit = [BaseInstrumentor]
     while to_visit:
         cls = to_visit.pop()
