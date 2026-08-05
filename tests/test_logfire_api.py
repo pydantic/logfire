@@ -47,9 +47,14 @@ def uninstrument_global_instrumentors():
             (Server, '_handle_request'),
         ]
     saved = [(cls, name, getattr(cls, name)) for cls, name in mcp_patched]
+    # install_auto_tracing(modules=['all']) adds an import hook that would rewrite
+    # every module imported later in this process; drop it with any other finders
+    # added during the test.
+    original_meta_path = list(sys.meta_path)
 
     yield
 
+    sys.meta_path[:] = original_meta_path
     for cls, name, value in saved:
         setattr(cls, name, value)
 
@@ -111,7 +116,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('Logfire')
 
     assert hasattr(logfire_api, 'configure')
-    logfire_api.configure(send_to_logfire=False, console=False)
+    # inspect_arguments=False: f-string introspection has dedicated coverage elsewhere,
+    # and `executing` can sporadically fail to match a node under a heavily loaded machine.
+    logfire_api.configure(send_to_logfire=False, console=False, inspect_arguments=False)
     logfire__all__.remove('configure')
 
     assert hasattr(logfire_api, 'VERSION')
