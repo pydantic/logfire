@@ -214,6 +214,7 @@ otel_docs = {
     'integrations/web-frameworks/wsgi.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html',
     'integrations/web-frameworks/aiohttp.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html',
     'integrations/http-clients/httpx.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html',
+    'integrations/http-clients/httpx2.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html',
     'integrations/http-clients/requests.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html',
     'integrations/http-clients/aiohttp.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html',
 }
