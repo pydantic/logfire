@@ -9,6 +9,7 @@ from typing_extensions import Self
 
 HOME_LOGFIRE: Incomplete
 DEFAULT_FILE: Incomplete
+LOGFIRE_TOKEN_REGION_PATTERN: Incomplete
 PYDANTIC_LOGFIRE_TOKEN_PATTERN: Incomplete
 
 class _RegionData(TypedDict):
