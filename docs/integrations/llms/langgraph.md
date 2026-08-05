@@ -15,6 +15,11 @@ with no exporter, endpoint, or API key configuration.
     This is the same mechanism described on the [LangChain](./langchain.md) page. This page focuses on building
     a graph with `StateGraph`; the env vars and setup are identical.
 
+!!! note "Prompts and responses are sent to Logfire"
+    LangSmith records prompts, model responses, and tool inputs as span attributes. They can include personal or
+    proprietary data and are sent to Logfire when OpenTelemetry export is enabled. Use
+    [scrubbing](../../how-to-guides/scrubbing.md) to redact sensitive values before they leave your machine.
+
 ## Installation
 
 ```bash
