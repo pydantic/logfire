@@ -10,9 +10,6 @@ from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
-from mcp.client.session import ClientSession
-from mcp.server import Server
-from mcp.shared.session import BaseSession
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from pydantic import __version__ as pydantic_version
 
@@ -34,13 +31,21 @@ def uninstrument_global_instrumentors():
     span gets nested in a duplicate span from the leaked wrapper.
     """
     # The attributes instrument_mcp patches, saved here and restored afterwards.
-    mcp_patched = [
-        (BaseSession, 'send_request'),
-        (BaseSession, 'send_notification'),
-        (ClientSession, '_received_notification'),
-        (ClientSession, '_received_request'),
-        (Server, '_handle_request'),
-    ]
+    # mcp itself is unimportable on old pydantic versions, matching test_runtime's guard.
+    try:
+        from mcp.client.session import ClientSession
+        from mcp.server import Server
+        from mcp.shared.session import BaseSession
+    except ImportError:
+        mcp_patched = []
+    else:
+        mcp_patched = [
+            (BaseSession, 'send_request'),
+            (BaseSession, 'send_notification'),
+            (ClientSession, '_received_notification'),
+            (ClientSession, '_received_request'),
+            (Server, '_handle_request'),
+        ]
     saved = [(cls, name, getattr(cls, name)) for cls, name in mcp_patched]
 
     yield
