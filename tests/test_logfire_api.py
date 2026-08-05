@@ -10,11 +10,39 @@ from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
+
+
+@pytest.fixture(autouse=True)
+def uninstrument_global_instrumentors():
+    """Undo global instrumentation applied by calling every `instrument_*` method.
+
+    `test_runtime`'s `with_logfire` variant really calls methods like
+    `instrument_requests()`, which patch shared libraries via `BaseInstrumentor`
+    singletons. Left instrumented, they poison tests that run later in the same
+    process, e.g. by making `logfire.instrument_requests()` a warning no-op bound
+    to this test's long-gone configuration.
+    """
+    yield
+    to_visit = [BaseInstrumentor]
+    while to_visit:
+        cls = to_visit.pop()
+        to_visit.extend(cls.__subclasses__())
+        # The singleton is stored on each subclass that has been instantiated.
+        instance = cls.__dict__.get('_instance')
+        if isinstance(instance, BaseInstrumentor) and instance.is_instrumented_by_opentelemetry:
+            try:
+                instance.uninstrument()
+            except Exception:
+                # Some instrumentors can't uninstrument what the test set up, e.g.
+                # AwsLambdaInstrumentor given a MagicMock handler is marked instrumented
+                # without the internal state uninstrument expects.
+                pass
 
 
 def logfire_dunder_all() -> set[str]:
