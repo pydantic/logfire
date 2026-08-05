@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, cast
 
+import anyio
 import claude_agent_sdk
 from claude_agent_sdk import (
     AssistantMessage,
@@ -43,6 +44,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     ToolCallPart,
     ToolCallResponsePart,
 )
+from logfire._internal.stack_info import get_user_stack_info
 from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
@@ -178,6 +180,8 @@ async def pre_tool_use_hook(
         if state is None:
             return {}
 
+        await state.wait_for_tool_announcement(tool_use_id)
+
         tool_name = str(input_data.get('tool_name', 'unknown_tool'))
         tool_input = input_data.get('tool_input', {})
         # Close the current chat span so it doesn't overlap with tool execution.
@@ -194,6 +198,11 @@ async def pre_tool_use_hook(
         try:
             span_name = f'execute_tool {tool_name}'
             span = state.logfire.span(span_name)
+            # Replace the code attributes inferred from this hook task's stack with the
+            # ones captured at receive_response time; set directly on the OTLP attributes
+            # so they stay out of logfire.json_schema like other code attributes.
+            # The cast is needed because a TypedDict doesn't satisfy Mapping's value variance.
+            span._otlp_attributes.update(cast('dict[str, str | int]', state.code_attrs))  # pyright: ignore[reportPrivateUsage]
             span.set_attributes(
                 {
                     OPERATION_NAME: 'execute_tool',
@@ -443,6 +452,28 @@ class _ConversationState:
         self._current_output_parts: list[MessagePart] = []
         self._system_instructions = system_instructions
         self.model: str | None = None
+        # Tool call IDs from assistant messages that have been applied to this state.
+        self.announced_tool_ids: set[str] = set()
+        self._tool_announced = anyio.Event()
+        self.tool_announcement_timeout = 1.0
+        # Code attributes for spans created in hook tasks, whose own stacks have no
+        # meaningful user frame (the task is rooted in the event loop, so the first
+        # non-library frame varies with how the process was started, if one exists
+        # at all). Capture the user's frame here, where it's still on the stack.
+        self.code_attrs = get_user_stack_info()
+
+    async def wait_for_tool_announcement(self, tool_use_id: str) -> None:
+        """Wait until the assistant message announcing `tool_use_id` has been handled.
+
+        The CLI sends the assistant message (containing the `tool_use` block) before it
+        invokes the PreToolUse hook, but hooks run in separate anyio tasks, so the hook
+        can be scheduled before the main task has applied that message to this state.
+        Closing the chat span at that point would lose its output and model attributes.
+        The timeout is a safety valve for tool calls that are never announced.
+        """
+        with anyio.move_on_after(self.tool_announcement_timeout):
+            while tool_use_id not in self.announced_tool_ids:
+                await self._tool_announced.wait()
 
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: Any) -> None:
         """Record a tool result to include in the next chat span's input messages."""
@@ -492,10 +523,20 @@ class _ConversationState:
 
     def handle_assistant_message(self, message: AssistantMessage) -> None:
         """Handle AssistantMessage: add output and usage to the current chat span."""
+        content = getattr(message, 'content', [])
+
+        new_tool_ids = {block.id for block in content if isinstance(block, ToolUseBlock)}
+        if new_tool_ids:
+            self.announced_tool_ids.update(new_tool_ids)
+            # Wake any PreToolUse hooks waiting for these tool calls, and replace the
+            # event so future waiters block until the next announcement.
+            event = self._tool_announced
+            self._tool_announced = anyio.Event()
+            event.set()
+
         if self._current_span is None:  # pragma: no cover
             return
 
-        content = getattr(message, 'content', [])
         output_messages = _content_blocks_to_output_messages(content)
         new_parts = output_messages[0]['parts'] if output_messages else []
 
