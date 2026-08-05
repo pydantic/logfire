@@ -278,7 +278,7 @@ def _changed_default_msg_template(_helper: InstrumentMessageTemplateHelper) -> s
     return 'changed'
 
 
-def test_instrument_default_msg_template_resolved_and_cached_on_first_call(
+def test_instrument_default_msg_template_cached_until_reconfigured(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ) -> None:
     @logfire.instrument()
@@ -289,9 +289,11 @@ def test_instrument_default_msg_template_resolved_and_cached_on_first_call(
     logfire.configure(**config_kwargs)
     assert foo(2) == 4
     foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+    assert foo(3) == 6
 
     config_kwargs['advanced'].instrument_default_msg_template = _changed_default_msg_template
-    assert foo(3) == 6
+    logfire.configure(**config_kwargs)
+    assert foo(4) == 8
 
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False, parse_json_attributes=True) == snapshot(
         [
@@ -302,7 +304,7 @@ def test_instrument_default_msg_template_resolved_and_cached_on_first_call(
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'test_instrument_default_msg_template_resolved_and_cached_on_first_call.<locals>.foo',
+                    'code.function': 'test_instrument_default_msg_template_cached_until_reconfigured.<locals>.foo',
                     'logfire.msg_template': 'foo',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -319,13 +321,30 @@ def test_instrument_default_msg_template_resolved_and_cached_on_first_call(
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.function': 'test_instrument_default_msg_template_resolved_and_cached_on_first_call.<locals>.foo',
+                    'code.function': 'test_instrument_default_msg_template_cached_until_reconfigured.<locals>.foo',
                     'logfire.msg_template': 'foo',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
                     'logfire.msg': 'foo',
                     'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
                     'x': 3,
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'changed',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_default_msg_template_cached_until_reconfigured.<locals>.foo',
+                    'logfire.msg_template': 'changed',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'changed',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {}}},
+                    'x': 4,
                     'logfire.span_type': 'span',
                 },
             },
@@ -354,11 +373,16 @@ def test_instrument_default_msg_template_initialized_once_concurrently(config_kw
         barrier.wait()
         return foo()
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(call_foo) for _ in range(10)]
-        assert [future.result() for future in futures] == [4] * 10
+    def call_concurrently() -> None:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(call_foo) for _ in range(10)]
+            assert [future.result() for future in futures] == [4] * 10
 
+    call_concurrently()
     assert callback_calls == 1
+    logfire.configure(**config_kwargs)
+    call_concurrently()
+    assert callback_calls == 2
 
 
 def test_instrument_default_msg_template_initializes_functions_independently(config_kwargs: dict[str, Any]) -> None:

@@ -97,6 +97,7 @@ def instrument(
             )
         else:
             cached_open_span: Callable[P, AbstractContextManager[Any]] | None = None
+            cached_config_revision: str | None = None
             initialization_lock = _InstrumentInitializationLock()
 
             def get_logfire():
@@ -112,11 +113,14 @@ def instrument(
                     return logfire
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs) -> AbstractContextManager[Any]:
-                nonlocal cached_open_span
-                if cached_open_span is None:
+                nonlocal cached_config_revision, cached_open_span
+                current_logfire = get_logfire()
+                config_revision = current_logfire.config._instrument_default_msg_template_revision  # pyright: ignore[reportPrivateUsage]
+                if cached_config_revision != config_revision:
                     with initialization_lock:
-                        if cached_open_span is None:
-                            current_logfire = get_logfire()
+                        current_logfire = get_logfire()
+                        config_revision = current_logfire.config._instrument_default_msg_template_revision  # pyright: ignore[reportPrivateUsage]
+                        if cached_config_revision != config_revision:
                             attributes = get_attributes(
                                 func,
                                 msg_template,
@@ -132,6 +136,8 @@ def instrument(
                                 new_trace,
                                 level=level,
                             )
+                            cached_config_revision = config_revision
+                assert cached_open_span is not None
                 return cached_open_span(*func_args, **func_kwargs)
 
         if inspect.isgeneratorfunction(func):
