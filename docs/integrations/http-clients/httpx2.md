@@ -1,19 +1,18 @@
 ---
-title: "Instrument HTTPX: see every outgoing request your app makes"
-description: "Add a few lines to your HTTPX code and see every outgoing HTTP request in Logfire: the URL, status, how long it took, and any errors."
+title: "Instrument HTTPX2: see every outgoing request your app makes"
+description: "Add a few lines to your HTTPX2 code and see every outgoing HTTP request in Logfire: the URL, status, how long it took, and any errors."
 integration: otel
 ---
-# HTTPX
+# HTTPX2
 
-See every HTTP request your app makes with [HTTPX][httpx]: the URL, the response status, how long it
+See every HTTP request your app makes with [HTTPX2][httpx2]: the URL, the response status, how long it
 took, and any errors, as a **span** (one unit of work with a name, a start, and a duration) in
 Logfire. Related spans link together into a **trace** (the full journey of one request), so a slow
 outgoing call shows up right next to the code that triggered it.
 
-This works with both the synchronous `Client` and the asynchronous `AsyncClient`. If you use
-[HTTPX2](httpx2.md) instead, or alongside HTTPX, the same `logfire.instrument_httpx()` call covers
-both when `opentelemetry-instrumentation-httpx` is version 0.65b0 or newer. With an earlier version,
-Logfire instruments HTTPX and warns that it skipped HTTPX2.
+This works with both the synchronous `Client` and the asynchronous `AsyncClient`. If you use the
+original [HTTPX][httpx] library instead, or alongside HTTPX2, see [HTTPX](httpx.md) - the same
+`logfire.instrument_httpx()` call covers both.
 
 ## What you'll capture
 
@@ -30,7 +29,11 @@ Install `logfire` with the `httpx` extra:
 {{ install_logfire(extras=['httpx']) }}
 
 The extra installs the OpenTelemetry integration that collects request data. It does not install
-`httpx`; keep the client library you use as an application dependency.
+`httpx2`; keep the client library you use as an application dependency.
+
+HTTPX2 support requires `opentelemetry-instrumentation-httpx` 0.65b0 or newer. A fresh installation
+normally selects a compatible version. If an existing environment keeps an older version, use the
+upgrade command in [Troubleshooting](#troubleshooting).
 
 ## Usage
 
@@ -44,7 +47,7 @@ instrument only that client.
     ```py title="main.py" hl_lines="8" skip-run="true" skip-reason="external-connection"
     import asyncio
 
-    import httpx
+    import httpx2
 
     import logfire
 
@@ -53,12 +56,12 @@ instrument only that client.
 
     url = 'https://httpbin.org/get'
 
-    with httpx.Client() as client:
+    with httpx2.Client() as client:
         client.get(url)
 
 
     async def main():
-        async with httpx.AsyncClient() as client:
+        async with httpx2.AsyncClient() as client:
             await client.get(url)
 
 
@@ -70,7 +73,7 @@ instrument only that client.
     ```py title="main.py" hl_lines="12 18" skip-run="true" skip-reason="external-connection"
     import asyncio
 
-    import httpx
+    import httpx2
 
     import logfire
 
@@ -78,13 +81,13 @@ instrument only that client.
 
     url = 'https://httpbin.org/get'
 
-    with httpx.Client() as client:
+    with httpx2.Client() as client:
         logfire.instrument_httpx(client)
         client.get(url)
 
 
     async def main():
-        async with httpx.AsyncClient() as client:
+        async with httpx2.AsyncClient() as client:
             logfire.instrument_httpx(client)
             await client.get(url)
 
@@ -105,6 +108,14 @@ took.
 
 Not seeing your requests in Logfire? Check these first:
 
+- **HTTPX2 reports that it needs newer OpenTelemetry instrumentation.** With an older version,
+  `instrument_httpx()` warns that it skipped HTTPX2 (or raises if HTTPX2 is the only client library
+  installed). Upgrade Logfire and the HTTPX integration together so their OpenTelemetry dependencies
+  remain compatible:
+
+  ```bash
+  pip install -U 'logfire[httpx]' 'opentelemetry-instrumentation-httpx>=0.65b0'
+  ```
 - **`logfire.configure()` runs before `logfire.instrument_httpx()`.** Configure the connection first,
   then instrument.
 - **You instrument the client you actually call.** `instrument_httpx()` with no argument covers every
@@ -125,14 +136,14 @@ data to Logfire, so avoid it if your requests carry secrets or personally identi
 (PII).
 
 ```py skip-run="true" skip-reason="external-connection"
-import httpx
+import httpx2
 
 import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_all=True)
 
-client = httpx.Client()
+client = httpx2.Client()
 client.post('https://httpbin.org/post', json={'key': 'value'})
 ```
 
@@ -141,14 +152,14 @@ client.post('https://httpbin.org/post', json={'key': 'value'})
 By default, Logfire doesn't record HTTP headers. Turn them on with `capture_headers=True`:
 
 ```py skip-run="true" skip-reason="external-connection"
-import httpx
+import httpx2
 
 import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_headers=True)
 
-client = httpx.Client()
+client = httpx2.Client()
 client.get('https://httpbin.org/get')
 ```
 
@@ -158,7 +169,7 @@ Instead of capturing both request and response headers, you can use a request ho
 request headers:
 
 ```py skip-run="true" skip-reason="external-connection"
-import httpx
+import httpx2
 from opentelemetry.trace import Span
 
 import logfire
@@ -175,7 +186,7 @@ def capture_request_headers(span: Span, request: RequestInfo):
 logfire.configure()
 logfire.instrument_httpx(request_hook=capture_request_headers)
 
-client = httpx.Client()
+client = httpx2.Client()
 client.get('https://httpbin.org/get')
 ```
 
@@ -184,7 +195,7 @@ client.get('https://httpbin.org/get')
 Similarly, use a response hook to capture only the response headers:
 
 ```py skip-run="true" skip-reason="external-connection"
-import httpx
+import httpx2
 from opentelemetry.trace import Span
 
 import logfire
@@ -201,7 +212,7 @@ def capture_response_headers(span: Span, request: RequestInfo, response: Respons
 logfire.configure()
 logfire.instrument_httpx(response_hook=capture_response_headers)
 
-client = httpx.Client()
+client = httpx2.Client()
 client.get('https://httpbin.org/get')
 ```
 
@@ -214,7 +225,7 @@ By default, Logfire doesn't record HTTP bodies. Turn them on with `capture_reque
 requests that carry sensitive data.
 
 ```py skip-run="true" skip-reason="external-connection"
-import httpx
+import httpx2
 
 import logfire
 
@@ -224,7 +235,7 @@ logfire.instrument_httpx(
     capture_response_body=True,
 )
 
-client = httpx.Client()
+client = httpx2.Client()
 client.post('https://httpbin.org/post', data='Hello, World!')
 ```
 
@@ -232,7 +243,8 @@ client.post('https://httpbin.org/post', data='Hello, World!')
 
 - API reference: [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]
 - Underlying OpenTelemetry package: [HTTPX instrumentation][opentelemetry-httpx]
-- The same call for the successor library: [HTTPX2](httpx2.md)
+- The same call for the original library: [HTTPX](httpx.md)
 
 [httpx]: https://www.python-httpx.org/
+[httpx2]: https://github.com/pydantic/httpx2
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html

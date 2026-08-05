@@ -31,7 +31,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic ([grouped under AI](llms/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
 - _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
-- _HTTP Clients_: HTTPX, Requests, AIOHTTP
+- _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
 - _Testing_: Pytest
@@ -55,7 +55,8 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [FastAPI](web-frameworks/fastapi.md)      | Web Framework           | [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi]                                                                                                   |
 | [FastStream](event-streams/faststream.md) | Task Queue              | N/A (built in, config needed)                                                                                                                                          |
 | [Flask](web-frameworks/flask.md)          | Web Framework           | [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask]                                                                                                       |
-| [HTTPX and HTTPX2](http-clients/httpx.md) | HTTP Client             | [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]                                                                                                       |
+| [HTTPX](http-clients/httpx.md)            | HTTP Client             | [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]                                                                                                       |
+| [HTTPX2](http-clients/httpx2.md)          | HTTP Client             | [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]                                                                                                       |
 | [LangChain](llms/langchain.md)            | AI Framework            | N/A (built-in OpenTelemetry support)                                                                                                                                   |
 | [LlamaIndex](llms/llamaindex.md)          | AI Framework            | N/A (requires LlamaIndex OpenTelemetry package)                                                                                                                        |
 | [LiteLLM](llms/litellm.md)                | AI Gateway              | N/A (requires LiteLLM callback setup)                                                                                                                                  |
