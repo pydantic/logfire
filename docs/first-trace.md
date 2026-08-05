@@ -39,7 +39,7 @@ Set up Pydantic Logfire in this project so it sends traces to Logfire. Follow th
 
 ## Or do it by hand
 
-Pick your language below; the Python and JavaScript/TypeScript tabs are complete, runnable examples.
+Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are complete, runnable examples.
 
 === "Python"
 
@@ -112,9 +112,43 @@ Pick your language below; the Python and JavaScript/TypeScript tabs are complete
 
     For browsers, Cloudflare Workers, and frameworks, see [Language support](instrument/index.md).
 
+=== "Rust"
+
+    **1. Install and connect**
+
+    Copy a write token (the credential your app uses to send data to a Logfire project) from **Project → Settings → Write tokens**, then add the SDK to your project and set the token:
+
+    ```bash
+    cargo add logfire
+    export LOGFIRE_TOKEN="your-write-token"
+    ```
+
+    **2. Add Logfire to your app**
+
+    ```rust title="src/main.rs"
+    fn main() -> Result<(), Box<dyn std::error::Error>> {
+        let logfire = logfire::configure().finish()?;
+        let _guard = logfire.shutdown_guard();
+
+        logfire::span!("greeting").in_scope(|| {
+            logfire::info!("Hello, world!");
+        });
+
+        Ok(())
+    }
+    ```
+
+    `configure()` connects your app to Logfire. `span!()` records one operation, and the `info!()` inside it is a log nested in that span, so together they make your first trace. `shutdown_guard()` flushes any buffered data when it is dropped at the end of `main`.
+
+    **3. Run it**
+
+    ```bash
+    cargo run
+    ```
+
 === "Any other language"
 
-    Logfire works with any language that supports OpenTelemetry (OTel), the open standard it is built on. See [Language support](instrument/index.md) for Go, Rust, Java, .NET, and more.
+    Logfire works with any language that supports OpenTelemetry (OTel), the open standard it is built on. See [Language support](instrument/index.md) for Go, Java, .NET, and more.
 
 ## See it in the Live view
 
