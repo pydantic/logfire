@@ -1,5 +1,14 @@
 # Release Notes
 
+## [v4.40.0] (2026-08-05)
+
+* fix(google-genai): break circular reference in span event body by @dmontagu in [#2157](https://github.com/pydantic/logfire/pull/2157)
+* Remove `logfire.variables_clear` since it's for tests, not users by @alexmojaki in [#2033](https://github.com/pydantic/logfire/pull/2033)
+* Fix three SSE reliability gaps in LogfireRemoteVariableProvider by @dmontagu in [#2144](https://github.com/pydantic/logfire/pull/2144)
+* Log transient variables-refresh failures as warnings, not errors by @dmontagu in [#2111](https://github.com/pydantic/logfire/pull/2111)
+* feat(variables): ETag/conditional GET and silent 304 handling by @dmontagu in [#2146](https://github.com/pydantic/logfire/pull/2146)
+* Fix metric resource PID after fork by @alexmojaki in [#2189](https://github.com/pydantic/logfire/pull/2189)
+
 ## [v4.39.0] (2026-07-24)
 
 * `httpx2` support in `logfire.instrument_httpx()` by @alexmojaki in [#2095](https://github.com/pydantic/logfire/pull/2095)
@@ -1208,3 +1217,4 @@ First release from new repo!
 [v4.37.0]: https://github.com/pydantic/logfire/compare/v4.36.0...v4.37.0
 [v4.38.0]: https://github.com/pydantic/logfire/compare/v4.37.0...v4.38.0
 [v4.39.0]: https://github.com/pydantic/logfire/compare/v4.38.0...v4.39.0
+[v4.40.0]: https://github.com/pydantic/logfire/compare/v4.39.0...v4.40.0

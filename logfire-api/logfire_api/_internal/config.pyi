@@ -28,7 +28,7 @@ from _typeshed import Incomplete
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
-from logfire._internal.auth import REGIONS as REGIONS
+from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN as LOGFIRE_TOKEN_REGION_PATTERN, REGIONS as REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info as collect_package_info
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
@@ -36,6 +36,7 @@ from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.variables import VariablesConfig as VariablesConfig
 from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
+from logfire.variables.variable import TemplateVariable as TemplateVariable, Variable as Variable
 from logfire.version import VERSION as VERSION
 from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
@@ -50,7 +51,6 @@ from typing_extensions import Self, Unpack
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
 PROJECT_NAME_PATTERN: str
-LOGFIRE_TOKEN_REGION_PATTERN: Incomplete
 METRICS_PREFERRED_TEMPORALITY: Incomplete
 
 @dataclass
