@@ -34,7 +34,6 @@ from claude_agent_sdk import (
     ToolUseBlock,
 )
 from claude_agent_sdk.types import HookContext
-from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire
@@ -765,7 +764,7 @@ async def test_tool_use_conversation_cassette(
                 'start_time': 2000000000,
                 'end_time': 3000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
+                    'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
@@ -824,10 +823,11 @@ async def test_tool_use_conversation_cassette(
                 'start_time': 4000000000,
                 'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
+                    'code.filepath': 'test_claude_agent_sdk.py',
                     'code.lineno': 123,
                     'logfire.msg_template': 'execute_tool Bash',
                     'gen_ai.tool.name': 'Bash',
+                    'code.function': 'test_tool_use_conversation_cassette',
                     'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
                     'gen_ai.tool.call.arguments': {'command': 'ls', 'description': 'List files in current directory'},
                     'gen_ai.tool.call.result': {

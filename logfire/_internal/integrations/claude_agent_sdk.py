@@ -44,6 +44,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     ToolCallPart,
     ToolCallResponsePart,
 )
+from logfire._internal.stack_info import get_user_stack_info
 from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
@@ -197,6 +198,11 @@ async def pre_tool_use_hook(
         try:
             span_name = f'execute_tool {tool_name}'
             span = state.logfire.span(span_name)
+            # Replace the code attributes inferred from this hook task's stack with the
+            # ones captured at receive_response time; set directly on the OTLP attributes
+            # so they stay out of logfire.json_schema like other code attributes.
+            # The cast is needed because a TypedDict doesn't satisfy Mapping's value variance.
+            span._otlp_attributes.update(cast('dict[str, str | int]', state.code_attrs))  # pyright: ignore[reportPrivateUsage]
             span.set_attributes(
                 {
                     OPERATION_NAME: 'execute_tool',
@@ -450,6 +456,11 @@ class _ConversationState:
         self.announced_tool_ids: set[str] = set()
         self._tool_announced = anyio.Event()
         self.tool_announcement_timeout = 1.0
+        # Code attributes for spans created in hook tasks, whose own stacks have no
+        # meaningful user frame (the task is rooted in the event loop, so the first
+        # non-library frame varies with how the process was started, if one exists
+        # at all). Capture the user's frame here, where it's still on the stack.
+        self.code_attrs = get_user_stack_info()
 
     async def wait_for_tool_announcement(self, tool_use_id: str) -> None:
         """Wait until the assistant message announcing `tool_use_id` has been handled.
