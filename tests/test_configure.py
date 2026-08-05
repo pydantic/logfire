@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import getpass
+import inspect
 import json
 import os
 import pickle
@@ -1228,13 +1229,11 @@ def test_host_and_os_resource_attributes_populated_by_default(
 
 
 @pytest.mark.skipif(not hasattr(os, 'register_at_fork'), reason='os.register_at_fork is not available')
-@pytest.mark.parametrize('use_otel_resource_updaters', [True, False])
 def test_register_at_fork_resource_updates(
     monkeypatch: pytest.MonkeyPatch,
     exporter: TestExporter,
     logs_exporter: TestLogExporter,
     metrics_reader: InMemoryMetricReader,
-    use_otel_resource_updaters: bool,
 ) -> None:
     callbacks: list[Callable[[], None]] = []
 
@@ -1253,15 +1252,6 @@ def test_register_at_fork_resource_updates(
     assert isinstance(tracer_provider, config_module.SDKTracerProvider)
     assert isinstance(meter_provider, config_module.MeterProvider)
     assert isinstance(logger_provider, config_module.SDKLoggerProvider)
-
-    otel_handles_resource_fork = use_otel_resource_updaters and all(
-        hasattr(provider, '_handle_fork') and hasattr(provider, '_update_resource')
-        for provider in (tracer_provider, meter_provider, logger_provider)
-    )
-    if not otel_handles_resource_fork:
-        monkeypatch.delattr(config_module.SDKTracerProvider, '_update_resource', raising=False)
-        monkeypatch.delattr(config_module.MeterProvider, '_update_resource', raising=False)
-        monkeypatch.delattr(config_module.SDKLoggerProvider, '_update_resource', raising=False)
 
     counter = logfire.metric_counter('fork.callback.counter')
     counter.add(1)
@@ -1329,6 +1319,48 @@ def test_register_at_fork_resource_updates(
     )
     [callback] = callbacks
     callback()
+
+
+def test_otel_resource_updater_sources() -> None:
+    provider_classes = {
+        'traces': config_module.SDKTracerProvider,
+        'metrics': config_module.MeterProvider,
+        'logs': config_module.SDKLoggerProvider,
+    }
+    if not all(hasattr(provider_class, '_update_resource') for provider_class in provider_classes.values()):
+        pytest.skip('OpenTelemetry resource updaters were added in version 1.44')
+
+    # The fork callback manually performs the lock-free equivalent of these private methods. Fail loudly if an
+    # OpenTelemetry upgrade changes the state that needs updating.
+    assert {
+        name: inspect.getsource(getattr(provider_class, '_update_resource'))
+        for name, provider_class in provider_classes.items()
+    } == snapshot(
+        {
+            'traces': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._tracers_lock:
+            self._resource = self._resource.merge(resource)
+            for tracer in self._tracers.values():
+                tracer._set_resource(self._resource)  # pylint: disable=protected-access
+""",
+            'metrics': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._meter_lock:
+            self._sdk_config.resource = self._sdk_config.resource.merge(
+                resource
+            )
+""",
+            'logs': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._active_loggers_lock:
+            self._resource = self._resource.merge(resource)
+            for logger in list(self._active_loggers):
+                # pylint: disable-next=protected-access
+                logger._set_resource(self._resource)
+""",
+        }
+    )
 
 
 @pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
