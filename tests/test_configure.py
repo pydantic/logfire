@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import dataclasses
 import getpass
+import inspect
 import json
 import os
 import pickle
+import signal
 import subprocess
 import sys
 import threading
-from collections.abc import Iterable, Sequence
+import warnings
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
@@ -23,7 +26,7 @@ import requests.exceptions
 import requests_mock
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import get_logger_provider
+from opentelemetry._logs import LogRecord, get_logger, get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -84,7 +87,7 @@ from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-from logfire.testing import TestExporter
+from logfire.testing import TestExporter, TestLogExporter
 from logfire.version import VERSION
 
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
@@ -1223,6 +1226,238 @@ def test_host_and_os_resource_attributes_populated_by_default(
     assert resource_attrs['os.version'] == (
         platform.version() if platform.system().lower() in ('windows', 'sunos') else platform.release()
     )
+
+
+@pytest.mark.skipif(not hasattr(os, 'register_at_fork'), reason='os.register_at_fork is not available')
+def test_register_at_fork_resource_updates(
+    monkeypatch: pytest.MonkeyPatch,
+    exporter: TestExporter,
+    logs_exporter: TestLogExporter,
+    metrics_reader: InMemoryMetricReader,
+) -> None:
+    callbacks: list[Callable[[], None]] = []
+
+    def register_at_fork(*, after_in_child: Callable[[], None]) -> None:
+        callbacks.append(after_in_child)
+
+    monkeypatch.setattr(config_module.os, 'register_at_fork', register_at_fork)
+    monkeypatch.setattr(config_module.os, 'getpid', lambda: 42)
+
+    proxy_tracer_provider = GLOBAL_CONFIG.get_tracer_provider()
+    proxy_meter_provider = GLOBAL_CONFIG.get_meter_provider()
+    proxy_logger_provider = GLOBAL_CONFIG.get_logger_provider()
+    tracer_provider = proxy_tracer_provider.provider
+    meter_provider = proxy_meter_provider.provider
+    logger_provider = proxy_logger_provider.provider
+    assert isinstance(tracer_provider, config_module.SDKTracerProvider)
+    assert isinstance(meter_provider, config_module.MeterProvider)
+    assert isinstance(logger_provider, config_module.SDKLoggerProvider)
+
+    counter = logfire.metric_counter('fork.callback.counter')
+    counter.add(1)
+    logger = get_logger('fork.callback.logger')
+    logger.emit(LogRecord(body='before callback'))
+    with logfire.span('before callback'):
+        pass
+    metrics_reader.get_metrics_data()
+    exporter.clear()
+    logs_exporter.clear()
+
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        proxy_tracer_provider,
+        proxy_meter_provider,
+        proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+
+    counter.add(1)
+    logger.emit(LogRecord(body='after callback'))
+    with logfire.span('after callback'):
+        pass
+    metrics_data = metrics_reader.get_metrics_data()
+    assert metrics_data is not None
+    assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == 42
+    assert exporter.exported_spans[-1].resource.attributes['process.pid'] == 42
+    assert logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'] == 42
+
+    suppressed_scope = 'fork.callback.suppressed'
+    proxy_tracer_provider.suppress_scopes(suppressed_scope)
+    proxy_logger_provider.suppress_scopes(suppressed_scope)
+    suppressed_tracer = proxy_tracer_provider.get_tracer(suppressed_scope)
+    suppressed_logger = proxy_logger_provider.get_logger(suppressed_scope)
+    callbacks.clear()
+    noop_proxy_meter_provider = config_module.ProxyMeterProvider(NoOpMeterProvider())
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        proxy_tracer_provider,
+        noop_proxy_meter_provider,
+        proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+    assert suppressed_tracer.instrumenting_module_name == suppressed_scope
+    assert suppressed_logger
+
+    callbacks.clear()
+    noop_proxy_tracer_provider = config_module.ProxyTracerProvider(
+        config_module.trace.NoOpTracerProvider(), GLOBAL_CONFIG
+    )
+    noop_proxy_logger_provider = config_module.ProxyLoggerProvider(config_module.NoOpLoggerProvider())
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        noop_proxy_tracer_provider,
+        noop_proxy_meter_provider,
+        noop_proxy_logger_provider,
+    )
+    [callback] = callbacks
+    callback()
+
+    callbacks.clear()
+    config_module._register_at_fork_resource_updates(  # pyright: ignore[reportPrivateUsage]
+        config_module.ProxyTracerProvider(config_module.trace.NoOpTracerProvider(), GLOBAL_CONFIG),
+        config_module.ProxyMeterProvider(NoOpMeterProvider()),
+        config_module.ProxyLoggerProvider(config_module.NoOpLoggerProvider()),
+    )
+    [callback] = callbacks
+    callback()
+
+
+def test_otel_resource_updater_sources() -> None:
+    provider_classes = {
+        'traces': config_module.SDKTracerProvider,
+        'metrics': config_module.MeterProvider,
+        'logs': config_module.SDKLoggerProvider,
+    }
+    if not all(hasattr(provider_class, '_update_resource') for provider_class in provider_classes.values()):
+        pytest.skip('OpenTelemetry resource updaters were added in version 1.44')
+
+    # The fork callback manually performs the lock-free equivalent of these private methods. Fail loudly if an
+    # OpenTelemetry upgrade changes the state that needs updating.
+    assert {
+        name: inspect.getsource(getattr(provider_class, '_update_resource'))
+        for name, provider_class in provider_classes.items()
+    } == snapshot(
+        {
+            'traces': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._tracers_lock:
+            self._resource = self._resource.merge(resource)
+            for tracer in self._tracers.values():
+                tracer._set_resource(self._resource)  # pylint: disable=protected-access
+""",
+            'metrics': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._meter_lock:
+            self._sdk_config.resource = self._sdk_config.resource.merge(
+                resource
+            )
+""",
+            'logs': """\
+    def _update_resource(self, resource: Resource) -> None:
+        with self._active_loggers_lock:
+            self._resource = self._resource.merge(resource)
+            for logger in list(self._active_loggers):
+                # pylint: disable-next=protected-access
+                logger._set_resource(self._resource)
+""",
+        }
+    )
+
+
+@pytest.mark.skipif(not hasattr(os, 'fork'), reason='os.fork is not available')
+def test_resource_process_pid_updated_after_fork(
+    exporter: TestExporter, logs_exporter: TestLogExporter, metrics_reader: InMemoryMetricReader
+) -> None:
+    tracer_provider = GLOBAL_CONFIG.get_tracer_provider().provider
+    meter_provider = GLOBAL_CONFIG.get_meter_provider().provider
+    logger_provider = GLOBAL_CONFIG.get_logger_provider().provider
+    assert isinstance(tracer_provider, config_module.SDKTracerProvider)
+    assert isinstance(meter_provider, config_module.MeterProvider)
+    assert isinstance(logger_provider, config_module.SDKLoggerProvider)
+
+    counter = logfire.metric_counter('fork.counter')
+    counter.add(1)
+    logger = get_logger('fork.logger')
+    logger.emit(LogRecord(body='parent'))
+    with logfire.span('parent'):
+        pass
+
+    metrics_data = metrics_reader.get_metrics_data()
+    assert metrics_data is not None
+    assert metrics_data.resource_metrics[0].resource.attributes['process.pid'] == os.getpid()
+    assert exporter.exported_spans[-1].resource.attributes['process.pid'] == os.getpid()
+    assert logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'] == os.getpid()
+    exporter.clear()
+    logs_exporter.clear()
+
+    read_fd, write_fd = os.pipe()
+    provider_locks = []
+    if all(
+        hasattr(provider, '_handle_fork') and hasattr(provider, '_update_resource')
+        for provider in (tracer_provider, meter_provider, logger_provider)
+    ):
+        provider_locks = [
+            tracer_provider._tracers_lock,  # pyright: ignore[reportPrivateUsage]
+            meter_provider._meter_lock,  # pyright: ignore[reportPrivateUsage]
+            logger_provider._active_loggers_lock,  # pyright: ignore[reportPrivateUsage]
+        ]
+        for lock in provider_locks:
+            lock.acquire()
+
+    signal.alarm(10)
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+            child_pid = os.fork()
+    except BaseException:
+        signal.alarm(0)
+        for lock in provider_locks:
+            lock.release()
+        raise
+
+    if child_pid == 0:  # pragma: no cover
+        os.close(read_fd)
+        try:
+            counter.add(1)
+            logger.emit(LogRecord(body='child'))
+            with logfire.span('child'):
+                pass
+            metrics_data = metrics_reader.get_metrics_data()
+            assert metrics_data is not None
+            result = json.dumps(
+                {
+                    'metric': metrics_data.resource_metrics[0].resource.attributes['process.pid'],
+                    'span': exporter.exported_spans[-1].resource.attributes['process.pid'],
+                    'log': logs_exporter.get_finished_logs()[-1].resource.attributes['process.pid'],
+                }
+            )
+            exit_code = 0
+        except BaseException as error:
+            result = repr(error)
+            exit_code = 1
+        os.write(write_fd, result.encode())
+        os.close(write_fd)
+        signal.alarm(0)
+        os._exit(exit_code)
+
+    for lock in provider_locks:
+        lock.release()
+    os.close(write_fd)
+
+    def raise_fork_timeout(*_: object) -> None:
+        raise TimeoutError('forked child process timed out')
+
+    previous_alarm_handler = signal.signal(signal.SIGALRM, raise_fork_timeout)
+    signal.alarm(10)
+    try:
+        with os.fdopen(read_fd) as read_file:
+            result = read_file.read()
+        _, status = os.waitpid(child_pid, 0)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_alarm_handler)
+
+    assert os.waitstatus_to_exitcode(status) == 0, result
+    assert json.loads(result) == {'metric': child_pid, 'span': child_pid, 'log': child_pid}
 
 
 def test_otel_resource_attributes_env_var_overrides_host_and_os_defaults(

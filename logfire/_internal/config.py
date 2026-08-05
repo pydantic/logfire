@@ -33,7 +33,7 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
-from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
+from opentelemetry.sdk._logs import Logger as SDKLogger, LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
@@ -54,7 +54,12 @@ from opentelemetry.sdk.metrics import (
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
-from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import (
+    SpanProcessor,
+    SynchronousMultiSpanProcessor,
+    Tracer as SDKTracer,
+    TracerProvider as SDKTracerProvider,
+)
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
@@ -955,6 +960,56 @@ class _LogfireConfigData:
         self.metrics = metrics
 
 
+def _register_at_fork_resource_updates(
+    proxy_tracer_provider: ProxyTracerProvider,
+    proxy_meter_provider: ProxyMeterProvider,
+    proxy_logger_provider: ProxyLoggerProvider,
+) -> None:
+    if not hasattr(os, 'register_at_fork'):  # pragma: no cover
+        return
+
+    proxy_tracer_provider_ref = weakref.ref(proxy_tracer_provider)
+    proxy_meter_provider_ref = weakref.ref(proxy_meter_provider)
+    proxy_logger_provider_ref = weakref.ref(proxy_logger_provider)
+
+    @handle_internal_errors
+    def fix_pid():
+        proxy_tracer_provider = proxy_tracer_provider_ref()
+        proxy_meter_provider = proxy_meter_provider_ref()
+        proxy_logger_provider = proxy_logger_provider_ref()
+        if not proxy_tracer_provider or not proxy_meter_provider or not proxy_logger_provider:
+            return
+
+        pid_resource = Resource({'process.pid': os.getpid()})
+
+        # This callback runs before OpenTelemetry resets its locks, so update the same backing state as its
+        # lock-taking `_update_resource` methods without acquiring inherited locks. Tests snapshot those methods
+        # so that changes to these private implementation details are caught when OpenTelemetry is upgraded.
+        tracer_provider = proxy_tracer_provider.provider
+        if isinstance(tracer_provider, SDKTracerProvider):
+            new_resource = tracer_provider.resource.merge(pid_resource)
+            tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+            for proxy_tracer in proxy_tracer_provider.tracers:
+                if isinstance(proxy_tracer.tracer, SDKTracer):
+                    proxy_tracer.tracer.resource = new_resource
+
+        meter_provider = proxy_meter_provider.provider
+        if isinstance(meter_provider, MeterProvider):
+            meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                pid_resource
+            )
+
+        logger_provider = proxy_logger_provider.provider
+        if isinstance(logger_provider, SDKLoggerProvider):
+            new_resource = logger_provider.resource.merge(pid_resource)
+            logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+            for proxy_logger in proxy_logger_provider.loggers:
+                if isinstance(proxy_logger.logger, SDKLogger):
+                    proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+
+    os.register_at_fork(after_in_child=fix_pid)
+
+
 class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
@@ -1019,6 +1074,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        _register_at_fork_resource_updates(self._tracer_provider, self._meter_provider, self._logger_provider)
         self._otlp_forwarding = OTLPForwardingManager([])
         self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
@@ -1448,17 +1504,6 @@ class LogfireConfig(_LogfireConfigData):
             else:
                 meter_provider = NoOpMeterProvider()
 
-            if hasattr(os, 'register_at_fork'):  # pragma: no branch
-
-                def fix_pid():  # pragma: no cover
-                    with handle_internal_errors:
-                        new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
-                        tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                        meter_provider._resource = new_resource  # pyright: ignore[reportAttributeAccessIssue]
-                        logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-
-                os.register_at_fork(after_in_child=fix_pid)
-
             # we need to shut down any existing providers to avoid leaking resources (like threads)
             # but if this takes longer than 100ms you should call `logfire.shutdown` before reconfiguring
             self._meter_provider.shutdown(
@@ -1499,6 +1544,7 @@ class LogfireConfig(_LogfireConfigData):
             )
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
+
             self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
