@@ -972,57 +972,57 @@ def _register_at_fork_resource_updates(
     proxy_meter_provider_ref = weakref.ref(proxy_meter_provider)
     proxy_logger_provider_ref = weakref.ref(proxy_logger_provider)
 
+    @handle_internal_errors
     def fix_pid():
-        with handle_internal_errors:
-            proxy_tracer_provider = proxy_tracer_provider_ref()
-            proxy_meter_provider = proxy_meter_provider_ref()
-            proxy_logger_provider = proxy_logger_provider_ref()
-            if not proxy_tracer_provider or not proxy_meter_provider or not proxy_logger_provider:
-                return
+        proxy_tracer_provider = proxy_tracer_provider_ref()
+        proxy_meter_provider = proxy_meter_provider_ref()
+        proxy_logger_provider = proxy_logger_provider_ref()
+        if not proxy_tracer_provider or not proxy_meter_provider or not proxy_logger_provider:
+            return
 
-            pid_resource = Resource({'process.pid': os.getpid()})
+        pid_resource = Resource({'process.pid': os.getpid()})
 
-            # This callback is registered before the OpenTelemetry providers' callbacks, so reset their locks before
-            # calling their lock-taking resource updaters. Their later callbacks can safely repeat the reset.
-            tracer_provider = proxy_tracer_provider.provider
-            if isinstance(tracer_provider, SDKTracerProvider):
-                handle_fork = getattr(tracer_provider, '_handle_fork', None)
-                update_resource = getattr(tracer_provider, '_update_resource', None)
-                if handle_fork and update_resource:
-                    handle_fork()
-                    update_resource(pid_resource)
-                else:
-                    new_resource = tracer_provider.resource.merge(pid_resource)
-                    tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                    for proxy_tracer in proxy_tracer_provider.tracers:
-                        if isinstance(proxy_tracer.tracer, SDKTracer):
-                            proxy_tracer.tracer.resource = new_resource
+        # This callback is registered before the OpenTelemetry providers' callbacks, so reset their locks before
+        # calling their lock-taking resource updaters. Their later callbacks can safely repeat the reset.
+        tracer_provider = proxy_tracer_provider.provider
+        if isinstance(tracer_provider, SDKTracerProvider):
+            handle_fork = getattr(tracer_provider, '_handle_fork', None)
+            update_resource = getattr(tracer_provider, '_update_resource', None)
+            if handle_fork and update_resource:
+                handle_fork()
+                update_resource(pid_resource)
+            else:
+                new_resource = tracer_provider.resource.merge(pid_resource)
+                tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                for proxy_tracer in proxy_tracer_provider.tracers:
+                    if isinstance(proxy_tracer.tracer, SDKTracer):
+                        proxy_tracer.tracer.resource = new_resource
 
-            meter_provider = proxy_meter_provider.provider
-            if isinstance(meter_provider, MeterProvider):
-                handle_fork = getattr(meter_provider, '_handle_fork', None)
-                update_resource = getattr(meter_provider, '_update_resource', None)
-                if handle_fork and update_resource:
-                    handle_fork()
-                    update_resource(pid_resource)
-                else:
-                    meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
-                        pid_resource
-                    )
+        meter_provider = proxy_meter_provider.provider
+        if isinstance(meter_provider, MeterProvider):
+            handle_fork = getattr(meter_provider, '_handle_fork', None)
+            update_resource = getattr(meter_provider, '_update_resource', None)
+            if handle_fork and update_resource:
+                handle_fork()
+                update_resource(pid_resource)
+            else:
+                meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                    pid_resource
+                )
 
-            logger_provider = proxy_logger_provider.provider
-            if isinstance(logger_provider, SDKLoggerProvider):
-                handle_fork = getattr(logger_provider, '_handle_fork', None)
-                update_resource = getattr(logger_provider, '_update_resource', None)
-                if handle_fork and update_resource:
-                    handle_fork()
-                    update_resource(pid_resource)
-                else:
-                    new_resource = logger_provider.resource.merge(pid_resource)
-                    logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                    for proxy_logger in proxy_logger_provider.loggers:
-                        if isinstance(proxy_logger.logger, SDKLogger):
-                            proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+        logger_provider = proxy_logger_provider.provider
+        if isinstance(logger_provider, SDKLoggerProvider):
+            handle_fork = getattr(logger_provider, '_handle_fork', None)
+            update_resource = getattr(logger_provider, '_update_resource', None)
+            if handle_fork and update_resource:
+                handle_fork()
+                update_resource(pid_resource)
+            else:
+                new_resource = logger_provider.resource.merge(pid_resource)
+                logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+                for proxy_logger in proxy_logger_provider.loggers:
+                    if isinstance(proxy_logger.logger, SDKLogger):
+                        proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
 
     os.register_at_fork(after_in_child=fix_pid)
 
