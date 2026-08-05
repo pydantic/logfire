@@ -38,7 +38,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 
 import logfire
 
@@ -55,19 +55,26 @@ def lookup_incident(incident_id: str) -> str:
     return f'{incident_id} is resolved; owner=platform-observability'
 
 
-llm = ChatOpenAI(model='gpt-5-mini', temperature=0).bind_tools([lookup_incident])
+llm = ChatOpenAI(model='gpt-5-mini', temperature=0)
+llm_with_tool = llm.bind_tools([lookup_incident], tool_choice='lookup_incident')
 
 
-def call_model(state: MessagesState) -> dict:
+def call_tool_model(state: MessagesState) -> dict:
+    return {'messages': [llm_with_tool.invoke(state['messages'])]}
+
+
+def call_final_model(state: MessagesState) -> dict:
     return {'messages': [llm.invoke(state['messages'])]}
 
 
 builder = StateGraph(MessagesState)
-builder.add_node('agent', call_model)
+builder.add_node('agent', call_tool_model)
 builder.add_node('tools', ToolNode([lookup_incident]))
+builder.add_node('respond', call_final_model)
 builder.add_edge(START, 'agent')
-builder.add_conditional_edges('agent', tools_condition, {'tools': 'tools', END: END})
-builder.add_edge('tools', 'agent')
+builder.add_edge('agent', 'tools')
+builder.add_edge('tools', 'respond')
+builder.add_edge('respond', END)
 graph = builder.compile()
 
 result = graph.invoke(

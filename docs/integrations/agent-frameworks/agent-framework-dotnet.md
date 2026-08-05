@@ -81,9 +81,9 @@ AIAgent agent = new ChatClientAgent(
 
 var response = await agent.RunAsync(
     "Use lookup_incident with incidentId incident-42, then report the status and owner.");
-if (toolCalls != 1)
+if (toolCalls == 0)
 {
-    throw new InvalidOperationException($"Expected one tool call, received {toolCalls}.");
+    throw new InvalidOperationException("Expected the agent to call lookup_incident.");
 }
 Console.WriteLine(response);
 ```

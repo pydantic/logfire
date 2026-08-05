@@ -11,14 +11,21 @@ complete, general-purpose OpenTelemetry integration that can send those agent op
 ## Current support
 
 Eino's observability API is based on callback handlers. The official handlers in `eino-ext` target specific
-vendors, including APMPlus, CozeLoop, Langfuse, and LangSmith. Its OpenTelemetry helper configures a standard
-tracer provider, but it does not turn Eino agent, model, and tool callbacks into spans.
+vendors, including APMPlus, CozeLoop, Langfuse, and LangSmith. Its
+[OpenTelemetry helper](https://github.com/cloudwego/eino-ext/tree/main/libs/acl/opentelemetry) configures
+exporters and providers, but it does not include a callback handler that turns Eino agent, model, and tool
+operations into spans.
+
+Eino does expose lifecycle callbacks, including
+[callbacks on agents run through its ADK `Runner`](https://www.cloudwego.io/docs/eino/core_modules/eino_adk/adk_agent_callback/).
+An application can register its own callback handler and create OpenTelemetry spans from those events. That is
+custom instrumentation rather than automatic OpenTelemetry coverage supplied by Eino or `eino-ext`.
 
 That means:
 
 - Pointing an OpenTelemetry Protocol (OTLP) exporter at Logfire does not instrument an Eino agent by itself.
 - A native Eino ReAct agent and its tools can run successfully without producing Eino telemetry in Logfire.
-- Hand-writing a callback that opens generic spans would omit important agent semantics and is not a supported
+- Hand-writing a callback that opens generic spans may omit important agent semantics and is not a maintained
   Eino integration. This guide intentionally does not present that as full support.
 
 You can separately instrument an underlying model client when an instrumentation library supports it. Those
