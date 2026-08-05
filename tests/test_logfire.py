@@ -278,7 +278,7 @@ def _changed_default_msg_template(_helper: InstrumentMessageTemplateHelper) -> s
     return 'changed'
 
 
-def test_instrument_default_msg_template_cached_until_reconfigured(
+def test_instrument_default_msg_template_cached_until_callback_changes(
     exporter: TestExporter, config_kwargs: dict[str, Any]
 ) -> None:
     @logfire.instrument()
@@ -304,7 +304,7 @@ def test_instrument_default_msg_template_cached_until_reconfigured(
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'test_instrument_default_msg_template_cached_until_reconfigured.<locals>.foo',
+                    'code.function': 'test_instrument_default_msg_template_cached_until_callback_changes.<locals>.foo',
                     'logfire.msg_template': 'foo',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -321,7 +321,7 @@ def test_instrument_default_msg_template_cached_until_reconfigured(
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.function': 'test_instrument_default_msg_template_cached_until_reconfigured.<locals>.foo',
+                    'code.function': 'test_instrument_default_msg_template_cached_until_callback_changes.<locals>.foo',
                     'logfire.msg_template': 'foo',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -338,7 +338,7 @@ def test_instrument_default_msg_template_cached_until_reconfigured(
                 'start_time': 5000000000,
                 'end_time': 6000000000,
                 'attributes': {
-                    'code.function': 'test_instrument_default_msg_template_cached_until_reconfigured.<locals>.foo',
+                    'code.function': 'test_instrument_default_msg_template_cached_until_callback_changes.<locals>.foo',
                     'logfire.msg_template': 'changed',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -382,7 +382,7 @@ def test_instrument_default_msg_template_initialized_once_concurrently(config_kw
     assert callback_calls == 1
     logfire.configure(**config_kwargs)
     call_concurrently()
-    assert callback_calls == 2
+    assert callback_calls == 1
 
 
 def test_instrument_default_msg_template_initializes_functions_independently(config_kwargs: dict[str, Any]) -> None:

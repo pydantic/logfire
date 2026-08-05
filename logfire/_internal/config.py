@@ -244,8 +244,8 @@ class AdvancedOptions:
     The callback receives an instance of
     [`InstrumentMessageTemplateHelper`][logfire.types.InstrumentMessageTemplateHelper].
     It is evaluated when each instrumented function is first executed after configuration,
-    and the resulting template is cached until `logfire.configure()` is called again.
-    After reconfiguration, it is evaluated again on the function's next execution.
+    and the resulting template is cached until `logfire.configure()` changes this callback.
+    After such a change, it is evaluated again on the function's next execution.
 
     When using `ProcessPoolExecutor`, define the callback at module level, not as a lambda or local function,
     so it can be pickled and sent to child processes. See the
@@ -1058,6 +1058,7 @@ class LogfireConfig(_LogfireConfigData):
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
+        self._instrument_default_msg_template_callback = self.advanced.instrument_default_msg_template
         self._instrument_default_msg_template_revision = uuid4().hex
         self._lock = RLock()
 
@@ -1111,7 +1112,10 @@ class LogfireConfig(_LogfireConfigData):
                 advanced,
             )
             self.initialize()
-            self._instrument_default_msg_template_revision = uuid4().hex
+            instrument_default_msg_template_callback = self.advanced.instrument_default_msg_template
+            if instrument_default_msg_template_callback is not self._instrument_default_msg_template_callback:
+                self._instrument_default_msg_template_callback = instrument_default_msg_template_callback
+                self._instrument_default_msg_template_revision = uuid4().hex
 
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
