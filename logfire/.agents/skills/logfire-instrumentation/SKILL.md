@@ -153,12 +153,14 @@ async def handle_order(order_id: int):
 Logfire auto-instruments AI libraries to capture LLM calls, token usage, tool invocations, and agent runs.
 These spans can include prompts, model outputs, tool arguments, tool results, and user-controlled content.
 
+Pydantic AI, OpenAI and Anthropic need no Logfire extra — install the library itself:
+
 ```bash
-uv add 'logfire[pydantic-ai]'
-# or: uv add 'logfire[openai]' / uv add 'logfire[anthropic]'
+uv add logfire pydantic-ai
+# or: uv add logfire openai / uv add logfire anthropic
 ```
 
-Available AI extras: `pydantic-ai`, `openai`, `anthropic`, `litellm`, `dspy`, `google-genai`.
+Logfire's own AI extras are `litellm`, `dspy` and `google-genai`, e.g. `uv add 'logfire[dspy]'`.
 
 ```python
 import logfire

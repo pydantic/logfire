@@ -34,10 +34,10 @@ A few terms, defined once:
 Install the packages you need:
 
 ```bash
-pip install "logfire[pydantic-ai]" pydantic-evals "pydantic-ai-slim[google]"
+pip install logfire pydantic-evals "pydantic-ai-slim[google]"
 ```
 
-`logfire[pydantic-ai]` pulls in Logfire and Pydantic AI together; `pydantic-evals` is the evaluation library; the `[google]` extra adds the Gemini client. (Using `uv`? `uv add "logfire[pydantic-ai]" pydantic-evals "pydantic-ai-slim[google]"`.)
+Logfire needs no extra to instrument Pydantic AI; `pydantic-ai-slim` is Pydantic AI itself and its `[google]` extra adds the Gemini client; `pydantic-evals` is the evaluation library. (Using `uv`? `uv add logfire pydantic-evals "pydantic-ai-slim[google]"`.)
 
 ## Step 1: Build the agent
 
