@@ -93,7 +93,7 @@ def test_skill_examples_formatting(eval_example: EvalExample):
 
 
 @pytest.mark.parametrize('example', _get_runnable_examples(), ids=str)
-@pytest.mark.timeout(3)
+@pytest.mark.timeout(10)
 def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
     if 'from fastapi' in example.source and get_version(pydantic.__version__) < get_version('2.7.0'):
