@@ -4,11 +4,11 @@ Set up Pydantic Logfire in this project so it sends traces to Logfire.
 
 Before any code changes, create a new git branch.
 
-If the logfire-instrumentation skill is available in your agent environment, read it now for detailed per-language instrumentation steps. For a Python project, find it in the installed package with:
-  cat "$(python -c 'import pathlib, logfire; print(pathlib.Path(logfire.__file__).parent / ".agents/skills/logfire-instrumentation/SKILL.md")')"
 Fetch reference material as plain text rather than opening HTML documentation URLs in browser tools.
 
-1. Install the Logfire SDK and initialize it at startup (logfire.configure() for Python and JS; OpenTelemetry for other languages). Instrument the web framework plus any LLM and HTTP clients. Do not refactor unrelated code.
+1. Install the Logfire SDK. For a Python project, after installing Logfire, read its bundled logfire-instrumentation skill for detailed instrumentation steps:
+     cat "$(python -c 'import pathlib, logfire; print(pathlib.Path(logfire.__file__).parent / ".agents/skills/logfire-instrumentation/SKILL.md")')"
+   Then initialize Logfire at startup (logfire.configure() for Python and JS; OpenTelemetry for other languages). Instrument the web framework plus any LLM and HTTP clients. Do not refactor unrelated code.
 
 2. Authenticate. Keep any token out of replies and committed files.
    - If `LOGFIRE_TOKEN` is already set, use it as-is.
