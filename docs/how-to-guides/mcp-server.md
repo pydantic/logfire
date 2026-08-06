@@ -45,8 +45,17 @@ querying, and more) in one step:
 
         Restart Claude Code afterwards for the update to take effect. If you installed from the
         `pydantic-skills` marketplace instead (see [Coding Agent Skills](skills.md)), substitute
-        that name in both commands; `claude-plugins-official` pins a specific commit of the plugin
-        repository, so a release can take longer to appear there.
+        that name in both commands.
+
+        `claude-plugins-official` pins a specific commit of the plugin repository, so a new release
+        can take a day to appear there. If the update reports that you are already on the latest
+        version but that version is below 0.1.4, install from `pydantic-skills`, which tracks the
+        latest commit:
+
+        ```bash
+        claude plugin marketplace add pydantic/skills
+        claude plugin install logfire@pydantic-skills
+        ```
 
 === "Codex"
 
