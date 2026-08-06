@@ -29,16 +29,20 @@ The **Overview** tab answers whether the run completed and where to investigate:
 - **Assertions** summarize boolean evaluator outcomes.
 - **Task errors** count cases where the task under test raised an error.
 - **Average task duration** helps identify a latency change.
-- **Evaluator analysis** shows each evaluator separately, including its pass rate or average score.
+- **Evaluator analysis** shows each evaluator separately. Assertion evaluators show their pass and fail mix; numeric evaluators show an average and score distribution.
 - **Operational metrics** report task duration, tokens, and cost when the run provides them.
 
 ![Read the aggregate result before opening individual cases](../images/guide/evals/experiment-overview.webp)
 
-Aggregate results are a triage tool, not the final decision. A higher average can hide an important regression, and a lower score can reveal a better evaluator rather than a worse agent.
+Aggregate results are a triage tool, not the final decision. For a numeric evaluator, use the average to understand the center of the run and the histogram to see its spread. An improved average can still hide a low-scoring tail.
 
 ## Review case evidence
 
-Open the **Cases** tab, then start with **Needs review**, **Failed**, or **Errors**. Search by case name when you know the scenario. Select **Open case** to inspect the evidence.
+Open the **Cases** tab, then start with **Needs review**, **Failed**, or **Errors**. Search by case name when you know the scenario.
+
+Before opening a case, scan its input and output preview alongside the selected evaluator values. Use **Metrics** to choose the evaluator columns that matter to the decision, then select **Open case** for the full evidence.
+
+![Use input and output previews to find cases that need inspection](../images/guide/evals/case-previews.webp)
 
 Read each case in this order:
 
@@ -56,7 +60,7 @@ Use **Prev** and **Next**, or the displayed keyboard shortcuts, to work through 
 
 From an experiment result, select **Compare runs**. The current run remains the candidate. Choose a baseline from another run of the same dataset.
 
-Start on **Overview** to compare completion, assertions, task errors, evaluator aggregates, and operational metrics.
+Start on **Overview** to compare completion, assertions, task errors, evaluator aggregates, and operational metrics. Assertion bars make changes in the pass and fail mix visible. Numeric histograms show whether an average-score change came from broad improvement, a shifted cluster, or a few outliers.
 
 ![Compare aggregate results for a baseline and candidate](../images/guide/evals/comparison-overview.webp)
 
@@ -66,7 +70,7 @@ Then open **Cases**:
 - For a numeric primary metric, set **Better score** to **Higher** or **Lower**. Leave it at **Not set** to group cases by raw score movement.
 - Add other **Metrics** as supporting columns. The table can show up to seven.
 - Set **Group by** to **Outcome** to put regressions and errors ahead of unchanged cases.
-- Open a case to compare its baseline and candidate outputs with the evaluator evidence.
+- Scan each case's input preview and evaluator deltas, then open it to compare baseline and candidate outputs with the full evidence.
 
 ![Group compared cases by outcome and inspect the metrics that explain the change](../images/guide/evals/comparison-cases.webp)
 
