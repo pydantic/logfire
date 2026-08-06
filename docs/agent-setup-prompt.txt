@@ -28,7 +28,7 @@ Fetch reference material as plain text rather than opening HTML documentation UR
 5. Offer these next steps and do the ones the user wants:
    - Dashboards: the Logfire Dashboards page (https://pydantic.dev/docs/logfire/observe/dashboards) lets you build charts and set alerts.
    - Auto-tracing (Python): run `logfire inspect` to find uninstrumented dependencies and add them.
-   - System metrics: add logfire.instrument_system_metrics() to send CPU, memory, and disk data, visible in the Hosts page (https://pydantic.dev/docs/logfire/observe/hosts).
+   - System metrics: install `logfire[system-metrics]` if not already present, then add logfire.instrument_system_metrics() to send CPU, memory, and disk data, visible in the Hosts page (https://pydantic.dev/docs/logfire/observe/hosts).
    - Service metadata: set a meaningful service name in logfire.configure() (service_name for Python, serviceName for Node.js) to unlock per-service RED metrics in the Services page (https://pydantic.dev/docs/logfire/observe/services).
    - Manual tracing (optional): add logfire.span() and logfire.info() for operations not covered by auto-instrumentation.
    - Logfire skills: install the Logfire agent skills for your environment and follow the logfire-instrumentation skill bundled in the package (.agents/skills/logfire-instrumentation/).
