@@ -27,34 +27,38 @@ querying, and more) in one step:
 
     ```bash
     claude plugin install logfire@claude-plugins-official
+    claude mcp login plugin:logfire:logfire
     ```
+
+    !!! note "EU region and self-hosted instances"
+        The plugin's MCP server entry defaults to the **US region** endpoint. To point it at the EU
+        region or a self-hosted instance, set `LOGFIRE_MCP_URL` in the shell where you launch Claude
+        Code, e.g. `export LOGFIRE_MCP_URL=https://logfire-eu.pydantic.dev/mcp`.
+
+        If your installed plugin predates version 0.1.4, the variable has no effect. Add the endpoint
+        manually instead with
+        `claude mcp add --transport http logfire https://logfire-eu.pydantic.dev/mcp`.
 
 === "Codex"
 
     ```bash
-    codex plugin marketplace add pydantic/skills
+    codex plugin marketplace add pydantic/skills --ref main
     codex plugin add logfire@pydantic-skills
+    codex mcp login logfire
     ```
+
+    !!! note "EU region and self-hosted instances"
+        The plugin's MCP server entry defaults to the **US region** endpoint. To point it at the EU
+        region or a self-hosted instance, replace the URL:
+
+        ```bash
+        codex mcp add logfire --url https://logfire-eu.pydantic.dev/mcp
+        ```
+
+        Start a new Codex conversation after switching so the MCP tools reload.
 
 See [Coding Agent Skills](skills.md) for the full plugin options, including the `pydantic/skills`
 marketplace for Claude Code and cross-agent installs.
-
-!!! note "EU region and self-hosted instances"
-    The plugin's skills and commands work the same in every region; only its MCP server entry
-    defaults to the **US region** endpoint. To point it at the EU region or a self-hosted instance:
-
-    - **Claude Code**: set `LOGFIRE_MCP_URL` in the shell where you launch Claude Code, e.g.
-      `export LOGFIRE_MCP_URL=https://logfire-eu.pydantic.dev/mcp`. (If your installed plugin
-      predates version 0.1.4 the variable has no effect; add the endpoint manually instead with
-      `claude mcp add --transport http logfire https://logfire-eu.pydantic.dev/mcp`.)
-    - **Codex**: replace the MCP entry and re-authenticate, then start a new conversation so the
-      tools reload:
-
-        ```bash
-        codex mcp remove logfire
-        codex mcp add logfire --url https://logfire-eu.pydantic.dev/mcp
-        codex mcp login logfire
-        ```
 
 For every other MCP client, or when you prefer the MCP server without the skills, configure the
 remote server manually as described below.
