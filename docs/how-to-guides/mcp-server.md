@@ -146,8 +146,6 @@ For more detailed information, you can check the
 
 ### VS Code
 
-Make sure you [enabled MCP support in VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_enable-mcp-support-in-vs-code).
-
 Create a `.vscode/mcp.json` file in your project's root directory:
 
 ```json
@@ -160,6 +158,9 @@ Create a `.vscode/mcp.json` file in your project's root directory:
   }
 }
 ```
+
+See the [VS Code MCP server documentation](https://code.visualstudio.com/docs/agent-customization/mcp-servers)
+to enable, disable, and manage configured servers.
 
 ### Gemini CLI
 
