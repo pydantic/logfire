@@ -176,19 +176,16 @@ def before_you_start(markdown: str, page: Page) -> str:
     return re.sub(r'{{ *before_you_start\(\) *}}', lambda _match: block, markdown)
 
 
-_AGENT_SETUP_PROMPT_PAGES = {'index.md', 'first-trace.md'}
 _AGENT_SETUP_PROMPT_FILE = LOGFIRE_DIR / 'docs' / 'agent-setup-prompt.txt'
 
 
-def agent_setup_prompt(markdown: str, page: Page) -> str:
+def agent_setup_prompt(markdown: str, _page: Page) -> str:
     """Expand ``{{ agent_setup_prompt() }}`` with the canonical prompt text.
 
     The canonical text lives in ``docs/agent-setup-prompt.txt`` so there is a single
     source of truth for the agent setup prompt that appears in both ``index.md``
     (inside ``<AgentSetup>``) and ``first-trace.md`` (inside ``<CopyPrompt>``).
     """
-    if page.file.src_uri not in _AGENT_SETUP_PROMPT_PAGES:
-        return markdown
     if '{{ agent_setup_prompt() }}' not in markdown:
         return markdown
     prompt_text = _AGENT_SETUP_PROMPT_FILE.read_text(encoding='utf-8')
