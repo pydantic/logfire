@@ -251,12 +251,23 @@ If browser-based authentication is not available (e.g. in sandboxed environments
 
 Some clients need a different shape for key-based auth:
 
-- **Claude Code**: pass the key as a header when adding the server:
+- **Claude Code**: reference an environment variable from `.mcp.json`:
 
-    ```bash
-    claude mcp add --transport http logfire https://logfire-us.pydantic.dev/mcp \
-      --header "Authorization: Bearer <your-logfire-api-key>"
+    ```json
+    {
+      "mcpServers": {
+        "logfire": {
+          "type": "http",
+          "url": "https://logfire-us.pydantic.dev/mcp",
+          "headers": {
+            "Authorization": "Bearer ${LOGFIRE_MCP_TOKEN}"
+          }
+        }
+      }
+    }
     ```
+
+    Then export the key Claude Code reads: `export LOGFIRE_MCP_TOKEN=<your-logfire-api-key>`
 
 - **Codex**: reference an environment variable from `~/.codex/config.toml`:
 
