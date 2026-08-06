@@ -14,7 +14,7 @@ Fetch reference material as plain text rather than opening HTML documentation UR
    - If `LOGFIRE_TOKEN` is already set, use it as-is.
    - Preferred: ask the user to run `uvx logfire auth` in their own terminal. It opens a browser tab on their machine where they sign in or create a free account (no credit card required). Wait for the user to confirm before continuing.
    - If you run it instead: `uvx logfire auth` may open a browser in the environment where the command runs, not necessarily on the user's machine. If no browser opens, give the user the printed authorization URL or ask them to run `uvx logfire auth` in their own terminal. Poll `~/.logfire` every 5 seconds until credentials appear, then continue.
-   - For non-interactive shells or non-Python projects: ask the user to copy a write token from Project > Settings > Write tokens and set it as `LOGFIRE_TOKEN` in a gitignored `.env`. Never commit it or print it in a reply.
+   - For non-interactive shells or non-Python projects: ask the user to copy a write token from Project > Settings > Write tokens. Set it as `LOGFIRE_TOKEN` in the shell environment the app runs in (e.g. `export LOGFIRE_TOKEN=...` in the terminal, or via the deployment platform's secret manager). If the project already loads a `.env` file at startup, you may store it there instead, but confirm dotenv loading is in place first. Never commit the token or print it in a reply.
    - Do not create a new Logfire project without asking the user which project to use.
 
 3. Set up the Logfire MCP server before verifying traces, so you can query traces through it:
