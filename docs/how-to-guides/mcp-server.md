@@ -119,18 +119,13 @@ for more information.
 
 ### Codex
 
-Add to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.logfire]
-url = "https://logfire-us.pydantic.dev/mcp"
-```
-
-Then sign in:
+Run the following command to add the Logfire MCP server:
 
 ```bash
-codex mcp login logfire
+codex mcp add logfire --url https://logfire-us.pydantic.dev/mcp
 ```
+
+Codex opens a browser window where you can complete the login process.
 
 ### Cursor
 
