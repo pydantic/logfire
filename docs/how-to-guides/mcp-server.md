@@ -280,8 +280,11 @@ Some clients need a different shape for key-based auth:
             "mcp-remote",
             "https://logfire-us.pydantic.dev/mcp",
             "--header",
-            "Authorization: Bearer <your-logfire-api-key>"
-          ]
+            "Authorization:${AUTH_HEADER}"
+          ],
+          "env": {
+            "AUTH_HEADER": "Bearer <your-logfire-api-key>"
+          }
         }
       }
     }
