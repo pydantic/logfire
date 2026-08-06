@@ -53,7 +53,6 @@ querying, and more) in one step:
 
         ```bash
         codex mcp add logfire --url https://logfire-eu.pydantic.dev/mcp
-        codex mcp login logfire
         ```
 
         Start a new Codex conversation after switching so the MCP tools reload.
