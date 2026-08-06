@@ -42,11 +42,22 @@ querying, and more) in one step:
 See [Coding Agent Skills](skills.md) for the full plugin options, including the `pydantic/skills`
 marketplace for Claude Code and cross-agent installs.
 
-!!! note
-    The plugins configure the **US region** endpoint. For EU projects or self-hosted instances,
-    configure the MCP server manually as described below (for Codex: remove the plugin's entry with
-    `codex mcp remove logfire` first, then start a new conversation after reconfiguring so the MCP
-    tools reload).
+!!! note "EU region and self-hosted instances"
+    The plugin's skills and commands work the same in every region; only its MCP server entry
+    defaults to the **US region** endpoint. To point it at the EU region or a self-hosted instance:
+
+    - **Claude Code**: set `LOGFIRE_MCP_URL` in the shell where you launch Claude Code, e.g.
+      `export LOGFIRE_MCP_URL=https://logfire-eu.pydantic.dev/mcp`. (If your installed plugin
+      predates version 0.1.4 the variable has no effect; add the endpoint manually instead with
+      `claude mcp add --transport http logfire https://logfire-eu.pydantic.dev/mcp`.)
+    - **Codex**: replace the MCP entry and re-authenticate, then start a new conversation so the
+      tools reload:
+
+        ```bash
+        codex mcp remove logfire
+        codex mcp add logfire --url https://logfire-eu.pydantic.dev/mcp
+        codex mcp login logfire
+        ```
 
 For every other MCP client, or when you prefer the MCP server without the skills, configure the
 remote server manually as described below.
