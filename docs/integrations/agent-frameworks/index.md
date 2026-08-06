@@ -15,6 +15,9 @@ framework's current limitation. Supported examples show four things:
 - **How to use managed prompts** — authoring and versioning prompts in
   [Prompt Management](../../reference/advanced/prompt-management/index.md) and fetching them at runtime.
 
+!!! tip "Just tracing model calls?"
+    These pages cover agent frameworks. If you call a model-provider SDK or LLM library directly (OpenAI, Anthropic, Google Gen AI, LiteLLM, and more), see [**AI & LLM integrations**](../llms/index.md).
+
 There are four integration patterns, depending on the framework:
 
 1. **Native OpenTelemetry (OTel)** — the framework already emits OTel spans through the global tracer provider. In
