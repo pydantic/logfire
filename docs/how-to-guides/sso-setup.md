@@ -9,6 +9,8 @@ Logfire Enterprise Cloud supports Single Sign-On (SSO) through Microsoft Entra I
 
 This guide uses **Microsoft Azure Entra ID** as an example, but the general steps (registering an OIDC app, obtaining a Client ID, Client Secret, and Issuer URL, then connecting it in Logfire) also apply to Okta and Keycloak.
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/K9fOYokn8Lk" title="How to Set Up SSO in Pydantic Logfire (OIDC + Group-to-Role Mapping)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 !!! note "Enterprise Cloud Required"
     SSO is available exclusively on the **Enterprise Cloud** plan. Ensure your organization has Enterprise Cloud enabled before proceeding. [Contact sales](mailto:sales@pydantic.dev) if you need to upgrade.
 

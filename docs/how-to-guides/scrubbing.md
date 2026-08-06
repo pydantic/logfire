@@ -6,6 +6,8 @@ description: "Learn how to use Logfire to keep logs & sensitive data safe: Autom
 
 The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/uZU4cA6iI6c" title="How to Scrub, Delete & Audit Sensitive Data in Pydantic Logfire" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 ## Disabling scrubbing
 
 To disable scrubbing entirely, set [`scrubbing`][logfire.configure(scrubbing)] to `False`:
