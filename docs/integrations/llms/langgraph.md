@@ -98,6 +98,8 @@ print(result['messages'][-1].content)
 
 The example fails unless the graph executes its native `ToolNode`. You'll see a trace in **Logfire** with a span
 for the graph run, a span per node, and the underlying LLM and `lookup_incident` tool calls nested beneath them.
+LangGraph agents also appear in the specialized **Agents** view with per-run token counts; the
+[support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! tip
     `LANGSMITH_OTEL_ONLY=true` stops LangSmith from also sending traces to its own backend, so you get

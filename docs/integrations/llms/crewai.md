@@ -67,9 +67,12 @@ crew = Crew(agents=[researcher], tasks=[task], process=Process.sequential)
 print(crew.kickoff())
 ```
 
-You'll see a nested trace in **Live** and **Explore** with the crew kickoff at the top, a span per task and agent,
-and the underlying `lookup_incident` and LLM calls beneath them. CrewAI's OpenInference agent spans do not
-currently populate Logfire's specialized **Agents** view.
+You'll see a nested trace in **Live** and **Explore** with the crew kickoff at the top and a span per task and
+agent beneath it. CrewAI agents also appear in the specialized **Agents** view — each run is detected and named
+after the agent's role.
+
+The CrewAI OpenInference instrumentation emits agent and chain spans, but not separate model-call spans, so the
+**LLMs** view and the Agents view's token, model, and cost columns stay empty for CrewAI runs.
 
 !!! warning "Prompt and tool content"
     OpenInference can include task descriptions, outputs, tool arguments, and tool results in spans sent to

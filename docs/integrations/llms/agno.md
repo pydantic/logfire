@@ -46,7 +46,8 @@ agent.print_response('What is Pydantic Logfire, in one sentence?')
 ```
 
 You'll see a trace in **Logfire** with the agent run at the top and the underlying tool calls and model
-requests nested beneath it.
+requests nested beneath it. Agno agents also appear in the specialized **Agents** view with per-run token
+counts; the [support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! note
     Agno's own docs show configuring a raw OTLP exporter. With **Logfire** you don't need to — just call

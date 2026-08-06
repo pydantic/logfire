@@ -41,6 +41,10 @@ known limitation, its guide calls that out explicitly.
 The examples do not add manual wrapper spans to simulate agent support. If a framework has no complete native,
 official, or maintained third-party OpenTelemetry path, its guide says that it is not fully supported.
 
+!!! tip "At a glance"
+    The [**support matrix**](support-matrix.md) summarizes which Logfire views — Live, Explore, LLMs, and Agents —
+    work with each framework, and where a framework has a known limitation.
+
 ## Python
 
 | Framework | Guide |

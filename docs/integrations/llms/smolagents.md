@@ -44,7 +44,9 @@ agent.run('What is the current population of Tokyo? Search the web.')
 ```
 
 You'll see a trace in **Logfire** with the agent run at the top and a span for each step, including the code it
-generated, the tools it called, and the underlying LLM requests.
+generated, the tools it called, and the underlying LLM requests. smolagents runs also appear in the specialized
+**Agents** view with per-run token counts; the [support matrix](../agent-frameworks/support-matrix.md) shows which
+columns each view populates.
 
 !!! warning
     Don't pass a `tracer_provider` argument to `instrument()` — omit it so the instrumentor uses the global
