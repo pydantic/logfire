@@ -200,7 +200,8 @@ Shows up like this in Logfire:
 
 Logfire also instruments the [OpenAI "agents"](https://github.com/openai/openai-agents-python)
 framework, so you can see each step an agent takes and every tool it calls as nested spans in one
-trace.
+trace. OpenAI Agents runs also appear in the specialized **Agents** view; the
+[support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 ```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 from agents import Agent, Runner

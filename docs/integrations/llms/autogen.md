@@ -71,7 +71,8 @@ asyncio.run(main())
 ```
 
 You'll see the native AutoGen agent run in **Live** and **Agents**, with the `lookup_incident` tool call and
-instrumented OpenAI model requests nested beneath it.
+instrumented OpenAI model requests nested beneath it. AutoGen runs also appear in the specialized **Agents**
+view; the [support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! warning
     Don't also enable `openinference-instrumentation-autogen-agentchat`. It wraps the same agent and tool methods

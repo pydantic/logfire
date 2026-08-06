@@ -68,7 +68,8 @@ main();
 
 Set your `OPENAI_API_KEY` and `LOGFIRE_TOKEN`, then run with `npx tsx agent.ts`. The example fails unless the
 native `ToolLoopAgent` executes `weather`. You'll see spans for the agent, prompt, response, token counts, and
-tool call in **Logfire**.
+tool call in **Logfire**. Vercel AI SDK runs also appear in the specialized **Agents** view; the
+[support matrix](support-matrix.md) shows which columns each view populates.
 
 !!! warning "Common pitfalls"
     - **Register both pieces before running the agent.** Configure Logfire's global tracer provider and attach

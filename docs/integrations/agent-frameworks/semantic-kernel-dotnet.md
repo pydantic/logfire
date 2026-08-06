@@ -113,7 +113,8 @@ sealed class IncidentPlugin
 The example fails unless `ChatCompletionAgent` invokes its native `lookup_incident` kernel function. You'll see
 the model and function spans with model and token data and, because the sensitive switch is on, the prompt and
 completion in **Logfire**. Semantic Kernel does not currently emit every attribute required for all specialized
-Agents-view features, so use Live or Explore to inspect the complete trace.
+Agents-view features, so use Live or Explore to inspect the complete trace. Semantic Kernel runs also appear in
+the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns each view populates.
 
 !!! warning "Common pitfalls"
     - **Default OTLP protocol is gRPC.** **Logfire** ingests OTLP/HTTP, so you must set

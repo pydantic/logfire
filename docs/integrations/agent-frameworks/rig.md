@@ -120,7 +120,8 @@ Run `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> cargo run` in your termina
 native Rig agent executes `lookup_incident`. In Logfire, the trace contains Rig's agent, completion, and tool
 spans. Because `record_content_telemetry(true)` is enabled, the completion spans also contain
 `gen_ai.input.messages` and `gen_ai.output.messages`, and tool spans contain the arguments and results. The
-Logfire SDK does not add a synthetic agent wrapper.
+Logfire SDK does not add a synthetic agent wrapper. Rig runs also appear in the specialized **Agents** view; the
+[support matrix](support-matrix.md) shows which columns each view populates.
 
 For an EU-region project, use its EU write token. The Logfire Rust SDK infers the data region from the token.
 

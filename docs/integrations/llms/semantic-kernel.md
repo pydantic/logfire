@@ -69,7 +69,9 @@ if __name__ == '__main__':
 ```
 
 You'll see an `invoke_agent` span in **Live** and **Agents**, with child `chat.completions` and function-invocation
-spans. With the `SENSITIVE` flag enabled, the conversation is also available in the agent-run detail.
+spans. With the `SENSITIVE` flag enabled, the conversation is also available in the agent-run detail. Semantic
+Kernel runs also appear in the specialized **Agents** view; the
+[support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! warning "Common pitfalls"
     - **No diagnostics, no `gen_ai` spans.** Without the `SEMANTICKERNEL_EXPERIMENTAL_GENAI_*` env var, you get

@@ -68,7 +68,8 @@ if __name__ == '__main__':
 ```
 
 You'll see a trace in **Logfire** with the agent run, the underlying LLM (Gemini) call, and the `get_weather`
-tool call nested as a timeline.
+tool call nested as a timeline. Google ADK runs also appear in the specialized **Agents** view; the
+[support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! note "Capturing message content"
     `SPAN_ONLY` records prompts, responses, tool calls, and tool results in the standard

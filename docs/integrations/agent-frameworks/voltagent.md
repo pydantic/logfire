@@ -74,7 +74,9 @@ main();
 ```
 
 Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The example fails unless VoltAgent executes the
-native `lookup_incident` tool. The agent run, model call, and tool call appear in **Logfire**.
+native `lookup_incident` tool. The agent run, model call, and tool call appear in **Logfire**. VoltAgent runs
+also appear in the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns each
+view populates.
 
 !!! warning "Common pitfalls"
     - **Full `/v1/traces` URL.** When you pass `url` explicitly to `OTLPTraceExporter`, it does not append the

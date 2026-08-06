@@ -85,7 +85,9 @@ main();
 ```
 
 Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The example fails unless Mastra executes the native
-`get-weather` tool. The agent run, model call, and tool call appear as a nested trace in **Logfire**.
+`get-weather` tool. The agent run, model call, and tool call appear as a nested trace in **Logfire**. Mastra
+runs also appear in the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns
+each view populates.
 
 !!! warning "Common pitfalls"
     - **Use the current `observability` config.** The older top-level `telemetry: {}` (`OtelConfig`) on

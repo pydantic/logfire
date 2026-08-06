@@ -91,7 +91,8 @@ Console.WriteLine(response);
 This uses Microsoft Agent Framework's real `ChatClientAgent` and `AIFunction`; no wrapper spans are added.
 You'll see `invoke_agent`, `chat`, and `execute_tool` spans in **Logfire**. To also
 collect `gen_ai.client.*` metrics, configure a `MeterProvider` with `AddMeter(SourceName)` and an OpenTelemetry
-Protocol metrics exporter.
+Protocol metrics exporter. Microsoft Agent Framework runs also appear in the specialized **Agents** view; the
+[support matrix](support-matrix.md) shows which columns each view populates.
 
 !!! warning "Common pitfalls"
     - **Default OTLP protocol is gRPC.** Set `OtlpExportProtocol.HttpProtobuf` and supply the full `/v1/traces`

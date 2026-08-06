@@ -89,6 +89,8 @@ export async function runAgent() {
 }
 ```
 
+You'll see the graph run, its model calls, and the `lookup_incident` tool call as a nested trace in **Logfire**'s Live and Explore views.
+
 !!! warning "Common pitfalls"
     - **Set configuration before process start.** Static ESM imports are evaluated before code in `index.ts`,
       so set the `LANGSMITH_*` and `OTEL_*` variables in your terminal or deployment environment and keep the

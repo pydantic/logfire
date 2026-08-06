@@ -9,14 +9,15 @@ Every framework that sends OpenTelemetry (OTel) spans to Logfire gets the **Live
 trace waterfall, annotations, dashboards, and alerts. The specialized **LLMs** and **Agents** views need specific
 span attributes and parent-child relationships, so their support varies by framework.
 
-This page summarizes what each guide's "What you'll see in Logfire" section describes. The determining factor is
+This page summarizes what each framework's guide describes about Logfire's views. The determining factor is
 **how the framework emits its spans**:
 
 - **Native OTel-GenAI semconv** (`gen_ai.*`): the LLMs and Agents views understand these directly, so model, token,
   **cost**, and — where the framework emits them — tool and message data all populate.
-- **Third-party instrumentor** ([OpenInference](https://github.com/Arize-ai/openinference) /
-  [OpenLLMetry](https://github.com/traceloop/openllmetry)): agent runs and token counts populate, but cost, the
-  tools tab, and message/prompt content are not yet read from these conventions.
+- **Instrumentor or bridge** (e.g. [OpenInference](https://github.com/Arize-ai/openinference) /
+  [OpenLLMetry](https://github.com/traceloop/openllmetry), a framework's own OTel bridge, or a Logfire-native
+  instrumentor): agent runs and token counts populate, but cost, the tools tab, and message/prompt content are not
+  yet read from these conventions.
 
 Legend: **●** full &nbsp;·&nbsp; **◐** partial or framework-dependent &nbsp;·&nbsp; **○** not yet.
 
@@ -35,8 +36,10 @@ content appear when the framework emits them (see each guide).
 | [Mastra](mastra.md) | ● | ● | ● | ● | ○ | ● |
 | [Vercel AI SDK](vercel-ai-sdk.md) | ● | ● | ● | ● | ◐ | ● |
 | [Rig](rig.md) | ● | ● | ● | ● | ◐ | ◐ |
+| [Microsoft Agent Framework (.NET)](agent-framework-dotnet.md) | ● | ● | ● | ● | ◐ | ◐ |
+| [Semantic Kernel (.NET)](semantic-kernel-dotnet.md) | ● | ◐ | ● | ● | ○ | ◐ |
 
-## Agent runs and tokens — third-party instrumentor
+## Agent runs and tokens — instrumentor or bridge
 
 Detected as agents with per-run token counts. Cost, the tools tab, and message/prompt content are not yet read
 from these conventions.
@@ -46,8 +49,9 @@ from these conventions.
 | [Agno](../llms/agno.md) | ● | ● | ● | ○ | ○ | ○ |
 | [smolagents](../llms/smolagents.md) | ● | ● | ● | ○ | ○ | ○ |
 | [LangGraph](../llms/langgraph.md) | ● | ● | ● | ○ | ○ | ○ |
-| [OpenAI Agents SDK](openai-agents-js.md) | ● | ● | ● | ○ | ○ | ○ |
+| [OpenAI Agents SDK (Python)](../llms/openai.md#openai-agents) | ● | ● | ● | ○ | ○ | ○ |
 | [CrewAI](../llms/crewai.md) [^crewai] | ● | ● | ○ | ○ | ○ | ○ |
+| [Eve](eve.md) [^eve] | ● | ◐ | ● | ○ | ○ | ○ |
 
 ## Detected agents — custom conventions
 
@@ -71,9 +75,14 @@ agent-run span the Agents view recognizes (they emit an LLM or chain span, or a 
 | [LangChain (JS)](langchain-js.md) | ● | ○ | Traced via LangSmith's own convention. |
 | [Instructor](../llms/instructor.md) | ● | ○ | LLM-only; not an agent framework. |
 | [Eino (Go)](eino.md) | ● | ○ | No agent-run convention we detect today. |
+| [Letta](../llms/letta.md) | ● | ○ | Server traces flow via an OpenTelemetry Collector; no agent-run span is detected. |
+| [OpenAI Agents SDK (TS)](openai-agents-js.md) | ◐ | ○ | No OpenTelemetry exporter yet; instrument the underlying model client for LLM spans only. |
 
 [^crewai]: CrewAI is detected and named on the Agents view, but the CrewAI instrumentation in our tests emits no
     LLM spans, so token, model, and cost columns are empty.
+
+[^eve]: Eve agent runs and conversations are detected, but aggregate Agent metrics can miss turns or double-count
+    repeated token attributes (tracking issue #28737).
 
 !!! note "This reflects tested configurations"
     Marks are derived from real captured telemetry for each framework. A different SDK version or instrumentation
