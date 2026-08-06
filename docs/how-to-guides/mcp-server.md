@@ -49,10 +49,13 @@ querying, and more) in one step:
 
         `claude-plugins-official` pins a specific commit of the plugin repository, so a new release
         can take a day to appear there. If the update reports that you are already on the latest
-        version but that version is below 0.1.4, install from `pydantic-skills`, which tracks the
-        latest commit:
+        version but that version is below 0.1.4, switch to `pydantic-skills`, which tracks the
+        latest commit. Uninstall the official copy first: both marketplaces provide the same
+        `logfire` MCP server, so leaving both installed means whichever was installed last wins,
+        and an older copy hardcodes the US endpoint.
 
         ```bash
+        claude plugin remove logfire@claude-plugins-official
         claude plugin marketplace add pydantic/skills
         claude plugin install logfire@pydantic-skills
         ```
