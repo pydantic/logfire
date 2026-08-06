@@ -200,13 +200,6 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
 
 
 def test_slow_async_callback_parented_to_active_span(exporter: TestExporter) -> None:
-    """A slow-callback span parents to the span active in the callback's context.
-
-    The callback runs inside its handle's `self._context`, and the warning is emitted there too, so
-    when a task step blocks the loop while a span is active the resulting `Async ... blocked` span
-    lands under that span in the same trace, instead of becoming an orphan root in a trace of its own.
-    """
-
     async def blocking_task() -> None:
         with logfire.span('running task'):
             await asyncio.sleep(0)
