@@ -48,7 +48,7 @@ def load_agent_setup_prompt() -> Callable[[str, object], str]:
     module = importlib.util.module_from_spec(spec)
     with patch.dict(sys.modules, mkdocs_modules):
         spec.loader.exec_module(module)
-    return cast('Callable[[str, object], str]', getattr(module, 'agent_setup_prompt'))
+    return cast('Callable[[str, object], str]', module.agent_setup_prompt)
 
 
 agent_setup_prompt = load_agent_setup_prompt()
@@ -103,7 +103,7 @@ def test_prompt_file_contains_no_hardcoded_copies_in_md_files() -> None:
         )
 
 
-@pytest.mark.parametrize('src_uri', ['index.md', 'guides/example.md'])
+@pytest.mark.parametrize('src_uri', ['index.md', 'first-trace.md'])
 def test_agent_setup_prompt_expands_canonical_prompt(src_uri: str) -> None:
     markdown = f'before\n{PLACEHOLDER}\nafter'
     canonical_prompt = PROMPT_FILE.read_text(encoding='utf-8')
