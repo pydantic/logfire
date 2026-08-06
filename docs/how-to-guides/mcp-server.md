@@ -24,12 +24,6 @@ This is the easiest way to get started with the Logfire MCP server.
 
 To use the remote MCP server, add the following configuration to your MCP client.
 
-!!! note
-    The Logfire UI has per-client setup instructions at
-    [logfire-us.pydantic.dev/-/mcp](https://logfire-us.pydantic.dev/-/mcp) (US) or
-    [logfire-eu.pydantic.dev/-/mcp](https://logfire-eu.pydantic.dev/-/mcp) (EU), and
-    shows the correct endpoint URL for your account's region automatically.
-
 **Choose the endpoint that matches your Logfire data region:**
 
 - **US region**: `https://logfire-us.pydantic.dev/mcp`
