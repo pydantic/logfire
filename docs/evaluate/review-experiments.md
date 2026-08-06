@@ -40,7 +40,7 @@ Aggregate results are a triage tool, not the final decision. For a numeric evalu
 
 Open the **Cases** tab, then start with **Needs review**, **Failed**, or **Errors**. Search by case name when you know the scenario.
 
-Before opening a case, scan its input and output preview alongside the selected evaluator values. Use **Metrics** to choose the evaluator columns that matter to the decision, then select **Open case** for the full evidence.
+Before opening a case, scan its input and output preview alongside the selected evaluator values. Use **Metrics** to choose the evaluator columns that matter to the decision, then select **Open case** for the full evidence. Hover an evaluator value to see its name and exact value. Numeric scores also show the run-wide distribution with the current case marked.
 
 ![Use input and output previews to find cases that need inspection](../images/guide/evals/case-previews.webp)
 
