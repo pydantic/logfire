@@ -33,7 +33,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
         [
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
@@ -52,7 +52,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
@@ -80,7 +80,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
@@ -113,7 +113,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
+                'context': {'trace_id': 4, 'span_id': 4, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
@@ -141,7 +141,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
+                'context': {'trace_id': 5, 'span_id': 5, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
@@ -169,7 +169,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': IsInt, 'span_id': IsInt, 'is_remote': False},
+                'context': {'trace_id': 6, 'span_id': 6, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
