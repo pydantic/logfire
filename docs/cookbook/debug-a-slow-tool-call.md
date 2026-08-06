@@ -52,7 +52,7 @@ slow.
 - **Python packages**: Pydantic AI, the Psycopg 3 driver, and Logfire's instrumentation for both:
 
     ```bash
-    pip install "logfire[pydantic-ai,psycopg]" "pydantic-ai-slim[google]" "psycopg[binary]"
+    pip install "logfire[psycopg]" "pydantic-ai-slim[google]" "psycopg[binary]"
     ```
 
 Set your write token and model key so the app can send traces and call the model:
