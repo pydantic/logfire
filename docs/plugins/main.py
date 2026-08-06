@@ -177,6 +177,7 @@ def before_you_start(markdown: str, page: Page) -> str:
 
 
 _AGENT_SETUP_PROMPT_FILE = LOGFIRE_DIR / 'docs' / 'agent-setup-prompt.txt'
+_AGENT_SETUP_PROMPT_PLACEHOLDER = '{{ agent_setup_prompt() }}'
 
 
 def agent_setup_prompt(markdown: str, _page: Page) -> str:
@@ -186,10 +187,10 @@ def agent_setup_prompt(markdown: str, _page: Page) -> str:
     source of truth for the agent setup prompt that appears in both ``index.md``
     (inside ``<AgentSetup>``) and ``first-trace.md`` (inside ``<CopyPrompt>``).
     """
-    if '{{ agent_setup_prompt() }}' not in markdown:
+    if _AGENT_SETUP_PROMPT_PLACEHOLDER not in markdown:
         return markdown
     prompt_text = _AGENT_SETUP_PROMPT_FILE.read_text(encoding='utf-8')
-    return markdown.replace('{{ agent_setup_prompt() }}', prompt_text)
+    return markdown.replace(_AGENT_SETUP_PROMPT_PLACEHOLDER, prompt_text)
 
 
 def warning_on_third_party(markdown: str, page: Page) -> str:
