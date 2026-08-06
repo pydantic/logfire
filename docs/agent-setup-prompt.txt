@@ -13,7 +13,7 @@ Fetch reference material as plain text rather than opening HTML documentation UR
 2. Authenticate. Keep any token out of replies and committed files.
    - If `LOGFIRE_TOKEN` is already set, use it as-is.
    - Preferred: ask the user to run `uvx logfire auth` in their own terminal. It opens a browser tab on their machine where they sign in or create a free account (no credit card required). Wait for the user to confirm before continuing.
-   - If you run it instead: `uvx logfire auth` opens a browser on the user's machine, not yours. Do not open your own browser. Poll `~/.logfire` every 5 seconds until credentials appear, then continue.
+   - If you run it instead: `uvx logfire auth` may open a browser in the environment where the command runs, not necessarily on the user's machine. If no browser opens, give the user the printed authorization URL or ask them to run `uvx logfire auth` in their own terminal. Poll `~/.logfire` every 5 seconds until credentials appear, then continue.
    - For non-interactive shells or non-Python projects: ask the user to copy a write token from Project > Settings > Write tokens and set it as `LOGFIRE_TOKEN` in a gitignored `.env`. Never commit it or print it in a reply.
    - Do not create a new Logfire project without asking the user which project to use.
 
