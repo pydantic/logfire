@@ -35,15 +35,18 @@ querying, and more) in one step:
         region or a self-hosted instance, set `LOGFIRE_MCP_URL` in the shell where you launch Claude
         Code, e.g. `export LOGFIRE_MCP_URL=https://logfire-eu.pydantic.dev/mcp`.
 
-        The variable requires plugin version 0.1.4 or later (`claude plugin list` shows the
-        installed version). Update an older install with:
+        The variable requires plugin version 0.1.4 or later. Run `claude plugin list` to see the
+        installed version and the marketplace it came from, then update an older install with:
 
         ```bash
         claude plugin marketplace update claude-plugins-official
         claude plugin update logfire@claude-plugins-official
         ```
 
-        Restart Claude Code afterwards for the update to take effect.
+        Restart Claude Code afterwards for the update to take effect. If you installed from the
+        `pydantic-skills` marketplace instead (see [Coding Agent Skills](skills.md)), substitute
+        that name in both commands; `claude-plugins-official` pins a specific commit of the plugin
+        repository, so a release can take longer to appear there.
 
 === "Codex"
 
