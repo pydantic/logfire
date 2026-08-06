@@ -7,7 +7,7 @@ Before any code changes, create a new git branch.
 Fetch reference material as plain text rather than opening HTML documentation URLs in browser tools.
 
 1. Install the Logfire SDK. For a Python project, after installing Logfire, read its bundled logfire-instrumentation skill for detailed instrumentation steps:
-     cat "$(python -c 'import pathlib, logfire; print(pathlib.Path(logfire.__file__).parent / ".agents/skills/logfire-instrumentation/SKILL.md")')"
+     cat "$(python -I -c 'from importlib.metadata import distribution; print(distribution("logfire").locate_file("logfire/.agents/skills/logfire-instrumentation/SKILL.md"))')"
    Then initialize Logfire at startup (logfire.configure() for Python and JS; OpenTelemetry for other languages). Instrument the web framework plus any LLM and HTTP clients. Do not refactor unrelated code.
 
 2. Authenticate. Keep any token out of replies and committed files.
