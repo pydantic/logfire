@@ -1,0 +1,34 @@
+tests/test_slow_async_callbacks.py
+  s_dd2e40266c06fd::t_8179607ba579f1 30,36,47,55,66,74,83-84,94,102,107,116-150,160,168,177-178,188,196,203-217,220,228,232
+tests/import_used_for_tests/slow_async_callbacks_example.py
+  s_dd2e40266c06fd::t_8179607ba579f1 15-19
+docs/how-to-guides/mcp-server.md
+  s_dd2e40266c06fd::t_8179607ba579f1 92,96,99
+logfire/_internal/async_.py
+  s_dd2e40266c06fd::t_8179607ba579f1 42-45
+docs/first-trace.md
+  s_dd2e40266c06fd::t_8179607ba579f1 42,115-148,151
+docs/how-to-guides/skills.md
+  s_dd2e40266c06fd::t_8179607ba579f1 65-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "70b28169069e5ef12876b803146253193e473464",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_dd2e40266c06fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fd76e-fa59-7fa2-9f51-bfd191720f2d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
