@@ -1,6 +1,6 @@
 ---
 title: Logfire MCP Server Setup Guide
-description: Learn how to use an MCP to allow LLMs to access OpenTelemetry traces and metrics through Logfire. Detailed configuration guide for Cursor and Claude.
+description: Learn how to use an MCP to allow LLMs to access OpenTelemetry traces and metrics through Logfire. Detailed configuration guide for Claude Code, Codex, Cursor, and other MCP clients.
 ---
 # Logfire MCP Server
 
@@ -20,12 +20,40 @@ for more information.
 Once connected, you can query telemetry data and manage dashboards, alerts, issues, and more.
 For a full list of available tools, see [Available MCP Tools](#available-mcp-tools) at the end of this guide.
 
-## Remote MCP Server (Recommended)
+## Recommended: install the Logfire plugin
+
+For **Claude Code** and **Codex**, the easiest path is the Logfire plugin, which configures the
+hosted MCP server and installs the [Logfire coding agent skills](skills.md) (instrumentation,
+querying, and more) in one step:
+
+=== "Claude Code"
+
+    ```bash
+    claude plugin install logfire@claude-plugins-official
+    ```
+
+=== "Codex"
+
+    ```bash
+    codex plugin marketplace add pydantic/skills
+    codex plugin add logfire@pydantic-skills
+    ```
+
+See [Coding Agent Skills](skills.md) for the full plugin options, including the `pydantic/skills`
+marketplace for Claude Code and cross-agent installs.
+
+!!! note
+    The plugins configure the **US region** endpoint. For EU projects or self-hosted instances,
+    configure the MCP server manually as described below (for Codex: remove the plugin's entry with
+    `codex mcp remove logfire` first, then start a new conversation after reconfiguring so the MCP
+    tools reload).
+
+For every other MCP client, or when you prefer the MCP server without the skills, configure the
+remote server manually as described below.
+
+## Remote MCP Server
 
 Pydantic Logfire provides a hosted remote MCP server that you can use without installing anything locally.
-This is the easiest way to get started with the Logfire MCP server.
-
-To use the remote MCP server, add the following configuration to your MCP client.
 
 **Choose the endpoint that matches your Logfire data region:**
 
@@ -40,36 +68,23 @@ To use the remote MCP server, add the following configuration to your MCP client
     If you are running a self-hosted Logfire instance, replace the URL above with your own Logfire instance URL
     (e.g., `https://logfire.my-company.com/mcp`), as the remote MCP server is hosted alongside your Logfire deployment.
 
+!!! tip
+    The in-app **MCP** page (in your project's sidebar) shows the same setup instructions with your
+    instance's server URL pre-filled, plus one-click install links for several clients.
+
 ---
 
 ## Configuration with well-known MCP clients
 
-The examples below use the **US region** endpoint. Replace the URL with `https://logfire-eu.pydantic.dev/mcp` if you are using the EU region.
-
-### Cursor
-
-Create a `.cursor/mcp.json` file in your project root:
-
-```json
-{
-  "mcpServers": {
-    "logfire": {
-      "type": "http",
-      "url": "https://logfire-us.pydantic.dev/mcp"
-    }
-  }
-}
-```
-
-For more detailed information, you can check the
-[Cursor documentation](https://docs.cursor.com/context/model-context-protocol).
+The examples below use the **US region** endpoint. Replace the URL with `https://logfire-eu.pydantic.dev/mcp`
+(or your self-hosted URL) if needed.
 
 ### Claude Code
 
 Run the following command to add the Logfire MCP server:
 
 ```bash
-claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp
+claude mcp add --transport http logfire https://logfire-us.pydantic.dev/mcp
 ```
 
 Then use the `/mcp` slash command within Claude Code to authenticate with your Logfire account.
@@ -79,51 +94,48 @@ For more information, see the [Claude Code MCP documentation](https://code.claud
 
 ### Claude Desktop
 
-Add to your Claude settings:
+Open **Settings > Connectors > Add custom connector** and paste the server URL:
 
-```json
-{
-  "mcpServers": {
-    "logfire": {
-      "type": "http",
-      "url": "https://logfire-us.pydantic.dev/mcp"
-    }
-  }
-}
+```
+https://logfire-us.pydantic.dev/mcp
 ```
 
-Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
+Claude Desktop runs the OAuth flow in your browser. Custom connectors require a Pro, Max, Team, or
+Enterprise plan (Free is limited to one connector). See
+[Claude's custom connector guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 for more information.
 
 ### Codex
 
-Install the [Logfire plugin](skills.md#codex) from the Pydantic marketplace. The plugin configures the hosted
-Logfire MCP server automatically: no separate MCP JSON configuration is required.
+Add to `~/.codex/config.toml`:
 
-The Codex plugin currently configures the US endpoint. For EU projects, replace the MCP entry and re-authenticate:
+```toml
+[mcp_servers.logfire]
+url = "https://logfire-us.pydantic.dev/mcp"
+```
+
+Then sign in:
 
 ```bash
-codex mcp remove logfire
-codex mcp add logfire --url https://logfire-eu.pydantic.dev/mcp
 codex mcp login logfire
 ```
 
-Start a new Codex conversation after switching so the MCP tools reload.
+### Cursor
 
-### Cline
-
-Add to your Cline settings in `cline_mcp_settings.json`:
+Create a `.cursor/mcp.json` file in your project root:
 
 ```json
 {
   "mcpServers": {
     "logfire": {
-      "type": "http",
       "url": "https://logfire-us.pydantic.dev/mcp"
     }
   }
 }
 ```
+
+For more detailed information, you can check the
+[Cursor documentation](https://docs.cursor.com/context/model-context-protocol).
 
 ### VS Code
 
@@ -142,6 +154,54 @@ Create a `.vscode/mcp.json` file in your project's root directory:
 }
 ```
 
+### Gemini CLI
+
+Add to `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "httpUrl": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
+### Cline
+
+Open the Cline panel, click the MCP Servers icon, and add to `cline_mcp_settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "type": "streamableHttp",
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
+### Goose
+
+Run `goose configure`, choose **Add Extension > Remote Extension (Streaming HTTP)**, and paste the
+server URL.
+
+### LM Studio
+
+Add to `mcp.json` in LM Studio's Program tab:
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
 ### Zed
 
 Create a `.zed/settings.json` file in your project's root directory:
@@ -150,12 +210,16 @@ Create a `.zed/settings.json` file in your project's root directory:
 {
   "context_servers": {
     "logfire": {
-      "type": "http",
       "url": "https://logfire-us.pydantic.dev/mcp"
     }
   }
 }
 ```
+
+### Any other MCP client
+
+Point the client at the server URL using the streamable HTTP transport; most clients run the
+browser OAuth flow automatically on first connect.
 
 ---
 
@@ -176,6 +240,45 @@ If browser-based authentication is not available (e.g. in sandboxed environments
   }
 }
 ```
+
+Some clients need a different shape for key-based auth:
+
+- **Claude Code**: pass the key as a header when adding the server:
+
+    ```bash
+    claude mcp add --transport http logfire https://logfire-us.pydantic.dev/mcp \
+      --header "Authorization: Bearer <your-logfire-api-key>"
+    ```
+
+- **Codex**: reference an environment variable from `~/.codex/config.toml`:
+
+    ```toml
+    [mcp_servers.logfire]
+    url = "https://logfire-us.pydantic.dev/mcp"
+    bearer_token_env_var = "LOGFIRE_MCP_TOKEN"
+    ```
+
+    Then export the key Codex reads: `export LOGFIRE_MCP_TOKEN=<your-logfire-api-key>`
+
+- **Claude Desktop**: custom connectors are OAuth-only, so for key-based auth use `mcp-remote` in
+  `claude_desktop_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "logfire": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "mcp-remote",
+            "https://logfire-us.pydantic.dev/mcp",
+            "--header",
+            "Authorization: Bearer <your-logfire-api-key>"
+          ]
+        }
+      }
+    }
+    ```
 
 ---
 
