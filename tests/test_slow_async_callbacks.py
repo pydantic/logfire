@@ -7,7 +7,7 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire.testing import TestExporter
-from tests.import_used_for_tests.slow_async_callbacks_example import main
+from tests.import_used_for_tests.slow_async_callbacks_example import main, mock_block
 
 
 def test_slow_async_callbacks(exporter: TestExporter) -> None:
@@ -197,3 +197,41 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_slow_async_callback_parented_to_active_span(exporter: TestExporter) -> None:
+    """A slow-callback span parents to the span active in the callback's context.
+
+    The callback runs inside its handle's `self._context`, and the warning is emitted there too, so
+    when a task step blocks the loop while a span is active the resulting `Async ... blocked` span
+    lands under that span in the same trace, instead of becoming an orphan root in a trace of its own.
+    """
+
+    async def blocking_task() -> None:
+        with logfire.span('running task'):
+            await asyncio.sleep(0)
+            # Advance the deterministic timer so this step counts as slow.
+            mock_block()
+            mock_block()
+            await asyncio.sleep(0)
+
+    with logfire.log_slow_async_callbacks(slow_duration=2):
+        asyncio.run(blocking_task())
+
+    [task_span] = [
+        s
+        for s in exporter.exported_spans
+        if s.name == 'running task' and s.attributes and s.attributes.get('logfire.span_type') == 'span'
+    ]
+    task_context = task_span.context
+    assert task_context is not None
+    blocked_spans = [s for s in exporter.exported_spans if s.name == 'Async {name} blocked for {duration:.3f} seconds']
+    # A step that blocked while the span was active parents to it; a step that blocked after the
+    # `with` block closed has no active span and stays a root. Before the fix, every one was a root.
+    parented = [s for s in blocked_spans if s.parent is not None]
+    assert parented, 'expected a slow-async-callback span parented to the active task span'
+    for blocked in parented:
+        assert blocked.parent is not None
+        assert blocked.context is not None
+        assert blocked.parent.span_id == task_context.span_id
+        assert blocked.context.trace_id == task_context.trace_id

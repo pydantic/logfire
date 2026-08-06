@@ -39,7 +39,14 @@ def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> AbstractContex
             try:
                 duration /= ONE_SECOND_IN_NANOSECONDS
                 callback: Any = self._callback
-                logfire.warn(
+                # Emit the warning inside the context the callback just ran in (`self._context`),
+                # rather than here in the event loop's top-level context where no span is active.
+                # The callback is typically a task step, and the span it left active in its context
+                # is still current there, so the warning span parents to it instead of becoming an
+                # orphan root in a trace of its own. `logfire.warn` balances its own attach/detach,
+                # so running it in the context leaves that context unchanged for the task's next step.
+                self._context.run(
+                    logfire.warn,
                     'Async {name} blocked for {duration:.3f} seconds',
                     duration=duration,
                     **_callback_attributes(callback),
