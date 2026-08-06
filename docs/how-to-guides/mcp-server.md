@@ -35,9 +35,15 @@ querying, and more) in one step:
         region or a self-hosted instance, set `LOGFIRE_MCP_URL` in the shell where you launch Claude
         Code, e.g. `export LOGFIRE_MCP_URL=https://logfire-eu.pydantic.dev/mcp`.
 
-        If your installed plugin predates version 0.1.4, the variable has no effect. Add the endpoint
-        manually instead with
-        `claude mcp add --transport http logfire https://logfire-eu.pydantic.dev/mcp`.
+        The variable requires plugin version 0.1.4 or later (`claude plugin list` shows the
+        installed version). Update an older install with:
+
+        ```bash
+        claude plugin marketplace update claude-plugins-official
+        claude plugin update logfire@claude-plugins-official
+        ```
+
+        Restart Claude Code afterwards for the update to take effect.
 
 === "Codex"
 
