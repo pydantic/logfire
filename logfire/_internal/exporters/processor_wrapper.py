@@ -543,28 +543,39 @@ def _default_gen_ai_response_model(span: ReadableSpanDict):
 
 def _transform_google_genai_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    if not (scope and scope.name == 'opentelemetry.instrumentation.google_genai' and span['events']):
+    # opentelemetry-instrumentation-google-genai >= 1.0b0 is built on opentelemetry.util.genai and emits
+    # spans under this shared scope. util.genai is generic infrastructure, so also check the provider name
+    # to avoid rewriting spans from other (future) util.genai-based integrations.
+    if not (scope and scope.name == 'opentelemetry.util.genai.handler'):
         return
 
-    new_events: list[Event] = []
-    events_attr: list[dict[str, Any]] = []
-    for event in span['events']:
-        if not (
-            event.name.startswith('gen_ai.')
-            and event.attributes
-            and isinstance(event_attrs_string := event.attributes.get('event_body'), str)
-        ):  # pragma: no cover
-            new_events.append(event)
-            continue
-        event_attrs: dict[str, Any] = json.loads(event_attrs_string)
-        events_attr.append(event_attrs)
-    span['attributes'] = {
-        **span['attributes'],
-        'events': json.dumps(events_attr),
-        'gen_ai.operation.name': 'chat',
-        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties({'events': {'type': 'array'}})),
+    attributes = span['attributes']
+    if not (
+        attributes.get('gen_ai.provider.name') == 'gemini'
+        and attributes.get('gen_ai.operation.name') == 'generate_content'
+    ):
+        return
+
+    # 1.0b0 stores messages directly on the model request span following the newer OpenTelemetry GenAI
+    # semantic conventions. Mark the JSON-encoded message/tool attributes as arrays and set the operation
+    # name to 'chat' so they render the same way as the Anthropic and Pydantic AI integrations. This runs
+    # regardless of the content-capture mode, so no-content spans are still recognised as chat spans (the
+    # tool-call span keeps its own 'execute_tool' operation name and is left untouched).
+    array_properties: dict[str, Any] = {
+        key: {'type': 'array'}
+        for key in (
+            'gen_ai.input.messages',
+            'gen_ai.output.messages',
+            'gen_ai.system_instructions',
+            'gen_ai.tool.definitions',
+        )
+        if key in attributes
     }
-    span['events'] = new_events
+    span['attributes'] = {
+        **attributes,
+        'gen_ai.operation.name': 'chat',
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties(array_properties)),
+    }
 
 
 def _transform_litellm_span(span: ReadableSpanDict):
