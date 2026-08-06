@@ -8,14 +8,14 @@ Fetch reference material as plain text rather than opening HTML documentation UR
 
 1. Install the Logfire SDK. For a Python project, after installing Logfire, read its bundled logfire-instrumentation skill for detailed instrumentation steps:
      cat "$(python -I -c 'from importlib.metadata import distribution; print(distribution("logfire").locate_file("logfire/.agents/skills/logfire-instrumentation/SKILL.md"))')"
-   Then initialize Logfire at startup (logfire.configure() for Python and JS; OpenTelemetry for other languages). Instrument the web framework plus any LLM and HTTP clients. Do not refactor unrelated code.
+   Then initialize Logfire at startup (logfire.configure() for Python; the @pydantic/logfire-* package for JavaScript runtimes; OpenTelemetry for other languages). Instrument the web framework plus any LLM and HTTP clients. Do not refactor unrelated code.
 
 2. Authenticate. Keep any token out of replies, logs, and committed files.
    - If `LOGFIRE_TOKEN` is already set, use it as-is.
    - Preferred: ask the user to run `uvx logfire auth` in their own terminal. It opens a browser tab on their machine where they sign in or create a free account (no credit card required). Wait for the user to confirm before continuing.
-   - If you run it instead: `uvx logfire auth` may open a browser in the environment where the command runs, not necessarily on the user's machine. If no browser opens, give the user the printed authorization URL or ask them to run `uvx logfire auth` in their own terminal. Poll `~/.logfire` every 5 seconds until credentials appear, then continue.
+   - If you run it instead: `uvx logfire auth` may open a browser in the environment where the command runs, not necessarily on the user's machine. If no browser opens, give the user the printed authorization URL or ask them to run `uvx logfire auth` in their own terminal. Poll `~/.logfire/default.toml` every 5 seconds for up to 2 minutes; if credentials do not appear after that, ask the user to run `uvx logfire auth` in their own terminal.
    - For non-interactive shells or non-Python projects: ask the user to copy a write token from Project > Settings > Write tokens. Set it as `LOGFIRE_TOKEN` in the shell environment the app runs in (e.g. `export LOGFIRE_TOKEN=...` in the terminal, or via the deployment platform's secret manager). If the project already loads a `.env` file at startup, you may store it there instead, but confirm dotenv loading is in place and the file is gitignored first. Never commit the token or print it in a reply or log output.
-   - Do not create a new Logfire project without asking the user which project to use.
+   - After `uvx logfire auth`, ask the user which Logfire project to use and run `logfire projects use <project-name>`; if a new project is needed, get explicit approval first, then run `logfire projects new <project-name>`.
 
 3. Set up the Logfire MCP server before verifying traces, so you can query traces through it:
    - Claude Code: run `claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp`, then authenticate with /mcp.
@@ -29,6 +29,6 @@ Fetch reference material as plain text rather than opening HTML documentation UR
    - Dashboards: the Logfire Dashboards page (https://pydantic.dev/docs/logfire/observe/dashboards) lets you build charts and set alerts.
    - Auto-tracing (Python): run `logfire inspect` to find uninstrumented dependencies and add them.
    - System metrics: add logfire.instrument_system_metrics() to send CPU, memory, and disk data, visible in the Hosts page (https://pydantic.dev/docs/logfire/observe/hosts).
-   - Service metadata: set a meaningful service_name in logfire.configure() to unlock per-service RED metrics in the Services page (https://pydantic.dev/docs/logfire/observe/services).
+   - Service metadata: set a meaningful service name in logfire.configure() (service_name for Python, serviceName for Node.js) to unlock per-service RED metrics in the Services page (https://pydantic.dev/docs/logfire/observe/services).
    - Manual tracing (optional): add logfire.span() and logfire.info() for operations not covered by auto-instrumentation.
    - Logfire skills: install the Logfire agent skills for your environment and follow the logfire-instrumentation skill bundled in the package (.agents/skills/logfire-instrumentation/).
