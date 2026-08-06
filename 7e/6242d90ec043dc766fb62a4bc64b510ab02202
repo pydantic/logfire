@@ -1,0 +1,29 @@
+tests/test_slow_async_callbacks.py
+  h_d9dd17644dded9 10
+  s_169e5232428a61::t_7ff26d249e37d7 36-37,55-56,83-84,116-117,144-145,172-173,198-201,204-210
+  s_169e5232428a61::t_de6dc10a06e850 30
+  s_169e5232428a61::t_85c2c6ae3113cc 202-203
+  s_169e5232428a61::t_1877f56b60a991 20
+  s_169e5232428a61::t_427eb564d648f1 211-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "7e6242d90ec043dc766fb62a4bc64b510ab02202",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_169e5232428a61": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1785758320391",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
