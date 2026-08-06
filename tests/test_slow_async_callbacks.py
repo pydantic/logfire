@@ -17,7 +17,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
     # Because of the deterministic timestamp generator, they all appear to take 1 second.
     # So we set the duration to 2 to filter for our own functions which call `mock_block`,
     # i.e. advancing the timestamp generator.
-    with logfire.log_slow_async_callbacks(slow_duration=2), logfire.span('root'):
+    with logfire.log_slow_async_callbacks(slow_duration=2):
         # Check that the patching is in effect
         assert Handle._run.__qualname__ == 'log_slow_callbacks.<locals>.patched_run'
 
@@ -33,8 +33,8 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
         [
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
                 'attributes': {
@@ -44,7 +44,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'logfire.msg': 'Async callback mock_block blocked for 2.000 seconds',
                     'code.filepath': 'slow_async_callbacks_example.py',
                     'code.function': 'mock_block',
-                    'code.lineno': 31,
+                    'code.lineno': 32,
                     'duration': 2.0,
                     'name': 'callback mock_block',
                     'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{}}}',
@@ -52,8 +52,8 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
                 'attributes': {
@@ -63,7 +63,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'logfire.msg': 'Async task foo 1 (foo) blocked for 2.000 seconds',
                     'code.filepath': 'slow_async_callbacks_example.py',
                     'code.function': 'foo',
-                    'code.lineno': 28,
+                    'code.lineno': 29,
                     'duration': 2.0,
                     'name': 'task foo 1 (foo)',
                     'stack': IsJson(
@@ -71,7 +71,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             {
                                 'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
                                 'code.function': 'foo',
-                                'code.lineno': 28,
+                                'code.lineno': 29,
                             }
                         ]
                     ),
@@ -80,8 +80,8 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
                 'start_time': IsInt,
                 'end_time': IsInt,
                 'attributes': {
@@ -91,7 +91,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'logfire.msg': 'Async task bar 1 (bar) blocked for 2.000 seconds',
                     'code.filepath': 'slow_async_callbacks_example.py',
                     'code.function': 'bar',
-                    'code.lineno': 15,
+                    'code.lineno': 16,
                     'duration': 2.0,
                     'name': 'task bar 1 (bar)',
                     'stack': IsJson(
@@ -99,12 +99,12 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             {
                                 'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
                                 'code.function': 'bar',
-                                'code.lineno': 15,
+                                'code.lineno': 16,
                             },
                             {
                                 'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
                                 'code.function': 'foo',
-                                'code.lineno': 28,
+                                'code.lineno': 27,
                             },
                         ]
                     ),
@@ -113,8 +113,41 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'start_time': IsInt,
+                'end_time': IsInt,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
+                    'logfire.msg': 'Async task bar 1 (bar) blocked for 2.000 seconds',
+                    'code.filepath': 'slow_async_callbacks_example.py',
+                    'code.function': 'bar',
+                    'code.lineno': 16,
+                    'duration': 2.0,
+                    'name': 'task bar 1 (bar)',
+                    'stack': IsJson(
+                        [
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'bar',
+                                'code.lineno': 16,
+                            },
+                            {
+                                'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
+                                'code.function': 'foo',
+                                'code.lineno': 29,
+                            },
+                        ]
+                    ),
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{"type":"array"}}}',
+                },
+            },
+            {
+                'name': 'Async {name} blocked for {duration:.3f} seconds',
+                'context': {'trace_id': 3, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
                 'start_time': IsInt,
                 'end_time': IsInt,
                 'attributes': {
@@ -124,7 +157,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'logfire.msg': 'Async task bar 1 (bar) blocked for 3.000 seconds',
                     'code.filepath': 'slow_async_callbacks_example.py',
                     'code.function': 'bar',
-                    'code.lineno': 18,
+                    'code.lineno': 19,
                     'duration': 3.0,
                     'name': 'task bar 1 (bar)',
                     'stack': IsJson(
@@ -132,7 +165,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             {
                                 'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
                                 'code.function': 'bar',
-                                'code.lineno': 18,
+                                'code.lineno': 19,
                             }
                         ]
                     ),
@@ -141,8 +174,8 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
             },
             {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'context': {'trace_id': 3, 'span_id': 8, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
                 'start_time': IsInt,
                 'end_time': IsInt,
                 'attributes': {
@@ -152,7 +185,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                     'logfire.msg': 'Async task foo 2 (foo) blocked for 2.000 seconds',
                     'code.filepath': 'slow_async_callbacks_example.py',
                     'code.function': 'foo',
-                    'code.lineno': 28,
+                    'code.lineno': 29,
                     'duration': 2.0,
                     'name': 'task foo 2 (foo)',
                     'stack': IsJson(
@@ -160,7 +193,7 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                             {
                                 'code.filepath': 'tests/import_used_for_tests/slow_async_callbacks_example.py',
                                 'code.function': 'foo',
-                                'code.lineno': 28,
+                                'code.lineno': 29,
                             }
                         ]
                     ),
@@ -168,20 +201,35 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                 },
             },
             {
+                'name': 'in bar',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': IsInt,
+                'end_time': IsInt,
+                'attributes': {
+                    'code.filepath': 'slow_async_callbacks_example.py',
+                    'code.function': 'bar',
+                    'code.lineno': 15,
+                    'logfire.msg_template': 'in bar',
+                    'logfire.msg': 'in bar',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
                 'name': 'Async {name} blocked for {duration:.3f} seconds',
-                'context': {'trace_id': 1, 'span_id': 8, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'context': {'trace_id': 4, 'span_id': 9, 'is_remote': False},
+                'parent': None,
                 'start_time': IsInt,
                 'end_time': IsInt,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
                     'logfire.msg_template': 'Async {name} blocked for {duration:.3f} seconds',
-                    'logfire.msg': 'Async task bar 1 (bar) blocked for 4.000 seconds',
+                    'logfire.msg': 'Async task bar 1 (bar) blocked for 5.000 seconds',
                     'code.filepath': 'slow_async_callbacks_example.py',
                     'code.function': 'bar',
                     'code.lineno': 14,
-                    'duration': 4.0,
+                    'duration': 5.0,
                     'name': 'task bar 1 (bar)',
                     'stack': IsJson(
                         [
@@ -193,21 +241,6 @@ def test_slow_async_callbacks(exporter: TestExporter) -> None:
                         ]
                     ),
                     'logfire.json_schema': '{"type":"object","properties":{"duration":{},"name":{},"stack":{"type":"array"}}}',
-                },
-            },
-            {
-                'name': 'root',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': IsInt,
-                'end_time': IsInt,
-                'attributes': {
-                    'code.filepath': 'test_slow_async_callbacks.py',
-                    'code.function': 'test_slow_async_callbacks',
-                    'code.lineno': 20,
-                    'logfire.msg_template': 'root',
-                    'logfire.msg': 'root',
-                    'logfire.span_type': 'span',
                 },
             },
         ]
