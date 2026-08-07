@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import threading
 import weakref
 from pathlib import Path
 from typing import Any
@@ -240,21 +241,26 @@ def test_disk_retryer_close_during_retry(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(retryer.session, 'send', failing_send)
 
     # After a few sleeps, call close() so the retry loop checks self.closed and returns.
+    # close() runs on the retry thread and sets retryer.thread to None, and with time.sleep
+    # mocked the retry loop can get there before add_task even returns in the main thread,
+    # so hold off until the main thread has captured the thread reference.
+    thread_captured = threading.Event()
     sleep_count = 0
 
     def mock_sleep(seconds: float) -> None:
         nonlocal sleep_count
         sleep_count += 1
         if sleep_count >= 3:
+            thread_captured.wait(timeout=5)
             retryer.close()
 
     monkeypatch.setattr('time.sleep', mock_sleep)
 
     retryer.add_task(b'123', {'url': 'http://example.com/'})
 
-    # Capture thread reference before it can be set to None by close().
     thread = retryer.thread
     assert thread is not None
+    thread_captured.set()
     thread.join(timeout=5)
 
     assert sleep_count >= 3
