@@ -1,0 +1,123 @@
+---
+title: "Pydantic Logfire Integrations: Mastra"
+description: "Send Mastra (TypeScript agent framework) telemetry to Pydantic Logfire using its OpenTelemetry exporter over OTLP."
+integration: otel
+---
+# Mastra
+
+[Mastra](https://mastra.ai/) is a TypeScript agent framework with built-in observability ("AI Tracing"). You
+configure it with an `Observability` instance whose exporters send OpenTelemetry data to **Logfire** via the
+`@mastra/otel-exporter` package pointed at **Logfire**'s OTLP endpoint.
+
+## Installation
+
+```bash
+npm install @mastra/core @mastra/observability @mastra/otel-exporter \
+  @opentelemetry/exporter-trace-otlp-proto '@ai-sdk/openai@^3' zod @pydantic/logfire-node
+```
+
+## Usage
+
+```typescript title="mastra.ts"
+import { Mastra } from '@mastra/core';
+import { Agent } from '@mastra/core/agent';
+import { createTool } from '@mastra/core/tools';
+import { Observability } from '@mastra/observability';
+import { OtelExporter } from '@mastra/otel-exporter';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
+
+let toolCalls = 0;
+const weatherTool = createTool({
+  id: 'get-weather',
+  description: 'Get the weather for a city',
+  inputSchema: z.object({ city: z.string() }),
+  execute: async ({ city }) => {
+    toolCalls += 1;
+    return { city, tempC: 21 };
+  },
+});
+
+const agent = new Agent({
+  id: 'weather-agent',
+  name: 'weather-agent',
+  instructions: 'You are a helpful weather assistant. Use the tool.',
+  model: openai('gpt-4o-mini'),
+  tools: { weatherTool },
+});
+
+export const mastra = new Mastra({
+  agents: { agent },
+  observability: new Observability({
+    configs: {
+      otel: {
+        serviceName: 'mastra-weather-agent',
+        exporters: [
+          new OtelExporter({
+            provider: {
+              custom: {
+                // Give the full /v1/traces path for the custom provider.
+                endpoint: 'https://logfire-us.pydantic.dev/v1/traces',
+                protocol: 'http/protobuf',
+                headers: { Authorization: process.env.LOGFIRE_WRITE_TOKEN! },
+              },
+            },
+          }),
+        ],
+      },
+    },
+  }),
+});
+
+async function main() {
+  try {
+    const res = await mastra
+      .getAgent('agent')
+      .generate('Use get-weather to find the weather in Paris, then report it.', { maxSteps: 3 });
+    if (toolCalls !== 1) throw new Error(`Expected one tool call, received ${toolCalls}`);
+    console.log(res.text);
+  } finally {
+    await mastra.shutdown();
+  }
+}
+
+main();
+```
+
+Set `OPENAI_API_KEY` and `LOGFIRE_WRITE_TOKEN`, then run. The example fails unless Mastra executes the native
+`get-weather` tool. The agent run, model call, and tool call appear as a nested trace in **Logfire**. Mastra
+runs also appear in the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns
+each view populates.
+
+!!! warning "Common pitfalls"
+    - **Use the current `observability` config.** The older top-level `telemetry: {}` (`OtelConfig`) on
+      `new Mastra()` is deprecated; the `Observability` + `OtelExporter` shape shown here is current.
+    - **Full `/v1/traces` URL for the `custom` provider**, and the raw write token as the `Authorization`
+      header value (no `Bearer`). Use `logfire-eu.pydantic.dev` for the EU region.
+    - **Install the matching low-level exporter.** `http/protobuf` needs
+      `@opentelemetry/exporter-trace-otlp-proto`; gRPC needs `@opentelemetry/exporter-trace-otlp-grpc` +
+      `@grpc/grpc-js`.
+
+## Managed prompts
+
+Author and version prompts in [Prompt Management](../../reference/advanced/prompt-management/index.md) and
+fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/):
+
+```typescript
+import { defineTemplateVar } from '@pydantic/logfire-node/vars';
+
+const instructionsVar = defineTemplateVar<string, { role: string }>('prompt__agent_instructions', {
+  default: 'You are a helpful {{role}}.',
+  templateInputsSchema: {
+    type: 'object',
+    properties: { role: { type: 'string' } },
+    required: ['role'],
+  },
+});
+
+const resolved = await instructionsVar.get({ role: 'weather assistant' });
+// Use resolved.value as the Agent's `instructions`.
+```
+
+See [Use Prompts in Your Application](../../reference/advanced/prompt-management/application.md) for the full
+workflow.

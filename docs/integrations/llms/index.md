@@ -7,6 +7,9 @@ description: "Instrument the LLM SDK or agent framework you already use and see 
 
 Trace the model calls, agent steps, and tool calls in your AI app. Instrument the SDK or agent framework you already use with a few lines, and the resulting spans show up in Logfire, with prompts, tokens, cost, and latency where the integration captures them.
 
+!!! tip "Looking for an agent framework?"
+    These pages cover model-provider SDKs and LLM libraries. If you build on an agent framework (CrewAI, LangGraph, Agno, VoltAgent, and more, across Python, TypeScript, Go, Rust, and .NET), see [**Agent Frameworks**](../agent-frameworks/index.md) for per-framework setup and which Logfire views each populates.
+
 !!! note "Instrument vs. gateway"
     These pages **instrument** the calls you already make, so you can see them in Logfire. To instead **route** your calls through Logfire for spending caps and provider failover, see [Connect an agent to the AI Gateway](../../reference/advanced/gateway/integrations/index.md).
 
@@ -16,7 +19,7 @@ Trace the model calls, agent steps, and tool calls in your AI app. Instrument th
     <span class="integration-name">Pydantic AI</span>
   </a>
   <a class="integration-card" href="openai.md">
-    <span class="integration-logo integration-logo--plainmark">O</span>
+    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/openai.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/openai.svg) center/contain no-repeat"></span>
     <span class="integration-name">OpenAI</span>
   </a>
   <a class="integration-card" href="google-genai.md">
@@ -42,10 +45,6 @@ Trace the model calls, agent steps, and tool calls in your AI app. Instrument th
   <a class="integration-card" href="mcp.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/mcp.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/mcp.svg) center/contain no-repeat"></span>
     <span class="integration-name">MCP</span>
-  </a>
-  <a class="integration-card" href="claude-agent-sdk.md">
-    <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/claude-agent-sdk.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/claude-agent-sdk.svg) center/contain no-repeat"></span>
-    <span class="integration-name">Claude Agent SDK</span>
   </a>
   <a class="integration-card" href="llamaindex.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/llamaindex.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/llamaindex.svg) center/contain no-repeat"></span>

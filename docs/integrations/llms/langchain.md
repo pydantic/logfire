@@ -43,7 +43,7 @@ Set three environment variables to turn on LangSmith's OpenTelemetry tracing, ca
 `logfire.configure()` to connect to your project, and Logfire receives the data. The variables must be
 set **before** you import `langchain` or `langgraph`.
 
-```
+```bash
 LANGSMITH_OTEL_ENABLED=true
 LANGSMITH_OTEL_ONLY=true
 LANGSMITH_TRACING=true

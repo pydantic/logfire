@@ -34,10 +34,13 @@ Add two lines to your app: `logfire.configure()` to connect to your project, and
 [`logfire.instrument_google_genai()`][logfire.Logfire.instrument_google_genai] to record every
 Gemini call.
 
-By default, the prompts and completions are hidden: the spans show `<elided>` in their place. To
-capture the actual message content (so you can read the conversation in Logfire), set the
+By default, the prompts and completions are hidden: the spans show `<elided>` in their place. For Logfire's
+Google Gen AI SDK instrumentation, capture the actual message content (so you can read the conversation in
+Logfire) by setting the
 `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` environment variable to `true`. This sends the
-prompt and response text to Logfire, so leave it off if that content is sensitive.
+prompt and response text to Logfire, so leave it off if that content is sensitive. Other instrumentors can
+interpret this OpenTelemetry environment variable differently; for Google Agent Development Kit (ADK), see
+[its content-capture modes](./google-adk.md#usage).
 
 ```python hl_lines="8 10-11" skip-run="true" skip-reason="external-connection"
 import os

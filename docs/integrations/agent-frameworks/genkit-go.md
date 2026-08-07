@@ -1,0 +1,130 @@
+---
+title: "Pydantic Logfire Integrations: Genkit (Go)"
+description: "Send Firebase Genkit (Go) agent telemetry to Pydantic Logfire by registering a standard OpenTelemetry OTLP exporter as the global tracer provider."
+integration: otel
+---
+# Genkit (Go)
+
+[Firebase Genkit](https://genkit.dev/go/) for Go is built directly on the OpenTelemetry Go SDK and emits its
+spans through the **global** `TracerProvider`. So to send Genkit traces to **Logfire**, register a standard
+OpenTelemetry OTLP exporter (pointed at **Logfire**) as the global provider **before** `genkit.Init(...)` — and
+Genkit's agent, model, and tool spans flow in automatically.
+
+!!! note
+    Don't use Genkit's `googlecloud.EnableGoogleCloudTelemetry` for **Logfire** — it targets Google Cloud
+    Operations and has no generic OTLP endpoint. The standard OTel exporter below has no extra dependency on
+    Genkit internals.
+
+## Installation
+
+```bash
+go get github.com/firebase/genkit/go
+go get go.opentelemetry.io/otel \
+       go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp \
+       go.opentelemetry.io/otel/sdk
+```
+
+## Usage
+
+```go title="main.go"
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/firebase/genkit/go/ai"
+	"github.com/firebase/genkit/go/genkit"
+	"github.com/firebase/genkit/go/plugins/googlegenai"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/trace"
+)
+
+func main() {
+	ctx := context.Background()
+	writeToken := os.Getenv("LOGFIRE_WRITE_TOKEN")
+	if writeToken == "" {
+		fmt.Println("LOGFIRE_WRITE_TOKEN is required; copy it from your Logfire project settings")
+		return
+	}
+
+	// 1. Point the global OTel TracerProvider at Logfire (HTTP/protobuf).
+	//    Endpoint + Authorization can also come from
+	//    OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_HEADERS.
+	exp, err := otlptracehttp.New(ctx,
+		otlptracehttp.WithEndpointURL("https://logfire-us.pydantic.dev/v1/traces"),
+		otlptracehttp.WithHeaders(map[string]string{"Authorization": writeToken}),
+	)
+	if err != nil {
+		fmt.Println("telemetry setup error:", err)
+		return
+	}
+	tp := trace.NewTracerProvider(trace.WithBatcher(exp))
+	defer tp.Shutdown(ctx)
+	otel.SetTracerProvider(tp) // MUST be before genkit.Init
+
+	// 2. Init Genkit; its spans now export to Logfire.
+	g := genkit.Init(ctx,
+		genkit.WithPlugins(&googlegenai.GoogleAI{}),
+		genkit.WithDefaultModel("googleai/gemini-2.5-flash"),
+	)
+
+	type incidentInput struct {
+		IncidentID string `json:"incident_id" jsonschema:"description=The incident identifier"`
+	}
+	toolCalls := 0
+	lookupIncident := genkit.DefineTool(
+		g,
+		"lookup_incident",
+		"Look up the current status and owner of an incident by ID.",
+		func(_ *ai.ToolContext, input incidentInput) (string, error) {
+			toolCalls++
+			return fmt.Sprintf("%s is resolved; owner=platform-observability", input.IncidentID), nil
+		},
+	)
+
+	resp, err := genkit.Generate(
+		ctx,
+		g,
+		ai.WithPrompt("Call lookup_incident exactly once with incident_id incident-42, then report the result."),
+		ai.WithTools(lookupIncident),
+	)
+	if err != nil {
+		fmt.Println("model error:", err)
+		return
+	}
+	if resp == nil {
+		fmt.Println("model returned no response")
+		return
+	}
+	if toolCalls != 1 {
+		fmt.Printf("expected one tool call, received %d\n", toolCalls)
+		return
+	}
+	fmt.Println(resp.Text())
+}
+```
+
+Set `GEMINI_API_KEY` (or your provider's key) and run `go run .`. The example verifies that Genkit executes its
+native `lookup_incident` tool. You'll see the generation, model, and tool spans in **Logfire**. Genkit runs are
+detected in the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns each
+view populates. Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU region.
+
+!!! warning "Common pitfalls"
+    - **Set the global provider before `genkit.Init`**, or early spans are dropped.
+    - **Use the HTTP exporter** (`otlptracehttp`) with the `/v1/traces` path — the gRPC exporter won't match
+      Logfire's HTTP ingest.
+    - **Flush on exit.** The `defer tp.Shutdown(ctx)` flushes the batch exporter; without it a short program may
+      exit before spans are sent.
+
+## Managed prompts
+
+Managed prompts are authored and versioned in
+[Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
+helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
+[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Go you can consume managed variables
+over the language-agnostic
+[OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md), or resolve
+the prompt in a small Python/TypeScript sidecar and pass the rendered text into `ai.WithPrompt(...)`.
