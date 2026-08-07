@@ -1,0 +1,32 @@
+docs/agent-setup-prompt.txt
+  s_169e5232428a61::t_2be7ab7efed352 32
+  s_169e5232428a61::t_574ca884057ba5 31
+  s_169e5232428a61::t_36629c7435326a 30
+  s_169e5232428a61::t_f4fe6db5b1344d 26
+  s_169e5232428a61::t_4be67260d3d840 25,27-28
+  s_169e5232428a61::t_619ca233211e9f 23
+  s_169e5232428a61::t_70782b760bf879 24
+  s_169e5232428a61::t_67217fbc4e9920 22
+  s_169e5232428a61::t_451ffe1f02fc35 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "3a732356653e2bbc833e709cb4a64c247fd2333c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_169e5232428a61": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1785758320391",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
