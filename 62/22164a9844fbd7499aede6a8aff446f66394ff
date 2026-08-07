@@ -1,0 +1,40 @@
+docs/agent-setup-prompt.txt
+  s_169e5232428a61::t_205b796baf783b 15
+  s_169e5232428a61::t_8f47388dd92e87 13
+  s_169e5232428a61::t_8b34e7ea379298 1
+  s_169e5232428a61::t_85470ee7e61df2 12
+  h_d9dd17644dded9 21-23
+  s_169e5232428a61::t_ab5ce36496dd8c 24
+  s_169e5232428a61::t_d4a81b4efc951d 7
+  s_169e5232428a61::t_8c3f84a33b7be9 9
+  s_169e5232428a61::t_b34bc3d16b1bf6 14
+  s_169e5232428a61::t_dd4b83d3a915fd 18
+  s_169e5232428a61::t_1a5c3f7d9b68b3 26
+  s_169e5232428a61::t_24e34f187d0442 11
+  s_169e5232428a61::t_2ef5bafb54c91d 17
+  s_169e5232428a61::t_2d6ed7cc4d11f5 28
+  s_169e5232428a61::t_c1a333dac69db0 5
+  s_169e5232428a61::t_e22ea05912e382 16
+  h_d9dd17644dded9 3,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "6222164a9844fbd7499aede6a8aff446f66394ff",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_169e5232428a61": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1785758320391",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
