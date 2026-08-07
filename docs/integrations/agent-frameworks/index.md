@@ -103,7 +103,7 @@ official, or maintained third-party OpenTelemetry path, its guide says that it i
 
 [LlamaIndex Python](../llms/llamaindex.md), [DSPy](../llms/dspy.md), and
 [Instructor](../llms/instructor.md) have useful model or workflow telemetry integrations, but their current
-guides do not demonstrate native agent tool loops. They remain in the broader [LLM integrations](../index.md)
+guides do not demonstrate native agent tool loops. They remain in the broader [LLM integrations](../llms/index.md)
 rather than being presented here as verified agent examples.
 
 !!! tip "Don't see your framework?"

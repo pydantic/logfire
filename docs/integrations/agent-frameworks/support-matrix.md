@@ -23,8 +23,9 @@ Legend: **●** full &nbsp;·&nbsp; **◐** partial or framework-dependent &nbsp
 
 ## Full agent support — native OTel-GenAI
 
-These frameworks emit `gen_ai.*` spans, so the Agents view shows runs, tokens, model, and cost. Tools and message
-content appear when the framework emits them (see each guide).
+These frameworks emit `gen_ai.*` spans, so the Agents view shows runs, tokens, model, and cost; where a framework
+populates only a subset, the marks below show it. Tools and message content appear when the framework emits them
+(see each guide).
 
 | Framework | Live & Explore | Agents view | Tokens & model | Cost | Tools | Messages |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: |

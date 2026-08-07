@@ -105,9 +105,7 @@ The example above looks like this in Logfire:
 !!! note "Live and LLMs views, not the Agents view"
     These runs populate the **Live** and **LLMs** views with full model, token, and cost data. They do
     not appear on the specialized **Agents** view: the SDK doesn't attach an agent name
-    (`gen_ai.agent.name`) to a run, which is what that view keys on. You can surface a run there
-    manually by wrapping the call in a span that carries `gen_ai.agent.name`, but that isn't built-in
-    support.
+    (`gen_ai.agent.name`) to a run, which is what that view keys on.
 
 ## Troubleshooting
 

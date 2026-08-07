@@ -72,9 +72,8 @@ agent beneath it. CrewAI agents also appear in the specialized **Agents** view â
 after the agent's role.
 
 The CrewAI OpenInference instrumentation emits agent and chain spans, but not separate model-call spans, so the
-**LLMs** view and the Agents view's token, model, and cost columns stay empty for CrewAI runs. CrewAI runs also
-appear in the specialized **Agents** view; the [support matrix](../agent-frameworks/support-matrix.md) shows
-which columns each view populates.
+**LLMs** view and the Agents view's token, model, and cost columns stay empty for CrewAI runs. The
+[support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! warning "Prompt and tool content"
     OpenInference can include task descriptions, outputs, tool arguments, and tool results in spans sent to

@@ -15,7 +15,7 @@ provider, the instrumentor's spans are exported to **Logfire** automatically.
 ## Installation
 
 ```bash
-pip install logfire smolagents openinference-instrumentation-smolagents
+pip install logfire 'smolagents[toolkit]' openinference-instrumentation-smolagents
 ```
 
 ## Usage

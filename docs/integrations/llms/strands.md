@@ -58,13 +58,9 @@ as a nested timeline. The model and agent spans contain standard `gen_ai.input.m
 view; the [support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! warning "Message content is sensitive"
-    By default, Strands records message and system-prompt content without redaction. That data can include
-    personally identifiable information (PII) and will be sent to **Logfire**. For workloads that must not send
-    message content, add an empty native allowlist to redact all sensitive attributes:
-
-    ```bash
-    export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental,gen_ai_span_attributes_only,gen_ai_unredacted_attributes=
-    ```
+    By default, Strands records message and system-prompt content, which can include personally identifiable
+    information (PII) and is sent to **Logfire**. Use [scrubbing](../../how-to-guides/scrubbing.md) to redact
+    sensitive values before they leave your machine.
 
 !!! warning
     Do **not** call `StrandsTelemetry().setup_otlp_exporter()` when using **Logfire**. Per the Strands docs,
