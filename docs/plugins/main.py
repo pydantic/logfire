@@ -22,6 +22,7 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
     markdown = before_you_start(markdown, page)
+    markdown = agent_setup_prompt(markdown, page)
     markdown = integrations_metadata(markdown, page)
     markdown = footer_excluded_urls_and_headers(markdown, page)
     return markdown
@@ -173,6 +174,23 @@ def before_you_start(markdown: str, page: Page) -> str:
         f'uses to send data). New to Logfire? Start with [Getting Started]({index_link}).'
     )
     return re.sub(r'{{ *before_you_start\(\) *}}', lambda _match: block, markdown)
+
+
+_AGENT_SETUP_PROMPT_FILE = LOGFIRE_DIR / 'docs' / 'agent-setup-prompt.txt'
+_AGENT_SETUP_PROMPT_PLACEHOLDER = '{{ agent_setup_prompt() }}'
+
+
+def agent_setup_prompt(markdown: str, _page: Page) -> str:
+    """Expand ``{{ agent_setup_prompt() }}`` with the canonical prompt text.
+
+    The canonical text lives in ``docs/agent-setup-prompt.txt`` so there is a single
+    source of truth for the agent setup prompt that appears in both ``index.md``
+    (inside ``<AgentSetup>``) and ``first-trace.md`` (inside ``<CopyPrompt>``).
+    """
+    if _AGENT_SETUP_PROMPT_PLACEHOLDER not in markdown:
+        return markdown
+    prompt_text = _AGENT_SETUP_PROMPT_FILE.read_text(encoding='utf-8')
+    return markdown.replace(_AGENT_SETUP_PROMPT_PLACEHOLDER, prompt_text)
 
 
 def warning_on_third_party(markdown: str, page: Page) -> str:
