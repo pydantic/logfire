@@ -67,6 +67,7 @@ def test_isolated_litellm_event_loop_preserves_existing_loop() -> None:
                 assert isolated_loop is not existing_loop
 
             assert isolated_loop.is_closed()
+            assert asyncio.get_event_loop_policy() is existing_policy  # pyright: ignore[reportDeprecated]
             assert asyncio.get_event_loop() is existing_loop
             assert not existing_loop.is_closed()
         finally:
