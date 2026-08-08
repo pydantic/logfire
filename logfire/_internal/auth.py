@@ -250,7 +250,7 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
     machine_name = platform.uname()[1]
     device_auth_endpoint = urljoin(base_api_url, '/v1/device-auth/new/')
     try:
-        res = session.post(device_auth_endpoint, params={'machine_name': machine_name})
+        res = session.post(device_auth_endpoint, params={'machine_name': machine_name}, timeout=15)
         UnexpectedResponse.raise_for_status(res)
     except requests.RequestException as e:  # pragma: no cover
         raise LogfireConfigError('Failed to request a device code.') from e
