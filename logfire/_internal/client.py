@@ -14,6 +14,7 @@ from .server_response import ServerResponseCallback, install_logfire_response_ho
 from .utils import UnexpectedResponse
 
 UA_HEADER = f'logfire/{VERSION}'
+_REQUEST_TIMEOUT = 30
 
 
 class ProjectAlreadyExists(Exception):
@@ -69,7 +70,7 @@ class LogfireClient:
         )
 
     def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
-        response = self._session.get(urljoin(self.base_url, endpoint), params=params)
+        response = self._session.get(urljoin(self.base_url, endpoint), params=params, timeout=_REQUEST_TIMEOUT)
         UnexpectedResponse.raise_for_status(response)
         return response
 
@@ -80,12 +81,12 @@ class LogfireClient:
             raise LogfireConfigError(error_message) from e
 
     def _post_raw(self, endpoint: str, body: Any | None = None) -> Response:
-        response = self._session.post(urljoin(self.base_url, endpoint), json=body)
+        response = self._session.post(urljoin(self.base_url, endpoint), json=body, timeout=_REQUEST_TIMEOUT)
         UnexpectedResponse.raise_for_status(response)
         return response
 
     def _put_raw(self, endpoint: str, body: Any | None = None) -> Response:  # pragma: no cover
-        response = self._session.put(urljoin(self.base_url, endpoint), json=body)
+        response = self._session.put(urljoin(self.base_url, endpoint), json=body, timeout=_REQUEST_TIMEOUT)
         UnexpectedResponse.raise_for_status(response)
         return response
 
