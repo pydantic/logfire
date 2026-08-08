@@ -32,11 +32,30 @@ def _event_loop_policy(policy: asyncio.AbstractEventLoopPolicy) -> Generator[Non
 
 
 @contextmanager
+def _current_event_loop(loop: asyncio.AbstractEventLoop) -> Generator[None, None, None]:
+    """Temporarily set a loop on Python 3.14+, where get_event_loop() never creates one."""
+    try:
+        previous_loop = asyncio.get_event_loop()
+    except RuntimeError:
+        previous_loop = None
+
+    asyncio.set_event_loop(loop)
+    try:
+        yield
+    finally:
+        asyncio.set_event_loop(previous_loop)
+
+
+@contextmanager
 def _isolated_litellm_event_loop() -> Generator[None, None, None]:
     """Give LiteLLM a loop owned by this test without disturbing an existing loop."""
     if sys.version_info >= (3, 14):
-        # get_event_loop() raises when no loop is set, so LiteLLM uses asyncio.run().
-        yield
+        loop = asyncio.new_event_loop()
+        try:
+            with _current_event_loop(loop):
+                yield
+        finally:
+            loop.close()
         return
 
     test_policy = asyncio.DefaultEventLoopPolicy()
@@ -55,23 +74,30 @@ def isolated_litellm_event_loop() -> Iterator[None]:
         yield
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 14), reason='Event loop policies are deprecated on Python 3.14')
-def test_isolated_litellm_event_loop_preserves_existing_loop() -> None:
-    existing_policy = asyncio.DefaultEventLoopPolicy()
-    with _event_loop_policy(existing_policy):
-        existing_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(existing_loop)
-        try:
-            with _isolated_litellm_event_loop():
-                isolated_loop = asyncio.get_event_loop()
-                assert isolated_loop is not existing_loop
+def _assert_litellm_event_loop_is_isolated(existing_loop: asyncio.AbstractEventLoop) -> None:
+    with _isolated_litellm_event_loop():
+        isolated_loop = asyncio.get_event_loop()
+        assert isolated_loop is not existing_loop
 
-            assert isolated_loop.is_closed()
-            assert asyncio.get_event_loop_policy() is existing_policy  # pyright: ignore[reportDeprecated]
-            assert asyncio.get_event_loop() is existing_loop
-            assert not existing_loop.is_closed()
-        finally:
-            existing_loop.close()
+    assert isolated_loop.is_closed()
+    assert asyncio.get_event_loop() is existing_loop
+    assert not existing_loop.is_closed()
+
+
+def test_isolated_litellm_event_loop_preserves_existing_loop() -> None:
+    existing_loop = asyncio.new_event_loop()
+    try:
+        if sys.version_info >= (3, 14):
+            with _current_event_loop(existing_loop):
+                _assert_litellm_event_loop_is_isolated(existing_loop)
+        else:
+            existing_policy = asyncio.DefaultEventLoopPolicy()
+            with _event_loop_policy(existing_policy):
+                asyncio.set_event_loop(existing_loop)
+                _assert_litellm_event_loop_is_isolated(existing_loop)
+                assert asyncio.get_event_loop_policy() is existing_policy  # pyright: ignore[reportDeprecated]
+    finally:
+        existing_loop.close()
 
 
 def test_missing_openinference_dependency() -> None:
