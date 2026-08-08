@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, cast
 import anthropic
 import httpx
 from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
-from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
-from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
+from anthropic.types import Message, TextBlock, TextDelta, ThinkingBlock, ToolUseBlock
+from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaThinkingBlock, BetaToolUseBlock
 
 from logfire._internal.utils import handle_internal_errors
 
@@ -32,6 +32,7 @@ from .semconv import (
     InputMessages,
     MessagePart,
     OutputMessage,
+    ReasoningPart,
     SemconvVersion,
     SystemInstructions,
     TextPart,
@@ -239,6 +240,8 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
         text = getattr(block, 'text', None)
         if isinstance(block, (TextBlock, BetaTextBlock)) and text is not None:
             parts.append(TextPart(type='text', content=text))
+        elif isinstance(block, (ThinkingBlock, BetaThinkingBlock)):
+            parts.append(ReasoningPart(type='reasoning', content=block.thinking))
         elif isinstance(block, (ToolUseBlock, BetaToolUseBlock)):
             parts.append(
                 make_tool_call_part(
@@ -331,6 +334,8 @@ def on_response(
             for block in response.content:
                 if block.type == 'text':
                     message['content'] = block.text
+                elif block.type == 'thinking':
+                    message.setdefault('reasoning', []).append(block.thinking)
                 elif block.type == 'tool_use':
                     message.setdefault('tool_calls', []).append(
                         {
