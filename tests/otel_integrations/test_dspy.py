@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+from collections.abc import Iterator
 from unittest import mock
 
 import pydantic
@@ -15,6 +17,18 @@ if get_version(pydantic.__version__) < get_version('2.5.0'):
     pytest.skip('DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import', allow_module_level=True)
 
 
+@pytest.fixture
+def close_litellm_event_loop() -> Iterator[None]:
+    """Close the event loop LiteLLM's synchronous service hook creates on Python 3.10."""
+    yield
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        return
+    loop.close()
+    asyncio.set_event_loop(None)
+
+
 def test_missing_openinference_dependency() -> None:
     with mock.patch.dict('sys.modules', {'openinference.instrumentation.dspy': None}):
         with pytest.raises(RuntimeError) as exc_info:
@@ -27,7 +41,7 @@ You can install this with:
 
 
 @pytest.mark.vcr()
-def test_dspy_instrumentation(exporter: TestExporter) -> None:
+def test_dspy_instrumentation(exporter: TestExporter, close_litellm_event_loop: None) -> None:
     # Skip test if dspy can't be imported due to compatibility issues
     dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
 
