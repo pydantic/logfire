@@ -56,7 +56,7 @@ If a run failed, a banner at the top of the Summary tab surfaces the exception t
 
 ## Annotating a run
 
-From a run's detail panel you can record a human judgment of its quality: a verdict, category, tags, and a comment. See [Annotate an agent run](../../evaluate/annotate-agent-runs.md) for the full workflow. Those ratings are the same [scores](../../evaluate/human-review.md) that power your [evaluations](../../evaluate/overview.md). Run-level annotations are in Beta (the `run_annotations` feature flag).
+From a run's detail panel you can record a human judgment of its quality: a verdict, category, tags, and a comment. See [Annotate an agent run](../../evaluate/annotate-agent-runs.md) for the full workflow. These editable [run annotations](../../evaluate/human-review.md) remain separate from automated [evaluation results](../../evaluate/overview.md). Run annotations are in Beta.
 
 ## Next steps
 

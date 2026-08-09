@@ -1,93 +1,59 @@
 ---
-title: "Human review: score AI outputs by hand"
-description: "Add human judgment to your AI evaluations in Pydantic Logfire: annotate spans and runs, work an annotation queue, and capture user feedback as scores."
+title: "Review AI outputs by hand"
+description: "Add human judgment to agent runs in Pydantic Logfire by reviewing runs directly or working through an annotation queue."
 ---
 
-# Human review
+# Review AI outputs by hand
 
-Some questions about an AI's output can't be answered by code or by another model: was this support reply actually helpful? was the tone right? did the agent do the sensible thing? **Human review** is how a person looks at a real interaction and records a judgment. That judgment lands as a **score** (one saved quality rating for an output), the same kind of score your automated evaluations produce, so human ratings sit next to code and LLM-as-a-judge ratings on the same output and roll up into the same numbers.
+Review an agent run when code and model-based evaluators cannot decide whether the result was helpful, safe, or appropriate.
 
-If you're new to scores and evaluations, read the [evals overview](overview.md) first. This page assumes those terms.
+A **run annotation** is editable reviewer feedback attached to one end-to-end agent invocation. It can record a pass, neutral, or fail verdict, plus a comment and tags that explain the decision. Run annotations are human-review evidence, not automated evaluator results, and they do not roll into experiment or Live Evaluation aggregates.
 
-## When you'd do this
+## When to use human review
 
-- You need a ground-truth label a machine can't produce: "was this answer genuinely helpful?"
-- You're building the ~20–100 hand-labeled cases you need to [benchmark an LLM judge](overview.md#best-practices-with-the-reason-attached) before trusting it.
-- You want to curate real production interactions into a [dataset](datasets-and-experiments.md) of good and bad examples.
-- You want to hear directly from your end users: a thumbs-up/down on an answer, in your own product.
+- Build a hand-labeled set for checking whether an LLM judge agrees with your reviewers.
+- Investigate production interactions where automated signals are missing or ambiguous.
+- Identify failures worth preserving as cases in a repeatable [dataset](datasets-and-experiments.md).
+- Apply a shared review criterion across a sample of agent runs.
 
-## Three ways to do one job
+## Choose direct review or a queue
 
-Human review shows up in three places in Logfire. They differ in *who* does the reviewing and *how* the work is dispatched, but all three produce the same thing: **scores attached to an output**.
+### Review one run
 
-### Annotate a span or a run
-
-The most direct form: open a **span** (one unit of work: a single operation, with a name, a start, and a duration) or a whole **run** in the [live view](../guides/web-ui/live.md), and record your judgment on it directly: a pass/fail flag, a label, a numeric rating, or a free-text note. Reach for this when you're already looking at a trace and want to capture what you see.
-
-For the agent-run workflow in the web UI, see [Annotate an agent run](annotate-agent-runs.md).
-
-- **Span annotation**: rate a single operation: this one LLM call, this one tool call.
-- **Run annotation** (Beta): rate a whole run of your AI (an end-to-end agent invocation across many spans) as one unit, rather than a single span inside it. Enable it with the `run_annotations` feature flag.
+Use direct review when you are investigating one run or a small sample. Open the run, inspect its messages, model calls, tool calls, and output, then save your judgment. Follow [Annotate an agent run](annotate-agent-runs.md) for the complete workflow.
 
 !!! note "Run annotations are in Beta"
 
-    Run-level annotations are behind the `run_annotations` feature flag and may change. Span annotations are generally available.
+    Run annotations are available in every project, but the workflow may change while it is in Beta.
 
-### Work an annotation queue
+### Work through an annotation queue
 
-When review needs to be systematic rather than opportunistic (a reviewer sitting down to label 100 interactions in a row), an **annotation queue** is a curated list of interactions lined up for review, so a reviewer works through them one after another instead of hunting for traces to rate. Fill a queue from production traffic (for example, every low-scoring call, or a random sample), then a human works down the list, and each judgment is saved as a score on that interaction.
+Use an **annotation queue** when review needs to be systematic. A queue gives reviewers a curated list of agent runs to inspect one after another instead of asking them to find runs manually. Teams can use queues for a random quality sample or for interactions selected by another signal.
 
 !!! note "Annotation queues are a Design Partner feature"
 
-    Annotation queues are available to Design Partner customers (teams on our early-access program).
+    Annotation queues are available to Design Partner customers participating in the early-access program.
 
-### Capture user feedback
+## Make the judgment reusable
 
-The reviewer doesn't have to be on your team: it can be your end user. Capture a signal from inside your own product (a thumbs-up/down, a star rating, a "this didn't help" click) and attach it to the interaction that produced it. That feedback is stored as a score on the same output, so real-user judgment sits alongside your internal reviews and your automated scorers.
+Agree on one sentence that defines the criterion before reviewing. For example: "The answer resolves the customer's question without inventing details."
 
-Attach feedback to a span with `record_feedback`. When you handle the request, save the span's **traceparent** (a short string that identifies the span); later, when the user reacts, reference it to record their rating:
+For each run:
 
-```python
-import logfire
-from logfire.experimental.annotations import get_traceparent, record_feedback
+1. Choose **Pass**, **Neutral**, or **Fail** using that criterion.
+2. Add a comment that identifies the evidence behind the verdict.
+3. Add tags such as `hallucination`, `tone`, or `tool-error` when they will help reviewers find related cases.
 
-logfire.configure()
-
-with logfire.span('answer question') as span:
-    traceparent = get_traceparent(span)  # save this alongside the response you return
-    ...  # produce the answer
-
-# later, when the user reacts in your product:
-record_feedback(
-    traceparent,
-    'helpful',  # the name of the feedback
-    True,  # the type sets the score's shape: bool = pass/fail, number = numeric, string = label
-    comment='User clicked thumbs up',
-)
-```
-
-The value's type sets the score's **shape** (a **bool** records a pass/fail, a **string** records a label, a **number** records a numeric rating) and any `comment` is saved as the reason. Open that trace in the Live view and you'll see the `helpful` score on the span, next to any scores from your automated evaluators.
-
-!!! note "Experimental API"
-
-    `record_feedback` and `get_traceparent` live in `logfire.experimental.annotations`; the interface may change in a future release.
-
-## Why these feed your evals
-
-Because all three produce scores, human review isn't a separate island:
-
-- **Ground truth for judges.** Hand-labeled scores are what you [benchmark an LLM judge against](overview.md#best-practices-with-the-reason-attached). If the judge disagrees with your humans a third of the time, you know its automated scores aren't trustworthy yet.
-- **Seeds for datasets.** An interaction a human flagged as bad is exactly the case you want in your [dataset](datasets-and-experiments.md), so your offline evals re-test it on every future version.
-- **One picture of quality.** On any given output, you can see the code scorer, the LLM judge, the human reviewer, and the end user's feedback together, not four disconnected tools.
+Use the resulting annotations as calibration data for automated evaluators or as leads for new dataset cases. Adding a failing production interaction to a dataset lets future offline experiments check that behavior again.
 
 ## Consequences to know
 
-- **Annotations and feedback are stored in Logfire.** A score you record (and any free-text note attached to it) is sent to and stored in your Logfire project, visible to your team.
-- **User feedback carries whatever you attach.** If you send free-text feedback from your product, treat it like any other user data: it may contain personally identifiable information (PII), so [redact sensitive data](../how-to-guides/scrubbing.md) before it leaves your machine if that's a concern.
+- **Run annotations are stored in Logfire.** A saved verdict, comment, and tags are sent to your Logfire project and remain visible to your team.
+- **Comments can contain user data.** Treat comments like other production data. Do not copy sensitive information into them.
 
 ## Next steps
 
-- [Evals overview](overview.md): how scores, scorers, and experiments fit together.
-- [Datasets](datasets-and-experiments.md): turn the interactions you reviewed into re-runnable test cases.
-- [Run an evaluation](evals-in-code.md): score a whole dataset offline.
-- [Live Evaluations](live-evals.md): score production traffic automatically, then send the uncertain cases to human review.
+- [Annotate an agent run](annotate-agent-runs.md): review one interaction and save a verdict.
+- [Manage datasets](manage-datasets.md): preserve reviewed failures as repeatable test cases.
+- [Run an evaluation](evals-in-code.md): measure a fixed dataset with automated evaluators.
+- [Live Evaluations](live-evals.md): monitor automated evaluator results from production traffic.
