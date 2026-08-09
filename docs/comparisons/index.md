@@ -35,6 +35,7 @@ We provide first-party SDKs for Python, JavaScript/TypeScript, and Rust that off
 - [Logfire vs Arize Phoenix](arize-phoenix.md) - ML observability platform
 - [Logfire vs LangSmith](langsmith.md) - LangChain's observability tool
 - [Logfire vs Braintrust](braintrust.md) - AI evaluation and observability
+- [Move from Braintrust to Logfire](migrate-from-braintrust.md) - keep a verified `Eval` suite, then migrate each workflow at your own pace
 
 ### Traditional Observability Platforms
 
