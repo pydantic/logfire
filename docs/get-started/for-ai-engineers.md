@@ -23,7 +23,7 @@ Follow these in order. Each link says why it's here.
 
 3. **[Read every LLM call, with tokens and cost](../guides/web-ui/llms.md)**: the LLMs and providers view breaks down which models you're calling, how many tokens each request used, and what it's costing you.
 
-4. **[Evaluate your AI: measure output quality](../evaluate/overview.md)**: move from "it looks fine" to a number. An **evaluation** runs your AI over a set of test cases and scores the output. A **scorer** is the rule that produces a **score**: one saved rating from a human, your own code, or an LLM acting as judge.
+4. **[Evaluate your AI: measure output quality](../evaluate/overview.md)**: move from "it looks fine" to evidence. An **evaluation** runs your AI over a set of test cases. A **scorer** judges each output and produces results such as pass/fail assertions, numeric scores, or categorical labels.
 
 5. **[Change a prompt without shipping code](../reference/advanced/prompt-management/index.md)**: version your prompts outside your codebase so you can test a new wording, promote it to production, and roll it back, all without a redeploy.
 

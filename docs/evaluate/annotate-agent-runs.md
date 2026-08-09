@@ -7,13 +7,13 @@ description: "Review an agent interaction and record a pass, neutral, or fail ve
 
 Review an agent interaction in context, then save a verdict, comment, and tags that explain what it got right or wrong.
 
-An agent **run** is one end-to-end invocation of your agent, including its messages, model calls, and tool calls. Annotate a run when you need a human judgment that automated checks cannot provide, such as whether an answer was helpful, safe, or on-topic. The result is a [score](human-review.md), one saved quality rating for an output, that you can compare with your automated evaluations.
+An agent **run** is one end-to-end invocation of your agent, including its messages, model calls, and tool calls. Annotate a run when you need a human judgment that automated checks cannot provide, such as whether an answer was helpful, safe, or on-topic. The result is an editable [run annotation](human-review.md) that remains separate from automated evaluator results.
 
-Use this direct workflow when you are investigating one run or a small sample in context. For a systematic batch of reviews, use an [annotation queue](human-review.md#work-an-annotation-queue) to give reviewers a curated list of interactions.
+Use this direct workflow when you are investigating one run or a small sample in context. For a systematic batch of reviews, use an [annotation queue](human-review.md#work-through-an-annotation-queue) to give reviewers a curated list of interactions.
 
 !!! note "Run annotations are in Beta"
 
-    Run-level annotations are behind the `run_annotations` feature flag and may change. Span annotations are generally available.
+    Run annotations are available in every project, but the workflow may change while it is in Beta.
 
 !!! note "Review data is stored in Logfire"
 
@@ -57,10 +57,10 @@ The agent needs recorded runs in the selected time range. Send or wait for an ag
 
 ### I do not see the annotation controls
 
-Run annotations require the `run_annotations` feature flag. Ask a project administrator to enable it for your project.
+Open the interaction from **Agents** > **Runs**. Run annotations are attached to complete agent runs and are not available from the generic Live view.
 
 ## Next steps
 
-- [Human review](human-review.md): understand how annotations, queues, and end-user feedback become scores.
+- [Human review](human-review.md): understand how direct review and annotation queues support evaluation work.
 - [Run an evaluation](evals-in-code.md): compare a fixed dataset against your scoring criteria.
 - [Live Evaluations](live-evals.md): score production traffic automatically, then use annotations for the cases that need human review.
