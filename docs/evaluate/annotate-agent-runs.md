@@ -9,7 +9,7 @@ Review an agent interaction in context, then save a verdict, comment, and tags t
 
 An agent **run** is one end-to-end invocation of your agent, including its messages, model calls, and tool calls. Annotate a run when you need a human judgment that automated checks cannot provide, such as whether an answer was helpful, safe, or on-topic. The result is an editable [run annotation](human-review.md) that remains separate from automated evaluator results.
 
-Use this direct workflow when you are investigating one run or a small sample in context. For a systematic batch of reviews, use an [annotation queue](human-review.md#work-through-an-annotation-queue) to give reviewers a curated list of interactions.
+Use this direct workflow when you are investigating one run or a small sample in context. Design Partner customers participating in early access can use an [annotation queue](human-review.md#work-through-an-annotation-queue) for a systematic batch of interactions.
 
 !!! note "Run annotations are in Beta"
 
