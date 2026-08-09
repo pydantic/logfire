@@ -273,7 +273,7 @@ To review one of the support-agent runs:
 3. Find the uncertain run and select **Add annotation**.
 4. Choose **Pass**, **Neutral**, or **Fail**, explain the evidence in **Comment**, and select **Save**.
 
-For a systematic batch of reviews, use an annotation queue instead of finding each run manually. The interactions a reviewer flags as bad are strong candidates for your dataset, so future evals can test them again. See [Human review](../evaluate/human-review.md) for the full workflow.
+If your team participates in the Design Partner early-access program, use an annotation queue for a systematic batch of reviews instead of finding each run manually. The interactions a reviewer flags as bad are strong candidates for your dataset, so future evals can test them again. See [Human review](../evaluate/human-review.md) for availability and the full workflow.
 
 ## What you've got now
 
