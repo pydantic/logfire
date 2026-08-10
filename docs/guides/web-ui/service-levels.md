@@ -9,7 +9,7 @@ A **reliability target** — Logfire's name for a **Service Level Objective (SLO
 The <OpenInLogfire path="service-levels" variant="inline" label="Service Levels" /> page lists every reliability target across the project. Each target lives on its service, under the service's **Reliability** tab.
 
 !!! note "Plans and limits"
-    Reliability targets are a **Growth** feature (also available on Enterprise and self-hosted). The number of targets per organization depends on your plan.
+    Reliability targets are an **Enterprise** feature, with a limited number available on the **Growth** plan (and no limit when self-hosted). Your plan sets how many targets your organization can create.
 
 ## What a reliability target is made of
 
