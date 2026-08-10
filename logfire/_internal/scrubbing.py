@@ -329,11 +329,12 @@ class SpanScrubber:
                     # it's considered safe.
                     return value
                 try:
-                    value = json.loads(value)
+                    parsed_value = json.loads(value)
                 except json.JSONDecodeError:
                     return self._redact(ScrubMatch(path, value, match))
                 else:
-                    return json.dumps(self.scrub(path, value))
+                    scrubbed_value = self.scrub(path, parsed_value)
+                    return value if scrubbed_value is parsed_value else json.dumps(scrubbed_value)
         elif isinstance(value, Sequence):
             sequence = cast('Sequence[Any]', value)
             sequence_result: list[Any] | None = None
