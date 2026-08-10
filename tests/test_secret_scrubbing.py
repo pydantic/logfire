@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from dirty_equals import IsJson, IsPartialDict
@@ -11,10 +11,12 @@ from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
+from opentelemetry.sdk.trace import Event
+from opentelemetry.trace import Link, SpanContext, TraceFlags
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.scrubbing import NoopScrubber
+from logfire._internal.scrubbing import NoopScrubber, Scrubber
 from logfire.testing import TestExporter, TestLogExporter
 
 
@@ -254,6 +256,27 @@ def test_scrub_events(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_scrub_span_preserves_unchanged_events_and_links():
+    context = SpanContext(trace_id=1, span_id=1, is_remote=False, trace_flags=cast(TraceFlags, TraceFlags.SAMPLED))
+    event = Event('event', {'safe': 'value'})
+    link = Link(context, {'safe': 'value'})
+    attributes = {'safe': 'value'}
+    events = [event]
+    links = [link]
+    span: Any = {
+        'instrumentation_scope': None,
+        'attributes': attributes,
+        'events': events,
+        'links': links,
+    }
+
+    Scrubber(None).scrub_span(span)
+
+    assert span['attributes'] is attributes
+    assert span['events'] is events
+    assert span['links'] is links
 
 
 def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
