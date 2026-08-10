@@ -9,22 +9,24 @@ Instrumentation is how your app's work reaches Logfire. You add a few lines (or 
 
 Logfire is built on [OpenTelemetry (OTel)](https://opentelemetry.io/), the open industry standard for collecting traces, metrics, and logs, so it works with any language OpenTelemetry supports.
 
-## Fastest path: Python in three lines
+## Fastest path: Python
 
-On Python you don't need to pick anything first — install, configure, and send one span:
+On Python you don't need to pick anything first — install, sign in, and send your first trace:
 
 ```bash
 pip install logfire
+logfire auth  # opens your browser to sign in and create a free project
 ```
 
 ```python
 import logfire
 
-logfire.configure()  # the first run prompts you to pick a project; or set LOGFIRE_TOKEN
-logfire.info('Hello, {name}!', name='world')  # your first span
+logfire.configure()  # pick a project when prompted (or set LOGFIRE_TOKEN, a write token that lets the app send data)
+with logfire.span('hello'):
+    logfire.info('Hello, {name}!', name='world')  # a log nested in your first span
 ```
 
-Run it, then watch the span arrive in the [Live view](../guides/web-ui/live.md). The full five-minute walkthrough — projects, tokens, and auto-instrumenting your framework — is [Send your first trace](../first-trace.md).
+Run it, then watch the trace arrive in the [Live view](../guides/web-ui/live.md). The full five-minute walkthrough — projects, write tokens, and auto-instrumenting your framework — is [Send your first trace](../first-trace.md).
 
 ## Native Logfire SDKs
 

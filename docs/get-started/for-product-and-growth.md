@@ -24,7 +24,7 @@ Each link says why it's here.
 
 You don't have to write code to get value from Logfire's AI features — these run entirely in the UI:
 
-- **[Manage prompts in the UI](../reference/advanced/prompt-management/ui.md)**: edit, version, and roll out prompts from Logfire without a redeploy.
+- **[Manage prompts in the UI](../reference/advanced/prompt-management/ui.md)**: edit, version, and manage prompts from Logfire's UI without a redeploy.
 - **[Prompt Playground](../guides/web-ui/prompt-playground.md)**: try a prompt against real models and compare outputs side by side, no SDK needed.
 - **[Review experiment results](../evaluate/review-experiments.md)**: read and compare evaluation runs to see whether a change actually improved quality.
 - **[Human review](../evaluate/human-review.md)**: score and annotate agent runs by hand to build a labeled set your team agrees on.

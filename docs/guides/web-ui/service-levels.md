@@ -31,13 +31,13 @@ Two derived ideas do the heavy lifting:
     - **Availability** — good = requests that didn't error.
     - **Latency** — good = requests under a **Max duration (seconds)** you set.
     - **AI quality** — a *quality* SLI (the SLI dimension that sits alongside availability and latency): good = requests whose evaluation score clears a **Minimum eval score** (reads `gen_ai.evaluation.score.value`, populated by [pydantic-evals](../../evaluate/overview.md)).
-3. Fill in the wizard: name it, confirm the good/total conditions, and choose **where the data comes from** — **Events** (one row per request, RPC, or job — most targets use this) or **Metrics** (sum a counter or gauge you already record). Both are **count-based** SLIs (good ÷ total), the request-based style the SRE literature recommends; Logfire doesn't use time-based/uptime SLIs. Optionally scope to specific deployment **environments**.
+3. Fill in the wizard: name it, confirm the good/total conditions, and choose **where the data comes from** — **Events** (one row per request, remote procedure call (RPC), or job — most targets use this) or **Metrics** (sum a counter or gauge you already record). Both are **count-based** SLIs (good ÷ total), the request-based style the SRE literature recommends; Logfire doesn't use time-based/uptime SLIs. Optionally scope to specific deployment **environments**.
 4. Set the **Target (%)** and **Rolling window**. A **live preview** backtests the target against your recent data so you can see the success rate and burn before you commit.
 5. Optionally choose notification channels for the alerts Logfire is about to generate, then click **Create target**.
 
 ## Burn-rate alerts, created for you
 
-Every target automatically generates **three burn-rate alerts**, so you don't hand-write alert SQL:
+Every target automatically generates **up to three burn-rate alerts**, so you don't hand-write alert SQL:
 
 | Tier | Reacts to | Fires at | Severity |
 |------|-----------|----------|----------|

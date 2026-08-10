@@ -27,7 +27,7 @@ Follow these in order. Each link says why it's here.
 
 7. **[Alerts](../guides/web-ui/alerts.md)**: an alert is a SQL query Logfire runs on a schedule; when it returns rows, Logfire notifies you in Slack, Opsgenie, or a webhook, so you hear about trouble without watching a screen.
 
-8. **[Set reliability targets (Service Levels)](../guides/web-ui/service-levels.md)**: define a target like "99.9% of requests succeed over 30 days" and Logfire tracks the error budget and auto-generates burn-rate alerts that page you before you miss it.
+8. **[Set reliability targets (Service Levels)](../guides/web-ui/service-levels.md)**: define a target like "99.9% of requests succeed over 30 days" and Logfire tracks the error budget and auto-generates burn-rate alerts that warn you before you miss it.
 
 !!! note "Service Levels availability"
     Reliability targets (Service Levels) are an **Enterprise** feature, with a limited number available on the **Growth** plan (and no limit when self-hosted). On any plan, the [Services view](../guides/web-ui/services.md) gives per-service health (request rate, error rate, latency) and [Alerts](../guides/web-ui/alerts.md) tell you when a threshold is crossed.
