@@ -261,14 +261,16 @@ def test_scrub_events(exporter: TestExporter):
 def test_scrub_span_copies_only_changed_events_and_links():
     context = SpanContext(trace_id=1, span_id=1, is_remote=False, trace_flags=cast(TraceFlags, TraceFlags.SAMPLED))
     changed_event = Event('changed', {'password': 'secret'})
+    another_changed_event = Event('another-changed', {'secret': 'value'})
     safe_event = Event('safe', {'safe': 'value'})
     safe_json_event = Event('safe-json', {'value': '"password"'})
     changed_link = Link(context, {'password': 'secret'})
+    another_changed_link = Link(context, {'secret': 'value'})
     safe_link = Link(context, {'safe': 'value'})
     safe_json_link = Link(context, {'value': '"password"'})
     attributes = {'safe': 'value'}
-    events = [changed_event, safe_event, safe_json_event]
-    links = [changed_link, safe_link, safe_json_link]
+    events = [safe_event, changed_event, safe_json_event, another_changed_event]
+    links = [safe_link, changed_link, safe_json_link, another_changed_link]
     span: Any = {
         'instrumentation_scope': None,
         'attributes': attributes,
@@ -281,13 +283,15 @@ def test_scrub_span_copies_only_changed_events_and_links():
     assert span['attributes'] is not attributes
     assert span['attributes']['safe'] == 'value'
     assert span['events'] is not events
-    assert span['events'][0] is not changed_event
-    assert span['events'][1] is safe_event
+    assert span['events'][0] is safe_event
+    assert span['events'][1] is not changed_event
     assert span['events'][2] is safe_json_event
+    assert span['events'][3] is not another_changed_event
     assert span['links'] is not links
-    assert span['links'][0] is not changed_link
-    assert span['links'][1] is safe_link
+    assert span['links'][0] is safe_link
+    assert span['links'][1] is not changed_link
     assert span['links'][2] is safe_json_link
+    assert span['links'][3] is not another_changed_link
 
 
 def test_scrub_span_preserves_safe_json_events_and_links():
