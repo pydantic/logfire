@@ -9,6 +9,9 @@ Instrumentation is how your app's work reaches Logfire. You add a few lines (or 
 
 Logfire is built on [OpenTelemetry (OTel)](https://opentelemetry.io/), the open industry standard for collecting traces, metrics, and logs, so it works with any language OpenTelemetry supports.
 
+!!! tip "Just want to get started?"
+    [**Send your first trace**](../first-trace.md) is the five-minute, copy-paste quickstart — Python, JavaScript/TypeScript, or Rust — from install to seeing your first trace in Logfire.
+
 ## Native Logfire SDKs
 
 These wrap OpenTelemetry in an idiomatic API for each language, with streamlined setup and extra features. Each guide takes you from install to your first trace in a few minutes:
