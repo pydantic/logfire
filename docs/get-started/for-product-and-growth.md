@@ -20,6 +20,15 @@ Each link says why it's here.
 !!! note "Product analytics, session replay, and real-user monitoring"
     Deeper product analytics, real-user monitoring (RUM, seeing performance and behavior from the actual browser) and session replay are on the roadmap and currently available to design partners. If that's what you need, [get in touch](../help.md).
 
+## No code required
+
+You don't have to write code to get value from Logfire's AI features — these run entirely in the UI:
+
+- **[Manage prompts in the UI](../reference/advanced/prompt-management/ui.md)**: edit, version, and roll out prompts from Logfire without a redeploy.
+- **[Prompt Playground](../guides/web-ui/prompt-playground.md)**: try a prompt against real models and compare outputs side by side, no SDK needed.
+- **[Review experiment results](../evaluate/review-experiments.md)**: read and compare evaluation runs to see whether a change actually improved quality.
+- **[Human review](../evaluate/human-review.md)**: score and annotate agent runs by hand to build a labeled set your team agrees on.
+
 ## Try the full journey
 
 - **[Roll out a prompt safely](../cookbook/roll-out-a-prompt-safely.md)**: change a live prompt for some traffic, watch the effect in your data, and roll it back if it gets worse.
