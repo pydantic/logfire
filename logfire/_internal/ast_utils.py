@@ -144,6 +144,12 @@ class BaseTransformer(ast.NodeTransformer):
         return span_name, attributes
 
 
+# Call sites `(filename, lineno)` that have already been warned about missing source code.
+# Once a call site's source is unavailable it will stay unavailable for the whole process,
+# so we deduplicate the warning to avoid repeating it for every span created from that site.
+_warned_source_unavailable_callsites: set[tuple[str, int]] = set()
+
+
 class CallNodeFinder(ABC):
     """Base class for finding the `ast.Call` node corresponding to a function call in a given frame.
 
@@ -172,11 +178,18 @@ class CallNodeFinder(ABC):
             # This is a very likely cause.
             # There's nothing we could possibly do to make magic work here,
             # and it's a clear case where the user should turn the magic off.
-            self.warn_inspect_arguments(
-                'No source code available. '
-                'This happens when running in an interactive shell, '
-                'using exec(), or running .pyc files without the source .py files.',
-            )
+            # Once we know source is unavailable for a given call site it will stay that
+            # way for the whole process (interactive shell, exec(), .pyc without source),
+            # so only warn once per call site instead of once per span. Otherwise a single
+            # call site that creates many spans floods the output with the same warning.
+            callsite = (self.frame.f_code.co_filename, self.frame.f_lineno)
+            if callsite not in _warned_source_unavailable_callsites:
+                _warned_source_unavailable_callsites.add(callsite)
+                self.warn_inspect_arguments(
+                    'No source code available. '
+                    'This happens when running in an interactive shell, '
+                    'using exec(), or running .pyc files without the source .py files.',
+                )
             return None
 
         msg = '`executing` failed to find a node.'
