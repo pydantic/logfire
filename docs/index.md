@@ -13,17 +13,50 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 <AgentSetup>
 
-```text
-Set up Pydantic Logfire in this project so it sends traces to Logfire. Follow the guide at https://pydantic.dev/docs/logfire/get-started/first-trace/.
+````text
+Note for the agent: This prompt was copied from the Pydantic Logfire website by the user. The user may not have read it. Briefly tell the user what you plan to do before each step.
 
-1. Install the Logfire SDK for this project's language and initialize it at startup the way the guide describes for that language (for Python and JavaScript that is logfire.configure(); other languages may use OpenTelemetry), then instrument its web framework plus any LLM and HTTP clients. Don't refactor unrelated code.
+Set up Pydantic Logfire in this project to instrument it and send OpenTelemetry signals to Logfire.
 
-2. Authenticate. If a `LOGFIRE_TOKEN` environment variable is already set, use it as-is. Otherwise, for a local Python project, install Logfire with the project's dependency manager (for example `uv add logfire`, `poetry add logfire`, or `pip install logfire`), then run `logfire auth` (or `uvx logfire auth`): this opens a browser where you sign in or create a free Logfire account (no credit card required) and a project, then links this machine. For another language, a non-interactive shell, or a deployment, ask me for a write token (the credential that lets an app send data to Logfire) from Project > Settings > Write tokens and set it as the `LOGFIRE_TOKEN` environment variable. Keep any token out of your replies: `logfire auth` saves credentials to `~/.logfire` in your home directory (outside the repo), and if you create or receive a token, put it in a gitignored `.env` rather than printing it; never commit it.
+Check if version control is being used. If so, and if there are uncommitted changes, ask the user to commit or stash them before proceeding. If things are clean, open a new branch for the Logfire setup work.
 
-3. Run the app so it sends a trace, then give me the Logfire Live view link on its own line and in bold so I can open it and confirm the trace arrived.
+Fetch reference material as text rather than using visual browser tools. Don't try using the Logfire UI.
 
-4. Once the trace is arriving, offer a few next steps and do the ones I want: run `logfire inspect` to find other dependencies Logfire can instrument and add the relevant ones; set up the Logfire MCP (Model Context Protocol) server so you can query my Logfire data going forward (https://pydantic.dev/docs/logfire/guides/mcp-server/, it logs in through the browser); or set up alerts or evals.
+If there are multiple services in this codebase, instrument them all, one by one.
+
+Check which languages and package management tools are being used and install the appropriate SDK:
+- Python: install `logfire[system-metrics]` via uv, pip, etc
+- JS/TS: install via npm, yarn, etc:
+    - Node.js: `@pydantic/logfire-node`
+    - Browser: `@pydantic/logfire-browser`
+    - Cloudflare Workers: `@pydantic/logfire-cf-workers` and `logfire`
+- Rust: `cargo add logfire`
+- Other languages: There's no dedicated Logfire SDK. Install the OpenTelemetry SDK and follow https://pydantic.dev/docs/logfire/guides/alternative-clients/ to configure it to send to the Logfire backend.
+
+Authenticate. Keep any token out of replies, logs, and committed files.
+- If `LOGFIRE_TOKEN` is already set in the environment, you don't need to do anything, the SDK will use it automatically.
+- Otherwise, for a local interactive Python project, say: """
+Run this from the project folder:
+
+```bash
+logfire auth && python -c 'import logfire; logfire.configure()'
 ```
+
+The first command will open a browser where you can sign in or create a free Logfire account (no credit card required) and link this machine to that account. The second command will link this specific folder to one new or existing project in your account. Then tell me when you're done.
+"""
+(Tweak the command to ensure the correct Python interpreter is used, e.g. with `uv run`.
+The first command will create a file `~/.logfire/default.toml`, the second will create a gitignored folder `.logfire` in the project folder containing credentials that the SDK can read. You can check these to troubleshoot but assume they exist if things go well. Don't expect them to set `LOGFIRE_TOKEN`, this is a different kind of authentication.)
+- For another language, a non-interactive shell, or a deployment, ask them to open https://logfire.pydantic.dev/-/redirect/latest-project/settings/write-tokens to create a write token. Set it as `LOGFIRE_TOKEN` in the shell environment the app runs in (e.g. `export LOGFIRE_TOKEN=...` in the terminal, or via the deployment platform's secret manager). If the project already loads a `.env` file at startup, you may store it there instead, but confirm dotenv loading is in place and the file is gitignored first. Never commit the token or print it in a reply or log output.
+- If there's still problems, say "Try looking at https://logfire.pydantic.dev/-/redirect/latest-project/settings/setup or https://pydantic.dev/docs/logfire/get-started/first-trace/ for more information."
+
+Run `curl https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-instrumentation/SKILL.md` and read the instructions. Then read the linked references for the applicable languages. Add a few lines of code to configure the SDK and instrument web frameworks, databases, LLMs, and HTTP clients where integrations already exist. For Python projects, add `logfire.instrument_system_metrics()`, and if they're using standard logging, add `logfire.LogfireLoggingHandler()` to the logging handlers. Do not refactor unrelated code or make extensive changes. The goal is to get some observability quickly and easily. If no integrations apply, sprinkle in up to 5 manual `logfire.span/info/instrument` calls.
+
+Run the code. It may print a Logfire project URL, e.g. https://logfire-us.pydantic.dev/myorganisationname/myprojectname. If not, try running `uvx logfire whoami` which should pick up `LOGFIRE_TOKEN` or other credentials, even if the user's project doesn't use Python. If that doesn't give a URL, go with https://logfire.pydantic.dev/-/redirect/latest-project/. If you don't see any errors about failing to send data, assume it's working. Say "Open the Live View at <URL> and confirm that you see traces.". Don't try to verify yourself.
+
+If all is well, provide the user with a link to GitHub or whatever source control where they can create a PR if appropriate.
+
+Read https://pydantic.dev/docs/logfire/guides/mcp-server/. Offer to install the plugins, skills, and MCP server matching this coding agent. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the appropriate config files. If you don't have permission to edit directly, give a copyable command which does so.
+````
 
 </AgentSetup>
 
