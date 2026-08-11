@@ -9,14 +9,14 @@ The AI Gateway proxies audio transcription requests the same way it proxies chat
 
 ## Which providers can serve transcriptions
 
-Transcriptions are available for provider types whose `/audio/transcriptions` endpoint the gateway proxies as an OpenAI-compatible request: **OpenAI**, **Azure Foundry**, **Ollama**, and **custom** OpenAI-compatible providers.
+Transcriptions are available for provider types whose `/audio/transcriptions` endpoint the gateway proxies as an OpenAI-compatible request: **OpenAI**, **Azure Foundry**, **Mistral** (voxtral models), **Ollama**, and **custom** OpenAI-compatible providers.
 
 ## Models and response formats
 
 Two kinds of transcription models are metered differently:
 
 - **Token-priced models** (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `gpt-transcribe`): the JSON response carries a usage object with audio and text token counts, and the gateway prices them from its model catalog. These work on both built-in and BYOK providers.
-- **Duration-priced models** (`whisper-1`): the response reports the audio duration in seconds, which the gateway records as usage. These are BYOK-only for now.
+- **Duration-priced models** (`whisper-1`, Mistral's `voxtral-mini-latest`): the response reports the audio duration, which the gateway records as usage. These are BYOK-only for now.
 
 On a **built-in** provider, use a token-priced model with the default `json` response format; other combinations are refused up front because their responses carry no usage the gateway can bill. On **BYOK** providers all response formats work (`json`, `verbose_json`, `text`, `srt`, `vtt`); if the provider has **Require cost data** enabled, formats that produce no usage (`text`/`srt`/`vtt`) are refused up front.
 
