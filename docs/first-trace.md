@@ -65,7 +65,7 @@ Run the code. It may print a Logfire project URL, e.g. https://logfire-us.pydant
 
 If all is well, provide the user with a link to GitHub or whatever source control where they can create a PR if appropriate.
 
-Read https://pydantic.dev/docs/logfire/guides/mcp-server/. Offer to install the plugins, skills, and MCP server matching this coding agent. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the approriate config files. If you don't have permission to edit directly, give a copyable command which does so.
+Read https://pydantic.dev/docs/logfire/guides/mcp-server/. Offer to install the plugins, skills, and MCP server matching this coding agent. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the appropriate config files. If you don't have permission to edit directly, give a copyable command which does so.
 ````
 
 </CopyPrompt>
