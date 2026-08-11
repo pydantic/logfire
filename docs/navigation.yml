@@ -629,6 +629,9 @@ navigation:
           - page: "Embeddings"
             path: "reference/advanced/gateway/embeddings.md"
             slug: "manage/ai-gateway/embeddings"
+          - page: "Audio Transcriptions"
+            path: "reference/advanced/gateway/transcriptions.md"
+            slug: "manage/ai-gateway/transcriptions"
           - section: "Connect an agent"
             contents:
               - page: "Overview"
