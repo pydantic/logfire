@@ -273,6 +273,6 @@ That's it. Three lines of code for basic instrumentation.
 ### Q: Where can I get help?
 
 - [Documentation](index.md) - Comprehensive guides and reference
-- [Slack Community](join-slack/index.html) - Ask questions, share feedback
+- [Slack Community](https://pydantic.dev/docs/logfire/join-slack/) - Ask questions, share feedback
 - [GitHub Issues](https://github.com/pydantic/logfire/issues) - Report bugs, request features
 - [Enterprise Support](enterprise.md) - Dedicated support for enterprise customers
