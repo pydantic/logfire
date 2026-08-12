@@ -6,9 +6,11 @@ Stop and complain if there are uncommitted changes in the working directory.
 git checkout main && git pull origin main
 git checkout -b update-deps-<date>
 uv sync --upgrade
-git commit -am "chore: Update dependencies"
+git commit uv.lock -m "chore: Update dependencies"
 
 Run these, make any fixes needed, and commit the results (including automated changes) for each step where there are changes:
+
+Always commit by listing specific files (never `git commit -am` / `git add -A`) — the user may have their own uncommitted edits in the working tree at any point, and blanket staging can sweep them into your commits.
 
 make format && make lint && make typecheck && make docs
 (usually these all pass without changes)
