@@ -89,6 +89,15 @@ class ScrubMatch:
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
+def _search(pattern: re.Pattern[str], text: str) -> re.Match[str] | None:
+    """Find the first match with any width.
+
+    A zero-width match would redact a value while reporting nothing as the reason, and a pattern
+    that can only match zero-width can never point at anything sensitive, so those are not matches.
+    """
+    return next((match for match in pattern.finditer(text) if match.end() > match.start()), None)
+
+
 class ScrubbedNote(TypedDict):
     path: JsonPath
     matched_substring: str
@@ -132,8 +141,8 @@ class ScrubbingOptions:
     Attribute names that are never redacted, in addition to the ones Logfire already treats as safe.
 
     A safe key is matched exactly, at every nesting depth, and exempts **the entire value beneath
-    it** — nothing inside a safe key is scrubbed, however deeply nested. Use it for keys you know
-    are always safe to send.
+    it** — nothing inside a safe key is scrubbed, however deeply nested, except for the patterns
+    guarding Logfire's own write token. Use it for keys you know are always safe to send.
     """
 
     def __post_init__(self) -> None:
@@ -191,8 +200,12 @@ class ScrubbingOptions:
                     )
 
 
-def _check_string_sequence(value: Sequence[str] | None, field_name: str) -> tuple[str, ...]:
-    """Reject a bare string, which is a `Sequence[str]` that iterates one character at a time."""
+def _check_string_sequence(value: object, field_name: str) -> tuple[str, ...]:
+    """Reject anything that isn't really a sequence of strings.
+
+    A bare string is a `Sequence[str]` that iterates one character at a time, and a mapping
+    iterates its keys, so both would otherwise be accepted and mean something unintended.
+    """
     if value is None:
         return ()
     if isinstance(value, str):
@@ -200,7 +213,16 @@ def _check_string_sequence(value: Sequence[str] | None, field_name: str) -> tupl
             f'`{field_name}` must be a sequence of strings, got the string {value!r}. '
             f'A bare string is iterated one character at a time. Pass [{value!r}].'
         )
-    return tuple(value)
+    if not isinstance(value, Sequence):
+        raise LogfireConfigError(f'`{field_name}` must be a sequence of strings, got {type(value).__name__}.')
+    items: list[str] = []
+    for i, item in enumerate(cast('Sequence[Any]', value)):
+        if not isinstance(item, str):
+            raise LogfireConfigError(
+                f'`{field_name}` must contain only strings, but the entry at index {i} is {item!r}.'
+            )
+        items.append(item)
+    return tuple(items)
 
 
 class BaseScrubber(ABC):
@@ -270,6 +292,9 @@ class BaseScrubber(ABC):
     safe_keys: Collection[str] = SAFE_KEYS
     """`SAFE_KEYS` plus any keys the user added via `ScrubbingOptions.safe_keys`."""
 
+    user_safe_keys: Collection[str] = frozenset()
+    """Only the keys the user added, which stay subject to the credential patterns."""
+
     @abstractmethod
     def scrub_span(self, span: ReadableSpanDict): ...
 
@@ -313,7 +338,13 @@ class Scrubber(BaseScrubber):
         # keep referring to the user's own groups.
         self._pattern = re.compile('|'.join(f'(?:{p})' for p in all_patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
-        self.safe_keys = BaseScrubber.SAFE_KEYS | set(safe_keys or ())
+        # Applied beneath safe keys, which is why these patterns can't be disabled.
+        self.credential_pattern = re.compile(
+            '|'.join(f'(?:{DEFAULT_PATTERNS[name]})' for name in sorted(CREDENTIAL_PATTERN_NAMES)),
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.user_safe_keys = set(safe_keys or ())
+        self.safe_keys = BaseScrubber.SAFE_KEYS | self.user_safe_keys
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         span_scrubber = SpanScrubber(self)
@@ -354,7 +385,9 @@ class SpanScrubber:
     def __init__(self, parent: Scrubber):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
+        self._credential_pattern = parent.credential_pattern
         self._safe_keys = parent.safe_keys
+        self._user_safe_keys = parent.user_safe_keys
         self.scrubbed: list[ScrubbedNote] = []
         self.did_scrub = False
 
@@ -410,14 +443,18 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
-    def scrub(self, path: JsonPath, value: Any) -> Any:
+    def scrub(self, path: JsonPath, value: Any, pattern: re.Pattern[str] | None = None) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
         Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
+
+        `pattern` defaults to the full set. It narrows to the credential patterns beneath a safe key,
+        which exempts its contents from everything else but never from those.
         """
+        pattern = self._pattern if pattern is None else pattern
         if isinstance(value, str):
-            if match := self._pattern.search(value):
+            if match := _search(pattern, value):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
@@ -427,21 +464,25 @@ class SpanScrubber:
                 except json.JSONDecodeError:
                     return self._redact(ScrubMatch(path, value, match))
                 else:
-                    return json.dumps(self.scrub(path, value))
+                    return json.dumps(self.scrub(path, value, pattern))
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+            return [self.scrub(path + (i,), x, pattern) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
-                if k in self._safe_keys:
+                if k in self._user_safe_keys:
+                    # A user safe key names arbitrary application data, so it is exempt from
+                    # everything except the patterns guarding Logfire's own token.
+                    result[k] = self.scrub(path + (k,), v, self._credential_pattern)
+                elif k in self._safe_keys:
                     result[k] = v
-                elif match := self._pattern.search(k):
+                elif match := _search(pattern, k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
                     result[k] = redacted
                 else:
-                    result[k] = self.scrub(path + (k,), v)
+                    result[k] = self.scrub(path + (k,), v, pattern)
             return result
         return value
 

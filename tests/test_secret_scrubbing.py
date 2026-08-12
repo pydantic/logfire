@@ -720,3 +720,47 @@ def test_invalid_extra_pattern_error_is_attributable():
 def test_empty_safe_key_rejected():
     with pytest.raises(LogfireConfigError, match='`safe_keys` contains an empty entry at index 1'):
         logfire.ScrubbingOptions(safe_keys=['ok', ' '])
+
+
+def test_safe_keys_still_scrub_logfire_credentials(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    """A safe key exempts its contents from everything except the patterns guarding Logfire's own token."""
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(safe_keys=['payload']), **config_kwargs)
+
+    logfire.info('hi', payload={'token': 'pylf_v1_ABCDEF', 'password': 'kept'})
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes'] == snapshot(
+        IsPartialDict({'payload': {'token': "[Scrubbed due to 'pylf_v1_']", 'password': 'kept'}})
+    )
+
+
+def test_builtin_safe_keys_are_unchanged(exporter: TestExporter):
+    """The built-in safe keys are curated for known-safe content, so they stay fully exempt.
+
+    `code.function` holding this test's own name is exactly the false positive that would cause.
+    """
+    logfire.info('hi')
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert attributes['code.function'] == 'test_builtin_safe_keys_are_unchanged'
+
+
+def test_zero_width_pattern_is_not_a_match():
+    """A pattern that can only match nothing can't point at anything sensitive, so it isn't applied."""
+    from logfire._internal.scrubbing import Scrubber
+
+    # Passes `__post_init__` (the lookbehind never matches the probe) but must still be inert.
+    logfire.ScrubbingOptions(extra_patterns=['(?<=x)'])
+    assert Scrubber(['(?<=x)']).scrub_value(('attributes', 'a'), 'harmless x line')[0] == 'harmless x line'
+
+
+@pytest.mark.parametrize('field', ['extra_patterns', 'disabled_patterns', 'safe_keys'])
+def test_non_string_entry_rejected(field: str):
+    kwargs: dict[str, Any] = {field: ['ok', None]}
+    with pytest.raises(LogfireConfigError, match=f'`{field}` must contain only strings'):
+        logfire.ScrubbingOptions(**kwargs)
+
+
+def test_mapping_rejected():
+    """A mapping is iterable, so it would otherwise be silently reduced to its keys."""
+    kwargs: dict[str, Any] = {'disabled_patterns': {'session': 1}}
+    with pytest.raises(LogfireConfigError, match='`disabled_patterns` must be a sequence of strings, got dict'):
+        logfire.ScrubbingOptions(**kwargs)

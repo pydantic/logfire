@@ -104,6 +104,9 @@ A safe key is matched **exactly**, at **every nesting depth**, and exempts **eve
 underneath it**. So `safe_keys=['request']` keeps a password nested inside `request` as well. Only
 use it for keys whose contents are always safe to send.
 
+The one exception is Logfire's own write token: the `logfire_token` and `pylf_token` patterns still
+apply underneath a safe key, so a token can't reach your telemetry that way.
+
 ### Making an exception for specific values
 
 When the pattern and the attribute are both worth keeping and only certain values are false
