@@ -53,11 +53,28 @@ The first command will create a file `~/.logfire/default.toml`, the second will 
 
 Try running `logfire whoami` or `uvx logfire whoami` (depending on what's installed) to check the state of authentication. It should work with both `LOGFIRE_TOKEN` or the credentials files created by the CLI. This should print out a URL for a specific project which you can use going forward instead of the generic redirect URL.
 
-Run `curl https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-instrumentation/SKILL.md` and read the instructions. Then read the linked references for the applicable languages. Add a few lines of code to configure the SDK and instrument web frameworks, databases, LLMs, and HTTP clients where integrations already exist. For Python projects, add `logfire.instrument_system_metrics()`, and if they're using standard logging, add `logfire.LogfireLoggingHandler()` to the logging handlers. Do not refactor unrelated code or make extensive changes. The goal is to get some observability quickly and easily. If no integrations apply, sprinkle in up to 5 manual `logfire.span/info/instrument` calls.
+Run `curl https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-instrumentation/SKILL.md` and read the instructions. Then read the linked references for the applicable languages. Add a few lines of code to configure the SDK and instrument web frameworks, databases, LLMs, and HTTP clients where integrations already exist. Include a service name in the configuration. For Python projects, add `logfire.instrument_system_metrics()`, and if they're using standard logging, add `logfire.LogfireLoggingHandler()` to the logging handlers. Do not refactor unrelated code or make extensive changes. The goal is to get some observability quickly and easily. If no integrations apply, sprinkle in up to 5 manual `logfire.span/info/instrument` calls.
 
 Run the code. It may print a Logfire project URL, e.g. https://logfire-us.pydantic.dev/myorganisationname/myprojectname. If not, try running `uvx logfire whoami` which should pick up `LOGFIRE_TOKEN` or other credentials, even if the user's project doesn't use Python. If that doesn't give a URL, go with https://logfire.pydantic.dev/-/redirect/latest-project/. If you don't see any errors about failing to send data, assume it's working. Say "Open the Live View at <URL> and confirm that you see traces.". Don't try to verify yourself.
 
 If all is well, provide the user with a link to GitHub or whatever source control where they can create a PR if appropriate.
+
+Next, say:
+
+"""
+Here are some things you can easily try immediately:
+
+- Open https://logfire.pydantic.dev/-/redirect/latest-project/dashboards/new and enable the following standard dashboards ([docs](https://pydantic.dev/docs/logfire/observe/dashboards/#standard-dashboards)): <1>
+- Open https://logfire.pydantic.dev/-/redirect/latest-project/services ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your service(s).
+- Open https://logfire.pydantic.dev/-/redirect/latest-project/hosts ([docs](https://pydantic.dev/docs/logfire/observe/hosts/)) to see system metrics of each of your hosts. <Only suggest this if `logfire.instrument_system_metrics()` was called.>
+"""
+
+Replace <1> with this list of dashboard names based on the integrations you added:
+- "Usage Overview" and "Exceptions" always
+- "Web Server Metrics" if a web server integration was added
+- "Basic System Metrics (Logfire)" if `logfire.instrument_system_metrics()` was called
+- "LLM Tokens and Costs (from records)" if an AI integration was added
+
 
 Read https://pydantic.dev/docs/logfire/guides/mcp-server/. Offer to install the plugins, skills, and MCP server matching this coding agent. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the appropriate config files. If you don't have permission to edit directly, give a copyable command which does so.
 ````
