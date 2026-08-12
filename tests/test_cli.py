@@ -317,6 +317,39 @@ def test_clean_credentials_file_is_not_an_object(
     )
 
 
+@pytest.mark.parametrize('project_url', [None, 123, ['https://dashboard.logfire.dev']])
+def test_clean_credentials_file_with_non_string_project_url(
+    tmp_dir_cwd: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    project_url: Any,
+) -> None:
+    """Nothing checks the types of the values in the credentials file, so a non-string URL mustn't crash."""
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+
+    creds_file = tmp_dir_cwd / 'logfire_credentials.json'
+    creds_file.write_text(
+        json.dumps(
+            {
+                'token': 'token',
+                'project_name': 'my-project',
+                'project_url': project_url,
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+
+    assert not creds_file.exists()
+    assert capsys.readouterr().err == snapshot(
+        'Cleaned Logfire data.\n'
+        "The write token for project 'my-project' is still active on the Logfire server, "
+        'deleting the local file does not revoke it.\n'
+        'Revoke it under Write tokens in your project settings, '
+        'see https://logfire.pydantic.dev/docs/manage/use-api-keys/\n'
+    )
+
+
 def test_clean_credentials_file_with_control_characters(
     tmp_dir_cwd: Path,
     logfire_credentials: LogfireCredentials,

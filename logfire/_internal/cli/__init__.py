@@ -97,13 +97,17 @@ def parse_whoami(args: argparse.Namespace) -> None:
         credentials.print_token_summary()
 
 
-def _revoke_url(project_url: str) -> str | None:
+def _revoke_url(project_url: object) -> str | None:
     """The project's write tokens page, or `None` if `project_url` can't be printed safely.
 
-    The credentials file is just a file on disk, so nothing guarantees who wrote it. Control
-    characters in it would reach the terminal as escape sequences, which can spoof output or
-    change the terminal's state, so anything we don't recognise as a plain URL isn't printed.
+    The credentials file is just a file on disk, so nothing guarantees who wrote it, nor that its
+    values have the types the dataclass declares — `project_url` may be `null` or any other JSON
+    value. Control characters in it would reach the terminal as escape sequences, which can spoof
+    output or change the terminal's state, so anything we don't recognise as a plain URL isn't
+    printed.
     """
+    if not isinstance(project_url, str):
+        return None
     if not project_url.startswith(('http://', 'https://')) or not project_url.isprintable():
         return None
     return f'{project_url}/settings/write-tokens'
