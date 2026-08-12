@@ -100,6 +100,8 @@ Replace <1> with a bulleted sublist of dashboard names based on the integrations
 - "Basic System Metrics (Logfire)" if `logfire.instrument_system_metrics()` was called
 - "LLM Tokens and Costs (from records)" if an AI integration was added
 
+Try not to deviate from the wording above more than necessary. Start by drafting the message in your thinking space with the appropriate edits. Then double check that you've matched the wording properly.
+
 Depending on their responses to the numbered list above:
 
 1. Read https://pydantic.dev/docs/logfire/guides/mcp-server/. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the appropriate config files. If you don't have permission to edit directly, try to give a copyable command which does so. Otherwise, give plain instructions.
@@ -110,6 +112,8 @@ Depending on their responses to the numbered list above:
 6. You'll need the MCP server to create/edit alerts yourself. Read https://pydantic.dev/docs/logfire/observe/alerts/.
 7. Read https://pydantic.dev/docs/logfire/evaluate/overview/ to start.
 8. Read https://pydantic.dev/docs/logfire/prompt-management/ to start.
+
+Remember to create detailed managed tasks with tools if possible.
 ````
 
 </AgentSetup>
