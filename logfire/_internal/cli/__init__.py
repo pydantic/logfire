@@ -23,7 +23,7 @@ from logfire.propagate import ContextCarrier, get_context
 from ...version import VERSION
 from ..auth import HOME_LOGFIRE
 from ..client import LogfireClient
-from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
+from ..config import CREDENTIALS_FILENAME, REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
@@ -97,6 +97,29 @@ def parse_whoami(args: argparse.Namespace) -> None:
         credentials.print_token_summary()
 
 
+def _write_token_notice(data_dir: Path) -> str:
+    """Explain that deleting the local credentials file doesn't revoke the write token.
+
+    The token `logfire projects use` created stays active on the server, and once the file
+    is gone there's nothing left locally identifying which token it was.
+    """
+    try:
+        credentials = LogfireCredentials.load_creds_file(data_dir)
+    except LogfireConfigError:
+        # The file is unreadable, so we can't name the project — the token is still live either way.
+        credentials = None
+
+    project = f' for project {credentials.project_name!r}' if credentials and credentials.project_name else ''
+    if credentials and credentials.project_url:
+        where = f'Revoke it at {credentials.project_url}/settings/write-tokens'
+    else:
+        where = f'Revoke it under Write tokens in your project settings, see {BASE_DOCS_URL}/manage/use-api-keys/'
+    return (
+        f'The write token{project} is still active on the Logfire server, deleting the local file does not revoke it.\n'
+        f'{where}\n'
+    )
+
+
 def parse_clean(args: argparse.Namespace) -> None:
     """Remove the contents of the Logfire data directory."""
     files_to_delete: list[Path] = []
@@ -108,15 +131,20 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
         sys.exit(1)
 
+    creds_file = data_dir / CREDENTIALS_FILENAME
     files_to_delete.append(data_dir / '.gitignore')
-    files_to_delete.append(data_dir / 'logfire_credentials.json')
+    files_to_delete.append(creds_file)
 
     files_to_display = '\n'.join([str(file) for file in files_to_delete if file.exists()])
     confirm = input(f'The following files will be deleted:\n{files_to_display}\nAre you sure? [N/y]')
     if confirm.lower() in ('yes', 'y'):
+        # Read the credentials before they're deleted, so the notice below can name the project.
+        notice = _write_token_notice(data_dir) if creds_file.exists() else None
         for file in files_to_delete:
             file.unlink(missing_ok=True)
         sys.stderr.write('Cleaned Logfire data.\n')
+        if notice:
+            sys.stderr.write(notice)
     else:
         sys.stderr.write('Clean aborted.\n')
 

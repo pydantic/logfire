@@ -61,6 +61,11 @@ logfire clean
 
 The clean command doesn't remove the logs, and the authentication information stored in the `~/.logfire` directory.
 
+It also doesn't remove the **write token** itself. `logfire projects use` creates a write token on
+the Logfire server and saves a copy in `.logfire/logfire_credentials.json`; `clean` deletes that
+local copy, but the token stays active and keeps accepting data. `clean` prints where to revoke it —
+see [Write Tokens](../how-to-guides/create-write-tokens.md#revoking-a-write-token).
+
 To also remove the logs, you can run the following command:
 
 ```bash

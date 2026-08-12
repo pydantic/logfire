@@ -5,6 +5,7 @@ description: "Step-by-step guide for creating a Logfire write token in the web U
 To send data to **Logfire**, you need to create a <OpenInLogfire path="settings/write-tokens" variant="inline" label="write token" />.
 A write token is a unique identifier that allows you to send data to a specific **Logfire** project.
 If you set up Logfire according to the [getting started guide](../index.md), you already have a write token locally tied to the project you created.
+That local token is a real credential on the Logfire server, not just a local setting: `logfire projects use` asks the server to create a new write token each time you run it, and saves a copy in `.logfire/logfire_credentials.json`. It is listed alongside the ones you create by hand, under **Settings > Write tokens**, and it never expires unless you revoke it.
 But if you want to configure other computers to write to that project, for example in a deployed application, you need to create a new write token.
 
 You can create a write token by following these steps:
@@ -22,6 +23,20 @@ Now you can use this write token to send data to your **Logfire** project from a
 
 We recommend you inject your write token via environment variables in your deployed application.
 Set the token as the value for the environment variable `LOGFIRE_TOKEN` and logfire will automatically use it to send data to your project.
+
+## Revoking a write token
+
+A write token stays usable until you revoke it, wherever the copies of it have ended up.
+Deleting a local copy is not enough: [`logfire clean`](../reference/cli.md#clean-clean) removes
+`.logfire/logfire_credentials.json`, but the token it held keeps accepting data.
+
+To revoke one, open <OpenInLogfire path="settings/write-tokens" variant="inline" label="Settings > Write tokens" /> for the project and remove it there.
+
+Tokens created by `logfire projects use` all arrive with the same title and description, so
+creation time is the only thing telling them apart. If you run it in several checkouts, or a coding
+agent runs it for you, give each token a **Name** and **Description** in the web UI while you still
+know which is which. You can also manage tokens through the platform API, which can create, list,
+rotate, expire and revoke them: see [API Keys](../reference/advanced/use-api-keys.md).
 
 ## Setting `send_to_logfire='if-token-present'`
 

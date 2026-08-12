@@ -224,11 +224,18 @@ def test_whoami_no_token_no_url(tmp_path: Path, capsys: pytest.CaptureFixture[st
         assert 'Not logged in. Run `logfire auth` to log in.' in capsys.readouterr().err
 
 
+WRITE_TOKEN_NOTICE = (
+    "The write token for project 'my-project' is still active on the Logfire server, "
+    'deleting the local file does not revoke it.\n'
+    'Revoke it at https://dashboard.logfire.dev/settings/write-tokens\n'
+)
+
+
 @pytest.mark.parametrize(
     'confirm,output',
     [
-        ('y', 'Cleaned Logfire data.\n'),
-        ('yes', 'Cleaned Logfire data.\n'),
+        ('y', f'Cleaned Logfire data.\n{WRITE_TOKEN_NOTICE}'),
+        ('yes', f'Cleaned Logfire data.\n{WRITE_TOKEN_NOTICE}'),
         ('n', 'Clean aborted.\n'),
     ],
 )
@@ -256,6 +263,37 @@ def test_clean(
         str(tmp_dir_cwd / 'logfire_credentials.json'),
         'Are you sure? [N/y]',
     ]
+
+
+def test_clean_no_credentials_file(
+    tmp_dir_cwd: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nothing was minted server-side, so there's no token to warn about."""
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+
+    (tmp_dir_cwd / '.gitignore').write_text('*')
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    assert capsys.readouterr().err == 'Cleaned Logfire data.\n'
+
+
+def test_clean_unreadable_credentials_file(
+    tmp_dir_cwd: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The project can't be named, but the token is live either way, so still say so."""
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+
+    (tmp_dir_cwd / 'logfire_credentials.json').write_text('not json')
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    assert capsys.readouterr().err == snapshot(
+        'Cleaned Logfire data.\n'
+        'The write token is still active on the Logfire server, deleting the local file does not revoke it.\n'
+        'Revoke it under Write tokens in your project settings, '
+        'see https://logfire.pydantic.dev/docs/manage/use-api-keys/\n'
+    )
 
 
 def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
