@@ -115,11 +115,17 @@ class ScrubbingOptions:
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     """
 
-    extra_patterns: Sequence[str] | None = None
+    extra_patterns: Sequence[str] | Mapping[str, str] | None = None
     """
-    A sequence of regular expressions to detect sensitive data that should be redacted.
+    Regular expressions to detect sensitive data that should be redacted.
     For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
     The specified patterns are combined with the default patterns.
+
+    Pass a mapping to name them, e.g. `{'db_url_credentials': r'://[^:@/]+:[^@/]+@'}`. A named
+    pattern reports its **name** as the reason for redaction instead of the text it matched, which
+    matters for patterns that match the sensitive value itself rather than a key next to it:
+    an unnamed `r'://[^:@/]+:[^@/]+@'` produces `[Scrubbed due to '://admin:s3cr3t@']`, echoing the
+    credential it was meant to hide.
 
     These are matched while the span is being created, on the thread creating it, so an
     expensive pattern slows down the instrumented application itself. Avoid nested quantifiers
@@ -146,7 +152,15 @@ class ScrubbingOptions:
     """
 
     def __post_init__(self) -> None:
-        extra_patterns = self.extra_patterns = _check_string_sequence(self.extra_patterns, 'extra_patterns')
+        if isinstance(self.extra_patterns, Mapping):
+            named_patterns = self.extra_patterns
+            for name, pattern in named_patterns.items():
+                if not isinstance(name, str) or not isinstance(pattern, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                    raise LogfireConfigError('`extra_patterns` must map names to regexes, both strings.')
+            self.extra_patterns = dict(named_patterns)
+            extra_patterns = tuple(named_patterns.values())
+        else:
+            extra_patterns = self.extra_patterns = _check_string_sequence(self.extra_patterns, 'extra_patterns')
         disabled_patterns = self.disabled_patterns = _check_string_sequence(self.disabled_patterns, 'disabled_patterns')
         safe_keys = self.safe_keys = _check_string_sequence(self.safe_keys, 'safe_keys')
 
@@ -330,7 +344,7 @@ class Scrubber(BaseScrubber):
 
     def __init__(
         self,
-        patterns: Sequence[str] | None,
+        patterns: Sequence[str] | Mapping[str, str] | None,
         callback: ScrubCallback | None = None,
         disabled_patterns: Sequence[str] | None = None,
         safe_keys: Sequence[str] | None = None,
@@ -338,7 +352,15 @@ class Scrubber(BaseScrubber):
         # See ScrubbingOptions for more info on these parameters.
         disabled = set(disabled_patterns or ())
         all_patterns = [name for key, name in DEFAULT_PATTERNS.items() if key not in disabled]
-        all_patterns += patterns or []
+        named_patterns: Mapping[str, str] = patterns if isinstance(patterns, Mapping) else {}
+        all_patterns += list(named_patterns.values()) if named_patterns else list(patterns or [])
+        # Named patterns are compiled individually as well, only to identify which one produced a
+        # match. Doing it this way keeps them out of the pattern used for searching, which is on the
+        # hot path: capturing groups there would cost ~2x and would renumber any backreference in a
+        # user's own pattern.
+        self._named_patterns = [
+            (name, re.compile(pattern, re.IGNORECASE | re.DOTALL)) for name, pattern in named_patterns.items()
+        ]
         # Each pattern is wrapped so that a top-level `|` in one of them can't change how the
         # others are grouped. The group is non-capturing so that backreferences in user patterns
         # keep referring to the user's own groups.
@@ -396,6 +418,7 @@ class SpanScrubber:
 
     def __init__(self, parent: Scrubber):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._named_patterns = parent._named_patterns  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self._credential_pattern = parent.credential_pattern
         self._safe_keys = parent.safe_keys
@@ -503,9 +526,22 @@ class SpanScrubber:
             self.did_scrub = self.did_scrub or result is not match.value
             return result
         self.did_scrub = True
-        matched_substring = match.pattern_match.group(0)
-        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
-        return f'[Scrubbed due to {matched_substring!r}]'
+        reason = self._pattern_name(match.pattern_match) or match.pattern_match.group(0)
+        # The note is kept whatever the reason, because the UI generates scrubbing-config
+        # suggestions from it.
+        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=reason))
+        return f'[Scrubbed due to {reason!r}]'
+
+    def _pattern_name(self, pattern_match: re.Match[str]) -> str | None:
+        """The name of the named pattern responsible for `pattern_match`, if it was one.
+
+        Only reached when something is actually being redacted, so the cost is off the hot path.
+        """
+        for name, compiled in self._named_patterns:
+            candidate = compiled.match(pattern_match.string, pattern_match.start())
+            if candidate is not None and candidate.end() == pattern_match.end():
+                return name
+        return None
 
 
 class MessageValueCleaner:

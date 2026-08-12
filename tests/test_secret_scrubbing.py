@@ -807,3 +807,52 @@ def test_validated_fields_are_frozen():
     assert (options.disabled_patterns, options.extra_patterns, options.safe_keys) == snapshot(
         (('session',), ('x',), ('y',))
     )
+
+
+def test_named_extra_pattern_reports_its_name(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    """A pattern that matches the secret itself must not echo it as the reason.
+
+    Scenario from #1909, via the repro in #2048.
+    """
+    logfire.configure(
+        scrubbing=logfire.ScrubbingOptions(extra_patterns={'db_url_credentials': r'://[^:@/]+:[^@/]+@'}),
+        **config_kwargs,
+    )
+
+    secret = 'admin:s3cr3t_pass'
+    logfire.info('connect', config_url=f'postgresql://{secret}@db.internal:5432/mydb')
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert secret not in str(spans)
+    attributes = spans[0]['attributes']
+    assert attributes['config_url'] == snapshot("[Scrubbed due to 'db_url_credentials']")
+    # The note is kept, because the UI generates scrubbing-config suggestions from it.
+    assert attributes['logfire.scrubbed'] == snapshot(
+        [{'path': ['attributes', 'config_url'], 'matched_substring': 'db_url_credentials'}]
+    )
+
+
+def test_unnamed_extra_pattern_is_unchanged(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    """The sequence form keeps reporting the matched text, so existing configs are unaffected."""
+    logfire.configure(
+        scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'://[^:@/]+:[^@/]+@']),
+        **config_kwargs,
+    )
+
+    logfire.info('connect', config_url='postgresql://admin:s3cr3t_pass@db.internal:5432/mydb')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']['config_url'] == snapshot(
+        "[Scrubbed due to '://admin:s3cr3t_pass@']"
+    )
+
+
+def test_default_patterns_still_report_the_matched_text(exporter: TestExporter):
+    """Naming is opt-in: the built-in patterns report what they matched, as before."""
+    logfire.info('hi', password='hunter2')
+    assert exporter.exported_spans_as_dict()[0]['attributes']['password'] == snapshot("[Scrubbed due to 'password']")
+
+
+def test_named_extra_patterns_must_map_strings_to_strings():
+    kwargs: dict[str, Any] = {'extra_patterns': {'name': 1}}
+    with pytest.raises(LogfireConfigError, match='`extra_patterns` must map names to regexes'):
+        logfire.ScrubbingOptions(**kwargs)

@@ -35,6 +35,38 @@ logfire.info(
 )
 ```
 
+### Naming a pattern so it doesn't echo what it matched
+
+By default the redacted value says what triggered it, e.g. `[Scrubbed due to 'password']`. That is
+useful when the pattern matches a *key* sitting next to the secret, which is what the default
+patterns do.
+
+It backfires when the pattern matches the secret itself. This pattern finds credentials embedded in
+a database URL, and reports them:
+
+```python
+import logfire
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'://[^:@/]+:[^@/]+@']))
+
+logfire.info('connect', config_url='postgresql://admin:s3cr3t_pass@db.internal:5432/mydb')
+# config_url -> "[Scrubbed due to '://admin:s3cr3t_pass@']"
+```
+
+Pass a mapping instead of a list to give the pattern a name. The name is reported in place of the
+matched text:
+
+```python
+import logfire
+
+logfire.configure(
+    scrubbing=logfire.ScrubbingOptions(extra_patterns={'db_url_credentials': r'://[^:@/]+:[^@/]+@'})
+)
+
+logfire.info('connect', config_url='postgresql://admin:s3cr3t_pass@db.internal:5432/mydb')
+# config_url -> "[Scrubbed due to 'db_url_credentials']"
+```
+
 Here are the default scrubbing patterns. The keys are the names you pass to
 [`disabled_patterns`][logfire.ScrubbingOptions.disabled_patterns]:
 
