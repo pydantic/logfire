@@ -856,3 +856,24 @@ def test_named_extra_patterns_must_map_strings_to_strings():
     kwargs: dict[str, Any] = {'extra_patterns': {'name': 1}}
     with pytest.raises(LogfireConfigError, match='`extra_patterns` must map names to regexes'):
         logfire.ScrubbingOptions(**kwargs)
+
+
+def test_named_pattern_identification_skips_patterns_that_did_not_match(
+    exporter: TestExporter, config_kwargs: dict[str, Any]
+):
+    """With several named patterns, the reason names the one that actually matched."""
+    logfire.configure(
+        scrubbing=logfire.ScrubbingOptions(
+            extra_patterns={
+                'internal_hostname': r'\bhost-\d+\b',
+                'db_url_credentials': r'://[^:@/]+:[^@/]+@',
+            }
+        ),
+        **config_kwargs,
+    )
+
+    logfire.info('connect', config_url='postgresql://admin:s3cr3t_pass@db.internal:5432/mydb')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes']['config_url'] == snapshot(
+        "[Scrubbed due to 'db_url_credentials']"
+    )

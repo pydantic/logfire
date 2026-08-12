@@ -362,8 +362,10 @@ class Scrubber(BaseScrubber):
             (name, re.compile(pattern, re.IGNORECASE | re.DOTALL)) for name, pattern in named_patterns.items()
         ]
         # Each pattern is wrapped so that a top-level `|` in one of them can't change how the
-        # others are grouped. The group is non-capturing so that backreferences in user patterns
-        # keep referring to the user's own groups.
+        # others are grouped. The group is non-capturing, which keeps the defaults out of the group
+        # numbering a user's backreference depends on. User patterns still share one numbering
+        # space with each other though, so a `\1` in one of several refers to the first group
+        # across all of them rather than its own - see #2237.
         self._pattern = re.compile('|'.join(f'(?:{p})' for p in all_patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
         # Applied beneath safe keys, which is why these patterns can't be disabled.
