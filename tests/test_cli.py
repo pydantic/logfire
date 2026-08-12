@@ -296,6 +296,27 @@ def test_clean_unreadable_credentials_file(
     )
 
 
+def test_clean_credentials_file_is_not_an_object(
+    tmp_dir_cwd: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Valid JSON that isn't an object is still an unusable credentials file, not a crash."""
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+
+    creds_file = tmp_dir_cwd / 'logfire_credentials.json'
+    creds_file.write_text('"not an object"')
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+
+    assert not creds_file.exists()
+    assert capsys.readouterr().err == snapshot(
+        'Cleaned Logfire data.\n'
+        'The write token is still active on the Logfire server, deleting the local file does not revoke it.\n'
+        'Revoke it under Write tokens in your project settings, '
+        'see https://logfire.pydantic.dev/docs/manage/use-api-keys/\n'
+    )
+
+
 def test_clean_credentials_file_with_control_characters(
     tmp_dir_cwd: Path,
     logfire_credentials: LogfireCredentials,
