@@ -14,7 +14,7 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 <AgentSetup>
 
 ````text
-Note for the agent: This prompt was copied from the Pydantic Logfire website by the user. The user may not have read it. Briefly tell the user what you plan to do before each step.
+Note for the agent: This prompt was copied from the Pydantic Logfire website by the user. The user may not have read it. Briefly tell the user what you plan to do before each step. This prompt focuses on a happy path, adjust as needed.
 
 Set up Pydantic Logfire in this project to instrument it and send OpenTelemetry signals to Logfire.
 
@@ -62,11 +62,24 @@ If all is well, provide the user with a link to GitHub or whatever source contro
 Next, say:
 
 """
-Here are some things you can easily try immediately:
+Here are some things you can try instantly:
 
 - Open https://logfire.pydantic.dev/-/redirect/latest-project/dashboards/new and enable the following standard dashboards ([docs](https://pydantic.dev/docs/logfire/observe/dashboards/#standard-dashboards)): <1>
 - Open https://logfire.pydantic.dev/-/redirect/latest-project/services ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your service(s).
 - Open https://logfire.pydantic.dev/-/redirect/latest-project/hosts ([docs](https://pydantic.dev/docs/logfire/observe/hosts/)) to see system metrics of each of your hosts. <Only suggest this if `logfire.instrument_system_metrics()` was called.>
+
+And here are some possible next steps I can help you with to get more out of Logfire:
+
+1. Install the Logfire plugins, skills, and MCP server matching this coding agent.
+2. Setup auto-tracing to trace every function call in your application (with a duration threashold) to get deep observability into every part of your code. <Only suggest this if using Python>
+3. Add more integrations to trace libraries that you use.
+4. Add targeted spans and logs customised to your code.
+5. Set up dashboards in your project.
+6. Set up alerts in your project.
+7. Set up evaluations of your AI tasks. <Only suggest this if the application uses AI>
+8. Set up prompt management for your AI tasks. <Only suggest this if the application uses AI>
+
+Respond with the numbers that you're interested in, or let me know if you want to do something else.
 """
 
 Replace <1> with this list of dashboard names based on the integrations you added:
@@ -75,8 +88,16 @@ Replace <1> with this list of dashboard names based on the integrations you adde
 - "Basic System Metrics (Logfire)" if `logfire.instrument_system_metrics()` was called
 - "LLM Tokens and Costs (from records)" if an AI integration was added
 
+Depending on their responses to the numbered list above:
 
-Read https://pydantic.dev/docs/logfire/guides/mcp-server/. Offer to install the plugins, skills, and MCP server matching this coding agent. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the appropriate config files. If you don't have permission to edit directly, give a copyable command which does so.
+1. Read https://pydantic.dev/docs/logfire/guides/mcp-server/. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the appropriate config files. If you don't have permission to edit directly, try to give a copyable command which does so. Otherwise, give plain instructions.
+2. Read https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/. Make the appropriate edits in an isolated commit to instrument the application code, not libraries. Use `min_duration=0.01`. Summarise the changes and their implications and point them to the docs.
+3. If using Python, run `logfire inspect` to see which integrations exist for installed modules, then set those up. Next, regardless of language, investigate what libraries the project uses. Browse the docs for integrations which apply. Then search the web for OpenTelemetry instrumentations for libraries that don't have a Logfire integration.
+4. Add calls to `logfire.span/info/error/exception/instrument` where appropriate.
+5. You'll need the MCP server to create/edit dashboards yourself. Read https://pydantic.dev/docs/logfire/observe/write-dashboard-queries/.
+6. You'll need the MCP server to create/edit alerts yourself. Read https://pydantic.dev/docs/logfire/observe/alerts/.
+7. Read https://pydantic.dev/docs/logfire/evaluate/overview/ to start.
+8. Read https://pydantic.dev/docs/logfire/prompt-management/ to start.
 ````
 
 </AgentSetup>
