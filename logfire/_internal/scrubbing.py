@@ -261,23 +261,37 @@ class SpanScrubber:
         if self.did_scrub:
             span['attributes'] = BoundedAttributes(attributes=new_attributes)
 
-        span['events'] = [
-            Event(
-                # We don't scrub the event name because in theory it should be a low-cardinality general description,
-                # not containing actual data. The same applies to the span name, which just isn't mentioned here.
-                name=event.name,
-                attributes=BoundedAttributes(attributes=self.scrub_event_attributes(event, i)),
-                timestamp=event.timestamp,
-            )
-            for i, event in enumerate(span['events'])
-        ]
-        span['links'] = [
-            Link(
-                context=link.context,
-                attributes=BoundedAttributes(attributes=self.scrub(('links', i, 'attributes'), link.attributes)),
-            )
-            for i, link in enumerate(span['links'])
-        ]
+        new_events: list[Event] | None = None
+        for i, event in enumerate(span['events']):
+            attributes = self.scrub_event_attributes(event, i)
+            if attributes is not event.attributes:
+                if new_events is None:
+                    new_events = list(span['events'][:i])
+                new_events.append(
+                    Event(
+                        # We don't scrub the event name because in theory it should be a low-cardinality general
+                        # description, not containing actual data. The same applies to the span name.
+                        name=event.name,
+                        attributes=BoundedAttributes(attributes=attributes),
+                        timestamp=event.timestamp,
+                    )
+                )
+            elif new_events is not None:
+                new_events.append(event)
+        if new_events is not None:
+            span['events'] = new_events
+
+        new_links: list[Link] | None = None
+        for i, link in enumerate(span['links']):
+            attributes = self.scrub(('links', i, 'attributes'), link.attributes)
+            if attributes is not link.attributes:
+                if new_links is None:
+                    new_links = list(span['links'][:i])
+                new_links.append(Link(context=link.context, attributes=BoundedAttributes(attributes=attributes)))
+            elif new_links is not None:
+                new_links.append(link)
+        if new_links is not None:
+            span['links'] = new_links
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
@@ -296,7 +310,7 @@ class SpanScrubber:
         return result
 
     def scrub_event_attributes(self, event: Event, index: int):
-        attributes = event.attributes or {}
+        attributes = event.attributes
         path = ('otel_events', index, 'attributes')
         new_attributes = self.scrub(path, attributes)
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
@@ -315,26 +329,42 @@ class SpanScrubber:
                     # it's considered safe.
                     return value
                 try:
-                    value = json.loads(value)
+                    parsed_value = json.loads(value)
                 except json.JSONDecodeError:
                     return self._redact(ScrubMatch(path, value, match))
                 else:
-                    return json.dumps(self.scrub(path, value))
+                    scrubbed_value = self.scrub(path, parsed_value)
+                    return value if scrubbed_value is parsed_value else json.dumps(scrubbed_value)
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+            sequence = cast('Sequence[Any]', value)
+            sequence_result: list[Any] | None = None
+            for i, old_value in enumerate(sequence):
+                new_value = self.scrub(path + (i,), old_value)
+                if new_value is not old_value:
+                    if sequence_result is None:
+                        sequence_result = list(sequence[:i])
+                    sequence_result.append(new_value)
+                elif sequence_result is not None:
+                    sequence_result.append(old_value)
+            return cast('Any', value) if sequence_result is None else sequence_result
         elif isinstance(value, Mapping):
-            result: dict[str, Any] = {}
+            mapping = cast('Mapping[str, Any]', value)
+            mapping_result: dict[str, Any] | None = None
             for k, v in cast('Mapping[str, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
-                    result[k] = v
+                    new_value = v
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
-                    result[k] = redacted
+                    new_value = redacted
                 else:
-                    result[k] = self.scrub(path + (k,), v)
-            return result
+                    new_value = self.scrub(path + (k,), v)
+                if new_value is not v:
+                    if mapping_result is None:
+                        mapping_result = dict(mapping)
+                    mapping_result[k] = new_value
+            return cast('Any', value) if mapping_result is None else mapping_result
         return value
 
     def _redact(self, match: ScrubMatch) -> Any:

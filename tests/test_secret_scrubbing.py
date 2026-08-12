@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from dirty_equals import IsJson, IsPartialDict
@@ -11,10 +11,12 @@ from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
+from opentelemetry.sdk.trace import Event
+from opentelemetry.trace import Link, SpanContext, TraceFlags
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.scrubbing import NoopScrubber
+from logfire._internal.scrubbing import NoopScrubber, Scrubber
 from logfire.testing import TestExporter, TestLogExporter
 
 
@@ -254,6 +256,81 @@ def test_scrub_events(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_scrub_span_copies_only_changed_events_and_links():
+    context = SpanContext(trace_id=1, span_id=1, is_remote=False, trace_flags=cast(TraceFlags, TraceFlags.SAMPLED))
+    changed_event = Event('changed', {'password': 'secret'})
+    another_changed_event = Event('another-changed', {'secret': 'value'})
+    safe_event = Event('safe', {'safe': 'value'})
+    safe_json_event = Event('safe-json', {'value': '"password"'})
+    changed_link = Link(context, {'password': 'secret'})
+    another_changed_link = Link(context, {'secret': 'value'})
+    safe_link = Link(context, {'safe': 'value'})
+    safe_json_link = Link(context, {'value': '"password"'})
+    attributes = {'safe': 'value'}
+    events = [safe_event, changed_event, safe_json_event, another_changed_event]
+    links = [safe_link, changed_link, safe_json_link, another_changed_link]
+    span: Any = {
+        'instrumentation_scope': None,
+        'attributes': attributes,
+        'events': events,
+        'links': links,
+    }
+
+    Scrubber(None).scrub_span(span)
+
+    assert span['attributes'] is not attributes
+    assert span['attributes']['safe'] == 'value'
+    assert span['events'] is not events
+    assert span['events'][0] is safe_event
+    assert span['events'][1] is not changed_event
+    assert span['events'][2] is safe_json_event
+    assert span['events'][3] is not another_changed_event
+    assert span['links'] is not links
+    assert span['links'][0] is safe_link
+    assert span['links'][1] is not changed_link
+    assert span['links'][2] is safe_json_link
+    assert span['links'][3] is not another_changed_link
+
+
+def test_scrub_span_preserves_safe_json_events_and_links():
+    context = SpanContext(trace_id=1, span_id=1, is_remote=False, trace_flags=cast(TraceFlags, TraceFlags.SAMPLED))
+    event = Event('safe-json', {'value': '"password"'})
+    link = Link(context, {'value': '"password"'})
+    events = [event]
+    links = [link]
+    span: Any = {
+        'instrumentation_scope': None,
+        'attributes': {},
+        'events': events,
+        'links': links,
+    }
+
+    Scrubber(None).scrub_span(span)
+
+    assert span['events'] is events
+    assert span['links'] is links
+
+
+def test_scrub_value_copies_only_changed_nested_containers():
+    safe_mapping = {'safe': 'value'}
+    nested_sequence = [safe_mapping, {'password': 'secret'}]
+    value = {'safe_mapping': safe_mapping, 'nested_sequence': nested_sequence}
+
+    result, scrubbed = Scrubber(None).scrub_value(('attributes',), value)
+
+    assert result is not value
+    assert result['safe_mapping'] is safe_mapping
+    assert result['nested_sequence'] is not nested_sequence
+    assert result['nested_sequence'][0] is safe_mapping
+    assert result['nested_sequence'][1] == {'password': "[Scrubbed due to 'password']"}
+    assert scrubbed == [
+        {
+            'path': ('attributes', 'nested_sequence', 1, 'password'),
+            'matched_substring': 'password',
+        }
+    ]
 
 
 def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
