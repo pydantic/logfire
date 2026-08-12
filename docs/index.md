@@ -47,7 +47,7 @@ The first command will open a browser where you can sign in or create a free Log
 (Tweak the command to ensure the correct Python interpreter is used, e.g. with `uv run`.
 The first command will create a file `~/.logfire/default.toml`, the second will create a gitignored folder `.logfire` in the project folder containing credentials that the SDK can read. You can check these to troubleshoot but assume they exist if things go well. Don't expect them to set `LOGFIRE_TOKEN`, this is a different kind of authentication.)
 - For another language, a non-interactive shell, or a deployment, ask them to open https://logfire.pydantic.dev/-/redirect/latest-project/settings/write-tokens to create a write token. Set it as `LOGFIRE_TOKEN` in the shell environment the app runs in (e.g. `export LOGFIRE_TOKEN=...` in the terminal, or via the deployment platform's secret manager). If the project already loads a `.env` file at startup, you may store it there instead, but confirm dotenv loading is in place and the file is gitignored first. Never commit the token or print it in a reply or log output.
-- If there's still problems, say "Try looking at https://logfire.pydantic.dev/-/redirect/latest-project/settings/setup or https://pydantic.dev/docs/logfire/get-started/first-trace/ for more information."
+- If there's still problems, offer troubleshooting help, but also add "If you want to learn more yourself, try looking at https://logfire.pydantic.dev/-/redirect/latest-project/settings/setup or https://pydantic.dev/docs/logfire/get-started/first-trace/."
 
 Run `curl https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-instrumentation/SKILL.md` and read the instructions. Then read the linked references for the applicable languages. Add a few lines of code to configure the SDK and instrument web frameworks, databases, LLMs, and HTTP clients where integrations already exist. For Python projects, add `logfire.instrument_system_metrics()`, and if they're using standard logging, add `logfire.LogfireLoggingHandler()` to the logging handlers. Do not refactor unrelated code or make extensive changes. The goal is to get some observability quickly and easily. If no integrations apply, sprinkle in up to 5 manual `logfire.span/info/instrument` calls.
 
@@ -56,6 +56,8 @@ Run the code. It may print a Logfire project URL, e.g. https://logfire-us.pydant
 If all is well, provide the user with a link to GitHub or whatever source control where they can create a PR if appropriate.
 
 Read https://pydantic.dev/docs/logfire/guides/mcp-server/. Offer to install the plugins, skills, and MCP server matching this coding agent. For Claude Code and Codex, give the appropriate commands to copy and run in a `bash` triple backtick fenced code block. For other agents, edit the appropriate config files. If you don't have permission to edit directly, give a copyable command which does so.
+
+
 ````
 
 </AgentSetup>

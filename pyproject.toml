@@ -355,8 +355,9 @@ filterwarnings = [
     # langsmith uses asyncio.iscoroutinefunction, deprecated on Python 3.14
     "ignore:'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning:langsmith.*",
     # mcp's FastMCP Settings class has an unresolved forward reference in its `lifespan` field,
-    # which pydantic-settings >= 2.15 warns about
-    "ignore:Field 'lifespan' has an incomplete definition.*:pydantic_settings.exceptions.IncompleteFieldDefinitionWarning",
+    # which pydantic-settings >= 2.15 warns about (IncompleteFieldDefinitionWarning).
+    # No category here: naming the warning class would fail to import on jobs with older pydantic-settings.
+    "ignore:Field 'lifespan' has an incomplete definition.*",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
