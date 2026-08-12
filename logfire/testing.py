@@ -18,7 +18,7 @@ import logfire
 from ._internal.config import METRICS_PREFERRED_TEMPORALITY
 from ._internal.constants import ONE_SECOND_IN_NANOSECONDS
 from ._internal.exporters.test import TestExporter, TestLogExporter
-from ._internal.utils import SeededRandomIdGenerator
+from ._internal.utils import SeededRandomIdGenerator, explicitly_set_fields
 
 __all__ = [
     'capfire',
@@ -108,6 +108,11 @@ class CaptureLogfire:
         `additional_span_processors`, `advanced.log_record_processors`, and `metrics.additional_readers`
         extend the capfire defaults. Other kwargs replace them. Pass `metrics=False` to disable metrics.
 
+        Within `advanced=` and `metrics=`, only the fields you actually pass replace the capfire values,
+        so e.g. `advanced=logfire.AdvancedOptions(base_url=...)` keeps the deterministic ID and timestamp
+        generators, while `advanced=logfire.AdvancedOptions(ns_timestamp_generator=time.time_ns)` restores
+        real timestamps.
+
         `exporter`, `log_exporter`, `id_generator`, and `ns_timestamp_generator` are reused as the base
         values for the merge; if the user overrides `id_generator` or `ns_timestamp_generator` via
         `advanced=`, the corresponding attribute on `self` is updated to reflect the new value.
@@ -159,28 +164,15 @@ class CaptureLogfire:
 
 
 def _merge_dataclass(default: Any, user: Any, extend_field: str) -> Any:
-    """Merge `user` into `default`, extending the `extend_field` list and overriding other non-default fields.
+    """Merge `user` into `default`, extending the `extend_field` list and overriding other fields set by the user.
 
-    A field on `user` is treated as "overriding" only when its value differs from the field's dataclass
-    default. A user cannot explicitly reset a field to its default value (the override is silently
-    skipped). Identity-comparison fields (e.g. `ns_timestamp_generator`) look "set" when the user passes
-    a *different* object, but are silently skipped when the user passes the exact default object.
+    Only the fields explicitly passed when constructing `user` override `default`, so passing a value
+    that happens to equal the field's dataclass default (e.g. `ns_timestamp_generator=time.time_ns`)
+    still takes effect.
     """
     overrides: dict[str, Any] = {extend_field: [*getattr(default, extend_field), *getattr(user, extend_field)]}
-    for f in dataclasses.fields(user):
-        if f.name == extend_field:
-            continue
-        user_val = getattr(user, f.name)
-        if f.default is not dataclasses.MISSING:
-            if user_val != f.default:
-                overrides[f.name] = user_val
-        elif f.default_factory is not dataclasses.MISSING:
-            if user_val != f.default_factory():
-                overrides[f.name] = user_val
-        else:  # pragma: no cover
-            # No AdvancedOptions or MetricsOptions field is required today; this branch is a
-            # defensive guard for future fields without a default.
-            overrides[f.name] = user_val
+    for name in explicitly_set_fields(user) - {extend_field}:
+        overrides[name] = getattr(user, name)
     return dataclasses.replace(default, **overrides)
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import functools
 import hashlib
 import inspect
@@ -390,6 +391,43 @@ def maybe_capture_server_headers(capture: bool):
 
 def is_asgi_send_receive_span_name(name: str) -> bool:
     return name.endswith((' http send', ' http receive', ' websocket send', ' websocket receive'))
+
+
+_EXPLICIT_FIELDS_ATTRIBUTE = '_logfire_explicit_fields'
+
+
+def track_explicit_fields(cls: type[T]) -> type[T]:
+    """Make a dataclass remember which fields were passed explicitly to `__init__`.
+
+    Options dataclasses have meaningful defaults, so code that merges a user-supplied instance with
+    its own values can't tell 'the caller left this field alone' from 'the caller passed a value
+    which happens to equal the default' just by looking at the values, and would silently discard
+    the latter. Instances of a decorated class record the names of the fields actually passed,
+    which `explicitly_set_fields` reads back.
+    """
+    original_init = cls.__init__
+    field_names = [f.name for f in dataclasses.fields(cast('Any', cls))]
+
+    @functools.wraps(original_init)
+    def __init__(self: Any, *args: Any, **kwargs: Any) -> None:
+        original_init(self, *args, **kwargs)
+        setattr(self, _EXPLICIT_FIELDS_ATTRIBUTE, frozenset((*field_names[: len(args)], *kwargs)))
+
+    cls.__init__ = __init__
+    return cls
+
+
+def explicitly_set_fields(obj: Any) -> frozenset[str]:
+    """The names of the fields explicitly passed when `obj` was constructed.
+
+    Only works for instances of classes decorated with `track_explicit_fields`. Other objects are
+    treated as fully specified, i.e. all their fields count as explicitly set, since there's no way
+    to tell which values the caller chose.
+    """
+    fields: frozenset[str] | None = getattr(obj, _EXPLICIT_FIELDS_ATTRIBUTE, None)
+    if fields is None:  # pragma: no cover
+        return frozenset(f.name for f in dataclasses.fields(obj))
+    return fields
 
 
 def _default_ms_timestamp_generator() -> int:

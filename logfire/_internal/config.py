@@ -122,6 +122,7 @@ from .utils import (
     handle_internal_errors,
     platform_is_emscripten,
     suppress_instrumentation,
+    track_explicit_fields,
 )
 
 if TYPE_CHECKING:
@@ -178,6 +179,9 @@ class ConsoleOptions:
     """The output stream to write console output to (default: stdout)."""
 
 
+# `track_explicit_fields` lets `logfire.testing.CaptureLogfire.reconfigure` merge a user-supplied
+# instance with its own defaults without silently dropping fields explicitly set to a default value.
+@track_explicit_fields
 @dataclass
 class AdvancedOptions:
     """Options primarily used for testing by Logfire developers."""
@@ -300,6 +304,8 @@ class PydanticPlugin:
     """Exclude specific modules from instrumentation."""
 
 
+# See the comment on `AdvancedOptions`.
+@track_explicit_fields
 @dataclass
 class MetricsOptions:
     """Configuration of metrics."""

@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 import pytest
@@ -9,7 +10,13 @@ from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.trace import Span
 
 import logfire
-from logfire.testing import CaptureLogfire, IncrementalIdGenerator, TestExporter, TimeGenerator
+from logfire.testing import (
+    CaptureLogfire,
+    IncrementalIdGenerator,
+    SeededRandomIdGenerator,
+    TestExporter,
+    TimeGenerator,
+)
 
 
 class _RecordingSpanProcessor(SpanProcessor):
@@ -134,8 +141,42 @@ def test_reconfigure_preserves_span_exporter(capfire: CaptureLogfire) -> None:
 
     logfire.error('after')
 
-    names = [span.name for span in capfire.exporter.exported_spans]
-    assert names == ['before', 'after']
+    assert capfire.exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'before',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'before',
+                    'logfire.msg': 'before',
+                    'code.filepath': 'test_testing.py',
+                    'code.function': 'test_reconfigure_preserves_span_exporter',
+                    'code.lineno': 123,
+                },
+            },
+            {
+                'name': 'after',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 17,
+                    'logfire.msg_template': 'after',
+                    'logfire.msg': 'after',
+                    'code.filepath': 'test_testing.py',
+                    'code.function': 'test_reconfigure_preserves_span_exporter',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
 
 
 def test_reconfigure_preserves_id_and_timestamp_generators(capfire: CaptureLogfire) -> None:
@@ -147,11 +188,40 @@ def test_reconfigure_preserves_id_and_timestamp_generators(capfire: CaptureLogfi
     with logfire.span('after'):
         pass
 
-    spans = capfire.exporter.exported_spans_as_dict()
-    assert spans[0]['context']['trace_id'] == 1
-    assert spans[1]['context']['trace_id'] == 2
-    assert spans[0]['start_time'] == 1000000000
-    assert spans[1]['start_time'] == 3000000000
+    assert capfire.exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'before',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_testing.py',
+                    'code.function': 'test_reconfigure_preserves_id_and_timestamp_generators',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'before',
+                    'logfire.msg': 'before',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'after',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_testing.py',
+                    'code.function': 'test_reconfigure_preserves_id_and_timestamp_generators',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'after',
+                    'logfire.msg': 'after',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
 
 
 def test_reconfigure_extends_additional_span_processors(capfire: CaptureLogfire) -> None:
@@ -212,8 +282,28 @@ def test_reconfigure_replaces_scrubbing(capfire: CaptureLogfire) -> None:
 
     logfire.info('hi', password='hunter2')
 
-    span = capfire.exporter.exported_spans_as_dict()[0]
-    assert span['attributes']['password'] == 'hunter2'
+    assert capfire.exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_testing.py',
+                    'code.function': 'test_reconfigure_replaces_scrubbing',
+                    'code.lineno': 123,
+                    'password': 'hunter2',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'password': {}}},
+                },
+            }
+        ]
+    )
 
 
 def test_reconfigure_accepts_console_and_send_to_logfire_kwargs(capfire: CaptureLogfire) -> None:
@@ -248,3 +338,27 @@ def test_reconfigure_keeps_default_id_generator_when_advanced_omits_it(capfire: 
     capfire.reconfigure(advanced=logfire.AdvancedOptions())
 
     assert capfire.id_generator is original
+
+
+def test_reconfigure_honours_ns_timestamp_generator_equal_to_its_default(capfire: CaptureLogfire) -> None:
+    # `time.time_ns` is the `AdvancedOptions` default, but passing it explicitly must still replace
+    # capfire's `TimeGenerator` rather than being mistaken for 'the caller didn't set this'.
+    capfire.reconfigure(advanced=logfire.AdvancedOptions(ns_timestamp_generator=time.time_ns))
+
+    logfire.info('hi')
+
+    [span] = capfire.exporter.exported_spans
+    assert span.start_time is not None
+    # Real wall clock nanoseconds, not `TimeGenerator`'s 1_000_000_000.
+    assert span.start_time > 1_700_000_000_000_000_000
+
+
+def test_reconfigure_honours_id_generator_equal_to_its_default(capfire: CaptureLogfire) -> None:
+    capfire.reconfigure(advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(None)))
+
+    logfire.info('hi')
+
+    [span] = capfire.exporter.exported_spans
+    assert span.context is not None
+    # `IncrementalIdGenerator` would have produced 1.
+    assert span.context.trace_id != 1
