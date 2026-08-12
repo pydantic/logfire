@@ -2132,7 +2132,11 @@ def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> N
             'https://logfire-us.pydantic.dev/v1/info',
             json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
         )
-        configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz')
+        with pytest.warns(LogfireConfigWarning) as warns:
+            configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz')
+        assert str(warns[0].message) == snapshot(
+            "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
+        )
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
@@ -3129,6 +3133,15 @@ def test_staging_token_regions():
         )
         == 'https://logfire-eu.pydantic.info'
     )
+
+
+def test_known_token_regions_do_not_warn():
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert get_base_url_from_token('pylf_v1_us_123456') == 'https://logfire-us.pydantic.dev'
+        assert get_base_url_from_token('pylf_v1_eu_123456') == 'https://logfire-eu.pydantic.dev'
+        # Tokens predating regions have no region segment and must keep working silently.
+        assert get_base_url_from_token('legacy_token_no_region') == 'https://logfire-us.pydantic.dev'
 
 
 def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:

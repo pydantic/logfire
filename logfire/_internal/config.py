@@ -2253,6 +2253,11 @@ def get_base_url_from_token(token: str) -> str:
             return 'https://logfire-eu.pydantic.info'
 
         if region not in REGIONS:
+            warn_at_user_stacklevel(
+                f'Unknown region {region!r} in Logfire token, falling back to the US region. '
+                f'Known regions: {", ".join(sorted(REGIONS))}.',
+                category=LogfireConfigWarning,
+            )
             region = 'us'
 
     return REGIONS[region]['base_url']
