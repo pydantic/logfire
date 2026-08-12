@@ -102,11 +102,31 @@ The `logfire-api` package is a no-op shim that libraries can depend on to avoid 
 
 CI is required to pass on main, so pre-existing CI failures are unlikely. If the same test fails across multiple Python version jobs, it's almost certainly caused by your changes — investigate rather than assuming it's a flaky pre-existing issue.
 
+## Coverage
+
+Coverage must be 100%. The bar is the `uv run coverage report --fail-under 100` step of the `coverage` job in [`.github/workflows/main.yml`](.github/workflows/main.yml), not `pyproject.toml` — `[tool.coverage.report]` sets no `fail_under`, so a plain local `coverage report` exits 0 on a regression. Run `make testcov`, then `uv run coverage report --fail-under 100`, before pushing. CI combines coverage across the whole test matrix, so a line reached only by another matrix job shows as missed locally; investigate a local miss before deleting or excluding the code.
+
+## The check job
+
+The `check` job only aggregates the other jobs with the `alls-green` action and produces no result of its own. When `check` fails, open the job it names and read that job's log.
+
 ## Pydantic version coverage
 
 PR CI only tests pydantic latest plus one extra job at pydantic 2.4. The full set of supported minor versions (2.4, 2.5, 2.6, ... up through main) is exercised by the weekly job in `.github/workflows/weekly_deps_test.yml`, which is the contract: every minor version listed there is meant to keep working.
 
 When something fails on pydantic 2.4, do not assume it is a 2.4-only quirk. The same problem is likely to affect some of 2.5–2.11 as well. Investigate which versions are actually affected (e.g. read the upstream changelog, install one of the in-between versions locally and reproduce) and fix or work around for the whole affected range. A green PR CI is not enough — if you only verify against 2.4 and latest, the weekly job will fail later even though the PR merged cleanly.
+
+# Iterating on a pull request
+
+A pull request is ready when CI is green and no review thread is unresolved. Run this loop until both hold.
+
+1. Watch the checks until they settle, then fix every failure.
+2. Read each new review comment. Several AI reviewers comment on pull requests here; verify each finding against this repository's code, configuration and history before acting on it. Do not assume a reviewer is right, and do not assume it is wrong.
+3. Fix what the valid findings call for. Reply to every thread with what you changed, or with the evidence that the finding does not apply here.
+4. Resolve each thread once you have replied. Leave a thread unresolved only to hold an open question that needs a maintainer's decision — one the repository's own docs, configuration and history cannot settle.
+5. Return to step 1 after every push, because reviewers comment again on the new commit.
+
+A reviewer can be right about Python in general and wrong about this repository. For example, a reviewer may report a Ruff `S106` violation (hardcoded password passed as an argument). `[tool.ruff.lint]` in `pyproject.toml` selects `E4`, `E7`, `E9` and `F`, plus an `extend-select` list that does not contain `S`, and `uv run ruff check --select S106` reports many pre-existing hits. The rule is not enabled, so there is nothing to fix. Check the configuration that governs a finding before you accept it.
 
 # Misc
 
