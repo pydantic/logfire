@@ -97,6 +97,18 @@ def parse_whoami(args: argparse.Namespace) -> None:
         credentials.print_token_summary()
 
 
+def _revoke_url(project_url: str) -> str | None:
+    """The project's write tokens page, or `None` if `project_url` can't be printed safely.
+
+    The credentials file is just a file on disk, so nothing guarantees who wrote it. Control
+    characters in it would reach the terminal as escape sequences, which can spoof output or
+    change the terminal's state, so anything we don't recognise as a plain URL isn't printed.
+    """
+    if not project_url.startswith(('http://', 'https://')) or not project_url.isprintable():
+        return None
+    return f'{project_url}/settings/write-tokens'
+
+
 def _write_token_notice(data_dir: Path) -> str:
     """Explain that deleting the local credentials file doesn't revoke the write token.
 
@@ -109,9 +121,11 @@ def _write_token_notice(data_dir: Path) -> str:
         # The file is unreadable, so we can't name the project — the token is still live either way.
         credentials = None
 
+    # `project_name` goes through `repr`, which escapes control characters for us.
     project = f' for project {credentials.project_name!r}' if credentials and credentials.project_name else ''
-    if credentials and credentials.project_url:
-        where = f'Revoke it at {credentials.project_url}/settings/write-tokens'
+    revoke_url = _revoke_url(credentials.project_url) if credentials else None
+    if revoke_url:
+        where = f'Revoke it at {revoke_url}'
     else:
         where = f'Revoke it under Write tokens in your project settings, see {BASE_DOCS_URL}/manage/use-api-keys/'
     return (

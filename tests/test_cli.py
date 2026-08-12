@@ -296,6 +296,29 @@ def test_clean_unreadable_credentials_file(
     )
 
 
+def test_clean_credentials_file_with_control_characters(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A crafted credentials file can't smuggle escape sequences into the user's terminal."""
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+
+    logfire_credentials.project_name = 'my-\x1b[2Kproject'
+    logfire_credentials.project_url = 'https://dashboard.logfire.dev\x1b]0;pwned\x07'
+    logfire_credentials.write_creds_file(tmp_dir_cwd)
+    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+
+    err = capsys.readouterr().err
+    assert '\x1b' not in err
+    assert err == snapshot("""\
+Cleaned Logfire data.
+The write token for project 'my-\\x1b[2Kproject' is still active on the Logfire server, deleting the local file does not revoke it.
+Revoke it under Write tokens in your project settings, see https://logfire.pydantic.dev/docs/manage/use-api-keys/
+""")
+
+
 def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         main(shlex.split('clean --data-dir potato'))
