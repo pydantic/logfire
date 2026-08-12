@@ -1,0 +1,26 @@
+docs/index.md
+  h_d9dd17644dded9 50,59-60
+pyproject.toml
+  s_8a2e80a0729a2a::t_47a88a1af768e3 358-360
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "2bccda26cc96b00c00062c6a415f6e95ce555d0f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8a2e80a0729a2a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba2484d0-3283-4b1b-bb77-e0fba9c04742",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
