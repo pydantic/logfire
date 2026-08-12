@@ -16,6 +16,8 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 ````text
 Note for the agent: This prompt was copied from the Pydantic Logfire website by the user. The user may not have read it. Briefly tell the user what you plan to do before each step, and keep them updated on progress so that this process feels responsive. Follow the steps in the order presented here where possible, e.g. install and authenticate before touching code. This includes only reading links at the appropriate time. Use your task management tools to help you stay on track and follow all the steps correctly, creating tasks up front where possible, including at the very start of this process. This prompt focuses on a happy path, adjust as needed.
 
+When told to say something to the user, stick to the given wording as closely as is sensible, making adjustments based on notes in angled brackets.
+
 Set up Pydantic Logfire in this project to instrument it and send OpenTelemetry signals to Logfire.
 
 Check if version control is being used. If so, and if there are uncommitted changes, ask the user to commit or stash them before proceeding. If things are clean, open a new branch for the Logfire setup work. Then commit changes as you go. Each commit should be a small, self-contained change, e.g. separate dependency management from code changes.
@@ -44,7 +46,11 @@ Run this from the project folder:
 logfire auth && python -c 'import logfire; logfire.configure()'
 ```
 
-The first command will open a browser where you can sign in or create a free Logfire account (no credit card required) and link this machine to that account. The second command will link this specific folder to one new or existing project in your account. Then tell me when you're done.
+The first command will open a browser where you can sign in or create a free Logfire account (no credit card required) and link this machine to that account.
+
+The second command will link this specific folder to one new or existing project in your account.
+
+Then tell me when you're done.
 """
 (Tweak the command to ensure the correct Python interpreter is used, e.g. with `uv run`.
 The first command will create a file `~/.logfire/default.toml`, the second will create a gitignored folder `.logfire` in the project folder containing credentials that the SDK can read. You can check these to troubleshoot but assume they exist if things go well. Don't expect them to set `LOGFIRE_TOKEN`, this is a different kind of authentication.)
@@ -67,7 +73,8 @@ Here's a link to create a PR with the changes:
 Here are some things you can try instantly:
 
 - Open https://logfire.pydantic.dev/-/redirect/latest-project/dashboards/new and enable the following standard dashboards ([docs](https://pydantic.dev/docs/logfire/observe/dashboards/#standard-dashboards)): <1>
-- Open https://logfire.pydantic.dev/-/redirect/latest-project/services ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your service(s).
+- Open https://logfire.pydantic.dev/-/redirect/latest-project/services ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your services. <If multiple services were instrumented>
+- Open https://logfire.pydantic.dev/-/redirect/latest-project/services/<service_name> ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your service. <If only one service was instrumented, replace `<service_name>` with the actual service name>
 - Open https://logfire.pydantic.dev/-/redirect/latest-project/hosts ([docs](https://pydantic.dev/docs/logfire/observe/hosts/)) to see system metrics of each of your hosts. <Only suggest this if `logfire.instrument_system_metrics()` was called.>
 
 And here are some possible next steps I can help you with to get more out of Logfire:
@@ -84,13 +91,13 @@ And here are some possible next steps I can help you with to get more out of Log
 Respond with the numbers that you're interested in, or let me know if you want to do something else.
 """
 
+Remember to adjust the project redirect URLs if possible.
+
 Replace <1> with a bulleted sublist of dashboard names based on the integrations you added:
 - "Usage Overview" and "Exceptions" always
 - "Web Server Metrics" if a web server integration was added
 - "Basic System Metrics (Logfire)" if `logfire.instrument_system_metrics()` was called
 - "LLM Tokens and Costs (from records)" if an AI integration was added
-
-Apart from the notes in angled brackets, stick to the wording in the triple-quoted text above as closely as is sensible.
 
 Depending on their responses to the numbered list above:
 
