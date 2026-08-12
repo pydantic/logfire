@@ -79,10 +79,10 @@ def summarize_query(db_statement: str) -> str | None:
         return select(expr, table, match_end=select_match.end(), db_statement=db_statement, ctes=ctes)
     elif insert_match := INSERT_RE.match(db_statement):
         table, columns, values = insert_match.groups()
-        return truncate(
-            f'INSERT INTO {table} {truncate(columns, 25)} VALUES {truncate(values, 25)}',
-            MAX_QUERY_MESSAGE_LENGTH,
-        )
+        suffix = f' {truncate(columns, 25)} VALUES {truncate(values, 25)}'
+        # the table gets whatever length is left over because this is the best identifier of the query
+        table = truncate(table, MAX_QUERY_MESSAGE_LENGTH - len('INSERT INTO ') - len(suffix))
+        return f'INSERT INTO {table}{suffix}'
     else:
         return fallback(db_statement)
 
