@@ -91,7 +91,7 @@ Here are some things you can try instantly:
 And here are some possible next steps I can help you with to get more out of Logfire:
 
 1. Install the Logfire plugins, skills, and MCP server matching this coding agent.
-2. Setup auto-tracing to trace every function call in your application (with a duration threashold) to get deep observability into every part of your code. <Only suggest this if using Python>
+2. Setup auto-tracing to trace every function call in your application (with a duration threshold) to get deep observability into every part of your code. <Only suggest this if using Python>
 3. Add more integrations to trace libraries that you use.
 4. Add targeted spans and logs customized to your code.
 5. Set up dashboards in your project.
