@@ -1,0 +1,21 @@
+docs/first-trace.md
+  s_e2bd659d05464d::t_c70b1f35997e19 96,118
+docs/index.md
+  s_e2bd659d05464d::t_c70b1f35997e19 86,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "90ff04be54b5544f54e2ab7901de3d03d571d435",
+  "prompts": {},
+  "sessions": {
+    "s_e2bd659d05464d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ff6e9-1c81-7851-b1f0-77cbb2c00734",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
