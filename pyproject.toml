@@ -352,6 +352,11 @@ filterwarnings = [
     # deprecation warning during decoration of py-key-value-aio's pydantic adapter.
     "ignore::beartype.roar.BeartypeClawDecorWarning",
     "ignore::beartype.roar.BeartypeDecorHintPep585DeprecationWarning",
+    # langsmith uses asyncio.iscoroutinefunction, deprecated on Python 3.14
+    "ignore:'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning:langsmith.*",
+    # mcp's FastMCP Settings class has an unresolved forward reference in its `lifespan` field,
+    # which pydantic-settings >= 2.15 warns about
+    "ignore:Field 'lifespan' has an incomplete definition.*:pydantic_settings.exceptions.IncompleteFieldDefinitionWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
