@@ -1,0 +1,27 @@
+docs/index.md
+  h_d9dd17644dded9 56,66-72,74,76-77
+  s_a8a064b40f400f::t_2cd510f6b62e8d 75
+  s_a8a064b40f400f::t_6acff4800d3e49 73
+  h_d9dd17644dded9 62-65,78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3191bc2efb1fec63e92aa827ee53b75d48a4df4d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_a8a064b40f400f": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1786541234722",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
