@@ -15,6 +15,7 @@ from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.scrubbing import NoopScrubber
+from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter, TestLogExporter
 
 
@@ -561,8 +562,11 @@ def test_word_boundaries(exporter: TestExporter):
 def test_default_patterns_match_docs():
     """The default scrubbing patterns are documented, so the docs must be kept in sync with the code.
 
-    The docs list is generated from `DEFAULT_PATTERNS`. If it has drifted, this test rewrites
+    The docs table is generated from `DEFAULT_PATTERNS`. If it has drifted, this test rewrites
     the docs to match (so a local re-run passes) and then fails, like inline-snapshot's fix mode.
+
+    The names matter as much as the regexes: they are what users pass to
+    `ScrubbingOptions.disabled_patterns`.
     """
     from logfire._internal.scrubbing import DEFAULT_PATTERNS
 
@@ -570,11 +574,13 @@ def test_default_patterns_match_docs():
     content = docs.read_text()
 
     # `repr` of each pattern reproduces exactly how it's written in the docs code block.
-    expected_block = '[\n' + ''.join(f'    {pattern!r},\n' for pattern in DEFAULT_PATTERNS) + ']'
+    expected_block = (
+        '{\n' + ''.join(f'    {name!r}: {pattern!r},\n' for name, pattern in DEFAULT_PATTERNS.items()) + '}'
+    )
 
     # Match the ```python [...] ``` block that follows the "default scrubbing patterns" sentence.
     match = re.search(
-        r'(Here are the default scrubbing patterns:\n+```python\n)(\[.*?\])(\n```)',
+        r'(Here are the default scrubbing patterns.*?\n+```python\n)(\{.*?\})(\n```)',
         content,
         re.DOTALL,
     )
@@ -635,3 +641,82 @@ def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_disabled_patterns(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(disabled_patterns=['session']), **config_kwargs)
+
+    logfire.info('hi', session_id='abc123', password='hunter2')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes'] == snapshot(
+        IsPartialDict({'session_id': 'abc123', 'password': "[Scrubbed due to 'password']"})
+    )
+
+
+def test_disabled_patterns_unknown_name():
+    with pytest.raises(LogfireConfigError) as exc_info:
+        logfire.ScrubbingOptions(disabled_patterns=['sesion'])
+    assert "Unknown scrubbing pattern name 'sesion'" in str(exc_info.value)
+    assert "Did you mean 'session'?" in str(exc_info.value)
+
+
+@pytest.mark.parametrize('name', ['logfire_token', 'pylf_token'])
+def test_cannot_disable_logfire_credential_patterns(name: str):
+    with pytest.raises(LogfireConfigError, match=f'Refusing to disable the scrubbing pattern {name!r}'):
+        logfire.ScrubbingOptions(disabled_patterns=[name])
+
+
+def test_safe_keys(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(safe_keys=['auth_types']), **config_kwargs)
+
+    logfire.info('hi', auth_types=['BASIC', 'BEARER'], authorization='Bearer hunter2')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True)[0]['attributes'] == snapshot(
+        IsPartialDict({'auth_types': ['BASIC', 'BEARER'], 'authorization': "[Scrubbed due to 'auth']"})
+    )
+
+
+def test_safe_keys_are_per_scrubber():
+    """One config's safe keys must not weaken scrubbing for any other Logfire instance in the process."""
+    from logfire._internal.scrubbing import Scrubber
+
+    value = {'my_key': {'password': 'hunter2'}}
+    with_safe_key = Scrubber(None, safe_keys=['my_key'])
+    without = Scrubber(None)
+
+    assert with_safe_key.scrub_value(('attributes',), value)[0] == snapshot({'my_key': {'password': 'hunter2'}})
+    assert without.scrub_value(('attributes',), value)[0] == snapshot(
+        {'my_key': {'password': "[Scrubbed due to 'password']"}}
+    )
+
+
+def test_safe_key_cannot_defeat_logfire_credential_patterns():
+    with pytest.raises(LogfireConfigError, match="Refusing to add 'my_logfire_token' to `safe_keys`"):
+        logfire.ScrubbingOptions(safe_keys=['my_logfire_token'])
+
+
+@pytest.mark.parametrize('field', ['extra_patterns', 'disabled_patterns', 'safe_keys'])
+def test_bare_string_rejected(field: str):
+    kwargs: dict[str, Any] = {field: 'password'}
+    with pytest.raises(LogfireConfigError, match=f'`{field}` must be a sequence of strings'):
+        logfire.ScrubbingOptions(**kwargs)
+
+
+@pytest.mark.parametrize('pattern', ['', '[0-9]*', r'\b', 'foo|'])
+def test_extra_pattern_matching_empty_string_rejected(pattern: str):
+    with pytest.raises(LogfireConfigError, match='pattern matching the empty string at index 0'):
+        logfire.ScrubbingOptions(extra_patterns=[pattern])
+
+
+def test_invalid_extra_pattern_error_is_attributable():
+    """The reported position is relative to the offending pattern, not to the joined pattern."""
+    with pytest.raises(LogfireConfigError) as exc_info:
+        logfire.ScrubbingOptions(extra_patterns=['ok', 'foo('])
+    assert str(exc_info.value) == snapshot(
+        "Invalid regex in `extra_patterns` at index 1: 'foo(' - missing ), unterminated subpattern at position 3"
+    )
+
+
+def test_empty_safe_key_rejected():
+    with pytest.raises(LogfireConfigError, match='`safe_keys` contains an empty entry at index 1'):
+        logfire.ScrubbingOptions(safe_keys=['ok', ' '])
