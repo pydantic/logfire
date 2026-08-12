@@ -9,7 +9,7 @@ import requests
 import requests_mock
 from inline_snapshot import snapshot
 
-from logfire._internal.auth import UserToken, UserTokenCollection, request_device_code
+from logfire._internal.auth import DEVICE_FLOW_TIMEOUT, UserToken, UserTokenCollection, request_device_code
 from logfire.exceptions import LogfireConfigError
 
 
@@ -195,5 +195,5 @@ def test_request_device_code_sends_a_timeout() -> None:
 
         assert result == ('device-code', 'https://logfire-us.pydantic.dev/auth/device-code')
         assert m.last_request is not None
-        # Matches the timeout used by `poll_for_token` for the other half of the device flow.
-        assert m.last_request.timeout == 15
+        # Both halves of the device flow share this timeout.
+        assert m.last_request.timeout == DEVICE_FLOW_TIMEOUT
