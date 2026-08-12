@@ -5,7 +5,7 @@ import difflib
 import json
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, TypedDict, cast
 
@@ -64,6 +64,22 @@ DEFAULT_PATTERNS: dict[str, str] = {
 
 CREDENTIAL_PATTERN_NAMES = frozenset({'logfire_token', 'pylf_token'})
 """Patterns guarding Logfire's own write token, which cannot be disabled."""
+
+
+# Every default pattern starts matching at one of these characters. Checking this
+# inexpensive character class first avoids trying every alternative at every
+# position in large strings. Custom patterns are not constrained by this prefix.
+_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_'
+
+
+def _default_pattern(patterns: Iterable[str]) -> str:
+    """The default patterns behind the start-character prefilter.
+
+    Built per scrubber rather than once, because `disabled_patterns` changes which defaults are in
+    it. The character class stays the full set either way: it only has to avoid excluding a possible
+    match, so listing a disabled pattern's start character costs a little speed and nothing else.
+    """
+    return rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(patterns)})'
 
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
@@ -351,9 +367,9 @@ class Scrubber(BaseScrubber):
     ):
         # See ScrubbingOptions for more info on these parameters.
         disabled = set(disabled_patterns or ())
-        all_patterns = [name for key, name in DEFAULT_PATTERNS.items() if key not in disabled]
+        enabled_defaults = [regex for name, regex in DEFAULT_PATTERNS.items() if name not in disabled]
         named_patterns: Mapping[str, str] = patterns if isinstance(patterns, Mapping) else {}
-        all_patterns += list(named_patterns.values()) if named_patterns else list(patterns or [])
+        extra_patterns = list(named_patterns.values()) if named_patterns else list(patterns or [])
         # Named patterns are compiled individually as well, only to identify which one produced a
         # match. Doing it this way keeps them out of the pattern used for searching, which is on the
         # hot path: capturing groups there would cost ~2x and would renumber any backreference in a
@@ -366,6 +382,7 @@ class Scrubber(BaseScrubber):
         # numbering a user's backreference depends on. User patterns still share one numbering
         # space with each other though, so a `\1` in one of several refers to the first group
         # across all of them rather than its own - see #2237.
+        all_patterns = [_default_pattern(enabled_defaults), *extra_patterns]
         self._pattern = re.compile('|'.join(f'(?:{p})' for p in all_patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
         # Applied beneath safe keys, which is why these patterns can't be disabled.
