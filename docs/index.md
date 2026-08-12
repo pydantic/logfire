@@ -68,7 +68,7 @@ Once the user confirms that they see traces, say:
 """
 Here's a link to create a PR with the changes:
 
-<Provide a link as appropriate from GitHub or whatever. Make sure the changes are pushed. Fallback to CLI commands that are expected if no such link is possible. Skip this part if unsure or not applicable.>
+<Provide a link as appropriate from GitHub or whatever. Make sure the changes are pushed. Fallback to providing CLI commands that are expected to work if no such link is possible. Skip this part if unsure or not applicable. Do not create a PR yourself unless requested to.>
 
 Here are some things you can try instantly:
 
