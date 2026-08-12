@@ -254,7 +254,7 @@ def test_clean(
     monkeypatch.setattr(logfire._internal.cli, 'LOGFIRE_LOG_FILE', log_file)
 
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)} --logs'))
+    main(['clean', '--data-dir', str(tmp_dir_cwd), '--logs'])
     out, err = capsys.readouterr()
     assert err == output
     assert out.splitlines() == [
@@ -274,7 +274,7 @@ def test_clean_no_credentials_file(
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
 
     (tmp_dir_cwd / '.gitignore').write_text('*')
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    main(['clean', '--data-dir', str(tmp_dir_cwd)])
     assert capsys.readouterr().err == 'Cleaned Logfire data.\n'
 
 
@@ -287,7 +287,7 @@ def test_clean_unreadable_credentials_file(
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
 
     (tmp_dir_cwd / 'logfire_credentials.json').write_text('not json')
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    main(['clean', '--data-dir', str(tmp_dir_cwd)])
     assert capsys.readouterr().err == snapshot(
         'Cleaned Logfire data.\n'
         'The write token is still active on the Logfire server, deleting the local file does not revoke it.\n'
@@ -296,17 +296,19 @@ def test_clean_unreadable_credentials_file(
     )
 
 
+@pytest.mark.parametrize('contents', ['"not an object"', '[]', '123', 'true', 'null'])
 def test_clean_credentials_file_is_not_an_object(
     tmp_dir_cwd: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
+    contents: str,
 ) -> None:
     """Valid JSON that isn't an object is still an unusable credentials file, not a crash."""
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
 
     creds_file = tmp_dir_cwd / 'logfire_credentials.json'
-    creds_file.write_text('"not an object"')
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    creds_file.write_text(contents)
+    main(['clean', '--data-dir', str(tmp_dir_cwd)])
 
     assert not creds_file.exists()
     assert capsys.readouterr().err == snapshot(
@@ -338,7 +340,7 @@ def test_clean_credentials_file_with_non_string_project_url(
             }
         )
     )
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    main(['clean', '--data-dir', str(tmp_dir_cwd)])
 
     assert not creds_file.exists()
     assert capsys.readouterr().err == snapshot(
@@ -362,7 +364,7 @@ def test_clean_credentials_file_with_control_characters(
     logfire_credentials.project_name = 'my-\x1b[2Kproject'
     logfire_credentials.project_url = 'https://dashboard.logfire.dev\x1b]0;pwned\x07'
     logfire_credentials.write_creds_file(tmp_dir_cwd)
-    main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}'))
+    main(['clean', '--data-dir', str(tmp_dir_cwd)])
 
     err = capsys.readouterr().err
     assert '\x1b' not in err
@@ -375,7 +377,7 @@ Revoke it under Write tokens in your project settings, see https://logfire.pydan
 
 def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
-        main(shlex.split('clean --data-dir potato'))
+        main(['clean', '--data-dir', 'potato'])
     assert 'No Logfire data found in' in capsys.readouterr().err
     assert exc.value.code == 1
 
@@ -389,7 +391,7 @@ def test_clean_default_dir_is_not_a_directory(
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
     logfire_credentials.write_creds_file(tmp_dir_cwd)
     with pytest.raises(SystemExit) as exc:
-        main(shlex.split(f'clean --data-dir {str(tmp_dir_cwd)}/logfire_credentials.json'))
+        main(['clean', '--data-dir', str(tmp_dir_cwd / 'logfire_credentials.json')])
     assert 'No Logfire data found in' in capsys.readouterr().err
     assert exc.value.code == 1
 
