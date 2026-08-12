@@ -1,17 +1,17 @@
 ---
 title: "AI & LLM integrations"
-description: "Instrument the LLM SDK or agent framework you already use and see every model call in Logfire: the prompt, tool calls, tokens, cost, and latency."
+description: "Instrument the LLM SDK you already use or connect a hosted model gateway, then inspect model calls, prompts, tool calls, tokens, cost, and latency in Logfire."
 ---
 
 # AI & LLM integrations
 
-Trace the model calls, agent steps, and tool calls in your AI app. Instrument the SDK or agent framework you already use with a few lines, and the resulting spans show up in Logfire, with prompts, tokens, cost, and latency where the integration captures them.
+Trace the model calls, agent steps, and tool calls in your AI application. Instrument the SDK or library you already use, or connect a hosted telemetry source such as OpenRouter Broadcast. The resulting spans show up in Logfire with prompts, tokens, cost, and latency where the integration captures them.
 
 !!! tip "Looking for an agent framework?"
-    These pages cover model-provider SDKs and LLM libraries. If you build on an agent framework (CrewAI, LangGraph, Agno, VoltAgent, and more, across Python, TypeScript, Go, Rust, and .NET), see [**Agent Frameworks**](../agent-frameworks/index.md) for per-framework setup and which Logfire views each populates.
+    These pages cover model-provider SDKs, LLM libraries, and hosted model gateways. If you build on an agent framework (CrewAI, LangGraph, Agno, VoltAgent, and more, across Python, TypeScript, Go, Rust, and .NET), see [**Agent Frameworks**](../agent-frameworks/index.md) for per-framework setup and which Logfire views each populates.
 
-!!! note "Instrument vs. gateway"
-    These pages **instrument** the calls you already make, so you can see them in Logfire. To instead **route** your calls through Logfire for spending caps and provider failover, see [Connect an agent to the AI Gateway](../../reference/advanced/gateway/integrations/index.md).
+!!! note "Observability integrations vs. the Logfire AI Gateway"
+    These pages send telemetry to Logfire; they do not route model traffic through Logfire. To route calls through Logfire for spending caps and provider failover, see [Connect an agent to the AI Gateway](../../reference/advanced/gateway/integrations/index.md).
 
 <div class="integration-grid">
   <a class="integration-card" href="pydanticai.md">
@@ -21,6 +21,10 @@ Trace the model calls, agent steps, and tool calls in your AI app. Instrument th
   <a class="integration-card" href="openai.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/openai.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/openai.svg) center/contain no-repeat"></span>
     <span class="integration-name">OpenAI</span>
+  </a>
+  <a class="integration-card" href="openrouter.md">
+    <span class="integration-logo integration-logo--plainmark">OR</span>
+    <span class="integration-name">OpenRouter Broadcast</span>
   </a>
   <a class="integration-card" href="google-genai.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat"></span>
