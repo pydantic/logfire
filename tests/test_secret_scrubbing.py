@@ -416,7 +416,8 @@ def test_scrubbing_deprecated_args(config_kwargs: dict[str, Any]):
 
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     assert config.scrubbing
-    assert config.scrubbing.extra_patterns == ['my_pattern']
+    # Validation normalizes the field to a tuple, so it can't be mutated after being checked.
+    assert config.scrubbing.extra_patterns == ('my_pattern',)
     assert config.scrubbing.callback is callback
 
 
@@ -733,14 +734,15 @@ def test_safe_keys_still_scrub_logfire_credentials(exporter: TestExporter, confi
     )
 
 
-def test_builtin_safe_keys_are_unchanged(exporter: TestExporter):
+def test_builtin_safe_keys_keep_a_logfire_token_name(exporter: TestExporter):
     """The built-in safe keys are curated for known-safe content, so they stay fully exempt.
 
-    `code.function` holding this test's own name is exactly the false positive that would cause.
+    This test's own name contains `logfire_token`, so `code.function` would be redacted if the
+    credential patterns applied to built-in safe keys the way they do to user-supplied ones.
     """
     logfire.info('hi')
     attributes = exporter.exported_spans_as_dict()[0]['attributes']
-    assert attributes['code.function'] == 'test_builtin_safe_keys_are_unchanged'
+    assert attributes['code.function'] == 'test_builtin_safe_keys_keep_a_logfire_token_name'
 
 
 def test_zero_width_pattern_is_not_a_match():
@@ -764,3 +766,44 @@ def test_mapping_rejected():
     kwargs: dict[str, Any] = {'disabled_patterns': {'session': 1}}
     with pytest.raises(LogfireConfigError, match='`disabled_patterns` must be a sequence of strings, got dict'):
         logfire.ScrubbingOptions(**kwargs)
+
+
+def test_safe_keys_scrub_credentials_in_the_message_too(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    """The message path has to make the same credential exception as the attribute path."""
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(safe_keys=['payload']), **config_kwargs)
+
+    logfire.info('payload={payload}', payload='pylf_v1_ABCDEF')
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert attributes['logfire.msg'] == snapshot("payload=[Scrubbed due to 'pylf_v1_']")
+    assert attributes['payload'] == snapshot("[Scrubbed due to 'pylf_v1_']")
+
+
+def test_safe_keys_still_exempt_ordinary_patterns_in_the_message(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(safe_keys=['payload']), **config_kwargs)
+
+    logfire.info('payload={payload}', payload='my password is here')
+
+    assert exporter.exported_spans_as_dict()[0]['attributes']['logfire.msg'] == snapshot('payload=my password is here')
+
+
+def test_builtin_safe_key_nested_in_a_user_safe_key_still_scrubs_credentials():
+    """A built-in safe key must not reinstate the full bypass once inside a user safe key."""
+    from logfire._internal.scrubbing import Scrubber
+
+    scrubber = Scrubber(None, safe_keys=['payload'])
+    assert scrubber.scrub_value(('attributes',), {'payload': {'http.url': 'x pylf_v1_ABCDEF'}})[0] == snapshot(
+        {'payload': {'http.url': "[Scrubbed due to 'pylf_v1_']"}}
+    )
+    # Ordinary patterns stay bypassed underneath a user safe key.
+    assert scrubber.scrub_value(('attributes',), {'payload': {'http.url': 'https://x/auth/login'}})[0] == snapshot(
+        {'payload': {'http.url': 'https://x/auth/login'}}
+    )
+
+
+def test_validated_fields_are_frozen():
+    """Mutating the list passed in must not be able to bypass validation afterwards."""
+    options = logfire.ScrubbingOptions(disabled_patterns=['session'], extra_patterns=['x'], safe_keys=['y'])
+    assert (options.disabled_patterns, options.extra_patterns, options.safe_keys) == snapshot(
+        (('session',), ('x',), ('y',))
+    )

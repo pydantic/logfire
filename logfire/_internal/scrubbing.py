@@ -146,9 +146,9 @@ class ScrubbingOptions:
     """
 
     def __post_init__(self) -> None:
-        extra_patterns = _check_string_sequence(self.extra_patterns, 'extra_patterns')
-        disabled_patterns = _check_string_sequence(self.disabled_patterns, 'disabled_patterns')
-        safe_keys = _check_string_sequence(self.safe_keys, 'safe_keys')
+        extra_patterns = self.extra_patterns = _check_string_sequence(self.extra_patterns, 'extra_patterns')
+        disabled_patterns = self.disabled_patterns = _check_string_sequence(self.disabled_patterns, 'disabled_patterns')
+        safe_keys = self.safe_keys = _check_string_sequence(self.safe_keys, 'safe_keys')
 
         for i, pattern in enumerate(extra_patterns):
             try:
@@ -304,6 +304,9 @@ class BaseScrubber(ABC):
     @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
+    @abstractmethod
+    def scrub_credentials(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
+
 
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):
@@ -313,6 +316,9 @@ class NoopScrubber(BaseScrubber):
         return log
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
+        return value, []
+
+    def scrub_credentials(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
 
 
@@ -372,6 +378,12 @@ class Scrubber(BaseScrubber):
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
         span_scrubber = SpanScrubber(self)
         result = span_scrubber.scrub(path, value)
+        return result, span_scrubber.scrubbed
+
+    def scrub_credentials(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+        """Apply only the patterns guarding Logfire's own token, for values exempt from the rest."""
+        span_scrubber = SpanScrubber(self)
+        result = span_scrubber.scrub(path, value, self.credential_pattern)
         return result, span_scrubber.scrubbed
 
 
@@ -474,7 +486,7 @@ class SpanScrubber:
                     # A user safe key names arbitrary application data, so it is exempt from
                     # everything except the patterns guarding Logfire's own token.
                     result[k] = self.scrub(path + (k,), v, self._credential_pattern)
-                elif k in self._safe_keys:
+                elif k in self._safe_keys and pattern is not self._credential_pattern:
                     result[k] = v
                 elif match := _search(pattern, k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
@@ -522,7 +534,11 @@ class MessageValueCleaner:
         # Scrub before truncating so that the scrubber can see the full value.
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
-        if field_name not in self.scrubber.safe_keys:
+        if field_name in self.scrubber.user_safe_keys:
+            # Same exception as the attribute path: exempt from everything but the credential patterns.
+            value, scrubbed_notes = self.scrubber.scrub_credentials(('message', field_name), value)
+            self.scrubbed.extend(scrubbed_notes)
+        elif field_name not in self.scrubber.safe_keys:
             if self.check_keys:
                 # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
                 scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
