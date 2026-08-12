@@ -3138,10 +3138,34 @@ def test_staging_token_regions():
 def test_known_token_regions_do_not_warn():
     with warnings.catch_warnings():
         warnings.simplefilter('error')
-        assert get_base_url_from_token('pylf_v1_us_123456') == 'https://logfire-us.pydantic.dev'
-        assert get_base_url_from_token('pylf_v1_eu_123456') == 'https://logfire-eu.pydantic.dev'
+        assert (
+            get_base_url_from_token('pylf_v1_us_123456', warn_unknown_region=True) == 'https://logfire-us.pydantic.dev'
+        )
+        assert (
+            get_base_url_from_token('pylf_v1_eu_123456', warn_unknown_region=True) == 'https://logfire-eu.pydantic.dev'
+        )
         # Tokens predating regions have no region segment and must keep working silently.
-        assert get_base_url_from_token('legacy_token_no_region') == 'https://logfire-us.pydantic.dev'
+        assert (
+            get_base_url_from_token('legacy_token_no_region', warn_unknown_region=True)
+            == 'https://logfire-us.pydantic.dev'
+        )
+
+
+def test_unknown_token_region_does_not_warn_by_default():
+    # Runtime helpers (query/API clients, CLI) must never raise under warnings-as-errors.
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert get_base_url_from_token('pylf_v1_unknownregion_123456') == 'https://logfire-us.pydantic.dev'
+
+
+def test_unknown_token_region_warns_when_opted_in():
+    with pytest.warns(LogfireConfigWarning) as warns:
+        assert get_base_url_from_token('pylf_v1_unknownregion_123456', warn_unknown_region=True) == snapshot(
+            'https://logfire-us.pydantic.dev'
+        )
+    assert str(warns[0].message) == snapshot(
+        "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
+    )
 
 
 def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:

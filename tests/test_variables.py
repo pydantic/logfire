@@ -929,7 +929,7 @@ class TestLocalVariableProvider:
 
 
 REMOTE_BASE_URL = 'http://localhost:8000/'
-REMOTE_TOKEN = 'pylf_v1_us_test_token'
+REMOTE_TOKEN = 'pylf_v1_local_test_token'
 REGION_API_KEY = 'pylf_v2_stagingeu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W'
 
 

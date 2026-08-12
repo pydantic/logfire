@@ -275,11 +275,11 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
     """
 
-    def generate_base_url(self, token: str) -> str:
+    def generate_base_url(self, token: str, warn_unknown_region: bool = False) -> str:
         if self.base_url is not None:
             return self.base_url
 
-        return get_base_url_from_token(token)
+        return get_base_url_from_token(token, warn_unknown_region=warn_unknown_region)
 
 
 @dataclass
@@ -1364,7 +1364,7 @@ class LogfireConfig(_LogfireConfigData):
 
                     # Create exporters for each token
                     for token in token_list:
-                        base_url = self.advanced.generate_base_url(token)
+                        base_url = self.advanced.generate_base_url(token, warn_unknown_region=True)
                         otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
@@ -2240,8 +2240,16 @@ def _get_creds_file(creds_dir: Path) -> Path:
     return creds_dir / CREDENTIALS_FILENAME
 
 
-def get_base_url_from_token(token: str) -> str:
-    """Get the base API URL from the token's region."""
+def get_base_url_from_token(token: str, warn_unknown_region: bool = False) -> str:
+    """Get the base API URL from the token's region.
+
+    Args:
+        token: The Logfire token to read the region from.
+        warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
+            unrecognised and the US region is used as a fallback. This is off by default so that
+            runtime helpers (e.g. the query/API clients and the CLI) never raise under
+            warnings-as-errors; it's enabled during configuration, where the warning is actionable.
+    """
     # default to US for tokens that were created before regions were added:
     region = 'us'
     if match := LOGFIRE_TOKEN_REGION_PATTERN.match(token):
@@ -2253,11 +2261,12 @@ def get_base_url_from_token(token: str) -> str:
             return 'https://logfire-eu.pydantic.info'
 
         if region not in REGIONS:
-            warn_at_user_stacklevel(
-                f'Unknown region {region!r} in Logfire token, falling back to the US region. '
-                f'Known regions: {", ".join(sorted(REGIONS))}.',
-                category=LogfireConfigWarning,
-            )
+            if warn_unknown_region:
+                warn_at_user_stacklevel(
+                    f'Unknown region {region!r} in Logfire token, falling back to the US region. '
+                    f'Known regions: {", ".join(sorted(REGIONS))}.',
+                    category=LogfireConfigWarning,
+                )
             region = 'us'
 
     return REGIONS[region]['base_url']
