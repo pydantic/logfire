@@ -43,9 +43,9 @@ querying, and more) in one step:
         claude plugin update logfire@claude-plugins-official
         ```
 
-        Restart Claude Code afterwards for the update to take effect. If you installed from the
-        `pydantic-skills` marketplace instead (see [Coding Agent Skills](skills.md)), substitute
-        that name in both commands.
+        Run `/reload-plugins` in Claude Code, or restart Claude Code, for the update to take effect.
+        If you installed from the `pydantic-skills` marketplace instead (see
+        [Coding Agent Skills](skills.md)), substitute that name in both commands.
 
         `claude-plugins-official` pins a specific commit of the plugin repository, so a new release
         can take a day to appear there. If the update reports that you are already on the latest
@@ -59,6 +59,8 @@ querying, and more) in one step:
         claude plugin marketplace add pydantic/skills
         claude plugin install logfire@pydantic-skills
         ```
+
+        Run `/reload-plugins` in Claude Code, or restart Claude Code, after switching marketplaces.
 
 === "Codex"
 
