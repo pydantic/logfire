@@ -28,7 +28,8 @@ Set the token as the value for the environment variable `LOGFIRE_TOKEN` and logf
 
 A write token stays usable until you revoke it, wherever the copies of it have ended up.
 Deleting a local copy is not enough: [`logfire clean`](../reference/cli.md#clean-clean) removes
-`.logfire/logfire_credentials.json`, but the token it held keeps accepting data.
+`.logfire/logfire_credentials.json`, but it does not revoke the server-side token. The token can
+still be used to send data to the project.
 
 To revoke one, open <OpenInLogfire path="settings/write-tokens" variant="inline" label="Settings > Write tokens" /> for the project and remove it there.
 
