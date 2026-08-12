@@ -24,7 +24,7 @@ HOME_LOGFIRE = Path.home() / '.logfire'
 DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 """File used to store user tokens."""
 
-DEVICE_FLOW_TIMEOUT = 15
+_DEVICE_FLOW_TIMEOUT = 15
 """Timeout (in seconds) for both requests in the device authorization flow.
 
 The `wait` endpoint blocks server-side for ~10 seconds while it waits for the user to
@@ -258,7 +258,7 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
     machine_name = platform.uname()[1]
     device_auth_endpoint = urljoin(base_api_url, '/v1/device-auth/new/')
     try:
-        res = session.post(device_auth_endpoint, params={'machine_name': machine_name}, timeout=DEVICE_FLOW_TIMEOUT)
+        res = session.post(device_auth_endpoint, params={'machine_name': machine_name}, timeout=_DEVICE_FLOW_TIMEOUT)
         UnexpectedResponse.raise_for_status(res)
     except requests.RequestException as e:  # pragma: no cover
         raise LogfireConfigError('Failed to request a device code.') from e
@@ -285,7 +285,7 @@ def poll_for_token(session: requests.Session, device_code: str, base_api_url: st
     errors = 0
     while True:
         try:
-            res = session.get(auth_endpoint, timeout=DEVICE_FLOW_TIMEOUT)
+            res = session.get(auth_endpoint, timeout=_DEVICE_FLOW_TIMEOUT)
             UnexpectedResponse.raise_for_status(res)
         except requests.RequestException as e:
             errors += 1

@@ -4,10 +4,7 @@ import pytest
 import requests_mock
 
 from logfire._internal.auth import UserToken
-from logfire._internal.client import (
-    _REQUEST_TIMEOUT,  # pyright: ignore[reportPrivateUsage]
-    LogfireClient,
-)
+from logfire._internal.client import LogfireClient
 
 
 def test_client_expired_token() -> None:
@@ -32,7 +29,7 @@ def test_requests_send_a_timeout() -> None:
         client._put_raw('/v1/anything', body={})  # pyright: ignore[reportPrivateUsage]
 
     assert [(request.method, request.timeout) for request in m.request_history] == [
-        ('GET', _REQUEST_TIMEOUT),
-        ('POST', _REQUEST_TIMEOUT),
-        ('PUT', _REQUEST_TIMEOUT),
+        ('GET', 30),
+        ('POST', 30),
+        ('PUT', 30),
     ]
