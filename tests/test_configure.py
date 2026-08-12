@@ -2134,10 +2134,13 @@ def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> N
         )
         with pytest.warns(LogfireConfigWarning) as warns:
             configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz')
+            # Inside the `pytest.warns` block so that any warning from the background
+            # token-checking thread would be caught too: the token must warn exactly once.
+            wait_for_check_token_thread()
+        assert len(warns) == 1
         assert str(warns[0].message) == snapshot(
             "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
         )
-        wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
 

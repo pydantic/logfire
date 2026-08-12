@@ -1740,7 +1740,13 @@ class LogfireConfig(_LogfireConfigData):
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
         install_logfire_response_hook(session, self.advanced.server_response_hook)
-        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
+        # This runs in the background `check_logfire_token` thread, where a warning would be
+        # attributed to the thread rather than to the user's `configure()` call and so wouldn't
+        # be deduplicated against it. The synchronous exporter setup already warns for every
+        # token in the same list, so stay silent here.
+        return LogfireCredentials.from_token(
+            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+        )
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
