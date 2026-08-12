@@ -60,6 +60,7 @@ from uuid import UUID
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import NotRequired, Self, TypedDict
 
+from logfire._internal.client import UA_HEADER
 from logfire._internal.config import get_base_url_from_token
 from logfire._internal.stack_info import warn_at_user_stacklevel
 
@@ -574,7 +575,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
                 Client(
                     timeout=timeout,
                     base_url=base_url,
-                    headers={'authorization': f'Bearer {api_key}'},
+                    headers={'authorization': f'Bearer {api_key}', 'user-agent': UA_HEADER},
                 )
             )
         else:
@@ -1111,7 +1112,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
                 AsyncClient(
                     timeout=timeout,
                     base_url=base_url,
-                    headers={'authorization': f'Bearer {api_key}'},
+                    headers={'authorization': f'Bearer {api_key}', 'user-agent': UA_HEADER},
                 )
             )
         else:
