@@ -275,7 +275,13 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
     """
 
-    def generate_base_url(self, token: str, warn_unknown_region: bool = False) -> str:
+    def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
+        """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
+
+        Every caller of this method is part of configuration, so unknown regions warn by default
+        here. Runtime helpers (the query/API clients and the CLI) call `get_base_url_from_token`
+        directly instead, which stays silent so they can't raise under warnings-as-errors.
+        """
         if self.base_url is not None:
             return self.base_url
 
@@ -1364,7 +1370,7 @@ class LogfireConfig(_LogfireConfigData):
 
                     # Create exporters for each token
                     for token in token_list:
-                        base_url = self.advanced.generate_base_url(token, warn_unknown_region=True)
+                        base_url = self.advanced.generate_base_url(token)
                         otlp_forwarding_destinations.append((base_url, token))
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()

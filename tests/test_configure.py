@@ -3158,6 +3158,27 @@ def test_unknown_token_region_does_not_warn_by_default():
         assert get_base_url_from_token('pylf_v1_unknownregion_123456') == 'https://logfire-us.pydantic.dev'
 
 
+def test_generate_base_url_warns_about_unknown_region_by_default():
+    # All `generate_base_url` callers are configuration paths, so they all warn consistently:
+    # the exporter setup, the variables provider, lazy variable init and credential validation.
+    with pytest.warns(LogfireConfigWarning) as warns:
+        assert (
+            logfire.AdvancedOptions().generate_base_url('pylf_v1_unknownregion_123456')
+            == 'https://logfire-us.pydantic.dev'
+        )
+    assert str(warns[0].message) == snapshot(
+        "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
+    )
+
+
+def test_generate_base_url_with_explicit_base_url_does_not_warn():
+    # An explicit base_url overrides region routing entirely, so there's nothing to warn about.
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        advanced = logfire.AdvancedOptions(base_url='https://my-proxy.example.com')
+        assert advanced.generate_base_url('pylf_v1_unknownregion_123456') == 'https://my-proxy.example.com'
+
+
 def test_unknown_token_region_warns_when_opted_in():
     with pytest.warns(LogfireConfigWarning) as warns:
         assert get_base_url_from_token('pylf_v1_unknownregion_123456', warn_unknown_region=True) == snapshot(
