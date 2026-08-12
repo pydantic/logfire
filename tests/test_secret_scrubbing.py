@@ -44,7 +44,7 @@ def test_optimized_default_patterns_match_naive_pattern():
     assert DEFAULT_PATTERN_EXAMPLES.keys() == set(DEFAULT_PATTERNS)
     naive_pattern = re.compile('|'.join(DEFAULT_PATTERNS), re.IGNORECASE | re.DOTALL)
 
-    for value in [*DEFAULT_PATTERN_EXAMPLES.values(), 'has ſecret value', 'has credentıal value']:
+    for value in [*DEFAULT_PATTERN_EXAMPLES.values(), 'has \u017fecret value', 'has credent\u0131al value']:
         expected = naive_pattern.search(value)
         assert expected is not None
 
@@ -99,21 +99,25 @@ def test_default_pattern_start_chars_cover_each_pattern():
         (r'(?:\b|_)xsrf(?:\b|_)', 'has_xsrf_value'),
         (r'(?:\b|_)jwt(?:\b|_)', 'has_jwt_value'),
         (r'(?:\b|_)ssn(?:\b|_)', 'has_ssn_value'),
-        ('secret', 'has ſecret value'),
-        ('credential', 'has credentıal value'),
+        ('secret', 'has \u017fecret value'),
+        ('credential', 'has credent\u0131al value'),
     ]
+
+    def make_callback(bucket: list[logfire.ScrubMatch]):
+        def callback(match: logfire.ScrubMatch):
+            bucket.append(match)
+            return match.value
+
+        return callback
 
     for pattern, value in isolated_examples:
         expected = re.compile(pattern, re.IGNORECASE | re.DOTALL).search(value)
         assert expected is not None, pattern
 
         scrub_matches: list[logfire.ScrubMatch] = []
-
-        def callback(match: logfire.ScrubMatch):
-            scrub_matches.append(match)
-            return match.value
-
-        result, scrubbed_notes = Scrubber(None, callback).scrub_value(('attributes', 'value'), value)
+        result, scrubbed_notes = Scrubber(None, make_callback(scrub_matches)).scrub_value(
+            ('attributes', 'value'), value
+        )
 
         assert result == value
         assert scrubbed_notes == []
