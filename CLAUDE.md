@@ -104,7 +104,9 @@ CI is required to pass on main, so pre-existing CI failures are unlikely. If the
 
 ## Coverage
 
-Coverage must be 100%. The bar is the `uv run coverage report --fail-under 100` step of the `coverage` job in [`.github/workflows/main.yml`](.github/workflows/main.yml), not `pyproject.toml` — `[tool.coverage.report]` sets no `fail_under`, so a plain local `coverage report` exits 0 on a regression. Run `make testcov`, then `uv run coverage report --fail-under 100`, before pushing. CI combines coverage across the whole test matrix, so a line reached only by another matrix job shows as missed locally; investigate a local miss before deleting or excluding the code.
+Coverage must be 100%. The bar is the `uv run coverage report --fail-under 100` step of the `coverage` job in [`.github/workflows/main.yml`](.github/workflows/main.yml), not `pyproject.toml` — `[tool.coverage.report]` sets no `fail_under`, so reading `pyproject.toml` suggests there is no bar and a plain `coverage report` exits 0 on a regression.
+
+Let CI measure it rather than running the suite under coverage locally: CI combines coverage across the whole test matrix, so a line reached only by another matrix job looks missed on one machine, and a local number is both slow to get and misleading. When the `coverage` job fails it names the file and the missing lines and branches; cover those and push again. Reach for a local run only to check a specific file you are iterating on, with `uv run coverage run -m pytest <the relevant tests>` followed by `uv run coverage report --include='*/<file>.py'`.
 
 ## The check job
 
