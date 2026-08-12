@@ -85,6 +85,43 @@ def test_optimized_default_patterns_preserve_extra_pattern_order(extra_pattern: 
     assert matches == [expected_match]
 
 
+def test_default_pattern_start_chars_cover_each_pattern():
+    """The prefilter must still find each default pattern's own first match.
+
+    Compare against that pattern in isolation, not the combined leftmost match,
+    so a new pattern cannot be silently disabled if its example also contains
+    an earlier default match, e.g. adding `token` with `has_secret_token_value`.
+    """
+    assert DEFAULT_PATTERN_EXAMPLES.keys() == set(DEFAULT_PATTERNS)
+    isolated_examples = [
+        *DEFAULT_PATTERN_EXAMPLES.items(),
+        (r'(?:\b|_)csrf(?:\b|_)', 'has_csrf_value'),
+        (r'(?:\b|_)xsrf(?:\b|_)', 'has_xsrf_value'),
+        (r'(?:\b|_)jwt(?:\b|_)', 'has_jwt_value'),
+        (r'(?:\b|_)ssn(?:\b|_)', 'has_ssn_value'),
+        ('secret', 'has ſecret value'),
+        ('credential', 'has credentıal value'),
+    ]
+
+    for pattern, value in isolated_examples:
+        expected = re.compile(pattern, re.IGNORECASE | re.DOTALL).search(value)
+        assert expected is not None, pattern
+
+        scrub_matches: list[logfire.ScrubMatch] = []
+
+        def callback(match: logfire.ScrubMatch):
+            scrub_matches.append(match)
+            return match.value
+
+        result, scrubbed_notes = Scrubber(None, callback).scrub_value(('attributes', 'value'), value)
+
+        assert result == value
+        assert scrubbed_notes == []
+        assert len(scrub_matches) == 1, (pattern, value)
+        actual = scrub_matches[0].pattern_match
+        assert (actual.span(), actual.group(0)) == (expected.span(), expected.group(0))
+
+
 def test_scrub_attribute(exporter: TestExporter):
     logfire.info(
         'Password: {user_password}',
