@@ -110,7 +110,7 @@ Let CI measure it rather than running the suite under coverage locally: CI combi
 
 ## The check job
 
-The `check` job only aggregates the other jobs with the `alls-green` action and produces no result of its own. When `check` fails, open the job it names and read that job's log.
+The `check` job runs no checks of its own: it uses the `alls-green` action to combine the other jobs' results into a single pass or fail. Its log therefore only names which job failed, so open that job and read its log to find the cause.
 
 ## Pydantic version coverage
 
