@@ -1,0 +1,24 @@
+docs/index.md
+  s_8a2e80a0729a2a::t_c39dc82475d1b5 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "710e9b73c6c99f05e3c613e5c1bf08960b7b0552",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8a2e80a0729a2a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba2484d0-3283-4b1b-bb77-e0fba9c04742",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
