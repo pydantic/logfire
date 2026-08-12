@@ -26,7 +26,7 @@ Fetch reference material as text rather than using visual browser tools. Don't t
 
 If there are multiple services in this codebase, instrument them all, one by one.
 
-Links starting with https://logfire.pydantic.dev/-/redirect/latest-project/... redirect to a project in the US region. If you know that the user is using the EU region, change the domain to https://logfire-eu.pydantic.dev/... If you know which organization and project the user is working with, use https://logfire-<region>.pydantic.dev/<organization>/<project>/... instead, since it doesn't always choose the 'correct' project. If you don't know, this is a thing to check if the user reports these links not working well for them.
+Links starting with `https://logfire.pydantic.dev/-/redirect/latest-project/...` redirect to a project which is not always the one the user is working on. If you know that the user is using the EU region, change the domain to `https://logfire-eu.pydantic.dev/...`. If you know which organization and project the user is working with, use `https://logfire-<region>.pydantic.dev/<organization>/<project>/...` instead. If you don't know, this is a thing to check if the user reports these links not working well for them.
 
 Check which languages and package management tools are being used and install the appropriate SDK:
 - Python: install `logfire[system-metrics]` via uv, pip, etc
@@ -39,7 +39,8 @@ Check which languages and package management tools are being used and install th
 
 Authenticate. Keep any token out of replies, logs, and committed files.
 - If `LOGFIRE_TOKEN` is already set in the environment, you don't need to do anything, the SDK will use it automatically.
-- Otherwise, for a local interactive Python project, say: """
+- Otherwise, for a local interactive Python project, say:
+"""
 Run this from the project folder:
 
 ```bash
@@ -54,14 +55,14 @@ Then tell me when you're done.
 """
 (Tweak the command to ensure the correct Python interpreter is used, e.g. with `uv run`.
 The first command will create a file `~/.logfire/default.toml`, the second will create a gitignored folder `.logfire` in the project folder containing credentials that the SDK can read. You can check these to troubleshoot but assume they exist if things go well. Don't expect them to set `LOGFIRE_TOKEN`, this is a different kind of authentication.)
-- For another language, a non-interactive shell, or a deployment, ask them to open https://logfire.pydantic.dev/-/redirect/latest-project/settings/write-tokens to create a write token. Set it as `LOGFIRE_TOKEN` in the shell environment the app runs in (e.g. `export LOGFIRE_TOKEN=...` in the terminal, or via the deployment platform's secret manager). If the project already loads a `.env` file at startup, you may store it there instead, but confirm dotenv loading is in place and the file is gitignored first. Never commit the token or print it in a reply or log output.
-- If there's still problems, offer troubleshooting help, but also add "If you want to learn more yourself, try looking at https://logfire.pydantic.dev/-/redirect/latest-project/settings/setup or https://pydantic.dev/docs/logfire/get-started/first-trace/."
+- For another language, a non-interactive shell, or a deployment, ask them to open [Logfire write-token settings](https://logfire.pydantic.dev/-/redirect/latest-project/settings/write-tokens) to create a write token. Set it as `LOGFIRE_TOKEN` in the shell environment the app runs in (e.g. `export LOGFIRE_TOKEN=...` in the terminal, or via the deployment platform's secret manager). If the project already loads a `.env` file at startup, you may store it there instead, but confirm dotenv loading is in place and the file is gitignored first. Never commit the token or print it in a reply or log output.
+- If there's still problems, offer troubleshooting help, but also add "If you want to learn more yourself, try looking at [Logfire setup](https://logfire.pydantic.dev/-/redirect/latest-project/settings/setup) or the [first trace guide](https://pydantic.dev/docs/logfire/get-started/first-trace/)."
 
 Try running `logfire whoami` or `uvx logfire whoami` (depending on what's installed) to check the state of authentication. It should work with both `LOGFIRE_TOKEN` or the credentials files created by the CLI. This should print out a URL for a specific project which you can use going forward instead of the generic redirect URL.
 
 Run `curl https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-instrumentation/SKILL.md` and read the instructions. Then read the linked references for the applicable languages. Add a few lines of code to configure the SDK and instrument web frameworks, databases, LLMs, and HTTP clients where integrations already exist. Include a service name in the configuration, but not a service version or environment. For Python projects, add `logfire.instrument_system_metrics()`, and if they're using standard logging, add `logfire.LogfireLoggingHandler()` to the logging handlers. Do not refactor unrelated code or make extensive changes. The goal is to get some observability quickly and easily. If no integrations apply, sprinkle in up to 5 manual `logfire.span/info/instrument` calls. Install dependencies as needed in a persistent manner, e.g. `uv add` rather than `pip install` for Python. Prefer Logfire extras, e.g. `logfire[fastapi]` over `opentelemetry-instrumentation-fastapi`.
 
-Run the code. It may print a Logfire project URL, e.g. https://logfire-us.pydantic.dev/myorganisationname/myprojectname. If not, try running `uvx logfire whoami` which should pick up `LOGFIRE_TOKEN` or other credentials, even if the user's project doesn't use Python. If that doesn't give a URL, go with https://logfire.pydantic.dev/-/redirect/latest-project/. If you don't see any errors about failing to send data, assume it's working. Say "Open the Live View at <URL> and confirm that you see traces.". Don't try to verify yourself.
+Run the code. It may print a Logfire project URL, e.g. https://logfire-us.pydantic.dev/myorganisationname/myprojectname. If not, try running `uvx logfire whoami` which should pick up `LOGFIRE_TOKEN` or other credentials, even if the user's project doesn't use Python. If that doesn't give a URL, go with https://logfire.pydantic.dev/-/redirect/latest-project/. If you don't see any errors about failing to send data, assume it's working. Say "Open the [Live View](<URL>) and confirm that you see traces.". Don't try to verify yourself.
 
 Once the user confirms that they see traces, say:
 
@@ -72,10 +73,10 @@ Here's a link to create a PR with the changes:
 
 Here are some things you can try instantly:
 
-- Open https://logfire.pydantic.dev/-/redirect/latest-project/dashboards/new and enable the following standard dashboards ([docs](https://pydantic.dev/docs/logfire/observe/dashboards/#standard-dashboards)): <1>
-- Open https://logfire.pydantic.dev/-/redirect/latest-project/services ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your services. <If multiple services were instrumented>
-- Open https://logfire.pydantic.dev/-/redirect/latest-project/services/<service_name> ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your service. <If only one service was instrumented, replace `<service_name>` with the actual service name>
-- Open https://logfire.pydantic.dev/-/redirect/latest-project/hosts ([docs](https://pydantic.dev/docs/logfire/observe/hosts/)) to see system metrics of each of your hosts. <Only suggest this if `logfire.instrument_system_metrics()` was called.>
+- Open [Dashboards](https://logfire.pydantic.dev/-/redirect/latest-project/dashboards/new) ([docs](https://pydantic.dev/docs/logfire/observe/dashboards/#standard-dashboards)) and enable the following standard dashboards: <1>
+- Open [Services](https://logfire.pydantic.dev/-/redirect/latest-project/services) ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your services. <Only if multiple services were instrumented>
+- Open [your service](https://logfire.pydantic.dev/-/redirect/latest-project/services/<service_name>) ([docs](https://pydantic.dev/docs/logfire/observe/services/)) for a quick overview of your service. <Only if only one service was instrumented, replacing `<service_name>` with the actual service name configured>
+- Open [Hosts](https://logfire.pydantic.dev/-/redirect/latest-project/hosts) ([docs](https://pydantic.dev/docs/logfire/observe/hosts/)) to see system metrics of each of your hosts. <Only suggest this if `logfire.instrument_system_metrics()` was called.>
 
 And here are some possible next steps I can help you with to get more out of Logfire:
 
