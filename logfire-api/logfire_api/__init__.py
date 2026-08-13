@@ -160,6 +160,8 @@ except ImportError:
 
             def instrument_aws_lambda(self, *args, **kwargs) -> None: ...
 
+            def instrument_botocore(self, *args, **kwargs) -> None: ...
+
             def instrument_redis(self, *args, **kwargs) -> None: ...
 
             def instrument_flask(self, *args, **kwargs) -> None: ...
@@ -260,6 +262,7 @@ except ImportError:
         instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
         instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
         instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
+        instrument_botocore = DEFAULT_LOGFIRE_INSTANCE.instrument_botocore
         instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql

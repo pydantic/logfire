@@ -130,6 +130,7 @@ if TYPE_CHECKING:
     from .config import TemplateMismatchPolicy
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
+    from .integrations.botocore import RequestHook as BotocoreRequestHook, ResponseHook as BotocoreResponseHook
     from .integrations.llm_providers.semconv import SemconvVersion
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
@@ -2099,6 +2100,34 @@ class Logfire:
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
             },
+        )
+
+    def instrument_botocore(
+        self,
+        request_hook: BotocoreRequestHook | None = None,
+        response_hook: BotocoreResponseHook | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Instrument botocore clients so that spans are automatically created for AWS API calls.
+
+        Uses the [OpenTelemetry botocore instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/botocore/botocore.html),
+        specifically `BotocoreInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            request_hook: Called with the span, service name, operation name, and API parameters before the request.
+            response_hook: Called with the span, service name, operation name, and result after the request.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry instrumentor.
+        """
+        from .integrations.botocore import instrument_botocore
+
+        self._warn_if_not_initialized_for_instrumentation()
+        kwargs.setdefault('tracer_provider', self._config.get_tracer_provider())
+        kwargs.setdefault('meter_provider', self._config.get_meter_provider())
+        kwargs.setdefault('logger_provider', self._config.get_logger_provider())
+        instrument_botocore(
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **kwargs,
         )
 
     def instrument_pymongo(

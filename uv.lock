@@ -2539,6 +2539,9 @@ asyncpg = [
 aws-lambda = [
     { name = "opentelemetry-instrumentation-aws-lambda" },
 ]
+botocore = [
+    { name = "opentelemetry-instrumentation-botocore" },
+]
 celery = [
     { name = "opentelemetry-instrumentation-celery" },
 ]
@@ -2660,6 +2663,7 @@ dev = [
     { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-asyncpg" },
     { name = "opentelemetry-instrumentation-aws-lambda" },
+    { name = "opentelemetry-instrumentation-botocore" },
     { name = "opentelemetry-instrumentation-celery" },
     { name = "opentelemetry-instrumentation-django" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -2731,6 +2735,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-asgi", marker = "extra == 'django'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", marker = "extra == 'asyncpg'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aws-lambda", marker = "extra == 'aws-lambda'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-botocore", marker = "extra == 'botocore'", specifier = ">=0.65b0" },
     { name = "opentelemetry-instrumentation-celery", marker = "extra == 'celery'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-django", marker = "extra == 'django'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-fastapi", marker = "extra == 'fastapi'", specifier = ">=0.42b0" },
@@ -2762,7 +2767,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.1.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "botocore", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2809,6 +2814,7 @@ dev = [
     { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-aws-lambda", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-botocore", specifier = ">=0.65b0" },
     { name = "opentelemetry-instrumentation-celery", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-django", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.42b0" },
@@ -3726,6 +3732,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/71/88439b60cb4b74ee4bf19897628fc9a0a2be5586a6498f6cc180f0f77ebd/opentelemetry_instrumentation_aws_lambda-0.65b0.tar.gz", hash = "sha256:70b9d96d94816ad3f43531a30d65a033f43534b68bcdd340d7fe96ab4c7ace74", size = 22431, upload-time = "2026-07-16T15:25:58.041Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ba/20/432a7e6aaf4244087ab7d200097478275743549257c2966587024ed75ab8/opentelemetry_instrumentation_aws_lambda-0.65b0-py3-none-any.whl", hash = "sha256:3667b9b1ba7947d565a83dd8fa8e2eaa39d2b670bece9553b2e9648a150658d7", size = 14026, upload-time = "2026-07-16T15:25:01.305Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-botocore"
+version = "0.65b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-propagator-aws-xray" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/54/03/a0c6a0f34ba3cacda527317e7f2a5a1fcfd21c9911eee3e6fc2be63d0a93/opentelemetry_instrumentation_botocore-0.65b0.tar.gz", hash = "sha256:64987326ac98a47a85821606a981f5058864de0e98b43c8de892eb0fe625b04e", size = 125099, upload-time = "2026-07-16T15:25:59.335Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/59/0b51f55d9fb96949674efe895d330506b7b8c1b13a6401f0eec49d1196af/opentelemetry_instrumentation_botocore-0.65b0-py3-none-any.whl", hash = "sha256:a5e80b9423f8369c9bbc27a64b31f02cc44218633028ad8d1ace0a2a7fc8f4cd", size = 36242, upload-time = "2026-07-16T15:25:03.377Z" },
 ]
 
 [[package]]

@@ -394,6 +394,9 @@ navigation:
       - page: "AWS Lambda"
         path: "integrations/aws-lambda.md"
         slug: "integrations/aws-lambda"
+      - page: "Botocore"
+        path: "integrations/botocore.md"
+        slug: "integrations/botocore"
   - section: "AI Engineering"
     slug: ""
     contents:
