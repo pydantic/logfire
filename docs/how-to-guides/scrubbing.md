@@ -35,10 +35,9 @@ logfire.info(
 )
 ```
 
-Each pattern is matched on its own, so a pattern behaves exactly as it would if you passed it to
-`re.compile` yourself. In particular, a capture group — a bracketed part of a pattern, such as the
-`(\d{2})` below — belongs to the pattern it is written in, so you can refer back to it with `\1`
-without the other patterns interfering:
+Patterns are applied case-insensitively, and `.` also matches newlines. A capture group — a
+bracketed part of a pattern, such as the `(\d{2})` below — belongs to the pattern it is written in,
+so you can point back at it with `\1` without the other patterns interfering:
 
 ```python
 import logfire

@@ -226,11 +226,14 @@ def _can_be_joined(pattern: str) -> bool:
 
     Global inline flags such as `(?s)` are only allowed at the very start of a pattern, so a pattern
     using them can't be combined with any other. Python 3.10 only warns about this, later versions
-    raise, so turn the warning into an error to get the same answer everywhere.
+    raise, so turn that warning into an error to get the same answer everywhere. Any other warning
+    is silenced: the pattern has already been compiled on its own, which is where the user should
+    hear about it once.
     """
     try:
         with warnings.catch_warnings():
-            warnings.simplefilter('error')
+            warnings.simplefilter('ignore')
+            warnings.simplefilter('error', DeprecationWarning)
             re.compile(f'x|{pattern}', _SCRUBBING_FLAGS)
     except (re.error, DeprecationWarning):
         return False
@@ -249,18 +252,27 @@ def _compile_patterns(extra_patterns: Sequence[str] | None) -> list[re.Pattern[s
     conditional in it would then refer to a group belonging to another pattern. That pattern would
     silently never match, and data the user expected to be redacted would be exported. Giving such
     a pattern its own regex keeps its group numbering to itself, so it behaves as written.
+
+    Only neighbouring patterns are combined, so the result stays in the configured order. Where two
+    patterns match at the same position the earlier one has always won, and it still does.
     """
+    compiled_patterns: list[re.Pattern[str]] = []
     joinable = [_DEFAULT_PATTERN]
-    separate: list[re.Pattern[str]] = []
+
+    def flush_joinable():
+        if joinable:
+            compiled_patterns.append(re.compile('|'.join(joinable), _SCRUBBING_FLAGS))
+            joinable.clear()
+
     for pattern in extra_patterns or []:
         compiled = _compile_pattern(pattern)
         if compiled.groups or not _can_be_joined(pattern):
-            separate.append(compiled)
+            flush_joinable()
+            compiled_patterns.append(compiled)
         else:
             joinable.append(pattern)
-    # The separate patterns go last, so when two patterns match at the same position the combined
-    # one wins, as it would have when everything was in a single alternation.
-    return [re.compile('|'.join(joinable), _SCRUBBING_FLAGS), *separate]
+    flush_joinable()
+    return compiled_patterns
 
 
 def _leftmost_match(patterns: Sequence[re.Pattern[str]], value: str) -> re.Match[str] | None:
