@@ -275,11 +275,17 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
     """
 
-    def generate_base_url(self, token: str) -> str:
+    def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
+        """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
+
+        Every caller of this method is part of configuration, so unknown regions warn by default
+        here. Runtime helpers (the query/API clients and the CLI) call `get_base_url_from_token`
+        directly instead, which stays silent so they can't raise under warnings-as-errors.
+        """
         if self.base_url is not None:
             return self.base_url
 
-        return get_base_url_from_token(token)
+        return get_base_url_from_token(token, warn_unknown_region=warn_unknown_region)
 
 
 @dataclass
@@ -1734,7 +1740,13 @@ class LogfireConfig(_LogfireConfigData):
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
         install_logfire_response_hook(session, self.advanced.server_response_hook)
-        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
+        # This runs in the background `check_logfire_token` thread, where a warning would be
+        # attributed to the thread rather than to the user's `configure()` call and so wouldn't
+        # be deduplicated against it. The synchronous exporter setup already warns for every
+        # token in the same list, so stay silent here.
+        return LogfireCredentials.from_token(
+            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+        )
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -2240,8 +2252,16 @@ def _get_creds_file(creds_dir: Path) -> Path:
     return creds_dir / CREDENTIALS_FILENAME
 
 
-def get_base_url_from_token(token: str) -> str:
-    """Get the base API URL from the token's region."""
+def get_base_url_from_token(token: str, warn_unknown_region: bool = False) -> str:
+    """Get the base API URL from the token's region.
+
+    Args:
+        token: The Logfire token to read the region from.
+        warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
+            unrecognised and the US region is used as a fallback. This is off by default so that
+            runtime helpers (e.g. the query/API clients and the CLI) never raise under
+            warnings-as-errors; it's enabled during configuration, where the warning is actionable.
+    """
     # default to US for tokens that were created before regions were added:
     region = 'us'
     if match := LOGFIRE_TOKEN_REGION_PATTERN.match(token):
@@ -2253,6 +2273,12 @@ def get_base_url_from_token(token: str) -> str:
             return 'https://logfire-eu.pydantic.info'
 
         if region not in REGIONS:
+            if warn_unknown_region:
+                warn_at_user_stacklevel(
+                    f'Unknown region {region!r} in Logfire token, falling back to the US region. '
+                    f'Known regions: {", ".join(sorted(REGIONS))}.',
+                    category=LogfireConfigWarning,
+                )
             region = 'us'
 
     return REGIONS[region]['base_url']
