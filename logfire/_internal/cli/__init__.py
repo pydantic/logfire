@@ -21,7 +21,7 @@ from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
 from ...version import VERSION
-from ..auth import HOME_LOGFIRE
+from ..auth import HOME_LOGFIRE, PYDANTIC_LOGFIRE_TOKEN_PATTERN
 from ..client import LogfireClient
 from ..config import CREDENTIALS_FILENAME, REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
@@ -113,6 +113,31 @@ def _revoke_url(project_url: object) -> str | None:
     return f'{project_url}/settings/write-tokens'
 
 
+def _write_token_preview(token: object) -> str | None:
+    """Return the same shortened token value that the web UI displays.
+
+    The write-token list shows the first five characters of a modern token's body. Public tokens
+    carry a ``pub`` marker at the start of that body, which the UI omits so the preview still has
+    five distinguishing characters. Legacy and organization-scoped tokens fall back to the first
+    five characters of the whole value.
+
+    The credentials file is untrusted, so only printable ASCII is returned. The caller also uses
+    ``repr`` before writing the preview to the terminal.
+    """
+    if not isinstance(token, str):
+        return None
+
+    token_match = PYDANTIC_LOGFIRE_TOKEN_PATTERN.fullmatch(token)
+    if token_match and token_match.group('organization_id') is None:
+        prefix = token_match.group('token').removeprefix('pub')[:5]
+    else:
+        prefix = token[:5]
+
+    if not prefix or not prefix.isascii() or not prefix.isprintable():
+        return None
+    return f'{prefix}…'
+
+
 def _write_token_notice(data_dir: Path) -> str:
     """Explain that deleting the local credentials file doesn't revoke the write token.
 
@@ -127,6 +152,8 @@ def _write_token_notice(data_dir: Path) -> str:
 
     # `project_name` goes through `repr`, which escapes control characters for us.
     project = f' for project {credentials.project_name!r}' if credentials and credentials.project_name else ''
+    preview = _write_token_preview(credentials.token) if credentials else None
+    identify = f'Look for the token shown as {preview!r} in the token list.\n' if preview else ''
     revoke_url = _revoke_url(credentials.project_url) if credentials else None
     if revoke_url:
         where = f'Revoke it at {revoke_url}'
@@ -134,6 +161,7 @@ def _write_token_notice(data_dir: Path) -> str:
         where = f'Revoke it under Write tokens in your project settings, see {BASE_DOCS_URL}/manage/use-api-keys/'
     return (
         f'The write token{project} is still active on the Logfire server, deleting the local file does not revoke it.\n'
+        f'{identify}'
         f'{where}\n'
     )
 

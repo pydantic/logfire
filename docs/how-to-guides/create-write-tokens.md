@@ -33,11 +33,12 @@ still be used to send data to the project.
 
 To revoke one, open <OpenInLogfire path="settings/write-tokens" variant="inline" label="Settings > Write tokens" /> for the project and remove it there.
 
-Tokens created by `logfire projects use` all arrive with the same title and description, so
-creation time is the only thing telling them apart. If you run it in several checkouts, or a coding
-agent runs it for you, give each token a **Name** and **Description** in the web UI while you still
-know which is which. You can also manage tokens through the platform API, which can create, list,
-rotate, expire and revoke them: see [API Keys](../reference/advanced/use-api-keys.md).
+The token list shows the first five characters of each token body followed by an ellipsis, such as
+`0kYhc…`. After `logfire clean` removes the local credentials file, it prints that same preview so
+you can identify which token to revoke. If you run `logfire projects use` in several checkouts, or a
+coding agent runs it for you, give each token a **Name** and **Description** in the web UI to make
+future management clearer. You can also manage tokens through the platform API, which can create,
+list, rotate, expire, and revoke them: see [API Keys](../reference/advanced/use-api-keys.md).
 
 ## Setting `send_to_logfire='if-token-present'`
 

@@ -227,6 +227,7 @@ def test_whoami_no_token_no_url(tmp_path: Path, capsys: pytest.CaptureFixture[st
 WRITE_TOKEN_NOTICE = (
     "The write token for project 'my-project' is still active on the Logfire server, "
     'deleting the local file does not revoke it.\n'
+    "Look for the token shown as 'token…' in the token list.\n"
     'Revoke it at https://dashboard.logfire.dev/settings/write-tokens\n'
 )
 
@@ -347,9 +348,36 @@ def test_clean_credentials_file_with_non_string_project_url(
         'Cleaned Logfire data.\n'
         "The write token for project 'my-project' is still active on the Logfire server, "
         'deleting the local file does not revoke it.\n'
+        "Look for the token shown as 'token…' in the token list.\n"
         'Revoke it under Write tokens in your project settings, '
         'see https://logfire.pydantic.dev/docs/manage/use-api-keys/\n'
     )
+
+
+@pytest.mark.parametrize(
+    ('token', 'preview'),
+    [
+        ('pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W', '0kYhc…'),
+        ('pylf_v10_eu_pubABCDE12345', 'ABCDE…'),
+        ('legacy-token', 'legac…'),
+        ('pylf_v2_eu_9f9ba85a-b759-4181-9527-d812e03f9f7f_ABCDE12345', 'pylf_…'),
+    ],
+)
+def test_clean_write_token_preview_matches_web_ui(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    token: str,
+    preview: str,
+) -> None:
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+    logfire_credentials.token = token
+    logfire_credentials.write_creds_file(tmp_dir_cwd)
+
+    main(['clean', '--data-dir', str(tmp_dir_cwd)])
+
+    assert f'Look for the token shown as {preview!r} in the token list.\n' in capsys.readouterr().err
 
 
 def test_clean_credentials_file_with_control_characters(
@@ -361,6 +389,7 @@ def test_clean_credentials_file_with_control_characters(
     """A crafted credentials file can't smuggle escape sequences into the user's terminal."""
     monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
 
+    logfire_credentials.token = 'to\x1b[2Kken'
     logfire_credentials.project_name = 'my-\x1b[2Kproject'
     logfire_credentials.project_url = 'https://dashboard.logfire.dev\x1b]0;pwned\x07'
     logfire_credentials.write_creds_file(tmp_dir_cwd)
