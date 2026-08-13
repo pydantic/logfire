@@ -36,7 +36,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
 - _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
 - _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
-- _Task Queues and Schedulers_: Airflow, FastStream, Celery
+- _Task Queues and Schedulers_: Airflow, FastStream, Celery, Dramatiq
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
 - _Testing_: Pytest
 - and more, such as Stripe, AWS Lambda, and system metrics.
@@ -66,6 +66,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Asyncpg](databases/asyncpg.md)           | Database                | [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg]                                                                                                   |
 | [BigQuery](databases/bigquery.md)         | Database                | N/A (built in, no config needed)                                                                                                                                       |
 | [Celery](event-streams/celery.md)         | Task Queue              | [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery]                                                                                                     |
+| [Dramatiq](event-streams/dramatiq.md)     | Task Queue              | [`logfire.instrument_dramatiq()`][logfire.Logfire.instrument_dramatiq]                                                                                                 |
 | [Django](web-frameworks/django.md)        | Web Framework           | [`logfire.instrument_django()`][logfire.Logfire.instrument_django]                                                                                                     |
 | [FastAPI](web-frameworks/fastapi.md)      | Web Framework           | [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi]                                                                                                   |
 | [FastStream](event-streams/faststream.md) | Task Queue              | N/A (built in, config needed)                                                                                                                                          |

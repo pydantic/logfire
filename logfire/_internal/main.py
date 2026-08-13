@@ -74,6 +74,7 @@ if TYPE_CHECKING:
     from wsgiref.types import WSGIApplication
 
     import anthropic
+    import dramatiq
     import httpx
     import httpx2
     import openai
@@ -130,6 +131,7 @@ if TYPE_CHECKING:
     from .config import TemplateMismatchPolicy
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
+    from .integrations.dramatiq import LogfireDramatiqMiddleware
     from .integrations.llm_providers.semconv import SemconvVersion
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
@@ -1665,6 +1667,20 @@ class Logfire:
                 **kwargs,
             },
         )
+
+    def instrument_dramatiq(self, broker: dramatiq.Broker | None = None) -> LogfireDramatiqMiddleware:
+        """Instrument a Dramatiq broker so each enqueue and task delivery creates a span.
+
+        Args:
+            broker: The broker to instrument. When omitted, Dramatiq's global broker is used.
+
+        Returns:
+            The installed Dramatiq middleware. Repeated calls for one broker return the same object.
+        """
+        from .integrations.dramatiq import instrument_dramatiq
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_dramatiq(self, broker)
 
     def instrument_django(
         self,

@@ -65,6 +65,7 @@ aiohttp = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 aiohttp-client = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 aiohttp-server = ["opentelemetry-instrumentation-aiohttp-server >= 0.55b0"]
 celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
+dramatiq = ["dramatiq >= 1.13"]
 django = ["opentelemetry-instrumentation-django >= 0.42b0", "opentelemetry-instrumentation-asgi >= 0.42b0"]
 fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
 flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
@@ -172,6 +173,7 @@ dev = [
     "sqlmodel>=0.0.15",
     "mypy>=1.10.0",
     "celery>=5.4.0",
+    "dramatiq>=2.2",
     "faststream[redis]>=0.5.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
     "testcontainers<4.13",

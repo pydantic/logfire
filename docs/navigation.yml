@@ -358,6 +358,9 @@ navigation:
           - page: "Celery"
             path: "integrations/event-streams/celery.md"
             slug: "integrations/event-streams/celery"
+          - page: "Dramatiq"
+            path: "integrations/event-streams/dramatiq.md"
+            slug: "integrations/event-streams/dramatiq"
       - section: "Logging"
         contents:
           - page: "Logging"
