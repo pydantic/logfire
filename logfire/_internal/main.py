@@ -1726,6 +1726,10 @@ class Logfire:
         excluded_urls: str | None = None,
         request_hook: Callable[[Span, requests.PreparedRequest], None] | None = None,
         response_hook: Callable[[Span, requests.PreparedRequest, requests.Response], None] | None = None,
+        *,
+        capture_all: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
         **kwargs: Any,
     ) -> None:
         """Instrument the `requests` module so that spans are automatically created for each request.
@@ -1734,6 +1738,9 @@ class Logfire:
             excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
+            capture_all: Set to `True` to capture both request and response bodies.
+            capture_request_body: Set to `True` to capture request bodies.
+            capture_response_body: Set to `True` to capture response bodies.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
         """
         from .integrations.requests import instrument_requests
@@ -1743,6 +1750,9 @@ class Logfire:
             excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
+            capture_all=capture_all,
+            capture_request_body=capture_request_body,
+            capture_response_body=capture_response_body,
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),

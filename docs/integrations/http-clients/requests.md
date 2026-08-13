@@ -6,8 +6,9 @@ integration: otel
 # Requests
 
 See every HTTP request your app makes with [`requests`][requests]: the URL, the response status, how
-long it took, and any errors, as a **span** (one unit of work with a name, a start, and a duration)
-in Logfire. Related spans link together into a **trace** (the full journey of one request), so a slow
+long it took, and any errors, as a **span** (one unit of work: a single operation, with a name, a start,
+and a duration) in Logfire. Related spans link together into a **trace** (the full journey of one
+request, made of nested spans), so a slow
 outgoing call shows up right next to the code that triggered it.
 
 ## What you'll capture
@@ -47,6 +48,40 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a span for the `GET` request. Click it to see the URL, response status, and how long it
 took.
+
+## Capture request and response bodies
+
+!!! warning
+    Request and response bodies can contain passwords, tokens, personally identifiable information
+    (PII), and other private data. Enabling body capture records that data and sends it from your
+    machine to Logfire. [Scrubbing](../../how-to-guides/scrubbing.md) means automatically finding
+    and hiding sensitive values (passwords, tokens, and PII) in your telemetry, on your machine,
+    before anything is sent. It is on by default, but it may not recognize every sensitive value.
+    Review what your application sends before enabling body capture.
+
+By default, Logfire does not capture bodies. Use `capture_request_body=True` or
+`capture_response_body=True` to select one direction. Use `capture_all=True` to capture both bodies;
+for this integration, `capture_all` means bodies only, not headers.
+
+```py title="main.py" hl_lines="6-9" skip-run="true" skip-reason="external-connection"
+import requests
+
+import logfire
+
+logfire.configure()
+logfire.instrument_requests(
+    capture_request_body=True,
+    capture_response_body=True,
+)
+
+requests.post('https://httpbin.org/post', json={'message': 'hello'})
+```
+
+Logfire captures only bodies that Requests already holds in memory. It does not read file objects,
+generators, multipart bodies, or streamed responses. The integration does not impose an additional
+body-size limit, so the complete in-memory body is recorded and counts toward Logfire's normal span
+attribute and ingestion limits. For byte bodies, invalid or unknown character encodings cause that
+body to be skipped rather than decoded with replacement characters.
 
 ## Troubleshooting
 
