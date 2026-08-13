@@ -66,6 +66,7 @@ OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-psycopg2': 'psycopg',
     'opentelemetry-instrumentation-pymemcache': 'pymemcache',
     'opentelemetry-instrumentation-pymongo': 'pymongo',
+    'opentelemetry-instrumentation-pymssql': 'pymssql',
     'opentelemetry-instrumentation-pymysql': 'pymysql',
     'opentelemetry-instrumentation-pyramid': 'pyramid',
     'opentelemetry-instrumentation-redis': 'redis',

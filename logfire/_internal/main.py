@@ -2196,6 +2196,21 @@ class Logfire:
             },
         )
 
+    def instrument_pymssql(self, **kwargs: Any) -> None:
+        """Instrument the `pymssql` module so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry PyMSSQL Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymssql/pymssql.html)
+        library, specifically `PyMSSQLInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
+        from .integrations.pymssql import instrument_pymssql
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_pymssql(**{'tracer_provider': self._config.get_tracer_provider(), **kwargs})
+
     def instrument_system_metrics(
         self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'
     ) -> None:

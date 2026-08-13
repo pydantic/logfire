@@ -1772,6 +1772,23 @@ def test_instrument_packages_targets_each_psycopg_family(monkeypatch: pytest.Mon
     assert instrument_psycopg.call_args_list == [call('psycopg'), call('psycopg2')]
 
 
+def test_instrument_packages_maps_pymssql(monkeypatch: pytest.MonkeyPatch) -> None:
+    instrument_pymssql = Mock()
+    monkeypatch.setattr(
+        logfire._internal.cli.run,
+        'logfire',
+        types.SimpleNamespace(instrument_pymssql=instrument_pymssql),
+    )
+
+    result = instrument_packages(
+        {'opentelemetry-instrumentation-pymssql'},
+        {'opentelemetry-instrumentation-pymssql': 'pymssql'},
+    )
+
+    assert result == ['pymssql']
+    instrument_pymssql.assert_called_once_with()
+
+
 @pytest.mark.parametrize(
     ('installed_clients', 'otel_version', 'instrumented', 'expected_lines'),
     [

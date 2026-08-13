@@ -952,6 +952,16 @@ class Logfire:
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
         """
+    def instrument_pymssql(self, **kwargs: Any) -> None:
+        """Instrument the `pymssql` module so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry PyMSSQL Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymssql/pymssql.html)
+        library, specifically `PyMSSQLInstrumentor().instrument()`, to which it passes `**kwargs`.
+
+        Args:
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
     def instrument_system_metrics(self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic') -> None:
         """Collect system metrics.
 

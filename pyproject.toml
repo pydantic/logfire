@@ -78,6 +78,7 @@ pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
+pymssql = ["opentelemetry-instrumentation-pymssql >= 0.65b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 # TODO: 1.0b0 is a breaking rewrite (built on opentelemetry.util.genai) that our integration doesn't support yet.
@@ -150,6 +151,7 @@ dev = [
     "opentelemetry-instrumentation-pymongo>=0.42b0",
     "opentelemetry-instrumentation-celery>=0.42b0",
     "opentelemetry-instrumentation-mysql>=0.42b0",
+    "opentelemetry-instrumentation-pymssql>=0.65b0",
     "opentelemetry-instrumentation-sqlite3>=0.42b0",
     "opentelemetry-instrumentation-aws-lambda>=0.42b0",
     "eval-type-backport >= 0.2.0",
@@ -165,6 +167,7 @@ dev = [
     "psycopg2-binary >= 2.9.10",
     "asyncpg >= 0.30.0",
     "pymysql >= 1.1.1",
+    "pymssql >= 2.3.0",
     # >=48.0.1 ships a non-vulnerable OpenSSL (GHSA-537c-gmf6-5ccf).
     "cryptography >= 48.0.1",
     "cloudpickle>=3.0.0",
