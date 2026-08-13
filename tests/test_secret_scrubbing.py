@@ -210,12 +210,17 @@ def test_invalid_extra_pattern_is_named_in_the_error(extra_pattern: str):
     assert exc_info.value.pos <= len(extra_pattern)
 
 
-def test_extra_pattern_warning_is_not_turned_into_an_error():
-    """A pattern that only warns still works, e.g. `[[a]`, which warns about a possible nested set."""
-    with warnings.catch_warnings():
-        warnings.simplefilter('error')  # anything raised here would reach the user's `configure()` call
-        with pytest.warns(FutureWarning, match='Possible nested set'):
-            scrubber = Scrubber(['[[a]'])
+def test_extra_pattern_warning_is_raised_once_and_is_not_an_error():
+    """A pattern that only warns still works, e.g. `[[a]`, which warns about a possible nested set.
+
+    The user should hear about it once, from compiling their own pattern. A second warning from the
+    combined pattern would report a position they can't act on.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        scrubber = Scrubber(['[[a]'])
+
+    assert [str(warning.message) for warning in caught] == ['Possible nested set at position 1']
 
     result, _ = scrubber.scrub_value(('attributes', 'value'), 'q [a')
     assert result == "[Scrubbed due to '[']"

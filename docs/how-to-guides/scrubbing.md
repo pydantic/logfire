@@ -42,7 +42,7 @@ so you can point back at it with `\1` without the other patterns interfering:
 ```python
 import logfire
 
-# Redacts a repeated pair of digits, e.g. '1212', but not '1234'.
+# Redacts a value containing a repeated pair of digits, e.g. 'card 1212', but not 'card 1234'.
 logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'(\d{2})\1']))
 ```
 

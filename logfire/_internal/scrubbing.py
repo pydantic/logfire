@@ -261,7 +261,11 @@ def _compile_patterns(extra_patterns: Sequence[str] | None) -> list[re.Pattern[s
 
     def flush_joinable():
         if joinable:
-            compiled_patterns.append(re.compile('|'.join(joinable), _SCRUBBING_FLAGS))
+            with warnings.catch_warnings():
+                # Each pattern has already been compiled on its own, which is where any warning
+                # belongs: it names a position in the user's pattern, not in the combined one.
+                warnings.simplefilter('ignore')
+                compiled_patterns.append(re.compile('|'.join(joinable), _SCRUBBING_FLAGS))
             joinable.clear()
 
     for pattern in extra_patterns or []:
