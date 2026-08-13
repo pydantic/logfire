@@ -148,6 +148,90 @@ def set_temperature(value: float):
 
 You can read more about the Gauge metric in the [OpenTelemetry documentation][gauge-metric].
 
+#### Poll an async source
+
+OpenTelemetry observable callbacks must return synchronously when the metrics SDK collects them. They run on an SDK
+thread, where awaiting a coroutine would block collection and an unawaited coroutine would not produce an observation.
+If a metric value comes from an async API, let your application's lifecycle own a polling task and update a normal
+[`logfire.metric_gauge`][logfire.Logfire.metric_gauge].
+
+This complete [FastAPI](../../integrations/web-frameworks/fastapi.md) example starts one task with the application,
+retains it for the application's lifetime, then cancels and awaits it during shutdown:
+
+```py
+import asyncio
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager, suppress
+
+from fastapi import FastAPI
+
+import logfire
+
+queue_depth = logfire.metric_gauge(
+    'jobs.queue_depth',
+    unit='1',
+    description='Number of jobs waiting to run',
+)
+
+
+async def read_queue_depth() -> int:
+    """Replace this with a call to your async client."""
+    await asyncio.sleep(0.01)
+    return 7
+
+
+async def poll_queue_depth() -> None:
+    """Read and record queue depth until the application stops this task."""
+    while True:
+        try:
+            queue_depth.set(await read_queue_depth())
+        except Exception:
+            # Report the failed poll, then retry after the normal delay.
+            logfire.exception('Failed to read queue depth')
+        await asyncio.sleep(30)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    """Run the queue-depth poller while the application is running."""
+    task = asyncio.create_task(poll_queue_depth(), name='queue-depth-poller')
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(lifespan=lifespan)
+```
+
+FastAPI calls `lifespan` with the application argument. Other frameworks expose different startup and shutdown hooks;
+keep the same ownership rule even when their lifecycle API differs: the code that starts the task must retain, cancel,
+and await it.
+
+The loop above uses **fixed-delay polling**: each 30-second delay starts after the previous read finishes. Slow reads
+therefore move later polls, but one task never overlaps two reads. **Fixed-rate polling** instead calculates each start
+time from a clock so that polls target a regular schedule. If a read takes longer than one interval, skip a missed run
+or continue late. Do not start concurrent reads unless the source, gauge labels, timeout, and shutdown behavior are
+designed for overlap.
+
+Decide how failures should affect the metric before deploying a poller:
+
+- Catch expected source exceptions inside the loop so that one failure does not silently end the task. Add a timeout,
+  exponential backoff, and limited retry logging when the source can remain unavailable.
+- A failed poll leaves the gauge's last recorded value in the metrics pipeline. That value can look current even though
+  it is stale. Record a separate last-success timestamp or poll-success metric if consumers need to detect staleness.
+- Do not catch `BaseException`. `asyncio.CancelledError` then stops the loop, and the lifespan awaits that cancellation
+  without treating it as a shutdown failure. If you catch cancellation to run poller-specific cleanup, always re-raise it.
+- Each worker process creates its own task and metric series. Add a worker-identifying attribute when you need separate
+  values, or aggregate the per-worker series in your query. Do not interpret one worker's gauge as a process-wide or
+  cluster-wide value.
+
+Use an [observable callback][gauge-callback-metric] only when reading the value is synchronous, quick, and safe for the
+metrics SDK to invoke. Lifecycle-owned polling keeps async I/O on the application's event loop and does not require a
+new async callback API.
+
 ### Callback Metrics
 
 Callback metrics, or observable metrics, are a way to create metrics that are automatically emitted every 60 seconds in
