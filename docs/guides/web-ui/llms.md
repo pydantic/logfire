@@ -39,7 +39,7 @@ You'll see five headline metric cards (Calls, Errors, Avg latency, Cost, Speed),
 - **Agents using this model**: which agents (by Pydantic AI agent name or `gen_ai.system` + `gen_ai.request.model` pair) are calling this model and how much. Direct LLM calls with no enclosing agent run don't appear here.
 - **Recent calls**: the most recent invocations, each linking straight to the trace in the [Live View](live.md) via a **View in live** button in the header.
 
-### Time to first token
+## Time to first token
 
 Time to first token measures how long a streaming model call waits before surfacing its first chunk to your application. Unlike total latency, it shows how quickly a user starts seeing the response.
 
