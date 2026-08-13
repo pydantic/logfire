@@ -35,6 +35,18 @@ logfire.info(
 )
 ```
 
+Each pattern is matched on its own, so a pattern behaves exactly as it would if you passed it to
+`re.compile` yourself. In particular, a capture group — a bracketed part of a pattern, such as the
+`(\d{2})` below — belongs to the pattern it is written in, so you can refer back to it with `\1`
+without the other patterns interfering:
+
+```python
+import logfire
+
+# Redacts a repeated pair of digits, e.g. '1212', but not '1234'.
+logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'(\d{2})\1']))
+```
+
 Here are the default scrubbing patterns:
 
 ```python

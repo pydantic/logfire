@@ -126,6 +126,105 @@ def test_default_pattern_start_chars_cover_each_pattern():
         assert (actual.span(), actual.group(0)) == (expected.span(), expected.group(0))
 
 
+@pytest.mark.parametrize(
+    ('extra_patterns', 'value', 'expected_match'),
+    [
+        pytest.param(['(a)', r'(b)\1'], 'q bb', 'bb', id='backreference'),
+        pytest.param(['(a)', r'(b)\1'], 'bb q', 'bb', id='backreference-at-start-of-value'),
+        pytest.param([r'(a)', r'(x)?(?(1)y|z)'], 'q xy', 'xy', id='conditional-reference'),
+        pytest.param([r'(?P<x>aaa)', r'(?P<x>bbb)'], 'q bbb', 'bbb', id='duplicate-group-names'),
+        pytest.param([r'(?s)fo.o'], 'q fo\no', 'fo\no', id='global-inline-flag'),
+    ],
+)
+def test_extra_patterns_are_matched_independently(extra_patterns: list[str], value: str, expected_match: str):
+    """Each extra pattern must behave as it does on its own, whatever the other patterns are."""
+    for pattern in extra_patterns:
+        re.compile(pattern, re.IGNORECASE | re.DOTALL)  # each pattern is valid by itself
+
+    result, scrubbed_notes = Scrubber(extra_patterns).scrub_value(('attributes', 'value'), value)
+
+    assert result == f'[Scrubbed due to {expected_match!r}]'
+    assert scrubbed_notes == [{'path': ('attributes', 'value'), 'matched_substring': expected_match}]
+
+
+def test_extra_pattern_match_only_contains_its_own_groups():
+    """The match passed to the callback belongs to the pattern that matched, not to a combined one."""
+    scrub_matches: list[logfire.ScrubMatch] = []
+
+    def callback(match: logfire.ScrubMatch):
+        scrub_matches.append(match)
+        return match.value
+
+    Scrubber([r'(?P<mine>zzz)'], callback).scrub_value(('attributes', 'value'), 'q zzz')
+
+    assert len(scrub_matches) == 1
+    pattern_match = scrub_matches[0].pattern_match
+    assert pattern_match.groups() == ('zzz',)
+    assert pattern_match.groupdict() == {'mine': 'zzz'}
+
+
+@pytest.mark.parametrize(
+    ('extra_pattern', 'message'),
+    [
+        ('bad[(', "unterminated character set (in scrubbing pattern 'bad[(') at position 3"),
+        (r'\1', "invalid group reference 1 (in scrubbing pattern '\\\\1') at position 1"),
+    ],
+)
+def test_invalid_extra_pattern_is_named_in_the_error(extra_pattern: str, message: str):
+    """The position in the error must point into the pattern the user wrote."""
+    with pytest.raises(re.error, match=re.escape(message)):
+        Scrubber(['custom', extra_pattern])
+
+
+@pytest.mark.parametrize(
+    ('extra_patterns', 'expected_number_of_regexes'),
+    [
+        (None, 1),
+        (['custom', r'\d+'], 1),
+        ([r'(b)\1'], 2),
+        (['custom', r'(b)\1', r'(?P<x>c)'], 3),
+    ],
+)
+def test_only_patterns_with_groups_need_their_own_regex(
+    extra_patterns: list[str] | None, expected_number_of_regexes: int
+):
+    """Scrubbing runs on the application's thread, so the usual case must stay a single search."""
+    assert len(Scrubber(extra_patterns)._patterns) == expected_number_of_regexes  # pyright: ignore[reportPrivateUsage]
+
+
+def test_scrub_with_backreference_pattern(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=['(a)', r'(b)\1']), **config_kwargs)
+
+    # `hit` is matched by the backreference pattern, `miss` by nothing. The keys deliberately
+    # contain neither `a` nor `bb`, so only the values decide what is redacted.
+    logfire.info('hi', hit='q bb', miss='q zz')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_scrub_with_backreference_pattern',
+                    'code.lineno': 123,
+                    'hit': "[Scrubbed due to 'bb']",
+                    'miss': 'q zz',
+                    'logfire.json_schema': '{"type":"object","properties":{"hit":{},"miss":{}}}',
+                    'logfire.scrubbed': '[{"path": ["attributes", "hit"], "matched_substring": "bb"}]',
+                },
+            }
+        ]
+    )
+
+
 def test_scrub_attribute(exporter: TestExporter):
     logfire.info(
         'Password: {user_password}',
