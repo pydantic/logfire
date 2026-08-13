@@ -23,7 +23,18 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
+from opentelemetry.trace import (
+    INVALID_SPAN,
+    Link,
+    NonRecordingSpan,
+    SpanContext,
+    SpanKind,
+    StatusCode,
+    TraceFlags,
+    TraceState,
+    get_current_span,
+    get_tracer,
+)
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -3030,8 +3041,10 @@ def test_span_links(exporter: TestExporter):
 
     assert first_context
     assert second_context
-    with logfire.span('foo', _links=[(first_context, None)]) as span:
-        span.add_link(second_context)
+    span = logfire.span('foo', _links=[(first_context, None)])
+    span.add_link(second_context)
+    with span:
+        pass
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True)[-2:] == snapshot(
         [
@@ -3050,7 +3063,10 @@ def test_span_links(exporter: TestExporter):
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000000',
                 },
-                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
+                'links': [
+                    {'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}},
+                    {'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False}, 'attributes': {}},
+                ],
             },
             {
                 'name': 'foo',
@@ -3132,6 +3148,83 @@ def test_span_add_link_before_start(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_span_add_link_input_types(exporter: TestExporter):
+    local_context = SpanContext(1, 2, False, TraceFlags(TraceFlags.SAMPLED), TraceState())
+    local_span = NonRecordingSpan(local_context)
+    linked_span = logfire.span('linked')
+    linked_span.add_link(local_context)
+    with linked_span:
+        pass
+
+    span = logfire.span('destination')
+    span.add_link(linked_span, {'source': 'logfire'})
+    span.add_link(local_span, {'source': 'otel'})
+    span.add_link(Link(local_context, {'source': 'link'}))
+    span.add_link(
+        {
+            'traceparent': '00-0000000000000000000000000000000a-000000000000000b-01',
+            'tracestate': 'vendor=value',
+        },
+        {'source': 'carrier'},
+    )
+    span.add_link('00-0000000000000000000000000000000c-000000000000000d-00')
+    with span:
+        pass
+
+    links = exporter.exported_spans[-1].links
+    assert links is not None
+    assert [(link.context.trace_id, link.context.span_id) for link in links] == [
+        (1, 1),
+        (1, 2),
+        (1, 2),
+        (10, 11),
+        (12, 13),
+    ]
+    assert [link.context.is_remote for link in links] == [False, False, False, True, True]
+    assert [link.context.trace_flags for link in links] == [
+        TraceFlags.SAMPLED,
+        TraceFlags.SAMPLED,
+        TraceFlags.SAMPLED,
+        TraceFlags.SAMPLED,
+        TraceFlags.DEFAULT,
+    ]
+    assert links[3].context.trace_state == TraceState([('vendor', 'value')])
+    assert [dict(link.attributes or {}) for link in links] == [
+        {'source': 'logfire'},
+        {'source': 'otel'},
+        {'source': 'link'},
+        {'source': 'carrier'},
+        {},
+    ]
+
+
+@pytest.mark.parametrize('value', [{}, {'tracestate': 'vendor=value'}, 'not-a-traceparent'])
+def test_span_add_link_rejects_invalid_carrier_without_ambient_fallback(value: dict[str, str] | str):
+    with logfire.span('ambient'):
+        span = logfire.span('destination')
+        with pytest.raises(ValueError, match='span context is invalid'):
+            span.add_link(value)
+
+
+def test_span_add_link_must_be_called_before_start():
+    with logfire.span('destination') as span:
+        with pytest.raises(RuntimeError, match='before the span is started'):
+            span.add_link(SpanContext(1, 2, False))
+
+
+def test_span_add_link_rejects_unstarted_source_span():
+    destination = logfire.span('destination')
+    with pytest.raises(ValueError, match='span context is invalid'):
+        destination.add_link(logfire.span('source'))
+
+
+def test_links_remains_an_ordinary_span_attribute(exporter: TestExporter):
+    with logfire.span('attribute', links=['one', 'two']):
+        pass
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]['attributes']['links'] == ['one', 'two']
 
 
 GLOBAL_VAR = 1

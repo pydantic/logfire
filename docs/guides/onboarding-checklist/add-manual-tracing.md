@@ -77,6 +77,31 @@ with logfire.span('Calculating...') as span:
     span.set_attribute('result', result)
 ```
 
+## Link causally related spans
+
+A span link records a causal relationship without making either span the parent or owner of the other. Links are useful when one operation starts from work in another trace, such as a message consumer processing a message that a producer created earlier.
+
+Create the destination span first, add each link before entering its context manager, and then start it:
+
+```python skip="true" skip-reason="requires-an-incoming-traceparent"
+import logfire
+
+incoming_headers = {
+    'traceparent': '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+    'tracestate': 'vendor=value',
+}
+
+processing_span = logfire.span('Process message')
+processing_span.add_link(incoming_headers, {'messaging.operation': 'receive'})
+
+with processing_span:
+    process_message()
+```
+
+`add_link()` accepts another Logfire or OpenTelemetry span, an OpenTelemetry `SpanContext` or `Link`, a mapping of W3C Trace Context headers such as the example above, or a `traceparent` header value as a string. Carrier mappings preserve valid `tracestate` and trace flags. Header inputs become remote contexts; direct span contexts keep their existing local or remote state. If you pass attributes alongside an OpenTelemetry `Link`, the new attributes replace the link's attributes.
+
+Logfire rejects missing or malformed `traceparent` values instead of linking to the currently active span. Call `add_link()` before the destination span starts. The Logfire UI does not currently display span links, but you can query them in the `otel_links` column with [SQL](../../reference/sql.md#otel_links). Passing `links=` to `logfire.span()` remains available for recording a normal user attribute with that name.
+
 ## Messages and span names
 
 If you run this code:
