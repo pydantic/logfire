@@ -204,6 +204,25 @@ except ValueError:
 
 `logfire.exception(...)` is equivalent to `logfire.error(..., _exc_info=True)`. You can also use `_exc_info` with the other logging methods if you want to record a traceback in a log with a non-error level. You can set `_exc_info` to a specific exception object if it's not the one being handled. Don't forget the leading underscore!
 
+## Start a separate trace
+
+Normally, a span created while another span is active becomes its child. This is not useful when the current
+operation schedules independent work, such as a background job, that should have its own trace.
+
+Pass the private `_new_trace=True` keyword to start a separate trace root. Logfire adds a span link, which records
+the relationship, to the previously active span without making the new span its child. Other OpenTelemetry context
+values remain available, including baggage (small key/value data that rides along with a request across services).
+
+```python
+import logfire
+
+logfire.configure()
+
+with logfire.span('current operation'):
+    with logfire.span('independent operation', _new_trace=True):
+        logfire.info('This log is a child of the independent operation')
+```
+
 ## Convenient function spans with `@logfire.instrument`
 
 Often you want to wrap a whole function in a span. Instead of doing this:
