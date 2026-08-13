@@ -14,6 +14,8 @@ from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 
+from logfire.exceptions import LogfireConfigError
+
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -114,7 +116,32 @@ class ScrubbingOptions:
     A sequence of regular expressions to detect sensitive data that should be redacted.
     For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
     The specified patterns are combined with the default patterns.
+    Patterns that match the empty string are rejected because they would redact every value.
     """
+
+    def __post_init__(self):
+        if isinstance(self.extra_patterns, str):
+            raise LogfireConfigError(
+                '`extra_patterns` must be a sequence of regular expressions, not a single string. '
+                "Use `extra_patterns=['password']` instead of `extra_patterns='password'`."
+            )
+
+        for pattern in self.extra_patterns or ():
+            try:
+                compiled_pattern = re.compile(pattern, re.IGNORECASE | re.DOTALL)
+            except re.error as error:
+                raise LogfireConfigError(
+                    f'Invalid regular expression in `extra_patterns`: {pattern!r}: {error}'
+                ) from error
+
+            # Boundaries and lookarounds can produce empty matches only when surrounding text is present.
+            empty_match_probe = f'a0 _-\n{pattern}'
+            if compiled_pattern.match('') is not None or any(
+                match.start() == match.end() for match in compiled_pattern.finditer(empty_match_probe)
+            ):
+                raise LogfireConfigError(
+                    f'`extra_patterns` must not contain regular expressions that match the empty string: {pattern!r}'
+                )
 
 
 class BaseScrubber(ABC):

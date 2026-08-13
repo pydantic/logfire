@@ -15,6 +15,7 @@ from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
+from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter, TestLogExporter
 
 DEFAULT_PATTERN_EXAMPLES = {
@@ -443,6 +444,33 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
             }
         ]
     )
+
+
+def test_scrubbing_config_rejects_bare_string_pattern():
+    with pytest.raises(LogfireConfigError) as exc_info:
+        logfire.ScrubbingOptions(extra_patterns='password')
+
+    assert str(exc_info.value) == (
+        '`extra_patterns` must be a sequence of regular expressions, not a single string. '
+        "Use `extra_patterns=['password']` instead of `extra_patterns='password'`."
+    )
+
+
+@pytest.mark.parametrize('pattern', ['', '[0-9]*', r'\b', r'\A\Z'])
+def test_scrubbing_config_rejects_empty_matching_pattern(pattern: str):
+    with pytest.raises(LogfireConfigError) as exc_info:
+        logfire.ScrubbingOptions(extra_patterns=[pattern])
+
+    assert str(exc_info.value) == (
+        f'`extra_patterns` must not contain regular expressions that match the empty string: {pattern!r}'
+    )
+
+
+def test_scrubbing_config_reports_invalid_pattern():
+    with pytest.raises(LogfireConfigError) as exc_info:
+        logfire.ScrubbingOptions(extra_patterns=['foo('])
+
+    assert str(exc_info.value).startswith("Invalid regular expression in `extra_patterns`: 'foo(': ")
 
 
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
