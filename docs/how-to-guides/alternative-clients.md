@@ -184,3 +184,4 @@ Run your program, then open the [Live view](../guides/web-ui/live.md) for your p
 | Requests rejected with `401` or `403` | Missing or invalid write token | Set `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` with a valid [write token](./create-write-tokens.md). |
 | Data appears under `(unknown)` in the [Services](../guides/web-ui/services.md) view | No service name set | Set `OTEL_SERVICE_NAME=your-service-name`. |
 | Connection or TLS errors | The endpoint points at the wrong region | Use `https://logfire-us.pydantic.dev` (US) or `https://logfire-eu.pydantic.dev` (EU). |
+| Requests rejected with `413`, or records missing with a `logfire ingest error` span in the project | The batch is over 100 MB, or its timestamps fall outside the accepted window | See [Ingest limits](../reference/limits.md). |
