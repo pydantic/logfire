@@ -107,13 +107,31 @@ A few fields are always truncated at a fixed length, whatever the size of the re
 
 The message field is the one that surprises people. Logfire builds it from `logfire.msg` when that attribute is present and from the span name otherwise, stores 512 bytes of it, and does not keep the original text anywhere else. If you need the full text searchable, put it in an attribute of its own as well.
 
-## Data Logfire cannot store
+## Metric shapes Logfire cannot store
 
-A few OTLP shapes are refused whatever their size. Each one drops a single data point or metric, and reports itself the same way an out-of-range timestamp does: partial success on the response, plus a `logfire ingest error` record in your project.
+Some metrics are refused whatever their size. Each one is reported the same way an out-of-range timestamp is: the rest of the payload is stored, the response carries an OTLP partial success, and a `logfire ingest error` record lands in your project naming the metric.
+
+### Summary metrics are not supported
+
+Logfire does not store OTLP `Summary` metrics. A `Summary` reports pre-computed quantiles (a p95 value calculated by the sender) rather than the bucket counts a histogram carries, and quantiles that arrive already computed cannot be re-aggregated: averaging two p95 values from two hosts does not give you the p95 across both. OpenTelemetry marks the type legacy for that reason and no OpenTelemetry SDK emits one for new instrumentation.
+
+When a `Summary` arrives, Logfire drops that whole metric, including every data point in it, and stores every other metric in the same request. The explanation comes back as:
+
+```text
+service_name=my-api -> scope_name=my.tracer -> metric_name=http_request_duration_seconds: dropped 12 data points because Summary metrics are a legacy data type and are not supported by Logfire. Please use a Histogram instead.
+```
+
+In practice `Summary` metrics reach Logfire from one of two places:
+
+- **A Prometheus scrape forwarded through an OpenTelemetry Collector.** The Collector's `prometheus` receiver turns every Prometheus summary into an OTLP `Summary`. Change the application to expose a Prometheus histogram instead, which the receiver maps to an OTLP histogram that Logfire stores.
+- **An old OpenTelemetry SDK or a hand-built exporter.** Emit a histogram: `logfire.metric_histogram()` in the Logfire SDK, or your SDK's histogram instrument.
+
+Record the raw observations as a histogram and compute percentiles at query time in [SQL Workbench](../guides/web-ui/explore.md). That is the direction of travel anyway: percentiles computed in the backend can be sliced by any dimension, and pre-computed ones cannot.
+
+### Other refused shapes
 
 | What | Why | What to do |
 | --- | --- | --- |
-| `Summary` metrics | A legacy OTLP metric type Logfire does not store | Emit a histogram instead |
 | `aggregation_temporality` outside 0, 1, or 2 | Not a value OTLP defines | Fix the exporter emitting it |
 | A histogram count, bucket count, or zero count above 2,147,483,647 | Logfire stores these counts as 32-bit integers | Reset the counter more often, or use delta temporality |
 
@@ -126,6 +144,7 @@ A few OTLP shapes are refused whatever their size. Each one drops a single data 
 | A backfill or replay produces no data | The records are older than 24 hours | Backfilling historical data is not supported |
 | An attribute shows `...` in the middle | The record was over the 10 MB attribute budget | Check the **Truncation** panel on the record to see everything that was cut |
 | A message is cut short and the rest is nowhere | The message field stores 512 bytes | Also write the full text to an attribute of your own |
+| One Prometheus metric never appears, while the rest of the scrape does | It is a summary, which becomes an unsupported OTLP `Summary` | Expose a Prometheus histogram instead. See [Summary metrics are not supported](#summary-metrics-are-not-supported) |
 | A metric appears in the SDK but never in Logfire | It is a `Summary` metric, or a count overflowed 32 bits | Emit a histogram; check for a `logfire ingest error` record naming the metric |
 
 ## Next steps

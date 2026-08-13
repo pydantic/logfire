@@ -88,6 +88,8 @@ for duration in [10, 20, 30, 40, 50]:
 
 You can read more about the Histogram metric in the [OpenTelemetry documentation][histogram-metric].
 
+A histogram is also what to reach for if you are used to Prometheus summaries. Logfire does not store OTLP `Summary` metrics, which report quantiles the sender has already computed: see [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported). Record the raw values in a histogram and compute percentiles at query time instead.
+
 ### Up-Down Counter
 
 The "Up-Down Counter" is a type of counter metric that allows both incrementing (up) and decrementing (down) operations.
