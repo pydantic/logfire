@@ -405,6 +405,29 @@ def test_filesystem_none_paths_uses_current_working_directory(
     assert usage_calls == ['/work']
 
 
+def test_filesystem_none_config_uses_current_working_directory(
+    metrics_reader: InMemoryMetricReader, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def disk_partitions(*, all: bool) -> list[Partition]:
+        return []
+
+    def disk_usage(path: str) -> Usage:
+        return Usage(100, 40, 50, 80)
+
+    monkeypatch.setattr(system_metrics.os, 'getcwd', lambda: '/work')
+    monkeypatch.setattr(system_metrics.psutil, 'disk_partitions', disk_partitions)
+    monkeypatch.setattr(system_metrics.psutil, 'disk_usage', disk_usage)
+
+    logfire.instrument_system_metrics({'system.filesystem.limit': None}, base=None)
+
+    point = get_collected_metrics(metrics_reader)[0]['data']['data_points'][0]
+    assert point['value'] == 100
+    assert point['attributes'] == {
+        'system.device': '/work',
+        'system.filesystem.mountpoint': '/work',
+    }
+
+
 def test_macos_firmlink_and_root_use_data_volume(
     metrics_reader: InMemoryMetricReader, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -448,6 +471,37 @@ def test_macos_firmlink_and_root_use_data_volume(
     assert calls.count('/') == 1
 
 
+def test_macos_data_volume_failure_falls_back_to_root(
+    metrics_reader: InMemoryMetricReader, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = Partition('/dev/system', '/', '', 'ro')
+    data = Partition('/dev/data', '/System/Volumes/Data', 'apfs', 'rw')
+    root_usage = Usage(100, 10, 40, 20)
+
+    def disk_usage(path: str) -> Usage:
+        if path == data.mountpoint:
+            raise OSError('data unavailable')
+        assert path == root.mountpoint
+        return root_usage
+
+    def disk_partitions(*, all: bool) -> list[Partition]:
+        return [root, data]
+
+    monkeypatch.setattr(system_metrics.sys, 'platform', 'darwin')
+    monkeypatch.setattr(system_metrics.psutil, 'disk_partitions', disk_partitions)
+    monkeypatch.setattr(system_metrics.psutil, 'disk_usage', disk_usage)
+
+    logfire.instrument_system_metrics({'system.filesystem.limit': {'paths': ['/']}}, base=None)
+    point = get_collected_metrics(metrics_reader)[0]['data']['data_points'][0]
+
+    assert point['value'] == root_usage.total
+    assert point['attributes'] == {
+        'system.device': '/dev/system',
+        'system.filesystem.mode': 'ro',
+        'system.filesystem.mountpoint': '/',
+    }
+
+
 def test_equal_usage_bind_mount_prefers_lexical_partition(monkeypatch: pytest.MonkeyPatch) -> None:
     root = Partition('/dev/root', '/', 'ext4', 'rw')
     selected = Partition('/dev/data', '/srv/data', 'ext4', 'rw')
@@ -473,6 +527,19 @@ def test_macos_ambiguous_usage_match_does_not_choose_unrelated_partition(monkeyp
     monkeypatch.setattr(system_metrics.sys, 'platform', 'darwin')
     partition = system_metrics._identify_partition(  # pyright: ignore[reportPrivateUsage]
         '/Users/me/app', selected_usage, [root, data, clone], lambda path: usages[path]
+    )
+
+    assert partition is root
+
+
+def test_macos_failed_usage_matches_use_lexical_partition(monkeypatch: pytest.MonkeyPatch) -> None:
+    root = Partition('/dev/system', '/', 'apfs', 'ro')
+    data = Partition('/dev/data', '/System/Volumes/Data', 'apfs', 'rw')
+    selected_usage = Usage(100, 50, 40, 55)
+
+    monkeypatch.setattr(system_metrics.sys, 'platform', 'darwin')
+    partition = system_metrics._identify_partition(  # pyright: ignore[reportPrivateUsage]
+        '/Users/me/app', selected_usage, [root, data], lambda path: OSError(f'{path} unavailable')
     )
 
     assert partition is root
@@ -518,6 +585,28 @@ def test_windows_unc_fallback_is_case_insensitive(
         'system.device': r'\\server\share',
         'system.filesystem.mountpoint': r'\\server\share',
     }
+
+
+def test_windows_fallback_handles_an_unparseable_drive(monkeypatch: pytest.MonkeyPatch) -> None:
+    def splitdrive(path: str) -> tuple[str, str]:
+        return '', path
+
+    monkeypatch.setattr(system_metrics.ntpath, 'splitdrive', splitdrive)
+
+    path = r'\\invalid'
+    assert system_metrics._fallback_filesystem_identity(path) == (path, path)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_partition_for_path_tolerates_commonpath_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def commonpath(paths: tuple[str, str]) -> str:
+        raise ValueError('different drives')
+
+    monkeypatch.setattr(system_metrics.os.path, 'commonpath', commonpath)
+
+    partition = system_metrics._partition_for_path(  # pyright: ignore[reportPrivateUsage]
+        '/work/app', [Partition('/dev/data', '/work', 'ext4', 'rw')]
+    )
+    assert partition is None
 
 
 @pytest.mark.parametrize(

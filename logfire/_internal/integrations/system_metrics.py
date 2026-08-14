@@ -465,7 +465,7 @@ def _partition_for_path(path: str, partitions: Iterable[DiskPartition]) -> DiskP
         else:
             try:
                 contains = path_module.commonpath((normalized_path, mountpoint)) == mountpoint
-            except ValueError:  # Different Windows drives.
+            except ValueError:
                 contains = False
         if contains:
             candidates.append((len(mountpoint), partition))
