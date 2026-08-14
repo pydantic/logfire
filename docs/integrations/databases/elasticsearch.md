@@ -26,17 +26,17 @@ pip install 'logfire' 'elasticsearch>=8.15'
 
 ## Trace Elasticsearch requests
 
-Call `logfire.configure()` before creating the Elasticsearch client. This activates Logfire's OTel
-tracer provider, which the client's native tracing uses automatically.
+Call `logfire.configure()` before making an Elasticsearch request. The client looks up the active
+OTel tracer provider when it starts a request, so you can create the client before or after this call.
 
 ```python skip-run="true" skip-reason="external-connection"
 from elasticsearch import Elasticsearch
 
 import logfire
 
-logfire.configure()
-
 client = Elasticsearch('http://localhost:9200')
+
+logfire.configure()
 client.search(index='products', query={'match': {'name': 'coffee'}})
 ```
 
@@ -51,10 +51,18 @@ export OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY=raw
 ```
 
 !!! warning
-    Setting this option to `raw` can send query values to Logfire, where they are stored with the
-    span. Review the values your application puts in Elasticsearch queries before enabling it.
-    Logfire's [data scrubbing](../../how-to-guides/scrubbing.md) provides an additional safeguard,
-    but you should not rely on scrubbing to remove every sensitive value.
+    Setting this option to `raw` sends query values to Logfire, where they are stored with the span.
+    Logfire does not scrub the `db.query.text` attribute. Enable query capture only when the queries
+    do not contain sensitive values.
+
+## Stop tracing Elasticsearch requests
+
+The Elasticsearch client creates spans by default whenever an OTel tracer provider is active. To
+turn off its native tracing, set this environment variable before creating the client:
+
+```bash
+export OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_ENABLED=false
+```
 
 ## Verify the spans
 
@@ -65,8 +73,9 @@ body.
 
 ## Troubleshoot missing spans
 
-- **No Elasticsearch spans appear:** check that you use `elasticsearch` 8.15 or later, and call
-  `logfire.configure()` before creating the client.
+- **No Elasticsearch spans appear:** check that you use `elasticsearch` 8.15 or later, call
+  `logfire.configure()` before the first request, and have not set
+  `OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_ENABLED=false`.
 - **The query body is missing:** restart the application after setting
   `OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY=raw`. Query capture is disabled by
   default.

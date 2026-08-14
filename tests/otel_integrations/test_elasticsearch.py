@@ -2,6 +2,7 @@ import json
 import os
 from typing import Any, NamedTuple
 
+import pytest
 from elastic_transport import ApiResponseMeta, BaseNode, HttpHeaders
 from elasticsearch import Elasticsearch
 from inline_snapshot import snapshot
@@ -87,3 +88,15 @@ def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_native_elasticsearch_instrumentation_can_be_disabled(
+    exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv('OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_ENABLED', 'false')
+    client = Elasticsearch('http://localhost:9200', node_class=OfflineNode)
+
+    response = client.search(index='products', query={'match': {'name': 'coffee'}})
+
+    assert response == RESPONSE_DICT
+    assert exporter.exported_spans == []
