@@ -195,6 +195,13 @@ def test_missing_route_has_method_only(exporter: TestExporter) -> None:
     )
 
 
+def test_route_path_preserves_whitespace() -> None:
+    plugin = cast(OpenTelemetryPlugin, logfire.instrument_litestar())
+    app = Litestar(route_handlers=[health])
+
+    assert plugin.config.scope_span_details_extractor({'app': app, 'method': 'GET', 'path': '/health '}) == ('GET', {})
+
+
 def test_root_path_is_included_in_canonical_route(exporter: TestExporter) -> None:
     with TestClient(make_app(), root_path='/api') as client:
         assert client.get('/api/users/1').status_code == 200

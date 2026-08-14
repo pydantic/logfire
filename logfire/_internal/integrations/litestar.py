@@ -46,7 +46,7 @@ def _route_details(scope: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     from litestar.utils import normalize_path
 
     method = str(scope.get('method', '')).strip()
-    path = str(scope.get('path', '')).strip()
+    path = str(scope.get('path', ''))
     root_path = str(scope.get('root_path', '')).rstrip('/')
     if root_path and (path == root_path or path.startswith(f'{root_path}/')):
         path = path[len(root_path) :] or '/'
