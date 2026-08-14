@@ -49,19 +49,20 @@ Run your program, then open your project in the
 should see a span for the `GET` request. Click it to see the URL, response status, and how long it
 took.
 
-## Capture request and response bodies
+## Capture headers and bodies
 
 !!! warning
-    Request and response bodies can contain passwords, tokens, personally identifiable information
-    (PII), and other private data. Enabling body capture records that data and sends it from your
-    machine to Logfire. [Scrubbing](../../how-to-guides/scrubbing.md) means automatically finding
-    and hiding sensitive values (passwords, tokens, and PII) in your telemetry, on your machine,
-    before anything is sent. It is on by default, but it may not recognize every sensitive value.
-    Review what your application sends before enabling body capture.
+    Request and response headers and bodies can contain passwords, tokens, personally identifiable
+    information (PII), and other private data. Enabling their capture records that data and sends it
+    from your machine to Logfire. [Scrubbing](../../how-to-guides/scrubbing.md) means automatically
+    finding and hiding sensitive values (passwords, tokens, and PII) in your telemetry, on your
+    machine, before anything is sent. It is on by default, but it may not recognize every sensitive
+    value. Review what your application sends before enabling header or body capture.
 
-By default, Logfire does not capture bodies. Use `capture_request_body=True` or
-`capture_response_body=True` to select one direction. Use `capture_all=True` to capture both bodies;
-for this integration, `capture_all` means bodies only, not headers.
+By default, Logfire does not capture headers or bodies. Use `capture_request_body=True` or
+`capture_response_body=True` to select one body direction. Use `capture_headers=True` to capture
+request and response headers. As with the HTTPX integration, `capture_all=True` captures all headers
+and both bodies.
 
 ```py title="main.py" hl_lines="6-9" skip-run="true" skip-reason="external-connection"
 import requests
@@ -78,10 +79,10 @@ requests.post('https://httpbin.org/post', json={'message': 'hello'})
 ```
 
 Logfire captures only bodies that Requests already holds in memory. It does not read file objects,
-generators, multipart bodies, or streamed responses. The integration does not impose an additional
-body-size limit, so the complete in-memory body is recorded and counts toward Logfire's normal span
-attribute and ingestion limits. For byte bodies, invalid or unknown character encodings cause that
-body to be skipped rather than decoded with replacement characters.
+generators, multipart bodies, or streamed responses. Bodies larger than 1 MiB are skipped before
+decoding so body capture cannot create an unbounded copy in a span. For byte bodies, invalid or
+unknown character encodings cause that body to be skipped rather than decoded with replacement
+characters.
 
 ## Troubleshooting
 

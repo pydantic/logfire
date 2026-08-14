@@ -31,7 +31,12 @@ def instrument_requests(monkeypatch: pytest.MonkeyPatch):
         response.headers = request.headers
         response.request = request
         if not kwargs.get('stream'):
-            response._content = b'{"password":"secret","value":1}'
+            if str(request.url).endswith('/empty'):
+                response._content = b''
+            elif str(request.url).endswith('/large'):
+                response._content = b'x' * (1024 * 1024 + 1)
+            else:
+                response._content = b'{"password":"secret","value":1}'
         return response
 
     transport_error = requests.ConnectionError('transport')
@@ -184,24 +189,28 @@ def _request_span(exporter: TestExporter) -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
-    ('options', 'request_captured', 'response_captured'),
+    ('options', 'headers_captured', 'request_captured', 'response_captured'),
     [
-        ({}, False, False),
-        ({'capture_request_body': True}, True, False),
-        ({'capture_response_body': True}, False, True),
-        ({'capture_all': True}, True, True),
+        ({}, False, False, False),
+        ({'capture_headers': True}, True, False, False),
+        ({'capture_request_body': True}, False, True, False),
+        ({'capture_response_body': True}, False, False, True),
+        ({'capture_all': True}, True, True, True),
     ],
 )
 def test_body_capture_flags(
     exporter: TestExporter,
     instrument_requests: Any,
     options: dict[str, bool],
+    headers_captured: bool,
     request_captured: bool,
     response_captured: bool,
 ) -> None:
     instrument_requests(**options)
-    requests.post('https://example.org', data='request text')
+    requests.post('https://example.org', data='request text', headers={'X-Test': 'header value'})
     attributes = _request_span(exporter)['attributes']
+    assert ('http.request.header.x-test' in attributes) is headers_captured
+    assert ('http.response.header.x-test' in attributes) is headers_captured
     assert ('http.request.body.text' in attributes) is request_captured
     assert ('http.response.body.text' in attributes) is response_captured
 
@@ -240,19 +249,54 @@ def test_body_types_and_charsets(exporter: TestExporter, instrument_requests: An
         headers={'Content-Type': 'text/plain; charset=latin-1'},
     )
     requests.post('https://example.org/memoryview', data=memoryview(b'view'))
+    requests.post(
+        'https://example.org/memoryview-bad',
+        data=memoryview(b'\xff'),
+        headers={'Content-Type': 'text/plain; charset=utf-8'},
+    )
     # Requests accepts bytearray at runtime even though types-requests omits it from `_Data`.
     requests.post('https://example.org/bytearray', data=bytearray(b'array'))  # pyright: ignore[reportArgumentType]
     requests.post('https://example.org/bad', data=b'\xff', headers={'Content-Type': 'text/plain; charset=utf-8'})
     requests.post('https://example.org/unknown', data=b'body', headers={'Content-Type': 'text/plain; charset=unknown'})
+    requests.post(
+        'https://example.org/invalid-parameter',
+        data='café'.encode('latin-1'),
+        headers={'Content-Type': 'text/plain; invalid; charset=latin-1'},
+    )
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert [span['attributes'].get('http.request.body.text') for span in spans] == [
         'café',
         'café',
         'view',
+        None,
         'array',
         None,
         None,
+        'café',
     ]
+
+
+def test_empty_and_large_bodies_are_skipped(exporter: TestExporter, instrument_requests: Any) -> None:
+    instrument_requests(capture_all=True)
+    requests.post('https://example.org/empty', data=b'')
+    requests.post('https://example.org/large', data=b'x' * (1024 * 1024 + 1))
+    requests.post('https://example.org/large-str', data='x' * (1024 * 1024 + 1))
+    requests.post('https://example.org/large-memoryview', data=memoryview(b'x' * (1024 * 1024 + 1)))
+
+    for span in exporter.exported_spans_as_dict():
+        assert 'http.request.body.text' not in span['attributes']
+
+    first_two_spans = exporter.exported_spans_as_dict()[:2]
+    assert all('http.response.body.text' not in span['attributes'] for span in first_two_spans)
+
+
+@pytest.mark.parametrize('body', ['', memoryview(b'')])
+def test_other_empty_body_types_are_skipped(body: Any) -> None:
+    span = mock.Mock(spec=Span)
+    logfire._internal.integrations.requests._capture_body(  # pyright: ignore[reportPrivateUsage]
+        span, body, None, 'http.request.body.text'
+    )
+    span.set_attribute.assert_not_called()
 
 
 @pytest.mark.parametrize('content_type', ['multipart/form-data; boundary=x', 'multipart/mixed', 'multipart/related'])
@@ -323,5 +367,5 @@ def test_warning_stacklevel_and_signature(instrument_requests: Any) -> None:
         warnings.simplefilter('always')
         instrument_requests(capture_all=True, capture_request_body=True)
     assert caught[-1].filename == __file__
-    parameters = list(inspect.signature(logfire.instrument_requests).parameters.values())
-    assert parameters[3].kind is inspect.Parameter.KEYWORD_ONLY
+    capture_all = inspect.signature(logfire.instrument_requests).parameters['capture_all']
+    assert capture_all.kind is inspect.Parameter.KEYWORD_ONLY

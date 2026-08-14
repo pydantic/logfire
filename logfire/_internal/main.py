@@ -1728,6 +1728,7 @@ class Logfire:
         response_hook: Callable[[Span, requests.PreparedRequest, requests.Response], None] | None = None,
         *,
         capture_all: bool = False,
+        capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
         **kwargs: Any,
@@ -1738,7 +1739,8 @@ class Logfire:
             excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
-            capture_all: Set to `True` to capture both request and response bodies.
+            capture_all: Set to `True` to capture all HTTP headers, request bodies, and response bodies.
+            capture_headers: Set to `True` to capture all request and response headers.
             capture_request_body: Set to `True` to capture request bodies.
             capture_response_body: Set to `True` to capture response bodies.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
@@ -1751,6 +1753,7 @@ class Logfire:
             request_hook=request_hook,
             response_hook=response_hook,
             capture_all=capture_all,
+            capture_headers=capture_headers,
             capture_request_body=capture_request_body,
             capture_response_body=capture_response_body,
             **{
