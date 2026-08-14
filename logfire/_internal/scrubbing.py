@@ -227,9 +227,17 @@ def _has_numeric_backreference(pattern: str) -> bool:
                     return True
             i += 2
             continue
-        if char == '[':
+        if char == '[' and not in_class:
             in_class = True
-        elif char == ']':
+            i += 1
+            # A `]` at the very start of a class is a member of it rather than the end of it,
+            # as in `[]a]`, and it may follow a negating `^`.
+            if i < len(pattern) and pattern[i] == '^':
+                i += 1
+            if i < len(pattern) and pattern[i] == ']':
+                i += 1
+            continue
+        if char == ']' and in_class:
             in_class = False
         i += 1
     return False

@@ -852,6 +852,9 @@ def test_extra_patterns_invalid_regex_reports_own_position():
         (r'\123', False),  # three octal digits are an octal escape
         (r'\\1', False),  # escaped backslash then a literal digit
         (r'[\1]', False),  # octal escape inside a character class
+        (r'[]a\1]', False),  # a `]` opening a class is a member of it, not the end
+        (r'[^]a\1]', False),
+        (r'[a][b]\1', True),  # two complete classes, then a real backreference
         (r'(?P<a>x)(?P=a)', False),
         (r'\0', False),
         ('plain', False),
