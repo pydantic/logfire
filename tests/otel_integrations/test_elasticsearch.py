@@ -59,7 +59,7 @@ class OfflineNode(BaseNode):
 def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
     client = Elasticsearch('http://localhost:9200', node_class=OfflineNode)
 
-    response = client.search(index='products', query={'match': {'name': 'coffee'}})
+    response = client.search(index='products', query={'match': {'secret': 'coffee'}})
 
     assert response == RESPONSE_DICT
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
@@ -77,7 +77,7 @@ def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
                     'db.operation.parameter.index': 'products',
                     'db.system.name': 'elasticsearch',
                     'db.operation.name': 'search',
-                    'db.query.text': {'query': {'match': {'name': 'coffee'}}},
+                    'db.query.text': {'query': {'match': {'secret': 'coffee'}}},
                     'url.full': 'http://localhost:9200/products/_search',
                     'http.request.method': 'POST',
                     'server.address': 'localhost',
