@@ -278,7 +278,7 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
             [record] = test_logging_handler.logs
             # This is the message logged by OTEL, in BatchSpanProcessor.on_end, same as above.
             # Newer OTel versions don't log it any more.
-            assert record.message == 'Already shutdown, dropping span.'
+            assert record.message in ('Already shutdown, dropping span.', 'Shutdown called, ignoring Span.')
 
         assert not exporter.exported_spans
 

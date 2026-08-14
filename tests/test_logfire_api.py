@@ -257,6 +257,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         getattr(logfire_api, member)(app=MagicMock())
         logfire__all__.remove(member)
 
+    assert hasattr(logfire_api, 'instrument_litestar')
+    if module_name == 'logfire_api.':
+        assert logfire_api.instrument_litestar() is None
+    logfire__all__.remove('instrument_litestar')
+
     assert hasattr(logfire_api, 'instrument_fastapi')
     if get_version(pydantic_version) >= get_version('2.7.0'):
         logfire_api.instrument_fastapi(app=MagicMock())

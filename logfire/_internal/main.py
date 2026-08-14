@@ -86,6 +86,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
+    from litestar.plugins import InitPluginProtocol
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
@@ -99,6 +100,8 @@ if TYPE_CHECKING:
     from surrealdb.connections.async_template import AsyncTemplate
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
+
+    from logfire.integrations.litestar import LitestarInstrumentKwargs
 
     from ..experimental.forwarding import ForwardExportRequestResponse
     from ..integrations.aiohttp_client import (
@@ -1841,6 +1844,43 @@ class Logfire:
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
             },
+        )
+
+    def instrument_litestar(
+        self,
+        *,
+        capture_headers: bool = False,
+        record_send_receive: bool = False,
+        server_request_hook: ServerRequestHook | None = None,
+        client_request_hook: ClientRequestHook | None = None,
+        client_response_hook: ClientResponseHook | None = None,
+        **kwargs: Unpack[LitestarInstrumentKwargs],
+    ) -> InitPluginProtocol:
+        """Return a Litestar OpenTelemetry plugin that records requests with Logfire.
+
+        Add the returned plugin to the ``plugins`` argument when constructing your
+        Litestar application. Additional keyword arguments configure Litestar's
+        ``OpenTelemetryConfig``.
+
+        Args:
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to record low-level ASGI send and receive spans.
+            server_request_hook: Called after the server span is created.
+            client_request_hook: Called for each ASGI receive event.
+            client_response_hook: Called for each ASGI send event.
+            **kwargs: Additional options for Litestar's OpenTelemetry configuration.
+        """
+        from .integrations.litestar import instrument_litestar
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_litestar(
+            self,
+            capture_headers=capture_headers,
+            record_send_receive=record_send_receive,
+            server_request_hook=server_request_hook,
+            client_request_hook=client_request_hook,
+            client_response_hook=client_response_hook,
+            **kwargs,
         )
 
     def instrument_starlette(

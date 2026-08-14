@@ -42,6 +42,8 @@ from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
+from litestar.plugins import InitPluginProtocol
+from logfire.integrations.litestar import LitestarInstrumentKwargs as LitestarInstrumentKwargs
 from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
@@ -795,6 +797,21 @@ class Logfire:
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
+        """
+    def instrument_litestar(self, *, capture_headers: bool = False, record_send_receive: bool = False, server_request_hook: ServerRequestHook | None = None, client_request_hook: ClientRequestHook | None = None, client_response_hook: ClientResponseHook | None = None, **kwargs: Unpack[LitestarInstrumentKwargs]) -> InitPluginProtocol:
+        """Return a Litestar OpenTelemetry plugin that records requests with Logfire.
+
+        Add the returned plugin to the ``plugins`` argument when constructing your
+        Litestar application. Additional keyword arguments configure Litestar's
+        ``OpenTelemetryConfig``.
+
+        Args:
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to record low-level ASGI send and receive spans.
+            server_request_hook: Called after the server span is created.
+            client_request_hook: Called for each ASGI receive event.
+            client_response_hook: Called for each ASGI send event.
+            **kwargs: Additional options for Litestar's OpenTelemetry configuration.
         """
     def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, server_request_hook: ServerRequestHook | None = None, client_request_hook: ClientRequestHook | None = None, client_response_hook: ClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
