@@ -3276,6 +3276,8 @@ class LogfireSpan(ReadableSpan):
 
         if self._span is None:
             self._links += [trace_api.Link(context=resolved_context, attributes=attributes)]
+        elif not self._span.is_recording():
+            raise RuntimeError('Cannot add a span link: the destination span has already ended.')
         else:
             self._span.add_link(resolved_context, attributes)
 

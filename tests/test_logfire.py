@@ -3233,6 +3233,9 @@ def test_span_add_link_after_start(exporter: TestExporter):
     with logfire.span('destination') as span:
         span.add_link(SpanContext(1, 2, False))
 
+    with pytest.raises(RuntimeError, match='destination span has already ended'):
+        span.add_link(SpanContext(1, 3, False))
+
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
