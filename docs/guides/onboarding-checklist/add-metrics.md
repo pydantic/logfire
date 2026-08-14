@@ -148,6 +148,77 @@ def set_temperature(value: float):
 
 You can read more about the Gauge metric in the [OpenTelemetry documentation][gauge-metric].
 
+#### Poll an async source
+
+OpenTelemetry observable callbacks must return synchronously when the metrics SDK collects them. They run on an SDK
+thread, where awaiting a coroutine would block collection and an unawaited coroutine would not produce an observation.
+If a metric value comes from an async API, let your application's lifecycle own a polling task and update a normal
+[`logfire.metric_gauge`][logfire.Logfire.metric_gauge].
+
+This runnable example reads an async value, records one observation, then exits. Before you run it, select a project
+with `logfire projects use <project-name>`, or set `LOGFIRE_TOKEN` to a write token (the credential your deployed app
+uses to send data to a Logfire project) from **Project → Settings → Write tokens**. `logfire.configure()` configures
+that project as the export destination. In the example, `queue_depth.set(...)` records the measurement and
+`logfire.force_flush()` asks Logfire to export it immediately before the process exits.
+
+```py
+import asyncio
+
+import logfire
+
+logfire.configure()
+
+queue_depth = logfire.metric_gauge(
+    'jobs.queue_depth',
+    unit='1',
+    description='Number of jobs waiting to run',
+)
+
+
+async def read_queue_depth() -> int:
+    """Replace this with a call to your async client."""
+    await asyncio.sleep(0.01)
+    return 7
+
+
+async def main() -> None:
+    queue_depth.set(await read_queue_depth())
+
+
+asyncio.run(main())
+logfire.force_flush()
+```
+
+Run the script to record one `jobs.queue_depth` point with the value `7`. Open [**Metrics** in the project
+sidebar](../web-ui/metrics-explorer.md) to find it under the `jobs` namespace. A line becomes visible after a long-running
+poller records multiple points. Replace `read_queue_depth()` with your async client call.
+In a long-running application, put the read and `set()` call in a `while True` loop with your normal polling interval.
+Start that loop as a background task with the application's startup hook. The code that starts the task must retain it,
+cancel it during shutdown, and await the cancelled task so its cleanup can finish.
+
+Long-running pollers usually use **fixed-delay polling**: each delay starts after the previous read finishes. Slow reads
+therefore move later polls, but one task never overlaps two reads. **Fixed-rate polling** instead calculates each start
+time from a clock so that polls target a regular schedule. If a read takes longer than one interval, skip a missed run
+or continue late. Do not start concurrent reads unless the source, gauge labels, timeout, and shutdown behavior are
+designed for overlap.
+
+Decide how failures should affect the metric before deploying a poller:
+
+- Catch expected source exceptions inside the loop so that one failure does not silently end the task. Add a timeout,
+  exponential backoff, and limited retry logging when the source can remain unavailable.
+- A failed poll records no new point. A query over a wider time range can still include the previous successful point,
+  so it may be mistaken for a current value. Record a separate last-success timestamp or poll-success metric if
+  consumers need to detect staleness.
+- Do not catch `BaseException`. `asyncio.CancelledError` then stops the loop. If you catch cancellation to run
+  poller-specific cleanup, always re-raise it.
+- Each worker process creates its own task and metric series. Add a worker-identifying attribute when you need separate
+  values, or aggregate the per-worker series in your query. Do not interpret one worker's gauge as a process-wide or
+  cluster-wide value.
+
+Use an [observable callback][gauge-callback-metric] only when reading the value is synchronous, quick, and safe for the
+metrics SDK to invoke. Lifecycle-owned polling keeps async I/O on the application's event loop and does not require a
+new async callback API.
+
 ### Callback Metrics
 
 Callback metrics, or observable metrics, are a way to create metrics that are automatically emitted every 60 seconds in
