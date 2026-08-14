@@ -55,12 +55,22 @@ def _route_details(scope: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     except HTTPException:  # Litestar uses HTTP exceptions to represent 404s and method mismatches.
         return method, {}
 
-    path_template = routing_result[-1] or path
+    path_template = routing_result[-1]
+    route_handler = routing_result[1]
+    if not path_template and getattr(route_handler, 'is_mount', False):
+        mount_paths = (
+            str(mount_path)
+            for mount_path in getattr(route_handler, 'paths', ())
+            if path == str(mount_path) or path.startswith(f'{str(mount_path).rstrip("/")}/')
+        )
+        path_template = max(mount_paths, key=len, default='')
+    path_template = path_template or path
     if not path_template:
         path_template = '/'
     path_template = '/' + str(path_template).lstrip('/')
     route = f'{root_path}{path_template}' or '/'
-    return f'{method} {route}', {'http.route': route}
+    span_name = f'{method} {route}' if method else route
+    return span_name, {'http.route': route}
 
 
 def instrument_litestar(
