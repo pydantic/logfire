@@ -2623,6 +2623,7 @@ litellm = [
 litestar = [
     { name = "litestar" },
     { name = "opentelemetry-instrumentation-asgi" },
+    { name = "pydantic" },
 ]
 mysql = [
     { name = "opentelemetry-instrumentation-mysql" },
@@ -2806,6 +2807,7 @@ requires-dist = [
     { name = "packaging", marker = "extra == 'psycopg2'" },
     { name = "protobuf", specifier = ">=4.23.4" },
     { name = "pydantic", marker = "extra == 'datasets'", specifier = ">=2" },
+    { name = "pydantic", marker = "extra == 'litestar'", specifier = ">=2.5" },
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "pydantic-evals", marker = "extra == 'datasets'", specifier = ">=1.0.0" },
     { name = "pydantic-handlebars", marker = "extra == 'variables'", specifier = ">=0.2.1" },

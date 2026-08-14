@@ -7,6 +7,13 @@ from typing import Annotated, Any, Protocol, cast
 from unittest import mock
 
 import pytest
+
+pytest.importorskip(
+    'pydantic',
+    minversion='2.5',
+    reason='Litestar 2.11 and later require Pydantic 2.5 or later.',
+)
+
 from litestar import Litestar, Request, get, post
 from litestar.params import Parameter
 from litestar.testing import TestClient
