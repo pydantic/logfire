@@ -477,8 +477,8 @@ def _partition_for_path(path: str, partitions: Iterable[DiskPartition]) -> DiskP
     for partition in partitions:
         raw_mountpoint = partition.mountpoint
         path_module = ntpath if _is_windows_path(path) or _is_windows_path(raw_mountpoint) else os.path
-        normalized_path = path_module.normcase(path_module.abspath(path))
-        mountpoint = path_module.normcase(path_module.abspath(raw_mountpoint))
+        normalized_path = path_module.normcase(path_module.realpath(path_module.abspath(path)))
+        mountpoint = path_module.normcase(path_module.realpath(path_module.abspath(raw_mountpoint)))
         if path_module is ntpath:
             boundary = mountpoint.rstrip('\\/') + '\\'
             contains = normalized_path == mountpoint or normalized_path.startswith(boundary)
@@ -493,7 +493,11 @@ def _partition_for_path(path: str, partitions: Iterable[DiskPartition]) -> DiskP
 
 
 def _is_windows_path(path: str) -> bool:
-    return path.startswith(('\\\\', '//')) or bool(ntpath.splitdrive(path)[0])
+    if path.startswith('\\\\'):
+        return True
+    if path.startswith('//'):
+        return os.name == 'nt'
+    return bool(ntpath.splitdrive(path)[0])
 
 
 def _absolute_path(path: str) -> str:

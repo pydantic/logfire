@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import NamedTuple
 
 import psutil
@@ -607,6 +608,33 @@ def test_partition_for_path_tolerates_commonpath_value_error(monkeypatch: pytest
         '/work/app', [Partition('/dev/data', '/work', 'ext4', 'rw')]
     )
     assert partition is None
+
+
+def test_partition_for_path_resolves_symlinks(tmp_path: Path) -> None:
+    volume = tmp_path / 'volume'
+    app = volume / 'app'
+    app.mkdir(parents=True)
+    symlink = tmp_path / 'symlink'
+    symlink.symlink_to(volume, target_is_directory=True)
+
+    partition = system_metrics._partition_for_path(  # pyright: ignore[reportPrivateUsage]
+        str(symlink / 'app'),
+        [
+            Partition('/dev/root', '/', 'ext4', 'rw'),
+            Partition('/dev/volume', str(volume), 'ext4', 'rw'),
+        ],
+    )
+
+    assert partition is not None
+    assert partition.device == '/dev/volume'
+
+
+@pytest.mark.parametrize(('os_name', 'expected'), [('posix', False), ('nt', True)])
+def test_forward_slash_unc_detection_depends_on_platform(
+    os_name: str, expected: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(system_metrics.os, 'name', os_name)
+    assert system_metrics._is_windows_path('//srv/data') is expected  # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.parametrize(
