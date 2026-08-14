@@ -9,9 +9,9 @@ See every request your application makes to Elasticsearch, including its operati
 outcome, and target, as a **span** (one unit of work: a single operation, with a name, a start, and a
 duration) in Logfire.
 
-The Elasticsearch Python client has native **OpenTelemetry (OTel)** support from version 8.15. OTel
-is the open industry standard for collecting traces, metrics, and logs. The client creates its own
-spans through the active global tracer provider, so you do not need a Logfire wrapper or the older
+Logfire is built on **OpenTelemetry (OTel)**, the open industry standard for collecting traces,
+metrics, and logs. From version 8.15, the Elasticsearch Python client uses OTel directly to create
+spans through the active global tracer provider. You do not need a Logfire wrapper or the older
 `opentelemetry-instrumentation-elasticsearch` package.
 
 {{ before_you_start() }}
