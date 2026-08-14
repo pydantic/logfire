@@ -1,10 +1,11 @@
+import json
 from typing import Any, NamedTuple
 
 from elastic_transport import ApiResponseMeta, BaseNode, HttpHeaders
 from elasticsearch import Elasticsearch
 from inline_snapshot import snapshot
 
-from logfire._internal.exporters.test import TestExporter
+from logfire.testing import TestExporter
 
 
 class OfflineNodeResponse(NamedTuple):
@@ -12,6 +13,14 @@ class OfflineNodeResponse(NamedTuple):
 
     meta: ApiResponseMeta
     body: bytes
+
+
+RESPONSE_DICT: dict[str, Any] = {
+    'took': 1,
+    'timed_out': False,
+    '_shards': {'total': 1, 'successful': 1, 'skipped': 0, 'failed': 0},
+    'hits': {'total': {'value': 0, 'relation': 'eq'}, 'max_score': None, 'hits': []},
+}
 
 
 class OfflineNode(BaseNode):
@@ -38,11 +47,7 @@ class OfflineNode(BaseNode):
             duration=0.001,
             node=self.config,
         )
-        response = (
-            b'{"took":1,"timed_out":false,'
-            b'"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},'
-            b'"hits":{"total":{"value":0,"relation":"eq"},"max_score":null,"hits":[]}}'
-        )
+        response = json.dumps(RESPONSE_DICT).encode()
         # `BaseNode.perform_request()` documents this public tuple protocol even
         # though elastic-transport's concrete return type is private.
         return OfflineNodeResponse(meta, response)
@@ -53,7 +58,7 @@ def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
 
     response = client.search(index='products', query={'match': {'name': 'coffee'}})
 
-    assert response['hits']['total']['value'] == 0
+    assert response == RESPONSE_DICT
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert spans == snapshot(
         [
