@@ -14,6 +14,8 @@ from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 
+from logfire.exceptions import LogfireConfigError
+
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -205,12 +207,83 @@ class NoopScrubber(BaseScrubber):
 NOOP_SCRUBBER = NoopScrubber()
 
 
+def _has_numeric_backreference(pattern: str) -> bool:
+    r"""Whether `pattern` contains a backreference to a group by number, e.g. the `\1` in `(a)\1`.
+
+    Escapes and character classes are tracked because `\1` inside `[...]` is an octal escape,
+    and `\\1` is a literal backslash followed by a digit. Neither is a backreference.
+    """
+    in_class = False
+    i = 0
+    while i < len(pattern):
+        char = pattern[i]
+        if char == '\\' and i + 1 < len(pattern):
+            if not in_class and pattern[i + 1] in '123456789':
+                return True
+            i += 2
+            continue
+        if char == '[':
+            in_class = True
+        elif char == ']':
+            in_class = False
+        i += 1
+    return False
+
+
+def _check_extra_patterns(patterns: Sequence[str] | None) -> list[str]:
+    """Check user-supplied scrubbing patterns, raising `LogfireConfigError` on ones that can't work.
+
+    The patterns are joined into a single regex, so a mistake in one of them changes the behaviour of
+    the whole scrubber. Checking each pattern on its own here means the error can name the pattern
+    that caused it, and means these mistakes fail at configuration time instead of silently either
+    redacting everything or redacting nothing.
+    """
+    if patterns is None:
+        return []
+
+    if isinstance(patterns, str):
+        # `str` satisfies `Sequence[str]`, so this type checks cleanly, and then iterating the string
+        # turns 'password' into the alternation `p|a|s|s|w|o|r|d`, which matches nearly all text.
+        raise LogfireConfigError(
+            f'`extra_patterns` must be a sequence of regular expressions, not a single string. '
+            f'Use `extra_patterns=[{patterns!r}]` to pass one pattern.'
+        )
+
+    checked: list[str] = []
+    for pattern in patterns:
+        try:
+            compiled = re.compile(pattern, re.IGNORECASE | re.DOTALL)
+        except re.error as e:
+            # Compiling here rather than after joining means the position in the message refers to
+            # this pattern, not to an offset within the combined pattern.
+            raise LogfireConfigError(f'Invalid regular expression in `extra_patterns`: {pattern!r}: {e}') from e
+
+        if compiled.search('') is not None:
+            raise LogfireConfigError(
+                f'The `extra_patterns` entry {pattern!r} matches the empty string, so it would match every '
+                f'value and redact all telemetry. Did you mean `+` where you wrote `*`?'
+            )
+
+        if _has_numeric_backreference(pattern):
+            # All the patterns share one group numbering space once they're joined, so a numeric
+            # backreference points at a group from another pattern and the pattern never matches.
+            raise LogfireConfigError(
+                f'The `extra_patterns` entry {pattern!r} contains a backreference to a group by number. '
+                f'Patterns are combined into a single regex, so numbered groups from different patterns '
+                f'would collide. Use a named group instead, e.g. `(?P<name>...)` and `(?P=name)`.'
+            )
+
+        checked.append(pattern)
+
+    return checked
+
+
 class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
         # See ScrubbingOptions for more info on these parameters.
-        patterns = [_DEFAULT_PATTERN, *(patterns or [])]
+        patterns = [_DEFAULT_PATTERN, *_check_extra_patterns(patterns)]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
 
