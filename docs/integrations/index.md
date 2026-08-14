@@ -34,7 +34,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
 - _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
-- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
+- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch
 - _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
@@ -67,6 +67,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [BigQuery](databases/bigquery.md)         | Database                | N/A (built in, no config needed)                                                                                                                                       |
 | [Celery](event-streams/celery.md)         | Task Queue              | [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery]                                                                                                     |
 | [Django](web-frameworks/django.md)        | Web Framework           | [`logfire.instrument_django()`][logfire.Logfire.instrument_django]                                                                                                     |
+| [Elasticsearch](databases/elasticsearch.md) | Database              | N/A (native OpenTelemetry support in the client)                                                                                                                       |
 | [FastAPI](web-frameworks/fastapi.md)      | Web Framework           | [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi]                                                                                                   |
 | [FastStream](event-streams/faststream.md) | Task Queue              | N/A (built in, config needed)                                                                                                                                          |
 | [Flask](web-frameworks/flask.md)          | Web Framework           | [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask]                                                                                                       |

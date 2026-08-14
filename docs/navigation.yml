@@ -333,6 +333,9 @@ navigation:
           - page: "BigQuery"
             path: "integrations/databases/bigquery.md"
             slug: "integrations/databases/bigquery"
+          - page: "Elasticsearch"
+            path: "integrations/databases/elasticsearch.md"
+            slug: "integrations/databases/elasticsearch"
       - section: "HTTP Clients"
         contents:
           - page: "HTTPX"

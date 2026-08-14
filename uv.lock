@@ -1266,6 +1266,36 @@ wheels = [
 ]
 
 [[package]]
+name = "elastic-transport"
+version = "9.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "sniffio" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/52/be/a719a217ed7f179c9e41821dff9dfd28415b21bc94da9d35fff84f7951b2/elastic_transport-9.4.2.tar.gz", hash = "sha256:366f4614f4544c5fb5d780c82f57af8f30492b44a68ed20750390aa81e20c2ea", size = 79310, upload-time = "2026-06-16T15:27:17.182Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/e4/9b7ef7a8e0bb416e0fe1879c92295041cf81e5a47e3c3110744e89b6eb35/elastic_transport-9.4.2-py3-none-any.whl", hash = "sha256:33dc89bb1855faa8b98ae8b036405a39c562778dbcdbe4a00a2eaf753148556c", size = 66314, upload-time = "2026-06-16T15:27:15.875Z" },
+]
+
+[[package]]
+name = "elasticsearch"
+version = "9.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "elastic-transport" },
+    { name = "python-dateutil" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1a/f6/23e897503cbd9c22bb21cdba480160987909d2137efeeb41582b776898d4/elasticsearch-9.5.0.tar.gz", hash = "sha256:c37576ba04d04200a05012db99bc99024000ae15b9ebdd683966aa8a0e6cd1c4", size = 923577, upload-time = "2026-08-04T17:55:58.552Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/8c/d84fe1f2a6f60ce1fbc682a2e98776575d7b73e60680ac5aa90f53052466/elasticsearch-9.5.0-py3-none-any.whl", hash = "sha256:010e04f44fd161428f0ab7f94b93a533d3dcc3285d02c9df509b4e0127916420", size = 1011512, upload-time = "2026-08-04T17:55:54.792Z" },
+]
+
+[[package]]
 name = "email-validator"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2632,6 +2662,7 @@ dev = [
     { name = "django", version = "5.2.16", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "django", version = "6.0.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "dspy" },
+    { name = "elasticsearch" },
     { name = "eval-type-backport" },
     { name = "fastapi" },
     { name = "faststream", extra = ["redis"] },
@@ -2781,6 +2812,7 @@ dev = [
     { name = "dirty-equals", specifier = ">=0.8.0" },
     { name = "django", specifier = ">=4.2.16" },
     { name = "dspy", specifier = ">=3.1.0" },
+    { name = "elasticsearch", specifier = ">=8.15" },
     { name = "eval-type-backport", specifier = ">=0.2.0" },
     { name = "fastapi", specifier = "!=0.124.3,!=0.124.4" },
     { name = "faststream", extras = ["redis"], specifier = ">=0.5.0" },
