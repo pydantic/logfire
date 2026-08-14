@@ -758,13 +758,30 @@ def test_extra_patterns_rejects_bare_string():
         Scrubber('password')
     assert str(exc_info.value) == snapshot(
         '`extra_patterns` must be a sequence of regular expressions, not a single string. '
-        "Use `extra_patterns=['password']` to pass one pattern."
+        'A string is itself a sequence, so it would be read one character at a time. '
+        'Wrap it in a list to pass a single pattern.'
     )
 
 
-@pytest.mark.parametrize('pattern', ['', '[0-9]*', 'x*', '(?:)'])
-def test_extra_patterns_rejects_empty_matching_pattern(pattern: str):
-    with pytest.raises(LogfireConfigError, match='matches the empty string'):
+def test_extra_patterns_rejects_non_string_entry():
+    with pytest.raises(LogfireConfigError) as exc_info:
+        Scrubber(['fine', 123])  # pyright: ignore[reportArgumentType]
+    assert str(exc_info.value) == snapshot('The `extra_patterns` entry at index 1 is a int, but it must be a string.')
+
+
+@pytest.mark.parametrize(
+    'pattern',
+    [
+        '',
+        '[0-9]*',
+        'x*',
+        '(?:)',
+        r'\b',  # only matches an empty span once there's a subject
+        '(?=.)',
+    ],
+)
+def test_extra_patterns_rejects_pattern_matching_nothing(pattern: str):
+    with pytest.raises(LogfireConfigError, match='can match without consuming any characters'):
         Scrubber([pattern])
 
 
@@ -774,7 +791,7 @@ def test_extra_patterns_rejects_numeric_backreference():
     with pytest.raises(LogfireConfigError) as exc_info:
         Scrubber(['(a)', r'(b)\1'])
     assert str(exc_info.value) == snapshot(
-        "The `extra_patterns` entry '(b)\\\\1' contains a backreference to a group by number. "
+        'The `extra_patterns` entry at index 1 contains a backreference to a group by number. '
         'Patterns are combined into a single regex, so numbered groups from different patterns '
         'would collide. Use a named group instead, e.g. `(?P<name>...)` and `(?P=name)`.'
     )
@@ -785,13 +802,22 @@ def test_extra_patterns_named_backreference_is_allowed():
     assert scrubber.scrub_value(('attributes', 'x'), 'value with bb inside')[0] == snapshot("[Scrubbed due to 'bb']")
 
 
+def test_extra_patterns_octal_escape_is_allowed():
+    # `\123` is the character `S`, not a backreference to group 123.
+    scrubber = Scrubber([r'sea\123hell'])
+    assert scrubber.scrub_value(('attributes', 'x'), 'the seaShell value')[0] == snapshot(
+        "[Scrubbed due to 'seaShell']"
+    )
+
+
 def test_extra_patterns_invalid_regex_reports_own_position():
     # Compiling each pattern separately means the reported position is an offset into the user's
     # pattern rather than into the combined pattern.
     with pytest.raises(LogfireConfigError) as exc_info:
         Scrubber(['foo('])
     assert str(exc_info.value) == snapshot(
-        "Invalid regular expression in `extra_patterns`: 'foo(': missing ), unterminated subpattern at position 3"
+        'The `extra_patterns` entry at index 0 is not a valid regular expression: '
+        'missing ), unterminated subpattern at position 3'
     )
 
 
@@ -800,6 +826,7 @@ def test_extra_patterns_invalid_regex_reports_own_position():
     [
         (r'(a)\1', True),
         (r'(a)\9', True),
+        (r'\123', False),  # three octal digits are an octal escape
         (r'\\1', False),  # escaped backslash then a literal digit
         (r'[\1]', False),  # octal escape inside a character class
         (r'(?P<a>x)(?P=a)', False),

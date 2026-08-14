@@ -212,6 +212,7 @@ def _has_numeric_backreference(pattern: str) -> bool:
 
     Escapes and character classes are tracked because `\1` inside `[...]` is an octal escape,
     and `\\1` is a literal backslash followed by a digit. Neither is a backreference.
+    Three octal digits are an octal escape too, so `\123` is the character `S`, not a backreference.
     """
     in_class = False
     i = 0
@@ -219,7 +220,9 @@ def _has_numeric_backreference(pattern: str) -> bool:
         char = pattern[i]
         if char == '\\' and i + 1 < len(pattern):
             if not in_class and pattern[i + 1] in '123456789':
-                return True
+                escape = pattern[i + 1 : i + 4]
+                if not (len(escape) == 3 and all(digit in '01234567' for digit in escape)):
+                    return True
             i += 2
             continue
         if char == '[':
@@ -230,13 +233,34 @@ def _has_numeric_backreference(pattern: str) -> bool:
     return False
 
 
+# Ordinary characters covering the classes a pattern is most likely to be written against.
+# A pattern that matches an empty span anywhere in here matches an empty span in most values.
+_ZERO_WIDTH_PROBE = 'aA0_ -.'
+
+
+def _matches_without_consuming(compiled: re.Pattern[str]) -> bool:
+    r"""Whether `compiled` can match without consuming any characters.
+
+    Such a pattern reports a match on values containing nothing sensitive, so every value is
+    redacted, with an empty string as the reason. `search('')` catches the patterns that match
+    the empty string outright, such as `[0-9]*`. Patterns like `\b` and `(?=.)` need a non-empty
+    subject before they match an empty span, which is what the probe is for.
+    """
+    if compiled.search('') is not None:
+        return True
+    return any(match.group(0) == '' for match in compiled.finditer(_ZERO_WIDTH_PROBE))
+
+
 def _check_extra_patterns(patterns: Sequence[str] | None) -> list[str]:
     """Check user-supplied scrubbing patterns, raising `LogfireConfigError` on ones that can't work.
 
     The patterns are joined into a single regex, so a mistake in one of them changes the behaviour of
-    the whole scrubber. Checking each pattern on its own here means the error can name the pattern
-    that caused it, and means these mistakes fail at configuration time instead of silently either
+    the whole scrubber. Checking each pattern on its own here means the error can say which entry
+    caused it, and means these mistakes fail at configuration time instead of silently either
     redacting everything or redacting nothing.
+
+    The messages identify an entry by its index rather than quoting it, because a pattern may be a
+    literal sensitive value, and an error raised at startup tends to end up in a log.
     """
     if patterns is None:
         return []
@@ -245,32 +269,38 @@ def _check_extra_patterns(patterns: Sequence[str] | None) -> list[str]:
         # `str` satisfies `Sequence[str]`, so this type checks cleanly, and then iterating the string
         # turns 'password' into the alternation `p|a|s|s|w|o|r|d`, which matches nearly all text.
         raise LogfireConfigError(
-            f'`extra_patterns` must be a sequence of regular expressions, not a single string. '
-            f'Use `extra_patterns=[{patterns!r}]` to pass one pattern.'
+            '`extra_patterns` must be a sequence of regular expressions, not a single string. '
+            'A string is itself a sequence, so it would be read one character at a time. '
+            'Wrap it in a list to pass a single pattern.'
         )
 
     checked: list[str] = []
-    for pattern in patterns:
+    for index, pattern in enumerate(patterns):
+        entry = f'The `extra_patterns` entry at index {index}'
+
+        if not isinstance(pattern, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise LogfireConfigError(f'{entry} is a {type(pattern).__name__}, but it must be a string.')
+
         try:
             compiled = re.compile(pattern, re.IGNORECASE | re.DOTALL)
         except re.error as e:
             # Compiling here rather than after joining means the position in the message refers to
             # this pattern, not to an offset within the combined pattern.
-            raise LogfireConfigError(f'Invalid regular expression in `extra_patterns`: {pattern!r}: {e}') from e
+            raise LogfireConfigError(f'{entry} is not a valid regular expression: {e}') from e
 
-        if compiled.search('') is not None:
+        if _matches_without_consuming(compiled):
             raise LogfireConfigError(
-                f'The `extra_patterns` entry {pattern!r} matches the empty string, so it would match every '
-                f'value and redact all telemetry. Did you mean `+` where you wrote `*`?'
+                f'{entry} can match without consuming any characters, so it would match every value '
+                f'and redact all telemetry. Did you mean `+` where you wrote `*`?'
             )
 
         if _has_numeric_backreference(pattern):
             # All the patterns share one group numbering space once they're joined, so a numeric
             # backreference points at a group from another pattern and the pattern never matches.
             raise LogfireConfigError(
-                f'The `extra_patterns` entry {pattern!r} contains a backreference to a group by number. '
-                f'Patterns are combined into a single regex, so numbered groups from different patterns '
-                f'would collide. Use a named group instead, e.g. `(?P<name>...)` and `(?P=name)`.'
+                f'{entry} contains a backreference to a group by number. Patterns are combined into a '
+                f'single regex, so numbered groups from different patterns would collide. '
+                f'Use a named group instead, e.g. `(?P<name>...)` and `(?P=name)`.'
             )
 
         checked.append(pattern)
