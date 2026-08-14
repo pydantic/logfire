@@ -154,6 +154,8 @@ except ImportError:
 
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
+            def instrument_pymssql(self, *args, **kwargs) -> None: ...
+
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
 
             def instrument_sqlite3(self, *args, **kwargs) -> None: ...
@@ -262,6 +264,7 @@ except ImportError:
         instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
         instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
+        instrument_pymssql = DEFAULT_LOGFIRE_INSTANCE.instrument_pymssql
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
         instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp

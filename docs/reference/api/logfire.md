@@ -17,6 +17,7 @@ description: "Introduction to basic Logfire configuration, trace configuration a
             - "!instrument_redis"
             - "!instrument_pymongo"
             - "!instrument_psycopg"
+            - "!instrument_pymssql"
             - "!^with_trace_sample_rate$"
             - "!^_[^_]"
 

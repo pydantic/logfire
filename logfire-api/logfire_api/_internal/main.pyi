@@ -46,7 +46,7 @@ from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext, SpanKind
+from opentelemetry.trace import SpanContext, SpanKind, TracerProvider
 from opentelemetry.util import types as otel_types
 from pydantic_evals.reporting import EvaluationReport
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
@@ -951,6 +951,17 @@ class Logfire:
 
         Returns:
             If a connection is provided, returns the instrumented connection. If no connection is provided, returns None.
+        """
+    def instrument_pymssql(self, *, tracer_provider: TracerProvider | None = None) -> None:
+        """Instrument the `pymssql` module so that spans are automatically created for each operation.
+
+        Uses the
+        [OpenTelemetry PyMSSQL Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymssql/pymssql.html)
+        library, specifically `PyMSSQLInstrumentor().instrument()`. Logfire's configured tracer provider is used by
+        default.
+
+        Args:
+            tracer_provider: The OpenTelemetry tracer provider to use instead of Logfire's configured provider.
         """
     def instrument_system_metrics(self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic') -> None:
         """Collect system metrics.
