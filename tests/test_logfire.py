@@ -3222,11 +3222,16 @@ def test_span_add_link_input_types(exporter: TestExporter):
 
 
 @pytest.mark.parametrize('value', [{}, {'tracestate': 'vendor=value'}, 'not-a-traceparent'])
-def test_span_add_link_rejects_invalid_carrier_without_ambient_fallback(value: dict[str, str] | str):
+def test_span_add_link_ignores_invalid_carrier_without_ambient_fallback(
+    value: dict[str, str] | str, exporter: TestExporter
+) -> None:
     with logfire.span('ambient'):
         span = logfire.span('destination')
-        with pytest.raises(ValueError, match='span context is invalid'):
-            span.add_link(value)
+        span.add_link(value)
+        with span:
+            pass
+
+    assert all('links' not in span for span in exporter.exported_spans_as_dict(parse_json_attributes=True))
 
 
 def test_span_add_link_after_start(exporter: TestExporter):

@@ -3275,6 +3275,8 @@ class LogfireSpan(ReadableSpan):
         else:
             resolved_context = context.get_span_context()
 
+        if not resolved_context.is_valid and isinstance(context, (str, Mapping)):
+            return
         if not resolved_context.is_valid:
             raise ValueError('Cannot add a span link: the span context is invalid.')
 
