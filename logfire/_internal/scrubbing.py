@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import re
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -353,8 +354,13 @@ class Scrubber(BaseScrubber):
         # See ScrubbingOptions for more info on these parameters.
         patterns = [_DEFAULT_PATTERN, *_check_extra_patterns(patterns)]
         try:
-            self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
-        except re.error as e:
+            with warnings.catch_warnings():
+                # Before 3.11, a global flag away from the start of the expression was a
+                # DeprecationWarning rather than an error, and it silently applies to every
+                # pattern, the defaults included. Treat it the same way on every version.
+                warnings.simplefilter('error', DeprecationWarning)
+                self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        except (re.error, DeprecationWarning) as e:
             # Entries that are each valid can still be invalid together, e.g. two of them using the
             # same group name, or one setting a global flag such as `(?i)` away from the start.
             raise LogfireConfigError(
