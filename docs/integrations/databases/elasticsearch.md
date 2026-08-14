@@ -28,6 +28,8 @@ pip install 'logfire' 'elasticsearch>=8.15'
 
 Call `logfire.configure()` before making an Elasticsearch request. The client looks up the active
 OTel tracer provider when it starts a request, so you can create the client before or after this call.
+Requests made before configuration are not sent to Logfire, but requests made after configuration
+are traced normally.
 
 ```python skip-run="true" skip-reason="external-connection"
 from elasticsearch import Elasticsearch
@@ -64,17 +66,10 @@ turn off its native tracing, set this environment variable before creating the c
 export OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_ENABLED=false
 ```
 
-## Verify the spans
-
-Run the application and open Logfire's [Live view](../../guides/web-ui/live.md). Search for
-`elasticsearch` and make a request. You should see an Elasticsearch span with the request method,
-target, duration, and status. If query capture is enabled, the span also contains the search query
-body.
-
 ## Troubleshoot missing spans
 
 - **No Elasticsearch spans appear:** check that you use `elasticsearch` 8.15 or later, call
-  `logfire.configure()` before the first request, and have not set
+  `logfire.configure()` before the request you want to trace, and have not set
   `OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_ENABLED=false`.
 - **The query body is missing:** restart the application after setting
   `OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY=raw`. Query capture is disabled by
