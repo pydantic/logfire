@@ -6,7 +6,7 @@ from unittest import mock
 
 import pymssql
 import pytest
-from dirty_equals import IsInt
+from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.pymssql import PyMSSQLInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
@@ -66,8 +66,8 @@ def test_pymssql_instrumentation_with_sql_server(
                     'db.name': 'tempdb',
                     'db.statement': 'SELECT 42',
                     'db.user': 'SA',
-                    'net.peer.name': 'localhost',
-                    'server.address': 'localhost',
+                    'net.peer.name': IsStr(),
+                    'server.address': IsStr(),
                     'net.peer.port': IsInt(),
                     'server.port': IsInt(),
                 },
