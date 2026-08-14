@@ -265,6 +265,17 @@ def test_websocket_route_has_no_leading_space() -> None:
     )
 
 
+def test_empty_root_path_is_normalized() -> None:
+    plugin = cast(OpenTelemetryPlugin, logfire.instrument_litestar())
+    app = mock.MagicMock()
+    app.asgi_router.handle_routing.return_value = (None, mock.MagicMock(is_mount=False), '')
+
+    assert plugin.config.scope_span_details_extractor({'app': app, 'method': 'GET', 'path': ''}) == (
+        'GET /',
+        {'http.route': '/'},
+    )
+
+
 def test_public_types_module() -> None:
     assert public_litestar.ServerRequestHook is not None
     assert public_litestar.ClientRequestHook is not None
