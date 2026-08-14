@@ -65,6 +65,13 @@ def make_message(
     )
 
 
+def test_public_middleware_export() -> None:
+    from logfire._internal.integrations.dramatiq import LogfireDramatiqMiddleware as InternalMiddleware
+    from logfire.integrations.dramatiq import LogfireDramatiqMiddleware
+
+    assert LogfireDramatiqMiddleware is InternalMiddleware
+
+
 def test_missing_dependency() -> None:
     import logfire._internal.integrations.dramatiq as integration
 
