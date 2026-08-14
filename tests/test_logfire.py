@@ -3234,6 +3234,11 @@ def test_span_add_link_ignores_invalid_carrier_without_ambient_fallback(
     assert all('links' not in span for span in exporter.exported_spans_as_dict(parse_json_attributes=True))
 
 
+def test_span_add_link_rejects_invalid_direct_context() -> None:
+    with pytest.raises(ValueError, match='span context is invalid'):
+        logfire.span('destination').add_link(SpanContext(0, 0, False))
+
+
 def test_span_add_link_after_start(exporter: TestExporter):
     with logfire.span('destination') as span:
         span.add_link(SpanContext(1, 2, False))
