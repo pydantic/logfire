@@ -8,9 +8,12 @@ import botocore.session
 import pytest
 from botocore.stub import Stubber
 from inline_snapshot import snapshot
+from opentelemetry._logs import NoOpLoggerProvider
 from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
+from opentelemetry.metrics import NoOpMeterProvider
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.trace import Span
+from opentelemetry.trace import NoOpTracerProvider, Span
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import logfire
 import logfire._internal.integrations.botocore
@@ -105,20 +108,32 @@ def test_provider_defaults_and_overrides() -> None:
     assert instrument.call_args.kwargs == {
         'request_hook': None,
         'response_hook': None,
+        'propagator': None,
         'tracer_provider': config.get_tracer_provider(),
         'meter_provider': config.get_meter_provider(),
         'logger_provider': config.get_logger_provider(),
     }
 
-    overrides: dict[str, Any] = {
-        'tracer_provider': object(),
-        'meter_provider': object(),
-        'logger_provider': object(),
-    }
+    propagator = TraceContextTextMapPropagator()
+    tracer_provider = NoOpTracerProvider()
+    meter_provider = NoOpMeterProvider()
+    logger_provider = NoOpLoggerProvider()
     with mock.patch('logfire._internal.integrations.botocore.BotocoreInstrumentor.instrument') as instrument:
-        logfire.instrument_botocore(**overrides)
+        logfire.instrument_botocore(
+            propagator=propagator,
+            tracer_provider=tracer_provider,
+            meter_provider=meter_provider,
+            logger_provider=logger_provider,
+        )
 
-    assert instrument.call_args.kwargs == {'request_hook': None, 'response_hook': None, **overrides}
+    assert instrument.call_args.kwargs == {
+        'request_hook': None,
+        'response_hook': None,
+        'propagator': propagator,
+        'tracer_provider': tracer_provider,
+        'meter_provider': meter_provider,
+        'logger_provider': logger_provider,
+    }
 
 
 def test_tracer_provider_override_does_not_export_botocore_span(exporter: TestExporter) -> None:
@@ -142,3 +157,18 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[botocore]'\
 """)
+
+
+def test_transitive_missing_dependency_error_is_not_masked() -> None:
+    original_import = __import__
+
+    def import_with_missing_transitive_dependency(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'opentelemetry.instrumentation.botocore':
+            raise ModuleNotFoundError("No module named 'transitive_dependency'", name='transitive_dependency')
+        return original_import(name, *args, **kwargs)
+
+    with mock.patch('builtins.__import__', side_effect=import_with_missing_transitive_dependency):
+        with pytest.raises(ModuleNotFoundError) as exc_info:
+            importlib.reload(logfire._internal.integrations.botocore)
+
+    assert exc_info.value.name == 'transitive_dependency'
