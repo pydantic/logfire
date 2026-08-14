@@ -184,4 +184,28 @@ def test_missing_litestar_dependency() -> None:
 
     with mock.patch('importlib.util.find_spec', side_effect=find_spec):
         with pytest.raises(RuntimeError, match=r"pip install 'logfire\[litestar\]'"):
+            logfire.instrument_litestar(capture_headers=True)
+
+    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST' not in os.environ
+    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE' not in os.environ
+
+
+def test_missing_asgi_dependency() -> None:
+    missing_asgi = ModuleNotFoundError(
+        "No module named 'opentelemetry.instrumentation.asgi'", name='opentelemetry.instrumentation.asgi'
+    )
+    with mock.patch('importlib.import_module', side_effect=missing_asgi):
+        with pytest.raises(RuntimeError, match=r"pip install 'logfire\[litestar\]'"):
+            logfire.instrument_litestar(capture_headers=True)
+
+    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST' not in os.environ
+    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE' not in os.environ
+
+
+def test_unrelated_plugin_import_error_is_not_hidden() -> None:
+    unrelated = ModuleNotFoundError("No module named 'unexpected_dependency'", name='unexpected_dependency')
+    with mock.patch('importlib.import_module', side_effect=unrelated):
+        with pytest.raises(ModuleNotFoundError) as exc_info:
             logfire.instrument_litestar()
+
+    assert exc_info.value is unrelated

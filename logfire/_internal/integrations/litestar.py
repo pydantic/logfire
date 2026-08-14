@@ -13,20 +13,31 @@ if TYPE_CHECKING:
     from logfire import Logfire
 
 
+def _missing_dependency_error() -> RuntimeError:
+    return RuntimeError(
+        '`logfire.instrument_litestar()` requires Litestar and its OpenTelemetry dependencies.\n'
+        'You can install them with:\n'
+        "    pip install 'logfire[litestar]'"
+    )
+
+
 def _opentelemetry_module():
     """Load Litestar's OpenTelemetry plugin from either supported namespace."""
     if importlib.util.find_spec('litestar') is None:
-        raise RuntimeError(
-            '`logfire.instrument_litestar()` requires the `litestar` package.\n'
-            'You can install this with:\n'
-            "    pip install 'logfire[litestar]'"
-        )
-    if (
-        importlib.util.find_spec('litestar.plugins') is not None
-        and importlib.util.find_spec('litestar.plugins.opentelemetry') is not None
-    ):
-        return importlib.import_module('litestar.plugins.opentelemetry')
-    return importlib.import_module('litestar.contrib.opentelemetry')
+        raise _missing_dependency_error()
+    try:
+        if (
+            importlib.util.find_spec('litestar.plugins') is not None
+            and importlib.util.find_spec('litestar.plugins.opentelemetry') is not None
+        ):
+            return importlib.import_module('litestar.plugins.opentelemetry')
+        return importlib.import_module('litestar.contrib.opentelemetry')
+    except ModuleNotFoundError as exc:
+        if exc.name == 'opentelemetry.instrumentation.asgi' or (
+            exc.name and exc.name.startswith('opentelemetry.instrumentation.asgi.')
+        ):
+            raise _missing_dependency_error() from exc
+        raise
 
 
 def _route_details(scope: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -63,8 +74,8 @@ def instrument_litestar(
     **kwargs: Any,
 ) -> Any:
     """Return Litestar's OpenTelemetry plugin configured for Logfire."""
-    maybe_capture_server_headers(capture_headers)
     otel = _opentelemetry_module()
+    maybe_capture_server_headers(capture_headers)
     kwargs.setdefault('tracer_provider', tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive))
     kwargs.setdefault('meter_provider', logfire_instance.config.get_meter_provider())
     kwargs.setdefault('scope_span_details_extractor', _route_details)
