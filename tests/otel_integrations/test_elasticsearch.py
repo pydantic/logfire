@@ -1,9 +1,16 @@
+from typing import Any, NamedTuple
+
 from elastic_transport import ApiResponseMeta, BaseNode, HttpHeaders
-from elastic_transport._node._base import NodeApiResponse
-from elastic_transport.client_utils import DEFAULT, DefaultType
 from elasticsearch import Elasticsearch
 
 from logfire._internal.exporters.test import TestExporter
+
+
+class OfflineNodeResponse(NamedTuple):
+    """Public tuple protocol returned by ``BaseNode.perform_request()``."""
+
+    meta: ApiResponseMeta
+    body: bytes
 
 
 class OfflineNode(BaseNode):
@@ -15,8 +22,8 @@ class OfflineNode(BaseNode):
         target: str,
         body: bytes | None = None,
         headers: HttpHeaders | None = None,
-        request_timeout: float | DefaultType | None = DEFAULT,
-    ) -> NodeApiResponse:
+        request_timeout: Any = None,
+    ) -> Any:
         del method, target, body, headers, request_timeout
         meta = ApiResponseMeta(
             status=200,
@@ -35,7 +42,9 @@ class OfflineNode(BaseNode):
             b'"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},'
             b'"hits":{"total":{"value":0,"relation":"eq"},"max_score":null,"hits":[]}}'
         )
-        return NodeApiResponse(meta, response)
+        # `BaseNode.perform_request()` documents this public tuple protocol even
+        # though elastic-transport's concrete return type is private.
+        return OfflineNodeResponse(meta, response)
 
 
 def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
