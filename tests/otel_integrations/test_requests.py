@@ -184,6 +184,21 @@ You can install this with:
 """)
 
 
+def test_transitive_missing_dependency_error_is_not_masked() -> None:
+    original_import = __import__
+
+    def import_with_missing_transitive_dependency(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'opentelemetry.instrumentation.requests':
+            raise ModuleNotFoundError("No module named 'transitive_dependency'", name='transitive_dependency')
+        return original_import(name, *args, **kwargs)
+
+    with mock.patch('builtins.__import__', side_effect=import_with_missing_transitive_dependency):
+        with pytest.raises(ModuleNotFoundError) as exc_info:
+            importlib.reload(logfire._internal.integrations.requests)
+
+    assert exc_info.value.name == 'transitive_dependency'
+
+
 def _request_span(exporter: TestExporter) -> dict[str, Any]:
     return exporter.exported_spans_as_dict(parse_json_attributes=True)[-1]
 

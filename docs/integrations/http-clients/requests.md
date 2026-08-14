@@ -52,9 +52,10 @@ took.
 ## Capture headers and bodies
 
 !!! warning
-    Request and response headers and bodies can contain passwords, tokens, personally identifiable
-    information (PII), and other private data. Enabling their capture records that data and sends it
-    from your machine to Logfire. [Scrubbing](../../how-to-guides/scrubbing.md) means automatically
+    Request and response headers and bodies can contain passwords, tokens, and personally identifiable
+    information (PII): data that identifies a person, such as an email address, name, or IP address. Enabling
+    capture records that data and sends it from your machine to Logfire.
+    [Scrubbing](../../how-to-guides/scrubbing.md) means automatically
     finding and hiding sensitive values (passwords, tokens, and PII) in your telemetry, on your
     machine, before anything is sent. It is on by default, but it may not recognize every sensitive
     value. Review what your application sends before enabling header or body capture.

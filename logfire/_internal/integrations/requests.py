@@ -6,20 +6,22 @@ from typing import Any
 import requests
 from opentelemetry.sdk.trace import Span
 
-from logfire._internal.main import set_user_attributes_on_raw_span
-from logfire._internal.stack_info import warn_at_user_stacklevel
-from logfire._internal.utils import handle_internal_errors
+from logfire._internal.main import set_user_attributes_on_raw_span as _set_user_attributes_on_raw_span
+from logfire._internal.stack_info import warn_at_user_stacklevel as _warn_at_user_stacklevel
+from logfire._internal.utils import handle_internal_errors as _handle_internal_errors
 
 _MAX_CAPTURED_BODY_SIZE = 1024 * 1024
 
 try:
     from opentelemetry.instrumentation.requests import RequestsInstrumentor
-except ImportError:
+except ModuleNotFoundError as error:
+    if error.name != 'opentelemetry.instrumentation.requests':
+        raise
     raise RuntimeError(
         '`logfire.instrument_requests()` requires the `opentelemetry-instrumentation-requests` package.\n'
         'You can install this with:\n'
         "    pip install 'logfire[requests]'"
-    )
+    ) from error
 
 
 def instrument_requests(
@@ -38,7 +40,7 @@ def instrument_requests(
     See the `Logfire.instrument_requests` method for details.
     """
     if capture_all and (capture_headers or capture_request_body or capture_response_body):
-        warn_at_user_stacklevel(
+        _warn_at_user_stacklevel(
             'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
         )
 
@@ -99,7 +101,7 @@ def _make_response_hook(
     return response_hook
 
 
-@handle_internal_errors
+@_handle_internal_errors
 def _capture_body(span: Span, body: Any, content_type: str | None, attribute_name: str) -> None:
     if _is_multipart(content_type):
         return
@@ -128,7 +130,7 @@ def _capture_body(span: Span, body: Any, content_type: str | None, attribute_nam
     # The object schema makes the exporter parse JSON objects without normalising
     # raw JSON strings or scalars. Setting the original text afterwards also lets
     # the normal span scrubber inspect secrets before export.
-    set_user_attributes_on_raw_span(span, {attribute_name: {}})
+    _set_user_attributes_on_raw_span(span, {attribute_name: {}})
     span.set_attribute(attribute_name, text)
 
 
