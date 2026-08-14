@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import threading
+from builtins import __import__ as real_import
 from collections.abc import Iterator
 from types import MethodType
 from typing import Any
@@ -73,6 +74,27 @@ def test_missing_dependency() -> None:
     importlib.reload(integration)
 
 
+def test_unrelated_missing_dependency_is_not_hidden() -> None:
+    import logfire._internal.integrations.dramatiq as integration
+
+    def import_with_missing_dependency(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'dramatiq':
+            raise ModuleNotFoundError("No module named 'dramatiq_dependency'", name='dramatiq_dependency')
+        return real_import(name, *args, **kwargs)
+
+    with mock.patch('builtins.__import__', side_effect=import_with_missing_dependency):
+        with pytest.raises(ModuleNotFoundError, match='dramatiq_dependency'):
+            importlib.reload(integration)
+    importlib.reload(integration)
+
+
+@pytest.mark.parametrize('value', ['[]', '{"traceparent": 1}'])
+def test_invalid_context_mapping(value: str) -> None:
+    from logfire._internal.integrations.dramatiq import _decode_context
+
+    assert _decode_context(value) == {}
+
+
 def test_stub_broker_worker_lifecycle_and_idempotency(broker: StubBroker, exporter: TestExporter) -> None:
     middleware = logfire.instrument_dramatiq(broker)
     assert isinstance(middleware, Middleware)
@@ -87,6 +109,8 @@ def test_stub_broker_worker_lifecycle_and_idempotency(broker: StubBroker, export
     def greet(name: str) -> None:
         received.append(name)
         worker_context_is_valid.append(trace.get_current_span().get_span_context().is_valid)
+        with logfire.span('actor child'):
+            pass
 
     worker = Worker(broker, worker_timeout=50, worker_threads=1)
     worker.start()
@@ -98,15 +122,16 @@ def test_stub_broker_worker_lifecycle_and_idempotency(broker: StubBroker, export
         worker.stop(timeout=5_000)
 
     assert received == ['world']
-    # The consumer span is deliberately not attached as the worker's current context.
-    assert worker_context_is_valid == [False]
+    assert worker_context_is_valid == [True]
     [request] = [span for span in spans(exporter) if span['name'] == 'request']
     [producer] = rendered_spans(exporter, 'greet send')
     [consumer] = rendered_spans(exporter, 'greet process')
+    [child] = [span for span in spans(exporter) if span['name'] == 'actor child']
     assert producer['name'] == '{message.actor_name} send'
     assert consumer['name'] == '{message.actor_name} process'
     assert producer['parent']['span_id'] == request['context']['span_id']  # type: ignore[index]
     assert consumer['parent']['span_id'] == producer['context']['span_id']  # type: ignore[index]
+    assert child['parent']['span_id'] == consumer['context']['span_id']  # type: ignore[index]
     assert consumer['attributes']['messaging.operation'] == 'process'  # type: ignore[index]
 
 
@@ -168,6 +193,33 @@ def test_json_carriers_preserve_baggage_and_creation_link(broker: StubBroker, ex
     assert consumer['parent']['span_id'] == second_producer['context']['span_id']  # type: ignore[index]
     assert consumer['links'][0]['context']['span_id'] == first_producer['context']['span_id']  # type: ignore[index]
     assert consumer['links'][0]['attributes'] == {'messaging.dramatiq.context': 'creation'}  # type: ignore[index]
+
+
+def test_distributed_tracing_opt_out_ignores_message_context(
+    broker: StubBroker, exporter: TestExporter, config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['distributed_tracing'] = False
+    logfire.configure(**config_kwargs)
+    middleware = logfire.instrument_dramatiq(broker)
+    forged_context = json.dumps({'traceparent': '00-d1b9e555b056907ee20b0daebf62282c-7dcd821387246e1c-01'})
+    message = make_message(
+        options={
+            '_logfire_creation_context': forged_context,
+            '_logfire_delivery_context': forged_context,
+        }
+    )
+
+    broker.enqueue(message)
+    message_proxy = proxy(message)
+    middleware.before_process_message(broker, message_proxy)
+    middleware.after_process_message(broker, message_proxy)
+
+    [producer] = rendered_spans(exporter, 'actor send')
+    [consumer] = rendered_spans(exporter, 'actor process')
+    assert producer['parent'] is None
+    assert consumer['parent'] is None
+    assert producer.get('links', []) == []
+    assert consumer.get('links', []) == []
 
 
 def test_enqueue_failure_restores_options(broker: StubBroker) -> None:
@@ -302,13 +354,15 @@ def test_terminal_hook_cleanup(broker: StubBroker, exporter: TestExporter, termi
     ]
 
 
-def test_close_ends_active_delivery(broker: StubBroker, exporter: TestExporter) -> None:
+def test_worker_shutdown_does_not_close_shared_deliveries(broker: StubBroker, exporter: TestExporter) -> None:
     middleware = logfire.instrument_dramatiq(broker)
     message = make_message()
     broker.enqueue(message)
     message_proxy = proxy(message)
     middleware.before_process_message(broker, message_proxy)
     middleware.after_worker_shutdown(broker, object())
+
+    assert len(middleware._active) == 1
     middleware.close()
 
     assert not middleware._active
@@ -331,6 +385,53 @@ def test_terminal_hook_only_finishes_on_starting_thread(broker: StubBroker) -> N
 
     middleware.after_process_message(broker, message_proxy)
     assert not middleware._active
+
+
+def test_duplicate_delivery_and_cross_thread_close_are_safe(broker: StubBroker, exporter: TestExporter) -> None:
+    middleware = logfire.instrument_dramatiq(broker)
+    message = make_message()
+    broker.enqueue(message)
+    message_proxy = proxy(message)
+    middleware.before_process_message(broker, message_proxy)
+    middleware.before_process_message(broker, message_proxy)
+    [active] = middleware._active.values()
+
+    other_thread = threading.Thread(target=middleware.close)
+    other_thread.start()
+    other_thread.join(timeout=5)
+    assert not other_thread.is_alive()
+    assert not middleware._active
+    # The OpenTelemetry token belongs to this thread and cannot be detached by close().
+    active.span._detach()
+
+    first_consumer, second_consumer = rendered_spans(exporter, 'actor process')
+    assert first_consumer['events'][0]['name'] == 'exception'  # type: ignore[index]
+    assert second_consumer['events'][0]['name'] == 'exception'  # type: ignore[index]
+
+
+def test_uninstrument_tolerates_external_broker_changes(broker: StubBroker) -> None:
+    middleware = logfire.instrument_dramatiq(broker)
+    broker.middleware.remove(middleware)
+    broker.enqueue = mock.Mock()  # type: ignore[method-assign]
+    delattr(broker, '_logfire_dramatiq_original_enqueue')
+
+    middleware.uninstrument()
+
+    assert not hasattr(broker, '_logfire_dramatiq_middleware')
+
+
+def test_instrument_falls_back_when_retries_middleware_is_absent(broker: StubBroker) -> None:
+    original_add_middleware = broker.add_middleware
+
+    def add_middleware(middleware: Middleware, *, before: Any = None, after: Any = None) -> None:
+        if after is not None:
+            raise ValueError('middleware is absent')
+        original_add_middleware(middleware)
+
+    with mock.patch.object(broker, 'add_middleware', side_effect=add_middleware):
+        middleware = logfire.instrument_dramatiq(broker)
+
+    assert middleware in broker.middleware
 
 
 def test_real_worker_concurrent_duplicate_message_ids(broker: StubBroker, exporter: TestExporter) -> None:

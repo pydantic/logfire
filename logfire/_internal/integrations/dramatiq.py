@@ -24,7 +24,9 @@ try:
     from dramatiq import Broker, Message
     from dramatiq.broker import MessageProxy
     from dramatiq.middleware import Middleware, Retries
-except ImportError as e:  # pragma: no cover
+except ModuleNotFoundError as e:  # pragma: no cover
+    if e.name != 'dramatiq':
+        raise
     raise RuntimeError(
         '`logfire.instrument_dramatiq()` requires the `dramatiq` package.\n'
         'You can install this with:\n'
@@ -57,7 +59,7 @@ def _decode_context(value: object) -> dict[str, str]:
 
 
 def _span_context(carrier: dict[str, str]) -> trace.SpanContext | None:
-    with logfire_propagate.attach_context(carrier):
+    with logfire_propagate.attach_context(carrier, third_party=True):
         span_context = trace.get_current_span().get_span_context()
     return span_context if span_context.is_valid else None
 
@@ -67,6 +69,7 @@ class _ActiveDelivery:
     # Keeping the proxy alive prevents Python from reusing its id for another in-flight delivery.
     proxy: MessageProxy
     span: LogfireSpan
+    thread_id: int
 
 
 class LogfireDramatiqMiddleware(Middleware):
@@ -87,6 +90,12 @@ class LogfireDramatiqMiddleware(Middleware):
         return id(message), threading.get_ident()
 
     def before_process_message(self, broker: Broker, message: MessageProxy) -> None:
+        key = self._key(message)
+        with self._lock:
+            previous = self._active.pop(key, None)
+        if previous is not None:
+            self._finish(previous, RuntimeError('Dramatiq started the same message delivery twice'))
+
         delivery = _decode_context(message.options.get(_DELIVERY))
         creation = _decode_context(message.options.get(_CREATION))
         links = []
@@ -101,17 +110,14 @@ class LogfireDramatiqMiddleware(Middleware):
             _links=links,
             **_attributes(message, 'process'),
         )
-        # Starting under the delivery context establishes the parent without making the consumer
-        # span current. Dramatiq may finish or cancel work from another thread, where detaching an
-        # OpenTelemetry context token created here would be invalid.
-        with logfire_propagate.attach_context(delivery):
+        # Establish the delivery parent before making the consumer span current for actor code.
+        # Terminal hooks normally run on this same worker thread. Cross-thread cleanup ends the
+        # span without trying to detach a thread-local OpenTelemetry context token.
+        with logfire_propagate.attach_context(delivery, third_party=True):
             span._start()  # pyright: ignore[reportPrivateUsage]
-        key = self._key(message)
+        span._attach()  # pyright: ignore[reportPrivateUsage]
         with self._lock:
-            previous = self._active.pop(key, None)
-            self._active[key] = _ActiveDelivery(message, span)
-        if previous is not None:
-            self._finish(previous, RuntimeError('Dramatiq started the same message delivery twice'))
+            self._active[key] = _ActiveDelivery(message, span, threading.get_ident())
 
     def after_process_message(
         self, broker: Broker, message: MessageProxy, *, result: Any = None, exception: BaseException | None = None
@@ -125,7 +131,10 @@ class LogfireDramatiqMiddleware(Middleware):
         self._finish_message(message, None)
 
     def after_worker_shutdown(self, broker: Broker, worker: Any) -> None:
-        self.close()
+        # A broker can be shared by multiple workers, so shutting down one worker must not close
+        # deliveries still running in the others. Normal terminal hooks finish this worker's spans;
+        # `close()` remains available for broker-wide teardown and `uninstrument()`.
+        pass
 
     def _finish_message(self, message: MessageProxy, exception: BaseException | None) -> None:
         with self._lock:
@@ -135,6 +144,8 @@ class LogfireDramatiqMiddleware(Middleware):
 
     @staticmethod
     def _finish(active: _ActiveDelivery, exception: BaseException | None) -> None:
+        if active.thread_id == threading.get_ident():
+            active.span._detach()  # pyright: ignore[reportPrivateUsage]
         if exception is not None:
             with handle_internal_errors:
                 active.span.record_exception(exception, escaped=True)
@@ -188,7 +199,7 @@ def _wrap_enqueue(broker: Broker, middleware: LogfireDramatiqMiddleware) -> None
         parent = (
             nullcontext()
             if current_context.is_valid or not old_delivery_carrier
-            else logfire_propagate.attach_context(old_delivery_carrier)
+            else logfire_propagate.attach_context(old_delivery_carrier, third_party=True)
         )
         effective_parent_context = current_context if current_context.is_valid else old_delivery_context
         creation_context = _span_context(_decode_context(old_creation))

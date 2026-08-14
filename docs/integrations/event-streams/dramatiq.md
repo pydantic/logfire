@@ -45,7 +45,8 @@ def send_email(address: str) -> None:
     print(f'Email sent to {address}')
 
 
-send_email.send('hello@example.com')
+if __name__ == '__main__':
+    send_email.send('hello@example.com')
 ```
 
 Call `instrument_dramatiq()` in both applications if producers and workers run in separate
