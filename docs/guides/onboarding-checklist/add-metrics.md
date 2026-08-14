@@ -157,8 +157,9 @@ If a metric value comes from an async API, let your application's lifecycle own 
 
 This runnable example reads an async value, records one observation, then exits. Before you run it, select a project
 with `logfire projects use <project-name>`, or set `LOGFIRE_TOKEN` to a write token (the credential your deployed app
-uses to send data to a Logfire project) from **Project → Settings → Write tokens**. `logfire.configure()` sends the
-measurement to that project.
+uses to send data to a Logfire project) from **Project → Settings → Write tokens**. `logfire.configure()` configures
+that project as the export destination. In the example, `queue_depth.set(...)` records the measurement and
+`logfire.force_flush()` asks Logfire to export it immediately before the process exits.
 
 ```py
 import asyncio
@@ -188,9 +189,9 @@ asyncio.run(main())
 logfire.force_flush()
 ```
 
-Run the script to record one `jobs.queue_depth` point with the value `7`. The metric then appears under the `jobs`
-namespace in **Explore → Metrics**. A line becomes visible after a long-running poller records multiple points. Replace
-`read_queue_depth()` with your async client call.
+Run the script to record one `jobs.queue_depth` point with the value `7`. Open [**Metrics** in the project
+sidebar](../web-ui/metrics-explorer.md) to find it under the `jobs` namespace. A line becomes visible after a long-running
+poller records multiple points. Replace `read_queue_depth()` with your async client call.
 In a long-running application, put the read and `set()` call in a `while True` loop with your normal polling interval.
 Start that loop as a background task with the application's startup hook. The code that starts the task must retain it,
 cancel it during shutdown, and await the cancelled task so its cleanup can finish.
