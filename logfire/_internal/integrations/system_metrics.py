@@ -6,6 +6,7 @@ import os
 import sys
 from collections.abc import Callable, Iterable, Sequence
 from platform import python_implementation
+from threading import Lock
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
@@ -103,7 +104,7 @@ MetricName: type[
 class FilesystemConfig(TypedDict, total=False):
     """Configuration for the filesystem metric family."""
 
-    paths: Iterable[str | os.PathLike[str]]
+    paths: Iterable[str | os.PathLike[str]] | None
     states: Iterable[Literal['used', 'free', 'reserved']]
 
 
@@ -247,16 +248,19 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
 
 def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enabled: set[FilesystemMetricName]) -> None:
     """Create selected OpenTelemetry filesystem metrics for a bounded list of paths."""
+    configured_paths: Iterable[str | os.PathLike[str]] | None
     if config is None:
-        configured_paths: Iterable[str | os.PathLike[str]] = [os.getcwd()]
+        configured_paths = None
         configured_states: Iterable[FilesystemState] = FILESYSTEM_STATES
     elif isinstance(config, dict):
         filesystem_config = cast(FilesystemConfig, config)
-        configured_paths = filesystem_config.get('paths', [os.getcwd()])
+        configured_paths = filesystem_config.get('paths')
         configured_states = filesystem_config.get('states', FILESYSTEM_STATES)
     else:
         raise ValueError('Filesystem metric configuration must be a dictionary or None.')
 
+    if configured_paths is None:
+        configured_paths = [os.getcwd()]
     raw_paths = list(configured_paths)
     if len(raw_paths) > MAX_FILESYSTEM_PATHS:
         raise ValueError(f'At most {MAX_FILESYSTEM_PATHS} filesystem paths can be configured.')
@@ -269,8 +273,7 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
 
     warned_paths: set[str] = set()
     partition_warning_emitted = False
-    cached_observations: tuple[tuple[DiskUsage, dict[str, str]], ...] = ()
-    pending_metrics: set[FilesystemMetricName] = set()
+    warning_lock = Lock()
 
     def collect_filesystems() -> tuple[tuple[DiskUsage, dict[str, str]], ...]:
         nonlocal partition_warning_emitted
@@ -278,9 +281,11 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
         try:
             # Use named attributes below. Some supported psutil 5.9 platforms append maxfile and maxpath.
             partitions = cast(Sequence[DiskPartition], psutil.disk_partitions(all=True))
-        except (OSError, NotImplementedError, psutil.Error) as exc:
-            if not partition_warning_emitted:
+        except (OSError, NotImplementedError, ValueError, psutil.Error) as exc:
+            with warning_lock:
+                should_warn = not partition_warning_emitted
                 partition_warning_emitted = True
+            if should_warn:
                 logger.warning('Unable to inspect filesystem mount points: %s', exc)
             partitions = ()
 
@@ -291,7 +296,7 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
             if key not in usage_cache:
                 try:
                     usage_cache[key] = cast(DiskUsage, psutil.disk_usage(path))
-                except (OSError, NotImplementedError, psutil.Error) as exc:
+                except (OSError, NotImplementedError, ValueError, psutil.Error) as exc:
                     usage_cache[key] = exc
             return usage_cache[key]
 
@@ -313,8 +318,10 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
 
             if isinstance(usage, BaseException):
                 warning_key = _path_key(selected_path)
-                if warning_key not in warned_paths:
+                with warning_lock:
+                    should_warn = warning_key not in warned_paths
                     warned_paths.add(warning_key)
+                if should_warn:
                     logger.warning('Unable to collect filesystem metrics for %r: %s', selected_path, usage)
                 continue
 
@@ -329,18 +336,8 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
             observations.append((usage, attributes))
         return tuple(observations)
 
-    def observations(metric: FilesystemMetricName) -> tuple[tuple[DiskUsage, dict[str, str]], ...]:
-        nonlocal cached_observations, pending_metrics
-        # Every enabled observable instrument is called once per SDK collection. Keep one coherent disk sample
-        # until the exact enabled subset has consumed it, then refresh at the start of the next collection.
-        if metric not in pending_metrics:
-            cached_observations = collect_filesystems()
-            pending_metrics = set(enabled)
-        pending_metrics.discard(metric)
-        return cached_observations
-
     def usage_callback(_options: CallbackOptions) -> Iterable[Observation]:
-        for usage, attributes in observations('system.filesystem.usage'):
+        for usage, attributes in collect_filesystems():
             values = {
                 'used': usage.used,
                 'free': usage.free,
@@ -350,11 +347,11 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
                 yield Observation(values[state], {**attributes, 'system.filesystem.state': state})
 
     def limit_callback(_options: CallbackOptions) -> Iterable[Observation]:
-        for usage, attributes in observations('system.filesystem.limit'):
+        for usage, attributes in collect_filesystems():
             yield Observation(usage.total, attributes)
 
     def utilization_callback(_options: CallbackOptions) -> Iterable[Observation]:
-        for usage, attributes in observations('system.filesystem.utilization'):
+        for usage, attributes in collect_filesystems():
             available = usage.used + usage.free
             yield Observation(
                 usage.used / available if available else 0,

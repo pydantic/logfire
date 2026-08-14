@@ -96,8 +96,9 @@ To collect lots of detailed data about all available metrics, use `logfire.instr
 ### Monitor filesystem capacity
 
 Track when an application filesystem is running out of usable space. Filesystem capacity metrics are opt-in:
-neither the `basic` nor `full` configuration includes them. If you omit `paths` or use `None`, Logfire monitors
-the filesystem containing the process's current working directory.
+neither the `basic` nor `full` configuration includes them. Logfire monitors the filesystem containing the
+process's current working directory if you set the whole metric value to `None`, omit `paths` from its options,
+or set `paths` to `None`.
 
 ```py
 import logfire

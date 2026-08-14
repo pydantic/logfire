@@ -254,7 +254,7 @@ def test_filesystem_metrics(metrics_reader: InMemoryMetricReader, monkeypatch: p
     )
     metrics = {metric['name']: metric for metric in get_collected_metrics(metrics_reader)}
 
-    assert usage_calls == ['/work/app']
+    assert usage_calls == ['/work/app'] * 3
     assert set(metrics) == {
         'system.filesystem.usage',
         'system.filesystem.limit',
@@ -287,8 +287,12 @@ def test_filesystem_metrics(metrics_reader: InMemoryMetricReader, monkeypatch: p
     SystemMetricsInstrumentor().uninstrument()
 
 
+@pytest.mark.parametrize('error', [OSError('gone'), ValueError('invalid path')])
 def test_filesystem_failures_warn_once_and_keep_other_metrics(
-    metrics_reader: InMemoryMetricReader, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    error: Exception,
+    metrics_reader: InMemoryMetricReader,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     partition_calls = 0
 
@@ -298,7 +302,7 @@ def test_filesystem_failures_warn_once_and_keep_other_metrics(
         raise system_metrics.psutil.AccessDenied(pid=1, name='partitions')
 
     def disk_usage(path: str) -> None:
-        raise OSError('gone')
+        raise error
 
     monkeypatch.setattr(system_metrics.psutil, 'disk_partitions', disk_partitions)
     monkeypatch.setattr(system_metrics.psutil, 'disk_usage', disk_usage)
@@ -309,7 +313,7 @@ def test_filesystem_failures_warn_once_and_keep_other_metrics(
         get_collected_metrics(metrics_reader)
     assert [record.message for record in caplog.records if record.name == system_metrics.__name__] == [
         "Unable to inspect filesystem mount points: (pid=1, name='partitions')",
-        "Unable to collect filesystem metrics for '/gone': gone",
+        f"Unable to collect filesystem metrics for '/gone': {error}",
     ]
     assert partition_calls == 2
     assert 'system.cpu.simple_utilization' in get_collected_metric_names(metrics_reader)
@@ -376,6 +380,29 @@ def test_filesystem_config_validation() -> None:
 
     with pytest.raises(ValueError, match='must be a dictionary or None'):
         logfire.instrument_system_metrics({'system.filesystem.limit': ['/']}, base=None)
+
+
+def test_filesystem_none_paths_uses_current_working_directory(
+    metrics_reader: InMemoryMetricReader, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    usage_calls: list[str] = []
+
+    monkeypatch.setattr(system_metrics.os, 'getcwd', lambda: '/work')
+
+    def disk_partitions(*, all: bool) -> list[Partition]:
+        return []
+
+    monkeypatch.setattr(system_metrics.psutil, 'disk_partitions', disk_partitions)
+
+    def disk_usage(path: str) -> Usage:
+        usage_calls.append(path)
+        return Usage(100, 40, 50, 80)
+
+    monkeypatch.setattr(system_metrics.psutil, 'disk_usage', disk_usage)
+    logfire.instrument_system_metrics({'system.filesystem.limit': {'paths': None}}, base=None)
+
+    assert get_collected_metrics(metrics_reader)[0]['data']['data_points'][0]['value'] == 100
+    assert usage_calls == ['/work']
 
 
 def test_macos_firmlink_and_root_use_data_volume(
