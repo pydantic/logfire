@@ -155,7 +155,10 @@ thread, where awaiting a coroutine would block collection and an unawaited corou
 If a metric value comes from an async API, let your application's lifecycle own a polling task and update a normal
 [`logfire.metric_gauge`][logfire.Logfire.metric_gauge].
 
-This runnable example reads an async value, records one observation, then exits:
+This runnable example reads an async value, records one observation, then exits. Before you run it, select a project
+with `logfire projects use <project-name>`, or set `LOGFIRE_TOKEN` to a write token (the credential your deployed app
+uses to send data to a Logfire project) from **Project → Settings → Write tokens**. `logfire.configure()` sends the
+measurement to that project.
 
 ```py
 import asyncio
@@ -185,7 +188,9 @@ asyncio.run(main())
 logfire.force_flush()
 ```
 
-Run the script to record `jobs.queue_depth` with the value `7`. Replace `read_queue_depth()` with your async client call.
+Run the script to record one `jobs.queue_depth` point with the value `7`. The metric then appears under the `jobs`
+namespace in **Explore → Metrics**. A line becomes visible after a long-running poller records multiple points. Replace
+`read_queue_depth()` with your async client call.
 In a long-running application, put the read and `set()` call in a `while True` loop with your normal polling interval.
 Start that loop as a background task with the application's startup hook. The code that starts the task must retain it,
 cancel it during shutdown, and await the cancelled task so its cleanup can finish.
@@ -200,8 +205,9 @@ Decide how failures should affect the metric before deploying a poller:
 
 - Catch expected source exceptions inside the loop so that one failure does not silently end the task. Add a timeout,
   exponential backoff, and limited retry logging when the source can remain unavailable.
-- A failed poll leaves the gauge's last recorded value in the metrics pipeline. That value can look current even though
-  it is stale. Record a separate last-success timestamp or poll-success metric if consumers need to detect staleness.
+- A failed poll records no new point. A query over a wider time range can still include the previous successful point,
+  so it may be mistaken for a current value. Record a separate last-success timestamp or poll-success metric if
+  consumers need to detect staleness.
 - Do not catch `BaseException`. `asyncio.CancelledError` then stops the loop. If you catch cancellation to run
   poller-specific cleanup, always re-raise it.
 - Each worker process creates its own task and metric series. Add a worker-identifying attribute when you need separate
