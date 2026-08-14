@@ -281,6 +281,7 @@ def test_empty_and_large_bodies_are_skipped(exporter: TestExporter, instrument_r
     requests.post('https://example.org/empty', data=b'')
     requests.post('https://example.org/large', data=b'x' * (1024 * 1024 + 1))
     requests.post('https://example.org/large-str', data='x' * (1024 * 1024 + 1))
+    requests.post('https://example.org/large-unicode-str', data='é' * (1024 * 1024 // 2 + 1))
     requests.post('https://example.org/large-memoryview', data=memoryview(b'x' * (1024 * 1024 + 1)))
 
     for span in exporter.exported_spans_as_dict():

@@ -104,7 +104,7 @@ def _capture_body(span: Span, body: Any, content_type: str | None, attribute_nam
     if _is_multipart(content_type):
         return
     if isinstance(body, str):
-        if not body or len(body) > _MAX_CAPTURED_BODY_SIZE:
+        if not body or len(body) > _MAX_CAPTURED_BODY_SIZE or len(body.encode('utf-8')) > _MAX_CAPTURED_BODY_SIZE:
             return
         text = body
     elif isinstance(body, memoryview):
