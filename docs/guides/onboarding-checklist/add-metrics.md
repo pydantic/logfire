@@ -155,7 +155,7 @@ thread, where awaiting a coroutine would block collection and an unawaited corou
 If a metric value comes from an async API, let your application's lifecycle own a polling task and update a normal
 [`logfire.metric_gauge`][logfire.Logfire.metric_gauge].
 
-This runnable example records two observations, then exits:
+This runnable example reads an async value, records one observation, then exits:
 
 ```py
 import asyncio
@@ -178,20 +178,19 @@ async def read_queue_depth() -> int:
 
 
 async def main() -> None:
-    for _ in range(2):
-        queue_depth.set(await read_queue_depth())
-        await asyncio.sleep(1)
+    queue_depth.set(await read_queue_depth())
 
 
 asyncio.run(main())
 logfire.force_flush()
 ```
 
-Run the script to record `jobs.queue_depth` with the value `7` twice. Replace `read_queue_depth()` with your async client
-call. In a long-running application, replace the finite loop with `while True`, use your normal polling interval, start
-`main()` as a background task with the application's startup hook, and cancel its task during shutdown.
+Run the script to record `jobs.queue_depth` with the value `7`. Replace `read_queue_depth()` with your async client call.
+In a long-running application, put the read and `set()` call in a `while True` loop with your normal polling interval.
+Start that loop as a background task with the application's startup hook. The code that starts the task must retain it,
+cancel it during shutdown, and await the cancelled task so its cleanup can finish.
 
-The loop above uses **fixed-delay polling**: each delay starts after the previous read finishes. Slow reads
+Long-running pollers usually use **fixed-delay polling**: each delay starts after the previous read finishes. Slow reads
 therefore move later polls, but one task never overlaps two reads. **Fixed-rate polling** instead calculates each start
 time from a clock so that polls target a regular schedule. If a read takes longer than one interval, skip a missed run
 or continue late. Do not start concurrent reads unless the source, gauge labels, timeout, and shutdown behavior are
