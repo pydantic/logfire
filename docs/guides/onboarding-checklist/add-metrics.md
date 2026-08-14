@@ -155,13 +155,11 @@ thread, where awaiting a coroutine would block collection and an unawaited corou
 If a metric value comes from an async API, let your application's lifecycle own a polling task and update a normal
 [`logfire.metric_gauge`][logfire.Logfire.metric_gauge].
 
-This runnable example starts a polling task and runs until you press Ctrl+C. Before you run it, select a project with
-`logfire projects use <project-name>`, or set `LOGFIRE_TOKEN` to a write token (the credential your deployed app uses to
-send data to a Logfire project) from **Project → Settings → Write tokens**. `logfire.configure()` configures that project
-as the export destination. In the example, `queue_depth.set(...)` updates the current measurement. The metrics SDK
-exports it on its regular collection schedule, and `logfire.force_flush()` requests a final export during shutdown.
+This runnable example starts a polling task and runs until you press Ctrl+C. `queue_depth.set(...)` updates the current
+measurement. The metrics SDK exports it on its regular collection schedule, and `logfire.force_flush()` requests a
+final export during shutdown.
 
-```py hl_lines="23-30 33-40" skip-run="true" skip-reason="long-running"
+```py hl_lines="23-32 35-42" skip-run="true" skip-reason="long-running"
 import asyncio
 from contextlib import suppress
 
@@ -188,9 +186,11 @@ async def poll_queue_depth() -> None:
     """Update the gauge until the application stops this task."""
     while True:
         try:
-            queue_depth.set(await read_queue_depth())
-        except Exception:
+            value = await read_queue_depth()
+        except Exception:  # Replace with the exception your client raises.
             logfire.exception('Failed to read queue depth')
+        else:
+            queue_depth.set(value)
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 
@@ -212,9 +212,9 @@ finally:
     logfire.force_flush()
 ```
 
-Run the script to update `jobs.queue_depth` immediately and then every 30 seconds. Open [**Metrics** in the project
-sidebar](../web-ui/metrics-explorer.md) to find it under the `jobs` namespace. A line becomes visible after Logfire
-collects multiple points. Press Ctrl+C to stop the script and export its final value.
+Run the script to update `jobs.queue_depth` immediately, then wait 30 seconds after each read before reading again. Open
+[**Metrics** in the project sidebar](../web-ui/metrics-explorer.md) to find it under the `jobs` namespace. A line becomes
+visible after Logfire collects multiple points. Press Ctrl+C to stop the script and export its final value.
 
 Replace `read_queue_depth()` with your async client call. In a real application, create the `poll_queue_depth()` task in
 the application's startup hook instead of `main()`. Keep the same ownership shown above: the code that starts the task
