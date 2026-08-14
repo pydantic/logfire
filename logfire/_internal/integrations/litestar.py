@@ -9,8 +9,10 @@ from logfire._internal.utils import maybe_capture_server_headers
 
 if TYPE_CHECKING:
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
+    from typing_extensions import Unpack
 
     from logfire import Logfire
+    from logfire.integrations.litestar import LitestarInstrumentKwargs
 
 
 def _missing_dependency_error() -> RuntimeError:
@@ -81,7 +83,7 @@ def instrument_litestar(
     server_request_hook: ServerRequestHook | None = None,
     client_request_hook: ClientRequestHook | None = None,
     client_response_hook: ClientResponseHook | None = None,
-    **kwargs: Any,
+    **kwargs: Unpack[LitestarInstrumentKwargs],
 ) -> Any:
     """Return Litestar's OpenTelemetry plugin configured for Logfire."""
     otel = _opentelemetry_module()

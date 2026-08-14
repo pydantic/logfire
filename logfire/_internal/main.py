@@ -101,6 +101,8 @@ if TYPE_CHECKING:
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
+    from logfire.integrations.litestar import LitestarInstrumentKwargs
+
     from ..experimental.forwarding import ForwardExportRequestResponse
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
@@ -1852,7 +1854,7 @@ class Logfire:
         server_request_hook: ServerRequestHook | None = None,
         client_request_hook: ClientRequestHook | None = None,
         client_response_hook: ClientResponseHook | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[LitestarInstrumentKwargs],
     ) -> InitPluginProtocol:
         """Return a Litestar OpenTelemetry plugin that records requests with Logfire.
 

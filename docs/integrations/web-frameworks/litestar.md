@@ -13,7 +13,7 @@ Logfire records the matched route, response status, timing, and errors.
 
 - Each request as a span, including its status and duration
 - Canonical route templates, so requests to `/users/1` and `/users/2` group under `/users/{user_id}`
-- Errors raised while handling a request
+- HTTP failures marked with warning or error severity based on the response status
 
 {{ before_you_start() }}
 
@@ -78,9 +78,12 @@ view in the [Logfire web app](https://logfire.pydantic.dev/). You should see a
 
 ## Advanced configuration
 
-Pass Litestar OpenTelemetry configuration options directly to `instrument_litestar()`. For example,
-use `capture_headers=True` to capture request and response headers. Review your headers for secrets
-before enabling this option.
+Pass Litestar OpenTelemetry configuration options directly to `instrument_litestar()`.
+
+!!! warning "Captured headers are sent to Logfire"
+    `capture_headers=True` captures every request and response header. Logfire
+    [scrubs sensitive values by default](../../how-to-guides/scrubbing.md), but you should still review the headers
+    your app uses before enabling it.
 
 ## Reference
 

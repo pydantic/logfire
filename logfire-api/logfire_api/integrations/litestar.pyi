@@ -1,15 +1,8 @@
-"""Public types for the Litestar integration."""
-
-from __future__ import annotations
-
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
-
+from litestar.types import Scopes
 from opentelemetry.metrics import Meter, MeterProvider
 from opentelemetry.trace import Span, Tracer, TracerProvider
-
-if TYPE_CHECKING:
-    from litestar.types import Scopes
+from typing import Any, Literal, TypedDict
 
 ServerRequestHook = Callable[[Span, dict[str, Any]], None]
 ClientRequestHook = Callable[[Span, dict[str, Any], dict[str, Any]], None]
@@ -17,10 +10,8 @@ ClientResponseHook = Callable[[Span, dict[str, Any], dict[str, Any]], None]
 AfterExceptionHook = Callable[[BaseException, dict[str, Any]], Awaitable[None] | None]
 ScopeSpanDetailsExtractor = Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
 
-
 class LitestarInstrumentKwargs(TypedDict, total=False):
     """Additional options accepted by Litestar's OpenTelemetry configuration."""
-
     after_exception_hook_handler: AfterExceptionHook | None
     scope_span_details_extractor: ScopeSpanDetailsExtractor
     server_request_hook_handler: ServerRequestHook | None

@@ -52,6 +52,11 @@ async def echo(request: Request[Any, Any, Any]) -> dict[str, str]:
     return {'body': (await request.body()).decode()}
 
 
+@get('/error')
+async def error() -> None:
+    raise RuntimeError('litestar test error')
+
+
 @asgi(['/mounted', '/other'], is_mount=True, copy_scope=True)
 async def mounted(scope: Any, receive: Any, send: Any) -> None:
     pass
@@ -63,7 +68,9 @@ async def chat(socket: WebSocket[Any, Any, Any]) -> None:
 
 
 def make_app(**instrument_kwargs: Any) -> Litestar:
-    return Litestar(route_handlers=[user, health, echo], plugins=[logfire.instrument_litestar(**instrument_kwargs)])
+    return Litestar(
+        route_handlers=[user, health, echo, error], plugins=[logfire.instrument_litestar(**instrument_kwargs)]
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -189,6 +196,52 @@ def test_missing_route_has_method_only(exporter: TestExporter) -> None:
                     'http.status_code': 404,
                     'http.response.status_code': 404,
                     'logfire.level_num': 13,
+                },
+            }
+        ]
+    )
+
+
+def test_handler_error_is_marked_as_an_error(exporter: TestExporter) -> None:
+    with TestClient(make_app(), raise_server_exceptions=False) as client:
+        assert client.get('/error').status_code == 500
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'GET /error',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /error',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver.local',
+                    'server.address': 'testserver.local',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/error',
+                    'url.path': '/error',
+                    'http.url': 'http://testserver.local/error',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver.local',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/error',
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
+                    'logfire.level_num': 17,
                 },
             }
         ]
