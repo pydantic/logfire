@@ -23,12 +23,12 @@ from typing import (  # NOQA UP035
 )
 
 import opentelemetry.context as context_api
-import opentelemetry.propagate as propagate_api
 import opentelemetry.trace as trace_api
 from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -3122,7 +3122,7 @@ class FastLogfireSpan:
 # Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
 def _extract_span_context(carrier: Mapping[str, str]) -> SpanContext:
     """Extract a remote span context without consulting the ambient context."""
-    extracted = propagate_api.extract(carrier, context=Context())
+    extracted = TraceContextTextMapPropagator().extract(carrier, context=Context())
     return trace_api.get_current_span(extracted).get_span_context()
 
 
@@ -3251,10 +3251,10 @@ class LogfireSpan(ReadableSpan):
         header value. For an OpenTelemetry link, explicit ``attributes`` replace
         the attributes already stored on the link.
 
-        Call this before entering the span context manager. Logfire requires all
-        links to be present when it starts the span.
+        Add links before entering the span context manager when a sampler needs
+        to consider them. You can also add links while the span is recording.
         """
-        resolved_context: SpanContext | None
+        resolved_context: SpanContext
         if isinstance(context, trace_api.Link):
             attributes = context.attributes if attributes is None else attributes
             resolved_context = context.context
@@ -3265,17 +3265,19 @@ class LogfireSpan(ReadableSpan):
         elif isinstance(context, SpanContext):
             resolved_context = context
         elif isinstance(context, LogfireSpan):
-            resolved_context = context._span.get_span_context() if context._span else None
+            if context._span is None:
+                raise ValueError('Cannot add a span link: the source span must be started first.')
+            resolved_context = context._span.get_span_context()
         else:
             resolved_context = context.get_span_context()
 
-        if resolved_context is None or not resolved_context.is_valid:
+        if not resolved_context.is_valid:
             raise ValueError('Cannot add a span link: the span context is invalid.')
 
         if self._span is None:
             self._links += [trace_api.Link(context=resolved_context, attributes=attributes)]
         else:
-            raise RuntimeError('Span links must be added before the span is started.')
+            self._span.add_link(resolved_context, attributes)
 
     # TODO(Marcelo): We should add a test for `record_exception`.
     def record_exception(
