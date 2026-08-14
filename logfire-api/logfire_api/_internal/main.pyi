@@ -1515,7 +1515,17 @@ class LogfireSpan(ReadableSpan):
         """
     def set_attributes(self, attributes: dict[str, Any]) -> None:
         """Sets the given attributes on the span."""
-    def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None: ...
+    def add_link(self, context: LogfireSpan | trace_api.Span | SpanContext | trace_api.Link | Mapping[str, str] | str, attributes: otel_types.Attributes = None) -> None:
+        """Add a causal link to this span.
+
+        The linked context may be a Logfire or OpenTelemetry span, a span context,
+        an OpenTelemetry link, a W3C trace-context carrier, or a ``traceparent``
+        header value. For an OpenTelemetry link, explicit ``attributes`` replace
+        the attributes already stored on the link.
+
+        Add links before entering the span context manager when a sampler needs
+        to consider them. You can also add links while the span is recording.
+        """
     def record_exception(self, exception: BaseException, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
         """Records an exception as a span event.
 

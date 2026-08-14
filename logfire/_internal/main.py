@@ -3122,7 +3122,8 @@ class FastLogfireSpan:
 # Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
 def _extract_span_context(carrier: Mapping[str, str]) -> SpanContext:
     """Extract a remote span context without consulting the ambient context."""
-    extracted = TraceContextTextMapPropagator().extract(carrier, context=Context())
+    normalized_carrier = {key.lower(): value for key, value in carrier.items()}
+    extracted = TraceContextTextMapPropagator().extract(normalized_carrier, context=Context())
     return trace_api.get_current_span(extracted).get_span_context()
 
 

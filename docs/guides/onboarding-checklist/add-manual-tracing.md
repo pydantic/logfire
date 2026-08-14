@@ -98,7 +98,7 @@ with processing_span:
     process_message()
 ```
 
-`add_link()` accepts another Logfire or OpenTelemetry span, an OpenTelemetry `SpanContext` or `Link`, a mapping of World Wide Web Consortium (W3C) Trace Context headers such as the example above, or a `traceparent` header value as a string. Carrier mappings preserve valid `tracestate` and trace flags. Header inputs become remote contexts; direct span contexts keep their existing local or remote state. If you pass attributes alongside an OpenTelemetry `Link`, the new attributes replace the link's attributes.
+`add_link()` accepts another Logfire or OpenTelemetry span, an OpenTelemetry `SpanContext` or `Link`, a mapping of World Wide Web Consortium (W3C) Trace Context headers such as the example above, or a `traceparent` header value as a string. Header names are case-insensitive. Carrier mappings preserve valid `tracestate` and trace flags. Header inputs become remote contexts; direct span contexts keep their existing local or remote state. If you pass attributes alongside an OpenTelemetry `Link`, the new attributes replace the link's attributes.
 
 Logfire ignores missing or malformed `traceparent` values instead of linking to the currently active span. Add links before the destination span starts when a sampler needs to consider them. The Logfire user interface (UI) does not currently display span links, but you can query them in the `otel_links` column with [SQL](../../reference/sql.md#otel_links). Passing `links=` to `logfire.span()` remains available for recording a normal user attribute with that name.
 

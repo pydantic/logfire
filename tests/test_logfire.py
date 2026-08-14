@@ -3171,6 +3171,7 @@ def test_span_add_link_input_types(exporter: TestExporter):
             {'source': 'carrier'},
         )
         span.add_link('00-0000000000000000000000000000000c-000000000000000d-00')
+        span.add_link({'Traceparent': '00-0000000000000000000000000000000e-000000000000000f-01'})
     with span:
         pass
 
@@ -3215,6 +3216,7 @@ def test_span_add_link_input_types(exporter: TestExporter):
                         'attributes': {'source': 'carrier'},
                     },
                     {'context': {'trace_id': 12, 'span_id': 13, 'is_remote': True}, 'attributes': {}},
+                    {'context': {'trace_id': 14, 'span_id': 15, 'is_remote': True}, 'attributes': {}},
                 ],
             },
         ]
