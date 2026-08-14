@@ -6,6 +6,7 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any, TypedDict, cast
 
 import typing_extensions
@@ -234,21 +235,49 @@ def _has_numeric_backreference(pattern: str) -> bool:
 
 
 # Ordinary characters covering the classes a pattern is most likely to be written against.
-# A pattern that matches an empty span anywhere in here matches an empty span in most values.
+# Only used if the minimum width can't be read from the parsed pattern, see below.
 _ZERO_WIDTH_PROBE = 'aA0_ -.'
+
+
+def _min_match_width(pattern: str) -> int | None:
+    """The fewest characters `pattern` has to consume to match, or `None` if that can't be read.
+
+    The regex parser knows this, but it lives in a private module which was named `sre_parse`
+    before 3.11, so treat it as something that may not be there.
+    """
+    for module_name in ('re._parser', 'sre_parse'):
+        try:
+            parser = cast('Any', import_module(module_name))
+        except ImportError:  # pragma: no cover
+            continue
+
+        try:
+            return cast('tuple[int, int]', parser.parse(pattern).getwidth())[0]
+        except Exception:  # pragma: no cover
+            return None
+
+    return None  # pragma: no cover
 
 
 def _matches_without_consuming(compiled: re.Pattern[str]) -> bool:
     r"""Whether `compiled` can match without consuming any characters.
 
     Such a pattern reports a match on values containing nothing sensitive, so every value is
-    redacted, with an empty string as the reason. `search('')` catches the patterns that match
-    the empty string outright, such as `[0-9]*`. Patterns like `\b` and `(?=.)` need a non-empty
-    subject before they match an empty span, which is what the probe is for.
+    redacted, with an empty string as the reason.
+
+    The minimum width the pattern can match answers this exactly: it is 0 for `[0-9]*`, `\b` and
+    `(?=x)`, and at least 1 for a pattern that has to consume something. If it can't be read,
+    fall back to trying the pattern out: `search('')` covers the patterns matching the empty
+    string outright, and the probe covers the ones needing a subject before they match an
+    empty span, though it can't cover a subject the probe doesn't contain.
     """
-    if compiled.search('') is not None:
+    min_width = _min_match_width(compiled.pattern)
+    if min_width is not None:  # pragma: no branch
+        return min_width == 0
+
+    if compiled.search('') is not None:  # pragma: no cover
         return True
-    return any(match.group(0) == '' for match in compiled.finditer(_ZERO_WIDTH_PROBE))
+    return any(match.group(0) == '' for match in compiled.finditer(_ZERO_WIDTH_PROBE))  # pragma: no cover
 
 
 def _check_extra_patterns(patterns: Sequence[str] | None) -> list[str]:
@@ -279,7 +308,7 @@ def _check_extra_patterns(patterns: Sequence[str] | None) -> list[str]:
         entry = f'The `extra_patterns` entry at index {index}'
 
         if not isinstance(pattern, str):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise LogfireConfigError(f'{entry} is a {type(pattern).__name__}, but it must be a string.')
+            raise LogfireConfigError(f'{entry} is of type {type(pattern).__name__}, but it must be a string.')
 
         try:
             compiled = re.compile(pattern, re.IGNORECASE | re.DOTALL)

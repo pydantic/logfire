@@ -766,7 +766,9 @@ def test_extra_patterns_rejects_bare_string():
 def test_extra_patterns_rejects_non_string_entry():
     with pytest.raises(LogfireConfigError) as exc_info:
         Scrubber(['fine', 123])  # pyright: ignore[reportArgumentType]
-    assert str(exc_info.value) == snapshot('The `extra_patterns` entry at index 1 is a int, but it must be a string.')
+    assert str(exc_info.value) == snapshot(
+        'The `extra_patterns` entry at index 1 is of type int, but it must be a string.'
+    )
 
 
 @pytest.mark.parametrize(
@@ -778,6 +780,9 @@ def test_extra_patterns_rejects_non_string_entry():
         '(?:)',
         r'\b',  # only matches an empty span once there's a subject
         '(?=.)',
+        '(?=z)',  # a subject the probe doesn't contain
+        '(?<=a)',
+        '(?:password)?',
     ],
 )
 def test_extra_patterns_rejects_pattern_matching_nothing(pattern: str):
