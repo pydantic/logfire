@@ -209,7 +209,7 @@ except ValueError:
 Normally, a span created while another span is active becomes its child. This is not useful when the current
 operation schedules independent work, such as a background job, that should have its own trace.
 
-Pass the private `_new_trace=True` keyword to start a separate trace root. Logfire adds a span link, which records
+Pass `_new_trace=True` to start a separate trace root. Logfire adds a span link, which records
 the relationship, to the previously active span without making the new span its child. Other OpenTelemetry context
 values remain available, including baggage (small key/value data that rides along with a request across services).
 
@@ -222,6 +222,12 @@ with logfire.span('current operation'):
     with logfire.span('independent operation', _new_trace=True):
         logfire.info('This log is a child of the independent operation')
 ```
+
+To apply the same behavior to every call of a function, decorate it with
+`@logfire.instrument(new_trace=True)`.
+
+The new root appears as a separate trace in the Live view. The Logfire user interface does not currently draw the
+link back to the original trace; query the `otel_links` column with [SQL](../../reference/sql.md) to inspect it.
 
 ## Convenient function spans with `@logfire.instrument`
 
