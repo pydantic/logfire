@@ -3258,6 +3258,14 @@ def test_span_add_link_after_start(exporter: TestExporter):
     )
 
 
+def test_span_add_link_while_sampled_out(config_kwargs: dict[str, Any]) -> None:
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
+
+    with logfire.span('destination') as span:
+        assert not span.is_recording()
+        span.add_link(SpanContext(1, 2, False))
+
+
 def test_span_add_link_rejects_unstarted_source_span():
     destination = logfire.span('destination')
     with pytest.raises(ValueError, match='source span must be started first'):
