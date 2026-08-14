@@ -88,6 +88,7 @@ if TYPE_CHECKING:
     from flask.app import Flask
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
+    from opentelemetry.trace import TracerProvider
     from pydantic_evals.reporting import EvaluationReport
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
@@ -2196,20 +2197,23 @@ class Logfire:
             },
         )
 
-    def instrument_pymssql(self, **kwargs: Any) -> None:
+    def instrument_pymssql(self, *, tracer_provider: TracerProvider | None = None) -> None:
         """Instrument the `pymssql` module so that spans are automatically created for each operation.
 
         Uses the
         [OpenTelemetry PyMSSQL Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/pymssql/pymssql.html)
-        library, specifically `PyMSSQLInstrumentor().instrument()`, to which it passes `**kwargs`.
+        library, specifically `PyMSSQLInstrumentor().instrument()`. Logfire's configured tracer provider is used by
+        default.
 
         Args:
-            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+            tracer_provider: The OpenTelemetry tracer provider to use instead of Logfire's configured provider.
         """
         from .integrations.pymssql import instrument_pymssql
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_pymssql(**{'tracer_provider': self._config.get_tracer_provider(), **kwargs})
+        instrument_pymssql(
+            tracer_provider=(tracer_provider if tracer_provider is not None else self._config.get_tracer_provider())
+        )
 
     def instrument_system_metrics(
         self, config: SystemMetricsConfig | None = None, base: SystemMetricsBase = 'basic'

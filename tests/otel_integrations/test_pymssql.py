@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from typing import Any
 from unittest import mock
 
 import pymssql
@@ -137,7 +138,12 @@ def test_pymssql_instrumentation(exporter: TestExporter, pymssql_instrumentor: P
         assert len(exporter.exported_spans_as_dict(parse_json_attributes=True)) == 2
 
 
-def test_tracer_provider_override() -> None:
+def test_tracer_provider_default_and_override() -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    with mock.patch.object(PyMSSQLInstrumentor, 'instrument') as instrument:
+        logfire.instrument_pymssql()
+    instrument.assert_called_once_with(tracer_provider=config.get_tracer_provider())
+
     tracer_provider = TracerProvider()
     with mock.patch.object(PyMSSQLInstrumentor, 'instrument') as instrument:
         logfire.instrument_pymssql(tracer_provider=tracer_provider)
@@ -153,3 +159,18 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[pymssql]'\
 """)
+
+
+def test_transitive_missing_dependency_error_is_not_masked() -> None:
+    original_import = __import__
+
+    def import_with_missing_transitive_dependency(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'opentelemetry.instrumentation.pymssql':
+            raise ModuleNotFoundError("No module named 'transitive_dependency'", name='transitive_dependency')
+        return original_import(name, *args, **kwargs)
+
+    with mock.patch('builtins.__import__', side_effect=import_with_missing_transitive_dependency):
+        with pytest.raises(ModuleNotFoundError) as exc_info:
+            importlib.reload(logfire._internal.integrations.pymssql)
+
+    assert exc_info.value.name == 'transitive_dependency'
