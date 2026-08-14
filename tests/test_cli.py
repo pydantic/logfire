@@ -2188,10 +2188,9 @@ def test_gateway_cimd_client_id_and_redirect_uri() -> None:
     gateway_cimd_client_id = getattr(gateway_cli, '_gateway_cimd_client_id')
     oauth_redirect_uri = getattr(gateway_cli, '_oauth_redirect_uri')
 
-    assert gateway_cimd_client_id('http://localhost:3000/') == ('http://localhost:3000/clients/logfire-gateway.json')
-    assert gateway_cimd_client_id('https://logfire-eu.pydantic.dev') == (
-        'https://logfire.pydantic.dev/clients/logfire-gateway.json'
-    )
+    # Self-hosted instances default to the canonical document; one serving its own passes --client-id.
+    assert gateway_cimd_client_id('http://localhost:3000/') == gateway_cli.DEFAULT_CLIENT_ID
+    assert gateway_cimd_client_id('https://logfire-eu.pydantic.dev') == gateway_cli.DEFAULT_CLIENT_ID
     assert gateway_cimd_client_id('https://logfire-eu.pydantic.info') == (
         'https://logfire.pydantic.info/clients/logfire-gateway.json'
     )
@@ -2224,7 +2223,7 @@ def test_gateway_pick_port_uses_preferred_when_available(monkeypatch: pytest.Mon
 def test_gateway_urls_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     gateway_urls = getattr(gateway_cli, '_gateway_urls')
 
-    args = argparse.Namespace(gateway_region='eu', logfire_url=None, gateway_url=None)
+    args = argparse.Namespace(gateway_region='eu', logfire_url=None, gateway_url=None, client_id=None)
     assert gateway_urls(args) == (
         'eu',
         'https://logfire-eu.pydantic.dev',
@@ -2240,29 +2239,35 @@ def test_gateway_urls_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) ->
             'https://logfire.pydantic.dev/clients/logfire-gateway.json',
         )
 
-    args = argparse.Namespace(gateway_region='us', logfire_url='https://backend.example/', gateway_url=None)
+    args = argparse.Namespace(
+        gateway_region='us', logfire_url='https://backend.example/', gateway_url=None, client_id=None
+    )
     assert gateway_urls(args) == (
         'us',
         'https://backend.example',
         'https://backend.example',
-        'https://backend.example/clients/logfire-gateway.json',
+        gateway_cli.DEFAULT_CLIENT_ID,
     )
 
     args = argparse.Namespace(
-        gateway_region='us', logfire_url='https://backend.example/', gateway_url='https://gateway.example/'
+        gateway_region='us',
+        logfire_url='https://backend.example/',
+        gateway_url='https://gateway.example/',
+        client_id=None,
     )
     with patch.dict(os.environ, {'LOGFIRE_GATEWAY_URL': 'https://gateway.env/'}):
         assert gateway_urls(args) == (
             'us',
             'https://backend.example',
             'https://gateway.example',
-            'https://backend.example/clients/logfire-gateway.json',
+            gateway_cli.DEFAULT_CLIENT_ID,
         )
 
     args = argparse.Namespace(
         gateway_region='us',
         logfire_url='https://logfire-eu.pydantic.info/',
         gateway_url='https://gateway.pydantic.info/',
+        client_id=None,
     )
     assert gateway_urls(args) == (
         'us',
@@ -2270,6 +2275,69 @@ def test_gateway_urls_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) ->
         'https://gateway.pydantic.info',
         'https://logfire.pydantic.info/clients/logfire-gateway.json',
     )
+
+
+def test_gateway_urls_client_id_override() -> None:
+    gateway_urls = getattr(gateway_cli, '_gateway_urls')
+
+    args = argparse.Namespace(
+        gateway_region='us',
+        logfire_url='https://backend.example/',
+        gateway_url=None,
+        client_id='https://backend.example/oauth/my-client.json',
+    )
+    assert gateway_urls(args) == (
+        'us',
+        'https://backend.example',
+        'https://backend.example',
+        'https://backend.example/oauth/my-client.json',
+    )
+
+    # An explicit client ID also wins over the hosted presets.
+    args = argparse.Namespace(
+        gateway_region='eu',
+        logfire_url=None,
+        gateway_url=None,
+        client_id='https://elsewhere.example/client.json',
+    )
+    assert gateway_urls(args)[3] == 'https://elsewhere.example/client.json'
+
+
+@pytest.mark.parametrize(
+    'field,option',
+    [
+        ('logfire_url', '--base-url'),
+        ('gateway_url', '--gateway-url'),
+        ('client_id', '--client-id'),
+    ],
+)
+def test_gateway_urls_rejects_url_without_scheme(field: str, option: str) -> None:
+    gateway_urls = getattr(gateway_cli, '_gateway_urls')
+
+    values: dict[str, Any] = {'logfire_url': 'https://backend.example', 'gateway_url': None, 'client_id': None}
+    values[field] = 'logfire-dev.example.gov'
+    args = argparse.Namespace(gateway_region='us', **values)
+
+    with pytest.raises(gateway_auth.GatewayError) as exc_info:
+        gateway_urls(args)
+
+    assert str(exc_info.value) == (
+        f"{option} must be an absolute http(s) URL, got 'logfire-dev.example.gov'. "
+        'Did you mean https://logfire-dev.example.gov?'
+    )
+
+
+def test_gateway_urls_rejects_url_with_unsupported_scheme() -> None:
+    gateway_urls = getattr(gateway_cli, '_gateway_urls')
+
+    args = argparse.Namespace(
+        gateway_region='us', logfire_url='ftp://backend.example', gateway_url=None, client_id=None
+    )
+
+    with pytest.raises(gateway_auth.GatewayError) as exc_info:
+        gateway_urls(args)
+
+    assert str(exc_info.value) == "--base-url must be an absolute http(s) URL, got 'ftp://backend.example'."
 
 
 def test_gateway_pick_port_falls_back_when_preferred_is_busy() -> None:
@@ -2305,6 +2373,19 @@ def test_gateway_parse_serve_args() -> None:
 
     assert args.gateway_region == 'eu'
     assert args.logfire_url == 'https://backend.example/'
+    assert args.client_id is None
+
+
+@pytest.mark.parametrize('parser_name', ['_parse_launch_args', '_parse_serve_args'])
+def test_gateway_parse_args_accepts_client_id(parser_name: str) -> None:
+    parse_args = getattr(gateway_cli, parser_name)
+
+    args = parse_args(
+        ['--client-id', 'https://backend.example/clients/mine.json'],
+        gateway_cli.GatewayCommandContext(raw_args=[], region=None, logfire_url='https://backend.example/'),
+    )
+
+    assert args.client_id == 'https://backend.example/clients/mine.json'
 
 
 def test_gateway_handle_proxy_rejects_unknown_route_and_unauthorized_request(
@@ -3906,7 +3987,7 @@ def test_gateway_run_launch_dispatches_parsed_options(monkeypatch: pytest.Monkey
     assert captured['region'] == 'eu'
     assert captured['backend'] == 'https://backend.example'
     assert captured['gateway'] == 'https://gateway.example'
-    assert captured['client_id'] == 'https://backend.example/clients/logfire-gateway.json'
+    assert captured['client_id'] == gateway_cli.DEFAULT_CLIENT_ID
     assert captured['port'] == 1235
     assert captured['model'] == 'gpt-5'
     assert captured['flow'] == 'device'
@@ -4076,7 +4157,14 @@ def test_gateway_run_serve_async_returns_130_on_interrupt(monkeypatch: pytest.Mo
 
     code = asyncio.run(
         run_serve_async(
-            argparse.Namespace(gateway_region='us', logfire_url=None, gateway_url=None, port=9999, device_flow=False)
+            argparse.Namespace(
+                gateway_region='us',
+                logfire_url=None,
+                gateway_url=None,
+                client_id=None,
+                port=9999,
+                device_flow=False,
+            )
         )
     )
 

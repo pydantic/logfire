@@ -105,6 +105,29 @@ logfire gateway serve
 
 Use `--device-flow` if browser callback authorization is not available, or pass `--region eu` / `--region us` before `gateway` to select the Logfire region.
 
+### Self-hosted instances
+
+Pass `--base-url` before `gateway` to point at a [self-hosted instance](./self-hosted/overview.md):
+
+```bash
+logfire --base-url="https://<your_logfire_hostname>" gateway launch claude
+```
+
+Authorization uses an OAuth **client ID metadata document** (CIMD): the client ID is a URL that the
+authorization server fetches to look up the client. This document is served by Pydantic at
+`https://logfire.pydantic.dev/clients/logfire-gateway.json`, and self-hosted instances default to it
+too, so your deployment does not need to publish one.
+
+Your Logfire authorization server does need to be able to fetch that URL. If it can't reach it, or
+your deployment serves its own document, point at yours with `--client-id`:
+
+```bash
+logfire --base-url="https://<your_logfire_hostname>" gateway launch claude \
+  --client-id="https://<your_logfire_hostname>/oauth/clients/gateway.json"
+```
+
+If the client ID can't be resolved, authorization fails with `invalid_client`.
+
 ## Inspect (`inspect`)
 
 The inspect command is used to identify the missing OpenTelemetry instrumentation packages in your project.

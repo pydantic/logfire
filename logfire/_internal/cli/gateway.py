@@ -56,6 +56,11 @@ except ImportError as exc:
 DEFAULT_PORT = 11465
 DEFAULT_SCOPE = 'project:gateway_proxy'
 OAUTH_CALLBACK_PATH = '/callback'
+DEFAULT_CLIENT_ID = f'https://logfire.pydantic.dev{GATEWAY_CIMD_PATH}'
+_CLIENT_ID_HELP = (
+    'override the OAuth client ID, which must be a URL serving a client metadata document (CIMD). '
+    f'Defaults to {DEFAULT_CLIENT_ID}.'
+)
 
 console = Console(stderr=True)
 
@@ -64,20 +69,11 @@ console = Console(stderr=True)
 class GatewayRegion:
     backend: str
     gateway: str
-    client_id: str
 
 
 GATEWAY_REGIONS: dict[str, GatewayRegion] = {
-    'us': GatewayRegion(
-        'https://logfire-us.pydantic.dev',
-        'https://gateway-us.pydantic.dev',
-        'https://logfire.pydantic.dev/clients/logfire-gateway.json',
-    ),
-    'eu': GatewayRegion(
-        'https://logfire-eu.pydantic.dev',
-        'https://gateway-eu.pydantic.dev',
-        'https://logfire.pydantic.dev/clients/logfire-gateway.json',
-    ),
+    'us': GatewayRegion('https://logfire-us.pydantic.dev', 'https://gateway-us.pydantic.dev'),
+    'eu': GatewayRegion('https://logfire-eu.pydantic.dev', 'https://gateway-eu.pydantic.dev'),
 }
 
 
@@ -283,12 +279,25 @@ def _oauth_redirect_uri(port: int) -> str:
 
 
 def _gateway_cimd_client_id(base_url: str) -> str:
+    """Default to the document Pydantic serves, rather than one derived from the instance's base URL.
+
+    Deriving it assumed every self-hosted deployment publishes its own document; one that doesn't got
+    a client ID the authorization server rejects with an opaque `invalid_client`. Deployments that do
+    serve their own pass `--client-id`.
+    """
     parsed = urlsplit(base_url.rstrip('/'))
-    if parsed.netloc.startswith('logfire-') and parsed.netloc.endswith('.pydantic.dev'):
-        return f'{parsed.scheme}://logfire.pydantic.dev{GATEWAY_CIMD_PATH}'
     if parsed.netloc.startswith('logfire-') and parsed.netloc.endswith('.pydantic.info'):
         return f'{parsed.scheme}://logfire.pydantic.info{GATEWAY_CIMD_PATH}'
-    return f'{base_url.rstrip("/")}{GATEWAY_CIMD_PATH}'
+    return DEFAULT_CLIENT_ID
+
+
+def _require_absolute_url(value: str, *, option: str) -> str:
+    """Reject URLs without a scheme, which would otherwise silently build a nonsense client ID."""
+    parsed = urlsplit(value)
+    if parsed.scheme in ('http', 'https') and parsed.netloc:
+        return value
+    hint = f' Did you mean https://{value}?' if '://' not in value else ''
+    raise GatewayError(f'{option} must be an absolute http(s) URL, got {value!r}.{hint}')
 
 
 @contextlib.contextmanager
@@ -380,14 +389,19 @@ def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str, str]:
     region_name = args.gateway_region
     preset = GATEWAY_REGIONS[region_name]
     backend = (args.logfire_url or preset.backend).rstrip('/')
+    if backend != preset.backend:
+        _require_absolute_url(backend, option='--base-url')
     gateway_override = args.gateway_url or os.getenv('LOGFIRE_GATEWAY_URL')
     if gateway_override:
-        gateway = gateway_override
+        gateway = _require_absolute_url(gateway_override, option='--gateway-url')
     elif backend != preset.backend:
         gateway = backend
     else:
         gateway = preset.gateway
-    client_id = preset.client_id if backend == preset.backend else _gateway_cimd_client_id(backend)
+    if args.client_id:
+        client_id = _require_absolute_url(args.client_id, option='--client-id')
+    else:
+        client_id = _gateway_cimd_client_id(backend)
     return region_name, backend, gateway.rstrip('/'), client_id
 
 
@@ -419,6 +433,7 @@ def _parse_launch_args(raw: list[str], context: GatewayCommandContext) -> argpar
         '--region', dest='gateway_region', choices=sorted(GATEWAY_REGIONS), default=context.region or 'us'
     )
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
+    parser.add_argument('--client-id', default=None, help=_CLIENT_ID_HELP)
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.set_defaults(logfire_url=None if has_gateway_region else context.logfire_url)
     return parser.parse_args(raw)
@@ -436,6 +451,7 @@ def _parse_serve_args(raw: list[str], context: GatewayCommandContext) -> argpars
         '--region', dest='gateway_region', choices=sorted(GATEWAY_REGIONS), default=context.region or 'us'
     )
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
+    parser.add_argument('--client-id', default=None, help=_CLIENT_ID_HELP)
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.set_defaults(logfire_url=None if has_gateway_region else context.logfire_url)
     return parser.parse_args(raw)
