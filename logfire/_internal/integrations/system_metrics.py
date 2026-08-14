@@ -6,7 +6,7 @@ import os
 import sys
 from collections.abc import Callable, Iterable, Sequence
 from platform import python_implementation
-from threading import Lock
+from threading import Lock, local
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
@@ -142,6 +142,16 @@ class DiskPartition(Protocol):
 FilesystemMetricName = Literal['system.filesystem.usage', 'system.filesystem.limit', 'system.filesystem.utilization']
 FilesystemState = Literal['used', 'free', 'reserved']
 
+
+class _FilesystemCallbackState(local):
+    cached_observations: tuple[tuple[DiskUsage, dict[str, str]], ...]
+    pending_metrics: set[FilesystemMetricName]
+
+    def __init__(self) -> None:
+        self.cached_observations = ()
+        self.pending_metrics = set()
+
+
 FILESYSTEM_METRICS: tuple[FilesystemMetricName, ...] = (
     'system.filesystem.usage',
     'system.filesystem.limit',
@@ -274,6 +284,7 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
     warned_paths: set[str] = set()
     partition_warning_emitted = False
     warning_lock = Lock()
+    callback_state = _FilesystemCallbackState()
 
     def collect_filesystems() -> tuple[tuple[DiskUsage, dict[str, str]], ...]:
         nonlocal partition_warning_emitted
@@ -336,8 +347,17 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
             observations.append((usage, attributes))
         return tuple(observations)
 
+    def observations(metric: FilesystemMetricName) -> tuple[tuple[DiskUsage, dict[str, str]], ...]:
+        # OpenTelemetry invokes all callbacks for one reader on the same thread. Keep that reader's metrics on one
+        # coherent disk sample without sharing mutable collection state across concurrent reader threads.
+        if metric not in callback_state.pending_metrics:
+            callback_state.cached_observations = collect_filesystems()
+            callback_state.pending_metrics = set(enabled)
+        callback_state.pending_metrics.discard(metric)
+        return callback_state.cached_observations
+
     def usage_callback(_options: CallbackOptions) -> Iterable[Observation]:
-        for usage, attributes in collect_filesystems():
+        for usage, attributes in observations('system.filesystem.usage'):
             values = {
                 'used': usage.used,
                 'free': usage.free,
@@ -347,11 +367,11 @@ def measure_filesystems(logfire_instance: Logfire, config: MetricConfig, *, enab
                 yield Observation(values[state], {**attributes, 'system.filesystem.state': state})
 
     def limit_callback(_options: CallbackOptions) -> Iterable[Observation]:
-        for usage, attributes in collect_filesystems():
+        for usage, attributes in observations('system.filesystem.limit'):
             yield Observation(usage.total, attributes)
 
     def utilization_callback(_options: CallbackOptions) -> Iterable[Observation]:
-        for usage, attributes in collect_filesystems():
+        for usage, attributes in observations('system.filesystem.utilization'):
             available = usage.used + usage.free
             yield Observation(
                 usage.used / available if available else 0,

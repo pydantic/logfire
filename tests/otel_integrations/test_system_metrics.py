@@ -254,7 +254,7 @@ def test_filesystem_metrics(metrics_reader: InMemoryMetricReader, monkeypatch: p
     )
     metrics = {metric['name']: metric for metric in get_collected_metrics(metrics_reader)}
 
-    assert usage_calls == ['/work/app'] * 3
+    assert usage_calls == ['/work/app']
     assert set(metrics) == {
         'system.filesystem.usage',
         'system.filesystem.limit',

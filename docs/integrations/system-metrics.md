@@ -114,7 +114,8 @@ logfire.instrument_system_metrics(
         'system.filesystem.usage': filesystem_options,
         'system.filesystem.limit': filesystem_options,
         'system.filesystem.utilization': filesystem_options,
-    }
+    },
+    base=None,
 )
 ```
 
