@@ -3222,6 +3222,16 @@ def test_span_add_link_input_types(exporter: TestExporter):
         ]
     )
 
+    destination = next(
+        exported_span
+        for exported_span in exporter.exported_spans
+        if exported_span.name == 'destination' and len(exported_span.links) == 6
+    )
+    carrier_context = destination.links[3].context
+    assert carrier_context is not None
+    assert carrier_context.trace_flags == TraceFlags(TraceFlags.SAMPLED)
+    assert list(carrier_context.trace_state.items()) == [('vendor', 'value')]
+
 
 @pytest.mark.parametrize('value', [{}, {'tracestate': 'vendor=value'}, 'not-a-traceparent'])
 def test_span_add_link_ignores_invalid_carrier_without_ambient_fallback(
@@ -3233,7 +3243,40 @@ def test_span_add_link_ignores_invalid_carrier_without_ambient_fallback(
         with span:
             pass
 
-    assert all('links' not in span for span in exporter.exported_spans_as_dict(parse_json_attributes=True))
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'destination',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_ignores_invalid_carrier_without_ambient_fallback',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'destination',
+                    'logfire.msg': 'destination',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'ambient',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_ignores_invalid_carrier_without_ambient_fallback',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'ambient',
+                    'logfire.msg': 'ambient',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
 
 
 def test_span_add_link_rejects_invalid_direct_context() -> None:
@@ -3270,12 +3313,14 @@ def test_span_add_link_after_start(exporter: TestExporter):
     )
 
 
-def test_span_add_link_while_sampled_out(config_kwargs: dict[str, Any]) -> None:
+def test_span_add_link_while_sampled_out(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
     logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
 
     with logfire.span('destination') as span:
         assert not span.is_recording()
         span.add_link(SpanContext(1, 2, False))
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot([])
 
 
 def test_span_add_link_rejects_unstarted_source_span():
