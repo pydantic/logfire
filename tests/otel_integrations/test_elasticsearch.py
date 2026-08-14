@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, NamedTuple
 
 from elastic_transport import ApiResponseMeta, BaseNode, HttpHeaders
@@ -6,6 +7,8 @@ from elasticsearch import Elasticsearch
 from inline_snapshot import snapshot
 
 from logfire.testing import TestExporter
+
+os.environ['OTEL_PYTHON_INSTRUMENTATION_ELASTICSEARCH_CAPTURE_SEARCH_QUERY'] = 'raw'
 
 
 class OfflineNodeResponse(NamedTuple):
@@ -74,6 +77,7 @@ def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
                     'db.operation.parameter.index': 'products',
                     'db.system.name': 'elasticsearch',
                     'db.operation.name': 'search',
+                    'db.query.text': {'query': {'match': {'name': 'coffee'}}},
                     'url.full': 'http://localhost:9200/products/_search',
                     'http.request.method': 'POST',
                     'server.address': 'localhost',
