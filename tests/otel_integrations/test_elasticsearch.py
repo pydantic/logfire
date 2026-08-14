@@ -2,6 +2,7 @@ from typing import Any, NamedTuple
 
 from elastic_transport import ApiResponseMeta, BaseNode, HttpHeaders
 from elasticsearch import Elasticsearch
+from inline_snapshot import snapshot
 
 from logfire._internal.exporters.test import TestExporter
 
@@ -54,10 +55,26 @@ def test_native_elasticsearch_instrumentation(exporter: TestExporter) -> None:
 
     assert response['hits']['total']['value'] == 0
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert len(spans) == 1
-    assert spans[0]['name'] == 'search'
-    attributes = spans[0]['attributes']
-    assert attributes['logfire.msg'] == 'search'
-    assert attributes['http.request.method'] == 'POST'
-    assert attributes['url.full'] == 'http://localhost:9200/products/_search'
-    assert attributes.get('db.system.name', attributes.get('db.system')) == 'elasticsearch'
+    assert spans == snapshot(
+        [
+            {
+                'name': 'search',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'search',
+                    'db.operation.parameter.index': 'products',
+                    'db.system.name': 'elasticsearch',
+                    'db.operation.name': 'search',
+                    'url.full': 'http://localhost:9200/products/_search',
+                    'http.request.method': 'POST',
+                    'server.address': 'localhost',
+                    'server.port': 9200,
+                    'db.response.status_code': '200',
+                },
+            }
+        ]
+    )
