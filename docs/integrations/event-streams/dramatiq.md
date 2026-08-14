@@ -28,13 +28,13 @@ Configure Logfire, create your broker, and call
 actors. The example uses Redis, so it also needs `pip install redis` and a Redis server on
 `localhost:6379`.
 
-```python title="tasks.py" hl_lines="8" skip-run="true" skip-reason="external-connection"
+```python title="tasks.py" hl_lines="6 8" skip-run="true" skip-reason="external-connection"
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
 
 import logfire
 
-logfire.configure()
+logfire.configure(distributed_tracing=True)
 broker = RedisBroker(host='localhost')
 logfire.instrument_dramatiq(broker)
 dramatiq.set_broker(broker)
@@ -48,6 +48,12 @@ def send_email(address: str) -> None:
 if __name__ == '__main__':
     send_email.send('hello@example.com')
 ```
+
+`distributed_tracing=True` is intentional: the worker accepts trace context from messages so it can
+continue the producer's trace. Only accept messages from brokers you trust. If you set
+`distributed_tracing=False`, producer and worker spans start separate traces instead. See
+[unintentional distributed tracing](../../how-to-guides/distributed-tracing.md#unintentional-distributed-tracing)
+for the tradeoffs.
 
 Call `instrument_dramatiq()` in both applications if producers and workers run in separate
 processes. If you omit `broker`, Logfire instruments the broker returned by
