@@ -304,6 +304,11 @@ def _check_extra_patterns(patterns: Sequence[str] | None) -> list[str]:
         )
 
     checked: list[str] = []
+    # Groups are numbered across the joined pattern in order, so only the groups that come before
+    # an entry shift its own numbering. The default pattern uses non-capturing groups throughout,
+    # but count it rather than assuming that stays true.
+    preceding_groups = re.compile(_DEFAULT_PATTERN).groups
+
     for index, pattern in enumerate(patterns):
         entry = f'The `extra_patterns` entry at index {index}'
 
@@ -319,19 +324,23 @@ def _check_extra_patterns(patterns: Sequence[str] | None) -> list[str]:
 
         if _matches_without_consuming(compiled):
             raise LogfireConfigError(
-                f'{entry} can match without consuming any characters, so it would match every value '
-                f'and redact all telemetry. Did you mean `+` where you wrote `*`?'
+                f'{entry} can match without consuming any characters, so it reports a match on values '
+                f'containing nothing sensitive, which are then redacted with an empty reason. '
+                f'A `*` where you meant `+`, or a look-around with nothing beside it, will do this.'
             )
 
-        if _has_numeric_backreference(pattern):
-            # All the patterns share one group numbering space once they're joined, so a numeric
-            # backreference points at a group from another pattern and the pattern never matches.
+        if preceding_groups and _has_numeric_backreference(pattern):
+            # Only groups from earlier entries shift this one's numbering. With none of them, a
+            # backreference still refers to this pattern's own group and works as written.
             raise LogfireConfigError(
-                f'{entry} contains a backreference to a group by number. Patterns are combined into a '
-                f'single regex, so numbered groups from different patterns would collide. '
-                f'Use a named group instead, e.g. `(?P<name>...)` and `(?P=name)`.'
+                f'{entry} refers to a group by number, but {preceding_groups} capturing '
+                f'{"group appears" if preceding_groups == 1 else "groups appear"} before it once the '
+                f'patterns are combined into a single regex, so the numbering shifts and it would '
+                f'point at the wrong group. Use a named group instead, e.g. `(?P<name>...)` and '
+                f'`(?P=name)`, or make the earlier groups non-capturing with `(?:...)`.'
             )
 
+        preceding_groups += compiled.groups
         checked.append(pattern)
 
     return checked
@@ -343,7 +352,17 @@ class Scrubber(BaseScrubber):
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
         # See ScrubbingOptions for more info on these parameters.
         patterns = [_DEFAULT_PATTERN, *_check_extra_patterns(patterns)]
-        self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        try:
+            self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        except re.error as e:
+            # Entries that are each valid can still be invalid together, e.g. two of them using the
+            # same group name, or one setting a global flag such as `(?i)` away from the start.
+            raise LogfireConfigError(
+                f'The `extra_patterns` entries are combined into a single regular expression, and '
+                f'together they do not form a valid one: {e}. Two entries using the same group name, '
+                f'or an inline flag such as `(?i)`, will do this. Note that patterns are always '
+                f'matched case-insensitively.'
+            ) from e
         self._callback = callback
 
     def scrub_log(self, log: LogRecord) -> LogRecord:

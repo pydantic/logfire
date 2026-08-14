@@ -790,16 +790,34 @@ def test_extra_patterns_rejects_pattern_matching_nothing(pattern: str):
         Scrubber([pattern])
 
 
-def test_extra_patterns_rejects_numeric_backreference():
-    # Patterns share one group numbering space once joined, so `\1` here would point at a group
-    # from another pattern and the pattern would silently never match.
+def test_extra_patterns_rejects_numeric_backreference_after_a_capturing_group():
+    # `(a)` is group 1 once joined, so the `\1` here points at it rather than at `(b)`,
+    # and the pattern silently never matches.
     with pytest.raises(LogfireConfigError) as exc_info:
         Scrubber(['(a)', r'(b)\1'])
     assert str(exc_info.value) == snapshot(
-        'The `extra_patterns` entry at index 1 contains a backreference to a group by number. '
-        'Patterns are combined into a single regex, so numbered groups from different patterns '
-        'would collide. Use a named group instead, e.g. `(?P<name>...)` and `(?P=name)`.'
+        'The `extra_patterns` entry at index 1 refers to a group by number, but 1 capturing group '
+        'appears before it once the patterns are combined into a single regex, so the numbering '
+        'shifts and it would point at the wrong group. Use a named group instead, e.g. '
+        '`(?P<name>...)` and `(?P=name)`, or make the earlier groups non-capturing with `(?:...)`.'
     )
+
+
+def test_extra_patterns_allows_backreference_with_no_preceding_group():
+    # The default patterns capture nothing, so a lone `\1` keeps its own numbering and works.
+    scrubber = Scrubber([r'(.)\1'])
+    assert scrubber.scrub_value(('attributes', 'x'), 'a value with bb inside')[0] == snapshot("[Scrubbed due to 'bb']")
+    # Non-capturing groups in an earlier entry don't shift the numbering either.
+    assert Scrubber(['(?:foo)', r'(.)\1'])
+
+
+def test_extra_patterns_rejects_entries_only_invalid_once_combined():
+    with pytest.raises(LogfireConfigError, match='together they do not form a valid one') as exc_info:
+        Scrubber(['(?P<c>a)', '(?P<c>b)'])
+    assert 'same group name' in str(exc_info.value)
+
+    with pytest.raises(LogfireConfigError, match='together they do not form a valid one'):
+        Scrubber(['(?i)foo'])
 
 
 def test_extra_patterns_named_backreference_is_allowed():
