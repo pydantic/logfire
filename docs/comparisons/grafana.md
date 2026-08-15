@@ -1,3 +1,7 @@
+---
+title: "Logfire vs Grafana"
+---
+
 # Logfire vs Grafana
 
 Grafana is a powerful open-source visualization platform that works with various data sources including Tempo (traces), Loki (logs), and Prometheus (metrics). Logfire is a managed observability platform with integrated visualization. Both can display your observability data, but they take very different approaches.

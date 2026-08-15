@@ -1,3 +1,7 @@
+---
+title: "Logfire vs Arize Phoenix"
+---
+
 # Logfire vs Arize Phoenix
 
 Arize Phoenix is an ML observability platform focused on model monitoring, drift detection, and LLM tracing. Logfire is an AI-native observability platform built on OpenTelemetry. While both help you observe AI applications, they come from different backgrounds and serve different needs.

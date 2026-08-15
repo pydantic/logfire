@@ -1,3 +1,7 @@
+---
+title: "Logfire vs Langfuse"
+---
+
 # Logfire vs Langfuse
 
 Both Logfire and Langfuse help you observe AI/LLM applications, but they take fundamentally different approaches. Langfuse focuses specifically on LLM tracing, while Logfire is an AI-native full-stack observability platform.

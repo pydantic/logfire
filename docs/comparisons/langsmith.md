@@ -1,3 +1,7 @@
+---
+title: "Logfire vs LangSmith"
+---
+
 # Logfire vs LangSmith
 
 LangSmith is the observability and evaluation platform from the LangChain team. Logfire, combined with Pydantic AI, offers a production-grade alternative built on software engineering fundamentals.

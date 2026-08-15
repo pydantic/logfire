@@ -1,3 +1,7 @@
+---
+title: "Logfire vs Sentry"
+---
+
 # Logfire vs Sentry
 
 Sentry is a mature error monitoring platform. Logfire is an AI-native observability platform built on OpenTelemetry with full-stack monitoring capabilities. While Sentry excels at catching and tracking errors, Logfire provides complete visibility into your application's behavior, AI to API.

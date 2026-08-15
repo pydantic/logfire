@@ -1,3 +1,7 @@
+---
+title: "Logfire vs Datadog"
+---
+
 # Logfire vs Datadog
 
 Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-native observability platform built on OpenTelemetry. While both offer APM capabilities, their architectures and pricing models are fundamentally different.
