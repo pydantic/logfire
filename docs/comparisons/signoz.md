@@ -1,3 +1,7 @@
+---
+title: "Logfire vs SigNoz"
+---
+
 # Logfire vs SigNoz
 
 SigNoz is an open-source observability platform available as both a self-hosted solution and a managed cloud service. Logfire is an AI-native observability platform, also built on OpenTelemetry, with full-stack monitoring capabilities and (Enterprise) self-hosting options. Both platforms support logs, traces, and metrics, but they serve different needs.

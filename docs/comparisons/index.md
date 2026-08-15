@@ -1,3 +1,7 @@
+---
+title: "Logfire vs Alternatives"
+---
+
 # Logfire vs Alternatives
 
 ## AI Observability That Actually Works
