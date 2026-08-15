@@ -200,6 +200,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     },
                     'output.mime_type': 'application/json',
                     'llm.output_messages.0.message.role': 'assistant',
+                    'llm.output_messages.0.message.tool_calls.0.tool_call.id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
                     'llm.output_messages.0.message.tool_calls.0.tool_call.function.name': 'get_current_weather',
                     'llm.output_messages.0.message.tool_calls.0.tool_call.function.arguments': {
                         'location': 'San Francisco, CA'
@@ -260,6 +261,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'llm.input_messages.0.message.role': 'user',
                     'llm.input_messages.0.message.content': "What's the weather like in San Francisco?",
                     'llm.input_messages.1.message.role': 'assistant',
+                    'llm.input_messages.1.message.tool_calls.0.tool_call.id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
                     'llm.input_messages.1.message.tool_calls.0.tool_call.function.name': 'get_current_weather',
                     'llm.input_messages.1.message.tool_calls.0.tool_call.function.arguments': {
                         'location': 'San Francisco, CA'
