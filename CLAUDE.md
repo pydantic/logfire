@@ -104,9 +104,9 @@ CI is required to pass on main, so pre-existing CI failures are unlikely. If the
 
 ## Pydantic version coverage
 
-PR CI only tests pydantic latest plus one extra job at pydantic 2.4. The full set of supported minor versions (2.4, 2.5, 2.6, ... up through main) is exercised by the weekly job in `.github/workflows/weekly_deps_test.yml`, which is the contract: every minor version listed there is meant to keep working.
+PR CI only tests pydantic latest plus one extra job at pydantic 2.4. The full set of supported minor versions (2.4, 2.5, 2.6, ... up through main) is exercised by the twice-monthly job in `.github/workflows/deps_test.yml`, scheduled for the 1st and 15th. This workflow is the contract: every minor version listed there is meant to keep working.
 
-When something fails on pydantic 2.4, do not assume it is a 2.4-only quirk. The same problem is likely to affect some of 2.5–2.11 as well. Investigate which versions are actually affected (e.g. read the upstream changelog, install one of the in-between versions locally and reproduce) and fix or work around for the whole affected range. A green PR CI is not enough — if you only verify against 2.4 and latest, the weekly job will fail later even though the PR merged cleanly.
+When something fails on pydantic 2.4, do not assume it is a 2.4-only quirk. The same problem is likely to affect some of 2.5–2.11 as well. Investigate which versions are actually affected (e.g. read the upstream changelog, install one of the in-between versions locally and reproduce) and fix or work around for the whole affected range. A green PR CI is not enough — if you only verify against 2.4 and latest, the twice-monthly job will fail later even though the PR merged cleanly.
 
 # Misc
 
