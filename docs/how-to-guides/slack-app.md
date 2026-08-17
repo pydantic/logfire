@@ -8,19 +8,32 @@ description: "Connect a Slack workspace to Logfire once, then send alerts and is
 !!! info "Beta"
     The Slack App is available to every organization and is marked **Beta** in the app. It works for alerts, issues, and saved searches today.
 
-Connect a Slack workspace to your Logfire organization once, then point any notification channel at a Slack channel by picking it from a list.
+The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send any alert, issue, or SRE finding to a channel by picking that channel from a list.
 
-This is the recommended way to get Logfire notifications into Slack. The [webhook route](setup-slack-alerts.md) still works and is the right choice when you cannot install an app into the workspace.
+## What the app does in Slack
 
-## Why use the app instead of a webhook
+- **Posts notifications** to the channels you choose: a firing alert, a new issue, or a finding from the SRE agent, rendered as a Slack message with a link back to Logfire.
+- **Lists the channels it has been invited to**, so you pick a destination instead of pasting a URL.
+- **Publishes a Home tab** describing the connection.
+- **Reads 👍 / 👎 reactions on the messages it posted**, which is how you tell Logfire whether an SRE finding was useful.
 
-| | Slack App | Slack webhook |
-| --- | --- | --- |
-| Setup | Approve the app once per workspace | Create a Slack app and a webhook per channel |
-| Secret to manage | None. Logfire stores the workspace grant | A webhook URL, which is a bearer secret |
-| Choosing a channel | Pick from a list of channels the bot is in | Fixed at webhook creation; a new channel means a new URL |
-| Adding a second channel | Pick another channel | Create another webhook |
-| Revoking access | Disconnect in Logfire, or uninstall in Slack | Find and delete the right webhook |
+The app never posts anywhere it has not been invited, and it does not join channels by itself.
+
+### Permissions it requests
+
+| Permission | Why the app needs it |
+| --- | --- |
+| `chat:write` | Post notifications into the channels you pick |
+| `channels:read`, `groups:read` | List public and private channels the app is a member of, for the channel picker |
+| `channels:history`, `im:history` | Resolve the message a reaction was added to, so feedback lands on the right notification |
+| `reactions:read`, `reactions:write` | Read 👍 / 👎 feedback on notifications, and acknowledge it |
+| `team:read` | Show the workspace name and icon on the connection in Logfire |
+
+### Data and privacy
+
+Logfire stores the workspace grant (the bot token, encrypted at rest), the workspace's name and ID, the granted permissions, and the ID of each channel you select. Message content flows one way: Logfire posts notification text built from your telemetry, and the only inbound content it records is the reaction feedback described above.
+
+See the [Pydantic privacy policy](https://pydantic.dev/legal/privacy-policy) for how we collect, manage, and store this data.
 
 ## Before you start
 
@@ -93,3 +106,9 @@ One channel can serve many alerts, and one alert can notify several channels.
 - **Uninstall in Slack** to do the same from the other side. Logfire marks the install revoked and its channels stop working until you connect again.
 
 A Slack install belongs to the workspace, so if several Logfire organizations connected the same workspace, revoking affects all of them. Reconnecting is a fresh install rather than a repair: the old grant is gone.
+
+## If you cannot install an app
+
+Some workspaces do not allow installing apps, or route it through an approval you would rather not wait for. Logfire also delivers to Slack through an incoming webhook, which you create yourself in a Slack app of your own and paste into a notification channel: see [Setup Slack Alerts](setup-slack-alerts.md).
+
+That route works, but it puts a bearer secret in your hands, fixes each webhook to a single channel, and gives Logfire no way to tell you whether the destination is still reachable. Prefer the app when you can install it.
