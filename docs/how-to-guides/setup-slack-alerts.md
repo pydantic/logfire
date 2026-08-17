@@ -7,7 +7,7 @@ description: "Need to send alerts to Slack from Logfire? This guide shows how to
 **Logfire** allows you to send alerts via **Slack** based upon the configured alert criteria.
 
 !!! tip "The Slack App is usually simpler"
-    This guide uses an incoming webhook, which means creating a Slack app of your own and storing its webhook URL in Logfire. The [Slack App](slack-app.md) instead connects your workspace once, then lets you pick a channel from a list, with no secret to manage. Use a webhook when you cannot install an app into the workspace.
+    This guide uses an incoming webhook, which means creating a Slack app of your own and storing its webhook URL in Logfire. The [Slack App](slack-app.md) instead connects your workspace once, then lets you pick a channel from a list, with no secret to manage. Stay on this guide when your workspace will not approve installing a third-party app but does let you build one of your own; if neither is allowed, ask a workspace admin to approve the Logfire app.
 
 ## Creating a Slack Incoming Webhook
 

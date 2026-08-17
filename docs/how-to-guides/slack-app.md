@@ -8,14 +8,14 @@ description: "Connect a Slack workspace to Logfire once, then send alerts and is
 !!! info "Beta"
     The Slack App is available to every organization and is marked **Beta** in the app. It works for alerts, issues, and saved searches today.
 
-The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send any alert, issue, or SRE finding to a channel by picking that channel from a list.
+The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send any alert, issue, or finding from the site reliability engineering (SRE) agent to a channel by picking that channel from a list.
 
 ## What the app does in Slack
 
-- **Posts notifications** to the channels you choose: a firing alert, a new issue, or a finding from the SRE agent, rendered as a Slack message with a link back to Logfire.
+- **Posts notifications** to the channels you choose: a firing alert, a new issue, or an SRE agent finding, rendered as a Slack message with a link back to Logfire.
 - **Lists the channels it has been invited to**, so you pick a destination instead of pasting a URL.
 - **Publishes a Home tab** describing the connection.
-- **Reads 👍 / 👎 reactions on the messages it posted**, which is how you tell Logfire whether an SRE finding was useful.
+- **Reads 👍 / 👎 reactions on the messages it posted**, which is how you tell Logfire whether a finding was useful.
 
 The app never posts anywhere it has not been invited, and it does not join channels by itself.
 
@@ -25,9 +25,11 @@ The app never posts anywhere it has not been invited, and it does not join chann
 | --- | --- |
 | `chat:write` | Post notifications into the channels you pick |
 | `channels:read`, `groups:read` | List public and private channels the app is a member of, for the channel picker |
-| `channels:history`, `im:history` | Resolve the message a reaction was added to, so feedback lands on the right notification |
-| `reactions:read`, `reactions:write` | Read 👍 / 👎 feedback on notifications, and acknowledge it |
+| `reactions:read` | Receive the 👍 / 👎 you add to a notification, as feedback on that finding |
+| `reactions:write` | Acknowledge that feedback with a reaction of its own |
 | `team:read` | Show the workspace name and icon on the connection in Logfire |
+
+The app does not read your message history or your direct messages.
 
 ### Data and privacy
 
@@ -109,6 +111,6 @@ A Slack install belongs to the workspace, so if several Logfire organizations co
 
 ## If you cannot install an app
 
-Some workspaces do not allow installing apps, or route it through an approval you would rather not wait for. Logfire also delivers to Slack through an incoming webhook, which you create yourself in a Slack app of your own and paste into a notification channel: see [Setup Slack Alerts](setup-slack-alerts.md).
+Some workspaces will not approve a third-party app, or route the request through an approval you would rather not wait for, while still letting members build an app of their own. In that case Logfire also delivers through an incoming webhook, which you create in your own Slack app and paste into a notification channel: see [Setup Slack Alerts](setup-slack-alerts.md). If your workspace allows neither, ask an admin to approve the Logfire app; there is no third route.
 
 That route works, but it puts a bearer secret in your hands, fixes each webhook to a single channel, and gives Logfire no way to tell you whether the destination is still reachable. Prefer the app when you can install it.
