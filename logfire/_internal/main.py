@@ -86,8 +86,11 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
+    from opentelemetry._logs import LoggerProvider
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
-    from opentelemetry.metrics import _Gauge as Gauge
+    from opentelemetry.metrics import MeterProvider, _Gauge as Gauge
+    from opentelemetry.propagators.textmap import TextMapPropagator
+    from opentelemetry.trace import TracerProvider
     from pydantic_evals.reporting import EvaluationReport
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
@@ -130,6 +133,7 @@ if TYPE_CHECKING:
     from .config import TemplateMismatchPolicy
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
+    from .integrations.botocore import RequestHook as BotocoreRequestHook, ResponseHook as BotocoreResponseHook
     from .integrations.llm_providers.semconv import SemconvVersion
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
@@ -2099,6 +2103,41 @@ class Logfire:
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
             },
+        )
+
+    def instrument_botocore(
+        self,
+        request_hook: BotocoreRequestHook | None = None,
+        response_hook: BotocoreResponseHook | None = None,
+        *,
+        propagator: TextMapPropagator | None = None,
+        tracer_provider: TracerProvider | None = None,
+        meter_provider: MeterProvider | None = None,
+        logger_provider: LoggerProvider | None = None,
+    ) -> None:
+        """Instrument botocore clients so that spans are automatically created for AWS API calls.
+
+        Uses the [OpenTelemetry botocore instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/botocore/botocore.html),
+        specifically `BotocoreInstrumentor().instrument()`. Logfire's configured providers are used by default.
+
+        Args:
+            request_hook: Called with the span, service name, operation name, and API parameters before the request.
+            response_hook: Called with the span, service name, operation name, and result after the request.
+            propagator: The propagator used to inject trace context into supported botocore requests.
+            tracer_provider: The OpenTelemetry tracer provider to use instead of Logfire's configured provider.
+            meter_provider: The OpenTelemetry meter provider to use instead of Logfire's configured provider.
+            logger_provider: The OpenTelemetry logger provider to use instead of Logfire's configured provider.
+        """
+        from .integrations.botocore import instrument_botocore
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_botocore(
+            request_hook=request_hook,
+            response_hook=response_hook,
+            propagator=propagator,
+            tracer_provider=(tracer_provider if tracer_provider is not None else self._config.get_tracer_provider()),
+            meter_provider=(meter_provider if meter_provider is not None else self._config.get_meter_provider()),
+            logger_provider=(logger_provider if logger_provider is not None else self._config.get_logger_provider()),
         )
 
     def instrument_pymongo(
