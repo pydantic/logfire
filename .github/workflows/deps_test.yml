@@ -1,8 +1,8 @@
-name: Weekly CI Job
+name: Deps Update CI Job
 
 on:
   schedule:
-    - cron: '0 12 * * MON' # Every monday noon UTC
+    - cron: '0 12 1,15 * *' # 1st and 15th of every month, so roughly once every 2 weeks
 
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
@@ -119,5 +119,5 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: webhook-trigger
           payload: |
-            heading: Logfire Weekly CI deps test ${{github.repository}} failed!
+            heading: Logfire CI deps test ${{github.repository}} failed!
             body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}

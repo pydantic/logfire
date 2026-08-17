@@ -1,4 +1,7 @@
-Goal: create a PR in which all dependencies are updated to their latest versions and CI is passing.
+---
+name: update-deps
+description: "Create a PR in which all dependencies are updated to their latest versions and CI is passing. Only user initiated."
+---
 
 Steps:
 

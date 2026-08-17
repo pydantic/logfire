@@ -205,6 +205,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'llm.output_messages.0.message.tool_calls.0.tool_call.function.arguments': {
                         'location': 'San Francisco, CA'
                     },
+                    'llm.finish_reason': 'tool_calls',
                     'llm.token_count.prompt': 80,
                     'llm.token_count.prompt_details.cache_read': 0,
                     'llm.token_count.prompt_details.audio': 0,
@@ -345,6 +346,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'output.value': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
                     'llm.output_messages.0.message.role': 'assistant',
                     'llm.output_messages.0.message.content': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
+                    'llm.finish_reason': 'stop',
                     'llm.token_count.prompt': 62,
                     'llm.token_count.prompt_details.cache_read': 0,
                     'llm.token_count.prompt_details.audio': 0,
