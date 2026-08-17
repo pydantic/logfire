@@ -6,16 +6,16 @@ description: "Connect a Slack workspace to Logfire once, then send alerts and is
 # Slack App
 
 !!! info "Beta"
-    The Slack App is available to every organization and is marked **Beta** in the app. It works for alerts, issues, and saved searches today.
+    The Slack App is available to every organization and is marked **Beta** in the app. It delivers alerts and issue notifications today.
 
-The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send any alert, issue, or finding from the site reliability engineering (SRE) agent to a channel by picking that channel from a list.
+The Logfire Slack app brings your observability notifications into Slack. Install it into your workspace once, connect it to your Logfire organization, and then send any alert or issue to a channel by picking that channel from a list.
 
 ## What the app does in Slack
 
-- **Posts notifications** to the channels you choose: a firing alert, a new issue, or an SRE agent finding, rendered as a Slack message with a link back to Logfire.
+- **Posts notifications** to the channels you choose: a firing alert or a new issue, rendered as a Slack message with a link back to Logfire.
 - **Lists the channels it has been invited to**, so you pick a destination instead of pasting a URL.
 - **Publishes a Home tab** describing the connection.
-- **Reads 👍 / 👎 reactions on the messages it posted**, which is how you tell Logfire whether a finding was useful.
+- **Reads 👍 / 👎 reactions on the messages it posted.** This is how you rate a finding from Logfire's site reliability engineering (SRE) agent, which is enabled for selected organizations rather than generally available. Reacting to an alert or issue notification does nothing.
 
 The app never posts anywhere it has not been invited, and it does not join channels by itself.
 
@@ -25,8 +25,8 @@ The app never posts anywhere it has not been invited, and it does not join chann
 | --- | --- |
 | `chat:write` | Post notifications into the channels you pick |
 | `channels:read`, `groups:read` | List public and private channels the app is a member of, for the channel picker |
-| `reactions:read` | Receive the 👍 / 👎 you add to a notification, as feedback on that finding |
-| `reactions:write` | Acknowledge that feedback with a reaction of its own |
+| `reactions:read` | Receive the 👍 / 👎 you add to an SRE agent finding, as your rating of it |
+| `reactions:write` | Acknowledge that rating with a reaction of its own |
 | `team:read` | Show the workspace name and icon on the connection in Logfire |
 
 The app does not read your message history or your direct messages.
@@ -86,7 +86,7 @@ The test must succeed before the channel can be created. That is deliberate: a S
 Select the channel anywhere Logfire sends notifications:
 
 - **Alerts**: the **Send notifications to** section of the alert form. See the [alerts guide](../guides/web-ui/alerts.md).
-- **Issues** and **saved searches**: the notification settings on each.
+- **Issue notifications**: the notification settings on the [Issues](../guides/web-ui/issues.md) page, or the filter alert on a [saved search](../guides/web-ui/saved-searches.md). Both send the same issue notification, so pick whichever fits how you already scope issues.
 
 One channel can serve many alerts, and one alert can notify several channels.
 
