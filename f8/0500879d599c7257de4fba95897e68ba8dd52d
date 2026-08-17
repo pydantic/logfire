@@ -1,0 +1,19 @@
+tests/otel_integrations/test_litellm.py
+  s_0ec2e41e9d4264::t_1fcd9e2156b425 208,349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f80500879d599c7257de4fba95897e68ba8dd52d",
+  "prompts": {},
+  "sessions": {
+    "s_0ec2e41e9d4264": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0100e-9d62-7523-9efa-af6a41dfb0f5",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
