@@ -9,7 +9,7 @@ description: "Manage evaluation datasets programmatically with the Logfire Pytho
 
     The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
-The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define datasets in code, publish them to hosted storage, and later fetch them back for evaluation. You can also manage datasets through the [Web UI](datasets-and-experiments.md).
+The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define datasets in code, publish them to hosted storage, and later fetch them back for evaluation. You can also [manage datasets in the web UI](manage-datasets.md).
 
 ## Installation
 
@@ -123,6 +123,10 @@ with LogfireAPIClient(api_key='your-api-key') as client:
 - it uploads all cases through the existing import/upsert API
 - it uses `on_case_conflict='update'` by default, so named cases are updated on repeat pushes
 
+!!! note "Server-side limits on writes"
+
+    Cases are validated against the hosted dataset's JSON schemas on every write, and a request whose cases do not match is rejected in full rather than partially applied. A hosted dataset also holds at most 10,000 cases, so a bulk import beyond that fails instead of truncating. See [Manage datasets](manage-datasets.md#schemas-are-enforced-on-every-write).
+
 !!! note "Round-tripping evaluators"
 
     `push_dataset(...)` uploads case-level evaluators with their cases, plus dataset-level `evaluators` and `report_evaluators` from the `Dataset` itself. Each push overwrites the hosted values, so removing an evaluator locally and re-pushing also clears it on the server.
@@ -229,4 +233,4 @@ client.delete_dataset('qa-golden-set')
 
 - **[Running Evaluations](evals-in-code.md)** --- Fetch your dataset and run evaluations with pydantic-evals.
 - **[SDK Reference](../reference/api/datasets.md)** --- Complete method signatures and exception reference.
-- **[Web UI Guide](datasets-and-experiments.md)** --- Manage datasets through the Logfire web interface.
+- **[Manage datasets](manage-datasets.md)** --- Create and curate datasets through the Logfire web interface.
