@@ -269,7 +269,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'instrument_openai_agents')
-    logfire_api.instrument_openai_agents()
+    # openai-agents 0.20 requires pydantic >=2.12.2.
+    if get_version(pydantic_version) >= get_version('2.12.2'):
+        logfire_api.instrument_openai_agents()
     logfire__all__.remove('instrument_openai_agents')
 
     assert hasattr(logfire_api, 'instrument_pydantic_ai')
