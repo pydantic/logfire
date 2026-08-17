@@ -44,7 +44,7 @@ MetricName: type[
         'system.network.errors',
         'system.network.io',
         'system.network.connections',
-        'system.processes.count',
+        'system.process.count',
         'system.thread_count',
         'process.open_file_descriptor.count',
         'process.context_switches',
@@ -77,7 +77,7 @@ MetricName: type[
     'system.network.errors',
     'system.network.io',
     'system.network.connections',
-    'system.processes.count',
+    'system.process.count',
     'system.thread_count',
     'process.open_file_descriptor.count',
     'process.context_switches',
@@ -113,11 +113,9 @@ FULL_CONFIG: Config = {
     'process.cpu.core_utilization': None,
     'system.cpu.time': CPU_FIELDS,
     'system.cpu.utilization': CPU_FIELDS,
-    # The Hosts page reads these — upstream `_DEFAULT_CONFIG` doesn't include
-    # them and they aren't expensive (one number per scrape each), so add them
-    # so `base='full'` covers the page without a follow-up `config={…}` knob.
+    # Also in BASIC_CONFIG — see the note there.
     'system.cpu.load_average.1m': None,
-    'system.processes.count': None,
+    'system.process.count': None,
     # For usage, knowing the total amount of bytes available might be handy.
     'system.memory.usage': MEMORY_FIELDS + ['total'],
     # For utilization, the total is always just 1 (100%), so it's not included.
@@ -146,6 +144,11 @@ BASIC_CONFIG: Config = {
     # The actually used memory ratio can be calculated as `1 - available`.
     'system.memory.utilization': ['available'],
     'system.swap.utilization': ['used'],
+    # The Hosts page shows these in its default table, and each costs one number
+    # per scrape with no attributes, so they're cheap enough for the basic base.
+    # Upstream `SystemMetricsInstrumentor` emits neither.
+    'system.cpu.load_average.1m': None,
+    'system.process.count': None,
 }
 
 Base = Literal['basic', 'full', None]
@@ -186,9 +189,9 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
         measure_system_cpu_load_average_1m(logfire_instance)
         del config['system.cpu.load_average.1m']
 
-    if 'system.processes.count' in config:
-        measure_system_processes_count(logfire_instance)
-        del config['system.processes.count']
+    if 'system.process.count' in config:
+        measure_system_process_count(logfire_instance)
+        del config['system.process.count']
 
     instrumentor = SystemMetricsInstrumentor(config=config)  # pyright: ignore[reportArgumentType]
     instrumentor.instrument(meter_provider=logfire_instance.config.get_meter_provider())
@@ -268,11 +271,17 @@ def measure_process_cpu_core_utilization(logfire_instance: Logfire):
 
 
 def measure_system_cpu_load_average_1m(logfire_instance: Logfire):
-    """1-minute system load average (run-queue length, smoothed).
+    """1-minute system load average.
 
-    Upstream `SystemMetricsInstrumentor` doesn't include this metric; we add it
-    so `base='full'` covers the Hosts page's `Load 1m` column. On Windows,
-    `psutil.getloadavg()` is an emulated polling shim — first call returns 0
+    OTel semconv defines no load average metric. The system metrics spec only
+    floats `system.linux.cpu.load_1m` as a hypothetical illustration of OS-prefixed
+    naming, so there's nothing to conform to. The name, gauge instrument, and
+    `{thread}` unit here match the OTel Collector's `hostmetrics` load scraper,
+    which is where most host load averages reaching Logfire come from. Matching it
+    means SDK-reported and Collector-reported hosts land on one series instead of two.
+
+    Upstream `SystemMetricsInstrumentor` doesn't emit this. On Windows,
+    `psutil.getloadavg()` is an emulated polling shim — the first call returns 0
     and subsequent values update every ~5s.
     """
 
@@ -283,22 +292,30 @@ def measure_system_cpu_load_average_1m(logfire_instance: Logfire):
         'system.cpu.load_average.1m',
         [callback],
         description='Average system load over the last minute.',
-        unit='{run_queue_item}',
+        unit='{thread}',
     )
 
 
-def measure_system_processes_count(logfire_instance: Logfire):
+def measure_system_process_count(logfire_instance: Logfire):
     """Total number of processes on the system.
 
-    Upstream `SystemMetricsInstrumentor` doesn't include this metric; we add
-    it so `base='full'` covers the Hosts page's `Procs` column.
+    Name, instrument, and unit follow OTel semconv's `system.process.count`
+    (an UpDownCounter in `{process}`). Its `process.state` attribute is omitted:
+    `psutil.pids()` is a single cheap syscall, while splitting by state needs a
+    `process_iter` over every process and multiplies the series count. This metric
+    is in the basic base, so that cost would land on every default install.
+
+    Note that the OTel Collector's `hostmetrics` receiver still emits the older
+    `system.processes.count` for the same measurement.
+
+    Upstream `SystemMetricsInstrumentor` doesn't emit this.
     """
 
     def callback(_options: CallbackOptions) -> Iterable[Observation]:
         yield Observation(len(psutil.pids()))
 
-    logfire_instance.metric_gauge_callback(
-        'system.processes.count',
+    logfire_instance.metric_up_down_counter_callback(
+        'system.process.count',
         [callback],
         description='Total number of processes on the system.',
         unit='{process}',

@@ -40,8 +40,10 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
             'process.cpu.utilization',
+            'system.cpu.load_average.1m',
             'system.cpu.simple_utilization',
             'system.memory.utilization',
+            'system.process.count',
             'system.swap.utilization',
         ]
     )
@@ -80,7 +82,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'system.network.errors',
             'system.network.io',
             'system.network.packets',
-            'system.processes.count',
+            'system.process.count',
             'system.swap.usage',
             'system.swap.utilization',
             'system.thread_count',
@@ -100,10 +102,10 @@ def test_system_cpu_load_average_1m(metrics_reader: InMemoryMetricReader) -> Non
     assert get_collected_metric_names(metrics_reader) == ['system.cpu.load_average.1m']
 
 
-def test_system_processes_count(metrics_reader: InMemoryMetricReader) -> None:
+def test_system_process_count(metrics_reader: InMemoryMetricReader) -> None:
     """Process count isn't in upstream `SystemMetricsInstrumentor` — Logfire emits it."""
-    logfire.instrument_system_metrics({'system.processes.count': None}, base=None)
-    assert get_collected_metric_names(metrics_reader) == ['system.processes.count']
+    logfire.instrument_system_metrics({'system.process.count': None}, base=None)
+    assert get_collected_metric_names(metrics_reader) == ['system.process.count']
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -130,6 +132,8 @@ def test_basic_base():
         'system.cpu.simple_utilization': None,
         'system.memory.utilization': ['available'],
         'system.swap.utilization': ['used'],
+        'system.cpu.load_average.1m': None,
+        'system.process.count': None,
     }, 'Docs need to be updated if this test fails'
 
 
@@ -201,7 +205,7 @@ def test_full_base():
         'cpython.gc.collections': None,
         'cpython.gc.uncollectable_objects': None,
         'system.cpu.load_average.1m': None,
-        'system.processes.count': None,
+        'system.process.count': None,
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 
