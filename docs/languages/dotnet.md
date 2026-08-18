@@ -41,8 +41,8 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 
 The endpoint above is for the US [data region](../reference/data-regions.md). If your project is in the EU region, use `https://logfire-eu.pydantic.dev` instead.
 
-!!! warning "Set the protocol to `http/protobuf`"
-    The .NET OTLP exporter defaults to gRPC, but Logfire receives data over OTLP on HTTP. You must set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` (or set it in code, shown below), otherwise nothing is sent and you get a connection error.
+!!! note "HTTP or gRPC"
+    The .NET OTLP exporter defaults to gRPC. Logfire's managed platform accepts both gRPC and HTTP, so the default works; this page uses HTTP (`http/protobuf`) to match the other language guides. Set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` (or set it in code, shown below) to follow these examples.
 
 **3. Add the code**
 
@@ -102,7 +102,7 @@ If you would rather not set environment variables, pass the options to `AddOtlpE
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Connection refused, or nothing arrives | The exporter is still using its default gRPC protocol against Logfire's HTTP endpoint | Set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, or `Protocol = OtlpExportProtocol.HttpProtobuf` in code |
+| Connection refused, or nothing arrives | The endpoint points at the wrong region | Confirm the endpoint matches your [data region](../reference/data-regions.md) (`logfire-us`/`logfire-eu`) |
 | Nothing exported even though config looks right | The tracer provider only records sources you register | Make sure `.AddSource("...")` matches the name you passed to `new ActivitySource("...")` |
 | A 404 when configuring the endpoint in code | With `http/protobuf`, the code `Endpoint` property is used as-is and does not append the signal path | Include `/v1/traces` in the URL, or use the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable (which appends it for you) |
 | Can't tell what the SDK is doing | No local visibility into what is being recorded | Add the `OpenTelemetry.Exporter.Console` package, then `.AddConsoleExporter()` to the builder, to print each span to your terminal as it is created |

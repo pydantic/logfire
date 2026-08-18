@@ -69,7 +69,7 @@ Each row is one span, with its service, name, and duration. The screenshot shows
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Nothing arrives | An older 1.x agent defaulted to gRPC | Upgrade to a 2.x agent, or keep `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` set |
+| Nothing arrives | The endpoint points at the wrong region | Confirm the endpoint matches your [data region](../reference/data-regions.md) |
 | No spans appear at all | The app did no instrumented work | Trigger an HTTP request or database call, or add [manual instrumentation](https://opentelemetry.io/docs/languages/java/api/) for your own code |
 | Can't tell what the agent is doing | No visibility into what it instruments | Run with `-Dotel.javaagent.debug=true` to log what the agent instruments and why nothing exports |
 | Connection or region errors | Wrong base URL | Give the bare base URL (`https://logfire-us.pydantic.dev`); the agent appends `/v1/traces`. Check the URL matches your [data region](../reference/data-regions.md) |
