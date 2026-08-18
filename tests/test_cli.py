@@ -371,6 +371,38 @@ def test_clean_credentials_file_with_non_string_project_url(
     )
 
 
+@pytest.mark.parametrize('token', [None, 123, ['pylf_v1_us_abc']])
+def test_clean_credentials_file_with_non_string_token(
+    tmp_dir_cwd: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    token: Any,
+) -> None:
+    """A non-string token must not crash and must fall back to no preview line."""
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+
+    creds_file = tmp_dir_cwd / 'logfire_credentials.json'
+    creds_file.write_text(
+        json.dumps(
+            {
+                'token': token,
+                'project_name': 'my-project',
+                'project_url': 'https://dashboard.logfire.dev',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    main(['clean', '--data-dir', str(tmp_dir_cwd)])
+
+    assert not creds_file.exists()
+    assert capsys.readouterr().err == snapshot(
+        'Cleaned Logfire data.\n'
+        "The write token for project 'my-project' is still active on the Logfire server, "
+        'deleting the local file does not revoke it.\n'
+        'Revoke it at https://dashboard.logfire.dev/settings/write-tokens\n'
+    )
+
+
 @pytest.mark.parametrize(
     ('token', 'preview'),
     [
