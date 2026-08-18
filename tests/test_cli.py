@@ -464,7 +464,7 @@ def test_clean_then_write_creds_file_restores_gitignore(
     logfire_credentials.write_creds_file(data_dir)
     assert (data_dir / '.gitignore').read_text() == '*'
 
-    main(shlex.split(f'clean --data-dir {str(data_dir)}'))
+    main(['clean', '--data-dir', str(data_dir)])
     assert not (data_dir / '.gitignore').exists()
 
     logfire_credentials.write_creds_file(data_dir)
