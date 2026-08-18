@@ -1,0 +1,19 @@
+tests/test_logfire_api.py
+  s_e5e3c016b3f5ec::t_d967865a2f7ce2 20,303,315
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3ea74b7167aece7887abaa2c64afcbf0a06fd8ad",
+  "prompts": {},
+  "sessions": {
+    "s_e5e3c016b3f5ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0149d-3cb5-72f1-b2ef-cfeb0e70b83a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
