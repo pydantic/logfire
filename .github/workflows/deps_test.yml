@@ -9,7 +9,15 @@ on:
 
   # Run the full compatibility matrix on labeled PRs, including after later pushes.
   pull_request:
-    types: [labeled, synchronize, reopened]
+    types:
+      - opened # Run when the PR is created with the label already attached.
+      - labeled # Run when the label is added to an existing PR.
+      - synchronize # Rerun after a push while the label is present.
+      - reopened # Rerun when a labeled PR is reopened.
+
+concurrency:
+  group: deps-test-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: { }
 
