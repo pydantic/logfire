@@ -10,9 +10,11 @@ import platform
 import sys
 import warnings
 from collections.abc import Sequence
+from datetime import datetime, timedelta, timezone
 from operator import itemgetter
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from opentelemetry import trace
@@ -200,6 +202,104 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     )
     credentials = _write_credentials(project_info, data_dir, client.base_url)
     sys.stderr.write(f'Project created successfully. You will be able to view it at: {credentials.project_url}\n')
+
+
+STATUS_LOOKBACK = timedelta(hours=1)
+"""How far back `projects status` looks. Long enough to cover a setup session, short
+enough that the answer is about what you just did rather than about last week."""
+
+
+def _status_sql() -> str:
+    """One row per service: how much arrived and when it last did.
+
+    Aggregated by the backend rather than by pulling rows down and counting here -- a
+    project with real traffic would make that unusable, and the interesting number
+    (`spans`) is a count, not a sample.
+    """
+    return (
+        'SELECT service_name, count(*) AS spans, max(start_timestamp) AS last_seen FROM records GROUP BY service_name'
+    )
+
+
+def parse_project_status(args: argparse.Namespace) -> None:
+    """Show what telemetry has reached the current project."""
+    data_dir = Path(args.data_dir)
+    credentials = LogfireCredentials.load_creds_file(data_dir)
+    if credentials is None:
+        sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
+        sys.stderr.write('Run `logfire projects use PROJECT_NAME --org ORGANIZATION` first.\n')
+        sys.exit(1)
+
+    # The organization is not stored in the credentials file, but the project URL ends in
+    # `<organization>/<project>`, which is what the read-token endpoint needs.
+    parts = [p for p in urlparse(credentials.project_url).path.split('/') if p]
+    if len(parts) < 2:
+        sys.stderr.write(f'Cannot tell which organization {credentials.project_url} belongs to.\n')
+        sys.exit(1)
+    organization = parts[-2]
+
+    # Imported here, not at module scope: `query_client` imports from `logfire`, which
+    # is a cycle during package init, and no other command pays for it.
+    from logfire.experimental.query_client import LogfireQueryClient
+
+    client = LogfireClient.from_url(credentials.logfire_api_url)
+    # Minted here and never printed. Reading your own data needs a read token, and the
+    # only way to get one today is `logfire read-tokens create`, which writes it to
+    # stdout -- so an agent asked to check its own work puts a live credential into its
+    # transcript. That is the thing this command exists to make unnecessary.
+    read_token = client.create_read_token(organization, credentials.project_name)['token']
+
+    with LogfireQueryClient(read_token=read_token, base_url=credentials.logfire_api_url) as query_client:
+        result = query_client.query_json_rows(
+            sql=_status_sql(), min_timestamp=datetime.now(tz=timezone.utc) - STATUS_LOOKBACK
+        )
+    services = sorted(result['rows'], key=lambda r: str(r.get('service_name') or ''))
+
+    if args.json:
+        sys.stdout.write(
+            json.dumps(
+                {
+                    'organization': organization,
+                    'project_name': credentials.project_name,
+                    'project_url': credentials.project_url,
+                    'lookback_hours': STATUS_LOOKBACK.total_seconds() / 3600,
+                    'services': [
+                        {
+                            'service_name': row.get('service_name'),
+                            'spans': row.get('spans'),
+                            'last_seen': row.get('last_seen'),
+                        }
+                        for row in services
+                    ],
+                }
+            )
+            + '\n'
+        )
+        return
+
+    sys.stderr.write(f'Project  {organization}/{credentials.project_name}\n')
+    sys.stderr.write(f'         {credentials.project_url}\n\n')
+    if not services:
+        # Deliberately not phrased as failure. Data takes a moment to arrive, and the
+        # common case for someone running this during setup is "not yet", not "broken".
+        sys.stderr.write(
+            f'No telemetry in the last {int(STATUS_LOOKBACK.total_seconds() // 3600)}h.\n'
+            'Run the application so it sends something, then try again.\n'
+        )
+        return
+    sys.stderr.write(
+        _pretty_table(
+            ['Service', 'Spans', 'Last seen'],
+            [
+                [
+                    str(row.get('service_name') or '(unnamed)'),
+                    str(row.get('spans') or 0),
+                    str(row.get('last_seen') or '-'),
+                ]
+                for row in services
+            ],
+        )
+    )
 
 
 def parse_create_read_token(args: argparse.Namespace) -> None:
@@ -399,6 +499,13 @@ def _main(args: list[str] | None = None) -> None:
         '--default-org', action='store_true', help='whether to create project under user default organization'
     )
     cmd_projects_new.set_defaults(func=parse_create_new_project)
+
+    cmd_projects_status = projects_subparsers.add_parser(
+        'status', help='show what telemetry has reached the current project'
+    )
+    cmd_projects_status.add_argument('--data-dir', default='.logfire')
+    cmd_projects_status.add_argument('--json', action='store_true', help='output JSON to stdout instead of a table')
+    cmd_projects_status.set_defaults(func=parse_project_status)
 
     cmd_projects_use = projects_subparsers.add_parser('use', help='use a project')
     cmd_projects_use.add_argument('project_name', nargs='?', help='project name')

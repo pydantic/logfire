@@ -34,6 +34,7 @@ import logfire._internal.cli
 import logfire._internal.cli.ai_tools as ai_tools
 import logfire._internal.cli.gateway as gateway_cli
 import logfire._internal.cli.gateway_auth as gateway_auth
+import logfire.experimental.query_client
 from logfire import VERSION
 from logfire._internal.auth import UserToken
 from logfire._internal.cli import OrgProjectAction, SplitArgs, main
@@ -926,6 +927,167 @@ def test_non_interactive_remedies_are_pasteable() -> None:
         assert not set(suggestion) & set('<>|&;$`()'), f'not pasteable: {suggestion!r}'
 
 
+def _status_credentials(tmp_dir_cwd: Path) -> Path:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/test-org/orders',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    return data_dir
+
+
+def _mock_status_backend(stack: ExitStack, m: requests_mock.Mocker, rows: list[dict[str, Any]]) -> list[httpx.Request]:
+    """Wire both HTTP stacks this command uses, and return the queries it sent.
+
+    Read-token creation goes through `requests` (LogfireClient); the query goes through
+    `httpx` (LogfireQueryClient), which `requests_mock` cannot see. The query client is
+    given a MockTransport rather than being replaced, so its real request body and error
+    handling still run.
+    """
+    m.post(
+        'https://logfire-us.pydantic.dev/v1/organizations/test-org/projects/orders/read-tokens',
+        json={'token': 'fake_read_token'},
+    )
+
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        # The wire shape, not the client-side mapped one: the client reads
+        # `schema.fields` and `data` and maps them to columns/rows itself.
+        fields = [{'name': k, 'data_type': 'Utf8'} for k in (rows[0] if rows else {})]
+        return httpx.Response(200, json={'schema': {'fields': fields}, 'data': rows})
+
+    real_client = logfire.experimental.query_client.LogfireQueryClient
+
+    def with_mock_transport(*args: Any, **kwargs: Any) -> Any:
+        kwargs['transport'] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    stack.enter_context(patch('logfire.experimental.query_client.LogfireQueryClient', with_mock_transport))
+    return sent
+
+
+def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """One row per service, so a partly-instrumented system is visible as such.
+
+    This is the case the command exists for: an agent that instrumented the web app and
+    forgot the worker sees `orders-worker` missing, which no amount of "no errors in the
+    log" would have told it.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        sent = _mock_status_backend(
+            stack,
+            m,
+            [
+                {'service_name': 'orders-web', 'spans': 12, 'last_seen': '2026-08-18T20:00:00Z'},
+                {'service_name': 'orders-worker', 'spans': 3, 'last_seen': '2026-08-18T20:00:05Z'},
+            ],
+        )
+
+        main(['projects', 'status'])
+
+    assert len(sent) == 1
+    body = json.loads(sent[0].content)
+    assert 'GROUP BY service_name' in body['sql'], body['sql']
+    assert 'count(*)' in body['sql'], body['sql']
+    # A time bound, so a long-lived project does not scan its whole history.
+    assert body.get('min_timestamp'), body
+
+    err = capsys.readouterr().err
+    assert 'test-org/orders' in err
+    assert 'orders-web' in err
+    assert 'orders-worker' in err
+    assert '12' in err
+    # The read token is minted to run the query and must never be shown: putting a live
+    # credential in the caller's output is the thing this command exists to avoid.
+    assert 'fake_read_token' not in err
+
+
+def test_projects_status_says_nothing_yet_rather_than_failing(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No data during setup usually means "not yet", not "broken"."""
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(stack, m, [])
+
+        main(['projects', 'status'])
+
+    err = capsys.readouterr().err
+    assert 'No telemetry' in err
+    assert 'Run the application' in err
+
+
+def test_projects_status_json_is_machine_readable(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`--json` on stdout, so an agent can branch on it without parsing a table."""
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(
+            stack, m, [{'service_name': 'orders-web', 'spans': 12, 'last_seen': '2026-08-18T20:00:00Z'}]
+        )
+
+        main(['projects', 'status', '--json'])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload['organization'] == 'test-org'
+    assert payload['project_name'] == 'orders'
+    assert payload['services'] == [{'service_name': 'orders-web', 'spans': 12, 'last_seen': '2026-08-18T20:00:00Z'}]
+    assert 'fake_read_token' not in captured.out
+    assert 'fake_read_token' not in captured.err
+
+
+def test_projects_status_without_credentials_says_what_to_run(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(['projects', 'status'])
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert 'No Logfire credentials found' in err
+    # Runnable as printed: `<name>` would be shell input redirection.
+    assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
@@ -1050,7 +1212,7 @@ expiration = "fake_exp"
 
 def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
     main(['projects'])
-    assert capsys.readouterr().out.splitlines()[0] == 'usage: logfire projects [-h] {list,new,use} ...'
+    assert capsys.readouterr().out.splitlines()[0] == 'usage: logfire projects [-h] {list,new,status,use} ...'
 
 
 def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
