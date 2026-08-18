@@ -67,10 +67,19 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
-    def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
+    @staticmethod
+    def _configure_timeout(kwargs: dict[str, Any]) -> None:
         timeout = kwargs.get('timeout')
         if isinstance(timeout, (int, float)):
             kwargs['timeout'] = (min(HTTP_CONNECT_TIMEOUT, timeout), timeout)
+
+    def request(self, method: str, url: str, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
+        self._configure_timeout(kwargs)
+        return super().request(method, url, **kwargs)
+
+    def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
+        # Configure this before calling `_post` so disk retries preserve the split timeout.
+        self._configure_timeout(kwargs)
 
         start_time = time.time()
         try:

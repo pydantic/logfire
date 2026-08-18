@@ -60,9 +60,10 @@ def test_connect_timeout(timeout: float | tuple[float, float], expected: tuple[f
     adapter = SinkHTTPAdapter()
     session.mount('http://', adapter)
 
+    session.get('http://example.com', timeout=timeout)
     session.post('http://example.com', data=b'', timeout=timeout)
 
-    assert adapter.timeouts == [expected]
+    assert adapter.timeouts == [expected, expected]
 
 
 def test_connect_timeout_is_preserved_for_disk_retry(monkeypatch: pytest.MonkeyPatch) -> None:
