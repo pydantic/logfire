@@ -1,0 +1,19 @@
+tests/test_rate_limit_docs.py
+  s_71981a54e0d5b6::t_1343dad77174ec 26,37-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "8c7a8f25bd6c0c2b18c8a3edea969c8b554b5d06",
+  "prompts": {},
+  "sessions": {
+    "s_71981a54e0d5b6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0156d-3a2f-7b13-9022-5fa418f651d9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
