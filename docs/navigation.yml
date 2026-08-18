@@ -336,6 +336,9 @@ navigation:
           - page: "Elasticsearch"
             path: "integrations/databases/elasticsearch.md"
             slug: "integrations/databases/elasticsearch"
+          - page: "SurrealDB"
+            path: "integrations/databases/surrealdb.md"
+            slug: "integrations/databases/surrealdb"
       - section: "HTTP Clients"
         contents:
           - page: "HTTPX"
