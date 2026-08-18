@@ -44,7 +44,7 @@ connection. With no arguments, it records operations from every SurrealDB connec
 
 This example uses an in-memory database, so you do not need to start a SurrealDB server:
 
-```python title="main.py" hl_lines="6"
+```python title="main.py" hl_lines="8"
 import asyncio
 
 from surrealdb import AsyncSurreal
