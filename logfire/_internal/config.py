@@ -115,7 +115,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
-from .interactive import is_non_interactive, require_answer
+from .interactive import require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
@@ -2229,11 +2229,6 @@ class LogfireCredentials:
 
         projects = client.get_user_projects()
         if projects:
-            require_answer(
-                'This folder is not linked to a project, and you have existing projects.',
-                'logfire projects use <name> --org <organization>',
-                'logfire projects new <name> --default-org',
-            )
             use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
             if use_existing_projects:  # pragma: no branch
                 credentials = cls.use_existing_project(client=client, projects=projects)
@@ -2243,13 +2238,10 @@ class LogfireCredentials:
 
         try:
             result = cls(**credentials, logfire_api_url=client.base_url)
-            message = f'Project initialized successfully. You will be able to view it at: {result.project_url}'
-            if is_non_interactive():
-                # Nothing is being ASKED here -- the keypress is discarded -- so this is
-                # skipped rather than refused. The message still gets printed.
-                print(message)
-            else:
-                Prompt.ask(f'{message}\nPress Enter to continue')
+            Prompt.ask(
+                f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
+                'Press Enter to continue'
+            )
             return result
         except TypeError as e:  # pragma: no cover
             raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e

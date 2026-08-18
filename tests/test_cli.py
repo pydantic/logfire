@@ -810,6 +810,47 @@ def test_non_interactive_flag_does_not_leak_between_invocations(tmp_path: Path) 
     assert is_non_interactive() is False, 'a later run without the flag must be interactive again'
 
 
+def test_non_interactive_with_a_region_never_reads_stdin(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The path the flag exists for, and the one my own tests missed.
+
+    With `--region` supplied the region prompt is skipped, so "Press Enter to open ... in
+    your browser" is the next stop. It read unconditionally, so an open, silent stdin hung
+    there -- the exact failure this flag is meant to prevent, in the command it is most
+    likely to be used with. Asserting `input` is never called is the only assertion that
+    catches it; an EOF-based test passes either way.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        # Not EOFError: a stdin that BLOCKS forever cannot be simulated, so instead this
+        # fails loudly if anything reads at all.
+        mock_input = stack.enter_context(
+            patch('logfire._internal.cli.auth.input', side_effect=AssertionError('read stdin'))
+        )
+        webbrowser_open = stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
+            text='{"token": "fake_token", "expiration": "fake_exp"}',
+        )
+
+        main(['--non-interactive', '--region', 'us', 'auth'])
+
+    mock_input.assert_not_called()
+    webbrowser_open.assert_not_called()
+    assert 'fake_token' in auth_file.read_text()
+    # The URL is still printed: with no browser opened it is the only way to surface the
+    # login to a person.
+    assert 'http://example.com/auth' in capsys.readouterr().err
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:

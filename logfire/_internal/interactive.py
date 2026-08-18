@@ -40,18 +40,28 @@ def is_non_interactive() -> bool:
     return _non_interactive
 
 
-def require_answer(question: str, *remedies: str) -> None:
+def require_answer(question: str, remedy: str, *more_remedies: str) -> None:
     """Fail instead of prompting, when the caller said it cannot answer.
+
+    At least one remedy is required by the signature: refusing to prompt while offering no
+    way forward just moves the dead end, and telling the caller what to pass is the entire
+    value of failing here rather than blocking.
 
     Args:
         question: what would have been asked, in plain terms.
-        remedies: runnable suggestions. Each is printed on its own line, so they must be
-            individually pasteable -- `--org a|b` is a shell pipeline, not a suggestion.
+        remedy: a runnable suggestion.
+        more_remedies: further suggestions. Each is printed on its own line, so each must
+            be individually pasteable -- `--org a|b` is a shell pipeline, not a suggestion.
     """
     if not _non_interactive:
         return
-    lines = [question, 'Cannot prompt because --non-interactive was passed.']
-    if remedies:
-        lines.append('Supply it instead with:')
-        lines.extend(f'  {r}' for r in remedies)
-    raise NonInteractiveError('\n'.join(lines))
+    raise NonInteractiveError(
+        '\n'.join(
+            [
+                question,
+                'Cannot prompt because --non-interactive was passed.',
+                'Supply it instead with:',
+                *(f'  {r}' for r in (remedy, *more_remedies)),
+            ]
+        )
+    )
