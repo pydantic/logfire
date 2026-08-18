@@ -17,9 +17,6 @@ import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
-if get_version(pydantic.__version__) < get_version('2.10.0'):
-    pytest.skip('LiteLLM requires Pydantic >= 2.10', allow_module_level=True)
-
 
 @contextmanager
 def _event_loop_policy(policy: asyncio.AbstractEventLoopPolicy) -> Generator[None, None, None]:
@@ -112,6 +109,9 @@ You can install this with:
 
 
 @pytest.mark.vcr()
+@pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.10.0'), reason='LiteLLM requires Pydantic >= 2.10'
+)
 def test_dspy_instrumentation(exporter: TestExporter, isolated_litellm_event_loop: None) -> None:
     # Skip test if dspy can't be imported due to compatibility issues
     dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
