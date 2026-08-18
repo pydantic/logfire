@@ -24,6 +24,7 @@ from requests import Session
 
 import logfire
 
+from ..constants import HTTP_CONNECT_TIMEOUT
 from ..utils import logger, platform_is_emscripten
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
@@ -67,6 +68,10 @@ class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
+        timeout = kwargs.get('timeout')
+        if isinstance(timeout, (int, float)):
+            kwargs['timeout'] = (min(HTTP_CONNECT_TIMEOUT, timeout), timeout)
+
         start_time = time.time()
         try:
             return self._post(url, data, **kwargs)
