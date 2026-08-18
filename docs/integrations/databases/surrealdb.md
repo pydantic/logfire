@@ -10,9 +10,15 @@ Both **synchronous** (`SyncSurreal`) and **asynchronous** (`AsyncSurreal`) conne
 
 ## Installation
 
-Install `logfire` with the `surrealdb` extra:
+Install `logfire`:
 
-{{ install_logfire(extras=['surrealdb']) }}
+{{ install_logfire() }}
+
+Install the separately distributed `surrealdb` package:
+
+```bash
+pip install surrealdb
+```
 
 ## Usage
 
