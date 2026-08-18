@@ -281,6 +281,7 @@ navigation:
             slug: "integrations/web-frameworks"
             aliases:
               - "integrations/use-cases/web-frameworks"
+              - "guides/advanced/capture_headers"
           - page: "FastAPI"
             path: "integrations/web-frameworks/fastapi.md"
             slug: "integrations/web-frameworks/fastapi"
