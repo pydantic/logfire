@@ -694,16 +694,18 @@ def test_read_line_returns_none_when_stdin_is_unavailable() -> None:
     runtimes) and ValueError on a closed stream. The docstring claimed these were handled
     before they actually were.
     """
-    from logfire._internal.cli.auth import _read_line
+    from logfire._internal.cli.auth import _read_line  # pyright: ignore[reportPrivateUsage]
 
     for exc in (EOFError, RuntimeError, ValueError, AttributeError):
         with patch('logfire._internal.cli.auth.input', side_effect=exc):
             assert _read_line('prompt') is None, exc
 
-    # And the real thing, not a mock of it.
+    # And the real thing, not a mock of it: `sys.stdin = None` is exactly what pythonw and
+    # some embedded runtimes leave behind, and it is what makes `input()` raise
+    # RuntimeError rather than any of the others.
     original = sys.stdin
     try:
-        sys.stdin = None  # type: ignore[assignment]
+        sys.stdin = None
         assert _read_line('prompt') is None
     finally:
         sys.stdin = original
