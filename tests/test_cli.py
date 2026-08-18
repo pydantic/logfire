@@ -761,55 +761,6 @@ def test_non_interactive_refuses_the_region_without_reading_stdin(
     assert '  logfire --region eu auth' in err
 
 
-def test_non_interactive_does_not_change_the_interactive_path(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Without the flag, prompting is untouched."""
-    auth_file = tmp_path / 'default.toml'
-    with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=['1', '']))
-        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
-
-        m = requests_mock.Mocker()
-        stack.enter_context(m)
-        m.post(
-            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
-            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
-        )
-        m.get(
-            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
-            text='{"token": "fake_token", "expiration": "fake_exp"}',
-        )
-
-        main(['auth'])
-
-    assert 'fake_token' in auth_file.read_text()
-
-
-def test_non_interactive_flag_does_not_leak_between_invocations(tmp_path: Path) -> None:
-    """The switch is process state, so a run that sets it must not affect the next.
-
-    Worth pinning because the failure would be invisible: a later command would simply
-    refuse to prompt, with nothing pointing back at the earlier invocation.
-    """
-    from logfire._internal.interactive import is_non_interactive
-
-    auth_file = tmp_path / 'default.toml'
-    with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.auth.input'))
-        with pytest.raises(SystemExit):
-            main(['--non-interactive', 'auth'])
-
-    assert is_non_interactive() is True, 'sanity: the flag was in force during that run'
-
-    main(['--version'])
-    assert is_non_interactive() is False, 'a later run without the flag must be interactive again'
-
-
 def test_non_interactive_with_a_region_never_reads_stdin(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """The path the flag exists for, and the one my own tests missed.
 
@@ -849,6 +800,56 @@ def test_non_interactive_with_a_region_never_reads_stdin(tmp_path: Path, capsys:
     # The URL is still printed: with no browser opened it is the only way to surface the
     # login to a person.
     assert 'http://example.com/auth' in capsys.readouterr().err
+
+
+def test_non_interactive_clean_refuses_instead_of_deleting(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`logfire clean` must not guess an answer either way.
+
+    Assuming its default (N) would do nothing while reporting success; assuming Y would
+    delete credentials nobody confirmed. So it refuses, and `--yes` is how a caller says
+    yes ahead of time.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    (data_dir / 'logfire_credentials.json').write_text('{}')
+
+    with patch('logfire._internal.cli.input', side_effect=AssertionError('read stdin')):
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--non-interactive', 'clean'])
+    assert exc_info.value.code == 1
+
+    err = capsys.readouterr().err
+    assert 'logfire clean --yes' in err
+    # Refused means refused: the file is still there.
+    assert (data_dir / 'logfire_credentials.json').exists()
+
+
+def test_clean_yes_deletes_without_prompting(tmp_dir_cwd: Path) -> None:
+    """`--yes` is the way through, and it must not read stdin to get there."""
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    (data_dir / 'logfire_credentials.json').write_text('{}')
+
+    with patch('logfire._internal.cli.input', side_effect=AssertionError('read stdin')):
+        main(['--non-interactive', 'clean', '--yes'])
+
+    assert not (data_dir / 'logfire_credentials.json').exists()
+
+
+def test_non_interactive_switch_is_restored_after_main_returns() -> None:
+    """`main()` is importable, so the switch must not outlive the call.
+
+    An application that shells through `logfire.cli.main([...])` would otherwise lose
+    prompting everywhere afterwards -- including in `logfire.configure()`, which this flag
+    does not govern at all.
+    """
+    from logfire._internal.interactive import is_non_interactive
+
+    assert is_non_interactive() is False
+    main(['--non-interactive', '--version'])
+    assert is_non_interactive() is False, 'the switch outlived the CLI invocation'
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:

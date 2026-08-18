@@ -2139,7 +2139,7 @@ class LogfireCredentials:
                     organization = user_default_organization_name
                 else:
                     require_answer(
-                        'Several organizations are available and none was selected.',
+                        'Several organizations are available and none was selected: ' + ', '.join(organizations),
                         'logfire projects new <name> --org <organization>',
                         'logfire projects new <name> --default-org',
                     )
@@ -2167,14 +2167,45 @@ class LogfireCredentials:
 
         project_name_default: str = default_project_name()
         project_name_prompt = 'Enter the project name'
+        name_rejected = False
+
+        def name_remedy(name: str) -> str:
+            """A runnable `projects new`, carrying the organization already settled on.
+
+            Dropping it would suggest a command that stops at the organization prompt the
+            caller had already answered with `--org` / `--default-org`.
+            """
+            remedy = f'logfire projects new {name}'
+            if default_organization:
+                return remedy + ' --default-org'
+            if organization:
+                return remedy + f' --org {organization}'
+            return remedy
+
         while True:
             if not project_name:
+                # `project_name_prompt` carries WHY a name is being asked for -- it is
+                # rewritten below when the backend rejects one -- so the refusal repeats
+                # the real reason rather than the generic "none was given".
+                #
+                # Once a name has been rejected there is no good name to suggest: the
+                # default WAS the rejected one, and `project_name_default` is set to `...`
+                # on that path, so suggesting it produces `logfire projects new Ellipsis`
+                # -- which runs, and creates a project called Ellipsis.
                 require_answer(
-                    'No project name was given.',
-                    f'logfire projects new {project_name_default}',
+                    project_name_prompt.strip(),
+                    name_remedy('<name>' if name_rejected else project_name_default),
                 )
             project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
+                # A name that was SUPPLIED and is malformed skips the guard above, so
+                # without this the recovery prompt below reads stdin and hangs.
+                require_answer(
+                    f'The project name {project_name!r} is invalid: it may contain lowercase '
+                    'alphanumeric characters and single hyphens, and may not start or end with '
+                    'a hyphen.',
+                    name_remedy('<name>'),
+                )
                 project_name = Prompt.ask(
                     "\nThe project name you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
@@ -2187,6 +2218,7 @@ class LogfireCredentials:
             try:
                 project = client.create_new_project(organization, project_name)
             except ProjectAlreadyExists:
+                name_rejected = True
                 project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
@@ -2194,6 +2226,7 @@ class LogfireCredentials:
                 project_name = None
                 continue
             except InvalidProjectName as exc:
+                name_rejected = True
                 project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
