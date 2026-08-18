@@ -159,7 +159,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
         with pytest.warns(
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
-            main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+            main(['--base-url=http://localhost:0', 'whoami', '--data-dir', str(tmp_dir_cwd)])
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -207,7 +207,7 @@ def test_whoami_logged_in(
 
         m.get('http://localhost/v1/account/me', json={'name': 'test-user'})
 
-        main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+        main(['--base-url=http://localhost:0', 'whoami', '--data-dir', str(tmp_dir_cwd)])
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Logged in as: test-user',
