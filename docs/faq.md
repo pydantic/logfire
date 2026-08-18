@@ -72,7 +72,7 @@ Logfire sees everything. When your agent fails, you see the complete story in on
 
 Some tools focus only on LLM observability. Logfire takes a different approach: you can't do AI observability well without seeing the full picture. For debugging AI applications in production, you need the full context.
 
-[Comparisons](comparisons/index.md)
+[Compare Logfire with other tools](https://pydantic.dev/logfire/alternatives)
 
 ### Q: Does Logfire support evaluations (evals)?
 
@@ -231,7 +231,7 @@ When you're iterating on AI applications with a coding agent, the agent needs to
 - **Simple pricing:** Per-span, not per-host
 - **SQL queries:** Use familiar PostgreSQL syntax, not vendor-specific languages
 
-[//]: # ([Datadog comparison]&#40;comparisons/datadog.md&#41;)
+[//]: # ([Datadog comparison]&#40;https://pydantic.dev/logfire/vs-datadog&#41;)
 
 ### Q: Can I use Logfire alongside other observability tools?
 

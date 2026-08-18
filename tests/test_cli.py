@@ -45,7 +45,7 @@ from logfire._internal.cli.run import (
     instrument_packages,
     instrumented_packages_text,
 )
-from logfire._internal.config import LogfireCredentials, sanitize_project_name
+from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
 from tests.import_used_for_tests import run_script_test
 
@@ -100,6 +100,23 @@ def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
         )
 
         main(['whoami'])
+
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_whoami_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> None:
+    with (
+        patch.dict(os.environ, {'LOGFIRE_TOKEN': 'pylf_v1_unknownregion_foobar'}),
+        requests_mock.Mocker() as request_mocker,
+    ):
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        with pytest.warns(LogfireConfigWarning, match="Unknown region 'unknownregion'"):
+            main(['whoami'])
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
@@ -402,6 +419,68 @@ Cleaned Logfire data.
 The write token for project 'my-\\x1b[2Kproject' is still active on the Logfire server, deleting the local file does not revoke it.
 Revoke it under Write tokens in your project settings, see https://logfire.pydantic.dev/docs/manage/use-api-keys/
 """)
+
+
+def test_clean_then_write_creds_file_restores_gitignore(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, 'stdin', io.StringIO('y'))
+    data_dir = tmp_dir_cwd / '.logfire'
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').read_text() == '*'
+
+    main(shlex.split(f'clean --data-dir {str(data_dir)}'))
+    assert not (data_dir / '.gitignore').exists()
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').read_text() == '*'
+
+
+def test_write_creds_file_keeps_existing_gitignore(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials) -> None:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    (data_dir / '.gitignore').write_text('logfire_credentials.json\n')
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').read_text() == 'logfire_credentials.json\n'
+
+
+def test_write_creds_file_does_not_follow_gitignore_symlink(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials
+) -> None:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    outside = tmp_dir_cwd / 'outside'
+    (data_dir / '.gitignore').symlink_to(outside)
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert not outside.exists()
+
+
+@pytest.mark.parametrize(
+    'existing_files,gitignored',
+    [
+        ([], True),
+        (['logfire_credentials.json'], True),
+        (['main.py'], False),
+    ],
+)
+def test_write_creds_file_gitignores_existing_data_dir(
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    existing_files: list[str],
+    gitignored: bool,
+) -> None:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    for name in existing_files:
+        (data_dir / name).touch()
+
+    logfire_credentials.write_creds_file(data_dir)
+    assert (data_dir / '.gitignore').exists() is gitignored
 
 
 def test_clean_default_dir_does_not_exist(capsys: pytest.CaptureFixture[str]) -> None:
@@ -852,6 +931,70 @@ def test_projects_list_no_project(default_credentials: Path, capsys: pytest.Capt
             output
             == 'No projects found for the current user. You can create a new project with `logfire projects new`\n'
         )
+
+
+def test_projects_list_json(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`--json` goes to STDOUT so it can be piped, and is sorted like the table."""
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
+            json=[
+                {'organization_name': 'test-org', 'project_name': 'zulu'},
+                {'organization_name': 'test-org', 'project_name': 'alpha'},
+            ],
+        )
+
+        main(['projects', 'list', '--json'])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out) == snapshot(
+            [
+                {'organization_name': 'test-org', 'project_name': 'alpha'},
+                {'organization_name': 'test-org', 'project_name': 'zulu'},
+            ]
+        )
+        # Nothing on stderr: a caller redirecting only stdout must get clean JSON, with no
+        # banner or table interleaved.
+        assert captured.err == ''
+
+
+def test_projects_list_json_no_projects(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Empty is `[]`, not the prose message.
+
+    A caller parsing this should not have to special-case "no projects" by matching
+    English, and `logfire projects list` exits 0 either way, so the text was the only
+    signal available.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+
+        main(['projects', 'list', '--json'])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out) == []
+        assert captured.err == ''
 
 
 def test_projects_new_with_project_name_and_org(

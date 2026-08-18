@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import json
 import logging
 import platform
 import sys
@@ -212,16 +213,26 @@ def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
     client = LogfireClient.from_url(args.logfire_url)
 
-    projects = client.get_user_projects()
+    projects = sorted(client.get_user_projects(), key=itemgetter('organization_name', 'project_name'))
+
+    if args.json:
+        # stdout, so it can be piped. The human-readable table below deliberately stays on
+        # stderr -- anything already parsing it keeps working, and mixing the two streams
+        # would put the banner in the middle of the JSON.
+        sys.stdout.write(
+            json.dumps(
+                [{'organization_name': p['organization_name'], 'project_name': p['project_name']} for p in projects]
+            )
+            + '\n'
+        )
+        return
+
     if projects:
         sys.stderr.write("List of the projects you have write access to (requires the 'write_token' permission):\n\n")
         sys.stderr.write(
             _pretty_table(
                 ['Organization', 'Project'],
-                [
-                    [project['organization_name'], project['project_name']]
-                    for project in sorted(projects, key=itemgetter('organization_name', 'project_name'))
-                ],
+                [[project['organization_name'], project['project_name']] for project in projects],
             )
         )
     else:
@@ -437,6 +448,7 @@ def _main(args: list[str] | None = None) -> None:
     projects_subparsers = cmd_projects.add_subparsers()
 
     cmd_projects_list = projects_subparsers.add_parser('list', help='list projects')
+    cmd_projects_list.add_argument('--json', action='store_true', help='output JSON to stdout instead of a table')
     cmd_projects_list.set_defaults(func=parse_list_projects)
 
     cmd_projects_new = projects_subparsers.add_parser('new', help='create a new project')

@@ -1,6 +1,6 @@
 ---
 title: "Integrations: instrument the libraries you already use"
-description: "Browse Logfire's first-class integrations, most of which need only a single logfire.instrument_<package>() call, covering LLM clients, AI frameworks, web frameworks, databases, and more."
+description: "Browse Logfire integrations for LLM clients, AI frameworks and platforms, web frameworks, databases, and more."
 ---
 # Integrations
 
@@ -22,16 +22,19 @@ logfire.instrument_httpx()
 # ... your application code here ...
 ```
 
+Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [no-code platforms](no-code/index.md) and [OpenRouter Broadcast](llms/openrouter.md).
+
 If a package you are using is not listed in this documentation, please let us know on our [Slack][slack]!
 
 ## Documented integrations
 
 **Logfire** has documented integrations with many technologies, including:
 
-- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic ([grouped under AI](llms/index.md))
-- _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more — see [Agent Frameworks](agent-frameworks/index.md)
+- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, OpenRouter, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic ([grouped under AI](llms/index.md))
+- _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
+- _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
-- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
+- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch
 - _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
@@ -64,6 +67,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [BigQuery](databases/bigquery.md)         | Database                | N/A (built in, no config needed)                                                                                                                                       |
 | [Celery](event-streams/celery.md)         | Task Queue              | [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery]                                                                                                     |
 | [Django](web-frameworks/django.md)        | Web Framework           | [`logfire.instrument_django()`][logfire.Logfire.instrument_django]                                                                                                     |
+| [Elasticsearch](databases/elasticsearch.md) | Database              | N/A (native OpenTelemetry support in the client)                                                                                                                       |
 | [FastAPI](web-frameworks/fastapi.md)      | Web Framework           | [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi]                                                                                                   |
 | [FastStream](event-streams/faststream.md) | Task Queue              | N/A (built in, config needed)                                                                                                                                          |
 | [Flask](web-frameworks/flask.md)          | Web Framework           | [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask]                                                                                                       |

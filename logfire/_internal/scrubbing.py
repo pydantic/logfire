@@ -63,6 +63,12 @@ DEFAULT_PATTERNS = [
     ],
 ]
 
+# Every default pattern starts matching at one of these characters. Checking this
+# inexpensive character class first avoids trying every alternative at every
+# position in large strings. Custom patterns are not constrained by this prefix.
+_DEFAULT_PATTERN_START_CHARS = 'pmsacljx_'
+_DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
+
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
 
@@ -204,7 +210,7 @@ class Scrubber(BaseScrubber):
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
         # See ScrubbingOptions for more info on these parameters.
-        patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
+        patterns = [_DEFAULT_PATTERN, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
 
