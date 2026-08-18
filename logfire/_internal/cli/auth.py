@@ -10,16 +10,21 @@ from ..auth import DEFAULT_FILE, UserTokenCollection, poll_for_token, request_de
 from ..config import REGIONS
 
 
-def _stdin_is_interactive() -> bool:
-    """Is there a person at a terminal who can answer a prompt?
+def _read_line(prompt: str = '') -> str | None:
+    """Read one line of input, or `None` if there is nothing there to read.
 
-    `sys.stdin` can be None (pythonw, some embedded runtimes) and `isatty()` can raise on
-    a closed stream, so neither is assumed.
+    Deliberately not `sys.stdin.isatty()`. That answers "is a terminal attached", which is
+    a different question: a pipe is not a tty and is perfectly answerable, and
+    piping the answers in is how scripts have always driven this command. Gating on
+    isatty() would turn that into a hard failure.
+
+    `sys.stdin` can also be None (pythonw, some embedded runtimes) and reading it can
+    raise on a closed stream, so both are treated as "no answer available".
     """
     try:
-        return bool(sys.stdin) and sys.stdin.isatty()
-    except (AttributeError, ValueError):  # pragma: no cover - defensive
-        return False
+        return input(prompt)
+    except (EOFError, AttributeError, ValueError):
+        return None
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -51,25 +56,24 @@ def parse_auth(args: argparse.Namespace) -> None:
         )
     )
     if not logfire_url:
-        if not _stdin_is_interactive():
-            # Which region your data lives in is not ours to guess, so this stays a
-            # required choice -- but it is answerable ahead of time, and saying so beats
-            # an EOFError from a prompt nobody can reply to.
-            raise LogfireConfigError(
-                'Logfire is available in multiple data regions and no region was selected. '
-                f'Pass one with `logfire --region {"|".join(REGIONS)} auth`, or run this in '
-                'an interactive terminal to choose.'
-            )
         selected_region = -1
         while not (1 <= selected_region <= len(REGIONS)):
             sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')
             for i, (region_id, region_data) in enumerate(REGIONS.items(), start=1):
                 sys.stderr.write(f'{i}. {region_id.upper()} (GCP region: {region_data["gcp_region"]})\n')
 
-            try:
-                selected_region = int(
-                    input(f'Selected region [{"/".join(str(i) for i in range(1, len(REGIONS) + 1))}]: ')
+            answer = _read_line(f'Selected region [{"/".join(str(i) for i in range(1, len(REGIONS) + 1))}]: ')
+            if answer is None:
+                # Nothing to read and nothing to guess from: which region holds your data
+                # is not ours to pick. It is answerable ahead of time, and saying so beats
+                # looping forever or raising EOFError from a prompt nobody can reply to.
+                raise LogfireConfigError(
+                    'Logfire is available in multiple data regions and no region was selected. '
+                    f'Pass one with `logfire --region {"|".join(REGIONS)} auth`, or run this in '
+                    'an interactive terminal to choose.'
                 )
+            try:
+                selected_region = int(answer)
             except ValueError:
                 selected_region = -1
         logfire_url = list(REGIONS.values())[selected_region - 1]['base_url']
@@ -77,20 +81,18 @@ def parse_auth(args: argparse.Namespace) -> None:
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
 
-    # Only pause when someone is there to press the key. The prompt exists to give a
-    # person a beat before a browser window appears; with no terminal there is no beat to
-    # give and no browser to open, and blocking on it turns the whole command into an
-    # EOFError traceback for every non-interactive caller -- CI, containers, and coding
-    # agents, which cannot supply a keystroke.
+    # This prompt exists to give a person a beat before a browser window appears. When
+    # there is no one to press the key -- CI, a container, a coding agent -- there is no
+    # beat to give and no browser to open, and BLOCKING on it turned the whole command
+    # into an EOFError traceback for every such caller.
     #
     # Nothing else about the flow needs a terminal: the URL is printed below and the
     # device-code poll simply waits, so a caller can surface the link and the login
     # completes when the user opens it.
-    if _stdin_is_interactive():
-        # We are not using the `prompt` parameter from `input` here because we want to write to stderr.
-        sys.stderr.write(f'Press Enter to open {frontend_host} in your browser...\n')
-        input()
-
+    #
+    # We are not using the `prompt` parameter from `input` here because we want to write to stderr.
+    sys.stderr.write(f'Press Enter to open {frontend_host} in your browser...\n')
+    if _read_line() is not None:
         try:
             webbrowser.open(frontend_auth_url, new=2)
         except webbrowser.Error:
