@@ -73,12 +73,12 @@ with db:
 Pass a connection class to instrument all instances of that class:
 
 ```python
-from surrealdb import AsyncSurreal
+from surrealdb import AsyncWsSurrealConnection
 
 import logfire
 
 logfire.configure()
-logfire.instrument_surrealdb(AsyncSurreal)
+logfire.instrument_surrealdb(AsyncWsSurrealConnection)
 ```
 
 [surrealdb]: https://surrealdb.com/
