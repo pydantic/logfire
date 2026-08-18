@@ -1,0 +1,21 @@
+tests/test_rate_limit_docs.py
+  s_71981a54e0d5b6::t_7df7e8d8749530 36-37
+docs/reference/rate-limits.md
+  s_71981a54e0d5b6::t_7df7e8d8749530 69,78-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "53d5a81d6572819c2bc6461f1b231d2074f11031",
+  "prompts": {},
+  "sessions": {
+    "s_71981a54e0d5b6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0156d-3a2f-7b13-9022-5fa418f651d9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
