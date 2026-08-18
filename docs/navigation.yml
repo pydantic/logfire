@@ -1127,13 +1127,50 @@ navigation:
           - page: "Track & alert on LLM cost"
             path: "cookbook/track-llm-cost.md"
             slug: "cookbook/track-llm-cost"
-      # Head-to-head comparison pages (vs Datadog, Grafana, Langfuse, …) were
-      # consolidated onto the public marketing site (pydantic.dev/logfire/vs-*);
-      # the docs redirect the old URLs there. The Braintrust *migration* guide is
-      # a how-to, not a comparison, so it moves into its own Migrating section.
-      # Its slug (and alias) are kept unchanged so existing links keep working.
+      # The head-to-head comparison pages (vs Datadog, Grafana, …) moved to the
+      # public marketing site (pydantic.dev/logfire/vs-*); the docs redirect the
+      # old URLs there. This section is about *migrating* to Logfire — pointing an
+      # existing OpenTelemetry pipeline (SDKs or a Collector distribution) at us —
+      # plus the Braintrust eval-data migration guide (slug kept unchanged so its
+      # existing links and alias keep working).
       - section: "Migrating"
         contents:
+          - page: "Overview"
+            path: "migrating/overview.md"
+            slug: "migrate/overview"
+            title: "Migrate to Logfire from another OpenTelemetry backend"
+          - page: "From Datadog"
+            path: "migrating/datadog.md"
+            slug: "migrate/datadog"
+            title: "Migrate from Datadog to Logfire"
+          - page: "From Grafana Cloud"
+            path: "migrating/grafana.md"
+            slug: "migrate/grafana"
+            title: "Migrate from Grafana Cloud to Logfire"
+          - page: "From Honeycomb"
+            path: "migrating/honeycomb.md"
+            slug: "migrate/honeycomb"
+            title: "Migrate from Honeycomb to Logfire"
+          - page: "From New Relic"
+            path: "migrating/new-relic.md"
+            slug: "migrate/new-relic"
+            title: "Migrate from New Relic to Logfire"
+          - page: "From Dynatrace"
+            path: "migrating/dynatrace.md"
+            slug: "migrate/dynatrace"
+            title: "Migrate from Dynatrace to Logfire"
+          - page: "From Splunk"
+            path: "migrating/splunk.md"
+            slug: "migrate/splunk"
+            title: "Migrate from Splunk Observability Cloud to Logfire"
+          - page: "From Elastic"
+            path: "migrating/elastic.md"
+            slug: "migrate/elastic"
+            title: "Migrate from Elastic to Logfire"
+          - page: "From AWS (CloudWatch / X-Ray)"
+            path: "migrating/aws.md"
+            slug: "migrate/aws"
+            title: "Migrate from AWS to Logfire"
           - page: "Move from Braintrust"
             path: "comparisons/migrate-from-braintrust.md"
             source: "plain"
