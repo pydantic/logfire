@@ -1,21 +1,23 @@
 ---
-title: "Instrument SurrealDB: see every database operation"
-description: "Add Logfire to the SurrealDB Python client and see each database operation, how long it took, and which ones failed."
+title: "Instrument SurrealDB: see database operations"
+description: "Add Logfire to the SurrealDB Python client and see database operations alongside the code that triggered them."
 integration: logfire
 ---
 # SurrealDB
 
-See each operation your app sends to [SurrealDB][surrealdb], how long it took, and which ones failed
-as a **span** (one unit of work: a single operation, with a name, a start, and a duration) in Logfire.
-Related spans appear in the same **trace** (the full journey of one request, made of nested spans), so
-you can see the database work alongside the code that triggered it.
+See the database work your app sends to [SurrealDB][surrealdb] alongside the code that triggered it.
+Logfire records most operations as a **span** (one unit of work: a single operation, with a name, a
+start, and a duration). Related spans appear in the same **trace** (the full journey of one request,
+made of nested spans), so you can find slow and failed operations in context.
 
 The integration supports the connections returned by both the synchronous `Surreal()` and
 asynchronous `AsyncSurreal()` factory functions.
 
 ## What you'll capture
 
-- Each SurrealDB operation as a span, with its duration and any errors
+- Each non-generator operation as a span, with its duration and any errors
+- Generator-based operations such as `subscribe_live` as a **log** (a timestamped record of a single
+  event, with no duration); errors raised while iterating are not captured
 - The operation name, such as `surrealdb create`, `surrealdb query`, or `surrealdb select`
 - Relevant method arguments, with Logfire's standard sensitive-data scrubbing applied
 
