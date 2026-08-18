@@ -26,6 +26,8 @@ After seeing what tests fail the first time, any future running of tests in this
 
 Run failed tests again. If the same snapshots get updated again, use `dirty_equals` matchers to handle non-deterministic fields.
 
-`git push origin HEAD` and create a PR with whatever you have so far. No description needed.
+`git push origin HEAD` and create a PR with the `test:all-deps` label. No description needed.
 
 For remaining test failures, investigate and explain the problem.
+
+Keep the label on the PR and wait for both regular CI and the full dependency compatibility workflow to pass. The full workflow reruns after each push while the label is present.
