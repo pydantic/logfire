@@ -6,7 +6,7 @@ description: "Step-by-step guide for instrumenting SurrealDB connections with Lo
 
 The [`logfire.instrument_surrealdb()`][logfire.Logfire.instrument_surrealdb] function instruments [SurrealDB][surrealdb] connections, creating a span for each database operation.
 
-Both **synchronous** (`SyncSurreal`) and **asynchronous** (`AsyncSurreal`) connection types are supported.
+Both **synchronous** (`Surreal`) and **asynchronous** (`AsyncSurreal`) connection types are supported.
 
 ## Installation
 
@@ -51,22 +51,21 @@ async def main():
 Pass a specific connection instance to instrument only that connection:
 
 ```python skip-run="true" skip-reason="external-connection"
-from surrealdb import SyncSurreal
+from surrealdb import Surreal
 
 import logfire
 
 logfire.configure()
 
-db = SyncSurreal(url='ws://localhost:8000')
+db = Surreal(url='ws://localhost:8000')
 logfire.instrument_surrealdb(db)
 
-db.connect()
-db.signin({'username': 'root', 'password': 'root'})
-db.use('test', 'test')
+with db:
+    db.signin({'username': 'root', 'password': 'root'})
+    db.use('test', 'test')
 
-result = db.query('SELECT * FROM person WHERE age > $age', {'age': 18})
-logfire.info('Query returned {count} results', count=len(result))
-db.close()
+    result = db.query('SELECT * FROM person WHERE age > $age', {'age': 18})
+    logfire.info('Query returned {count} results', count=len(result))
 ```
 
 ### Instrument a connection class
