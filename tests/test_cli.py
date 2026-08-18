@@ -45,7 +45,7 @@ from logfire._internal.cli.run import (
     instrument_packages,
     instrumented_packages_text,
 )
-from logfire._internal.config import LogfireCredentials, sanitize_project_name
+from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
 from tests.import_used_for_tests import run_script_test
 
@@ -100,6 +100,23 @@ def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
         )
 
         main(['whoami'])
+
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_whoami_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> None:
+    with (
+        patch.dict(os.environ, {'LOGFIRE_TOKEN': 'pylf_v1_unknownregion_foobar'}),
+        requests_mock.Mocker() as request_mocker,
+    ):
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        with pytest.warns(LogfireConfigWarning, match="Unknown region 'unknownregion'"):
+            main(['whoami'])
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'

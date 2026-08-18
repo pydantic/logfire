@@ -278,9 +278,8 @@ class AdvancedOptions:
     def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
         """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
 
-        Every caller of this method is part of configuration, so unknown regions warn by default
-        here. Runtime helpers (the query/API clients and the CLI) call `get_base_url_from_token`
-        directly instead, which stays silent so they can't raise under warnings-as-errors.
+        Unknown regions warn by default. The background credential check opts out because the
+        synchronous exporter setup has already emitted the same warning.
         """
         if self.base_url is not None:
             return self.base_url
@@ -2252,15 +2251,14 @@ def _get_creds_file(creds_dir: Path) -> Path:
     return creds_dir / CREDENTIALS_FILENAME
 
 
-def get_base_url_from_token(token: str, warn_unknown_region: bool = False) -> str:
+def get_base_url_from_token(token: str, warn_unknown_region: bool = True) -> str:
     """Get the base API URL from the token's region.
 
     Args:
         token: The Logfire token to read the region from.
         warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
-            unrecognised and the US region is used as a fallback. This is off by default so that
-            runtime helpers (e.g. the query/API clients and the CLI) never raise under
-            warnings-as-errors; it's enabled during configuration, where the warning is actionable.
+            unrecognised and the US region is used as a fallback. This is on by default for every
+            caller; disable it only when the same token has already produced the warning.
     """
     # default to US for tokens that were created before regions were added:
     region = 'us'
