@@ -24,6 +24,9 @@ Logfire detects an agent from either of two span conventions, so most agent fram
 - **OpenTelemetry GenAI** (`gen_ai.operation.name = 'invoke_agent'`): [Pydantic AI](https://ai.pydantic.dev) emits these natively, as does any SDK that follows the [GenAI agent conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md).
 - **OpenInference** (`openinference.span.kind = 'AGENT'`): frameworks instrumented with [OpenInference](https://github.com/Arize-ai/openinference), including LangGraph, CrewAI, smolagents, Agno, AutoGen, and the OpenAI Agents SDK.
 
+!!! note "Cost for OpenInference-detected agents"
+    OpenInference spans don't report a per-call cost, so these agents show no cost in the Agents list and the **Metrics** tab. An individual run's **Summary** still shows an estimated cost, derived from its model and token counts.
+
 See the integration guide for your framework to set up the instrumentation that produces these spans.
 
 ## Agent detail
