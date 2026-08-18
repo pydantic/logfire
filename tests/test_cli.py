@@ -37,7 +37,7 @@ import logfire._internal.cli.gateway_auth as gateway_auth
 import logfire.experimental.query_client
 from logfire import VERSION
 from logfire._internal.auth import UserToken
-from logfire._internal.cli import OrgProjectAction, SplitArgs, main
+from logfire._internal.cli import STATUS_MAX_ROWS, OrgProjectAction, SplitArgs, main
 from logfire._internal.cli.run import (
     InstrumentationRecommendation,
     collect_instrumentation_context,
@@ -1007,10 +1007,13 @@ def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.
 
     assert len(sent) == 1
     body = json.loads(sent[0].content)
-    assert 'GROUP BY service_name' in body['sql'], body['sql']
-    assert 'count(*)' in body['sql'], body['sql']
+    sql = body['sql']
+    assert 'GROUP BY service_name' in sql, sql
+    assert 'count(*)' in sql, sql
     # A time bound, so a long-lived project does not scan its whole history.
     assert body.get('min_timestamp'), body
+    # And a ceiling, so this cannot become an enormous query on a busy project.
+    assert body['limit'] == STATUS_MAX_ROWS, body
 
     err = capsys.readouterr().err
     assert 'test-org/orders' in err

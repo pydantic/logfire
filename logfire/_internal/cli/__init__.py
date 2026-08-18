@@ -208,13 +208,20 @@ STATUS_LOOKBACK = timedelta(hours=1)
 """How far back `projects status` looks. Long enough to cover a setup session, short
 enough that the answer is about what you just did rather than about last week."""
 
+STATUS_MAX_ROWS = 10_000
+"""A ceiling on the rows this asks for, so it cannot become an enormous query.
+
+It should not bind in practice -- the result is one row per service -- but the command is
+run against someone else's project and an unbounded query is not worth the surprise.
+"""
+
 
 def _status_sql() -> str:
     """One row per service: how much arrived and when it last did.
 
-    Aggregated by the backend rather than by pulling rows down and counting here -- a
-    project with real traffic would make that unusable, and the interesting number
-    (`spans`) is a count, not a sample.
+    Aggregated by the backend rather than by pulling rows down and counting here: a
+    project with real traffic would make that unusable, and the answer (a few services) is
+    far smaller than the input.
     """
     return (
         'SELECT service_name, count(*) AS spans, max(start_timestamp) AS last_seen FROM records GROUP BY service_name'
@@ -238,8 +245,8 @@ def parse_project_status(args: argparse.Namespace) -> None:
         sys.exit(1)
     organization = parts[-2]
 
-    # Imported here, not at module scope: `query_client` imports from `logfire`, which
-    # is a cycle during package init, and no other command pays for it.
+    # Imported here, not at module scope: `query_client` imports from `logfire`, which is
+    # a cycle during package init, and no other command pays for it.
     from logfire.experimental.query_client import LogfireQueryClient
 
     client = LogfireClient.from_url(credentials.logfire_api_url)
@@ -251,7 +258,9 @@ def parse_project_status(args: argparse.Namespace) -> None:
 
     with LogfireQueryClient(read_token=read_token, base_url=credentials.logfire_api_url) as query_client:
         result = query_client.query_json_rows(
-            sql=_status_sql(), min_timestamp=datetime.now(tz=timezone.utc) - STATUS_LOOKBACK
+            sql=_status_sql(),
+            min_timestamp=datetime.now(tz=timezone.utc) - STATUS_LOOKBACK,
+            limit=STATUS_MAX_ROWS,
         )
     services = sorted(result['rows'], key=lambda r: str(r.get('service_name') or ''))
 
