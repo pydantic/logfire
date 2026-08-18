@@ -62,7 +62,11 @@ def logfire_credentials() -> LogfireCredentials:
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    assert 'usage: logfire [-h] [--version] [--base-url BASE_URL | --region {us,eu}]  ...' in capsys.readouterr().out
+    # argparse wraps the usage line, so match the parts rather than the layout.
+    out = capsys.readouterr().out
+    assert 'usage: logfire [-h] [--version] [--non-interactive]' in out
+    assert '[--base-url BASE_URL |' in out
+    assert '--region {us,eu}]' in out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -726,6 +730,200 @@ def test_read_line_returns_none_when_stdin_is_unavailable() -> None:
         assert _read_line('prompt') is None
     finally:
         sys.stdin = original
+
+
+def test_non_interactive_refuses_the_region_without_reading_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--non-interactive` fails BEFORE reading, which is the whole point.
+
+    Handling EOF only helps when a read returns. Stdin can be open and silent -- a CI
+    runner or a supervisor holding an idle pipe -- and then `input()` waits forever with
+    no output at all. Declaring intent up front is the only thing that catches that, so
+    this asserts nothing is read rather than asserting on the error alone.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        mock_input = stack.enter_context(patch('logfire._internal.cli.auth.input'))
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--non-interactive', 'auth'])
+        assert exc_info.value.code == 1
+
+    mock_input.assert_not_called()
+    err = capsys.readouterr().err
+    assert 'no region was selected' in err
+    assert '--non-interactive' in err
+    # Each suggestion must be runnable as printed.
+    assert '  logfire --region us auth' in err
+    assert '  logfire --region eu auth' in err
+
+
+def test_non_interactive_with_a_region_never_reads_stdin(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The path the flag exists for, and the one my own tests missed.
+
+    With `--region` supplied the region prompt is skipped, so "Press Enter to open ... in
+    your browser" is the next stop. It read unconditionally, so an open, silent stdin hung
+    there -- the exact failure this flag is meant to prevent, in the command it is most
+    likely to be used with. Asserting `input` is never called is the only assertion that
+    catches it; an EOF-based test passes either way.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        # Not EOFError: a stdin that BLOCKS forever cannot be simulated, so instead this
+        # fails loudly if anything reads at all.
+        mock_input = stack.enter_context(
+            patch('logfire._internal.cli.auth.input', side_effect=AssertionError('read stdin'))
+        )
+        webbrowser_open = stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
+            text='{"token": "fake_token", "expiration": "fake_exp"}',
+        )
+
+        main(['--non-interactive', '--region', 'us', 'auth'])
+
+    mock_input.assert_not_called()
+    webbrowser_open.assert_not_called()
+    assert 'fake_token' in auth_file.read_text()
+    # The URL is still printed: with no browser opened it is the only way to surface the
+    # login to a person.
+    assert 'http://example.com/auth' in capsys.readouterr().err
+
+
+def test_non_interactive_clean_refuses_instead_of_deleting(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`logfire clean` must not guess an answer either way.
+
+    Assuming its default (N) would do nothing while reporting success; assuming Y would
+    delete credentials nobody confirmed. So it refuses, and `--yes` is how a caller says
+    yes ahead of time.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    (data_dir / 'logfire_credentials.json').write_text('{}')
+
+    with patch('logfire._internal.cli.input', side_effect=AssertionError('read stdin')):
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--non-interactive', 'clean'])
+    assert exc_info.value.code == 1
+
+    err = capsys.readouterr().err
+    assert 'logfire clean --yes' in err
+    # Refused means refused: the file is still there.
+    assert (data_dir / 'logfire_credentials.json').exists()
+
+
+def test_clean_yes_deletes_without_prompting(tmp_dir_cwd: Path) -> None:
+    """`--yes` is the way through, and it must not read stdin to get there."""
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    (data_dir / 'logfire_credentials.json').write_text('{}')
+
+    with patch('logfire._internal.cli.input', side_effect=AssertionError('read stdin')):
+        main(['--non-interactive', 'clean', '--yes'])
+
+    assert not (data_dir / 'logfire_credentials.json').exists()
+
+
+def test_non_interactive_switch_is_restored_after_main_returns() -> None:
+    """`main()` is importable, so the switch must not outlive the call.
+
+    An application that shells through `logfire.cli.main([...])` would otherwise lose
+    prompting everywhere afterwards -- including in `logfire.configure()`, which this flag
+    does not govern at all.
+    """
+    from logfire._internal.interactive import is_non_interactive
+
+    assert is_non_interactive() is False
+    main(['--non-interactive', '--version'])
+    assert is_non_interactive() is False, 'the switch outlived the CLI invocation'
+
+
+def test_non_interactive_gateway_refuses_instead_of_prompting() -> None:
+    """The gateway refusal, which 100% line coverage did not prove was exercised.
+
+    `require_answer(...)` is one statement, so it counts as covered the moment the
+    surrounding code runs with the flag OFF -- the refusal it performs lives inside the
+    helper. Coverage cannot tell those apart; only driving it with the flag on can.
+    """
+    from logfire._internal.cli.gateway import _interactive_integration  # pyright: ignore[reportPrivateUsage]
+    from logfire._internal.interactive import NonInteractiveError, set_non_interactive
+
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude', 'codex']))
+        stack.enter_context(
+            patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
+        )
+        prompt = stack.enter_context(patch('logfire._internal.cli.gateway.Prompt.ask'))
+
+        set_non_interactive(True)
+        try:
+            with pytest.raises(NonInteractiveError) as exc_info:
+                _interactive_integration()
+        finally:
+            set_non_interactive(False)
+
+    prompt.assert_not_called()
+    message = str(exc_info.value)
+    assert 'Installed: claude, codex' in message
+    assert 'logfire gateway claude' in message
+    assert 'logfire gateway codex' in message
+
+
+def test_non_interactive_gateway_message_matches_how_many_are_installed() -> None:
+    """With one integration the prompt is still reached -- it has a default -- so the
+    refusal must not claim several are available."""
+    from logfire._internal.cli.gateway import _interactive_integration  # pyright: ignore[reportPrivateUsage]
+    from logfire._internal.interactive import NonInteractiveError, set_non_interactive
+
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude']))
+        stack.enter_context(
+            patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
+        )
+        set_non_interactive(True)
+        try:
+            with pytest.raises(NonInteractiveError) as exc_info:
+                _interactive_integration()
+        finally:
+            set_non_interactive(False)
+
+    assert 'claude is installed.' in str(exc_info.value)
+
+
+def test_non_interactive_remedies_are_pasteable() -> None:
+    """Every suggestion must survive being pasted into a shell.
+
+    `<name>` is input redirection and `a|b` is a pipeline, so guidance containing them
+    fails or silently does something else. Both mistakes have already been made once in
+    this PR, which is why this asserts on the whole message rather than one command.
+    """
+    from logfire._internal.interactive import NonInteractiveError, require_answer, set_non_interactive
+
+    set_non_interactive(True)
+    try:
+        with pytest.raises(NonInteractiveError) as exc_info:
+            require_answer('question', 'logfire projects new PROJECT_NAME --org ORGANIZATION')
+    finally:
+        set_non_interactive(False)
+
+    for suggestion in str(exc_info.value).splitlines():
+        if not suggestion.startswith('  logfire'):
+            continue
+        assert not set(suggestion) & set('<>|&;$`()'), f'not pasteable: {suggestion!r}'
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:

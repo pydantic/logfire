@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from ...exceptions import LogfireConfigError
 from ..auth import DEFAULT_FILE, UserTokenCollection, poll_for_token, request_device_code
 from ..config import REGIONS
+from ..interactive import is_non_interactive, require_answer
 
 
 def _read_line(prompt: str = '') -> str | None:
@@ -57,6 +58,10 @@ def parse_auth(args: argparse.Namespace) -> None:
         )
     )
     if not logfire_url:
+        require_answer(
+            'Logfire is available in multiple data regions and no region was selected.',
+            *(f'logfire --region {region_id} auth' for region_id in REGIONS),
+        )
         selected_region = -1
         while not (1 <= selected_region <= len(REGIONS)):
             sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')
@@ -99,13 +104,18 @@ def parse_auth(args: argparse.Namespace) -> None:
     # device-code poll simply waits, so a caller can surface the link and the login
     # completes when the user opens it.
     #
-    # We are not using the `prompt` parameter from `input` here because we want to write to stderr.
-    sys.stderr.write(f'Press Enter to open {frontend_host} in your browser...\n')
-    if _read_line() is not None:
-        try:
-            webbrowser.open(frontend_auth_url, new=2)
-        except webbrowser.Error:
-            pass
+    # `--non-interactive` is checked BEFORE reading rather than relying on the read
+    # failing, because a read is exactly what it cannot afford: with `--region` supplied
+    # the region prompt is skipped and this is the next stop, so an open, silent stdin
+    # hung here -- the precise failure the flag exists to prevent.
+    if not is_non_interactive():
+        # We are not using the `prompt` parameter from `input` here because we want to write to stderr.
+        sys.stderr.write(f'Press Enter to open {frontend_host} in your browser...\n')
+        if _read_line() is not None:
+            try:
+                webbrowser.open(frontend_auth_url, new=2)
+            except webbrowser.Error:
+                pass
     sys.stderr.writelines(
         (
             f"Please open {frontend_auth_url} in your browser to authenticate if it hasn't already.\n",
