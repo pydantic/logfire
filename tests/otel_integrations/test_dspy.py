@@ -17,8 +17,8 @@ import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
-if get_version(pydantic.__version__) < get_version('2.5.0'):
-    pytest.skip('DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import', allow_module_level=True)
+if get_version(pydantic.__version__) < get_version('2.10.0'):
+    pytest.skip('LiteLLM requires Pydantic >= 2.10', allow_module_level=True)
 
 
 @contextmanager
