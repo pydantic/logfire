@@ -44,27 +44,19 @@ connection. With no arguments, it records operations from every SurrealDB connec
 
 This example uses an in-memory database, so you do not need to start a SurrealDB server:
 
-```python title="main.py" hl_lines="8"
-import asyncio
-
-from surrealdb import AsyncSurreal
+```python title="main.py" hl_lines="6"
+from surrealdb import Surreal
 
 import logfire
 
 logfire.configure()
 logfire.instrument_surrealdb()
 
-
-async def main():
-    async with AsyncSurreal(url='mem://') as db:
-        await db.use('test', 'test')
-        await db.create('person', {'name': 'Alice', 'age': 30})
-        people = await db.select('person')
-        logfire.info('Found {count} people', count=len(people))
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
+with Surreal(url='mem://') as db:
+    db.use('test', 'test')
+    db.create('person', {'name': 'Alice', 'age': 30})
+    people = db.select('person')
+    logfire.info('Found {count} people', count=len(people))
 ```
 
 Run it with `python main.py`.
