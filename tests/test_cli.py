@@ -852,6 +852,80 @@ def test_non_interactive_switch_is_restored_after_main_returns() -> None:
     assert is_non_interactive() is False, 'the switch outlived the CLI invocation'
 
 
+def test_non_interactive_gateway_refuses_instead_of_prompting() -> None:
+    """The gateway refusal, which 100% line coverage did not prove was exercised.
+
+    `require_answer(...)` is one statement, so it counts as covered the moment the
+    surrounding code runs with the flag OFF -- the refusal it performs lives inside the
+    helper. Coverage cannot tell those apart; only driving it with the flag on can.
+    """
+    from logfire._internal.cli.gateway import _interactive_integration  # pyright: ignore[reportPrivateUsage]
+    from logfire._internal.interactive import NonInteractiveError, set_non_interactive
+
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude', 'codex']))
+        stack.enter_context(
+            patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
+        )
+        prompt = stack.enter_context(patch('logfire._internal.cli.gateway.Prompt.ask'))
+
+        set_non_interactive(True)
+        try:
+            with pytest.raises(NonInteractiveError) as exc_info:
+                _interactive_integration()
+        finally:
+            set_non_interactive(False)
+
+    prompt.assert_not_called()
+    message = str(exc_info.value)
+    assert 'Installed: claude, codex' in message
+    assert 'logfire gateway claude' in message
+    assert 'logfire gateway codex' in message
+
+
+def test_non_interactive_gateway_message_matches_how_many_are_installed() -> None:
+    """With one integration the prompt is still reached -- it has a default -- so the
+    refusal must not claim several are available."""
+    from logfire._internal.cli.gateway import _interactive_integration  # pyright: ignore[reportPrivateUsage]
+    from logfire._internal.interactive import NonInteractiveError, set_non_interactive
+
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude']))
+        stack.enter_context(
+            patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
+        )
+        set_non_interactive(True)
+        try:
+            with pytest.raises(NonInteractiveError) as exc_info:
+                _interactive_integration()
+        finally:
+            set_non_interactive(False)
+
+    assert 'claude is installed.' in str(exc_info.value)
+
+
+def test_non_interactive_remedies_are_pasteable() -> None:
+    """Every suggestion must survive being pasted into a shell.
+
+    `<name>` is input redirection and `a|b` is a pipeline, so guidance containing them
+    fails or silently does something else. Both mistakes have already been made once in
+    this PR, which is why this asserts on the whole message rather than one command.
+    """
+    from logfire._internal.interactive import NonInteractiveError, require_answer, set_non_interactive
+
+    set_non_interactive(True)
+    try:
+        with pytest.raises(NonInteractiveError) as exc_info:
+            require_answer('question', 'logfire projects new PROJECT_NAME --org ORGANIZATION')
+    finally:
+        set_non_interactive(False)
+
+    for suggestion in str(exc_info.value).splitlines():
+        if not suggestion.startswith('  logfire'):
+            continue
+        assert not set(suggestion) & set('<>|&;$`()'), f'not pasteable: {suggestion!r}'
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:

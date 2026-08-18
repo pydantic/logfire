@@ -2052,7 +2052,7 @@ class LogfireCredentials:
             else:
                 require_answer(
                     f'No {project_message} found for the current user{org_message}.',
-                    'logfire projects use <name> --org <organization>',
+                    'logfire projects use PROJECT_NAME --org ORGANIZATION',
                 )
                 expand_search = Prompt.ask(
                     f'No {project_message} found for the current user{org_message}. Choose from all projects?',
@@ -2086,7 +2086,7 @@ class LogfireCredentials:
             )
             require_answer(
                 f'Several projects are available:\n{project_choices_str}',
-                'logfire projects use <name> --org <organization>',
+                'logfire projects use PROJECT_NAME --org ORGANIZATION',
             )
             selected_project_key = Prompt.ask(
                 f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
@@ -2140,8 +2140,8 @@ class LogfireCredentials:
                 else:
                     require_answer(
                         'Several organizations are available and none was selected: ' + ', '.join(organizations),
-                        'logfire projects new <name> --org <organization>',
-                        'logfire projects new <name> --default-org',
+                        'logfire projects new PROJECT_NAME --org ORGANIZATION',
+                        'logfire projects new PROJECT_NAME --default-org',
                     )
                     organization = Prompt.ask(
                         '\nTo create and use a new project, please provide the following information:\n'
@@ -2156,8 +2156,8 @@ class LogfireCredentials:
                     # `--default-org` is how a caller says yes ahead of time.
                     require_answer(
                         f'This would create a project in the organization "{organization}".',
-                        f'logfire projects new <name> --org {organization}',
-                        'logfire projects new <name> --default-org',
+                        f'logfire projects new PROJECT_NAME --org {organization}',
+                        'logfire projects new PROJECT_NAME --default-org',
                     )
                     confirm = Confirm.ask(
                         f'The project will be created in the organization "{organization}". Continue?', default=True
@@ -2170,14 +2170,17 @@ class LogfireCredentials:
         name_rejected = False
 
         # The organization is settled by this point -- every branch above either kept the
-        # one that was passed or assigned one -- so the flag that reproduces it can be
-        # worked out once. Suggestions must carry it: a bare `projects new <name>` handed
-        # to someone who passed `--org` stops at the prompt they had already answered.
-        org_flag = ' --default-org' if default_organization else f' --org {organization}'
-
+        # one that was passed or assigned one -- so the suggestion can name it outright.
+        # Suggestions must carry it: a bare `projects new PROJECT_NAME` handed to someone
+        # who passed `--org` stops at the prompt they had already answered.
+        #
+        # Always `--org <name>`, never `--default-org`, even when that is how the
+        # organization was chosen. Naming it explicitly reproduces the same result either
+        # way, and it cannot go wrong when BOTH flags were passed -- where `--default-org`
+        # would send the retry to the default organization rather than the requested one.
         def name_remedy(name: str) -> str:
             """A runnable `projects new`, carrying the organization already settled on."""
-            return f'logfire projects new {name}{org_flag}'
+            return f'logfire projects new {name} --org {organization}'
 
         while True:
             if not project_name:
@@ -2191,7 +2194,7 @@ class LogfireCredentials:
                 # -- which runs, and creates a project called Ellipsis.
                 require_answer(
                     project_name_prompt.strip(),
-                    name_remedy('<name>' if name_rejected else project_name_default),
+                    name_remedy('PROJECT_NAME' if name_rejected else project_name_default),
                 )
             project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
@@ -2201,7 +2204,7 @@ class LogfireCredentials:
                     f'The project name {project_name!r} is invalid: it may contain lowercase '
                     'alphanumeric characters and single hyphens, and may not start or end with '
                     'a hyphen.',
-                    name_remedy('<name>'),
+                    name_remedy('PROJECT_NAME'),
                 )
                 project_name = Prompt.ask(
                     "\nThe project name you've entered is invalid. Valid project names:\n"

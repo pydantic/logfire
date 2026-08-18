@@ -448,7 +448,8 @@ def _interactive_integration() -> str:
         console.print('[red]No supported integration binaries were found on PATH.[/]')
         raise SystemExit(127)
     require_answer(
-        'No integration was named, and several are installed: ' + ', '.join(installed),
+        'No integration was named. '
+        + (f'{installed[0]} is installed.' if len(installed) == 1 else f'Installed: {", ".join(installed)}.'),
         *(f'logfire gateway {name}' for name in installed),
     )
     return Prompt.ask('Launch which integration?', choices=installed, default=installed[0])
