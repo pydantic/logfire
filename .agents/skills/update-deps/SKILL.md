@@ -1,31 +1,32 @@
 ---
 name: update-deps
-description: "Create a PR in which all dependencies are updated to their latest versions and CI is passing. Only user initiated."
+description: "Update all project dependencies to their latest versions, fix compatibility failures, and open a passing PR. Use only when the user explicitly asks to run a dependency update."
 ---
 
-Steps:
+# Update dependencies
 
-Stop and complain if there are uncommitted changes in the working directory.
-git checkout main && git pull origin main
-git checkout -b update-deps-<date>
-uv sync --upgrade
-git commit uv.lock -m "chore: Update dependencies"
+## Prepare the branch
 
-Run these, make any fixes needed, and commit the results (including automated changes) for each step where there are changes:
+1. Stop and report any uncommitted changes. Do not modify or stash them.
+2. Run `git checkout main && git pull origin main`.
+3. Create `update-deps-<date>`.
+4. Run `uv sync --upgrade`.
+5. Commit only `uv.lock` with `gcap uv.lock -m "chore: Update dependencies"`.
 
-Always commit by listing specific files (never `git commit -am` / `git add -A`) — the user may have their own uncommitted edits in the working tree at any point, and blanket staging can sweep them into your commits.
+Always list specific files in every staging and commit command. Never use blanket staging or `git commit -am`.
 
-make format && make lint && make typecheck && make docs
-(usually these all pass without changes)
+## Validate locally
 
-uv run pytest --inline-snapshot=fix
+Run `make format && make lint && make typecheck && make docs`. Commit any automated changes as focused commits.
 
-Running tests the first time will likely update some snapshots. Just commit those changes even if some tests are still failing.
+Run `uv run pytest --inline-snapshot=fix`. The first run may update snapshots. Inspect and commit valid snapshot changes even if other tests failed, then rerun only the failed tests. If snapshots change repeatedly, replace nondeterministic fields with appropriate `dirty_equals` matchers.
 
-After seeing what tests fail the first time, any future running of tests in this workflow should only be for some small subset. The full test suite will run in CI.
+Do not rerun the full suite locally after the first run; CI will do that.
 
-Run failed tests again. If the same snapshots get updated again, use `dirty_equals` matchers to handle non-deterministic fields.
+## Open and finish the PR
 
-`git push origin HEAD` and create a PR with whatever you have so far. No description needed.
+Push the branch and open a non-draft PR with no description and the `test:all-deps` label. Open it even if failures remain so CI can expose version-specific compatibility failures.
 
-For remaining test failures, investigate and explain the problem.
+Keep the label on the PR. It runs every supported Pydantic and OpenTelemetry version when added and after each later push. Do not treat regular CI passing as sufficient.
+
+Watch both regular CI and the full dependency compatibility workflow. Investigate failures across the whole affected dependency-version range, make small focused commits, and continue until all checks pass and no review threads need a response.
