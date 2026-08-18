@@ -2169,18 +2169,15 @@ class LogfireCredentials:
         project_name_prompt = 'Enter the project name'
         name_rejected = False
 
-        def name_remedy(name: str) -> str:
-            """A runnable `projects new`, carrying the organization already settled on.
+        # The organization is settled by this point -- every branch above either kept the
+        # one that was passed or assigned one -- so the flag that reproduces it can be
+        # worked out once. Suggestions must carry it: a bare `projects new <name>` handed
+        # to someone who passed `--org` stops at the prompt they had already answered.
+        org_flag = ' --default-org' if default_organization else f' --org {organization}'
 
-            Dropping it would suggest a command that stops at the organization prompt the
-            caller had already answered with `--org` / `--default-org`.
-            """
-            remedy = f'logfire projects new {name}'
-            if default_organization:
-                return remedy + ' --default-org'
-            if organization:
-                return remedy + f' --org {organization}'
-            return remedy
+        def name_remedy(name: str) -> str:
+            """A runnable `projects new`, carrying the organization already settled on."""
+            return f'logfire projects new {name}{org_flag}'
 
         while True:
             if not project_name:
