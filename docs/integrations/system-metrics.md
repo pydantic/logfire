@@ -83,6 +83,8 @@ logfire.instrument_system_metrics({
     'system.cpu.simple_utilization': None,  # (2)!
     'system.memory.utilization': ['available'],  # (3)!
     'system.swap.utilization': ['used'],  # (4)!
+    'system.cpu.load_average.1m': None,  # (5)!
+    'system.process.count': None,  # (6)!
 })
 ```
 
@@ -90,6 +92,10 @@ logfire.instrument_system_metrics({
 2. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.cpu_percent)`/100`, i.e. the fraction of CPU time used by the whole system, where 1 means using 100% of all CPU cores.
 3. The value here is a list of 'modes' of memory. The full list can be seen in the [`psutil` documentation](https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory). `available` is "the memory that can be given instantly to processes without the system going into swap. This is calculated by summing different memory metrics that vary depending on the platform. It is supposed to be used to monitor actual memory usage in a cross platform fashion." The value of the metric is a number between 0 and 1, and subtracting the value from 1 gives the fraction of memory used.
 4. This is the fraction of available swap used. The value is a number between 0 and 1.
+5. The average number of processes waiting to run over the last minute, from [`psutil.getloadavg()`](https://psutil.readthedocs.io/en/latest/#psutil.getloadavg). On Windows this is emulated: the first reading is 0 and later readings update every few seconds.
+6. The total number of processes on the system, from the length of [`psutil.pids()`](https://psutil.readthedocs.io/en/latest/#psutil.pids).
+
+`system.cpu.load_average.1m` and `system.process.count` fill the **1-minute load** and **Running process count** columns of the [Hosts](../guides/web-ui/hosts.md) page. Each is a single number per collection, so they are included by default.
 
 To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`.
 
@@ -120,6 +126,8 @@ logfire.instrument_system_metrics({
     'system.network.errors': ['transmit', 'receive'],
     'system.network.io': ['transmit', 'receive'],
     'system.thread_count': None,
+    'system.cpu.load_average.1m': None,
+    'system.process.count': None,
     'process.context_switches': ['involuntary', 'voluntary'],
     'process.runtime.gc_count': None,
     'process.open_file_descriptor.count': None,
