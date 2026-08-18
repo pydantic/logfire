@@ -3967,8 +3967,7 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                     ],
                     'gen_ai.usage.input_tokens': 13,
                     'gen_ai.usage.output_tokens': 1003,
-                    'gen_ai.usage.raw': {'completion_tokens': 1003, 'prompt_tokens': 13, 'total_tokens': 1016},
-                    'logfire.json_schema': {
+                    'gen_ai.usage.raw': {'completion_tokens': 1003, 'prompt_tokens': 13, 'total_tokens': 1016}, 'operation.cost': 0.0025114, 'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
@@ -3997,8 +3996,7 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
-                            'gen_ai.usage.raw': {'type': 'object'},
-                        },
+                            'gen_ai.usage.raw': {'type': 'object'}, 'operation.cost': {}},
                     },
                     'logfire.tags': ('LLM',),
                     'gen_ai.response.model': 'google/gemini-2.5-flash',

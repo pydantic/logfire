@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import json
-import re
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
@@ -301,30 +300,24 @@ class AnthropicMessageStreamState(StreamState):
         if 'latest' in versions and self._message and self._message.content:
             result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
-            result.update(get_anthropic_usage_attributes(self._message))
+            result.update(get_anthropic_usage_attributes(self._message, self.base_url))
         return result
 
 
-# Bedrock model IDs are the Anthropic model name behind a `anthropic.` vendor prefix,
-# optionally behind a scope prefix for cross-region inference profiles, and optionally
-# behind a full inference profile ARN:
-#   anthropic.claude-3-haiku-20240307-v1:0
-#   eu.anthropic.claude-3-7-sonnet-20250219-v1:0
-#   global.anthropic.claude-sonnet-4-5-20250929-v1:0
-#   us-gov.anthropic.claude-3-5-sonnet-20240620-v1:0
-#   arn:aws:bedrock:eu-west-1:123456789012:inference-profile/eu.anthropic.claude-3-7-sonnet-20250219-v1:0
-# The scope prefix is matched loosely on purpose: AWS keeps adding them (`global` and `us-gov`
-# are neither two nor three letters) and pricing differs between them, so an ID we fail to
-# recognise here loses its cost entirely. `anthropic.` is what actually identifies Bedrock,
-# since native Anthropic model names never contain it.
-_BEDROCK_MODEL_RE = re.compile(r'^(arn:aws:bedrock:|([a-z][a-z0-9-]*\.)?anthropic\.)')
-
-
-def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
+def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -> dict[str, Any]:
     """Extract usage attributes from an Anthropic response object.
 
-    Works for Message and BetaMessage from non-streaming on_response().
-    Returns an empty dict when usage is None.
+    Works for Message and BetaMessage from non-streaming on_response() and from streaming
+    accumulation. Returns an empty dict when usage is None.
+
+    base_url is the client's base URL and identifies who actually served the request:
+    an AnthropicBedrock client points at `bedrock-runtime.*.amazonaws.com`, so genai_prices
+    resolves it to the `aws` provider and prices the Bedrock model ID (plain, cross-region
+    inference profile, or full ARN) under Bedrock's prices rather than Anthropic's.
+    The pricing always runs off the token counts extracted here rather than the response
+    body, because genai_prices' `aws` extractor expects the Bedrock Converse shape
+    (`usage.inputTokens`) while AnthropicBedrock returns the Anthropic Messages shape
+    (`usage.input_tokens`).
     """
     usage = getattr(response, 'usage', None)
     if usage is None:
@@ -333,30 +326,28 @@ def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
     cache_write_tokens = usage.cache_creation_input_tokens or 0
     input_tokens = usage.input_tokens + cache_read_tokens + cache_write_tokens
     output_tokens = usage.output_tokens
-
     model = getattr(response, 'model', None)
-    if isinstance(model, str) and _BEDROCK_MODEL_RE.match(model):
-        # Bedrock-hosted models are priced under the `aws` provider, not `anthropic`.
-        # We can't hand the response to genai_prices' `aws` extractor though: that expects the
-        # Bedrock Converse shape (`usage.inputTokens`), while AnthropicBedrock returns the
-        # Anthropic Messages shape (`usage.input_tokens`). Price off our own counts instead.
-        return get_usage_attributes(
-            response,
-            usage,
-            input_tokens,
-            output_tokens,
-            provider_id='aws',
-            model_ref=model,
-            cache_read_tokens=cache_read_tokens,
-            cache_write_tokens=cache_write_tokens,
-        )
 
-    return get_usage_attributes(response, usage, input_tokens, output_tokens, provider_id='anthropic')
+    return get_usage_attributes(
+        response,
+        usage,
+        input_tokens,
+        output_tokens,
+        provider_id='anthropic',
+        provider_url=base_url,
+        model_ref=model if isinstance(model, str) else None,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
+    )
 
 
 @handle_internal_errors
 def on_response(
-    response: ResponseT, span: LogfireSpan, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+    response: ResponseT,
+    span: LogfireSpan,
+    *,
+    version: SemconvVersion | frozenset[SemconvVersion] = 1,
+    base_url: str | None = None,
 ) -> ResponseT:
     """Updates the span based on the type of response."""
     versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
@@ -387,7 +378,7 @@ def on_response(
         span.set_attribute(RESPONSE_MODEL, response.model)
         span.set_attribute(RESPONSE_ID, response.id)
 
-        span.set_attributes(get_anthropic_usage_attributes(response))
+        span.set_attributes(get_anthropic_usage_attributes(response, base_url))
 
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])

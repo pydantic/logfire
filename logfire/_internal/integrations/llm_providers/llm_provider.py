@@ -27,7 +27,7 @@ def instrument_llm_provider(
     suppress_otel: bool,
     scope_suffix: str,
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
-    on_response_fn: Callable[[Any, LogfireSpan], Any],
+    on_response_fn: Callable[..., Any],
     is_async_client_fn: Callable[[type[Any]], bool],
 ) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
@@ -85,6 +85,18 @@ def instrument_llm_provider(
 
     is_async = is_async_client_fn(client if isinstance(client, type) else type(client))
 
+    def _client_base_url(args: tuple[Any, ...]) -> str | None:
+        # When classes are instrumented the wrapped method is unbound, so the client instance
+        # arrives as `self` at the front of `args`; when an instance is instrumented, `client`
+        # in this closure is the instance and `args` holds only the request options,
+        # which have no `base_url`.
+        for candidate in (args[0] if args else None, client):
+            if candidate is not None and not isinstance(candidate, type):
+                base_url = getattr(candidate, 'base_url', None)
+                if base_url:
+                    return str(base_url)
+        return None
+
     def _instrumentation_setup(*args: Any, **kwargs: Any) -> Any:
         try:
             if is_instrumentation_suppressed():
@@ -101,13 +113,14 @@ def instrument_llm_provider(
                 stream_cls = kwargs['stream_cls']
                 assert stream_cls is not None, 'Expected `stream_cls` when streaming'
                 original_context = get_context()
+                stream_base_url = _client_base_url(args)
 
                 if is_async:
 
                     class LogfireInstrumentedAsyncStream(stream_cls):
                         async def __stream__(self) -> AsyncIterator[Any]:
                             with record_streaming(
-                                logfire_llm, span_data, stream_state_cls, original_context
+                                logfire_llm, span_data, stream_state_cls, original_context, stream_base_url
                             ) as record_chunk:
                                 async for chunk in super().__stream__():  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
                                     record_chunk(chunk)
@@ -119,7 +132,7 @@ def instrument_llm_provider(
                     class LogfireInstrumentedStream(stream_cls):
                         def __stream__(self) -> Iterator[Any]:
                             with record_streaming(
-                                logfire_llm, span_data, stream_state_cls, original_context
+                                logfire_llm, span_data, stream_state_cls, original_context, stream_base_url
                             ) as record_chunk:
                                 for chunk in super().__stream__():  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
                                     record_chunk(chunk)
@@ -145,7 +158,9 @@ def instrument_llm_provider(
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(original_request_method(*args, **kwargs), span)
+                    response = on_response_fn(
+                        original_request_method(*args, **kwargs), span, base_url=_client_base_url(args)
+                    )
                     return response
 
     @wraps(original_request_method)
@@ -158,7 +173,9 @@ def instrument_llm_provider(
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)
                 else:
-                    response = on_response_fn(await original_request_method(*args, **kwargs), span)
+                    response = on_response_fn(
+                        await original_request_method(*args, **kwargs), span, base_url=_client_base_url(args)
+                    )
                     return response
 
     if is_async:
@@ -200,8 +217,10 @@ def record_streaming(
     span_data: dict[str, Any],
     stream_state_cls: type[StreamState],
     original_context: ContextCarrier,
+    base_url: str | None = None,
 ):
     stream_state = stream_state_cls()
+    stream_state.base_url = base_url
 
     def record_chunk(chunk: Any) -> None:
         if chunk:

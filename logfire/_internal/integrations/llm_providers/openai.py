@@ -521,7 +521,7 @@ class OpenaiResponsesStreamState(StreamState):
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
-            span_data.update(get_openai_usage_attributes(response))
+            span_data.update(get_openai_usage_attributes(response, self.base_url))
         return span_data
 
 
@@ -576,14 +576,14 @@ try:
             except AssertionError:
                 pass
             else:
-                result.update(get_openai_usage_attributes(final_completion))
+                result.update(get_openai_usage_attributes(final_completion, self.base_url))
             return result
 
 except ImportError:  # pragma: no cover
     OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # pyright: ignore[reportAssignmentType]
 
 
-def get_openai_usage_attributes(response: Any) -> dict[str, Any]:
+def get_openai_usage_attributes(response: Any, base_url: str | None = None) -> dict[str, Any]:
     """Extract usage attributes from any OpenAI response object.
 
     Works for ChatCompletion, Response, CreateEmbeddingResponse —
@@ -602,19 +602,23 @@ def get_openai_usage_attributes(response: Any) -> dict[str, Any]:
     else:
         api_flavor = 'chat'
     return get_usage_attributes(
-        response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor
+        response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor, provider_url=base_url
     )
 
 
 @handle_internal_errors
 def on_response(
-    response: ResponseT, span: LogfireSpan, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+    response: ResponseT,
+    span: LogfireSpan,
+    *,
+    version: SemconvVersion | frozenset[SemconvVersion] = 1,
+    base_url: str | None = None,
 ) -> ResponseT:
     """Updates the span based on the type of response."""
     versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
-        on_response(response.parse(), span, version=versions)  # pyright: ignore[reportUnknownArgumentType]
+        on_response(response.parse(), span, version=versions, base_url=base_url)  # pyright: ignore[reportUnknownArgumentType]
         return cast('ResponseT', response)
 
     if isinstance(response_model := getattr(response, 'model', None), str):
@@ -625,7 +629,7 @@ def on_response(
         span.set_attribute(RESPONSE_ID, response_id)
 
     usage = getattr(response, 'usage', None)
-    span.set_attributes(get_openai_usage_attributes(response))
+    span.set_attributes(get_openai_usage_attributes(response, base_url))
 
     if isinstance(response, ChatCompletion) and response.choices:
         if 1 in versions:
