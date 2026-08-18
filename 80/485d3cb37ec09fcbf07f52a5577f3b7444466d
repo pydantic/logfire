@@ -1,0 +1,25 @@
+docs/navigation.yml
+  s_bd6db121f30e25::t_dc16d5b23b7b56 340-341
+  s_bd6db121f30e25::t_479080bb75a23c 339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "80485d3cb37ec09fcbf07f52a5577f3b7444466d",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_bd6db121f30e25": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1786790440194",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
