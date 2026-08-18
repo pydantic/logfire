@@ -25,7 +25,7 @@ from logfire.propagate import ContextCarrier, get_context
 
 from ...version import VERSION
 from ..auth import HOME_LOGFIRE
-from ..client import LogfireClient
+from ..client import UA_HEADER, LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
@@ -92,13 +92,9 @@ def parse_whoami(args: argparse.Namespace) -> None:
         username = current_user['name']
         sys.stderr.write(f'Logged in as: {username}\n')
 
-    credentials = LogfireCredentials.load_creds_file(data_dir)
-    if credentials is None:
-        sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
-        sys.exit(1)
-    else:
-        sys.stderr.write(f'Credentials loaded from data dir: {data_dir.resolve()}\n\n')
-        credentials.print_token_summary()
+    credentials = _load_credentials_or_exit(data_dir)
+    sys.stderr.write(f'Credentials loaded from data dir: {data_dir.resolve()}\n\n')
+    credentials.print_token_summary()
 
 
 def parse_clean(args: argparse.Namespace) -> None:
@@ -228,26 +224,48 @@ def _status_sql() -> str:
     )
 
 
-def parse_project_status(args: argparse.Namespace) -> None:
-    """Show what telemetry has reached the current project."""
-    data_dir = Path(args.data_dir)
+def _load_credentials_or_exit(data_dir: Path, remedy: str | None = None) -> LogfireCredentials:
+    """The project this folder is linked to, or a clean exit saying so.
+
+    Shared with `whoami`, which had this block verbatim. `remedy` is what to run to fix
+    it, for callers that know -- `whoami` deliberately passes nothing, because "you are
+    not linked" is the answer it exists to give rather than a failure to recover from.
+    """
     credentials = LogfireCredentials.load_creds_file(data_dir)
     if credentials is None:
         sys.stderr.write(f'No Logfire credentials found in {data_dir.resolve()}\n')
-        sys.stderr.write('Run `logfire projects use PROJECT_NAME --org ORGANIZATION` first.\n')
+        if remedy:
+            sys.stderr.write(f'{remedy}\n')
         sys.exit(1)
+    return credentials
 
-    # The organization is not stored in the credentials file, but the project URL ends in
-    # `<organization>/<project>`, which is what the read-token endpoint needs.
-    parts = [p for p in urlparse(credentials.project_url).path.split('/') if p]
-    if len(parts) < 2:
+
+def _organization_from_project_url(project_url: str) -> str | None:
+    """The organization a project URL belongs to, or None if it does not look like one.
+
+    The credentials file stores the project URL but not the organization, and the
+    read-token endpoint needs both. Project URLs end in `<organization>/<project>`, so the
+    organization is the second-to-last path segment.
+
+    Pure, and separated out because it is the only part of `projects status` with edge
+    cases worth enumerating -- a URL with no path, one segment, or a trailing slash. The
+    rest of that command is I/O.
+    """
+    parts = [part for part in urlparse(project_url).path.split('/') if part]
+    return parts[-2] if len(parts) >= 2 else None
+
+
+def parse_project_status(args: argparse.Namespace) -> None:
+    """Show what telemetry has reached the current project."""
+    data_dir = Path(args.data_dir)
+    credentials = _load_credentials_or_exit(
+        data_dir, remedy='Run `logfire projects use PROJECT_NAME --org ORGANIZATION` first.'
+    )
+
+    organization = _organization_from_project_url(credentials.project_url)
+    if organization is None:
         sys.stderr.write(f'Cannot tell which organization {credentials.project_url} belongs to.\n')
         sys.exit(1)
-    organization = parts[-2]
-
-    # Imported here, not at module scope: `query_client` imports from `logfire`, which is
-    # a cycle during package init, and no other command pays for it.
-    from logfire.experimental.query_client import LogfireQueryClient
 
     client = LogfireClient.from_url(credentials.logfire_api_url)
     # Minted here and never printed. Reading your own data needs a read token, and the
@@ -256,13 +274,23 @@ def parse_project_status(args: argparse.Namespace) -> None:
     # transcript. That is the thing this command exists to make unnecessary.
     read_token = client.create_read_token(organization, credentials.project_name)['token']
 
-    with LogfireQueryClient(read_token=read_token, base_url=credentials.logfire_api_url) as query_client:
-        result = query_client.query_json_rows(
-            sql=_status_sql(),
-            min_timestamp=datetime.now(tz=timezone.utc) - STATUS_LOOKBACK,
-            limit=STATUS_MAX_ROWS,
-        )
-    services = sorted(result['rows'], key=lambda r: str(r.get('service_name') or ''))
+    # Over `requests`, like every other call this CLI makes. `logfire.query_client` would
+    # be the obvious choice, but it needs httpx, which is an optional extra rather than a
+    # dependency -- so using it here would break this command on a plain install.
+    response = requests.post(
+        f'{credentials.logfire_api_url}/v2/query',
+        headers={'Authorization': read_token, 'User-Agent': UA_HEADER},
+        json={
+            'sql': _status_sql(),
+            'min_timestamp': (datetime.now(tz=timezone.utc) - STATUS_LOOKBACK).isoformat(),
+            'limit': STATUS_MAX_ROWS,
+        },
+        timeout=30,
+    )
+    if not response.ok:
+        sys.stderr.write(f'Could not read the project: {response.status_code} {response.text}\n')
+        sys.exit(1)
+    services = sorted(response.json()['data'], key=lambda r: str(r.get('service_name') or ''))
 
     if args.json:
         sys.stdout.write(

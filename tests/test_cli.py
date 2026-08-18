@@ -34,10 +34,15 @@ import logfire._internal.cli
 import logfire._internal.cli.ai_tools as ai_tools
 import logfire._internal.cli.gateway as gateway_cli
 import logfire._internal.cli.gateway_auth as gateway_auth
-import logfire.experimental.query_client
 from logfire import VERSION
 from logfire._internal.auth import UserToken
-from logfire._internal.cli import STATUS_MAX_ROWS, OrgProjectAction, SplitArgs, main
+from logfire._internal.cli import (
+    STATUS_MAX_ROWS,
+    OrgProjectAction,
+    SplitArgs,
+    _organization_from_project_url,  # pyright: ignore[reportPrivateUsage]
+    main,
+)
 from logfire._internal.cli.run import (
     InstrumentationRecommendation,
     collect_instrumentation_context,
@@ -943,36 +948,29 @@ def _status_credentials(tmp_dir_cwd: Path) -> Path:
     return data_dir
 
 
-def _mock_status_backend(stack: ExitStack, m: requests_mock.Mocker, rows: list[dict[str, Any]]) -> list[httpx.Request]:
-    """Wire both HTTP stacks this command uses, and return the queries it sent.
+def _mock_status_backend(m: requests_mock.Mocker, rows: list[dict[str, Any]]) -> None:
+    """Both calls `projects status` makes: mint a read token, then query.
 
-    Read-token creation goes through `requests` (LogfireClient); the query goes through
-    `httpx` (LogfireQueryClient), which `requests_mock` cannot see. The query client is
-    given a MockTransport rather than being replaced, so its real request body and error
-    handling still run.
+    The response is the WIRE shape -- `{"schema": {...}, "data": [...]}` -- not the
+    columns/rows shape the query client maps it to. Returning the mapped shape would make
+    the test pass against a body the server never sends.
     """
     m.post(
         'https://logfire-us.pydantic.dev/v1/organizations/test-org/projects/orders/read-tokens',
         json={'token': 'fake_read_token'},
     )
-
-    sent: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        sent.append(request)
-        # The wire shape, not the client-side mapped one: the client reads
-        # `schema.fields` and `data` and maps them to columns/rows itself.
-        fields = [{'name': k, 'data_type': 'Utf8'} for k in (rows[0] if rows else {})]
-        return httpx.Response(200, json={'schema': {'fields': fields}, 'data': rows})
-
-    real_client = logfire.experimental.query_client.LogfireQueryClient
-
-    def with_mock_transport(*args: Any, **kwargs: Any) -> Any:
-        kwargs['transport'] = httpx.MockTransport(handler)
-        return real_client(*args, **kwargs)
-
-    stack.enter_context(patch('logfire.experimental.query_client.LogfireQueryClient', with_mock_transport))
-    return sent
+    m.post(
+        'https://logfire-us.pydantic.dev/v2/query',
+        json={
+            # Mirrors the real body, verified against staging: fields carry `nullable`
+            # and the schema carries `metadata`, even though this command reads neither.
+            'schema': {
+                'fields': [{'name': k, 'data_type': 'Utf8', 'nullable': False} for k in (rows[0] if rows else {})],
+                'metadata': {},
+            },
+            'data': rows,
+        },
+    )
 
 
 def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -994,8 +992,7 @@ def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.
         )
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        sent = _mock_status_backend(
-            stack,
+        _mock_status_backend(
             m,
             [
                 {'service_name': 'orders-web', 'spans': 12, 'last_seen': '2026-08-18T20:00:00Z'},
@@ -1005,8 +1002,8 @@ def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.
 
         main(['projects', 'status'])
 
-    assert len(sent) == 1
-    body = json.loads(sent[0].content)
+    query = next(r for r in m.request_history if r.path.endswith('/v2/query'))
+    body = query.json()
     sql = body['sql']
     assert 'GROUP BY service_name' in sql, sql
     assert 'count(*)' in sql, sql
@@ -1041,7 +1038,7 @@ def test_projects_status_says_nothing_yet_rather_than_failing(
         )
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        _mock_status_backend(stack, m, [])
+        _mock_status_backend(m, [])
 
         main(['projects', 'status'])
 
@@ -1064,9 +1061,7 @@ def test_projects_status_json_is_machine_readable(tmp_dir_cwd: Path, capsys: pyt
         )
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        _mock_status_backend(
-            stack, m, [{'service_name': 'orders-web', 'spans': 12, 'last_seen': '2026-08-18T20:00:00Z'}]
-        )
+        _mock_status_backend(m, [{'service_name': 'orders-web', 'spans': 12, 'last_seen': '2026-08-18T20:00:00Z'}])
 
         main(['projects', 'status', '--json'])
 
@@ -1089,6 +1084,100 @@ def test_projects_status_without_credentials_says_what_to_run(
     assert 'No Logfire credentials found' in err
     # Runnable as printed: `<name>` would be shell input redirection.
     assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
+
+
+@pytest.mark.parametrize(
+    ('project_url', 'expected'),
+    [
+        # The shape the CLI actually writes into the credentials file.
+        ('https://logfire-us.pydantic.dev/test-org/orders', 'test-org'),
+        ('https://logfire-eu.pydantic.dev/test-org/orders', 'test-org'),
+        # Self-hosted, where the deployment lives under a path prefix.
+        ('https://logfire.example.com/logfire/acme/orders', 'acme'),
+        # A trailing slash must not shift the answer by one segment.
+        ('https://logfire-us.pydantic.dev/test-org/orders/', 'test-org'),
+        # Hyphens and digits are legal in both names.
+        ('https://logfire-us.pydantic.dev/acme-2/orders-api', 'acme-2'),
+        # Not enough path to name an organization.
+        ('https://logfire-us.pydantic.dev/orders', None),
+        ('https://logfire-us.pydantic.dev/', None),
+        ('https://logfire-us.pydantic.dev', None),
+        ('', None),
+    ],
+)
+def test_organization_from_project_url(project_url: str, expected: str | None) -> None:
+    """The organization is the second-to-last path segment, or nothing.
+
+    Pure, so every shape is enumerable here rather than through a command with four
+    mocked collaborators. The `None` cases matter: the credentials file is user-editable
+    and `projects status` must say something useful rather than raise IndexError.
+    """
+    assert _organization_from_project_url(project_url) == expected
+
+
+def test_projects_status_when_the_project_url_names_no_organization(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A credentials file that cannot name an organization exits cleanly.
+
+    Reachable in practice: the file is plain JSON in the repo and people edit it. Before
+    this it was the one uncovered branch in the command.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['projects', 'status'])
+    assert exc_info.value.code == 1
+    assert 'Cannot tell which organization' in capsys.readouterr().err
+
+
+def test_projects_status_reports_a_failed_query(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A rejected query says what the server said, rather than raising.
+
+    Reachable whenever the read token is refused or the backend is unhappy, and the
+    status code plus body is the only thing that tells someone which it was.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/test-org/projects/orders/read-tokens',
+            json={'token': 'fake_read_token'},
+        )
+        m.post(
+            'https://logfire-us.pydantic.dev/v2/query',
+            status_code=401,
+            text='Invalid read token',
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['projects', 'status'])
+
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert 'Could not read the project' in err
+    assert '401' in err
+    assert 'Invalid read token' in err
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:
