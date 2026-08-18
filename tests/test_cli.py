@@ -687,6 +687,28 @@ def test_auth_reads_piped_answers_even_though_a_pipe_is_not_a_tty(tmp_path: Path
     assert 'fake_token' in auth_file.read_text()
 
 
+def test_read_line_returns_none_when_stdin_is_unavailable() -> None:
+    """Every way stdin can be missing means the same thing: no answer is available.
+
+    `input()` raises RuntimeError when `sys.stdin` is None (pythonw, some embedded
+    runtimes) and ValueError on a closed stream. The docstring claimed these were handled
+    before they actually were.
+    """
+    from logfire._internal.cli.auth import _read_line
+
+    for exc in (EOFError, RuntimeError, ValueError, AttributeError):
+        with patch('logfire._internal.cli.auth.input', side_effect=exc):
+            assert _read_line('prompt') is None, exc
+
+    # And the real thing, not a mock of it.
+    original = sys.stdin
+    try:
+        sys.stdin = None  # type: ignore[assignment]
+        assert _read_line('prompt') is None
+    finally:
+        sys.stdin = original
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:

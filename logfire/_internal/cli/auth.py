@@ -18,12 +18,13 @@ def _read_line(prompt: str = '') -> str | None:
     piping the answers in is how scripts have always driven this command. Gating on
     isatty() would turn that into a hard failure.
 
-    `sys.stdin` can also be None (pythonw, some embedded runtimes) and reading it can
-    raise on a closed stream, so both are treated as "no answer available".
+    `sys.stdin` can also be None (pythonw, some embedded runtimes), where `input()` raises
+    `RuntimeError('lost sys.stdin')`, and reading a closed stream raises `ValueError`.
+    All of them mean the same thing here: no answer is available.
     """
     try:
         return input(prompt)
-    except (EOFError, AttributeError, ValueError):
+    except (EOFError, RuntimeError, AttributeError, ValueError):
         return None
 
 
