@@ -604,6 +604,130 @@ expiration = "fake_exp"
         webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
 
 
+def test_auth_non_interactive_completes_without_a_keypress(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`logfire --region us auth` works with no terminal attached.
+
+    The device flow needs no keypress: the URL is printed and the poll simply waits, so a
+    caller can surface the link and the login completes when the user opens it. The
+    "Press Enter to open ... in your browser" prompt was the only thing in the way, and it
+    turned every non-interactive invocation -- CI, containers, coding agents -- into an
+    EOFError traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        # No stdin: reading raises EOFError, exactly as it does under `< /dev/null`.
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=EOFError))
+        webbrowser_open = stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
+            text='{"token": "fake_token", "expiration": "fake_exp"}',
+        )
+
+        main(['--region', 'us', 'auth'])
+
+    # It may try to read -- that is fine and is how it detects there is nothing there.
+    # What must not happen is a crash, or a browser opened for an audience of nobody.
+    webbrowser_open.assert_not_called()
+    assert 'fake_token' in auth_file.read_text()
+    # With no browser to open, the printed URL is the ONLY way the caller can surface the
+    # login to a person -- so it is the feature here, not incidental output.
+    assert 'http://example.com/auth' in capsys.readouterr().err
+
+
+def test_auth_non_interactive_without_a_region_says_what_to_do(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Which region holds your data is not ours to guess, so it stays a required choice.
+
+    It is answerable ahead of time with `--region`, and saying so beats raising EOFError
+    from a prompt the caller cannot reply to.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=EOFError))
+
+        # A clean exit, not an exception: anything escaping `main()` reaches the user as
+        # a traceback.
+        with pytest.raises(SystemExit) as exc_info:
+            main(['auth'])
+        assert exc_info.value.code == 1
+
+    err = capsys.readouterr().err
+    assert 'no region was selected' in err
+    # Each suggestion must be runnable as printed. `--region us|eu` is a shell pipeline.
+    assert '  logfire --region us auth' in err
+    assert '  logfire --region eu auth' in err
+    assert 'us|eu' not in err
+
+
+def test_auth_reads_piped_answers_even_though_a_pipe_is_not_a_tty(tmp_path: Path) -> None:
+    """`printf '1\\n\\n' | logfire auth` must keep working.
+
+    Piping answers is how scripts have always driven this command. An earlier version of
+    this fix gated the prompts on `sys.stdin.isatty()`, which is a different question --
+    a pipe is not a tty -- and so refused input that was sitting right there, turning a
+    working setup script into a hard error. Found by running the real CLI in a container
+    with its stdin on a pipe.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        # '1' selects the first region; '' is the Enter keypress before the browser opens.
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=['1', '']))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
+            text='{"token": "fake_token", "expiration": "fake_exp"}',
+        )
+
+        main(['auth'])
+
+    assert 'fake_token' in auth_file.read_text()
+
+
+def test_read_line_returns_none_when_stdin_is_unavailable() -> None:
+    """Every way stdin can be missing means the same thing: no answer is available.
+
+    `input()` raises RuntimeError when `sys.stdin` is None (pythonw, some embedded
+    runtimes) and ValueError on a closed stream. The docstring claimed these were handled
+    before they actually were.
+    """
+    from logfire._internal.cli.auth import _read_line  # pyright: ignore[reportPrivateUsage]
+
+    for exc in (EOFError, RuntimeError, ValueError, AttributeError):
+        with patch('logfire._internal.cli.auth.input', side_effect=exc):
+            assert _read_line('prompt') is None, exc
+
+    # And the real thing, not a mock of it: `sys.stdin = None` is exactly what pythonw and
+    # some embedded runtimes leave behind, and it is what makes `input()` raise
+    # RuntimeError rather than any of the others.
+    original = sys.stdin
+    try:
+        sys.stdin = None
+        assert _read_line('prompt') is None
+    finally:
+        sys.stdin = original
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
