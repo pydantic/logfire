@@ -86,6 +86,8 @@ assert ... == snapshot({
 
 Use `@pytest.mark.anyio` for async tests.
 
+Emitting a warning is safe even though the test suite converts warnings to errors. When a warning is intentional, update affected tests to expect it or narrow their warning filters instead of suppressing the warning in production code. Suppress a warning at a call site only when it would be a known duplicate or is intentionally irrelevant there.
+
 Some tests are decorated with `@pytest.mark.vcr()` and use `pytest-recording` to record HTTP interactions. Existing VCR cassette files should suffice. When creating a new test like this, run `uv run pytest -k test_my_thing --inline-snapshot=fix --record-mode=rewrite`.
 
 Tests should use user-facing APIs as much as possible. Minimize mocking and reaching into internals.
