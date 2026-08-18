@@ -115,6 +115,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
+from .interactive import is_non_interactive, require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
@@ -2048,17 +2049,20 @@ class LogfireCredentials:
                     'No projects found for the current user. You can create a new project with `logfire projects new`'
                 )
                 return None
-            elif (
-                Prompt.ask(
+            else:
+                require_answer(
+                    f'No {project_message} found for the current user{org_message}.',
+                    'logfire projects use <name> --org <organization>',
+                )
+                expand_search = Prompt.ask(
                     f'No {project_message} found for the current user{org_message}. Choose from all projects?',
                     choices=['y', 'n'],
                     default='y',
                 )
-                == 'n'
-            ):
-                # user didn't want to expand search, print a hint and quit
-                console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
-                return None
+                if expand_search == 'n':
+                    # user didn't want to expand search, print a hint and quit
+                    console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
+                    return None
             # try all projects
             filtered_projects = projects
             organization = None
@@ -2079,6 +2083,10 @@ class LogfireCredentials:
             }
             project_choices_str = '\n'.join(
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
+            )
+            require_answer(
+                f'Several projects are available:\n{project_choices_str}',
+                'logfire projects use <name> --org <organization>',
             )
             selected_project_key = Prompt.ask(
                 f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
@@ -2130,6 +2138,11 @@ class LogfireCredentials:
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
                 else:
+                    require_answer(
+                        'Several organizations are available and none was selected.',
+                        'logfire projects new <name> --org <organization>',
+                        'logfire projects new <name> --default-org',
+                    )
                     organization = Prompt.ask(
                         '\nTo create and use a new project, please provide the following information:\n'
                         'Select the organization to create the project in',
@@ -2139,6 +2152,13 @@ class LogfireCredentials:
             else:
                 organization = organizations[0]
                 if not default_organization:
+                    # Creating a project is a side effect, so this is never assumed --
+                    # `--default-org` is how a caller says yes ahead of time.
+                    require_answer(
+                        f'This would create a project in the organization "{organization}".',
+                        f'logfire projects new <name> --org {organization}',
+                        'logfire projects new <name> --default-org',
+                    )
                     confirm = Confirm.ask(
                         f'The project will be created in the organization "{organization}". Continue?', default=True
                     )
@@ -2148,6 +2168,11 @@ class LogfireCredentials:
         project_name_default: str = default_project_name()
         project_name_prompt = 'Enter the project name'
         while True:
+            if not project_name:
+                require_answer(
+                    'No project name was given.',
+                    f'logfire projects new {project_name_default}',
+                )
             project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
                 project_name = Prompt.ask(
@@ -2204,6 +2229,11 @@ class LogfireCredentials:
 
         projects = client.get_user_projects()
         if projects:
+            require_answer(
+                'This folder is not linked to a project, and you have existing projects.',
+                'logfire projects use <name> --org <organization>',
+                'logfire projects new <name> --default-org',
+            )
             use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
             if use_existing_projects:  # pragma: no branch
                 credentials = cls.use_existing_project(client=client, projects=projects)
@@ -2213,10 +2243,13 @@ class LogfireCredentials:
 
         try:
             result = cls(**credentials, logfire_api_url=client.base_url)
-            Prompt.ask(
-                f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
-                'Press Enter to continue'
-            )
+            message = f'Project initialized successfully. You will be able to view it at: {result.project_url}'
+            if is_non_interactive():
+                # Nothing is being ASKED here -- the keypress is discarded -- so this is
+                # skipped rather than refused. The message still gets printed.
+                print(message)
+            else:
+                Prompt.ask(f'{message}\nPress Enter to continue')
             return result
         except TypeError as e:  # pragma: no cover
             raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e

@@ -26,6 +26,7 @@ from ..auth import HOME_LOGFIRE
 from ..client import LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
+from ..interactive import NonInteractiveError, set_non_interactive
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
 from .auth import parse_auth, parse_logout
@@ -335,6 +336,11 @@ def _main(args: list[str] | None = None) -> None:
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
     global_opts = parser.add_argument_group(title='global options')
+    global_opts.add_argument(
+        '--non-interactive',
+        action='store_true',
+        help='never prompt; fail with guidance if an answer would be required',
+    )
     url_or_region_grp = global_opts.add_mutually_exclusive_group()
     url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
     url_or_region_grp.add_argument(
@@ -434,6 +440,7 @@ def _main(args: list[str] | None = None) -> None:
         namespace.script_and_args = unknown_args + (namespace.script_and_args or [])
     else:
         namespace = parser.parse_args(args)
+    set_non_interactive(namespace.non_interactive)
 
     if namespace.logfire_url:
         warnings.warn(
@@ -477,6 +484,10 @@ def main(args: list[str] | None = None) -> None:
         _main(args)
     except KeyboardInterrupt:
         sys.stderr.write('User cancelled.\n')
+        sys.exit(1)
+    except NonInteractiveError as e:
+        # The whole point is guidance instead of a traceback, so it must not escape.
+        sys.stderr.write(f'{e}\n')
         sys.exit(1)
     finally:
         file_handler.close()

@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from ...exceptions import LogfireConfigError
 from ..auth import DEFAULT_FILE, UserTokenCollection, poll_for_token, request_device_code
 from ..config import REGIONS
+from ..interactive import require_answer
 
 
 def _read_line(prompt: str = '') -> str | None:
@@ -57,6 +58,10 @@ def parse_auth(args: argparse.Namespace) -> None:
         )
     )
     if not logfire_url:
+        require_answer(
+            'Logfire is available in multiple data regions and no region was selected.',
+            *(f'logfire --region {region_id} auth' for region_id in REGIONS),
+        )
         selected_region = -1
         while not (1 <= selected_region <= len(REGIONS)):
             sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')

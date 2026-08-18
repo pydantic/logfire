@@ -62,7 +62,11 @@ def logfire_credentials() -> LogfireCredentials:
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    assert 'usage: logfire [-h] [--version] [--base-url BASE_URL | --region {us,eu}]  ...' in capsys.readouterr().out
+    # argparse wraps the usage line, so match the parts rather than the layout.
+    out = capsys.readouterr().out
+    assert 'usage: logfire [-h] [--version] [--non-interactive]' in out
+    assert '[--base-url BASE_URL |' in out
+    assert '--region {us,eu}]' in out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -726,6 +730,84 @@ def test_read_line_returns_none_when_stdin_is_unavailable() -> None:
         assert _read_line('prompt') is None
     finally:
         sys.stdin = original
+
+
+def test_non_interactive_refuses_the_region_without_reading_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--non-interactive` fails BEFORE reading, which is the whole point.
+
+    Handling EOF only helps when a read returns. Stdin can be open and silent -- a CI
+    runner or a supervisor holding an idle pipe -- and then `input()` waits forever with
+    no output at all. Declaring intent up front is the only thing that catches that, so
+    this asserts nothing is read rather than asserting on the error alone.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        mock_input = stack.enter_context(patch('logfire._internal.cli.auth.input'))
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['--non-interactive', 'auth'])
+        assert exc_info.value.code == 1
+
+    mock_input.assert_not_called()
+    err = capsys.readouterr().err
+    assert 'no region was selected' in err
+    assert '--non-interactive' in err
+    # Each suggestion must be runnable as printed.
+    assert '  logfire --region us auth' in err
+    assert '  logfire --region eu auth' in err
+
+
+def test_non_interactive_does_not_change_the_interactive_path(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Without the flag, prompting is untouched."""
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=['1', '']))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
+            text='{"token": "fake_token", "expiration": "fake_exp"}',
+        )
+
+        main(['auth'])
+
+    assert 'fake_token' in auth_file.read_text()
+
+
+def test_non_interactive_flag_does_not_leak_between_invocations(tmp_path: Path) -> None:
+    """The switch is process state, so a run that sets it must not affect the next.
+
+    Worth pinning because the failure would be invisible: a later command would simply
+    refuse to prompt, with nothing pointing back at the earlier invocation.
+    """
+    from logfire._internal.interactive import is_non_interactive
+
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.input'))
+        with pytest.raises(SystemExit):
+            main(['--non-interactive', 'auth'])
+
+    assert is_non_interactive() is True, 'sanity: the flag was in force during that run'
+
+    main(['--version'])
+    assert is_non_interactive() is False, 'a later run without the flag must be interactive again'
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:
