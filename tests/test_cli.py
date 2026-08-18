@@ -587,7 +587,7 @@ expiration = "fake_exp"
         webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
 
 
-def test_auth_non_interactive_completes_without_a_keypress(tmp_path: Path) -> None:
+def test_auth_non_interactive_completes_without_a_keypress(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """`logfire --region us auth` works with no terminal attached.
 
     The device flow needs no keypress: the URL is printed and the poll simply waits, so a
@@ -621,9 +621,14 @@ def test_auth_non_interactive_completes_without_a_keypress(tmp_path: Path) -> No
     # What must not happen is a crash, or a browser opened for an audience of nobody.
     webbrowser_open.assert_not_called()
     assert 'fake_token' in auth_file.read_text()
+    # With no browser to open, the printed URL is the ONLY way the caller can surface the
+    # login to a person -- so it is the feature here, not incidental output.
+    assert 'http://example.com/auth' in capsys.readouterr().err
 
 
-def test_auth_non_interactive_without_a_region_says_what_to_do(tmp_path: Path) -> None:
+def test_auth_non_interactive_without_a_region_says_what_to_do(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Which region holds your data is not ours to guess, so it stays a required choice.
 
     It is answerable ahead of time with `--region`, and saying so beats raising EOFError
@@ -635,8 +640,18 @@ def test_auth_non_interactive_without_a_region_says_what_to_do(tmp_path: Path) -
         stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
         stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=EOFError))
 
-        with pytest.raises(LogfireConfigError, match='no region was selected'):
+        # A clean exit, not an exception: anything escaping `main()` reaches the user as
+        # a traceback.
+        with pytest.raises(SystemExit) as exc_info:
             main(['auth'])
+        assert exc_info.value.code == 1
+
+    err = capsys.readouterr().err
+    assert 'no region was selected' in err
+    # Each suggestion must be runnable as printed. `--region us|eu` is a shell pipeline.
+    assert '  logfire --region us auth' in err
+    assert '  logfire --region eu auth' in err
+    assert 'us|eu' not in err
 
 
 def test_auth_reads_piped_answers_even_though_a_pipe_is_not_a_tty(tmp_path: Path) -> None:

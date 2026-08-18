@@ -67,11 +67,19 @@ def parse_auth(args: argparse.Namespace) -> None:
                 # Nothing to read and nothing to guess from: which region holds your data
                 # is not ours to pick. It is answerable ahead of time, and saying so beats
                 # looping forever or raising EOFError from a prompt nobody can reply to.
-                raise LogfireConfigError(
-                    'Logfire is available in multiple data regions and no region was selected. '
-                    f'Pass one with `logfire --region {"|".join(REGIONS)} auth`, or run this in '
-                    'an interactive terminal to choose.'
+                #
+                # Written and exited rather than raised: an exception escapes `main()`,
+                # which catches only KeyboardInterrupt, so the caller gets a traceback --
+                # which is the thing this change set out to remove. Each region is spelled
+                # out as its own runnable line, because `--region us|eu` is a shell
+                # pipeline if you paste it.
+                sys.stderr.write(
+                    'Logfire is available in multiple data regions and no region was selected.\n'
+                    'Re-run in an interactive terminal to choose, or pass one:\n'
                 )
+                for region_id in REGIONS:
+                    sys.stderr.write(f'  logfire --region {region_id} auth\n')
+                sys.exit(1)
             try:
                 selected_region = int(answer)
             except ValueError:
