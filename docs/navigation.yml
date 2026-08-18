@@ -1130,8 +1130,9 @@ navigation:
       # Head-to-head comparison pages (vs Datadog, Grafana, Langfuse, …) were
       # consolidated onto the public marketing site (pydantic.dev/logfire/vs-*);
       # the docs redirect the old URLs there. The Braintrust *migration* guide is
-      # a how-to, not a comparison, so it stays.
-      - section: "Comparisons"
+      # a how-to, not a comparison, so it moves into its own Migrating section.
+      # Its slug (and alias) are kept unchanged so existing links keep working.
+      - section: "Migrating"
         contents:
           - page: "Move from Braintrust"
             path: "comparisons/migrate-from-braintrust.md"
