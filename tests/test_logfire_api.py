@@ -17,6 +17,7 @@ from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
+pydantic_pre_2_10 = get_version(pydantic_version) < get_version('2.10.0')
 
 
 @pytest.fixture(autouse=True)
@@ -299,7 +300,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
-    if not pydantic_pre_2_5:
+    if not pydantic_pre_2_10:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)
             try:
@@ -311,7 +312,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_litellm')
 
     assert hasattr(logfire_api, 'instrument_dspy')
-    if not pydantic_pre_2_5:
+    if not pydantic_pre_2_10:
         # DSPy emits deprecation warnings while being instrumented; pytest treats warnings as errors.
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)
