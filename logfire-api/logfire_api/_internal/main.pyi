@@ -229,7 +229,7 @@ class Logfire:
             _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
         """
-    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), _span_kind: SpanKind = ..., **attributes: Any) -> LogfireSpan:
+    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), _span_kind: SpanKind = ..., _new_trace: bool = False, **attributes: Any) -> LogfireSpan:
         """Context manager for creating a span.
 
         ```py
@@ -251,6 +251,8 @@ class Logfire:
                 If not provided, defaults to `INTERNAL`.
                 Users don't typically need to set this.
                 Not related to the `kind` column of the `records` table in Logfire.
+            _new_trace: Set to `True` to start a new trace root. When a valid span is current,
+                the new root includes a span link to it instead of using it as a parent.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -1488,7 +1490,7 @@ class FastLogfireSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]], span_kind: SpanKind = ...) -> None: ...
+    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]], span_kind: SpanKind = ..., new_trace: bool = False) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     @handle_internal_errors

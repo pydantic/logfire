@@ -23,7 +23,17 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
+from opentelemetry.trace import (
+    INVALID_SPAN,
+    NonRecordingSpan,
+    SpanContext,
+    SpanKind,
+    StatusCode,
+    TraceFlags,
+    get_current_span,
+    get_tracer,
+    use_span,
+)
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -3079,6 +3089,129 @@ def test_span_links(exporter: TestExporter):
             },
         ]
     )
+
+
+def test_span_new_trace_preserves_context_and_restores_parent(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    config_kwargs['add_baggage_to_attributes'] = True
+    logfire.configure(**config_kwargs)
+
+    with logfire.set_baggage(customer='acme'):
+        with logfire.span('parent'):
+            parent_context = get_current_span().get_span_context()
+            with logfire.span('new root', _new_trace=True):
+                assert logfire.get_baggage() == {'customer': 'acme'}
+                logfire.info('child log')
+                with logfire.span('child span'):
+                    pass
+            assert get_current_span().get_span_context() == parent_context
+
+            with pytest.raises(ValueError, match='boom'):
+                with logfire.span('exceptional root', _new_trace=True):
+                    raise ValueError('boom')
+            assert get_current_span().get_span_context() == parent_context
+
+    spans = {span['name']: span for span in exporter.exported_spans_as_dict()}
+    assert spans['new root']['parent'] is None
+    assert spans['new root']['context']['trace_id'] != spans['parent']['context']['trace_id']
+    assert spans['new root']['links'] == [{'context': spans['parent']['context'], 'attributes': {}}]
+    assert spans['new root']['attributes']['customer'] == 'acme'
+    assert spans['child log']['parent'] == spans['new root']['context']
+    assert spans['child span']['parent'] == spans['new root']['context']
+    assert spans['exceptional root']['parent'] is None
+    assert spans['exceptional root']['links'] == [{'context': spans['parent']['context'], 'attributes': {}}]
+
+
+def test_span_new_trace_link_order_and_deduplication(exporter: TestExporter):
+    with logfire.span('explicit first'):
+        first_context = get_current_span().get_span_context()
+    with logfire.span('current'):
+        current_context = get_current_span().get_span_context()
+        with logfire.span(
+            'new root',
+            _new_trace=True,
+            _links=[
+                (first_context, {'order': 1}),
+                (current_context, {'explicit': True}),
+                (first_context, {'order': 2}),
+            ],
+        ):
+            pass
+
+    span = next(span for span in exporter.exported_spans_as_dict() if span['name'] == 'new root')
+    assert span['parent'] is None
+    assert [link['context']['trace_id'] for link in span['links']] == [
+        first_context.trace_id,
+        current_context.trace_id,
+        first_context.trace_id,
+    ]
+    assert [link['attributes'] for link in span['links']] == [
+        {'order': 1},
+        {'explicit': True},
+        {'order': 2},
+    ]
+
+
+def test_span_new_trace_without_current_span(exporter: TestExporter):
+    with logfire.span('new root', _new_trace=True):
+        pass
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['parent'] is None
+    assert 'links' not in span
+
+
+def test_span_new_trace_uses_context_at_start(exporter: TestExporter):
+    with logfire.span('construction parent'):
+        construction_parent = get_current_span().get_span_context()
+        new_root = logfire.span('new root', _new_trace=True)
+        assert get_current_span().get_span_context() == construction_parent
+
+    with logfire.span('start parent'):
+        with new_root:
+            pass
+
+    spans = {span['name']: span for span in exporter.exported_spans_as_dict()}
+    assert spans['new root']['parent'] is None
+    assert spans['new root']['links'] == [{'context': spans['start parent']['context'], 'attributes': {}}]
+
+
+def test_span_new_trace_from_unsampled_span(exporter: TestExporter):
+    unsampled_context = SpanContext(
+        trace_id=10,
+        span_id=20,
+        is_remote=False,
+        trace_flags=TraceFlags(0),
+    )
+
+    with use_span(NonRecordingSpan(unsampled_context)):
+        with logfire.span('new root', _new_trace=True):
+            pass
+
+    [span] = exporter.exported_spans_as_dict()
+    assert span['parent'] is None
+    assert span['context']['trace_id'] != unsampled_context.trace_id
+    assert span['links'] == [
+        {
+            'context': {
+                'trace_id': unsampled_context.trace_id,
+                'span_id': unsampled_context.span_id,
+                'is_remote': False,
+            },
+            'attributes': {},
+        }
+    ]
+
+
+def test_span_new_trace_filtered_by_level(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    with logfire.span('parent'):
+        parent_context = get_current_span().get_span_context()
+        with logfire.span('filtered', _level='debug', _new_trace=True):
+            assert get_current_span().get_span_context() == parent_context
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['parent']
 
 
 def test_span_add_link_before_start(exporter: TestExporter):

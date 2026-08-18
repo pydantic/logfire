@@ -129,7 +129,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'LevelName')
     logfire__all__.remove('LevelName')
 
-    with logfire_api.span('test span') as span:
+    with logfire_api.span('test span', _new_trace=True) as span:
         assert isinstance(span, logfire_api.LogfireSpan)
         span.set_attribute('foo', 'bar')
 
