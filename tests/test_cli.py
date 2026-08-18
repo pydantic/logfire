@@ -541,6 +541,9 @@ def test_auth(tmp_path: Path, webbrowser_error: bool, capsys: pytest.CaptureFixt
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
         stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
         stack.enter_context(patch('logfire._internal.cli.auth.input'))
+        # This test is the interactive path. pytest captures stdin, so it is not a
+        # tty and the prompts would otherwise be skipped.
+        stack.enter_context(patch('logfire._internal.cli.auth._stdin_is_interactive', return_value=True))
         webbrowser_open = stack.enter_context(
             patch('webbrowser.open', side_effect=webbrowser.Error if webbrowser_error is True else None)
         )
@@ -585,6 +588,60 @@ expiration = "fake_exp"
         )
 
         webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
+
+
+def test_auth_non_interactive_completes_without_a_keypress(tmp_path: Path) -> None:
+    """`logfire --region us auth` works with no terminal attached.
+
+    The device flow needs no keypress: the URL is printed and the poll simply waits, so a
+    caller can surface the link and the login completes when the user opens it. The
+    "Press Enter to open ... in your browser" prompt was the only thing in the way, and it
+    turned every non-interactive invocation -- CI, containers, coding agents -- into an
+    EOFError traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth._stdin_is_interactive', return_value=False))
+        # If anything tries to read a keystroke, fail loudly rather than hanging or
+        # raising EOFError somewhere further down.
+        mock_input = stack.enter_context(patch('logfire._internal.cli.auth.input'))
+        webbrowser_open = stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
+            text='{"token": "fake_token", "expiration": "fake_exp"}',
+        )
+
+        main(['--region', 'us', 'auth'])
+
+    mock_input.assert_not_called()
+    # No terminal means no browser to open for anyone to see; the URL is printed instead.
+    webbrowser_open.assert_not_called()
+    assert 'fake_token' in auth_file.read_text()
+
+
+def test_auth_non_interactive_without_a_region_says_what_to_do(tmp_path: Path) -> None:
+    """Which region holds your data is not ours to guess, so it stays a required choice.
+
+    It is answerable ahead of time with `--region`, and saying so beats raising EOFError
+    from a prompt the caller cannot reply to.
+    """
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth._stdin_is_interactive', return_value=False))
+
+        with pytest.raises(LogfireConfigError, match='no region was selected'):
+            main(['auth'])
 
 
 def test_auth_temp_failure(tmp_path: Path) -> None:
@@ -681,6 +738,7 @@ def test_auth_no_region_specified(tmp_path: Path) -> None:
         # 'not_an_int' is used as the first input to test that invalid inputs are supported,
         # '2' will result in the EU region being used:
         stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=['not_an_int', '2', '']))
+        stack.enter_context(patch('logfire._internal.cli.auth._stdin_is_interactive', return_value=True))
         stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
 
         m = requests_mock.Mocker()
