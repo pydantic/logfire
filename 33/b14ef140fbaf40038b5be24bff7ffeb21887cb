@@ -1,0 +1,24 @@
+CLAUDE.md
+  s_f461e46fb20d9d::t_923dc6741cfd2f 89-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "33b14ef140fbaf40038b5be24bff7ffeb21887cb",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_f461e46fb20d9d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a01519-6f11-7f10-84ce-6c6aea15bf53",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
