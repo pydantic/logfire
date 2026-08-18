@@ -770,6 +770,70 @@ def test_projects_list_no_project(default_credentials: Path, capsys: pytest.Capt
         )
 
 
+def test_projects_list_json(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`--json` goes to STDOUT so it can be piped, and is sorted like the table."""
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
+            json=[
+                {'organization_name': 'test-org', 'project_name': 'zulu'},
+                {'organization_name': 'test-org', 'project_name': 'alpha'},
+            ],
+        )
+
+        main(['projects', 'list', '--json'])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out) == snapshot(
+            [
+                {'organization_name': 'test-org', 'project_name': 'alpha'},
+                {'organization_name': 'test-org', 'project_name': 'zulu'},
+            ]
+        )
+        # Nothing on stderr: a caller redirecting only stdout must get clean JSON, with no
+        # banner or table interleaved.
+        assert captured.err == ''
+
+
+def test_projects_list_json_no_projects(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Empty is `[]`, not the prose message.
+
+    A caller parsing this should not have to special-case "no projects" by matching
+    English, and `logfire projects list` exits 0 either way, so the text was the only
+    signal available.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+
+        main(['projects', 'list', '--json'])
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out) == []
+        assert captured.err == ''
+
+
 def test_projects_new_with_project_name_and_org(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
