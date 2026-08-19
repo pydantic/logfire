@@ -291,6 +291,38 @@ def test_unknown_model_leaves_cost_unset(exporter: TestExporter):
     assert 'operation.cost' not in span['attributes']
 
 
+def test_streaming_state_prices_with_the_client_base_url(exporter: TestExporter):
+    """The streaming path reaches pricing through the stream state rather than on_response.
+
+    Bedrock streams over AWS binary event-stream framing rather than SSE, so this asserts the
+    wiring directly: the state carries the client base URL, and the accumulated message is
+    priced under `aws` because of it.
+    """
+    from logfire._internal.integrations.llm_providers.anthropic import AnthropicMessageStreamState
+
+    message = Message(
+        id='test_id',
+        content=[TextBlock(text='Nine', type='text')],
+        model='anthropic.claude-3-haiku-20240307-v1:0',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    )
+
+    state = AnthropicMessageStreamState()
+    state._message = message  # pyright: ignore[reportPrivateUsage]
+
+    without_url = state.get_attributes({})
+    state.base_url = 'https://bedrock-runtime.us-east-1.amazonaws.com'
+    with_url = state.get_attributes({})
+
+    # 2 input tokens at $0.25/M plus 3 output at $1.25/M, priced under aws.
+    assert with_url['operation.cost'] == 4.25e-06
+    # Without the base URL the Bedrock model id does not resolve under `anthropic` at all.
+    assert 'operation.cost' not in without_url
+
+
 def test_is_async_client() -> None:
     # Test sync clients
     assert not is_async_client(Anthropic)
