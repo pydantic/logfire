@@ -99,7 +99,7 @@ jobs:
           fi
 
       - name: Comment failure on PR
-        if: failure() && steps.dispatch.outcome == 'failure'
+        if: failure() && (steps.app-token.outcome == 'failure' || steps.dispatch.outcome == 'failure')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
