@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin
 
@@ -147,11 +148,21 @@ class LogfireClient:
             error_message='Error creating project write token',
         )
 
-    def create_read_token(self, organization: str, project_name: str) -> dict[str, Any]:
-        """Create a read token for the given project in the given organization."""
+    def create_read_token(
+        self, organization: str, project_name: str, expires_at: datetime | None = None
+    ) -> dict[str, Any]:
+        """Create a read token for the given project in the given organization.
+
+        `expires_at` bounds how long the token stays valid. The CLI has no way to revoke
+        one, so a token it stores on disk gets an expiry; a token it prints for the caller
+        to place somewhere else does not, because we do not know what it was used for.
+        """
+        body: dict[str, Any] = {'description': 'Created by Logfire CLI'}
+        if expires_at is not None:
+            body['expires_at'] = expires_at.isoformat()
         return self._post(
             f'/v1/organizations/{organization}/projects/{project_name}/read-tokens',
-            body={'description': 'Created by Logfire CLI'},
+            body=body,
             error_message='Error creating project read token',
         )
 
