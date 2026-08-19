@@ -52,10 +52,15 @@ def get_usage_attributes(
         pass
 
     # (provider_id, provider_api_url) candidates, URL first: genai_prices raises on a
-    # candidate that doesn't resolve, and the next one is tried.
-    candidates: list[tuple[str | None, str | None]] = [(provider_id, None)]
+    # candidate that doesn't resolve, and the next one is tried. `calc_price` and
+    # `extract_usage` overload the two provider arguments as mutually exclusive, so a
+    # candidate is either a URL or an id and each is passed on its own.
+    candidates: list[str] = [provider_id]
     if provider_url is not None:
-        candidates.insert(0, (None, provider_url))
+        candidates.insert(0, provider_url)
+
+    def is_url(candidate: str) -> bool:
+        return candidate.startswith(('http://', 'https://'))
 
     try:
         from genai_prices import calc_price
@@ -69,13 +74,13 @@ def get_usage_attributes(
                 cache_read_tokens=cache_read_tokens,
                 cache_write_tokens=cache_write_tokens,
             )
-            for candidate_id, candidate_url in candidates:
+            for candidate in candidates:
                 try:
-                    result['operation.cost'] = float(
-                        calc_price(
-                            price_usage, model_ref=model_ref, provider_id=candidate_id, provider_api_url=candidate_url
-                        ).total_price
-                    )
+                    if is_url(candidate):
+                        price = calc_price(price_usage, model_ref=model_ref, provider_api_url=candidate)
+                    else:
+                        price = calc_price(price_usage, model_ref=model_ref, provider_id=candidate)
+                    result['operation.cost'] = float(price.total_price)
                     break
                 except Exception:
                     pass
@@ -86,24 +91,21 @@ def get_usage_attributes(
                 response_data = response.model_dump(include={'model', 'usage'})
             else:
                 response_data = response.model_dump()
-            extract_kwargs: dict[str, Any] = {}
-            if api_flavor is not None:
-                extract_kwargs['api_flavor'] = api_flavor
-            for candidate_id, candidate_url in candidates:
+            flavor = api_flavor or 'default'
+            for candidate in candidates:
                 try:
-                    usage_data = extract_usage(
-                        response_data, provider_id=candidate_id, provider_api_url=candidate_url, **extract_kwargs
-                    )
-                    if usage_data.model is None:
+                    if is_url(candidate):
+                        usage_data = extract_usage(response_data, provider_api_url=candidate, api_flavor=flavor)
+                    else:
+                        usage_data = extract_usage(response_data, provider_id=candidate, api_flavor=flavor)
+                    model = usage_data.model
+                    if model is None:
                         continue
-                    result['operation.cost'] = float(
-                        calc_price(
-                            usage_data.usage,
-                            model_ref=usage_data.model.id,
-                            provider_id=candidate_id,
-                            provider_api_url=candidate_url,
-                        ).total_price
-                    )
+                    if is_url(candidate):
+                        price = calc_price(usage_data.usage, model_ref=model.id, provider_api_url=candidate)
+                    else:
+                        price = calc_price(usage_data.usage, model_ref=model.id, provider_id=candidate)
+                    result['operation.cost'] = float(price.total_price)
                     break
                 except Exception:
                     pass
