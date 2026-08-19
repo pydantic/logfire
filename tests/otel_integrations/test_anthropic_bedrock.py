@@ -251,7 +251,9 @@ def make_proxy_client(model_id: str) -> Iterator[Anthropic]:
         )
 
     with httpx.Client(transport=MockTransport(handler)) as http_client:
-        client = Anthropic(api_key='test-key', base_url='https://llm-proxy.internal.example/v1', http_client=http_client)
+        client = Anthropic(
+            api_key='test-key', base_url='https://llm-proxy.internal.example/v1', http_client=http_client
+        )
         with logfire.instrument_anthropic(version=[1, 'latest']):
             yield client
 
