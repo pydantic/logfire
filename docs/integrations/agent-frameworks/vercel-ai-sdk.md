@@ -7,7 +7,7 @@ integration: otel
 
 The [Vercel AI SDK](https://ai-sdk.dev/) (the `ai` npm package) supports OpenTelemetry through its official
 `@ai-sdk/otel` integration. Attach that integration to a native `ToolLoopAgent` and configure the
-[Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) as the global tracer provider to send
+[Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/) as the global tracer provider to send
 the resulting agent, model, and tool spans to **Logfire**.
 
 ## Installation
@@ -90,7 +90,7 @@ tool call in **Logfire**. Vercel AI SDK runs also appear in the specialized **Ag
 ## Managed prompts
 
 Author and version prompts in [Prompt Management](../../reference/advanced/prompt-management/index.md) and
-fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/):
+fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/):
 
 ```typescript
 import { defineTemplateVar } from '@pydantic/logfire-node/vars';
