@@ -36,10 +36,48 @@ from tests.test_configure import get_span_processors, wait_for_check_token_threa
 class SinkHTTPAdapter(HTTPAdapter):
     """An HTTPAdapter that consumes all data sent to it."""
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.timeouts: list[float | tuple[float, float] | None] = []
+
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+        self.timeouts.append(kwargs.get('timeout'))
         resp = Response()
         resp.status_code = 200
         return resp
+
+
+@pytest.mark.parametrize(
+    ('timeout', 'expected'),
+    [
+        (30, (3, 30)),
+        (2, (2, 2)),
+        ((1, 30), (1, 30)),
+    ],
+)
+def test_connect_timeout(timeout: float | tuple[float, float], expected: tuple[float, float]) -> None:
+    session = OTLPExporterHttpSession()
+    adapter = SinkHTTPAdapter()
+    session.mount('http://', adapter)
+
+    session.get('http://example.com', timeout=timeout)
+    session.post('http://example.com', data=b'', timeout=timeout)
+
+    assert adapter.timeouts == [expected, expected]
+
+
+def test_connect_timeout_is_preserved_for_disk_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = OTLPExporterHttpSession()
+    request_error = requests.exceptions.RequestException('request failed')
+    monkeypatch.setattr(session, '_post', Mock(side_effect=request_error))
+    add_task = Mock()
+    monkeypatch.setattr(session, '_add_task', add_task)
+    monkeypatch.setattr('time.time', Mock(side_effect=[0, 11]))
+
+    with pytest.raises(requests.exceptions.RequestException, match='request failed'):
+        session.post('http://example.com', data=b'data', timeout=30)
+
+    add_task.assert_called_once_with(b'data', 'http://example.com', {'timeout': (3, 30)}, request_error)
 
 
 def test_max_body_size_bytes() -> None:
