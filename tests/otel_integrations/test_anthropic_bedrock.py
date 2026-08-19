@@ -233,6 +233,62 @@ def test_bedrock_model_ids_are_priced(model_id: str, expected_cost: float, expor
     assert span['attributes']['operation.cost'] == expected_cost
 
 
+def make_proxy_client(model_id: str) -> Iterator[Anthropic]:
+    """A plain Anthropic client behind a proxy base URL that genai-prices cannot resolve."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id',
+                content=[TextBlock(text='Nine', type='text')],
+                model=model_id,
+                role='assistant',
+                type='message',
+                stop_reason='end_turn',
+                usage=Usage(input_tokens=2, output_tokens=3),
+            ).model_dump(mode='json'),
+        )
+
+    with httpx.Client(transport=MockTransport(handler)) as http_client:
+        client = Anthropic(api_key='test-key', base_url='https://llm-proxy.internal.example/v1', http_client=http_client)
+        with logfire.instrument_anthropic(version=[1, 'latest']):
+            yield client
+
+
+@pytest.mark.filterwarnings('ignore:datetime.datetime.utcnow:DeprecationWarning')
+def test_unresolvable_base_url_falls_back_to_provider_id(exporter: TestExporter):
+    """An unrecognised base URL must not lose the cost: the provider id is tried next."""
+    model_id = 'claude-3-haiku-20240307'
+    for client in make_proxy_client(model_id):
+        client.messages.create(
+            max_tokens=1000,
+            model=model_id,
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    (span,) = exporter.exported_spans_as_dict()
+    # The URL candidate raises inside genai-prices, so the `anthropic` candidate priced this.
+    # 2 input tokens at $0.25/M plus 3 output at $1.25/M.
+    assert span['attributes']['operation.cost'] == 4.25e-06
+
+
+@pytest.mark.filterwarnings('ignore:datetime.datetime.utcnow:DeprecationWarning')
+def test_unknown_model_leaves_cost_unset(exporter: TestExporter):
+    """When no candidate can price the model, tokens are still recorded and cost is absent."""
+    model_id = 'anthropic.not-a-real-model-v9:0'
+    for client in make_client(model_id):
+        client.messages.create(
+            max_tokens=1000,
+            model=model_id,
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+
+    (span,) = exporter.exported_spans_as_dict()
+    assert span['attributes']['gen_ai.usage.input_tokens'] == 2
+    assert 'operation.cost' not in span['attributes']
+
+
 def test_is_async_client() -> None:
     # Test sync clients
     assert not is_async_client(Anthropic)

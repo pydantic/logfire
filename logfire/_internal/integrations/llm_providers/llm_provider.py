@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Callable, Generator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from opentelemetry.trace import SpanKind
 
@@ -21,13 +21,23 @@ if TYPE_CHECKING:
 __all__ = ('instrument_llm_provider',)
 
 
+class OnResponseFn(Protocol):
+    """Provider callback that records a non-streaming response on the span.
+
+    `base_url` is the instrumented client's base URL, used to identify the
+    provider that actually served the request.
+    """
+
+    def __call__(self, response: Any, span: LogfireSpan, *, base_url: str | None = None) -> Any: ...
+
+
 def instrument_llm_provider(
     logfire: Logfire,
     client: Any,
     suppress_otel: bool,
     scope_suffix: str,
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
-    on_response_fn: Callable[..., Any],
+    on_response_fn: OnResponseFn,
     is_async_client_fn: Callable[[type[Any]], bool],
 ) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
