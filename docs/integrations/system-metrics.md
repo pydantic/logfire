@@ -99,6 +99,78 @@ logfire.instrument_system_metrics({
 
 To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`.
 
+### Monitor filesystem capacity
+
+Track when an application filesystem is running out of usable space. Filesystem capacity metrics are opt-in:
+neither the `basic` nor `full` configuration includes them. Logfire monitors the filesystem containing the
+process's current working directory if you set the whole metric value to `None`, omit `paths` from its options,
+or set `paths` to `None`.
+
+```py
+import logfire
+
+logfire.configure()
+
+filesystem_options = {
+    'paths': ['/var/lib/my-app', '/srv/data'],
+    'states': ['used', 'free', 'reserved'],
+}
+logfire.instrument_system_metrics(
+    {
+        'system.filesystem.usage': filesystem_options,
+        'system.filesystem.limit': filesystem_options,
+        'system.filesystem.utilization': filesystem_options,
+    },
+    base=None,
+)
+```
+
+Logfire creates only the metric names that you include. If you include more than one name with an options
+dictionary, use the same options for each. The metrics follow OpenTelemetry (OTel), the open industry standard
+for collecting traces, metrics, and logs:
+
+- `system.filesystem.usage` is an observable up-down counter, a value that Logfire reads during collection and
+  that can increase or decrease. It reports `used`, `free`, and filesystem-reserved bytes. With all three states,
+  the values add up to the total capacity.
+- `system.filesystem.limit` is an observable up-down counter that reports total capacity in bytes.
+- `system.filesystem.utilization` is a gauge from 0 to 1 with `system.filesystem.state="used"`. It reports
+  `used / (used + free)`, the fraction available to an ordinary user that is already used. Reserved Unix blocks
+  therefore do not prevent a full application filesystem from reading 100% used.
+
+Each metric includes the device, mount point, filesystem type, and read/write mode when the operating system
+provides them.
+
+!!! warning "Filesystem metrics can send up to 160 series per process"
+    You can configure at most 32 paths. If all 32 resolve to different filesystems, enabling all three metrics
+    with the default states produces five series per path: three usage states, one limit, and one utilization.
+    Each series adds stored data and can increase your cost. Choose a small, fixed list of application paths.
+
+Logfire removes duplicate paths when it can identify the same device and mount point. Mount enumeration can be
+unavailable, so this deduplication is best effort. Consider these environment-specific details:
+
+- **Linux:** Select a path on each separate mount that matters, such as `/var/lib/my-app` and `/srv/data`.
+- **macOS:** Current macOS systems split the read-only System volume from the writable Data volume. Logfire maps
+  writable paths such as `/Users/...` and the sealed root path `/` to the Data volume.
+- **Windows:** Select paths on the drives or Universal Naming Convention (UNC) shares that the application uses.
+  If Windows does not enumerate a share, Logfire uses its UNC share name as a fallback identity. Different names
+  for the same storage may then produce separate series.
+- **Containers:** A path may describe a container overlay or mounted volume rather than the host disk.
+- **Quotas:** Operating-system or storage quotas may impose a lower usable limit than the filesystem reports.
+- **Multiple processes:** Each instrumented process emits the same filesystem series. Group by host and
+  filesystem attributes rather than adding duplicate values across processes.
+
+For host-wide infrastructure monitoring, use an
+[OpenTelemetry Collector](../how-to-guides/otel-collector/host-monitoring.md), a separate program that sits
+between your apps and Logfire, gathering telemetry and forwarding it. This avoids sending the same filesystem
+series from every application process.
+
+#### Verify filesystem metrics
+
+Leave the program running for at least one collection interval. In **Metrics explorer**, select
+`system.filesystem.usage`, then group by `system.filesystem.mountpoint` and `system.filesystem.state`. You should
+see the expected mount points with `used`, `free`, and `reserved` series. If a selected path disappears or becomes
+inaccessible, Logfire warns once for that path and continues collecting the other paths and system metrics.
+
 !!! warning "`base='full'` sends much more data, and can cost more"
     The amount of data collected by `base='full'` can be expensive, especially if you have many servers,
     and this is easy to forget about. If you enable this, be sure to monitor your usage and costs.
