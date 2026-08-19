@@ -87,6 +87,8 @@ except ImportError:
 
             def set_attribute(self, key: str, value: Any) -> None: ...  # pragma: no cover
 
+            def add_link(self, context: Any, attributes: Any = None) -> None: ...  # pragma: no cover
+
         class Logfire:
             def __getattr__(self, attr):
                 return MagicMock()  # pragma: no cover
