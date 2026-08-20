@@ -51,64 +51,51 @@ def get_usage_attributes(
     except Exception:
         pass
 
-    # (provider_id, provider_api_url) candidates, URL first: genai_prices raises on a
-    # candidate that doesn't resolve, and the next one is tried. `calc_price` and
-    # `extract_usage` overload the two provider arguments as mutually exclusive, so a
-    # candidate is either a URL or an id and each is passed on its own.
-    candidates: list[str] = [provider_id]
-    if provider_url is not None:
-        candidates.insert(0, provider_url)
-
-    def is_url(candidate: str) -> bool:
-        return candidate.startswith(('http://', 'https://'))
+    # Resolve the provider the way pydantic-ai's RequestUsage.extract does: the client's
+    # base URL first, then the integration's provider id, trying each in turn because
+    # find_provider raises when a candidate does not resolve. The URL wins because it
+    # identifies who actually served and bills the request, e.g. Anthropic models served
+    # by Bedrock are priced under `aws`.
+    candidates: list[tuple[str | None, str | None]] = [(None, provider_url), (provider_id, None)]
 
     try:
         from genai_prices import calc_price
+        from genai_prices.data_snapshot import get_snapshot
 
-        if model_ref is not None:
-            from genai_prices import Usage as PriceUsage
+        for candidate_id, candidate_url in candidates:
+            try:
+                provider = get_snapshot().find_provider(None, candidate_id, candidate_url)
 
-            price_usage = PriceUsage(
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                cache_read_tokens=cache_read_tokens,
-                cache_write_tokens=cache_write_tokens,
-            )
-            for candidate in candidates:
-                try:
-                    if is_url(candidate):
-                        price = calc_price(price_usage, model_ref=model_ref, provider_api_url=candidate)
+                if model_ref is not None:
+                    # The response body is not shaped the way the extractors expect, so price
+                    # the model and token counts the caller already has.
+                    from genai_prices import Usage as PriceUsage
+
+                    price_model_ref = model_ref
+                    price_usage = PriceUsage(
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cache_read_tokens=cache_read_tokens,
+                        cache_write_tokens=cache_write_tokens,
+                    )
+                else:
+                    if api_flavor == 'embeddings':
+                        response_data = response.model_dump(include={'model', 'usage'})
                     else:
-                        price = calc_price(price_usage, model_ref=model_ref, provider_id=candidate)
-                    result['operation.cost'] = float(price.total_price)
-                    break
-                except Exception:
-                    pass
-        else:
-            from genai_prices import extract_usage
-
-            if api_flavor == 'embeddings':
-                response_data = response.model_dump(include={'model', 'usage'})
-            else:
-                response_data = response.model_dump()
-            flavor = api_flavor or 'default'
-            for candidate in candidates:
-                try:
-                    if is_url(candidate):
-                        usage_data = extract_usage(response_data, provider_api_url=candidate, api_flavor=flavor)
-                    else:
-                        usage_data = extract_usage(response_data, provider_id=candidate, api_flavor=flavor)
-                    model = usage_data.model
-                    if model is None:
+                        response_data = response.model_dump()
+                    # `anthropic` is a flavor on the aws provider only, so it is chosen from
+                    # the resolved provider rather than assumed.
+                    flavor = api_flavor or ('anthropic' if provider.id == 'aws' else 'default')
+                    extracted_model_ref, price_usage = provider.extract_usage(response_data, api_flavor=flavor)
+                    if extracted_model_ref is None:
                         continue
-                    if is_url(candidate):
-                        price = calc_price(usage_data.usage, model_ref=model.id, provider_api_url=candidate)
-                    else:
-                        price = calc_price(usage_data.usage, model_ref=model.id, provider_id=candidate)
-                    result['operation.cost'] = float(price.total_price)
-                    break
-                except Exception:
-                    pass
+                    price_model_ref = extracted_model_ref
+
+                price = calc_price(price_usage, model_ref=price_model_ref, provider_id=provider.id)
+                result['operation.cost'] = float(price.total_price)
+                break
+            except Exception:
+                pass
     except Exception:
         pass
 
