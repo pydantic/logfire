@@ -78,6 +78,8 @@ class UnexpectedResponse(RequestException):
     def raise_for_status(cls, response: Response) -> None:
         """Like the requests method, but raises a more informative exception."""
 
+DATA_DIR_FILENAMES: Incomplete
+
 def ensure_data_dir_exists(data_dir: Path) -> None: ...
 def get_version(version: str) -> Version:
     """Return a packaging.version.Version object from a version string.

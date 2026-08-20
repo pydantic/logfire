@@ -76,7 +76,13 @@ class AdvancedOptions:
     emit_configuration_span: bool | None = ...
     server_response_hook: ServerResponseCallback | None = ...
     resource_detectors: Sequence[ResourceDetector | str] | None = ...
-    def generate_base_url(self, token: str) -> str: ...
+    def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
+        """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
+
+        Every caller of this method is part of configuration, so unknown regions warn by default
+        here. Runtime helpers (the query/API clients and the CLI) call `get_base_url_from_token`
+        directly instead, which stays silent so they can't raise under warnings-as-errors.
+        """
 
 @dataclass
 class PydanticPlugin:
@@ -416,8 +422,16 @@ class LogfireCredentials:
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
 
-def get_base_url_from_token(token: str) -> str:
-    """Get the base API URL from the token's region."""
+def get_base_url_from_token(token: str, warn_unknown_region: bool = False) -> str:
+    """Get the base API URL from the token's region.
+
+    Args:
+        token: The Logfire token to read the region from.
+        warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
+            unrecognised and the US region is used as a fallback. This is off by default so that
+            runtime helpers (e.g. the query/API clients and the CLI) never raise under
+            warnings-as-errors; it's enabled during configuration, where the warning is actionable.
+    """
 def get_git_revision_hash() -> str:
     """Get the current git commit hash."""
 def sanitize_project_name(name: str) -> str:
