@@ -9,7 +9,7 @@ def collect_package_info() -> dict[str, str]:
     """Retrieve the package information for all installed packages.
 
     Returns:
-        A dicts with the package name and version.
+        A dict with the package name and version.
     """
     try:
         distributions = list(metadata.distributions())
