@@ -575,7 +575,6 @@ def parse_project_status(args: argparse.Namespace) -> None:
                 'read-tokens create --save`), then try again.\n'
             )
             sys.exit(1)
-        project_url = f'{saved.base_url}/{saved.organization}/{saved.project_name}'
     else:
         linked_organization = _organization_from_project_url(credentials.project_url)
         if linked_organization is None:
@@ -590,10 +589,15 @@ def parse_project_status(args: argparse.Namespace) -> None:
                 'Run `logfire read-tokens create --save` to create one, then try again.\n'
             )
             sys.exit(1)
-        project_url = credentials.project_url
 
     organization = saved.organization
     project_name = saved.project_name
+    # From `saved`, not `credentials.project_url`: matching organization and project name
+    # does not guarantee matching HOST (self-hosted, or a different region), and the query
+    # below always goes to `saved.base_url` regardless of which branch loaded `saved` --
+    # this must name the same host, or the displayed URL points somewhere this command
+    # never actually asked.
+    project_url = f'{saved.base_url}/{organization}/{project_name}'
 
     # The host the token was CREATED against, not `credentials.logfire_api_url`. That field
     # comes from `logfire_credentials.json`, which lives in the project this command runs

@@ -2192,6 +2192,56 @@ def test_projects_status_uses_a_self_hosted_read_token(tmp_dir_cwd: Path, capsys
     assert 'orders-web' in capsys.readouterr().err
 
 
+def test_projects_status_displays_the_host_it_actually_queried(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The displayed project URL must name the host the query actually went to.
+
+    Matching organization and project name does not guarantee a matching host --
+    `logfire_credentials.json` and a saved read token are two separate files, and nothing
+    stops them naming different deployments for what happens to be the same org/project
+    pair. The query always goes to `saved.base_url`; showing `credentials.project_url`
+    instead would tell the user a host their request never touched.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/test-org/orders',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    _save_fake_read_token(data_dir, base_url='https://logfire.example.com')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire.example.com/v2/query',
+            json={
+                'schema': {'fields': [{'name': 'service_name', 'data_type': 'Utf8', 'nullable': False}]},
+                'data': [],
+            },
+        )
+
+        main(['projects', 'status', '--json'])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['project_url'] == 'https://logfire.example.com/test-org/orders'
+
+
 def test_read_token_save_writes_the_file_and_prints_nothing(
     tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
