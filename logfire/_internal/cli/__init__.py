@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import warnings
@@ -266,10 +267,21 @@ def _is_git_tracked(path: Path) -> bool:
     `.gitignore` only stops an UNTRACKED file from being added; it does nothing for a path
     already in the index -- committed before this feature existed, or by mistake -- so
     writing a real, permanent credential through such a path would make the next `git
-    commit -am` publish it. Best-effort: git missing, no repository, or the check itself
-    timing out all mean "cannot tell" here, which must not block a working setup over an
-    environment quirk unrelated to the file's own tracked status.
+    commit -am` publish it.
+
+    No `git` binary anywhere on the machine means no git tracking anywhere either: the
+    threat this guards against is categorically impossible without git, so that case is
+    safe to treat as untracked (and `git ls-files` in a directory that exists but is not a
+    repository fails the SAME way a real "not tracked" answer does -- a plain non-zero
+    exit, not an exception -- so that is handled by the ordinary return below too). A `git`
+    binary that EXISTS but fails to answer -- the check times out, or some other OS-level
+    failure -- is different: tracking might still be real, just unconfirmed, and treating
+    that the same as "definitely untracked" would silently defeat this whole check on
+    exactly the machine states an attacker aiming at this file is most likely to have
+    engineered. That case raises instead, so the caller fails closed rather than guessing.
     """
+    if shutil.which('git') is None:
+        return False
     try:
         result = subprocess.run(
             ['git', 'ls-files', '--error-unmatch', '--', path.name],
@@ -277,8 +289,12 @@ def _is_git_tracked(path: Path) -> bool:
             capture_output=True,
             timeout=5,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise LogfireConfigError(
+            f'Could not confirm whether {path} is already tracked by git ({e}); refusing to '
+            f'write a live credential through it without checking. Resolve whatever is '
+            f'blocking `git ls-files` here, then try again.'
+        ) from e
     return result.returncode == 0
 
 
