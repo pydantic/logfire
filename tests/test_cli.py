@@ -2623,6 +2623,16 @@ def test_has_git_dir_fails_closed_on_a_real_permission_error(tmp_dir_cwd: Path) 
     inner.mkdir()
     os.chmod(locked, 0o000)
     try:
+        # Running as root, or with CAP_DAC_OVERRIDE, bypasses permission bits entirely --
+        # confirming the lock actually took effect before relying on it, rather than
+        # asserting straight into `_has_git_dir`, is what keeps this a real test of the
+        # fix instead of a false failure wherever it does not.
+        try:
+            inner.stat()
+        except PermissionError:
+            pass
+        else:
+            pytest.skip('permission bits are not enforced in this environment (root or CAP_DAC_OVERRIDE)')
         with pytest.raises(PermissionError):
             _has_git_dir(inner)
     finally:
