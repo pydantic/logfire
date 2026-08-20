@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import platform
+import subprocess
 import sys
 import warnings
 from collections.abc import Sequence
@@ -259,6 +260,28 @@ def _read_token_path(data_dir: Path) -> Path:
     return data_dir / READ_TOKEN_FILENAME
 
 
+def _is_git_tracked(path: Path) -> bool:
+    """Whether `path` is tracked by the git repository it sits in, if any.
+
+    `.gitignore` only stops an UNTRACKED file from being added; it does nothing for a path
+    already in the index -- committed before this feature existed, or by mistake -- so
+    writing a real, permanent credential through such a path would make the next `git
+    commit -am` publish it. Best-effort: git missing, no repository, or the check itself
+    timing out all mean "cannot tell" here, which must not block a working setup over an
+    environment quirk unrelated to the file's own tracked status.
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'ls-files', '--error-unmatch', '--', path.name],
+            cwd=path.parent,
+            capture_output=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
 def _save_read_token(
     data_dir: Path, *, token: str, base_url: str, organization: str, project_name: str, expires_at: datetime
 ) -> Path:
@@ -277,6 +300,12 @@ def _save_read_token(
     """
     ensure_data_dir_exists(data_dir)
     path = _read_token_path(data_dir)
+    if _is_git_tracked(path):
+        raise LogfireConfigError(
+            f'{path} is already tracked by git, so .gitignore does not protect it. Writing '
+            f'the token there risks it reaching a commit. Untrack it first '
+            f'(`git rm --cached {path}`) or remove it, then try again.'
+        )
     payload = {
         'token': token,
         'base_url': base_url,
@@ -348,8 +377,18 @@ def _load_saved_read_token(data_dir: Path, *, organization: str, project_name: s
         return None
     if data.get('organization') != organization or data.get('project_name') != project_name:
         return None
-    expires_at = data.get('expires_at')
-    if isinstance(expires_at, str):
+    # Absent means unbounded -- this CLI always writes the key, so a file without it was
+    # written by a different version or edited by hand, and the expiry exists to bound a
+    # leak rather than to gate the happy path. PRESENT but not a string is different: this
+    # file always writes a string, so `null`/a number/etc. did not come from a normal run,
+    # and skipping the check for it (the same way absence does) would let a tampered file
+    # defeat the TTL entirely instead of just losing it. `'expires_at' in data`, not
+    # `data.get('expires_at') is not None`: the key present with a JSON `null` and the key
+    # truly absent both read back as `None` from `.get()`, and only one of those is fine.
+    if 'expires_at' in data:
+        expires_at = data['expires_at']
+        if not isinstance(expires_at, str):
+            return None
         try:
             expiry = datetime.fromisoformat(expires_at)
         except ValueError:
@@ -488,8 +527,12 @@ def parse_project_status(args: argparse.Namespace) -> None:
         )
         return
 
-    sys.stderr.write(f'Project  {organization}/{credentials.project_name}\n')
-    sys.stderr.write(f'         {credentials.project_url}\n\n')
+    # `credentials` came from a file inside the project this command runs in (the same
+    # threat model `_save_read_token`'s docstring covers), so its fields get the same
+    # stripping as a service name -- not the JSON branch above, which is already safe
+    # because `json.dumps` escapes control characters by construction.
+    sys.stderr.write(f'Project  {_printable(organization)}/{_printable(credentials.project_name)}\n')
+    sys.stderr.write(f'         {_printable(credentials.project_url)}\n\n')
     if not services:
         # Deliberately not phrased as failure. Data takes a moment to arrive, and the
         # common case for someone running this during setup is "not yet", not "broken".
