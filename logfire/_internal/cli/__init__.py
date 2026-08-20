@@ -22,9 +22,9 @@ from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
 from ...version import VERSION
-from ..auth import HOME_LOGFIRE
+from ..auth import HOME_LOGFIRE, PYDANTIC_LOGFIRE_TOKEN_PATTERN
 from ..client import LogfireClient
-from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
+from ..config import CREDENTIALS_FILENAME, REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
 from ..server_response import install_logfire_response_hook
@@ -99,6 +99,75 @@ def parse_whoami(args: argparse.Namespace) -> None:
         credentials.print_token_summary()
 
 
+def _revoke_url(project_url: object) -> str | None:
+    """The project's write tokens page, or `None` if `project_url` can't be printed safely.
+
+    The credentials file is just a file on disk, so nothing guarantees who wrote it, nor that its
+    values have the types the dataclass declares — `project_url` may be `null` or any other JSON
+    value. Control characters in it would reach the terminal as escape sequences, which can spoof
+    output or change the terminal's state, so anything we don't recognise as a plain URL isn't
+    printed.
+    """
+    if not isinstance(project_url, str):
+        return None
+    if not project_url.startswith(('http://', 'https://')) or not project_url.isprintable():
+        return None
+    return f'{project_url}/settings/write-tokens'
+
+
+def _write_token_preview(token: object) -> str | None:
+    """Return the same shortened token value that the web UI displays.
+
+    The write-token list shows the first five characters of a modern token's body. Public tokens
+    carry a ``pub`` marker at the start of that body, which the UI omits so the preview still has
+    five distinguishing characters. Legacy and organization-scoped tokens fall back to the first
+    five characters of the whole value.
+
+    The credentials file is untrusted, so only printable ASCII is returned. The caller also uses
+    ``repr`` before writing the preview to the terminal.
+    """
+    if not isinstance(token, str):
+        return None
+
+    token_match = PYDANTIC_LOGFIRE_TOKEN_PATTERN.fullmatch(token)
+    if token_match and token_match.group('organization_id') is None:
+        prefix = token_match.group('token').removeprefix('pub')[:5]
+    else:
+        prefix = token[:5]
+
+    if not prefix or not prefix.isascii() or not prefix.isprintable():
+        return None
+    return f'{prefix}…'
+
+
+def _write_token_notice(data_dir: Path) -> str:
+    """Explain that deleting the local credentials file doesn't revoke the write token.
+
+    The token `logfire projects use` created stays active on the server, and once the file
+    is gone there's nothing left locally identifying which token it was.
+    """
+    try:
+        credentials = LogfireCredentials.load_creds_file(data_dir)
+    except LogfireConfigError:
+        # The file is unreadable, so we can't name the project — the token is still live either way.
+        credentials = None
+
+    # `project_name` goes through `repr`, which escapes control characters for us.
+    project = f' for project {credentials.project_name!r}' if credentials and credentials.project_name else ''
+    preview = _write_token_preview(credentials.token) if credentials else None
+    identify = f'Look for the token shown as {preview!r} in the token list.\n' if preview else ''
+    revoke_url = _revoke_url(credentials.project_url) if credentials else None
+    if revoke_url:
+        where = f'Revoke it at {revoke_url}'
+    else:
+        where = f'Revoke it under Write tokens in your project settings, see {BASE_DOCS_URL}/manage/use-api-keys/'
+    return (
+        f'The write token{project} is still active on the Logfire server, deleting the local file does not revoke it.\n'
+        f'{identify}'
+        f'{where}\n'
+    )
+
+
 def parse_clean(args: argparse.Namespace) -> None:
     """Remove the contents of the Logfire data directory."""
     files_to_delete: list[Path] = []
@@ -110,8 +179,9 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write(f'No Logfire data found in {data_dir.resolve()}\n')
         sys.exit(1)
 
+    creds_file = data_dir / CREDENTIALS_FILENAME
     files_to_delete.append(data_dir / '.gitignore')
-    files_to_delete.append(data_dir / 'logfire_credentials.json')
+    files_to_delete.append(creds_file)
 
     files_to_display = '\n'.join([str(file) for file in files_to_delete if file.exists()])
     if not args.yes:
@@ -123,9 +193,13 @@ def parse_clean(args: argparse.Namespace) -> None:
         'y' if args.yes else input(f'The following files will be deleted:\n{files_to_display}\nAre you sure? [N/y]')
     )
     if confirm.lower() in ('yes', 'y'):
+        # Read the credentials before they're deleted, so the notice below can name the project.
+        notice = _write_token_notice(data_dir) if creds_file.exists() else None
         for file in files_to_delete:
             file.unlink(missing_ok=True)
         sys.stderr.write('Cleaned Logfire data.\n')
+        if notice:
+            sys.stderr.write(notice)
     else:
         sys.stderr.write('Clean aborted.\n')
 
