@@ -306,9 +306,17 @@ class PydanticPlugin:
     * `metrics`: Send only metrics.
     """
     include: set[str] = field(default_factory=set[str])
-    """By default, third party modules are not instrumented. This option allows you to include specific modules."""
+    r"""Regular expressions for the models to instrument, matched against `<module>::<class name>`.
+
+    Empty by default, which instruments every model, including models defined by third-party
+    packages. Patterns are anchored at the end but not at the start, so `apps\..*` also matches
+    `django.apps.config`; write `^apps\..*` to match from the beginning of the module path.
+    """
     exclude: set[str] = field(default_factory=set[str])
-    """Exclude specific modules from instrumentation."""
+    """Regular expressions for the models to leave uninstrumented, matched the same way as `include`.
+
+    Checked before `include`, so a model matching both is not instrumented.
+    """
 
 
 @dataclass
