@@ -42,6 +42,7 @@ from logfire._internal.cli import (
     STATUS_MAX_ROWS,
     OrgProjectAction,
     SplitArgs,
+    _has_git_dir,  # pyright: ignore[reportPrivateUsage]
     _is_git_tracked,  # pyright: ignore[reportPrivateUsage]
     _load_saved_read_token,  # pyright: ignore[reportPrivateUsage]
     _organization_from_project_url,  # pyright: ignore[reportPrivateUsage]
@@ -2607,6 +2608,25 @@ def test_is_git_tracked_fails_closed_when_git_binary_is_missing_but_a_repo_exist
         pytest.raises(LogfireConfigError, match='Could not confirm whether'),
     ):
         _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
+
+
+def test_has_git_dir_fails_closed_on_a_real_permission_error(tmp_dir_cwd: Path) -> None:
+    """`Path.exists()` swallows a permission-denied ancestor and reports "not found" --
+    confirmed empirically against this Python's actual behavior, not merely assumed from
+    its docs. `_has_git_dir` must not inherit that through a plain `.exists()` call: an
+    inaccessible ancestor reading as "no repository" is exactly the state most likely on a
+    machine that has been tampered with, not evidence that no repository is there.
+    """
+    locked = tmp_dir_cwd / 'locked'
+    locked.mkdir()
+    inner = locked / 'inner'
+    inner.mkdir()
+    os.chmod(locked, 0o000)
+    try:
+        with pytest.raises(PermissionError):
+            _has_git_dir(inner)
+    finally:
+        os.chmod(locked, 0o755)
 
 
 def test_is_git_tracked_fails_closed_when_the_repository_walk_itself_fails(tmp_dir_cwd: Path) -> None:

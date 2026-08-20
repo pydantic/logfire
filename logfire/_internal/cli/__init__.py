@@ -268,15 +268,22 @@ def _has_git_dir(start: Path) -> bool:
     impossible" from "unconfirmed" without needing a `git` binary at all -- it walks up the
     same way `git` itself resolves a repository root from a working directory.
 
-    Raises `OSError` (permission denied on an intermediate directory, a symlink loop
-    `.resolve()` cannot settle, ...) rather than swallowing it: the caller's whole reason
-    for being here is telling "no repository" from "cannot tell", and silently returning
-    either `True` or `False` on a filesystem error would collapse that distinction right
-    back into a guess.
+    Raises `OSError` (permission denied on an intermediate directory, ...) rather than
+    swallowing it: the caller's whole reason for being here is telling "no repository" from
+    "cannot tell", and silently returning either `True` or `False` on a filesystem error
+    would collapse that distinction right back into a guess. `Path.exists()` itself
+    swallows exactly that kind of error and reports `False` -- confirmed empirically, not
+    merely assumed from its docs -- so this uses `lstat()` directly and treats ONLY
+    `FileNotFoundError` as "confirmed absent"; every other `OSError` (permission denied, a
+    path component that is not a directory, ...) propagates.
     """
     current = start.resolve()
     while True:
-        if (current / '.git').exists():
+        try:
+            (current / '.git').lstat()
+        except FileNotFoundError:
+            pass
+        else:
             return True
         parent = current.parent
         if parent == current:
