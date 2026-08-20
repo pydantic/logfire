@@ -26,6 +26,7 @@ from ..auth import HOME_LOGFIRE, PYDANTIC_LOGFIRE_TOKEN_PATTERN
 from ..client import LogfireClient
 from ..config import CREDENTIALS_FILENAME, REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
+from ..interactive import NonInteractiveError, is_non_interactive, require_answer, set_non_interactive
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
 from .auth import parse_auth, parse_logout
@@ -183,7 +184,14 @@ def parse_clean(args: argparse.Namespace) -> None:
     files_to_delete.append(creds_file)
 
     files_to_display = '\n'.join([str(file) for file in files_to_delete if file.exists()])
-    confirm = input(f'The following files will be deleted:\n{files_to_display}\nAre you sure? [N/y]')
+    if not args.yes:
+        require_answer(
+            f'This would delete:\n{files_to_display}',
+            'logfire clean --yes',
+        )
+    confirm = (
+        'y' if args.yes else input(f'The following files will be deleted:\n{files_to_display}\nAre you sure? [N/y]')
+    )
     if confirm.lower() in ('yes', 'y'):
         # Read the credentials before they're deleted, so the notice below can name the project.
         notice = _write_token_notice(data_dir) if creds_file.exists() else None
@@ -409,6 +417,11 @@ def _main(args: list[str] | None = None) -> None:
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
     global_opts = parser.add_argument_group(title='global options')
+    global_opts.add_argument(
+        '--non-interactive',
+        action='store_true',
+        help='never prompt; fail with guidance if an answer would be required',
+    )
     url_or_region_grp = global_opts.add_mutually_exclusive_group()
     url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
     url_or_region_grp.add_argument(
@@ -430,6 +443,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_clean.set_defaults(func=parse_clean)
     cmd_clean.add_argument('--data-dir', default='.logfire')
     cmd_clean.add_argument('--logs', action='store_true', default=False, help='remove the Logfire logs')
+    cmd_clean.add_argument('--yes', '-y', action='store_true', default=False, help='do not ask for confirmation')
 
     cmd_gateway = subparsers.add_parser('gateway', help=_parse_gateway.__doc__)
     cmd_gateway.add_argument('gateway_args', nargs=argparse.REMAINDER)
@@ -508,6 +522,7 @@ def _main(args: list[str] | None = None) -> None:
         namespace.script_and_args = unknown_args + (namespace.script_and_args or [])
     else:
         namespace = parser.parse_args(args)
+    set_non_interactive(namespace.non_interactive)
 
     if namespace.logfire_url:
         warnings.warn(
@@ -547,10 +562,19 @@ def main(args: list[str] | None = None) -> None:
     file_handler.setLevel(logging.DEBUG)
     logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
 
+    previous_non_interactive = is_non_interactive()
     try:
         _main(args)
     except KeyboardInterrupt:
         sys.stderr.write('User cancelled.\n')
         sys.exit(1)
+    except NonInteractiveError as e:
+        # The whole point is guidance instead of a traceback, so it must not escape.
+        sys.stderr.write(f'{e}\n')
+        sys.exit(1)
     finally:
+        # Restore rather than clear: `main()` is importable and an application may call it
+        # in-process, where leaving the switch set would silently stop every later prompt
+        # -- including ones in `logfire.configure()`, which this flag does not govern.
+        set_non_interactive(previous_non_interactive)
         file_handler.close()

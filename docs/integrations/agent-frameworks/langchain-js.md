@@ -106,7 +106,7 @@ You'll see the graph run, its model calls, and the `lookup_incident` tool call a
 ## Managed prompts
 
 Author and version prompts in [Prompt Management](../../reference/advanced/prompt-management/index.md) and
-fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/):
+fetch them with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/):
 
 ```typescript
 import { defineTemplateVar } from '@pydantic/logfire-node/vars';

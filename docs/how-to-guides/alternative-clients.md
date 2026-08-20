@@ -4,7 +4,7 @@ description: "Use the standard OpenTelemetry SDK to send data to Logfire from an
 ---
 # Alternative clients
 
-Several languages have a dedicated page. Send data with the standard OpenTelemetry SDK from [Go](../languages/go.md), [.NET](../languages/dotnet.md), or [Java](../languages/java.md), or use a first-party SDK for [Python](https://github.com/pydantic/logfire), [Rust](../languages/rust.md), or [TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/). If your language is not listed, this page shows the generic pattern that works anywhere.
+Several languages have a dedicated page. Send data with the standard OpenTelemetry SDK from [Go](../languages/go.md), [.NET](../languages/dotnet.md), or [Java](../languages/java.md), or use a first-party SDK for [Python](../guides/onboarding-checklist/index.md), [Rust](../languages/rust.md), or [TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/). If your language is not listed, this page shows the generic pattern that works anywhere.
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs
 in many languages to export to the **Logfire** backend, including those outside our
@@ -67,7 +67,7 @@ exporter = OTLPSpanExporter(
 
 ## Example with NodeJS
 
-> See also our [JS/TS SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) which supports many JS environments, including NodeJS, web browsers, and Cloudflare Workers.
+> See also our [JS/TS SDK](https://pydantic.dev/docs/logfire/instrument/typescript/) which supports many JS environments, including NodeJS, web browsers, and Cloudflare Workers.
 
 Create a `main.js` file containing the following:
 

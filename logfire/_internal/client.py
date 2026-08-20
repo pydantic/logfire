@@ -10,11 +10,12 @@ from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
 from .auth import UserToken, UserTokenCollection
+from .constants import HTTP_CONNECT_TIMEOUT
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .utils import UnexpectedResponse
 
 UA_HEADER = f'logfire/{VERSION}'
-_REQUEST_TIMEOUT = 30
+_REQUEST_TIMEOUT = (HTTP_CONNECT_TIMEOUT, 30)
 
 
 class ProjectAlreadyExists(Exception):

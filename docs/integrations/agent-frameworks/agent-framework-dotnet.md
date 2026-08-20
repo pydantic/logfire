@@ -117,7 +117,7 @@ Protocol metrics exporter. Microsoft Agent Framework runs also appear in the spe
 Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From .NET you can consume managed
+[TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/) SDKs. From .NET you can consume managed
 variables over the language-agnostic
 [OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md),
 or resolve the prompt in a small Python/TypeScript sidecar and pass the rendered text into the agent's

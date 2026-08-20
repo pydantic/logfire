@@ -144,7 +144,7 @@ For an EU-region project, use its EU write token. The Logfire Rust SDK infers th
 Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers are currently available in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Rust, consume managed variables over
+[TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/) SDKs. From Rust, consume managed variables over
 the language-agnostic
 [OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md),
 or resolve the prompt in a small Python or TypeScript sidecar and pass the rendered text into the Rig agent.

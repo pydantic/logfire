@@ -63,7 +63,7 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/add-manual-tracing/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/)
 
 ### Integration
 
