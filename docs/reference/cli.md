@@ -185,7 +185,7 @@ Follow the instructions, and you'll have a new project created in no time! :part
 
 ### Status (`projects status`)
 
-To see what telemetry has actually reached the project this directory is linked to, run:
+To see what telemetry has actually reached a project, run:
 
 ```bash
 logfire projects status
@@ -203,7 +203,11 @@ Project  my-org/orders
 
 One row per service, so a partly-instrumented system shows up as one: if you instrumented a web app and a worker but only the web app appears, the worker is not reporting.
 
-This needs a saved read token — see below — and reports the last hour. Add `--json` for machine-readable output.
+This needs a saved read token — see below — and reports the last hour. Write credentials
+(`projects use`/`new`) are not required: a saved read token already records which project
+it belongs to, so `read-tokens --project ORGANIZATION/PROJECT_NAME create --save` on its
+own is enough. If this directory IS linked to a project, the saved token must match it.
+Add `--json` for machine-readable output.
 
 ## Read tokens (`read-tokens`)
 

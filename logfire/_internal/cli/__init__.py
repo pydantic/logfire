@@ -419,19 +419,32 @@ class SavedReadToken(NamedTuple):
     # from `logfire_credentials.json` is what makes self-hosted deployments work: their
     # base URL cannot be recovered from the token, only from where it was actually minted.
     base_url: str
+    # The project the token was minted for, recorded alongside it -- see `_save_read_token`.
+    # Exposed so a caller with no linked project (no `logfire_credentials.json` at all) can
+    # still say which project it is reporting on, using the token's own identity rather
+    # than one it has no other way to name.
+    organization: str
+    project_name: str
 
 
-def _load_saved_read_token(data_dir: Path, *, organization: str, project_name: str) -> SavedReadToken | None:
-    """A saved read token for THIS project, if there is one and it is still usable.
+def _load_saved_read_token(
+    data_dir: Path, *, organization: str | None = None, project_name: str | None = None
+) -> SavedReadToken | None:
+    """A saved read token, if there is one and it is still usable.
 
     Returns None rather than raising for every failure mode -- missing, unreadable,
     corrupt, expired, belonging to a different project, or missing the host it is valid
     against. The caller turns that into one message naming the command to run, which is
     more useful than five ways to fail.
 
-    The project check matters: `logfire projects use` repoints the directory, and a token
+    `organization`/`project_name` given means there IS a linked project to check the token
+    against, and it must match: `logfire projects use` repoints the directory, and a token
     left over from the previous project would otherwise be sent for the new one and
-    produce a confusing 401 or, worse, another project's data.
+    produce a confusing 401 or, worse, another project's data. Omitted (both, together --
+    there is no reading with only one of a project's two identifying halves) means there is
+    no local link at all to check against, so the token's OWN recorded organization and
+    project name are trusted directly -- read-only access should not require ever having
+    held write credentials, and a saved token is already self-describing.
 
     Also refuses a symlink, or a file the git-tracking check from `_save_read_token` would
     have refused to write in the first place: `_save_read_token` only guards its OWN
@@ -465,7 +478,15 @@ def _load_saved_read_token(data_dir: Path, *, organization: str, project_name: s
     base_url = data.get('base_url')
     if not isinstance(base_url, str) or not base_url:
         return None
-    if data.get('organization') != organization or data.get('project_name') != project_name:
+    token_organization = data.get('organization')
+    token_project_name = data.get('project_name')
+    if not isinstance(token_organization, str) or not token_organization:
+        return None
+    if not isinstance(token_project_name, str) or not token_project_name:
+        return None
+    if organization is not None and token_organization != organization:
+        return None
+    if project_name is not None and token_project_name != project_name:
         return None
     # Absent means unbounded -- this CLI always writes the key, so a file without it was
     # written by a different version or edited by hand, and the expiry exists to bound a
@@ -489,7 +510,9 @@ def _load_saved_read_token(data_dir: Path, *, organization: str, project_name: s
             expiry = expiry.replace(tzinfo=timezone.utc)
         if expiry <= datetime.now(tz=timezone.utc):
             return None
-    return SavedReadToken(token=token, base_url=base_url)
+    return SavedReadToken(
+        token=token, base_url=base_url, organization=token_organization, project_name=token_project_name
+    )
 
 
 def _load_credentials_or_exit(data_dir: Path, remedy: str | None = None) -> LogfireCredentials:
@@ -524,28 +547,53 @@ def _organization_from_project_url(project_url: str) -> str | None:
 
 
 def parse_project_status(args: argparse.Namespace) -> None:
-    """Show what telemetry has reached the current project."""
+    """Show what telemetry has reached the current project.
+
+    Does NOT require write credentials (`logfire_credentials.json`) to exist -- only a
+    saved read token, which is self-describing (it records which organization and project
+    it was minted for -- see `_save_read_token`) and is all this command actually sends.
+    Requiring write credentials too would mean a read-only workflow -- `read-tokens
+    --project ORG/PROJECT create --save` on a directory that never ran `projects use` --
+    could never use this command at all, for a linkage this command has no other need of.
+    When write credentials DO exist, the saved token must still match the linked project,
+    for the reason `_load_saved_read_token` documents.
+    """
     data_dir = Path(args.data_dir)
-    credentials = _load_credentials_or_exit(
-        data_dir, remedy='Run `logfire projects use PROJECT_NAME --org ORGANIZATION` first.'
-    )
-
-    organization = _organization_from_project_url(credentials.project_url)
-    if organization is None:
-        sys.stderr.write(f'Cannot tell which organization {credentials.project_url} belongs to.\n')
-        sys.exit(1)
-
-    # Reuse the token saved next to the write credentials rather than creating one here.
-    # An earlier version of this command minted a read token per invocation, which is a
-    # PERMANENT credential the CLI cannot revoke -- and this command is built to be run
-    # repeatedly while waiting for data, so polling four times left four behind.
-    saved = _load_saved_read_token(data_dir, organization=organization, project_name=credentials.project_name)
-    if saved is None:
-        sys.stderr.write(
-            f'No usable read token for {organization}/{credentials.project_name}.\n'
-            'Run `logfire read-tokens create --save` to create one, then try again.\n'
+    credentials = LogfireCredentials.load_creds_file(data_dir)
+    saved: SavedReadToken | None
+    if credentials is None:
+        # Reuse the token saved next to write credentials rather than creating one here.
+        # An earlier version of this command minted a read token per invocation, which is a
+        # PERMANENT credential the CLI cannot revoke -- and this command is built to be run
+        # repeatedly while waiting for data, so polling four times left four behind.
+        saved = _load_saved_read_token(data_dir)
+        if saved is None:
+            sys.stderr.write(
+                'No usable read token.\n'
+                'Run `logfire read-tokens --project ORGANIZATION/PROJECT_NAME create --save` to create one '
+                '(or run `logfire projects use PROJECT_NAME --org ORGANIZATION` first, then `logfire '
+                'read-tokens create --save`), then try again.\n'
+            )
+            sys.exit(1)
+        project_url = f'{saved.base_url}/{saved.organization}/{saved.project_name}'
+    else:
+        linked_organization = _organization_from_project_url(credentials.project_url)
+        if linked_organization is None:
+            sys.stderr.write(f'Cannot tell which organization {credentials.project_url} belongs to.\n')
+            sys.exit(1)
+        saved = _load_saved_read_token(
+            data_dir, organization=linked_organization, project_name=credentials.project_name
         )
-        sys.exit(1)
+        if saved is None:
+            sys.stderr.write(
+                f'No usable read token for {linked_organization}/{credentials.project_name}.\n'
+                'Run `logfire read-tokens create --save` to create one, then try again.\n'
+            )
+            sys.exit(1)
+        project_url = credentials.project_url
+
+    organization = saved.organization
+    project_name = saved.project_name
 
     # The host the token was CREATED against, not `credentials.logfire_api_url`. That field
     # comes from `logfire_credentials.json`, which lives in the project this command runs
@@ -600,8 +648,8 @@ def parse_project_status(args: argparse.Namespace) -> None:
             json.dumps(
                 {
                     'organization': organization,
-                    'project_name': credentials.project_name,
-                    'project_url': credentials.project_url,
+                    'project_name': project_name,
+                    'project_url': project_url,
                     'lookback_hours': STATUS_LOOKBACK.total_seconds() / 3600,
                     'services': [
                         {
@@ -617,12 +665,13 @@ def parse_project_status(args: argparse.Namespace) -> None:
         )
         return
 
-    # `credentials` came from a file inside the project this command runs in (the same
-    # threat model `_save_read_token`'s docstring covers), so its fields get the same
-    # stripping as a service name -- not the JSON branch above, which is already safe
-    # because `json.dumps` escapes control characters by construction.
-    sys.stderr.write(f'Project  {_printable(organization)}/{_printable(credentials.project_name)}\n')
-    sys.stderr.write(f'         {_printable(credentials.project_url)}\n\n')
+    # `organization`/`project_name`/`project_url` came from a file inside the project this
+    # command runs in -- write credentials or a saved read token, depending on which one
+    # supplied them above (the same threat model `_save_read_token`'s docstring covers) --
+    # so they get the same stripping as a service name. Not the JSON branch above, which is
+    # already safe because `json.dumps` escapes control characters by construction.
+    sys.stderr.write(f'Project  {_printable(organization)}/{_printable(project_name)}\n')
+    sys.stderr.write(f'         {_printable(project_url)}\n\n')
     if not services:
         # Deliberately not phrased as failure. Data takes a moment to arrive, and the
         # common case for someone running this during setup is "not yet", not "broken".

@@ -1056,6 +1056,42 @@ def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.
     assert 'fake_read_token' not in err
 
 
+def test_projects_status_works_from_a_saved_read_token_alone(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No write credentials at all -- only a saved read token -- must still work.
+
+    `read-tokens --project ORGANIZATION/PROJECT_NAME create --save` never touches
+    `logfire_credentials.json`; a directory that only ever ran that command (never
+    `projects use`) is a legitimate, real user-reported state, not an edge case. Before
+    this, `projects status` insisted on write credentials it had no actual use for, and
+    sent a read-only user looking for `projects use` instead of the read-tokens command
+    that would have actually gotten them unstuck.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    _save_fake_read_token(data_dir, organization='alexmojaki', project_name='test38')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(m, [{'service_name': 'orders-web', 'records': 5, 'last_seen': '2026-08-18T20:00:00Z'}])
+
+        main(['projects', 'status'])
+
+    err = capsys.readouterr().err
+    assert 'alexmojaki/test38' in err
+    assert 'orders-web' in err
+
+
 def test_projects_status_says_nothing_yet_rather_than_failing(
     tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1111,12 +1147,17 @@ def test_projects_status_json_is_machine_readable(tmp_dir_cwd: Path, capsys: pyt
 def test_projects_status_without_credentials_says_what_to_run(
     tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """No write credentials and no saved read token: point at minting a read token
+    directly, not at `projects use` -- this command never needs write credentials, so
+    telling a read-only user to go get some would be pointing them at the wrong fix.
+    """
     with pytest.raises(SystemExit) as exc_info:
         main(['projects', 'status'])
     assert exc_info.value.code == 1
     err = capsys.readouterr().err
-    assert 'No Logfire credentials found' in err
+    assert 'No usable read token' in err
     # Runnable as printed: `<name>` would be shell input redirection.
+    assert 'logfire read-tokens --project ORGANIZATION/PROJECT_NAME create --save' in err
     assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
 
 
@@ -2234,6 +2275,26 @@ def test_read_token_save_with_explicit_project_needs_no_linked_directory(tmp_dir
     assert saved['token'] == 'explicit_project_token'
 
 
+def test_read_token_create_without_project_or_linked_directory_says_what_to_run(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No `--project` and nothing linked: the remedy must name both ways out.
+
+    `parse_create_read_token` falls back to the linked directory when `--project` is
+    omitted, sharing `_load_credentials_or_exit` with `whoami` and (formerly) `projects
+    status` for that. `projects status` reads write credentials directly now, so this is
+    the only remaining caller that passes `_load_credentials_or_exit` a `remedy` -- and
+    without a test here, that branch would go uncovered.
+    """
+    with pytest.raises(SystemExit) as exc_info:
+        main(['read-tokens', 'create'])
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert 'No Logfire credentials found' in err
+    assert '--project' in err
+    assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
+
+
 def test_read_token_create_without_save_writes_no_file(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Printed mode must not ALSO persist a copy to disk.
 
@@ -2404,6 +2465,11 @@ _REMOVE_KEY = object()
     [
         ({'organization': 'other-org'}, 'issued for a different organization'),
         ({'project_name': 'other-project'}, 'issued for a different project'),
+        ({'organization': ''}, 'empty organization'),
+        ({'organization': 123}, 'organization is not a string'),
+        ({'organization': _REMOVE_KEY}, 'no organization key -- an older saved-token file'),
+        ({'project_name': ''}, 'empty project_name'),
+        ({'project_name': _REMOVE_KEY}, 'no project_name key -- an older saved-token file'),
         ({'expires_at': (datetime.now(tz=timezone.utc) - timedelta(days=1)).isoformat()}, 'already expired'),
         ({'expires_at': 'not a timestamp'}, 'unparseable expiry'),
         ({'token': ''}, 'empty token'),
