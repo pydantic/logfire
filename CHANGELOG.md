@@ -1,5 +1,25 @@
 # Release Notes
 
+## [v4.41.0] (2026-08-20)
+
+* Fix two races in Claude Agent SDK tool-use hook instrumentation by @dmontagu in [#2194](https://github.com/pydantic/logfire/pull/2194)
+* Parent slow-async-callback spans to the running task by @jirikuncar in [#2209](https://github.com/pydantic/logfire/pull/2209)
+* fix(db_statement_summary): bound INSERT summary length like the SELECT path by @chuenchen309 in [#2084](https://github.com/pydantic/logfire/pull/2084)
+* Speed up default scrubbing pattern matching by @strawgate in [#2190](https://github.com/pydantic/logfire/pull/2190)
+* fix(auth,client): add timeout to outbound HTTP session requests by @bunlongheng in [#2217](https://github.com/pydantic/logfire/pull/2217)
+* Warn when a token's region is unrecognised instead of silently defaulting to US by @Pager-dot in [#2229](https://github.com/pydantic/logfire/pull/2229)
+* fix: keep the data directory gitignored after logfire clean by @snehankekre in [#2173](https://github.com/pydantic/logfire/pull/2173)
+* Warn for unknown token regions outside configuration by @alexmojaki in [#2281](https://github.com/pydantic/logfire/pull/2281)
+* Add `system.cpu.load_average.1m` and `system.process.count` by @strawgate in [#2014](https://github.com/pydantic/logfire/pull/2014)
+* Limit HTTP connection attempts to three seconds by @alexmojaki in [#2282](https://github.com/pydantic/logfire/pull/2282)
+
+### CLI additions
+
+* Add `logfire projects list --json` by @strawgate in [#2280](https://github.com/pydantic/logfire/pull/2280)
+* Let `logfire auth` complete without a TTY by @strawgate in [#2275](https://github.com/pydantic/logfire/pull/2275)
+* Add `logfire --non-interactive` by @strawgate in [#2283](https://github.com/pydantic/logfire/pull/2283)
+* Add `logfire projects status` by @strawgate in [#2286](https://github.com/pydantic/logfire/pull/2286)
+
 ## [v4.40.0] (2026-08-05)
 
 * fix(google-genai): break circular reference in span event body by @dmontagu in [#2157](https://github.com/pydantic/logfire/pull/2157)
@@ -1218,3 +1238,4 @@ First release from new repo!
 [v4.38.0]: https://github.com/pydantic/logfire/compare/v4.37.0...v4.38.0
 [v4.39.0]: https://github.com/pydantic/logfire/compare/v4.38.0...v4.39.0
 [v4.40.0]: https://github.com/pydantic/logfire/compare/v4.39.0...v4.40.0
+[v4.41.0]: https://github.com/pydantic/logfire/compare/v4.40.0...v4.41.0
