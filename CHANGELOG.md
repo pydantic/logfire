@@ -19,6 +19,7 @@
 * Let `logfire auth` complete without a TTY by @strawgate in [#2275](https://github.com/pydantic/logfire/pull/2275)
 * Add `logfire --non-interactive` by @strawgate in [#2283](https://github.com/pydantic/logfire/pull/2283)
 * Add `logfire projects status` by @strawgate in [#2286](https://github.com/pydantic/logfire/pull/2286)
+* `projects status`: work from a saved read token alone by @strawgate in [#2296](https://github.com/pydantic/logfire/pull/2296)
 
 ## [v4.40.0] (2026-08-05)
 
