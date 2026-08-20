@@ -42,6 +42,7 @@ from logfire._internal.cli import (
     STATUS_MAX_ROWS,
     OrgProjectAction,
     SplitArgs,
+    _is_git_tracked,  # pyright: ignore[reportPrivateUsage]
     _load_saved_read_token,  # pyright: ignore[reportPrivateUsage]
     _organization_from_project_url,  # pyright: ignore[reportPrivateUsage]
     main,
@@ -2518,6 +2519,20 @@ def test_read_token_save_refuses_a_git_tracked_destination(
     assert exc_info.value.code == 1
     assert 'already tracked by git' in capsys.readouterr().err
     assert path.read_text() == '{}', 'the tracked file was written through'
+
+
+def test_is_git_tracked_is_best_effort_when_git_itself_is_unavailable(tmp_dir_cwd: Path) -> None:
+    """git missing, no repository, or the check timing out all mean "cannot tell".
+
+    None of those may block a working setup over an environment quirk unrelated to the
+    file's own tracked status -- a machine without git installed must still be able to
+    save a read token.
+    """
+    with patch('logfire._internal.cli.subprocess.run', side_effect=FileNotFoundError('git not found')):
+        assert _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME) is False
+
+    with patch('logfire._internal.cli.subprocess.run', side_effect=subprocess.TimeoutExpired(cmd='git', timeout=5)):
+        assert _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME) is False
 
 
 def test_read_token_save_narrows_an_existing_permissive_file(tmp_dir_cwd: Path) -> None:
