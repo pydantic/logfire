@@ -90,8 +90,11 @@ jobs:
           )
 
           # Update an existing navigation or legacy preview comment on reruns.
-          existing=$(gh api --paginate --slurp "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
-            --jq '[.[][] | select(.user.login == "github-actions[bot]" and ((.body | startswith("## Docs Navigation Check")) or (.body | startswith("## Docs Preview"))))][0].url // empty')
+          matching_comments=$(
+            gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+              --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body | startswith("## Docs Navigation Check")) or (.body | startswith("## Docs Preview")))) | .url'
+          )
+          existing=${matching_comments%%$'\n'*}
           if [ -n "$existing" ]; then
             gh api -X PATCH "$existing" -f body="$body"
           else
