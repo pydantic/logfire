@@ -10,7 +10,7 @@
 * Warn when a token's region is unrecognised instead of silently defaulting to US by @Pager-dot in [#2229](https://github.com/pydantic/logfire/pull/2229)
 * fix: keep the data directory gitignored after logfire clean by @snehankekre in [#2173](https://github.com/pydantic/logfire/pull/2173)
 * Warn for unknown token regions outside configuration by @alexmojaki in [#2281](https://github.com/pydantic/logfire/pull/2281)
-* Add `system.cpu.load_average.1m` and `system.processes.count` by @strawgate in [#2014](https://github.com/pydantic/logfire/pull/2014)
+* Add `system.cpu.load_average.1m` and `system.process.count` by @strawgate in [#2014](https://github.com/pydantic/logfire/pull/2014)
 * Limit HTTP connection attempts to three seconds by @alexmojaki in [#2282](https://github.com/pydantic/logfire/pull/2282)
 
 ### CLI additions
