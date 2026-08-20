@@ -1056,6 +1056,45 @@ def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.
     assert 'fake_read_token' not in err
 
 
+def test_projects_status_works_from_a_saved_read_token_alone(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No write credentials at all -- only a saved read token -- must still work.
+
+    `read-tokens --project ORGANIZATION/PROJECT_NAME create --save` never touches
+    `logfire_credentials.json`; a directory that only ever ran that command (never
+    `projects use`) is a legitimate, real user-reported state, not an edge case. Before
+    this, `projects status` insisted on write credentials it had no actual use for, and
+    sent a read-only user looking for `projects use` instead of the read-tokens command
+    that would have actually gotten them unstuck.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    _save_fake_read_token(data_dir, organization='alexmojaki', project_name='test38')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(m, [{'service_name': 'orders-web', 'records': 5, 'last_seen': '2026-08-18T20:00:00Z'}])
+
+        main(['projects', 'status'])
+
+    err = capsys.readouterr().err
+    assert 'alexmojaki/test38' in err
+    assert 'orders-web' in err
+    # The read token is minted to run the query and must never be shown: putting a live
+    # credential in the caller's output is the thing this command exists to avoid.
+    assert 'fake_read_token' not in err
+
+
 def test_projects_status_says_nothing_yet_rather_than_failing(
     tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1111,12 +1150,17 @@ def test_projects_status_json_is_machine_readable(tmp_dir_cwd: Path, capsys: pyt
 def test_projects_status_without_credentials_says_what_to_run(
     tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """No write credentials and no saved read token: point at minting a read token
+    directly, not at `projects use` -- this command never needs write credentials, so
+    telling a read-only user to go get some would be pointing them at the wrong fix.
+    """
     with pytest.raises(SystemExit) as exc_info:
         main(['projects', 'status'])
     assert exc_info.value.code == 1
     err = capsys.readouterr().err
-    assert 'No Logfire credentials found' in err
+    assert 'No usable read token' in err
     # Runnable as printed: `<name>` would be shell input redirection.
+    assert 'logfire read-tokens --project ORGANIZATION/PROJECT_NAME create --save' in err
     assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
 
 
@@ -2151,6 +2195,56 @@ def test_projects_status_uses_a_self_hosted_read_token(tmp_dir_cwd: Path, capsys
     assert 'orders-web' in capsys.readouterr().err
 
 
+def test_projects_status_displays_the_host_it_actually_queried(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The displayed project URL must name the host the query actually went to.
+
+    Matching organization and project name does not guarantee a matching host --
+    `logfire_credentials.json` and a saved read token are two separate files, and nothing
+    stops them naming different deployments for what happens to be the same org/project
+    pair. The query always goes to `saved.base_url`; showing `credentials.project_url`
+    instead would tell the user a host their request never touched.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/test-org/orders',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    _save_fake_read_token(data_dir, base_url='https://logfire.example.com')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire.example.com/v2/query',
+            json={
+                'schema': {'fields': [{'name': 'service_name', 'data_type': 'Utf8', 'nullable': False}]},
+                'data': [],
+            },
+        )
+
+        main(['projects', 'status', '--json'])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['project_url'] == 'https://logfire.example.com/test-org/orders'
+
+
 def test_read_token_save_writes_the_file_and_prints_nothing(
     tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2232,6 +2326,26 @@ def test_read_token_save_with_explicit_project_needs_no_linked_directory(tmp_dir
     assert saved['organization'] == 'other-org'
     assert saved['project_name'] == 'other-project'
     assert saved['token'] == 'explicit_project_token'
+
+
+def test_read_token_create_without_project_or_linked_directory_says_what_to_run(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No `--project` and nothing linked: the remedy must name both ways out.
+
+    `parse_create_read_token` falls back to the linked directory when `--project` is
+    omitted, sharing `_load_credentials_or_exit` with `whoami` and (formerly) `projects
+    status` for that. `projects status` reads write credentials directly now, so this is
+    the only remaining caller that passes `_load_credentials_or_exit` a `remedy` -- and
+    without a test here, that branch would go uncovered.
+    """
+    with pytest.raises(SystemExit) as exc_info:
+        main(['read-tokens', 'create'])
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert 'No Logfire credentials found' in err
+    assert '--project' in err
+    assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
 
 
 def test_read_token_create_without_save_writes_no_file(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -2404,6 +2518,11 @@ _REMOVE_KEY = object()
     [
         ({'organization': 'other-org'}, 'issued for a different organization'),
         ({'project_name': 'other-project'}, 'issued for a different project'),
+        ({'organization': ''}, 'empty organization'),
+        ({'organization': 123}, 'organization is not a string'),
+        ({'organization': _REMOVE_KEY}, 'no organization key -- an older saved-token file'),
+        ({'project_name': ''}, 'empty project_name'),
+        ({'project_name': _REMOVE_KEY}, 'no project_name key -- an older saved-token file'),
         ({'expires_at': (datetime.now(tz=timezone.utc) - timedelta(days=1)).isoformat()}, 'already expired'),
         ({'expires_at': 'not a timestamp'}, 'unparseable expiry'),
         ({'token': ''}, 'empty token'),
@@ -2492,6 +2611,23 @@ def test_load_saved_read_token_treats_unconfirmed_tracking_as_unusable(tmp_dir_c
         side_effect=LogfireConfigError('could not confirm'),
     ):
         assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
+@pytest.mark.parametrize('kwargs', [{'organization': 'test-org'}, {'project_name': 'orders'}])
+def test_load_saved_read_token_rejects_exactly_one_filter(tmp_dir_cwd: Path, kwargs: dict[str, str]) -> None:
+    """Passing only one of `organization`/`project_name` must not check the token against
+    half a project identity.
+
+    A token whose organization matches but whose project does not (or vice versa) would
+    otherwise pass -- matching a same-named project in a different organization, or a
+    different project in the same organization -- neither of which is "the linked
+    project". Both together (a real match check) or neither (trust the token's own
+    identity) are the only valid calls; one alone is a caller bug, not a valid filter.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    _save_fake_read_token(data_dir, organization='test-org', project_name='orders')
+
+    assert _load_saved_read_token(data_dir, **kwargs) is None
 
 
 def test_saved_read_token_survives_a_naive_expiry(tmp_dir_cwd: Path) -> None:
