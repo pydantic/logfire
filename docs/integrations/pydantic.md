@@ -86,11 +86,11 @@ Narrow it to your own code with the [`include`][logfire.PydanticPlugin.include] 
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
-logfire.instrument_pydantic(include={r'^app\..*'})
+logfire.instrument_pydantic(include={r'^apps\..*'})
 ```
 
 Patterns are regular expressions matched against `<module>::<class name>`, and they are anchored at
-the end but not at the start. `app\..*` on its own therefore also matches `django.apps.config`,
+the end but not at the start. `apps\..*` on its own therefore also matches `django.apps.config`,
 which is why the example begins with `^`.
 
 Use [`exclude`][logfire.PydanticPlugin.exclude] to leave particular models out. It is checked before
@@ -99,7 +99,7 @@ Use [`exclude`][logfire.PydanticPlugin.exclude] to leave particular models out. 
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
-logfire.instrument_pydantic(exclude={r'^app\.api\.v1\..*'})
+logfire.instrument_pydantic(exclude={r'^apps\.api\.v1\..*'})
 ```
 
 Models in `fastapi`, `fastui` and `logfire_backend` are never instrumented, regardless of these
