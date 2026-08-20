@@ -1090,6 +1090,9 @@ def test_projects_status_works_from_a_saved_read_token_alone(
     err = capsys.readouterr().err
     assert 'alexmojaki/test38' in err
     assert 'orders-web' in err
+    # The read token is minted to run the query and must never be shown: putting a live
+    # credential in the caller's output is the thing this command exists to avoid.
+    assert 'fake_read_token' not in err
 
 
 def test_projects_status_says_nothing_yet_rather_than_failing(
