@@ -2432,6 +2432,67 @@ def test_saved_read_token_is_rejected_when_unusable(tmp_dir_cwd: Path, override:
     assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None, reason
 
 
+def test_load_saved_read_token_refuses_a_symlink(tmp_dir_cwd: Path) -> None:
+    """A symlinked `read_token.json` must not be trusted, even with valid-looking content.
+
+    `_save_read_token` refuses to write through a symlink, but that only protects writes
+    THIS command makes -- a symlink planted some other way (committed to the repo, dropped
+    in by another tool) never goes through that check. Following it here would hand
+    whatever `base_url` and `token` the symlink target holds straight into the next
+    request's URL and `Authorization` header: an attacker who can plant the symlink chooses
+    where this command sends that token.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    victim = tmp_dir_cwd / 'victim.json'
+    victim.write_text(
+        json.dumps(
+            {
+                'token': 'read-token',
+                'base_url': 'http://169.254.169.254',
+                'organization': 'test-org',
+                'project_name': 'orders',
+            }
+        )
+    )
+    (data_dir / READ_TOKEN_FILENAME).symlink_to(victim)
+
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
+def test_load_saved_read_token_refuses_a_git_tracked_file(tmp_dir_cwd: Path) -> None:
+    """A `read_token.json` already in the git index must not be trusted either.
+
+    `.gitignore` only stops an untracked file from being added -- it does nothing for one
+    already in the index, so an attacker with commit access (or a malicious PR) can ship a
+    tracked `read_token.json` naming their own `base_url`. `_save_read_token` refuses to
+    write through a tracked path, but a file that arrived via a commit was never written by
+    this command at all, so that check never ran against it.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    path = _save_fake_read_token(data_dir, base_url='http://169.254.169.254')
+    subprocess.run(['git', 'init', '--quiet'], cwd=tmp_dir_cwd, check=True)
+    subprocess.run(['git', 'add', '--force', str(path)], cwd=tmp_dir_cwd, check=True)
+
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
+def test_load_saved_read_token_treats_unconfirmed_tracking_as_unusable(tmp_dir_cwd: Path) -> None:
+    """An ambiguous git-tracking check must fail this call closed too, but by returning
+    "no usable token" rather than raising -- unlike `_save_read_token`, where the safe
+    outcome is to BLOCK. Here the safe outcome is to fall back to the same "no token saved"
+    path an absent file already takes, which the caller turns into one clean message
+    naming `read-tokens create --save`, not a crash.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    _save_fake_read_token(data_dir)
+
+    with patch(
+        'logfire._internal.cli._is_git_tracked',
+        side_effect=LogfireConfigError('could not confirm'),
+    ):
+        assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
 def test_saved_read_token_survives_a_naive_expiry(tmp_dir_cwd: Path) -> None:
     """A timestamp without a timezone must not blow up the comparison.
 
@@ -2543,6 +2604,24 @@ def test_is_git_tracked_fails_closed_when_git_binary_is_missing_but_a_repo_exist
     (tmp_dir_cwd / '.git').mkdir()
     with (
         patch('logfire._internal.cli.shutil.which', return_value=None),
+        pytest.raises(LogfireConfigError, match='Could not confirm whether'),
+    ):
+        _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
+
+
+def test_is_git_tracked_fails_closed_when_the_repository_walk_itself_fails(tmp_dir_cwd: Path) -> None:
+    """A filesystem error while looking for `.git` must not escape as a raw traceback.
+
+    Walking up for a repository can hit a permission-denied intermediate directory or a
+    symlink loop `.resolve()` cannot settle -- `OSError`, not a clean "no repository here".
+    Letting that propagate unchanged would break the one contract every other failure mode
+    in this function honors: a clean `LogfireConfigError`, not a bare traceback, and it
+    would do so on exactly the kind of filesystem state most likely to be the OS itself
+    refusing to answer, not proof of anything about the file's tracked status.
+    """
+    with (
+        patch('logfire._internal.cli.shutil.which', return_value=None),
+        patch('logfire._internal.cli._has_git_dir', side_effect=PermissionError('denied')),
         pytest.raises(LogfireConfigError, match='Could not confirm whether'),
     ):
         _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)

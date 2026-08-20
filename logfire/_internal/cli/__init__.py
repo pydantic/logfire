@@ -267,6 +267,12 @@ def _has_git_dir(start: Path) -> bool:
     A pure filesystem walk, so it can tell "categorically no repository, so tracking is
     impossible" from "unconfirmed" without needing a `git` binary at all -- it walks up the
     same way `git` itself resolves a repository root from a working directory.
+
+    Raises `OSError` (permission denied on an intermediate directory, a symlink loop
+    `.resolve()` cannot settle, ...) rather than swallowing it: the caller's whole reason
+    for being here is telling "no repository" from "cannot tell", and silently returning
+    either `True` or `False` on a filesystem error would collapse that distinction right
+    back into a guess.
     """
     current = start.resolve()
     while True:
@@ -307,7 +313,16 @@ def _is_git_tracked(path: Path) -> bool:
     not an exception -- so that case is handled by the ordinary return below.)
     """
     if shutil.which('git') is None:
-        if not _has_git_dir(path.parent):
+        try:
+            has_repo = _has_git_dir(path.parent)
+        except OSError as e:
+            raise LogfireConfigError(
+                f'Could not confirm whether {path} is already tracked by git (looking for a '
+                f'repository above {path.parent} failed: {e}); refusing to write a live '
+                f'credential through it without checking. Resolve whatever is blocking that '
+                f'lookup, then try again.'
+            ) from e
+        if not has_repo:
             return False
         raise LogfireConfigError(
             f'Could not confirm whether {path} is already tracked by git (no `git` binary '
@@ -410,9 +425,28 @@ def _load_saved_read_token(data_dir: Path, *, organization: str, project_name: s
     The project check matters: `logfire projects use` repoints the directory, and a token
     left over from the previous project would otherwise be sent for the new one and
     produce a confusing 401 or, worse, another project's data.
+
+    Also refuses a symlink, or a file the git-tracking check from `_save_read_token` would
+    have refused to write in the first place: `_save_read_token` only guards its OWN
+    writes, so a `read_token.json` that arrived some other way -- committed into the repo
+    by someone else, force-added, or dropped in as a symlink -- has never been through that
+    check. Trusting it here would trust its `base_url` too, and that field is sent straight
+    into the next request's target and `Authorization` header: an attacker who can land
+    such a file controls where this command sends the token it then reads back as project
+    telemetry. `_is_git_tracked` raising (tracking status unconfirmed) is treated the same
+    as "tracked" here -- unlike at `_save_read_token`, failing closed on THIS call site
+    means falling back to "no usable token", not blocking anything.
     """
+    path = _read_token_path(data_dir)
+    if path.is_symlink():
+        return None
     try:
-        raw: Any = json.loads(_read_token_path(data_dir).read_text())
+        if _is_git_tracked(path):
+            return None
+    except LogfireConfigError:
+        return None
+    try:
+        raw: Any = json.loads(path.read_text())
     except (OSError, ValueError):
         return None
     if not isinstance(raw, dict):
