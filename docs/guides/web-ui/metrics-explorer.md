@@ -40,7 +40,7 @@ Aggregations default sensibly by metric kind, with the rest available from the d
 | Histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
 | Exponential histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
 
-Those four kinds are the whole list. Logfire does not store OTLP `Summary` metrics, a legacy type that carries pre-computed quantiles instead of buckets: a `Summary` is dropped at ingest and never reaches the catalog. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
+Those four kinds are the whole list. Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a legacy type that carries pre-computed quantiles instead of buckets: a `Summary` is dropped at ingest and never reaches the catalog. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
 
 !!! note "Percentiles on histograms"
     The wizard does not expose `p50`/`p95`/`p99` directly on histogram-typed metrics today: pre-aggregated histograms (e.g. `http.server.request.duration` from OTel SDK instrumentations) report `avg`, `min`, `max`, `count` and `sum` in the wizard. For percentiles over a histogram, switch to [SQL Workbench](explore.md) and use the histogram bucket columns; the **Open in SQL Workbench** button on every card hands you a query you can extend.

@@ -26,13 +26,13 @@ The usual causes are a wrong clock on the sending host, data buffered offline an
 
 ## Truncation
 
-Attributes and long text fields are never rejected for being too big, only shortened. A record whose attributes exceed 10 MB has its largest values cut down until it fits.
+Attributes and long text fields are never rejected for being too big, only shortened. A record whose attributes exceed 10 MB has its largest values cut down until it fits, and a log's `body` gets its own 10 MB budget separate from the much shorter message.
 
-You do not have to guess whether this happened. Every shortened value is listed in the record's `logfire.truncated` attribute, and the record's detail panel in the [Live view](../guides/web-ui/live.md) shows a **Truncation** section naming exactly what was cut.
+Values cut to fit that budget are listed in the record's `logfire.truncated` attribute, and the record's detail panel in the [Live view](../guides/web-ui/live.md) shows a **Truncation** section naming them. The fixed-length fields in the table above are a different case: they are shortened silently, so a span name or message cut at 512 bytes is not flagged anywhere.
 
 ## Summary metrics are not supported
 
-Logfire does not store OTLP `Summary` metrics, a legacy type that reports quantiles the sender has already computed. Quantiles that arrive pre-computed cannot be re-aggregated: averaging two p95 values from two hosts does not give the p95 across both.
+Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a legacy type that reports quantiles the sender has already computed. Quantiles that arrive pre-computed cannot be re-aggregated: averaging two p95 values from two hosts does not give the p95 across both.
 
 A `Summary` is dropped and never reaches the metrics catalog, while the other metrics in the same request are stored. They usually come from a Prometheus scrape forwarded through an OpenTelemetry Collector, whose `prometheus` receiver turns every Prometheus summary into an OTLP `Summary`. Send a histogram instead and compute percentiles at query time.
 
