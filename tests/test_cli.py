@@ -2521,15 +2521,31 @@ def test_read_token_save_refuses_a_git_tracked_destination(
     assert path.read_text() == '{}', 'the tracked file was written through'
 
 
-def test_is_git_tracked_treats_no_git_binary_as_untracked(tmp_dir_cwd: Path) -> None:
-    """No git anywhere on the machine means no git tracking anywhere either.
+def test_is_git_tracked_treats_no_git_binary_and_no_repo_as_untracked(tmp_dir_cwd: Path) -> None:
+    """No `git` binary, and no `.git` anywhere in the path's ancestry either.
 
     The threat this check guards against -- a path already in git's index -- is
-    categorically impossible without git installed, so a machine without it must still be
+    categorically impossible without a repository, so a machine with neither must still be
     able to save a read token rather than being blocked over an unrelated environment gap.
     """
     with patch('logfire._internal.cli.shutil.which', return_value=None):
         assert _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME) is False
+
+
+def test_is_git_tracked_fails_closed_when_git_binary_is_missing_but_a_repo_exists(tmp_dir_cwd: Path) -> None:
+    """No `git` binary is not proof that no repository exists.
+
+    A repository's index is just files on disk, and can already track this path on a
+    machine where `git` itself is missing or off `PATH` for this one call -- exactly the
+    condition `shutil.which` alone cannot distinguish from "no repository at all". Once a
+    `.git` is visibly present, that gap must fail closed, not silently permit the write.
+    """
+    (tmp_dir_cwd / '.git').mkdir()
+    with (
+        patch('logfire._internal.cli.shutil.which', return_value=None),
+        pytest.raises(LogfireConfigError, match='Could not confirm whether'),
+    ):
+        _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
 
 
 def test_is_git_tracked_fails_closed_when_git_exists_but_cannot_answer(tmp_dir_cwd: Path) -> None:

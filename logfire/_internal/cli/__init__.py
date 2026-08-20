@@ -261,6 +261,23 @@ def _read_token_path(data_dir: Path) -> Path:
     return data_dir / READ_TOKEN_FILENAME
 
 
+def _has_git_dir(start: Path) -> bool:
+    """Whether `start` or any of its ancestors contains a `.git` entry.
+
+    A pure filesystem walk, so it can tell "categorically no repository, so tracking is
+    impossible" from "unconfirmed" without needing a `git` binary at all -- it walks up the
+    same way `git` itself resolves a repository root from a working directory.
+    """
+    current = start.resolve()
+    while True:
+        if (current / '.git').exists():
+            return True
+        parent = current.parent
+        if parent == current:
+            return False
+        current = parent
+
+
 def _is_git_tracked(path: Path) -> bool:
     """Whether `path` is tracked by the git repository it sits in, if any.
 
@@ -269,19 +286,35 @@ def _is_git_tracked(path: Path) -> bool:
     writing a real, permanent credential through such a path would make the next `git
     commit -am` publish it.
 
-    No `git` binary anywhere on the machine means no git tracking anywhere either: the
-    threat this guards against is categorically impossible without git, so that case is
-    safe to treat as untracked (and `git ls-files` in a directory that exists but is not a
-    repository fails the SAME way a real "not tracked" answer does -- a plain non-zero
-    exit, not an exception -- so that is handled by the ordinary return below too). A `git`
-    binary that EXISTS but fails to answer -- the check times out, or some other OS-level
-    failure -- is different: tracking might still be real, just unconfirmed, and treating
-    that the same as "definitely untracked" would silently defeat this whole check on
-    exactly the machine states an attacker aiming at this file is most likely to have
-    engineered. That case raises instead, so the caller fails closed rather than guessing.
+    No `.git` anywhere in `path`'s ancestry means no git tracking anywhere either: the
+    threat this guards against is categorically impossible without a repository, so that
+    case is safe to treat as untracked. Checking for `.git` on disk, not merely checking
+    for a `git` BINARY, matters: a repository's index is just files, and can exist -- with
+    this path already tracked in it -- on a machine where `git` itself is not on `PATH`
+    (uninstalled after the commit, a stripped-down `PATH` for this one subprocess call,
+    etc). Trusting the binary's absence as proof of "no repository" would let exactly that
+    machine state slip the write through untracked. Once a `.git` is present, though, a
+    missing `git` binary is treated the same as any other failure to answer below: unconfirmed,
+    not untracked.
+
+    A `git` binary that exists but fails to answer -- the check times out, or some other
+    OS-level failure -- is likewise different from a confirmed "not tracked": tracking might
+    still be real, just unconfirmed, and treating that the same as "definitely untracked"
+    would silently defeat this whole check on exactly the machine states an attacker aiming
+    at this file is most likely to have engineered. Both cases raise, so the caller fails
+    closed rather than guessing. (`git ls-files` in a directory that exists but is not a
+    repository fails the SAME way a real "not tracked" answer does -- a plain non-zero exit,
+    not an exception -- so that case is handled by the ordinary return below.)
     """
     if shutil.which('git') is None:
-        return False
+        if not _has_git_dir(path.parent):
+            return False
+        raise LogfireConfigError(
+            f'Could not confirm whether {path} is already tracked by git (no `git` binary '
+            f'found on PATH, but {path.parent} appears to be inside a git repository); '
+            f'refusing to write a live credential through it without checking. Install git, '
+            f'or resolve whatever is keeping it off PATH here, then try again.'
+        )
     try:
         result = subprocess.run(
             ['git', 'ls-files', '--error-unmatch', '--', path.name],
