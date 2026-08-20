@@ -1066,8 +1066,10 @@ class Logfire:
             include:
                 Regular expressions for the models to instrument, matched against `<module>::<class name>`.
                 Empty by default, which instruments every model, including models defined by third-party
-                packages. Patterns are anchored at the end but not at the start, so `apps\..*` also matches
-                `django.apps.config`; write `^apps\..*` to match from the beginning of the module path.
+                packages. Models in `fastapi`, `fastui` and `logfire_backend` are the exception, and are
+                never instrumented. Patterns are anchored at the end but not at the start, so `apps\..*`
+                also matches `django.apps.config`; write `^apps\..*` to match from the beginning of the
+                module path.
             exclude:
                 Regular expressions for the models to leave uninstrumented, matched the same way as `include`.
                 Checked before `include`, so a model matching both is not instrumented.
