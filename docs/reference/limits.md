@@ -40,7 +40,7 @@ A `Summary` is dropped and never reaches the metrics catalog, while the other me
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| The exporter reports the payload is too large and a batch never arrives | The request was over 100 MB | Lower the export batch size (`OTEL_BSP_MAX_EXPORT_BATCH_SIZE`), or stop attaching very large values to every record |
+| The exporter reports the payload is too large and a batch never arrives | The request was over 100 MB | Lower the batch size for that signal (`OTEL_BSP_MAX_EXPORT_BATCH_SIZE` for spans, `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` for logs), and shrink individual records: a smaller batch does not help when one record is itself oversized |
 | Data from one host never appears, and the project has `logfire ingest error` records | That host's clock has drifted outside the window | Run a time sync daemon on the host |
 | A backfill or replay produces no data | The records are older than 24 hours | Backfilling historical data is not supported |
 | A value displays with `...` in the middle | The record was over the 10 MB attribute budget | Check the **Truncation** section on the record to see everything that was cut |
