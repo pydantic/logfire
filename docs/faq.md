@@ -121,7 +121,7 @@ Yes. We provide a full JavaScript/TypeScript SDK.
 
 The JS SDK provides the same core features as Python: spans, structured logging, error tracking, and distributed tracing (stitching spans from several services into one trace).
 
-[JavaScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/)
+[JavaScript/TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/)
 
 ### Q: What frameworks and libraries does Logfire support?
 
@@ -268,7 +268,7 @@ logfire.instrument_pydantic_ai()  # Or your framework of choice
 
 That's it. Three lines of code for basic instrumentation.
 
-[Getting Started](index.md) | [Onboarding Checklist](guides/onboarding-checklist/index.md)
+[Getting Started](index.md) | [Python setup](guides/onboarding-checklist/index.md)
 
 ### Q: Where can I get help?
 

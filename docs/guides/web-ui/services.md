@@ -50,7 +50,7 @@ Click any node to jump to that service's detail page. Click any recent failed tr
 
 ## How services are detected
 
-Logfire identifies a service from the [OpenTelemetry `service.name` resource attribute](https://opentelemetry.io/docs/specs/semconv/resource/#service) on the spans you send. If you instrument your application with the [Python SDK](../onboarding-checklist/integrate.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/), or any OpenTelemetry-compatible instrumentation, `service.name` is set for you. The Services view picks up new services within a minute or two of their first span.
+Logfire identifies a service from the [OpenTelemetry `service.name` resource attribute](https://opentelemetry.io/docs/specs/semconv/resource/#service) on the spans you send. If you instrument your application with the [Python SDK](../onboarding-checklist/integrate.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/), or any OpenTelemetry-compatible instrumentation, `service.name` is set for you. The Services view picks up new services within a minute or two of their first span.
 
 The RED counts are computed from **service entry spans**: the trace roots (`parent_span_id IS NULL`) plus any span whose parent's `service.name` differs from the span's own. ([`service_name`](../../reference/sql.md#service_name) is the column name on Logfire's `records` table; the underlying OTel resource attribute is `service.name`.) That gives downstream services in a call chain real counts even when they're nested inside a longer trace, while still letting the topology graph draw edges between them.
 
@@ -79,7 +79,7 @@ export OTEL_SERVICE_NAME=cart
 python -c "import logfire; logfire.configure(); logfire.info('hi')"
 ```
 
-Refresh the Services page. `cart` should appear within a minute or two. For broader instrumentation paths (FastAPI, Django, gRPC, OTel Collector), see the [Onboarding Checklist](../onboarding-checklist/integrate.md).
+Refresh the Services page. `cart` should appear within a minute or two. For broader instrumentation paths (FastAPI, Django, gRPC, OTel Collector), see the [Python setup](../onboarding-checklist/integrate.md).
 
 ## Troubleshooting
 

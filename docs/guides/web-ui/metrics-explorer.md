@@ -51,7 +51,7 @@ The columns you see in the wizard live on the `metrics` table; the full schema i
 
 ## How the data flows in
 
-The Metrics explorer reads from the OpenTelemetry metrics you're already sending to your Logfire project: there's no separate metric pipeline. If you instrument your application with the [Python SDK](../onboarding-checklist/add-metrics.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/), or via the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md), every metric you emit appears in the catalog within a minute or two of its first sample.
+The Metrics explorer reads from the OpenTelemetry metrics you're already sending to your Logfire project: there's no separate metric pipeline. If you instrument your application with the [Python SDK](../onboarding-checklist/add-metrics.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/), or via the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md), every metric you emit appears in the catalog within a minute or two of its first sample.
 
 The set of automatically-collected metrics that populate the wizard usefully includes:
 
