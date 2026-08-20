@@ -2613,6 +2613,23 @@ def test_load_saved_read_token_treats_unconfirmed_tracking_as_unusable(tmp_dir_c
         assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
 
 
+@pytest.mark.parametrize('kwargs', [{'organization': 'test-org'}, {'project_name': 'orders'}])
+def test_load_saved_read_token_rejects_exactly_one_filter(tmp_dir_cwd: Path, kwargs: dict[str, str]) -> None:
+    """Passing only one of `organization`/`project_name` must not check the token against
+    half a project identity.
+
+    A token whose organization matches but whose project does not (or vice versa) would
+    otherwise pass -- matching a same-named project in a different organization, or a
+    different project in the same organization -- neither of which is "the linked
+    project". Both together (a real match check) or neither (trust the token's own
+    identity) are the only valid calls; one alone is a caller bug, not a valid filter.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    _save_fake_read_token(data_dir, organization='test-org', project_name='orders')
+
+    assert _load_saved_read_token(data_dir, **kwargs) is None
+
+
 def test_saved_read_token_survives_a_naive_expiry(tmp_dir_cwd: Path) -> None:
     """A timestamp without a timezone must not blow up the comparison.
 

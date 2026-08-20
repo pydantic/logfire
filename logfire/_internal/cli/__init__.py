@@ -444,7 +444,10 @@ def _load_saved_read_token(
     there is no reading with only one of a project's two identifying halves) means there is
     no local link at all to check against, so the token's OWN recorded organization and
     project name are trusted directly -- read-only access should not require ever having
-    held write credentials, and a saved token is already self-describing.
+    held write credentials, and a saved token is already self-describing. Exactly one
+    given is rejected outright: it would check the token against half a project identity,
+    accepting one scoped to a same-named project in a different organization (or vice
+    versa) instead of correctly falling back to trusting the token's own identity.
 
     Also refuses a symlink, or a file the git-tracking check from `_save_read_token` would
     have refused to write in the first place: `_save_read_token` only guards its OWN
@@ -457,6 +460,8 @@ def _load_saved_read_token(
     as "tracked" here -- unlike at `_save_read_token`, failing closed on THIS call site
     means falling back to "no usable token", not blocking anything.
     """
+    if (organization is None) != (project_name is None):
+        return None
     path = _read_token_path(data_dir)
     if path.is_symlink():
         return None
