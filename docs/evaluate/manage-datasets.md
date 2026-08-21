@@ -66,7 +66,9 @@ After creation, use the **Cases** tab to maintain the dataset:
 
 ![Edit the cases in a hosted dataset](../images/guide/evals/hosted-dataset-cases.webp)
 
-**Add cases from code** and **Sync cases from code** both open a code snippet for you to run. Neither transfers anything on its own. Both snippets arrive prefilled with the dataset's name and the type names taken from its schemas, so the difference between them is only which SDK call they hand you: `add_cases(...)` appends to what is already there, and `push_dataset(...)` publishes a local `Dataset` as a whole. See the [Datasets SDK](datasets-sdk.md) for both.
+**Add cases from code** and **Sync cases from code** both open a code snippet for you to run. Neither transfers anything on its own. Both arrive prefilled with the dataset's name and the type names taken from its schemas, so the difference is only which SDK call they hand you. `add_cases(...)` adds the cases you pass, updating any that match an existing case name. `push_dataset(...)` pushes a whole local `Dataset`: it creates or updates the hosted dataset's schemas and evaluators, then upserts the cases you passed.
+
+Neither call deletes anything. A case you remove from your local dataset stays in the hosted one until you delete it there, so a hosted dataset can accumulate cases your code no longer defines. See the [Datasets SDK](datasets-sdk.md) for both.
 
 If Logfire already discovered a code-defined dataset with the same name, creating its hosted counterpart can import the latest cases instead of starting empty. Review the imported cases before relying on them as a shared test set.
 
@@ -99,7 +101,7 @@ Two details matter when you plan a schema:
 - Only fields that are present are validated. A schema on `expected_output` or `metadata` does not force a case to carry one; it constrains the value when a case does.
 - Schemas are enforced from the moment you define them, but they are not applied retroactively. Cases that predate a schema stay as they are, and you find out they no longer match the next time something writes to them.
 
-Define schemas once the shape of a case has settled. Adding them early to a dataset you are still exploring turns every subsequent write into a validation error.
+Define schemas once the shape of a case has settled. While the shape is still moving, a schema rejects each write that has drifted from it, so it is usually easier to add cases first and describe them once the pattern is clear.
 
 ## Add a case from a production trace
 
