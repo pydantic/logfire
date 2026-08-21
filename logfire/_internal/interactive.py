@@ -12,20 +12,31 @@ cannot cover that case; declaring intent up front can, because nothing has to be
 
 The two are complements. EOF handling still covers callers that cannot be changed (a
 command copied out of the docs into an agent), and this covers callers that can say so.
+`ask_or_default`/`ask_required` below are the EOF-handling half: they let a prompt whose
+stdin genuinely runs dry (rather than merely being non-interactive by declaration) reach
+the same outcome, instead of an unhandled `EOFError` traceback.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import TypeVar
+
 from logfire.exceptions import LogfireConfigError
+
+T = TypeVar('T')
 
 _non_interactive = False
 
 
 class NonInteractiveError(LogfireConfigError):
-    """A prompt was needed, but `--non-interactive` says nobody can answer it.
+    """A prompt was needed, but nobody could answer it.
 
     Carries the guidance the user needs rather than a traceback: the CLI catches this and
-    prints `message` before exiting non-zero.
+    prints `message` before exiting non-zero. Raised either because `--non-interactive`
+    said so up front (`require_answer`), or because stdin ran out before an answer arrived
+    (`ask_required`) -- the same message either way, since both mean the same thing to
+    whoever reads it.
     """
 
 
@@ -38,6 +49,19 @@ def set_non_interactive(value: bool) -> None:
 def is_non_interactive() -> bool:
     """Whether the caller declared that it cannot answer prompts."""
     return _non_interactive
+
+
+def _cannot_answer(question: str, reason: str, remedy: str, more_remedies: tuple[str, ...]) -> NonInteractiveError:
+    return NonInteractiveError(
+        '\n'.join(
+            [
+                question,
+                reason,
+                'Supply it instead with:',
+                *(f'  {r}' for r in (remedy, *more_remedies)),
+            ]
+        )
+    )
 
 
 def require_answer(question: str, remedy: str, *more_remedies: str) -> None:
@@ -53,15 +77,37 @@ def require_answer(question: str, remedy: str, *more_remedies: str) -> None:
         more_remedies: further suggestions. Each is printed on its own line, so each must
             be individually pasteable -- `--org a|b` is a shell pipeline, not a suggestion.
     """
-    if not _non_interactive:
-        return
-    raise NonInteractiveError(
-        '\n'.join(
-            [
-                question,
-                'Cannot prompt because --non-interactive was passed.',
-                'Supply it instead with:',
-                *(f'  {r}' for r in (remedy, *more_remedies)),
-            ]
-        )
-    )
+    if _non_interactive:
+        raise _cannot_answer(question, 'Cannot prompt because --non-interactive was passed.', remedy, more_remedies)
+
+
+def ask_or_default(ask: Callable[[], T], default: T) -> T:
+    """Run a prompt, falling back to `default` when stdin runs out before an answer does.
+
+    Mirrors accepting a blank Enter keypress: the caller already declared what "no answer"
+    means by passing this SAME value as the prompt's own `default=`, so an exhausted stdin
+    reaches the outcome a person pressing Enter would, rather than an `EOFError` traceback.
+    Only for prompts where that default is genuinely safe to assume -- see `ask_required`
+    for one that has no safe default to fall back on.
+    """
+    try:
+        return ask()
+    except EOFError:
+        return default
+
+
+def ask_required(ask: Callable[[], T], question: str, remedy: str, *more_remedies: str) -> T:
+    """Run a prompt that has no safe default, raising if stdin runs out before an answer does.
+
+    The reactive half of `require_answer`'s proactive check: that covers a caller who
+    declared `--non-interactive` up front, this covers one that did not but ran out of
+    input anyway -- a command copied out of the docs into an agent, mid-conversation.
+    Raises the identical `NonInteractiveError` message either way, since both mean the
+    same thing to whoever reads it: there was no answer, and here is how to supply one.
+    """
+    try:
+        return ask()
+    except EOFError:
+        raise _cannot_answer(
+            question, 'Cannot prompt because there is nothing left to read from stdin.', remedy, more_remedies
+        ) from None
