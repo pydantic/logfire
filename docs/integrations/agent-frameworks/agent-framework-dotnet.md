@@ -95,8 +95,9 @@ Protocol metrics exporter. Microsoft Agent Framework runs also appear in the spe
 [support matrix](support-matrix.md) shows which columns each view populates.
 
 !!! warning "Common pitfalls"
-    - **Default OTLP protocol is gRPC.** Set `OtlpExportProtocol.HttpProtobuf` and supply the full `/v1/traces`
-      path with per-signal `AddOtlpExporter` (it isn't appended automatically).
+    - **Default OTLP protocol is gRPC.** Logfire accepts both, but the endpoint has to match: gRPC takes the
+      bare base URL. This setup uses `OtlpExportProtocol.HttpProtobuf`, which needs the full `/v1/traces` path
+      with per-signal `AddOtlpExporter` (it isn't appended automatically).
     - **`sourceName` must match `AddSource`.** If you omit `sourceName`, register the defaults instead:
       `AddSource("Experimental.Microsoft.Agents.AI")` (agent) and
       `AddSource("Experimental.Microsoft.Extensions.AI")` (chat client).
