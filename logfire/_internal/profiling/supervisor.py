@@ -39,6 +39,11 @@ from .otlp import MIN_PROTO_VERSION, build_export_request, profiles_proto_is_cur
 _PR_SET_PTRACER = 0x59616D61
 _PTRACER_NONE = 0
 
+# The profiler child waits for a line on stdin before exec-ing the profiler itself. `exec` keeps the
+# pid, so this lets us install the ptrace exemption for that pid before the child tries to attach.
+_WAIT_THEN_EXEC = 'import os, sys; sys.stdin.readline(); os.execv(sys.argv[1], sys.argv[1:])'
+_GO_AHEAD = 'go\n'
+
 _NS_PER_SECOND = 1_000_000_000
 
 # How long after its requested duration the profiler subprocess is given to finish.
@@ -53,10 +58,25 @@ def profiler_available() -> bool:
         return False
 
 
+def _ptrace_grant_needed() -> bool:
+    """Whether this platform needs a ptrace exemption for the profiler to attach.
+
+    Only Linux has Yama; macOS / Windows need elevation instead, which fails soft.
+    """
+    return sys.platform.startswith('linux')
+
+
+def _spawn_command(cmd: list[str]) -> list[str]:
+    """Wrap `cmd` in the handshake that holds the child back until it may be ptraced."""
+    if not _ptrace_grant_needed():
+        return cmd
+    return [sys.executable, '-c', _WAIT_THEN_EXEC, *cmd]
+
+
 def _allow_ptrace_by(pid: int) -> None:
     """Best-effort: let process `pid` (`_PTRACER_NONE` to revoke) ptrace this one (Linux / Yama only)."""
-    if not sys.platform.startswith('linux'):
-        return  # macOS / Windows need elevation instead; handled by failing soft
+    if not _ptrace_grant_needed():
+        return
     try:
         libc = ctypes.CDLL(None, use_errno=True)  # not "libc.so.6" - works on musl too
         libc.prctl(_PR_SET_PTRACER, pid, 0, 0, 0)
@@ -173,16 +193,19 @@ class ProfilingSupervisor:
                 with self._lock:
                     if self._stop.is_set():
                         return None  # shutting down: don't start a profiler nobody will terminate
-                    cmd = self._profiler_command(out, pid, duration, rate)
-                    self._proc = proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    cmd = _spawn_command(self._profiler_command(out, pid, duration, rate))
+                    self._proc = proc = subprocess.Popen(
+                        cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                    )
             except OSError as exc:
                 warnings.warn(f'Logfire profiling: could not run the profiler: {exc!r}')
                 return None
 
-            # Grant ptrace only to this profiler, only while it runs.
+            # Grant ptrace only to this profiler, only while it runs. The child is still waiting
+            # in the handshake, so this lands before it can attach.
             _allow_ptrace_by(proc.pid)
             try:
-                _, stderr = proc.communicate(timeout=duration + _SUBPROCESS_TIMEOUT_GRACE_SECONDS)
+                _, stderr = proc.communicate(input=_GO_AHEAD, timeout=duration + _SUBPROCESS_TIMEOUT_GRACE_SECONDS)
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.communicate()

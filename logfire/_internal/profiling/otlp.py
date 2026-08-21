@@ -49,18 +49,22 @@ class _DictionaryBuilder:
     """Interns entries into a shared `ProfilesDictionary`, returning each entry's index."""
 
     def __init__(self) -> None:
-        self.dictionary = pb.ProfilesDictionary()
-        self.dictionary.string_table.append('')  # index 0 is "" by convention
+        # Every table in a ProfilesDictionary must start with a zero value, so that an index of 0
+        # into it means 'not set'. Real entries therefore start at index 1.
+        self.dictionary = pb.ProfilesDictionary(
+            mapping_table=[pb.Mapping()],
+            location_table=[pb.Location()],
+            function_table=[pb.Function()],
+            link_table=[pb.Link()],
+            string_table=[''],
+            attribute_table=[pb.KeyValueAndUnit()],
+            stack_table=[pb.Stack()],
+        )
         self._strings: dict[str, int] = {'': 0}
         self._functions: dict[tuple[int, int], int] = {}
         self._locations: dict[tuple[int, int], int] = {}
         self._stacks: dict[tuple[int, ...], int] = {}
         self._attributes: dict[tuple[str, int], int] = {}
-        # OTLP profiles require every Location to reference a Mapping. A pure
-        # Python profile has no native mappings, so use a single synthetic
-        # entry at index 0 - consumers (pprof, Pyroscope) reject a Location
-        # whose mapping_index points outside the mapping table.
-        self.dictionary.mapping_table.append(pb.Mapping(filename_strindex=self.string('python')))
 
     def string(self, value: str) -> int:
         idx = self._strings.get(value)
@@ -87,6 +91,7 @@ class _DictionaryBuilder:
             idx = len(self.dictionary.location_table)
             self.dictionary.location_table.append(
                 pb.Location(
+                    # 0 is the null mapping: a pure Python frame isn't in any binary mapping.
                     mapping_index=0,
                     lines=[pb.Line(function_index=function_index, line=line)],
                 )

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 import pytest
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.proto.collector.profiles.v1development.profiles_service_pb2 import (
     ExportProfilesServiceRequest,
@@ -23,7 +24,8 @@ from opentelemetry.proto.collector.profiles.v1development.profiles_service_pb2 i
 from opentelemetry.proto.profiles.v1development import profiles_pb2
 
 import logfire
-from logfire._internal.config import LogfireConfig
+from logfire._internal.config import GLOBAL_CONFIG, LogfireConfig
+from logfire._internal.integrations.executors import serialize_config
 from logfire._internal.profiling.collapsed import parse_collapsed
 from logfire._internal.profiling.exporter import ProfilesExporter
 from logfire._internal.profiling.otlp import (
@@ -35,6 +37,7 @@ from logfire._internal.profiling.otlp import (
 from logfire._internal.profiling.supervisor import (
     ProfilingSupervisor,
     _allow_ptrace_by,  # pyright: ignore[reportPrivateUsage]
+    _spawn_command,  # pyright: ignore[reportPrivateUsage]
     profiler_available,
 )
 
@@ -103,11 +106,24 @@ def test_build_export_request():
         len(d.location_table),
         len(d.stack_table),
         len(d.attribute_table),
-    ) == snapshot((13, 6, 9, 21, 1))
+    ) == snapshot((12, 7, 10, 22, 2))
+
+    # Index 0 of every table is the zero value that marks 'not set'.
+    assert (d.string_table[0], d.mapping_table[0], d.function_table[0], d.stack_table[0]) == (
+        '',
+        profiles_pb2.Mapping(),
+        profiles_pb2.Function(),
+        profiles_pb2.Stack(),
+    )
+    assert (d.location_table[0], d.attribute_table[0], d.link_table[0]) == (
+        profiles_pb2.Location(),
+        profiles_pb2.KeyValueAndUnit(),
+        profiles_pb2.Link(),
+    )
 
     # The single attribute interned across every sample.
-    assert d.string_table[d.attribute_table[0].key_strindex] == snapshot('thread.id')
-    assert d.attribute_table[0].value.int_value == snapshot(57922729)
+    assert d.string_table[d.attribute_table[1].key_strindex] == snapshot('thread.id')
+    assert d.attribute_table[1].value.int_value == snapshot(57922729)
 
     # sample_type resolves through the string table.
     assert (
@@ -310,15 +326,24 @@ def test_supervisor_stops_on_unexpected_error(monkeypatch: pytest.MonkeyPatch):
         supervisor.shutdown(timeout=5.0)
 
 
-def _run_fake_profiler(supervisor: ProfilingSupervisor, monkeypatch: pytest.MonkeyPatch, command: list[str]) -> None:
+def _run_fake_profiler(
+    supervisor: ProfilingSupervisor,
+    monkeypatch: pytest.MonkeyPatch,
+    command: list[str],
+    *,
+    ptrace_grant: bool = False,
+) -> None:
     """Make the supervisor run `command` instead of the real profiler.
 
     `{out}` in an argument is replaced by the path the profiler is expected to write to.
+    `ptrace_grant` pins the platform decision so tests behave the same on Linux and elsewhere:
+    with it set, the profiler is started behind the ptrace handshake.
     """
 
     def profiler_command(out: Path, pid: int, duration: float, rate: int) -> list[str]:
         return [argument.format(out=out) for argument in command]
 
+    monkeypatch.setattr('logfire._internal.profiling.supervisor._ptrace_grant_needed', lambda: ptrace_grant)
     monkeypatch.setattr(supervisor, '_profiler_command', profiler_command)
 
 
@@ -516,13 +541,15 @@ def test_build_export_request_without_thread_ids():
     [resource_profiles] = request.resource_profiles
     assert [attribute.key for attribute in resource_profiles.resource.attributes] == ['service.name']
     [profile] = resource_profiles.scope_profiles[0].profiles
-    # The two lines share a stack, so they share the one interned stack-table entry.
-    assert [sample.stack_index for sample in profile.samples] == [0, 0]
+    # The two lines share a stack, so they share the one interned stack-table entry
+    # (index 1: index 0 is the zero value).
+    assert [sample.stack_index for sample in profile.samples] == [1, 1]
     assert [sample.values[0] for sample in profile.samples] == [5, 7]
-    assert len(request.dictionary.stack_table) == 1
+    assert len(request.dictionary.stack_table) == 2
     # Without a thread id there's nothing to attribute the samples with.
     assert [list(sample.attribute_indices) for sample in profile.samples] == [[], []]
-    assert list(request.dictionary.attribute_table) == []
+    # Only the zero value, no interned attributes.
+    assert list(request.dictionary.attribute_table) == [profiles_pb2.KeyValueAndUnit()]
 
 
 def test_profiler_available_survives_a_broken_import_system(monkeypatch: pytest.MonkeyPatch):
@@ -602,3 +629,39 @@ def test_shutdown_keeps_the_thread_it_could_not_join(monkeypatch: pytest.MonkeyP
     release.set()
     supervisor.shutdown(timeout=10)
     assert supervisor._thread is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_spawn_command_wraps_only_where_ptrace_must_be_granted(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(sys, 'platform', 'darwin')
+    assert _spawn_command(['profiler', '--go']) == ['profiler', '--go']
+
+    monkeypatch.setattr(sys, 'platform', 'linux')
+    # On Linux the profiler is exec'd by a child that waits for the go-ahead, so that the ptrace
+    # exemption for its pid is in place before it attaches.
+    assert _spawn_command(['profiler', '--go']) == [sys.executable, '-c', IsStr(), 'profiler', '--go']
+
+
+def test_capture_chunk_holds_the_profiler_back_until_ptrace_is_granted(monkeypatch: pytest.MonkeyPatch):
+    supervisor = _supervisor()
+    script = 'import pathlib, sys; pathlib.Path(sys.argv[1]).write_text("tid:1;a.py:f:1 3\\n")'
+    _run_fake_profiler(supervisor, monkeypatch, [sys.executable, '-c', script, '{out}'], ptrace_grant=True)
+    granted: list[int] = []
+    monkeypatch.setattr('logfire._internal.profiling.supervisor._allow_ptrace_by', granted.append)
+
+    assert supervisor._capture_chunk(os.getpid(), 0.0, 1000) == 'tid:1;a.py:f:1 3\n'  # pyright: ignore[reportPrivateUsage]
+    # The profiler's own pid was allowed to attach, then the exemption was revoked.
+    [profiler_pid, revoked] = granted
+    assert profiler_pid > 0
+    assert revoked == 0
+
+
+def test_profiling_is_not_inherited_by_process_pool_workers():
+    with pytest.warns(UserWarning, match='needs a Logfire token'):
+        logfire.configure(send_to_logfire=False, console=False, profiling=True)
+    assert GLOBAL_CONFIG.profiling is True
+
+    serialized = serialize_config()
+
+    # Otherwise every worker in a pool would start its own profiler subprocess.
+    assert serialized is not None
+    assert 'profiling' not in serialized
