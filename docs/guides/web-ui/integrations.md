@@ -33,7 +33,11 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
     - Or find one integration and select **Install** on its row, or open it with **View details** and install from there.
 4. **Attach a notification channel.** Open the integration's **Alerts** tab, or your project's [Alerts](alerts.md) page, and give the alerts a channel and schedule so they can reach you.
 
-Integrations keep themselves current. When Logfire revises an integration's content, your installed alerts are brought in line automatically, and its dashboards render from Logfire's definition rather than a per-project copy, so a revised dashboard is already the one you are looking at. Each alert's structure, meaning its name, description, query, and windows, is rewritten from the current definition, while the notification channel you attached and whether the alert is switched on are left as you set them.
+Integrations keep themselves current. When Logfire revises an integration's content, your installed alerts are brought in line automatically, and its dashboards render from Logfire's definition rather than a per-project copy, so a revised dashboard is already the one you are looking at.
+
+A sync rewrites the alert's own definition: its name, description, query, and evaluation windows. A correction to an alert's query therefore reaches alerts you have already installed. It never touches what you chose: the notification channel you attached, or whether the alert is switched on.
+
+Because the on and off state is yours, it is set only at install. If Logfire later changes whether an alert is recommended or diagnostic, that applies to new installs; an alert you already have stays as you left it, and you can switch it off yourself.
 
 An integration can show **Update available** with an **Update** action in the window between a Logfire release and the sync that follows it. Selecting it is safe but not required: it applies the same content sync, and additionally re-enables any of the integration's dashboards you had turned off.
 
