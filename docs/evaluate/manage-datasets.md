@@ -79,10 +79,10 @@ Cases reach a hosted dataset three ways. They combine freely in one dataset:
 | Path | Volume | Use it when |
 | --- | --- | --- |
 | [Live view](#add-a-case-from-a-production-trace) | One case per span | A real request is worth keeping as a regression case |
-| [The Cases tab](#create-a-hosted-dataset) | One case at a time | You are hand-writing a specific edge case |
+| **Add case** on the [Cases tab](#create-a-hosted-dataset) | One case at a time | You are hand-writing a specific edge case |
 | [The SDK](datasets-sdk.md) | Bulk | Cases are generated, migrated, or already in code |
 
-Adding from Live view is the path that turns production behavior into test cases, and it is usually where a shared dataset starts. The SDK is the only path that scales to many cases at once.
+Adding from Live view is the path that turns production behavior into test cases, and it is usually where a shared dataset starts. The SDK is the only path that scales to many cases at once; the Cases tab reaches it through the code snippets described above, so bulk work runs from your machine rather than in the browser.
 
 A hosted dataset holds at most **10,000 cases**. Adding a case beyond that limit is rejected, including in bulk, so a large import needs splitting across datasets.
 
