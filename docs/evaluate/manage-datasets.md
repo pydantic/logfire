@@ -68,7 +68,9 @@ After creation, use the **Cases** tab to maintain the dataset:
 
 **Add cases from code** and **Sync cases from code** both open a code snippet for you to run. Neither transfers anything on its own. Both arrive prefilled with the dataset's name and the type names taken from its schemas, so the difference is only which SDK call they hand you. `add_cases(...)` adds the cases you pass, updating any that match an existing case name. `push_dataset(...)` pushes a whole local `Dataset`: it creates or updates the hosted dataset's schemas and evaluators, then upserts the cases you passed.
 
-Neither call deletes anything. A case you remove from your local dataset stays in the hosted one until you delete it there, so a hosted dataset can accumulate cases your code no longer defines. See the [Datasets SDK](datasets-sdk.md) for both.
+Neither call deletes a case. One you remove from your local dataset stays in the hosted one until you delete it there, so a hosted dataset can accumulate cases your code no longer defines.
+
+Evaluators are the exception. They are overwritten by whatever you push rather than merged, so an evaluator you remove locally is cleared on the server by the next push. See the [Datasets SDK](datasets-sdk.md) for both.
 
 If Logfire already discovered a code-defined dataset with the same name, creating its hosted counterpart can import the latest cases instead of starting empty. Review the imported cases before relying on them as a shared test set.
 
