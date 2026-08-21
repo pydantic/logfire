@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import types
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import executing
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict, TypeGuard
 
 import logfire
 
@@ -17,6 +18,18 @@ from .ast_utils import CallNodeFinder, get_node_source_text
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, MessageValueCleaner
 from .stack_info import warn_at_user_stacklevel
 from .utils import log_internal_error
+
+if TYPE_CHECKING:
+    from string.templatelib import Template
+
+try:
+    _templatelib = importlib.import_module('string.templatelib')
+except ImportError:
+    _template_class: type[Any] | None = None
+    _template_convert: Callable[[Any, Literal['a', 'r', 's'] | None], Any] | None = None
+else:
+    _template_class = cast('type[Any]', getattr(_templatelib, 'Template'))
+    _template_convert = cast('Callable[[Any, Literal["a", "r", "s"] | None], Any]', getattr(_templatelib, 'convert'))
 
 
 class LiteralChunk(TypedDict):
@@ -30,15 +43,33 @@ class ArgChunk(TypedDict):
     spec: NotRequired[str]
 
 
+def is_template_string(format_string: object) -> TypeGuard[Template]:
+    return _template_class is not None and isinstance(format_string, _template_class)
+
+
+def template_to_format_string(format_string: Template) -> str:
+    result = ''
+    for index, literal_text in enumerate(format_string.strings):
+        result += literal_text
+        if index < len(format_string.interpolations):
+            result += '{' + format_string.interpolations[index].expression + '}'
+    return result
+
+
 class ChunksFormatter(Formatter):
     def chunks(
         self,
-        format_string: str,
+        format_string: str | Template,
         kwargs: dict[str, Any],
         *,
         scrubber: BaseScrubber,
         fstring_frame: types.FrameType | None = None,
     ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
+        if is_template_string(format_string):
+            return self._template_chunks(format_string, scrubber=scrubber)
+
+        assert isinstance(format_string, str)
+
         # Returns
         # 1. A list of chunks
         # 2. A dictionary of extra attributes to add to the span/log.
@@ -57,6 +88,37 @@ class ChunksFormatter(Formatter):
         )
         # When there's no f-string magic, there's no changes in the template string.
         return chunks, extra_attrs, format_string
+
+    def _template_chunks(
+        self, format_string: Template, *, scrubber: BaseScrubber
+    ) -> tuple[list[LiteralChunk | ArgChunk], dict[str, Any], str]:
+        result: list[LiteralChunk | ArgChunk] = []
+        new_template = ''
+        extra_attrs: dict[str, Any] = {}
+        value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
+        assert _template_convert is not None
+        for index, literal_text in enumerate(format_string.strings):
+            if literal_text:
+                result.append({'v': literal_text, 't': 'lit'})
+                new_template += literal_text
+            if index == len(format_string.interpolations):
+                continue
+            interpolation = format_string.interpolations[index]
+            field_name = interpolation.expression
+            new_template += '{' + field_name + '}'
+            extra_attrs[field_name] = interpolation.value
+            try:
+                value = _template_convert(interpolation.value, interpolation.conversion)
+            except Exception as exc:
+                raise KnownFormattingError(f'Error converting field {{{field_name}}}: {exc}') from exc
+            try:
+                formatted = self.format_field(value, interpolation.format_spec)
+            except Exception as exc:
+                raise KnownFormattingError(f'Error formatting field {{{field_name}}}: {exc}') from exc
+            formatted = value_cleaner.clean_value(field_name, formatted)
+            result.append({'v': formatted, 't': 'arg'})
+        extra_attrs.update(value_cleaner.extra_attrs())
+        return result, extra_attrs, new_template
 
     def _fstring_chunks(
         self,
@@ -234,7 +296,7 @@ class ChunksFormatter(Formatter):
 chunks_formatter = ChunksFormatter()
 
 
-def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScrubber) -> str:
+def logfire_format(format_string: str | Template, kwargs: dict[str, Any], scrubber: BaseScrubber) -> str:
     result, _extra_attrs, _new_template = logfire_format_with_magic(
         format_string,
         kwargs,
@@ -244,7 +306,7 @@ def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScr
 
 
 def logfire_format_with_magic(
-    format_string: str,
+    format_string: str | Template,
     kwargs: dict[str, Any],
     scrubber: BaseScrubber,
     fstring_frame: types.FrameType | None = None,
@@ -272,6 +334,9 @@ def logfire_format_with_magic(
         log_internal_error()
 
     # Formatting failed, so just use the original format string as the message.
+    if is_template_string(format_string):
+        format_string = template_to_format_string(format_string)
+    assert isinstance(format_string, str)
     return format_string, {}, format_string
 
 
