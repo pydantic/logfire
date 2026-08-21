@@ -81,6 +81,8 @@ To enable a standard dashboard:
 
 You can view and interact with standard dashboards, but you cannot edit them.
 
+Dashboards for infrastructure services such as Redis, PostgreSQL, and Kafka are not in this list. Each one arrives with the matching [integration](integrations.md), which installs the dashboard and its health alerts together.
+
 ### Using a Standard Dashboard as a Template
 
 You can use any standard dashboard as a template by exporting it to JSON and then importing it from JSON for a new custom dashboard.
