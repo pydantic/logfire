@@ -574,7 +574,9 @@ def test_shutdown_terminates_a_running_profiler(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(supervisor, '_capture_chunk', capture)
     assert supervisor.start() is True
     assert running.wait(timeout=10)
+    deadline = time.monotonic() + 10
     while supervisor._proc is None:  # pragma: no cover  # pyright: ignore[reportPrivateUsage]
+        assert time.monotonic() < deadline, 'the profiler subprocess never started'
         time.sleep(0.01)
 
     # Terminating the profiler leaves no output, which is expected during shutdown and so isn't warned about.

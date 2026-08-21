@@ -197,13 +197,14 @@ class ProfilingSupervisor:
                     self._proc = proc = subprocess.Popen(
                         cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
                     )
+                    # Grant ptrace only to this profiler, only while it runs. Under the same lock as
+                    # the spawn, so the pid can only ever be this child's, and the child is still
+                    # waiting in the handshake, so the grant lands before it can attach.
+                    _allow_ptrace_by(proc.pid)
             except OSError as exc:
                 warnings.warn(f'Logfire profiling: could not run the profiler: {exc!r}')
                 return None
 
-            # Grant ptrace only to this profiler, only while it runs. The child is still waiting
-            # in the handshake, so this lands before it can attach.
-            _allow_ptrace_by(proc.pid)
             try:
                 _, stderr = proc.communicate(input=_GO_AHEAD, timeout=duration + _SUBPROCESS_TIMEOUT_GRACE_SECONDS)
             except subprocess.TimeoutExpired:
