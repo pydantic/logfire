@@ -32,7 +32,7 @@ Values cut to fit that limit are listed in the record's `logfire.truncated` attr
 
 ## Summary metrics are not supported
 
-Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a legacy type that reports quantiles the sender has already computed. Quantiles that arrive pre-computed cannot be re-aggregated: averaging two p95 values from two hosts does not give the p95 across both.
+Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a type the OpenTelemetry spec itself marks [legacy](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#summary-legacy) and does not recommend for new applications. A `Summary` reports quantiles the sender has already computed, and those cannot be re-aggregated: averaging two p95 values from two hosts does not give the p95 across both.
 
 A `Summary` is dropped on arrival. When a request carries `Summary` metrics alongside supported ones, Logfire stores the supported metrics, drops the summaries, and answers with a partial success; when every metric in the request is a `Summary`, the request fails outright. They usually come from a Prometheus scrape forwarded through an OpenTelemetry Collector, whose `prometheus` receiver turns every Prometheus summary into an OTLP `Summary`. Send a histogram instead and compute percentiles at query time.
 
