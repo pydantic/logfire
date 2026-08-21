@@ -118,9 +118,6 @@ from .integrations.executors import instrument_executors
 from .interactive import require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
-from .profiling.exporter import PROFILES_PATH, ProfilesExporter
-from .profiling.otlp import resource_from_attributes
-from .profiling.supervisor import ProfilingSupervisor
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
@@ -140,6 +137,8 @@ if TYPE_CHECKING:
     from logfire.variables.variable import TemplateVariable, Variable
 
     from .main import Logfire
+    from .profiling.exporter import ProfilesExporter
+    from .profiling.supervisor import ProfilingSupervisor
 
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
@@ -1254,7 +1253,7 @@ class LogfireConfig(_LogfireConfigData):
         if self._initialized:  # pragma: no cover
             return
 
-        if self._profiling_supervisor is not None:  # pragma: no cover
+        if self._profiling_supervisor is not None:
             self._profiling_supervisor.shutdown()
             self._profiling_supervisor = None
 
@@ -1399,8 +1398,14 @@ class LogfireConfig(_LogfireConfigData):
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
-                        if self.profiling and profiles_exporter is None:  # pragma: no cover
-                            profiles_exporter = ProfilesExporter(session, urljoin(base_url, PROFILES_PATH))
+                        if self.profiling and profiles_exporter is None:
+                            # Imported lazily: the profiles protobuf bindings are only needed here.
+                            # Only the first token gets profiles - the signal has no multi-destination support yet.
+                            from .profiling.exporter import PROFILES_PATH, ProfilesExporter
+
+                            profiles_exporter = ProfilesExporter(
+                                session, urljoin(base_url, PROFILES_PATH), headers=headers
+                            )
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
@@ -1624,13 +1629,18 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
-        if profiles_exporter is not None:  # pragma: no cover
+        if profiles_exporter is not None:
+            from .profiling.otlp import resource_from_attributes
+            from .profiling.supervisor import ProfilingSupervisor
+
             self._profiling_supervisor = ProfilingSupervisor(
                 profiles_exporter,
                 resource=resource_from_attributes(resource.attributes),
                 scope_version=VERSION,
             )
             self._profiling_supervisor.start()
+        elif self.profiling:
+            warnings.warn('Logfire profiling needs a Logfire token to send profiles to; disabled.')
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.

@@ -1,10 +1,13 @@
 """Experimental: ship Python sampling-profiler data to the OpenTelemetry profiles signal.
 
 This package converts the output of the Python 3.15 `profiling.sampling`
-profiler (Tachyon) into OTLP profiles and exports them over HTTP.
+profiler (Tachyon) into OTLP profiles and exports them over HTTP:
 
-Status: work in progress. Implemented here are the conversion (`collapsed` +
-`otlp`) and the HTTP `exporter`. Still to come: the supervisor that actually
-runs the profiler subprocess, wiring into `logfire.configure()`, and per-span
-correlation.
+- `collapsed` parses the profiler's folded-stack output
+- `otlp` converts it to an OTLP profiles export request
+- `exporter` posts that request
+- `supervisor` runs the profiler subprocess in a loop and ties the three together
+
+Still to come: per-span correlation (pointing each sample at the span it was
+taken in).
 """

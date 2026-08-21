@@ -2,25 +2,47 @@
 
 This uses the protobuf bindings shipped by `opentelemetry-proto` directly
 (`opentelemetry.proto.profiles.v1development`) - there is no hand-written
-profile model. The current OTLP profiles model keeps a single request-level
+profile model. The OTLP profiles model keeps a single request-level
 `ProfilesDictionary` holding the shared string/function/location/stack/
 attribute tables; every `Sample` references into it by index.
+
+The profiles signal is still in development, and its schema changed
+incompatibly (fields were renumbered) in `opentelemetry-proto` v1.10.0, which
+reached PyPI in `opentelemetry-proto` 1.43.0. Older bindings serialize a
+`Sample` that current consumers silently misread, so `profiles_proto_is_current`
+lets callers refuse to export rather than send garbage.
 """
 
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 
-# common/resource are stable signals - the installed opentelemetry-proto is fine.
-from opentelemetry.proto.common.v1.common_pb2 import AnyValue, InstrumentationScope, KeyValue
+from opentelemetry.proto.collector.profiles.v1development.profiles_service_pb2 import (
+    ExportProfilesServiceRequest,
+)
+from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, InstrumentationScope, KeyValue
+from opentelemetry.proto.profiles.v1development import profiles_pb2 as pb
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 
-# profiles is an alpha signal; use the vendored (current) bindings, not the
-# outdated snapshot in the opentelemetry-proto PyPI package. See _proto/.
-from ._proto import profiles_pb2 as pb
-from ._proto.profiles_service_pb2 import ExportProfilesServiceRequest
 from .collapsed import FoldedStack
+
+# The first `opentelemetry-proto` release generated from proto v1.10.0, i.e. the
+# oldest one whose profiles bindings match what this module builds.
+MIN_PROTO_VERSION = '1.43.0'
+
+
+def profiles_proto_is_current() -> bool:
+    """Whether the installed `opentelemetry-proto` profiles bindings are the ones we build against.
+
+    Detected from the wire format rather than the package version: `Sample.values`
+    is field 4 from proto v1.10.0 onwards and field 2 before it.
+    """
+    try:
+        return pb.Sample.DESCRIPTOR.fields_by_name['values'].number == 4
+    except KeyError:  # pragma: no cover
+        # A schema old or new enough not to have the field at all.
+        return False
 
 
 class _DictionaryBuilder:
@@ -163,9 +185,20 @@ def build_export_request(
 
 
 def resource_from_attributes(attributes: Mapping[str, object]) -> Resource:
-    """Build an OTLP `Resource` from a flat attribute mapping (values stringified)."""
-    return Resource(
-        attributes=[
-            KeyValue(key=str(key), value=AnyValue(string_value=str(value))) for key, value in attributes.items()
-        ]
-    )
+    """Build an OTLP `Resource` from a flat attribute mapping."""
+    return Resource(attributes=[KeyValue(key=str(key), value=_any_value(value)) for key, value in attributes.items()])
+
+
+def _any_value(value: object) -> AnyValue:
+    # bool first: it's a subclass of int.
+    if isinstance(value, bool):
+        return AnyValue(bool_value=value)
+    if isinstance(value, int):
+        return AnyValue(int_value=value)
+    if isinstance(value, float):
+        return AnyValue(double_value=value)
+    if isinstance(value, str):
+        return AnyValue(string_value=value)
+    if isinstance(value, Sequence):
+        return AnyValue(array_value=ArrayValue(values=[_any_value(item) for item in value]))  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+    return AnyValue(string_value=str(value))

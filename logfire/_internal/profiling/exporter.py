@@ -13,9 +13,12 @@ from __future__ import annotations
 
 import gzip
 import warnings
+from collections.abc import Mapping
 from typing import Protocol
 
-from ._proto.profiles_service_pb2 import ExportProfilesServiceRequest
+from opentelemetry.proto.collector.profiles.v1development.profiles_service_pb2 import (
+    ExportProfilesServiceRequest,
+)
 
 # Profiles is still a development signal - note the path is NOT `/v1/profiles`.
 PROFILES_PATH = '/v1development/profiles'
@@ -37,9 +40,23 @@ class _PostSession(Protocol):
 class ProfilesExporter:
     """Posts OTLP profiles to an HTTP endpoint, failing soft on any error."""
 
-    def __init__(self, session: _PostSession, endpoint: str, *, timeout: float = 10.0) -> None:
+    def __init__(
+        self,
+        session: _PostSession,
+        endpoint: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        timeout: float = 10.0,
+    ) -> None:
         self._session = session
         self._endpoint = endpoint
+        # Don't rely on headers set on the shared session (e.g. the token `Authorization`):
+        # send them with each request so this exporter works with any session.
+        self._headers = {
+            'Content-Type': 'application/x-protobuf',
+            'Content-Encoding': 'gzip',
+            **(headers or {}),
+        }
         self._timeout = timeout
 
     def export(self, request: ExportProfilesServiceRequest) -> bool:
@@ -49,10 +66,7 @@ class ProfilesExporter:
             response = self._session.post(
                 self._endpoint,
                 data=payload,
-                headers={
-                    'Content-Type': 'application/x-protobuf',
-                    'Content-Encoding': 'gzip',
-                },
+                headers=self._headers,
                 timeout=self._timeout,
             )
         except Exception as exc:

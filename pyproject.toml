@@ -86,6 +86,9 @@ litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
+# Experimental. The OTLP profiles schema was renumbered in proto v1.10.0, first
+# packaged in opentelemetry-proto 1.43.0; older bindings are wire-incompatible.
+profiling = ["opentelemetry-proto >= 1.43.0"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"
@@ -254,11 +257,7 @@ include = ["/README.md", "CHANGELOG.md", "/Makefile", "/logfire", "/tests"]
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
 line-length = 120
-extend-exclude = [
-    "logfire-api/logfire_api/*",
-    "tests/auto_trace_samples/param_spec.py",
-    "logfire/_internal/profiling/_proto/*", # vendored generated protobuf code
-]
+extend-exclude = ["logfire-api/logfire_api/*", "tests/auto_trace_samples/param_spec.py"]
 
 [tool.ruff.lint]
 # Ruff 0.16 greatly expanded the default rule set (59 -> 413 rules).
@@ -310,7 +309,6 @@ typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
 include = ["logfire", "tests"]
-exclude = ["logfire/_internal/profiling/_proto"] # vendored generated protobuf code
 venvPath = "."
 venv = ".venv"
 

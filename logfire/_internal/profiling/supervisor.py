@@ -26,7 +26,7 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 
 from .collapsed import parse_collapsed
 from .exporter import ProfilesExporter
-from .otlp import build_export_request
+from .otlp import MIN_PROTO_VERSION, build_export_request, profiles_proto_is_current
 
 # prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY) lets a same-uid descendant ptrace
 # us without root - which is what the profiler child needs on Linux under the
@@ -35,6 +35,9 @@ _PR_SET_PTRACER = 0x59616D61
 _PR_SET_PTRACER_ANY = ctypes.c_ulong(-1)
 
 _NS_PER_SECOND = 1_000_000_000
+
+# How long after its requested duration the profiler subprocess is given to finish.
+_SUBPROCESS_TIMEOUT_GRACE_SECONDS = 30.0
 
 
 def profiler_available() -> bool:
@@ -86,8 +89,16 @@ class ProfilingSupervisor:
         if not profiler_available():
             warnings.warn('Logfire profiling needs Python 3.15+ (the `profiling.sampling` module); disabled.')
             return False
+        if not profiles_proto_is_current():
+            # Serializing with older bindings would produce profiles that consumers silently misread.
+            warnings.warn(
+                f'Logfire profiling needs opentelemetry-proto >= {MIN_PROTO_VERSION} '
+                'for the current OTLP profiles schema; disabled.'
+            )
+            return False
         if self._thread is not None:
             return True  # already running
+        self._stop.clear()
         _allow_child_ptrace()
         self._thread = threading.Thread(target=self._run, name='logfire-profiling', daemon=True)
         self._thread.start()
@@ -97,8 +108,8 @@ class ProfilingSupervisor:
         """Stop profiling, kill the profiler subprocess and join the background thread."""
         self._stop.set()
         proc = self._proc
-        if proc is not None and proc.poll() is None:
-            proc.terminate()
+        if proc is not None:
+            proc.terminate()  # a no-op if it has already exited
         thread = self._thread
         if thread is not None:
             thread.join(timeout=timeout)
@@ -107,10 +118,15 @@ class ProfilingSupervisor:
     def _run(self) -> None:
         pid = os.getpid()
         while not self._stop.is_set():
-            if not self._run_once(pid):
+            try:
+                keep_going = self._run_once(pid)
+            except Exception as exc:
+                warnings.warn(f'Logfire profiling: unexpected error, disabling profiling: {exc!r}')
+                return
+            if not keep_going:
                 # A failed chunk is almost always permanent (permissions, platform),
                 # so stop rather than spin and emit the same warning forever.
-                break
+                return
 
     def _run_once(self, pid: int) -> bool:
         """Capture, convert and export one profiling chunk. Returns False on failure."""
@@ -142,22 +158,20 @@ class ProfilingSupervisor:
         """
         with tempfile.TemporaryDirectory(prefix='logfire-profiling-') as tmp:
             out = Path(tmp) / 'chunk.collapsed'
-            cmd = [
-                sys.executable, '-m', 'profiling.sampling', 'attach',
-                '--collapsed', '--all-threads',
-                '-d', str(duration), '-r', str(rate),
-                '-o', str(out), str(pid),
-            ]  # fmt: skip
-            stderr = ''
+            cmd = self._profiler_command(out, pid, duration, rate)
             try:
-                self._proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                _, stderr = self._proc.communicate(timeout=duration + 30)
-            except subprocess.TimeoutExpired:
-                self._kill_proc()
-                warnings.warn('Logfire profiling: profiler subprocess timed out.')
-                return None
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             except OSError as exc:
                 warnings.warn(f'Logfire profiling: could not run the profiler: {exc!r}')
+                return None
+
+            self._proc = proc
+            try:
+                _, stderr = proc.communicate(timeout=duration + _SUBPROCESS_TIMEOUT_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                warnings.warn('Logfire profiling: profiler subprocess timed out.')
                 return None
             finally:
                 self._proc = None
@@ -168,8 +182,11 @@ class ProfilingSupervisor:
                 return None
             return out.read_text()
 
-    def _kill_proc(self) -> None:
-        proc = self._proc
-        if proc is not None and proc.poll() is None:
-            proc.kill()
-            proc.communicate()
+    def _profiler_command(self, out: Path, pid: int, duration: float, rate: int) -> list[str]:
+        """The command line running the profiler against `pid`, writing collapsed stacks to `out`."""
+        return [
+            sys.executable, '-m', 'profiling.sampling', 'attach',
+            '--collapsed', '--all-threads',
+            '-d', str(duration), '-r', str(rate),
+            '-o', str(out), str(pid),
+        ]  # fmt: skip
