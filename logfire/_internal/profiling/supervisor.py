@@ -7,6 +7,9 @@ chunk's collapsed-stack output is converted to OTLP profiles and exported.
 Everything degrades gracefully: if the profiler is unavailable (Python < 3.15)
 or the platform / permissions do not allow attaching, profiling is disabled
 with a warning and the rest of Logfire is unaffected. Nothing here raises.
+
+Profiling does not follow `os.fork()`: the background thread doesn't survive a
+fork, so a forked worker isn't profiled unless it configures Logfire itself.
 """
 
 from __future__ import annotations
@@ -28,11 +31,13 @@ from .collapsed import parse_collapsed
 from .exporter import ProfilesExporter
 from .otlp import MIN_PROTO_VERSION, build_export_request, profiles_proto_is_current
 
-# prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY) lets a same-uid descendant ptrace
-# us without root - which is what the profiler child needs on Linux under the
-# common Yama `ptrace_scope=1`. The constant 0x59616d61 spells "Yama".
+# prctl(PR_SET_PTRACER, <pid>) lets that one process ptrace us without root -
+# which is what the profiler child needs on Linux under the common Yama
+# `ptrace_scope=1`. The constant 0x59616d61 spells "Yama". Naming a pid rather
+# than PR_SET_PTRACER_ANY keeps the exemption as narrow as possible, and pid 0
+# revokes it again.
 _PR_SET_PTRACER = 0x59616D61
-_PR_SET_PTRACER_ANY = ctypes.c_ulong(-1)
+_PTRACER_NONE = 0
 
 _NS_PER_SECOND = 1_000_000_000
 
@@ -48,13 +53,13 @@ def profiler_available() -> bool:
         return False
 
 
-def _allow_child_ptrace() -> None:
-    """Best-effort: let a child process ptrace this one (Linux / Yama only)."""
+def _allow_ptrace_by(pid: int) -> None:
+    """Best-effort: let process `pid` (`_PTRACER_NONE` to revoke) ptrace this one (Linux / Yama only)."""
     if not sys.platform.startswith('linux'):
         return  # macOS / Windows need elevation instead; handled by failing soft
     try:
         libc = ctypes.CDLL(None, use_errno=True)  # not "libc.so.6" - works on musl too
-        libc.prctl(_PR_SET_PTRACER, _PR_SET_PTRACER_ANY, 0, 0, 0)
+        libc.prctl(_PR_SET_PTRACER, pid, 0, 0, 0)
     except (OSError, AttributeError, ValueError):
         pass  # hardened kernel / no prctl - the profiler simply fails its first chunk
 
@@ -82,6 +87,9 @@ class ProfilingSupervisor:
         self._scope_version = scope_version
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        # `_proc` is shared with whoever calls `shutdown`, so `_lock` guards it. Holding the lock
+        # across the spawn is what stops a profiler from starting after a shutdown terminated it.
+        self._lock = threading.Lock()
         self._proc: subprocess.Popen[str] | None = None
 
     def start(self) -> bool:
@@ -99,7 +107,6 @@ class ProfilingSupervisor:
         if self._thread is not None:
             return True  # already running
         self._stop.clear()
-        _allow_child_ptrace()
         self._thread = threading.Thread(target=self._run, name='logfire-profiling', daemon=True)
         self._thread.start()
         return True
@@ -107,13 +114,17 @@ class ProfilingSupervisor:
     def shutdown(self, timeout: float = 5.0) -> None:
         """Stop profiling, kill the profiler subprocess and join the background thread."""
         self._stop.set()
-        proc = self._proc
-        if proc is not None:
-            proc.terminate()  # a no-op if it has already exited
+        with self._lock:
+            proc = self._proc
+            if proc is not None:
+                proc.terminate()  # a no-op if it has already exited
         thread = self._thread
         if thread is not None:
             thread.join(timeout=timeout)
-            self._thread = None
+            if not thread.is_alive():
+                # Only forget a thread that has actually stopped, so that a restart can't leave
+                # two of them profiling (and exporting) at once.
+                self._thread = None
 
     def _run(self) -> None:
         pid = os.getpid()
@@ -158,14 +169,18 @@ class ProfilingSupervisor:
         """
         with tempfile.TemporaryDirectory(prefix='logfire-profiling-') as tmp:
             out = Path(tmp) / 'chunk.collapsed'
-            cmd = self._profiler_command(out, pid, duration, rate)
             try:
-                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                with self._lock:
+                    if self._stop.is_set():
+                        return None  # shutting down: don't start a profiler nobody will terminate
+                    cmd = self._profiler_command(out, pid, duration, rate)
+                    self._proc = proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             except OSError as exc:
                 warnings.warn(f'Logfire profiling: could not run the profiler: {exc!r}')
                 return None
 
-            self._proc = proc
+            # Grant ptrace only to this profiler, only while it runs.
+            _allow_ptrace_by(proc.pid)
             try:
                 _, stderr = proc.communicate(timeout=duration + _SUBPROCESS_TIMEOUT_GRACE_SECONDS)
             except subprocess.TimeoutExpired:
@@ -174,7 +189,9 @@ class ProfilingSupervisor:
                 warnings.warn('Logfire profiling: profiler subprocess timed out.')
                 return None
             finally:
-                self._proc = None
+                _allow_ptrace_by(_PTRACER_NONE)
+                with self._lock:
+                    self._proc = None
 
             if not out.exists() or out.stat().st_size == 0:
                 if not self._stop.is_set():  # an empty file during shutdown is expected

@@ -34,7 +34,7 @@ from logfire._internal.profiling.otlp import (
 )
 from logfire._internal.profiling.supervisor import (
     ProfilingSupervisor,
-    _allow_child_ptrace,  # pyright: ignore[reportPrivateUsage]
+    _allow_ptrace_by,  # pyright: ignore[reportPrivateUsage]
     profiler_available,
 )
 
@@ -343,9 +343,13 @@ def test_capture_chunk_warns_when_the_profiler_writes_nothing(monkeypatch: pytes
         assert supervisor._capture_chunk(os.getpid(), 0.0, 1000) is None  # pyright: ignore[reportPrivateUsage]
 
 
-def test_capture_chunk_is_quiet_about_no_data_while_shutting_down(monkeypatch: pytest.MonkeyPatch):
+def test_capture_chunk_does_not_start_a_profiler_while_shutting_down(monkeypatch: pytest.MonkeyPatch):
     supervisor = _supervisor()
-    _run_fake_profiler(supervisor, monkeypatch, [sys.executable, '-c', ''])
+
+    def fail(out: Path, pid: int, duration: float, rate: int) -> list[str]:  # pragma: no cover
+        raise AssertionError('should not spawn a profiler after shutdown')
+
+    monkeypatch.setattr(supervisor, '_profiler_command', fail)
     supervisor.shutdown()  # sets the stop flag without ever having started
 
     assert supervisor._capture_chunk(os.getpid(), 0.0, 1000) is None  # pyright: ignore[reportPrivateUsage]
@@ -368,16 +372,16 @@ def test_capture_chunk_kills_a_profiler_that_overruns(monkeypatch: pytest.Monkey
         assert supervisor._capture_chunk(os.getpid(), 0.0, 1000) is None  # pyright: ignore[reportPrivateUsage]
 
 
-def test_allow_child_ptrace_is_a_no_op_off_linux(monkeypatch: pytest.MonkeyPatch):
+def test_allow_ptrace_is_a_no_op_off_linux(monkeypatch: pytest.MonkeyPatch):
     def fail(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
         raise AssertionError('should not touch libc off Linux')
 
     monkeypatch.setattr(sys, 'platform', 'darwin')
     monkeypatch.setattr(ctypes, 'CDLL', fail)
-    _allow_child_ptrace()
+    _allow_ptrace_by(4321)
 
 
-def test_allow_child_ptrace_calls_prctl_on_linux(monkeypatch: pytest.MonkeyPatch):
+def test_allow_ptrace_calls_prctl_on_linux(monkeypatch: pytest.MonkeyPatch):
     calls: list[tuple[Any, ...]] = []
 
     class FakeLibc:
@@ -390,20 +394,19 @@ def test_allow_child_ptrace_calls_prctl_on_linux(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(sys, 'platform', 'linux')
     monkeypatch.setattr(ctypes, 'CDLL', fake_cdll)
-    _allow_child_ptrace()
+    _allow_ptrace_by(4321)
 
-    # PR_SET_PTRACER, PR_SET_PTRACER_ANY, then the three unused prctl arguments.
-    [(option, ptracer, *rest)] = calls
-    assert (option, ptracer.value, rest) == (0x59616D61, ctypes.c_ulong(-1).value, [0, 0, 0])
+    # PR_SET_PTRACER, the one process allowed to attach, then the three unused prctl arguments.
+    assert calls == [(0x59616D61, 4321, 0, 0, 0)]
 
 
-def test_allow_child_ptrace_ignores_a_hardened_kernel(monkeypatch: pytest.MonkeyPatch):
+def test_allow_ptrace_ignores_a_hardened_kernel(monkeypatch: pytest.MonkeyPatch):
     def raise_os_error(*args: Any, **kwargs: Any) -> None:
         raise OSError('no libc for you')
 
     monkeypatch.setattr(sys, 'platform', 'linux')
     monkeypatch.setattr(ctypes, 'CDLL', raise_os_error)
-    _allow_child_ptrace()  # must not raise
+    _allow_ptrace_by(4321)  # must not raise
 
 
 def wait_for_check_token_thread():
@@ -574,3 +577,28 @@ def test_profiler_command_targets_this_process():
             '123',
         ]
     )
+
+
+def test_shutdown_keeps_the_thread_it_could_not_join(monkeypatch: pytest.MonkeyPatch):
+    _enable_profiler(monkeypatch)
+    supervisor = _supervisor()
+    release = threading.Event()
+
+    def blocking_capture(pid: int, duration: float, rate: int) -> str | None:
+        release.wait(timeout=10)
+        return None
+
+    monkeypatch.setattr(supervisor, '_capture_chunk', blocking_capture)
+    assert supervisor.start() is True
+
+    # The loop is stuck in a chunk, so this join times out.
+    supervisor.shutdown(timeout=0.01)
+    thread = supervisor._thread  # pyright: ignore[reportPrivateUsage]
+    # A restart must not add a second thread while this one is still going.
+    assert thread is not None and thread.is_alive()
+    assert supervisor.start() is True
+    assert supervisor._thread is thread  # pyright: ignore[reportPrivateUsage]
+
+    release.set()
+    supervisor.shutdown(timeout=10)
+    assert supervisor._thread is None  # pyright: ignore[reportPrivateUsage]
