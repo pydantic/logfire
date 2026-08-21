@@ -26,9 +26,9 @@ The usual causes are a wrong clock on the sending host, data buffered offline an
 
 ## Truncation
 
-Attributes and long text fields are never rejected for being too big, only shortened. A record over 10 MB has its largest values cut down until it fits.
+Attributes and long text fields are never rejected for being too big, only shortened. A record over 10 MB has its largest values cut down until it fits, so keeping records under 10 MB avoids that.
 
-Values cut to fit that limit are listed in the record's `logfire.truncated` attribute, and the record's detail panel in the [Live view](../guides/web-ui/live.md) shows a **Truncation** section naming them. The fixed-length fields in the table above are a different case: they are shortened silently, so a span name or message cut at 512 bytes is not flagged anywhere. Keeping a record under 10 MB avoids truncation entirely.
+Values cut to fit that limit are listed in the record's `logfire.truncated` attribute, and the record's detail panel in the [Live view](../guides/web-ui/live.md) shows a **Truncation** section naming them. The fixed-length fields in the table above are a different case: they are capped whatever the record's size, and shortened silently, so a span name cut at 512 bytes is not flagged anywhere.
 
 ## Summary metrics are not supported
 
