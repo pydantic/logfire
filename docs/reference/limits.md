@@ -11,8 +11,8 @@ Logfire applies a few limits to the data you send. Going past one either **drops
 | --- | --- | --- |
 | Request size | 100 MB | The request is rejected and none of it is stored |
 | Timestamp range | 24 hours in the past to 1 hour in the future | Records outside the window are dropped; the rest of the request is stored |
-| Attributes per record | 10 MB | Oversized values are shortened; the record is stored |
-| Long text fields | 512 bytes for span names, messages, and service names; 32,000 bytes for exception messages and stack traces | The value is shortened; the record is stored |
+| Size of one span, log, or metric point | 10 MB | Oversized values are shortened; the record is stored |
+| Long text fields | 512 bytes for span names, service names, and the message shown in the UI; 32,000 bytes for exception messages and stack traces | The value is shortened; the record is stored |
 
 The limits are the same in the [US and EU regions](data-regions.md) and are not configurable per project. Separately, [Summary metrics](#summary-metrics-are-not-supported) are not stored at all.
 
@@ -26,9 +26,9 @@ The usual causes are a wrong clock on the sending host, data buffered offline an
 
 ## Truncation
 
-Attributes and long text fields are never rejected for being too big, only shortened. A record whose attributes exceed 10 MB has its largest values cut down until it fits, and a log's `body` gets its own 10 MB budget separate from the much shorter message.
+Attributes and long text fields are never rejected for being too big, only shortened. A record over 10 MB has its largest values cut down until it fits.
 
-Values cut to fit that budget are listed in the record's `logfire.truncated` attribute, and the record's detail panel in the [Live view](../guides/web-ui/live.md) shows a **Truncation** section naming them. The fixed-length fields in the table above are a different case: they are shortened silently, so a span name or message cut at 512 bytes is not flagged anywhere.
+Values cut to fit that limit are listed in the record's `logfire.truncated` attribute, and the record's detail panel in the [Live view](../guides/web-ui/live.md) shows a **Truncation** section naming them. The fixed-length fields in the table above are a different case: they are shortened silently, so a span name or message cut at 512 bytes is not flagged anywhere. Keeping a record under 10 MB avoids truncation entirely.
 
 ## Summary metrics are not supported
 
@@ -43,7 +43,7 @@ A `Summary` is dropped and never reaches the metrics catalog, while the other me
 | The exporter reports the payload is too large and a batch never arrives | The request was over 100 MB | Lower the batch size for that signal (`OTEL_BSP_MAX_EXPORT_BATCH_SIZE` for spans, `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` for logs), and shrink individual records: a smaller batch does not help when one record is itself oversized |
 | Data from one host never appears, and the project has `logfire ingest error` records | That host's clock has drifted outside the window | Run a time sync daemon on the host |
 | A backfill or replay produces no data | The records are older than 24 hours | Backfilling historical data is not supported |
-| A value displays with `...` in the middle | The record was over the 10 MB attribute budget | Check the **Truncation** section on the record to see everything that was cut |
+| A value displays with `...` in the middle | The record was over 10 MB | Check the **Truncation** section on the record to see everything that was cut |
 | A message is cut short and the rest is nowhere | The message field stores 512 bytes and the original is not kept | Also write the full text to an attribute of your own |
 | One metric never appears while others from the same source do | It is an OTLP `Summary` | Send a histogram instead |
 
