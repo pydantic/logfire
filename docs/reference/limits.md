@@ -14,7 +14,7 @@ Logfire applies a few limits to the data you send. Going past one either **drops
 | Size of one span, log, or metric point | 10 MB | Oversized values are shortened; the record is stored |
 | Long text fields | 512 bytes for span names, service names, and the message shown in the UI; 32,000 bytes for exception messages and stack traces | The value is shortened; the record is stored |
 
-The limits are the same in the [US and EU regions](data-regions.md) and are not configurable per project. Separately, [Summary metrics](#summary-metrics-are-not-supported) are not stored at all.
+The limits above are the same in the [US and EU regions](data-regions.md), the same whether you send over HTTP or gRPC, and are not configurable per project. Only the error code differs by protocol: an oversized request is refused with `413 Payload Too Large` on HTTP and `OUT_OF_RANGE` on gRPC. Separately, [Summary metrics](#summary-metrics-are-not-supported) are not stored at all.
 
 ## Timestamps
 
@@ -40,7 +40,7 @@ A `Summary` is dropped on arrival. When a request carries `Summary` metrics alon
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| The exporter reports the payload is too large and a batch never arrives | The request was over 100 MB | Lower the batch size for that signal (`OTEL_BSP_MAX_EXPORT_BATCH_SIZE` for spans, `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` for logs), and shrink individual records: a smaller batch does not help when one record is itself oversized |
+| The exporter reports `413` or `OUT_OF_RANGE` and a batch never arrives | The request was over 100 MB | Lower the batch size for that signal (`OTEL_BSP_MAX_EXPORT_BATCH_SIZE` for spans, `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` for logs), and shrink individual records: a smaller batch does not help when one record is itself oversized |
 | Data from one host never appears, and the project has `logfire ingest error` records | That host's clock has drifted outside the window | Run a time sync daemon on the host |
 | A backfill or replay produces no data | The records are older than 24 hours | Backfilling historical data is not supported |
 | A value displays with `...` in the middle | The record was over 10 MB | Check the **Truncation** section on the record to see everything that was cut |
