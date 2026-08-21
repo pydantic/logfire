@@ -137,6 +137,8 @@ if TYPE_CHECKING:
     from logfire.variables.variable import TemplateVariable, Variable
 
     from .main import Logfire
+    from .profiling.exporter import ProfilesExporter
+    from .profiling.supervisor import ProfilingSupervisor
 
 
 CREDENTIALS_FILENAME = 'logfire_credentials.json'
@@ -516,6 +518,7 @@ def configure(
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
+    profiling: bool = False,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
     """Configure the logfire SDK.
@@ -600,6 +603,9 @@ def configure(
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
         advanced: Advanced options primarily used for testing by Logfire developers.
+        profiling: **Experimental.** Set to `True` to continuously profile this process with the
+            Python 3.15+ sampling profiler and send CPU profiles to Logfire. A no-op with a
+            warning on older Pythons or unsupported platforms.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
 
@@ -735,6 +741,7 @@ def configure(
             variables=variables,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
+            profiling=profiling,
         )
     except LogfireConfigError as e:
         raise e.with_traceback(None)
@@ -825,6 +832,9 @@ class _LogfireConfigData:
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
+    profiling: bool
+    """Whether to continuously profile this process (experimental)."""
+
     def _load_configuration(
         self,
         # note that there are no defaults here so that the only place
@@ -851,6 +861,7 @@ class _LogfireConfigData:
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
+        profiling: bool,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
         self.param_manager = param_manager = ParamManager.create(config_dir)
@@ -965,6 +976,8 @@ class _LogfireConfigData:
             metrics = MetricsOptions()
         self.metrics = metrics
 
+        self.profiling = profiling
+
 
 def _register_at_fork_resource_updates(
     proxy_tracer_provider: ProxyTracerProvider,
@@ -1040,6 +1053,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
+        profiling: bool = False,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -1071,6 +1085,7 @@ class LogfireConfig(_LogfireConfigData):
             variables=variables,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
+            profiling=profiling,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
         # that is, we defer setting logfire as the otel global config until `configure` is called
@@ -1086,6 +1101,7 @@ class LogfireConfig(_LogfireConfigData):
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
+        self._profiling_supervisor: ProfilingSupervisor | None = None
         self._lock = RLock()
 
     def configure(
@@ -1111,6 +1127,7 @@ class LogfireConfig(_LogfireConfigData):
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
+        profiling: bool,
     ) -> None:
         with self._lock:
             self._initialized = False
@@ -1136,6 +1153,7 @@ class LogfireConfig(_LogfireConfigData):
                 variables,
                 distributed_tracing,
                 advanced,
+                profiling,
             )
             self.initialize()
 
@@ -1235,11 +1253,16 @@ class LogfireConfig(_LogfireConfigData):
         if self._initialized:  # pragma: no cover
             return
 
+        if self._profiling_supervisor is not None:
+            self._profiling_supervisor.shutdown()
+            self._profiling_supervisor = None
+
         emscripten = platform_is_emscripten()
         otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
             resource = self._build_resource()
+            profiles_exporter: ProfilesExporter | None = None
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -1375,6 +1398,14 @@ class LogfireConfig(_LogfireConfigData):
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
+                        if self.profiling and profiles_exporter is None:
+                            # Imported lazily: the profiles protobuf bindings are only needed here.
+                            # Only the first token gets profiles - the signal has no multi-destination support yet.
+                            from .profiling.exporter import PROFILES_PATH, ProfilesExporter
+
+                            profiles_exporter = ProfilesExporter(
+                                session, urljoin(base_url, PROFILES_PATH), headers=headers
+                            )
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
@@ -1598,6 +1629,19 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
+        if profiles_exporter is not None:
+            from .profiling.otlp import resource_from_attributes
+            from .profiling.supervisor import ProfilingSupervisor
+
+            self._profiling_supervisor = ProfilingSupervisor(
+                profiles_exporter,
+                resource=resource_from_attributes(resource.attributes),
+                scope_version=VERSION,
+            )
+            self._profiling_supervisor.start()
+        elif self.profiling:
+            warnings.warn('Logfire profiling needs a Logfire token to send profiles to; disabled.')
+
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.
 
@@ -1623,6 +1667,11 @@ class LogfireConfig(_LogfireConfigData):
         complete = True
         self._variable_provider.shutdown(timeout_millis=remaining_ms())
         remaining = remaining_ms()
+
+        if self._profiling_supervisor is not None:
+            self._profiling_supervisor.shutdown(timeout=remaining / 1000)
+            self._profiling_supervisor = None
+            remaining = remaining_ms()
 
         forwarding_shutdown_result = self._otlp_forwarding.shutdown(remaining, drain_queued=flush)
         complete = complete and forwarding_shutdown_result
