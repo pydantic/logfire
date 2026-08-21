@@ -224,7 +224,7 @@ def test_supervisor_profiles_and_exports(monkeypatch: pytest.MonkeyPatch):
         calls.append(pid)
         if len(calls) == 1:
             return fixture_text
-        supervisor.shutdown(timeout=0)  # the loop stops after finishing this chunk
+        supervisor._stop.set()  # pyright: ignore[reportPrivateUsage]  # the loop stops after finishing this chunk
         return ''
 
     monkeypatch.setattr(supervisor, '_capture_chunk', fake_capture)
@@ -506,14 +506,19 @@ def test_parse_collapsed_tolerates_odd_lines():
 @requires_current_proto
 def test_build_export_request_without_thread_ids():
     resource = resource_from_attributes({'service.name': 'my-service'})
-    request = build_export_request(parse_collapsed('a.py:f:1;b.py:g:2 5'), resource=resource, profile_id=PROFILE_ID)
+    request = build_export_request(
+        parse_collapsed('a.py:f:1;b.py:g:2 5\na.py:f:1;b.py:g:2 7'), resource=resource, profile_id=PROFILE_ID
+    )
 
     [resource_profiles] = request.resource_profiles
     assert [attribute.key for attribute in resource_profiles.resource.attributes] == ['service.name']
     [profile] = resource_profiles.scope_profiles[0].profiles
-    [sample] = profile.samples
-    # Without a thread id there's nothing to attribute the sample with.
-    assert list(sample.attribute_indices) == []
+    # The two lines share a stack, so they share the one interned stack-table entry.
+    assert [sample.stack_index for sample in profile.samples] == [0, 0]
+    assert [sample.values[0] for sample in profile.samples] == [5, 7]
+    assert len(request.dictionary.stack_table) == 1
+    # Without a thread id there's nothing to attribute the samples with.
+    assert [list(sample.attribute_indices) for sample in profile.samples] == [[], []]
     assert list(request.dictionary.attribute_table) == []
 
 
@@ -545,3 +550,27 @@ def test_shutdown_terminates_a_running_profiler(monkeypatch: pytest.MonkeyPatch)
     # Terminating the profiler leaves no output, which is expected during shutdown and so isn't warned about.
     supervisor.shutdown(timeout=10)
     assert supervisor._thread is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_profiler_command_targets_this_process():
+    supervisor = ProfilingSupervisor(
+        ProfilesExporter(_FakeSession(_FakeResponse(200)), ENDPOINT), sample_rate_hz=2000, chunk_duration_seconds=30.0
+    )
+    command = supervisor._profiler_command(Path('/tmp/chunk.collapsed'), 123, 30.0, 2000)  # pyright: ignore[reportPrivateUsage]
+
+    assert command[:2] == [sys.executable, '-m']
+    assert command[2:] == snapshot(
+        [
+            'profiling.sampling',
+            'attach',
+            '--collapsed',
+            '--all-threads',
+            '-d',
+            '30.0',
+            '-r',
+            '2000',
+            '-o',
+            '/tmp/chunk.collapsed',
+            '123',
+        ]
+    )
