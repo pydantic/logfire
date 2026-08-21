@@ -1051,7 +1051,7 @@ class Logfire:
         include: Iterable[str] = (),
         exclude: Iterable[str] = (),
     ) -> None:
-        """Instrument Pydantic model validations.
+        r"""Instrument Pydantic model validations.
 
         This must be called before defining and importing the model classes you want to instrument.
         See the [Pydantic integration guide](https://logfire.pydantic.dev/docs/integrations/pydantic/) for more info.
@@ -1064,9 +1064,15 @@ class Logfire:
                 - `metrics`: Send only metrics.
                 - `off`: Disable instrumentation.
             include:
-                By default, third party modules are not instrumented. This option allows you to include specific modules.
+                Regular expressions for the models to instrument, matched against `<module>::<class name>`.
+                Empty by default, which instruments every model, including models defined by third-party
+                packages. Models in `fastapi`, `fastui` and `logfire_backend` are the exception, and are
+                never instrumented. Patterns are anchored at the end but not at the start, so `apps\..*`
+                also matches `django.apps.config`; write `^apps\..*` to match from the beginning of the
+                module path.
             exclude:
-                Exclude specific modules from instrumentation.
+                Regular expressions for the models to leave uninstrumented, matched the same way as `include`.
+                Checked before `include`, so a model matching both is not instrumented.
         """
         # Note that unlike most instrument_* methods, we intentionally don't call
         # _warn_if_not_initialized_for_instrumentation, because this method needs to be called early.

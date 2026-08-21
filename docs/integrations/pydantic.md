@@ -73,24 +73,37 @@ imported *after* that call.
 
 ## Advanced
 
-### Third-party modules
+### Choosing which models to instrument
 
-By default the plugin does not instrument third-party modules, to avoid noise. Opt specific ones in
-with the [`include`][logfire.PydanticPlugin.include] setting:
+The plugin instruments **every** Pydantic model in the process, including models defined by the
+libraries you depend on. In an application with a few large dependencies that can be thousands of
+model classes, and with `record='failure'` it also records validations those libraries perform
+deliberately — several use a failed validation as control flow and fall back to another schema, so
+the failure is expected rather than a problem you can act on.
 
-```py skip-run="true" skip-reason="global-instrumentation"
-import logfire
-
-logfire.instrument_pydantic(include={'openai'})
-```
-
-Opt your own modules out with the [`exclude`][logfire.PydanticPlugin.exclude] setting:
+Narrow it to your own code with the [`include`][logfire.PydanticPlugin.include] setting:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
-logfire.instrument_pydantic(exclude={'app.api.v1'})
+logfire.instrument_pydantic(include={r'^apps\..*'})
 ```
+
+Patterns are regular expressions matched against `<module>::<class name>`, and they are anchored at
+the end but not at the start. `apps\..*` on its own therefore also matches `django.apps.config`,
+which is why the example begins with `^`.
+
+Use [`exclude`][logfire.PydanticPlugin.exclude] to leave particular models out. It is checked before
+`include`, so a model matching both is not instrumented:
+
+```py skip-run="true" skip-reason="global-instrumentation"
+import logfire
+
+logfire.instrument_pydantic(exclude={r'^apps\.api\.v1\..*'})
+```
+
+Models in `fastapi`, `fastui` and `logfire_backend` are never instrumented, regardless of these
+settings.
 
 ### Per-model configuration
 
