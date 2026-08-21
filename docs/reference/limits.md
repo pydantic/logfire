@@ -18,7 +18,7 @@ The limits are the same in the [US and EU regions](data-regions.md) and are not 
 
 ## Timestamps
 
-Logfire accepts timestamps from **24 hours in the past** to **1 hour in the future**, measured against Logfire's clock when the request arrives, not the clock of the machine that sent it. Every timestamp is checked: a span's start and end, each span event, a log's timestamp, and each metric data point.
+Logfire accepts timestamps from **24 hours in the past** to **1 hour in the future**, measured against Logfire's clock when the request arrives, not the clock of the machine that sent it. This covers a span's start and end, each span event, a log's timestamp, and each metric point's own timestamp. A metric point's *start* timestamp is checked only against the future bound, because for a cumulative metric it is often when the process booted and legitimately old.
 
 This limit can look like data silently going missing, because a request only partly outside the window still succeeds: Logfire drops the records outside it, stores the rest, answers with a partial success, and writes an explanation into your project as a span named `logfire ingest error`. Search for that if data you expected never arrived. When every record in a request falls outside the window, as in a backfill, the request fails outright.
 
