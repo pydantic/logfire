@@ -125,7 +125,7 @@ with LogfireAPIClient(api_key='your-api-key') as client:
 
 !!! note "Server-side limits on writes"
 
-    Cases are validated against the hosted dataset's JSON schemas on every write, and a request whose cases do not match is rejected in full rather than partially applied. A hosted dataset also holds at most 10,000 cases, so a bulk import beyond that fails instead of truncating. See [Manage datasets](manage-datasets.md#schemas-are-enforced-on-every-write).
+    Cases are validated against the hosted dataset's JSON schemas on every write, and a request whose cases do not match is rejected in full rather than partially applied. A hosted dataset also holds at most 10,000 cases, counted as the cases a push would create: updating existing named cases does not consume capacity, while every unnamed case does. A push that would exceed the limit fails instead of truncating. See [Manage datasets](manage-datasets.md#schemas-are-enforced-on-every-write).
 
 !!! note "Round-tripping evaluators"
 

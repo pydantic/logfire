@@ -86,7 +86,7 @@ Cases reach a hosted dataset three ways. They combine freely in one dataset:
 
 Adding from Live view is the path that turns production behavior into test cases, and it is usually where a shared dataset starts. The SDK is the only path that scales to many cases at once; the Cases tab reaches it through the code snippets described above, so bulk work runs from your machine rather than in the browser.
 
-A hosted dataset holds at most **10,000 cases**. Adding a case beyond that limit is rejected, including in bulk, so a large import needs splitting across datasets.
+A hosted dataset holds at most **10,000 cases**, counted as the cases a write would create. Updating a case that already matches by name does not consume capacity, so a dataset sitting at the limit can still be re-pushed; a case with no name always counts as new. An import that would take the dataset past 10,000 is rejected as a whole rather than partly applied, so a large one needs splitting across datasets.
 
 ### Schemas are enforced on every write
 
@@ -136,7 +136,7 @@ This is expected when the cases remain only in code. Use **Sync cases to Logfire
 
 Widen the time range and clear the type filter. Also check **Hidden** if you previously hid the dataset for yourself.
 
-If the project has a very large number of dataset names, the list is capped and keeps the most recently active names, so an older one can fall outside it. Search by name rather than scrolling: the search runs before the cap is applied, so it reaches datasets the list itself does not show.
+The code-defined half of the list is capped: if the project has a very large number of dataset names, it keeps the most recently active ones and an older name can fall outside the cap. Hosted datasets are not capped. Search by name rather than scrolling, because the search runs before the cap is applied and so reaches names the list itself does not show.
 
 A code-defined dataset also disappears once all of its experiments are archived, because nothing is left to derive it from. Hosted datasets are unaffected. Restore the dataset by unarchiving an experiment, or create a hosted dataset with that name to keep it in the list permanently.
 
