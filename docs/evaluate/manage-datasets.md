@@ -86,7 +86,13 @@ A hosted dataset holds at most **10,000 cases**. Adding a case beyond that limit
 
 ### Schemas are enforced on every write
 
-If a dataset defines schemas, they are enforced on every write, not just used as a hint for teammates. Logfire validates each case against them whenever you add, update, or import one, through the UI and the SDK alike, and rejects the whole request when a field does not match. The error names the failing field and the reason.
+If a dataset defines schemas, they are enforced on every write, not just used as a hint for teammates. Logfire validates each case against them whenever you add, update, or import one, through the UI and the SDK alike, and rejects the whole request when a field does not match. A bulk import is rejected in full rather than partially applied.
+
+The error names the failing field and the reason, for example:
+
+```text
+Schema validation failed: inputs.question: 123 is not of type 'string'
+```
 
 Two details matter when you plan a schema:
 
