@@ -353,5 +353,25 @@ The table below lists the full tool set for the `/mcp` endpoint.
 | Notification channels | Create and manage organization-level destinations for alert notifications (for example webhooks/Opsgenie). | `channel_create_webhook`, `channel_create_opsgenie`, `channel_list`, `channel_get`, `channel_update_webhook`, `channel_update_opsgenie`, `channel_delete` |
 | Notification schedules | Create and manage schedule windows that gate alert notification delivery. | `schedule_create`, `schedule_list`, `schedule_get`, `schedule_update`, `schedule_delete` |
 | Issue tracking | List tracked exception issues and triage them by state. | `issue_list`, `issue_set_states` |
-| Managed variables (feature flags) | Create and manage variables, versions, labels, and rollout behavior. | `variable_create`, `variable_list`, `variable_get`, `variable_list_versions`, `variable_update`, `variable_delete`, `variable_update_rollout`, `variable_create_version`, `variable_assign_label` |
+| Managed variables (feature flags) | Create and manage variables, versions, labels, and rollout behavior. | `variable_list`, `variable_get`, `variable_resolve`, `variable_manage`, `variable_delete` |
 | Local development bootstrap | Create a local dev session (including token/env setup) for sending telemetry. | `local_dev_session` |
+
+### Managed variable tools
+
+The managed variable write tools are consolidated, so one tool covers several operations through a
+dispatch parameter:
+
+- `variable_manage` performs every non-destructive write, selected with its `action` parameter:
+  `create`, `update`, `create_version`, `update_rollout`, and `assign_label`. Each action takes the
+  one argument bundle it needs (`metadata`, `version`, `rollout`, or `label`).
+- `variable_delete` performs the destructive operations, selected with its `target` parameter:
+  `variable` (the whole variable, the default), `version` (a single version), or `label` (a label,
+  leaving its versions intact).
+
+Keeping the destructive operations in their own tool lets clients rely on the `destructiveHint`
+annotation, which agents use to decide when to ask for confirmation.
+
+On the read side, `variable_get` returns versions, rollout change history, and the assignment
+history of a label through its `include` parameter (`"versions"`, `"routing_history"`, and
+`"label_history"`, the last of which also needs `label`). `variable_resolve` returns the value a
+given evaluation context would be served.
