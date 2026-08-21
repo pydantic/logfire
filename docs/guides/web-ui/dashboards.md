@@ -75,11 +75,12 @@ To enable a standard dashboard:
 
 1. Go to the <OpenInLogfire path="dashboards" variant="inline" label="Dashboards" /> tab in the top navigation bar.
 2. Click the **+ Dashboard** button.
-3. Browse the list of available dashboards under the **Standard** tab.
-![Standard dashboards](../../images/guide/browser-standard-dashboards-list.png)
+3. Browse the available dashboards under the **Agents**, **Infrastructure**, and **Logfire** tabs.
 4. Click **Enable dashboard** to add it to your project.
 
 You can view and interact with standard dashboards, but you cannot edit them.
+
+The **Infrastructure** tab does not list dashboards for services such as Redis, PostgreSQL, and Kafka. Each of those arrives with the matching [integration](integrations.md), which installs the dashboard together with that service's health alerts, detection, and setup instructions. If you already have one of these dashboards enabled, it stays enabled and keeps working; install the matching integration when you want the rest of what it brings.
 
 ### Using a Standard Dashboard as a Template
 

@@ -13,7 +13,7 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
 ## What an integration installs
 
-- **A standard dashboard.** A curated set of panels for the service. For Redis: memory against `maxmemory`, command throughput, keyspace hit ratio, evictions, connected clients, and replication. Standard dashboards render from one definition Logfire maintains, so installing enables it for your project rather than copying it. There is no per-project copy to drift.
+- **A standard dashboard.** A curated set of panels for the service. For Redis: memory against `maxmemory`, command throughput, keyspace hit ratio, evictions, connected clients, and replication. Standard dashboards render from one definition Logfire maintains, so installing enables it for your project rather than copying it. There is no per-project copy to drift. Installing the integration is how you enable it: infrastructure dashboards are not listed on the [Dashboards](dashboards.md) page alongside the general-purpose ones.
 - **Alerts.** Health alerts grounded in the service's own operational guidance. For Redis: memory near `maxmemory`, high eviction rate, low keyspace hit ratio, rejected connections, and high memory fragmentation. Every integration also includes a *not reporting metrics* alert that fires when the service stops sending telemetry.
 - **Setup instructions.** The OpenTelemetry Collector receiver configuration to scrape the service, ready to copy.
 - **Detection.** A check that confirms the service's metrics are already arriving in your project, so you only install what is relevant.
@@ -33,7 +33,13 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
     - Or find one integration and select **Install** on its row, or open it with **View details** and install from there.
 4. **Attach a notification channel.** Open the integration's **Alerts** tab, or your project's [Alerts](alerts.md) page, and give the alerts a channel and schedule so they can reach you.
 
-When Logfire updates an integration's content, its status changes to **Update available** and an **Update** action appears. Applying it re-syncs the dashboards and alerts to the current definition. Any notification channel you attached, and any diagnostic alert you switched on, are preserved.
+Integrations keep themselves current. When Logfire revises an integration's content, your installed alerts are brought in line automatically, and its dashboards render from Logfire's definition rather than a per-project copy, so a revised dashboard is already the one you are looking at.
+
+A sync rewrites the alert's own definition: its name, description, query, and evaluation windows. A correction to an alert's query therefore reaches alerts you have already installed. It never touches what you chose: the notification channel you attached, or whether the alert is switched on.
+
+Because the on and off state is yours, it is set only at install. If Logfire later changes whether an alert is recommended or diagnostic, that applies to new installs; an alert you already have stays as you left it, and you can switch it off yourself.
+
+An integration can show **Update available** with an **Update** action in the window between a Logfire release and the sync that follows it. Selecting it is safe but not required: it applies the same content sync, and additionally re-enables any of the integration's dashboards you had turned off.
 
 **Uninstall** deletes the alerts the integration created and disables its bundled dashboards for the project. Alerts and dashboards you made yourself are left alone.
 
