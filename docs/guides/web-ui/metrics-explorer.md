@@ -40,7 +40,7 @@ Aggregations default sensibly by metric kind, with the rest available from the d
 | Histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
 | Exponential histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
 
-Those four kinds are the whole list. Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a legacy type that carries pre-computed quantiles instead of buckets: a `Summary` is dropped at ingest and never reaches the catalog. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
+Those four kinds are the whole list. Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a legacy type that carries pre-computed quantiles instead of buckets: a `Summary` is dropped at ingest, emitting an error into your project. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
 
 !!! note "Percentiles on histograms"
     The wizard does not expose `p50`/`p95`/`p99` directly on histogram-typed metrics today: pre-aggregated histograms (e.g. `http.server.request.duration` from OTel SDK instrumentations) report `avg`, `min`, `max`, `count` and `sum` in the wizard. For percentiles over a histogram, switch to [SQL Workbench](explore.md) and use the histogram bucket columns; the **Open in SQL Workbench** button on every card hands you a query you can extend.
@@ -96,7 +96,7 @@ Refresh the Metrics view. `hello` appears in **Recently active** and as its own 
 |---------|--------------|
 | Metric appears in the catalog but the chart is empty | The metric stopped reporting within the current window. The wizard hides metrics with no recent data, but the catalog entry remains. Widen the time picker. |
 | Custom metric lands in **Everything else** instead of its own namespace | The metric name has no dot (e.g. `requests_total` instead of `app.requests.total`). The grouping is structural: give the name a dotted prefix to create a namespace. |
-| One metric never appears in the catalog while others from the same source do | It is an OTLP `Summary`, which Logfire does not store. Check for a `logfire ingest error` record naming the metric, and see [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported). |
+| One metric never appears in the catalog while others from the same source do | It is a `Summary` metric, a legacy type that OTLP itself discourages and Logfire does not store. Check for a `logfire ingest error` record naming the metric, and see [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported). |
 | Step 1 shows no namespaces at all | The project hasn't received any metric samples yet. The wizard reads from `metrics`-table data; if you're sending only spans, no namespaces will appear here. |
 | Two metric sources show up under `system.*` with overlapping series | The SDK's [system-metrics integration](../../integrations/system-metrics.md) and an OpenTelemetry Collector running `hostmetricsreceiver` are both running on the same host. See the [double-counting note](#how-the-data-flows-in). |
 | Promoting a dimension shows fewer series than the cardinality card claimed | The chart truncates after a fixed number of series. For full breakdowns of a high-cardinality dimension, open [SQL Workbench](explore.md) from the **Open in SQL Workbench** button on the card. |

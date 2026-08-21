@@ -20,7 +20,7 @@ The limits are the same in the [US and EU regions](data-regions.md) and are not 
 
 Logfire accepts timestamps from **24 hours in the past** to **1 hour in the future**, measured against Logfire's clock when the request arrives, not the clock of the machine that sent it. Every timestamp is checked: a span's start and end, each span event, a log's timestamp, and each metric data point.
 
-This is the limit that most often looks like data silently going missing, because the request itself succeeds. Records outside the window are dropped, the rest of the request is stored, and Logfire writes an explanation into your project as a span named `logfire ingest error`. Search for that if data you expected never arrived.
+This limit can look like data silently going missing, because a request only partly outside the window still succeeds: Logfire drops the records outside it, stores the rest, answers with a partial success, and writes an explanation into your project as a span named `logfire ingest error`. Search for that if data you expected never arrived. When every record in a request falls outside the window, as in a backfill, the request fails outright.
 
 The usual causes are a wrong clock on the sending host, data buffered offline and exported much later, and attempts to load historical data. Backfilling records older than 24 hours is not supported.
 
@@ -34,7 +34,7 @@ Values cut to fit that limit are listed in the record's `logfire.truncated` attr
 
 Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a legacy type that reports quantiles the sender has already computed. Quantiles that arrive pre-computed cannot be re-aggregated: averaging two p95 values from two hosts does not give the p95 across both.
 
-A `Summary` is dropped and never reaches the metrics catalog, while the other metrics in the same request are stored. They usually come from a Prometheus scrape forwarded through an OpenTelemetry Collector, whose `prometheus` receiver turns every Prometheus summary into an OTLP `Summary`. Send a histogram instead and compute percentiles at query time.
+A `Summary` is dropped on arrival. When a request carries `Summary` metrics alongside supported ones, Logfire stores the supported metrics, drops the summaries, and answers with a partial success; when every metric in the request is a `Summary`, the request fails outright. They usually come from a Prometheus scrape forwarded through an OpenTelemetry Collector, whose `prometheus` receiver turns every Prometheus summary into an OTLP `Summary`. Send a histogram instead and compute percentiles at query time.
 
 ## Troubleshooting
 
