@@ -35,8 +35,8 @@ class NonInteractiveError(LogfireConfigError):
     Carries the guidance the user needs rather than a traceback: the CLI catches this and
     prints `message` before exiting non-zero. Raised either because `--non-interactive`
     said so up front (`require_answer`), or because stdin ran out before an answer arrived
-    (`ask_required`) -- the same message either way, since both mean the same thing to
-    whoever reads it.
+    (`ask_required`) -- the same question/remedy structure either way (only the reason
+    line differs), since both mean the same thing to whoever reads it.
     """
 
 
@@ -102,8 +102,10 @@ def ask_required(ask: Callable[[], T], question: str, remedy: str, *more_remedie
     The reactive half of `require_answer`'s proactive check: that covers a caller who
     declared `--non-interactive` up front, this covers one that did not but ran out of
     input anyway -- a command copied out of the docs into an agent, mid-conversation.
-    Raises the identical `NonInteractiveError` message either way, since both mean the
-    same thing to whoever reads it: there was no answer, and here is how to supply one.
+    Raises the same `NonInteractiveError` structure `require_answer` would -- question,
+    then reason, then remedies -- with a reason line naming stdin instead of the flag,
+    since both mean the same thing to whoever reads it: there was no answer, and here is
+    how to supply one.
     """
     try:
         return ask()

@@ -3405,6 +3405,130 @@ def test_projects_use_wrong_project(
         }
 
 
+def test_projects_use_expands_search_with_no_tty(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """ "Choose from all projects?" already has `default='y'` -- the same outcome a person
+
+    pressing Enter would get -- so an exhausted stdin reaches that same outcome (and then
+    continues into project-by-number selection) instead of an `EOFError` traceback.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=[EOFError, '1']))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use', 'wrong-project', '--org', 'fake_org'])
+
+        assert prompt_mock.mock_calls == [
+            call(
+                'No projects with name `wrong-project` found for the current user in organization `fake_org`. Choose from all projects?',
+                choices=['y', 'n'],
+                default='y',
+            ),
+            call(
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/myproject\n",
+                choices=['1'],
+                default='1',
+            ),
+        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
+        }
+
+
+def test_projects_use_selects_by_number_with_no_tty(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The project-by-number prompt already has `default='1'` -- the first listed project,
+
+    same as a person pressing Enter would get -- so an exhausted stdin picks that project
+    instead of raising an `EOFError` traceback.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=[EOFError]))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
+            json=[
+                {'organization_name': 'fake_org', 'project_name': 'myproject'},
+                {'organization_name': 'fake_org', 'project_name': 'otherproject'},
+            ],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use'])
+
+        assert prompt_mock.mock_calls == [
+            call(
+                (
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
+                    '1. fake_org/myproject\n'
+                    '2. fake_org/otherproject\n'
+                ),
+                choices=['1', '2'],
+                default='1',
+            )
+        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
+        }
+
+
 def test_projects_use_wrong_project_give_up(
     tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
