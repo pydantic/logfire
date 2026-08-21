@@ -300,27 +300,54 @@ class AnthropicMessageStreamState(StreamState):
         if 'latest' in versions and self._message and self._message.content:
             result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
-            result.update(get_anthropic_usage_attributes(self._message))
+            result.update(get_anthropic_usage_attributes(self._message, self.base_url))
         return result
 
 
-def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
+def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -> dict[str, Any]:
     """Extract usage attributes from an Anthropic response object.
 
-    Works for Message and BetaMessage from non-streaming on_response().
-    Returns an empty dict when usage is None.
+    Works for Message and BetaMessage from non-streaming on_response() and from streaming
+    accumulation. Returns an empty dict when usage is None.
+
+    base_url is the client's base URL and identifies who actually served the request:
+    an AnthropicBedrock client points at `bedrock-runtime.*.amazonaws.com`, so genai_prices
+    resolves it to the `aws` provider and prices the Bedrock model ID (plain, cross-region
+    inference profile, or full ARN) under Bedrock's prices rather than Anthropic's.
+    The pricing always runs off the token counts extracted here rather than the response
+    body, because genai_prices' `aws` extractor expects the Bedrock Converse shape
+    (`usage.inputTokens`) while AnthropicBedrock returns the Anthropic Messages shape
+    (`usage.input_tokens`).
     """
     usage = getattr(response, 'usage', None)
     if usage is None:
         return {}
-    input_tokens = usage.input_tokens + (usage.cache_read_input_tokens or 0) + (usage.cache_creation_input_tokens or 0)
+    cache_read_tokens = usage.cache_read_input_tokens or 0
+    cache_write_tokens = usage.cache_creation_input_tokens or 0
+    input_tokens = usage.input_tokens + cache_read_tokens + cache_write_tokens
     output_tokens = usage.output_tokens
-    return get_usage_attributes(response, usage, input_tokens, output_tokens, provider_id='anthropic')
+    model = getattr(response, 'model', None)
+
+    return get_usage_attributes(
+        response,
+        usage,
+        input_tokens,
+        output_tokens,
+        provider_id='anthropic',
+        provider_url=base_url,
+        model_ref=model if isinstance(model, str) else None,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
+    )
 
 
 @handle_internal_errors
 def on_response(
-    response: ResponseT, span: LogfireSpan, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+    response: ResponseT,
+    span: LogfireSpan,
+    *,
+    version: SemconvVersion | frozenset[SemconvVersion] = 1,
+    base_url: str | None = None,
 ) -> ResponseT:
     """Updates the span based on the type of response."""
     versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
@@ -351,7 +378,7 @@ def on_response(
         span.set_attribute(RESPONSE_MODEL, response.model)
         span.set_attribute(RESPONSE_ID, response.id)
 
-        span.set_attributes(get_anthropic_usage_attributes(response))
+        span.set_attributes(get_anthropic_usage_attributes(response, base_url))
 
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])

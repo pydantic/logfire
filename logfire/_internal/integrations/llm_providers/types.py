@@ -9,6 +9,12 @@ from typing_extensions import LiteralString
 class StreamState(ABC):
     """Keeps track of the state of a streamed response."""
 
+    base_url: str | None = None
+    """The instrumented client's base URL, set by the instrumentation when known.
+
+    Used to identify the provider that actually served the request for cost calculation.
+    """
+
     @abstractmethod
     def record_chunk(self, chunk: Any) -> None:
         """Update the state based on a chunk from the streamed response."""
