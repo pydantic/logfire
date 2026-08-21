@@ -35,38 +35,124 @@ logfire.info(
 )
 ```
 
-Here are the default scrubbing patterns:
+### Naming a pattern so it doesn't echo what it matched
+
+By default the redacted value says what triggered it, e.g. `[Scrubbed due to 'password']`. That is
+useful when the pattern matches a *key* sitting next to the secret, which is what the default
+patterns do.
+
+It backfires when the pattern matches the secret itself. This pattern finds credentials embedded in
+a database URL, and reports them:
 
 ```python
-[
-    'password',
-    'passwd',
-    'mysql_pwd',
-    'secret',
-    'auth(?!ors?\\b)',
-    'credential',
-    'private[._ -]?key',
-    'api[._ -]?key',
-    'session',
-    'cookie',
-    'social[._ -]?security',
-    'credit[._ -]?card',
-    'logfire[._ -]?token',
-    'pylf_v\\d+_',
-    '(?:\\b|_)csrf(?:\\b|_)',
-    '(?:\\b|_)xsrf(?:\\b|_)',
-    '(?:\\b|_)jwt(?:\\b|_)',
-    '(?:\\b|_)ssn(?:\\b|_)',
-]
+import logfire
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=[r'://[^:@/]+:[^@/]+@']))
+
+logfire.info('connect', config_url='postgresql://admin:s3cr3t_pass@db.internal:5432/mydb')
+# config_url -> "[Scrubbed due to '://admin:s3cr3t_pass@']"
 ```
 
-## Scrubbing less with a callback
+Pass a mapping instead of a list to give the pattern a name. The name is reported in place of the
+matched text:
 
-On the other hand, if the scrubbing is too aggressive, you can pass a function to [`callback`][logfire.ScrubbingOptions.callback] to prevent certain data from being redacted.
+```python
+import logfire
 
-The function will be called for each potential match found by the scrubber. If it returns `None`, the value is redacted. Otherwise, the returned value replaces the matched value. The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
+logfire.configure(
+    scrubbing=logfire.ScrubbingOptions(extra_patterns={'db_url_credentials': r'://[^:@/]+:[^@/]+@'})
+)
 
-Here's an example:
+logfire.info('connect', config_url='postgresql://admin:s3cr3t_pass@db.internal:5432/mydb')
+# config_url -> "[Scrubbed due to 'db_url_credentials']"
+```
+
+Here are the default scrubbing patterns. The keys are the names you pass to
+[`disabled_patterns`][logfire.ScrubbingOptions.disabled_patterns]:
+
+```python
+{
+    'password': 'password',
+    'passwd': 'passwd',
+    'mysql_pwd': 'mysql_pwd',
+    'secret': 'secret',
+    'auth': 'auth(?!ors?\\b)',
+    'credential': 'credential',
+    'private_key': 'private[._ -]?key',
+    'api_key': 'api[._ -]?key',
+    'session': 'session',
+    'cookie': 'cookie',
+    'social_security': 'social[._ -]?security',
+    'credit_card': 'credit[._ -]?card',
+    'logfire_token': 'logfire[._ -]?token',
+    'pylf_token': 'pylf_v\\d+_',
+    'csrf': '(?:\\b|_)csrf(?:\\b|_)',
+    'xsrf': '(?:\\b|_)xsrf(?:\\b|_)',
+    'jwt': '(?:\\b|_)jwt(?:\\b|_)',
+    'ssn': '(?:\\b|_)ssn(?:\\b|_)',
+}
+```
+
+## Scrubbing less
+
+If the scrubbing is too aggressive, there are three ways to hold it back, from broadest to narrowest.
+Reach for the narrowest one that solves your problem.
+
+### Turning off a default pattern
+
+Pass the name of a default pattern to [`disabled_patterns`][logfire.ScrubbingOptions.disabled_patterns]
+to stop applying it. The names are the keys of the table above.
+
+```python
+import logfire
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(disabled_patterns=['session']))
+
+logfire.info('Hello', session_id='abc123')  # no longer redacted
+```
+
+This turns the pattern off everywhere, so it is the bluntest of the three. Passing a name that isn't
+a default pattern raises an error rather than being quietly ignored.
+
+Two patterns cannot be disabled: `logfire_token` and `pylf_token`. They guard the write token
+Logfire itself uses, which would otherwise be recorded in your spans and sent to Logfire, where
+anyone with read access to your project could read it.
+
+### Marking an attribute as safe
+
+If the problem is one attribute rather than one pattern, name it in
+[`safe_keys`][logfire.ScrubbingOptions.safe_keys]:
+
+```python
+import logfire
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(safe_keys=['auth_types']))
+
+logfire.info('Hello', auth_types=['BASIC', 'BEARER'], authorization='Bearer hunter2')
+# auth_types is kept; authorization is still redacted
+```
+
+A safe key is matched **exactly**, at **every nesting depth**, and exempts **everything nested
+underneath it**. So `safe_keys=['request']` keeps a password nested inside `request` as well. Only
+use it for keys whose contents are always safe to send.
+
+The one exception is Logfire's own write token: the `logfire_token` and `pylf_token` patterns still
+apply underneath a safe key, so a token can't reach your telemetry that way.
+
+### Making an exception for specific values
+
+When the pattern and the attribute are both worth keeping and only certain values are false
+positives, pass a function to [`callback`][logfire.ScrubbingOptions.callback]. It is called for every
+match. Return `None` (or nothing) to let the redaction happen, or return a value to use instead —
+usually `match.value`, the original.
+
+The function takes one argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch], which carries:
+
+- `path` — where the value sits in the span, e.g. `('attributes', 'session_id')`
+- `value` — the value about to be redacted
+- `pattern_match` — the [`re.Match`][re.Match] object; `pattern_match.group(0)` is the text that triggered it
+
+Exempt one specific attribute:
 
 ```python
 import logfire
@@ -81,6 +167,38 @@ def scrubbing_callback(match: logfire.ScrubMatch):
 
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
+
+Exempt an attribute name wherever it appears, however deeply nested:
+
+```python
+import logfire
+
+
+def scrubbing_callback(match: logfire.ScrubMatch):
+    if match.path[-1] in {'session_id', 'user_session'}:
+        return match.value
+
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
+```
+
+Keep only values you recognise, and redact the rest:
+
+```python
+import logfire
+
+
+def scrubbing_callback(match: logfire.ScrubMatch):
+    if match.path[-1] == 'auth_type' and match.value in {'BASIC', 'BEARER'}:
+        return match.value
+
+
+logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
+```
+
+Returning a value stops Logfire looking inside it, so returning `match.value` for a key that holds a
+dict keeps that whole dict as-is — nothing nested within it is scrubbed. Return a narrower value if
+that isn't what you want.
 
 ## Security tips
 
