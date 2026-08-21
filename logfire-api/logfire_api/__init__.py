@@ -248,6 +248,7 @@ except ImportError:
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
         instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
+        instrument_dramatiq = DEFAULT_LOGFIRE_INSTANCE.instrument_dramatiq
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
         instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb

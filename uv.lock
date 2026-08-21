@@ -1412,6 +1412,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dramatiq"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/fb/78b1b689c4a121fc762ab6f00674cfa7246980678117edb03cbb168e5f9f/dramatiq-2.2.0.tar.gz", hash = "sha256:70c9278b0a9b880aeb23b8e09c9d43b1421ac8e807ef18903f6dd059130474a1", size = 108462, upload-time = "2026-06-17T11:18:34.629Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/57/a9be0b205b24e794c833a5295497f914776eb4d606d5a25a5b290e8b75ec/dramatiq-2.2.0-py3-none-any.whl", hash = "sha256:2b2aa244b4098e154600c47cdb2c04cec6c3af44e9e159c319c6fc8b6f0ba90e", size = 127342, upload-time = "2026-06-17T11:18:33.433Z" },
+]
+
+[[package]]
 name = "dspy"
 version = "3.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2790,6 +2799,9 @@ aws-lambda = [
 celery = [
     { name = "opentelemetry-instrumentation-celery" },
 ]
+dramatiq = [
+    { name = "dramatiq" },
+]
 datasets = [
     { name = "httpx" },
     { name = "pydantic" },
@@ -2872,6 +2884,7 @@ dev = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "celery" },
+    { name = "dramatiq" },
     { name = "claude-agent-sdk" },
     { name = "cloudpickle" },
     { name = "coverage", extra = ["toml"] },
@@ -2966,6 +2979,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "dramatiq", marker = "extra == 'dramatiq'", specifier = ">=1.13" },
     { name = "executing", specifier = ">=2.0.1" },
     { name = "httpx", marker = "extra == 'datasets'", specifier = ">=0.27.2" },
     { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27.0" },
@@ -3011,7 +3025,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.1.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "dramatiq", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3023,6 +3037,7 @@ dev = [
     { name = "boto3", specifier = ">=1.28.57" },
     { name = "botocore", specifier = ">=1.31.57" },
     { name = "celery", specifier = ">=5.4.0" },
+    { name = "dramatiq", specifier = ">=2.2" },
     { name = "claude-agent-sdk", specifier = ">=0" },
     { name = "cloudpickle", specifier = ">=3.0.0" },
     { name = "coverage", extras = ["toml"], specifier = ">=7.13.0" },

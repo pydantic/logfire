@@ -1,4 +1,5 @@
 import anthropic
+import dramatiq
 import httpx
 import httpx2
 import openai
@@ -25,6 +26,7 @@ from .formatter import logfire_format as logfire_format, logfire_format_with_mag
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
+from .integrations.dramatiq import LogfireDramatiqMiddleware as LogfireDramatiqMiddleware
 from .integrations.llm_providers.semconv import SemconvVersion as SemconvVersion
 from .integrations.mysql import MySQLConnection as MySQLConnection
 from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
@@ -733,6 +735,15 @@ class Logfire:
 
         Args:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
+        """
+    def instrument_dramatiq(self, broker: dramatiq.Broker | None = None) -> LogfireDramatiqMiddleware:
+        """Instrument a Dramatiq broker so each enqueue and task delivery creates a span.
+
+        Args:
+            broker: The broker to instrument. When omitted, Dramatiq's global broker is used.
+
+        Returns:
+            The installed Dramatiq middleware. Repeated calls for one broker return the same object.
         """
     def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None, response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
