@@ -49,6 +49,7 @@ Click an LLM span to open the details panel.
 |---------------------------------------------------------------------------------------|--------------|-------|-------------------|
 | [Pydantic AI](../../integrations/llms/pydanticai.md)                                  | ✅            | ✅     | ✅                 |
 | [OpenAI](../../integrations/llms/openai.md)                                           | ✅            | ✅     | ✅                 |
+| [OrcaRouter](../../integrations/llms/orcarouter.md)                                   | ✅            | ✅     | ✅                 |
 | [Google Gen AI](../../integrations/llms/google-genai.md)                              | ✅            | ✅     | ✅                 |
 | [LangChain](../../integrations/llms/langchain.md)                                     | ✅            | ✅     | ✅                 |
 | [LiteLLM](../../integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |

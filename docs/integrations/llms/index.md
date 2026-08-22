@@ -26,6 +26,10 @@ Trace the model calls, agent steps, and tool calls in your AI application. Instr
     <span class="integration-logo integration-logo--plainmark">OR</span>
     <span class="integration-name">OpenRouter Broadcast</span>
   </a>
+  <a class="integration-card" href="orcarouter.md">
+    <span class="integration-logo integration-logo--plainmark">Or</span>
+    <span class="integration-name">OrcaRouter</span>
+  </a>
   <a class="integration-card" href="google-genai.md">
     <span class="integration-logo integration-logo--glyph" style="-webkit-mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat; mask: url(../../images/integrations/llms/google-gemini.svg) center/contain no-repeat"></span>
     <span class="integration-name">Google Gen AI</span>
