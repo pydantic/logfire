@@ -5,15 +5,6 @@ description: Monitor hosts, Docker containers, Kubernetes clusters, database/que
 
 # Monitor Infrastructure with Logfire
 
-## When to Use This Skill
-
-Invoke this skill when:
-- User asks to monitor a host, server, VM, container, or Kubernetes cluster
-- User names infrastructure by product — Docker, Kubernetes, Postgres, Redis, MongoDB, Kafka, RabbitMQ, Nginx, Apache, Elasticsearch, Memcached — rather than application code
-- User wants cloud-provider metrics (GCP Cloud Monitoring, AWS CloudWatch/ECS)
-- User asks to "get me set up properly" or "send as much data as would be useful" and infrastructure hasn't been covered yet
-- User mentions the OpenTelemetry Collector
-
 Do **not** use this skill for application-level traces, logs, or AI/agent spans — that's `logfire-instrumentation`. The two compose: a full setup often runs both.
 
 ## How This Works
@@ -34,27 +25,7 @@ More than one can apply at once — a single Collector can run multiple receiver
 
 ## Step 2: Authenticate and Select the Exact Project
 
-Check first, before assuming anything needs to happen:
-
-```bash
-logfire --non-interactive whoami
-```
-
-If that already reports the right project and region, skip to Step 3. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. **Always put `--non-interactive` immediately after `logfire`, on every invocation.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there is no TTY for the CLI to notice is missing, so it cannot detect this on its own; the flag is the only way to guarantee a clear error instead of a silent hang.
-
-```bash
-logfire --non-interactive --region eu auth
-logfire --non-interactive projects list --json
-logfire --non-interactive projects use <project-name> --org <organization-name>
-logfire --non-interactive whoami
-```
-
-- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front: `--region {us,eu}` is global and goes right after `logfire --non-interactive`, before the subcommand. Don't rely on `auth` asking when it's omitted.
-- `auth` does **not** open a browser itself when there's no TTY, which an agent's own environment never has — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently.
-- `projects list --json`: if exactly one project is returned, use it. Several plausible and none identified? Ask the user. None exist? `logfire --non-interactive projects new <project-name> --org <organization-name>` instead.
-- If any command fails with `NonInteractiveError`, its message names the exact missing flag (commonly `--org`). Supply it and retry once — don't drop `--non-interactive` to make the error go away.
-- `whoami`'s org/project/region is what every later step — the Collector's write token, verification, any link you give the user — must match. Never substitute a different or "latest" project.
-- A write token for the Collector's exporter comes from **Project Settings → Write tokens** in the Logfire UI, not from this CLI flow — the CLI's own credentials authenticate you as a person, not the Collector as a data source. Never print, log, hard-code, commit, or echo the write token — inject it via environment variable and check only that it's set, not its value.
+Check first — `logfire --non-interactive whoami` — and skip to Step 3 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
 
 ## Step 3: Configure the Collector
 

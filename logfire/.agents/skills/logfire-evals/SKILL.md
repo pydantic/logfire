@@ -5,14 +5,6 @@ description: Evaluate Python AI/agent code against a dataset of test cases using
 
 # Evaluate with pydantic_evals and Logfire
 
-## When to Use This Skill
-
-Invoke this skill when:
-- User wants to test or score an agent/function against a set of known inputs and expected outputs
-- User asks to "add evals", "write test cases for my agent", "score outputs with an LLM judge"
-- User wants tool-call correctness checked — did the agent call the right tools, in the right order, with the right arguments
-- User mentions `pydantic_evals`, `Dataset`, `Case`, `Evaluator`, or Logfire's Datasets & Experiments page
-
 ## How This Works
 
 `pydantic_evals` runs your actual function or agent against a `Dataset` of `Case`s (input + expected output + metadata), scores each with one or more `Evaluator`s, and produces a report. It depends on `logfire` itself (the `datasets` extra pulls in the real SDK, not a mock), so whether `logfire.configure()` has run determines only whether results *also* upload to Logfire's Datasets & Experiments UI — omitting it keeps results entirely local and printed to the terminal, **silently, not an error**.
@@ -28,26 +20,7 @@ Identify the function or agent under test (a PydanticAI agent, an LLM-calling fu
 
 ## Step 2: Authenticate and Select the Exact Project
 
-Check first, before assuming anything needs to happen:
-
-```bash
-logfire --non-interactive whoami
-```
-
-If that already reports the right project and region, skip to Step 3. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. **Always put `--non-interactive` immediately after `logfire`, on every invocation.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there is no TTY for the CLI to notice is missing, so it cannot detect this on its own; the flag is the only way to guarantee a clear error instead of a silent hang.
-
-```bash
-logfire --non-interactive --region eu auth
-logfire --non-interactive projects list --json
-logfire --non-interactive projects use <project-name> --org <organization-name>
-logfire --non-interactive whoami
-```
-
-- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front: `--region {us,eu}` is global and goes right after `logfire --non-interactive`, before the subcommand.
-- `auth` does **not** open a browser itself when there's no TTY, which an agent's own environment never has — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently.
-- `projects list --json`: if exactly one project is returned, use it. Several plausible and none identified? Ask the user. None exist? `logfire --non-interactive projects new <project-name> --org <organization-name>` instead.
-- If any command fails with `NonInteractiveError`, its message names the exact missing flag (commonly `--org`). Supply it and retry once — don't drop `--non-interactive` to make the error go away.
-- Never print, log, hard-code, commit, echo, or read a token or its credentials file — check only whether it exists, not its contents. This flow is only for `logfire.configure()`; hosted-dataset operations use a separate API key (Step 1) with different scopes.
+Check first — `logfire --non-interactive whoami` — and skip to Step 3 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety) plus where a hosted-dataset API key comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is only for `logfire.configure()`; Step 1's hosted-dataset operations use a separate API key with different scopes.
 
 ## Step 3: Define the Dataset and Run It
 
