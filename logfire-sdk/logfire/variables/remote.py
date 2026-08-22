@@ -19,6 +19,7 @@ from requests import RequestException, Session
 
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
+from logfire._internal.http_transport import install_connection_policy
 from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
 from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation
 from logfire.variables.abstract import (
@@ -91,6 +92,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._token = token
         self._server_response_hook = server_response_hook
         self._session = Session()
+        install_connection_policy(self._session)
         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
         install_logfire_response_hook(self._session, server_response_hook)
         self._timeout = options.timeout
@@ -278,6 +280,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             try:
                 # Use a separate session for SSE to avoid conflicts with polling
                 with Session() as sse_session:
+                    install_connection_policy(sse_session)
                     sse_session.headers.update(
                         {
                             'Authorization': f'bearer {self._token}',
