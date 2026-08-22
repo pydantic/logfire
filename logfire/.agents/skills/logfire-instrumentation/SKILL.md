@@ -162,20 +162,7 @@ For non-SDK or Collector sources, set the same values via
 
 ### Custom metrics
 
-Counters, histograms, and gauges power the **Metrics** explorer, dashboard
-panels, and alerts. Create them once and record throughout (Python shown; see
-the per-language references for JS/Rust):
-
-```python
-counter = logfire.metric_counter('orders_processed', unit='1')
-counter.add(1, {'status': 'success'})
-
-histogram = logfire.metric_histogram('request_duration', unit='s')
-histogram.record(0.123, {'endpoint': '/api/users'})
-
-gauge = logfire.metric_gauge('active_connections')
-gauge.set(42)
-```
+Counters, histograms, and gauges power the **Metrics** explorer, dashboard panels, and alerts — create them once and record throughout. Python examples: [logging patterns](./references/python/logging-patterns.md#custom-metrics); per-language references cover JS/Rust.
 
 For host and infrastructure metrics (CPU, memory, and database/queue/cache
 servers) without writing application code, use an OpenTelemetry Collector —
@@ -233,7 +220,7 @@ Native SDKs: **Python**, **JavaScript/TypeScript**, **Rust**. Any other language
 
 ### Agent Frameworks
 
-If the project builds on an agent framework, instrument the framework, not just the underlying model provider — a raw `instrument_openai()`/`instrument_anthropic()` call captures individual model calls but not the framework's own tool-call/agent-run boundaries, so multi-step agent behavior shows up as disconnected LLM calls instead of one traced run. Coverage depth (cost, tool spans, message content) varies by framework — check the product's own integration docs before assuming parity with PydanticAI.
+Instrument the framework, not just the underlying model provider — a raw `instrument_openai()`/`instrument_anthropic()` call misses the framework's own tool-call/agent-run boundaries. Coverage (cost, tool spans, message content) varies by framework — don't assume parity with PydanticAI.
 
 | Framework | How | Coverage |
 |-----------|-----|----------|

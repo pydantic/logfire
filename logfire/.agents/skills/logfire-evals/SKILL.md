@@ -86,17 +86,16 @@ smoke_report.print(include_input=True, include_output=True)
 
 Confirm the smoke run has zero unexpected errors and the assertions that should pass do. Then, if the full dataset is large or uses paid model calls, tell the user the case count and which evaluators will make model calls, and get explicit confirmation before running the full dataset — don't run an expensive full pass on the strength of a clean smoke test alone without saying so.
 
-Custom evaluators **must be `@dataclass`** subclasses — a plain class raises at run time. Case names must be unique within a dataset. Built-in evaluators worth knowing:
+Custom evaluators **must be `@dataclass`** subclasses — a plain class raises at run time. Case names must be unique within a dataset. The evaluators reached for most:
 
 | Evaluator | Checks |
 |-----------|--------|
 | `Equals(value)` / `EqualsExpected()` | Exact match against a literal / `expected_output` (no-op if `expected_output` is unset — don't rely on it silently catching that) |
-| `Contains(value, ...)` | Substring / membership / dict-subset |
 | `IsInstance(type_name)` | Output's type matches by name |
-| `MaxDuration(seconds)` | Task finished within budget |
 | `LLMJudge(rubric, model=None, score=False)` | LLM-as-judge scoring; costs a real model call per case per judge — prefer boolean/categorical rubrics over 1-10 scales (judges are unstable on continuous scores), and benchmark the judge against ~20-100 hand-labeled cases before trusting it |
-| `ToolCorrectness(expected_tools, ...)` / `TrajectoryMatch(expected_trajectory, ...)` / `ArgumentCorrectness(tool_name, expected_arguments, ...)` | Which tools were called, in what order, with what arguments — reads the span tree, so needs Step 2's `logfire.configure()` to work at all, not just to upload |
-| `MaxToolCalls(max_calls)` / `MaxModelRequests(max_requests)` | Budget ceilings on tool calls / LLM requests |
+| `ToolCorrectness(expected_tools, ...)` | Which tools an agent called — reads the span tree, so needs Step 2's `logfire.configure()` to work at all, not just to upload |
+
+Also available: `Contains`, `MaxDuration`, `TrajectoryMatch`, `ArgumentCorrectness`, `MaxToolCalls`, `MaxModelRequests` — same span-tree dependency as `ToolCorrectness` for the tool/trajectory ones; see `pydantic_evals.evaluators` for the full set.
 
 The `Python` evaluator (arbitrary code execution) was removed for security reasons — don't reach for it even if an older example references it.
 
