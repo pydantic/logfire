@@ -8,16 +8,26 @@ Check first, before assuming anything needs to happen:
 logfire --non-interactive whoami
 ```
 
-If that already reports the right project and region, you're done — skip straight to the rest of whichever skill sent you here. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` — it's a setup tool, not an app dependency, and `uvx` works regardless of the project's own language since it manages its own Python. **Do not substitute `npx logfire` even in a JS/TS-only project with no Python tooling**: the npm package of the same name is a different artifact (a JavaScript instrumentation library, not this CLI) and its `bin` entry silently no-ops — exit 0, no output — for `auth`, `whoami`, `projects`, and any other subcommand, indistinguishable from success. If `uv` genuinely isn't available, install it first (https://docs.astral.sh/uv/getting-started/installation/) rather than falling back to `npx`.
+If that already reports the right project and region, you're done — skip straight to the rest of whichever skill sent you here. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. Both are real, maintained CLIs (the JS one lives in `pydantic/logfire-js` and ships to npm as the bare `logfire` package) with near-identical commands — but they are not flag-identical:
+
+- **`--non-interactive` is Python-CLI-only right now.** The JS CLI (`npx logfire`) doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every `npx logfire` invocation below; keep it on every `uvx logfire` one.
+- **If `npx logfire <anything>` — including `--help`, or a name you made up — exits 0 with zero output**, that's a stale global npm install of `logfire` from before v0.21.9 shadowing the fetch (a real, now-fixed bug: invoking the published bin through a symlink, which is exactly how npx and global installs both work, made the entrypoint check fail silently). Check with `npm ls -g logfire`; if it reports a version below 0.21.9, uninstall it (`npm uninstall -g logfire`) so `npx` fetches current instead of using the stale global one, or use `uvx` for this step instead.
 
 ```bash
+# Python CLI (uvx logfire) -- always include --non-interactive:
 logfire --non-interactive --region eu auth
 logfire --non-interactive projects list --json
 logfire --non-interactive projects use <project-name> --org <organization-name>
 logfire --non-interactive whoami
+
+# JS CLI (npx logfire) -- same commands and flags, but drop --non-interactive entirely:
+logfire --region eu auth
+logfire projects list --json
+logfire projects use <project-name> --org <organization-name>
+logfire whoami
 ```
 
-**Always put `--non-interactive` immediately after `logfire`, on every invocation, for the rest of whichever skill sent you here too.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there's no TTY for the CLI to notice is missing, so it can't detect this on its own. It's the only way to guarantee a clear error instead of a silent hang.
+**On the Python CLI, always put `--non-interactive` immediately after `logfire`, on every invocation, for the rest of whichever skill sent you here too.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there's no TTY for the CLI to notice is missing, so it can't detect this on its own. It's the only way to guarantee a clear error instead of a silent hang. The JS CLI doesn't have this flag yet; if a JS-CLI command needs to ask something (e.g. which account, when more than one token is cached) with no TTY attached, it fails with a clear "not running in a terminal" error instead of hanging — so the outcome is the same either way, just reached differently.
 
 - Determine the region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front — `--region {us,eu}` is global, right after `logfire --non-interactive`, before the subcommand.
 - `auth` does **not** open a browser itself when there's no TTY, which an agent's own environment never has — it prints a URL and polls. Relay that URL to the user; don't wait silently.
