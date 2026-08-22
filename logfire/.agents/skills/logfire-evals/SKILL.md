@@ -28,18 +28,25 @@ Identify the function or agent under test (a PydanticAI agent, an LLM-calling fu
 
 ## Step 2: Authenticate and Select the Exact Project
 
-Skip this if `.logfire` credentials or `LOGFIRE_TOKEN` already resolve to the right project and region (check with `logfire whoami` first). Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency:
+Check first, before assuming anything needs to happen:
 
 ```bash
-logfire auth
-logfire projects list
-logfire projects use <project-name>
-logfire whoami
+logfire --non-interactive whoami
 ```
 
-- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating. The `--region` flag is global and goes right after `logfire`, not after the subcommand: `logfire --region eu auth`. Omit it and let `auth` ask if the region is unknown — it completes without a TTY either way.
-- `auth` opens a browser to sign in or create a free account.
-- `projects list`: if exactly one project is available, use it. Several plausible and none identified? Ask. None exist? `logfire projects new <project-name>` instead. Need a specific org? Add `--org <organization-name>` to `projects use`.
+If that already reports the right project and region, skip to Step 3. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. **Always put `--non-interactive` immediately after `logfire`, on every invocation.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there is no TTY for the CLI to notice is missing, so it cannot detect this on its own; the flag is the only way to guarantee a clear error instead of a silent hang.
+
+```bash
+logfire --non-interactive --region eu auth
+logfire --non-interactive projects list --json
+logfire --non-interactive projects use <project-name> --org <organization-name>
+logfire --non-interactive whoami
+```
+
+- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front: `--region {us,eu}` is global and goes right after `logfire --non-interactive`, before the subcommand.
+- `auth` does **not** open a browser itself when there's no TTY, which an agent's own environment never has — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently.
+- `projects list --json`: if exactly one project is returned, use it. Several plausible and none identified? Ask the user. None exist? `logfire --non-interactive projects new <project-name> --org <organization-name>` instead.
+- If any command fails with `NonInteractiveError`, its message names the exact missing flag (commonly `--org`). Supply it and retry once — don't drop `--non-interactive` to make the error go away.
 - Never print, log, hard-code, commit, echo, or read a token or its credentials file — check only whether it exists, not its contents. This flow is only for `logfire.configure()`; hosted-dataset operations use a separate API key (Step 1) with different scopes.
 
 ## Step 3: Define the Dataset and Run It
@@ -81,6 +88,16 @@ report = dataset.evaluate_sync(classify_sentiment)  # or `await dataset.evaluate
 report.print(include_input=True, include_output=True)
 ```
 
+**Before running the full dataset, run a smoke test on 2-3 cases** if the dataset is large or uses `LLMJudge`/any evaluator that makes a real, billed model call — a bug caught on 3 cases costs 3 model calls, the same bug caught on 300 costs 300:
+
+```python
+smoke = Dataset(name=dataset.name, cases=dataset.cases[:3], evaluators=dataset.evaluators)
+smoke_report = smoke.evaluate_sync(classify_sentiment)
+smoke_report.print(include_input=True, include_output=True)
+```
+
+Confirm the smoke run has zero unexpected errors and the assertions that should pass do. Then, if the full dataset is large or uses paid model calls, tell the user the case count and which evaluators will make model calls, and get explicit confirmation before running the full dataset — don't run an expensive full pass on the strength of a clean smoke test alone without saying so.
+
 Custom evaluators **must be `@dataclass`** subclasses — a plain class raises at run time. Case names must be unique within a dataset. Built-in evaluators worth knowing:
 
 | Evaluator | Checks |
@@ -99,10 +116,12 @@ If editing a hosted dataset: `client.push_dataset(dataset)` **overwrites** serve
 
 ## Step 4: Verify
 
-A report printing to the terminal isn't proof it reached Logfire — confirm the run actually landed:
+A report printing to the terminal isn't proof it reached Logfire — confirm the run actually landed. **Never report a case as passed, a score, or a run as complete without having actually checked it in this session** — if a run fails, cancels, or produces no scores, report that failure plainly; never substitute an invented score or a manual guess at what the result "should" be.
 
-1. **Open AI Evaluations → Datasets & Experiments → Experiments** in Logfire for the exact project from Step 2, and find the run by name/timestamp.
-2. **Read the Overview tab** first: completion count, assertion pass mix, task errors, average duration. **If completion says "Not reported,"** the run sent case data but never signaled it finished — treat that as a broken run, not a passing one.
+1. **Query for the run directly, if a Logfire MCP server or API is connected** — the root span for a run is named `evaluate {name}` and carries `gen_ai.operation.name = 'experiment'`, `dataset_name`, and `task_name` attributes; find the most recent one matching your dataset's name and confirm `logfire.experiment.metadata` shows the case count and pass rate you expect. Otherwise, open **AI Evaluations → Datasets & Experiments → Experiments** in Logfire for the exact project from Step 2, and find the run by name/timestamp.
+2. **Read the Overview tab (or the queried metadata) first**: completion count, assertion pass mix, task errors, average duration. **If completion says "Not reported,"** the run sent case data but never signaled it finished — treat that as a broken run, not a passing one.
 3. **Open the Cases tab**, starting from Needs Review / Failed / Errors, not the full list.
 4. **Drill into a failing case's trace in Live view** for the actual evidence, rather than trusting the summary score alone.
 5. **Fix and re-run** until the cases that should pass do, and any tool-call/trajectory checks show real span data, not "No span tree available."
+
+Close with a final report built from what you just confirmed — the run name, exact case count and pass rate you queried, and which evaluators ran — not a template.

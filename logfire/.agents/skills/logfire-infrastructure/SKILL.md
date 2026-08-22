@@ -34,20 +34,27 @@ More than one can apply at once — a single Collector can run multiple receiver
 
 ## Step 2: Authenticate and Select the Exact Project
 
-Skip this if `.logfire` credentials or `LOGFIRE_TOKEN` already resolve to the right project and region (check with `logfire whoami` first). Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency:
+Check first, before assuming anything needs to happen:
 
 ```bash
-logfire auth
-logfire projects list
-logfire projects use <project-name>
-logfire whoami
+logfire --non-interactive whoami
 ```
 
-- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating. The `--region` flag is global and goes right after `logfire`, not after the subcommand: `logfire --region eu auth`. Omit it and let `auth` ask if the region is unknown — it completes without a TTY either way.
-- `auth` opens a browser to sign in or create a free account.
-- `projects list`: if exactly one project is available, use it. Several plausible and none identified? Ask. None exist? `logfire projects new <project-name>` instead. Need a specific org? Add `--org <organization-name>` to `projects use`.
+If that already reports the right project and region, skip to Step 3. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. **Always put `--non-interactive` immediately after `logfire`, on every invocation.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there is no TTY for the CLI to notice is missing, so it cannot detect this on its own; the flag is the only way to guarantee a clear error instead of a silent hang.
+
+```bash
+logfire --non-interactive --region eu auth
+logfire --non-interactive projects list --json
+logfire --non-interactive projects use <project-name> --org <organization-name>
+logfire --non-interactive whoami
+```
+
+- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front: `--region {us,eu}` is global and goes right after `logfire --non-interactive`, before the subcommand. Don't rely on `auth` asking when it's omitted.
+- `auth` does **not** open a browser itself when there's no TTY, which an agent's own environment never has — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently.
+- `projects list --json`: if exactly one project is returned, use it. Several plausible and none identified? Ask the user. None exist? `logfire --non-interactive projects new <project-name> --org <organization-name>` instead.
+- If any command fails with `NonInteractiveError`, its message names the exact missing flag (commonly `--org`). Supply it and retry once — don't drop `--non-interactive` to make the error go away.
 - `whoami`'s org/project/region is what every later step — the Collector's write token, verification, any link you give the user — must match. Never substitute a different or "latest" project.
-- A write token for the Collector's exporter comes from Project Settings → Write tokens in the Logfire UI, not from this CLI flow. Never print, log, hard-code, commit, or echo it — inject it via environment variable and check only that it's set, not its value.
+- A write token for the Collector's exporter comes from **Project Settings → Write tokens** in the Logfire UI, not from this CLI flow — the CLI's own credentials authenticate you as a person, not the Collector as a data source. Never print, log, hard-code, commit, or echo the write token — inject it via environment variable and check only that it's set, not its value.
 
 ## Step 3: Configure the Collector
 
@@ -55,14 +62,25 @@ Follow the [collector reference](./references/collector/host-and-infra-metrics.m
 
 Set the same service & resource metadata conventions the [collector reference](./references/collector/host-and-infra-metrics.md) describes — `host.name`, `service.name`, `service.instance.id` — so data groups correctly across the Hosts, Kubernetes, and Metrics pages.
 
+Before starting or restarting the Collector, validate the config file — a receiver typo or bad indentation should surface as a validation error, not a Collector that starts, logs nothing useful, and silently drops the pipeline:
+
+```bash
+otelcol-contrib validate --config=collector-config.yaml
+# or, for the core (non-Contrib) distribution: otelcol validate --config=...
+```
+
+If neither binary is on `PATH`, find the actual binary name from how the Collector is deployed (the container image's entrypoint, the systemd unit, the Helm chart's `command:`) rather than guessing — `docker compose config` or `kubectl get pod <name> -o yaml` will show it.
+
 ## Step 4: Verify
 
-Wiring a receiver isn't done when the Collector starts cleanly — confirm the data actually reached the right page for the right host/container/cluster, not just that something arrived:
+Wiring a receiver isn't done when the Collector starts cleanly — confirm the data actually reached the right page for the right host/container/cluster, not just that something arrived. **Never report a metric as "arrived" without having queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
-1. **Restart the Collector** after any config change.
-2. **Check the specific product page** — Hosts, Docker, or Kubernetes — or the Metrics explorer for database/queue/cache/cloud sources. Look for the *exact* host/container/cluster you configured, not just that the page has data at all.
-3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline, and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
+1. **Restart the Collector** after any config change (having validated it, above).
+2. **Query for the exact resource you configured, not just any data on the page.** If a Logfire MCP server or API is connected in this session, query for the specific `host.name` / container / cluster you set in Step 3 within the last few minutes — a query that returns zero rows for that exact identifier means it didn't land, even if the page shows data from something else. Otherwise, open the specific product page — **Hosts**, **Docker**, or **Kubernetes** — or the **Metrics** explorer for database/queue/cache/cloud sources, and look for that same exact identifier.
+3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline (not defined but never referenced under `service.pipelines`), and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
 4. **Fix and re-check** until the specific source is visible, not just "some" data.
+
+Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## References
 

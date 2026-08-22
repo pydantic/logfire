@@ -35,26 +35,46 @@ Then continue to Step 2: Authenticate.
 
 ## Step 2: Authenticate and Select the Exact Project
 
-Skip this if `.logfire` credentials or `LOGFIRE_TOKEN` already resolve to the right project and region (check with `logfire whoami` first). Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency:
+Check first, before assuming anything needs to happen:
 
 ```bash
-logfire auth
-logfire projects list
-logfire projects use <project-name>
-logfire whoami
+logfire --non-interactive whoami
 ```
 
-- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating. The `--region` flag is global and goes right after `logfire`, not after the subcommand: `logfire --region eu auth`. Omit it and let `auth` ask if the region is unknown — it completes without a TTY either way.
-- `auth` opens a browser to sign in or create a free account.
-- `projects list`: if exactly one project is available, use it. Several plausible and none identified? Ask. None exist? `logfire projects new <project-name>` instead. Need a specific org? Add `--org <organization-name>` to `projects use`.
+If that already reports the right project and region, skip to Step 3. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. **Always put `--non-interactive` immediately after `logfire`, on every invocation below and every `logfire` command for the rest of this skill.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there is no TTY for the CLI to notice is missing, so it cannot detect this on its own; the flag is the only way to guarantee a clear error instead of a silent hang.
+
+```bash
+logfire --non-interactive --region eu auth
+logfire --non-interactive projects list --json
+logfire --non-interactive projects use <project-name> --org <organization-name>
+logfire --non-interactive whoami
+```
+
+- Determine the target region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front: `--region {us,eu}` is global and goes right after `logfire --non-interactive`, before the subcommand. Don't rely on `auth` asking when it's omitted — asking is exactly what `--non-interactive` refuses to do.
+- `auth` does **not** open a browser itself when there's no TTY, which an agent's own environment never has — it prints a URL and polls for you to finish. Relay that URL to the user and tell them to open it; don't wait silently, and don't assume a browser appeared on their machine.
+- `projects list --json`: if exactly one project is returned, use it. Several plausible and none identified? Ask the user. None exist? `logfire --non-interactive projects new <project-name> --org <organization-name>` instead.
+- If any command fails with `NonInteractiveError`, its message names the exact missing flag (commonly `--org`, when the account has more than one). Supply that flag and retry once — don't retry blindly, and don't drop `--non-interactive` to make the error go away, since that trades a clear message for the hang it exists to prevent.
 - `whoami`'s org/project/region is what every later step — instrumentation, verification, any link you give the user — must match. Never substitute a different or "latest" project.
-- Never print, log, hard-code, commit, echo, or read a token or its credentials file (`.logfire/logfire_credentials.json`, `~/.logfire/default.toml`) — each just holds a token under a `token` key, so check only whether the file exists, not its contents. A bad or missing credential surfaces as a CLI error.
+- If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins over the credentials file silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing; don't proceed on whichever happened to win.
+- Never print, log, hard-code, commit, echo, or read a token or its credentials file (`.logfire/logfire_credentials.json`, `~/.logfire/default.toml`) — each just holds a token under a `token` key, so check only whether the file exists, not its contents. A bad or missing credential surfaces as a CLI error, not a prompt.
 
 ## Step 3: Install and Instrument
 
 Follow the subsection for the language detected in Step 1.
 
 ### Python
+
+#### Optional: See What Would Be Auto-Detected
+
+Before writing any code, `logfire run` can auto-configure and auto-instrument a script or module for one run, with no code changes at all — useful as a fast look at what's detected, not as the permanent setup (that still needs `configure()`/`instrument_*()` calls written into the code, below, so the instrumentation survives outside this one invocation):
+
+```bash
+logfire run --summary path/to/script.py
+# or, for an ASGI app:
+logfire run --summary -m uvicorn main:app
+```
+
+`--summary` prints which installed packages got instrumented and which detected-but-uninstrumented packages it recommends adding extras for. `--exclude <package>` skips one. Treat this as a diagnostic, not a substitute for Step 3's explicit setup below.
 
 #### Install with Extras
 
@@ -290,14 +310,25 @@ see the `logfire-infrastructure` skill.
 
 ## Step 5: Verify
 
-Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored:
+Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
 1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
-2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use `logfire projects status` to see what's actually arrived; if it reports no usable read token, run `logfire read-tokens create --save` and retry. Or query yourself via the Logfire MCP/API if already connected in this session. Never display a token while doing this.
+2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project."
+   ```bash
+   logfire --non-interactive projects status --json
+   ```
+   If it reports no usable read token, create one and retry:
+   ```bash
+   logfire --non-interactive read-tokens create --save
+   logfire --non-interactive projects status --json
+   ```
+   `--save` writes the token into the data directory for `projects status` to use — it is never printed. Or query directly via the Logfire MCP/API if already connected in this session. Never display a token while doing any of this.
 3. **Audit what actually landed**, not just that something did: service name set (not `unknown_service`)? Spans nested correctly, not flat? The specific operation you exercised present, not just noise? For AI/LLM instrumentation, is the captured content at the level you intended (metadata-only vs. full content)? For system/infra metrics, did the expected host/container/cluster show up, not just some data?
 4. **Fix every gap you find, then re-run and re-check.** Repeat until it's clean. Absence of startup/exporter errors is not success on its own.
 
 If nothing arrives at all, trace the path in order: authentication and exact project/region (Step 2), `configure()` called before `instrument_*()` (Python) or before the app's own imports run (JS/TS preload order), the correct packages/extras installed, then the exercised code path and exporter/flush behavior. Make the smallest safe correction and verify again — report one specific blocker, not a generic checklist.
+
+Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## Going Further: Full Coverage Map
 
@@ -329,7 +360,7 @@ Native SDKs: **Python**, **JavaScript/TypeScript**, **Rust**. Any other language
 
 ### Agent Frameworks
 
-Coverage depth (cost, tool spans, message content) varies by framework — check the product's own integration docs before assuming parity with PydanticAI.
+If the project builds on an agent framework, instrument the framework, not just the underlying model provider — a raw `instrument_openai()`/`instrument_anthropic()` call captures individual model calls but not the framework's own tool-call/agent-run boundaries, so multi-step agent behavior shows up as disconnected LLM calls instead of one traced run. Coverage depth (cost, tool spans, message content) varies by framework — check the product's own integration docs before assuming parity with PydanticAI.
 
 | Framework | How | Coverage |
 |-----------|-----|----------|
