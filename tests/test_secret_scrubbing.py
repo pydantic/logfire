@@ -14,7 +14,13 @@ from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
-from logfire._internal.scrubbing import DEFAULT_PATTERNS, NoopScrubber, Scrubber
+from logfire._internal.scrubbing import (
+    DEFAULT_PATTERNS,
+    NoopScrubber,
+    Scrubber,
+    _has_numeric_backreference,  # pyright: ignore[reportPrivateUsage]
+)
+from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter, TestLogExporter
 
 DEFAULT_PATTERN_EXAMPLES = {
@@ -743,3 +749,116 @@ def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_extra_patterns_rejects_bare_string():
+    # `str` satisfies `Sequence[str]`, so this type checks, and iterating it would build the
+    # alternation `p|a|s|s|w|o|r|d`, redacting nearly every value.
+    with pytest.raises(LogfireConfigError) as exc_info:
+        Scrubber('password')
+    assert str(exc_info.value) == snapshot(
+        '`extra_patterns` must be a sequence of regular expressions, not a single string. '
+        'A string is itself a sequence, so it would be read one character at a time. '
+        'Wrap it in a list to pass a single pattern.'
+    )
+
+
+def test_extra_patterns_rejects_non_string_entry():
+    with pytest.raises(LogfireConfigError) as exc_info:
+        Scrubber(['fine', 123])  # pyright: ignore[reportArgumentType]
+    assert str(exc_info.value) == snapshot(
+        'The `extra_patterns` entry at index 1 is of type int, but it must be a string.'
+    )
+
+
+@pytest.mark.parametrize(
+    'pattern',
+    [
+        '',
+        '[0-9]*',
+        'x*',
+        '(?:)',
+        r'\b',  # only matches an empty span once there's a subject
+        '(?=.)',
+        '(?=z)',  # a subject the probe doesn't contain
+        '(?<=a)',
+        '(?:password)?',
+    ],
+)
+def test_extra_patterns_rejects_pattern_matching_nothing(pattern: str):
+    with pytest.raises(LogfireConfigError, match='can match without consuming any characters'):
+        Scrubber([pattern])
+
+
+def test_extra_patterns_rejects_numeric_backreference_after_a_capturing_group():
+    # `(a)` is group 1 once joined, so the `\1` here points at it rather than at `(b)`,
+    # and the pattern silently never matches.
+    with pytest.raises(LogfireConfigError) as exc_info:
+        Scrubber(['(a)', r'(b)\1'])
+    assert str(exc_info.value) == snapshot(
+        'The `extra_patterns` entry at index 1 refers to a group by number, but 1 capturing group '
+        'appears before it once the patterns are combined into a single regex, so the numbering '
+        'shifts and it would point at the wrong group. Use a named group instead, e.g. '
+        '`(?P<name>...)` and `(?P=name)`, or make the earlier groups non-capturing with `(?:...)`.'
+    )
+
+
+def test_extra_patterns_allows_backreference_with_no_preceding_group():
+    # The default patterns capture nothing, so a lone `\1` keeps its own numbering and works.
+    scrubber = Scrubber([r'(.)\1'])
+    assert scrubber.scrub_value(('attributes', 'x'), 'a value with bb inside')[0] == snapshot("[Scrubbed due to 'bb']")
+    # Non-capturing groups in an earlier entry don't shift the numbering either.
+    assert Scrubber(['(?:foo)', r'(.)\1'])
+
+
+def test_extra_patterns_rejects_entries_only_invalid_once_combined():
+    with pytest.raises(LogfireConfigError, match='together they do not form a valid one') as exc_info:
+        Scrubber(['(?P<c>a)', '(?P<c>b)'])
+    assert 'same group name' in str(exc_info.value)
+
+    with pytest.raises(LogfireConfigError, match='together they do not form a valid one'):
+        Scrubber(['(?i)foo'])
+
+
+def test_extra_patterns_named_backreference_is_allowed():
+    scrubber = Scrubber([r'(?P<char>[a-z])(?P=char)'])
+    assert scrubber.scrub_value(('attributes', 'x'), 'value with bb inside')[0] == snapshot("[Scrubbed due to 'bb']")
+
+
+def test_extra_patterns_octal_escape_is_allowed():
+    # `\123` is the character `S`, not a backreference to group 123.
+    scrubber = Scrubber([r'sea\123hell'])
+    assert scrubber.scrub_value(('attributes', 'x'), 'the seaShell value')[0] == snapshot(
+        "[Scrubbed due to 'seaShell']"
+    )
+
+
+def test_extra_patterns_invalid_regex_reports_own_position():
+    # Compiling each pattern separately means the reported position is an offset into the user's
+    # pattern rather than into the combined pattern.
+    with pytest.raises(LogfireConfigError) as exc_info:
+        Scrubber(['foo('])
+    assert str(exc_info.value) == snapshot(
+        'The `extra_patterns` entry at index 0 is not a valid regular expression: '
+        'missing ), unterminated subpattern at position 3'
+    )
+
+
+@pytest.mark.parametrize(
+    'pattern,expected',
+    [
+        (r'(a)\1', True),
+        (r'(a)\9', True),
+        (r'\123', False),  # three octal digits are an octal escape
+        (r'\\1', False),  # escaped backslash then a literal digit
+        (r'[\1]', False),  # octal escape inside a character class
+        (r'[]a\1]', False),  # a `]` opening a class is a member of it, not the end
+        (r'[^]a\1]', False),
+        (r'[a][b]\1', True),  # two complete classes, then a real backreference
+        (r'(?P<a>x)(?P=a)', False),
+        (r'\0', False),
+        ('plain', False),
+    ],
+)
+def test_has_numeric_backreference(pattern: str, expected: bool):
+    assert _has_numeric_backreference(pattern) is expected
