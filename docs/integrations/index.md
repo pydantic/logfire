@@ -30,7 +30,7 @@ If a package you are using is not listed in this documentation, please let us kn
 
 **Logfire** has documented integrations with many technologies, including:
 
-- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, OpenRouter, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic ([grouped under AI](llms/index.md))
+- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, OrcaRouter, Anthropic, OpenRouter, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic ([grouped under AI](llms/index.md))
 - _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
 - _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
@@ -81,6 +81,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Mirascope](llms/mirascope.md)            | AI Framework            | N/A (use mirascope `@with_logfire` decorator)                                                                                                                          |
 | [MySQL](databases/mysql.md)               | Database                | [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql]                                                                                                       |
 | [OpenAI](llms/openai.md)                  | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai]                                                                                                     |
+| [OrcaRouter](llms/orcarouter.md)          | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai]                                                                                                     |
 | [Psycopg](databases/psycopg.md)           | Database                | [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg]                                                                                                   |
 | [Pytest](pytest.md)                       | Testing                 | N/A (built-in plugin, use `pytest --logfire`)                                                                                                                          |
 | [PyMongo](databases/pymongo.md)           | Database                | [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo]                                                                                                   |

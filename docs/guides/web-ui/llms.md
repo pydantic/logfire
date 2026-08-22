@@ -119,6 +119,7 @@ Any instrumentation that emits the OpenTelemetry `gen_ai.*` conventions lands in
 
 - [Pydantic AI](../../integrations/llms/pydanticai.md): wired up by default.
 - [OpenAI](../../integrations/llms/openai.md)
+- [OrcaRouter](../../integrations/llms/orcarouter.md)
 - [Anthropic](../../integrations/llms/anthropic.md)
 - [Google Gen AI](../../integrations/llms/google-genai.md)
 - [LangChain](../../integrations/llms/langchain.md)
