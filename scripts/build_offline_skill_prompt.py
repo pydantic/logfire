@@ -32,7 +32,7 @@ SKILLS_ROOT = REPO_ROOT / 'logfire' / '.agents' / 'skills'
 # Hub first, then the three it routes to, in the order a reader would want
 # to meet them: detect/install first, the two optional add-ons after.
 SKILL_ORDER = [
-    'logfire',
+    'logfire-setup',
     'logfire-instrumentation',
     'logfire-infrastructure',
     'logfire-evals',
@@ -99,7 +99,7 @@ def _preamble(*, include_references: bool) -> str:
     )
     return (
         '# Pydantic Logfire — Offline Setup Prompt\n\n'
-        'This is a self-contained bundle of the `logfire` hub skill and every skill it\n'
+        'This is a self-contained bundle of the `logfire-setup` hub skill and every skill it\n'
         'routes to (`logfire-instrumentation`, `logfire-infrastructure`,\n'
         '`logfire-evals`), for use when you cannot fetch URLs. Read top to bottom;\n'
         'nothing below needs a network fetch to resolve.\n\n'

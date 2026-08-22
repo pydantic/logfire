@@ -1,5 +1,5 @@
 ---
-name: logfire
+name: logfire-setup
 description: Entry point for Pydantic Logfire — an observability, monitoring, and evals platform. Use this skill when the user asks to "set up Logfire", "add Logfire to my project", "get me set up properly with Logfire", "send as much data as would be useful", mentions Logfire without a specific scope, or their request spans more than one of instrumenting application code / monitoring infrastructure / evaluating AI behavior. If the request is clearly scoped to exactly one of those, fetch that specific skill directly instead of this one — this skill exists to route, not to duplicate their content.
 ---
 
