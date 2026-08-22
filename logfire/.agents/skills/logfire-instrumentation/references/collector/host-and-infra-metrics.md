@@ -32,7 +32,7 @@ it via environment variable rather than hardcoding it. Add the exporter to your
 metrics (and/or logs/traces) pipelines.
 
 Full setup, topologies, and processors:
-https://docs.pydantic.dev/logfire/how-to-guides/otel-collector/otel-collector-overview/
+https://pydantic.dev/docs/logfire/guides/otel-collector/otel-collector-overview/
 
 ## Host metrics → Hosts page
 
@@ -60,12 +60,57 @@ service:
 
 Set `host.name` (and other host resource attributes) so hosts are identified
 correctly. Guide:
-https://docs.pydantic.dev/logfire/how-to-guides/otel-collector/host-monitoring/
+https://pydantic.dev/docs/logfire/guides/otel-collector/host-monitoring/
 
 **App-only alternative:** if you can't run a Collector but the app process should
 report its host's metrics, call `logfire.instrument_system_metrics()` (Python,
 needs the `system-metrics` extra). The Collector `hostmetrics` receiver is
 preferred for true host coverage because it runs per host, independent of any app.
+
+## Docker containers → Docker page
+
+Use the `docker_stats` receiver, pointed at the Docker socket:
+
+```yaml
+receivers:
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    api_version: "1.44"   # quoted string -- a bare float like 1.44 is rejected
+```
+
+Modern builds of the receiver auto-negotiate the API version; older builds
+default to 1.25, too old for current Docker/OrbStack, so pin a recent version
+to avoid API-version errors. The collector needs permission to read the socket:
+mount `/var/run/docker.sock` into the container and run it as a user that can
+read it (often `user: "0:0"` in Docker Compose) -- call out that Docker socket
+access, especially as root, is effectively root-level control of the host
+before doing this.
+
+Group containers under the real host by passing the host name in from the
+shell and setting it as a resource attribute:
+
+```yaml
+# docker-compose.yml
+services:
+  otel-collector:
+    environment:
+      OTEL_RESOURCE_ATTRIBUTES: host.name=${HOST_NAME}
+```
+
+```bash
+HOST_NAME=$(hostname) docker compose up
+```
+
+A literal `$(hostname)` inside a Compose value does not expand -- it has to
+come in from the shell.
+
+If the collector runs in a container and the Logfire base URL is a
+localhost/LAN address (self-hosted or local dev), reach the host via
+`host.docker.internal` (add `extra_hosts: ["host.docker.internal:host-gateway"]`
+in Compose), not `localhost` -- inside the container, `localhost` is the
+collector itself. A public cloud Logfire URL needs no change.
+
+Guide: https://pydantic.dev/docs/logfire/observe/docker/
 
 ## Kubernetes → Kubernetes page
 
@@ -78,7 +123,7 @@ pattern is two Collectors — a Deployment for cluster-level state
 `k8s.*` attributes onto traces from your applications.
 
 Guide:
-https://docs.pydantic.dev/logfire/how-to-guides/otel-collector/kubernetes-monitoring/
+https://pydantic.dev/docs/logfire/guides/otel-collector/kubernetes-monitoring/
 
 ## Database / queue / cache servers → Metrics & Dashboards
 
