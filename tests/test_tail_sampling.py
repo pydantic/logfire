@@ -781,7 +781,7 @@ def test_late_span_can_still_sample_trace_after_root_ends():
     collector = _NameCollector()
     processor = TailSamplingProcessor(
         collector,
-        get_tail_sample_rate=lambda info: 1.0 if info.span.name == 'child' else 0.0,
+        get_tail_sample_rate=lambda info: 1.0 if info.event == 'end' and info.span.name == 'child' else 0.0,
     )
     provider = TracerProvider()
     provider.add_span_processor(processor)
