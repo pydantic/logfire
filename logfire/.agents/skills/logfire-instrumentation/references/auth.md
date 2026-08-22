@@ -8,7 +8,7 @@ Check first, before assuming anything needs to happen:
 logfire --non-interactive whoami
 ```
 
-If that already reports the right project and region, you're done — skip straight to the rest of whichever skill sent you here. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency.
+If that already reports the right project and region, you're done — skip straight to the rest of whichever skill sent you here. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` — it's a setup tool, not an app dependency, and `uvx` works regardless of the project's own language since it manages its own Python. **Do not substitute `npx logfire` even in a JS/TS-only project with no Python tooling**: the npm package of the same name is a different artifact (a JavaScript instrumentation library, not this CLI) and its `bin` entry silently no-ops — exit 0, no output — for `auth`, `whoami`, `projects`, and any other subcommand, indistinguishable from success. If `uv` genuinely isn't available, install it first (https://docs.astral.sh/uv/getting-started/installation/) rather than falling back to `npx`.
 
 ```bash
 logfire --non-interactive --region eu auth
