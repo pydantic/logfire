@@ -1258,6 +1258,59 @@ def test_projects_status_reports_a_failed_query(tmp_dir_cwd: Path, capsys: pytes
     assert 'Invalid read token' in err
 
 
+def test_auth_base_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    base_url = 'http://localhost:8080'
+    monkeypatch.setenv('LOGFIRE_BASE_URL', base_url)
+    auth_file = tmp_path / 'default.toml'
+    with (
+        patch('logfire._internal.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file),
+        patch('logfire._internal.cli.auth.input', return_value='') as auth_input,
+        patch('logfire._internal.cli.auth.webbrowser.open'),
+        requests_mock.Mocker() as request_mocker,
+    ):
+        request_mocker.post(
+            f'{base_url}/v1/device-auth/new/',
+            json={'device_code': 'DC', 'frontend_auth_url': 'http://example.com/auth'},
+        )
+        request_mocker.get(
+            f'{base_url}/v1/device-auth/wait/DC',
+            json={'token': 'fake_token', 'expiration': 'fake_exp'},
+        )
+
+        main(['auth'])
+
+        # `_read_line()` passes its default empty prompt straight through to `input`.
+        auth_input.assert_called_once_with('')
+        assert [request.url.partition('?')[0] for request in request_mocker.request_history] == [
+            f'{base_url}/v1/device-auth/new/',
+            f'{base_url}/v1/device-auth/wait/DC',
+        ]
+
+
+@pytest.mark.parametrize(
+    ('args', 'expected_url'),
+    [
+        (['--base-url', 'http://cli:8080', 'auth'], 'http://cli:8080'),
+        (['--region', 'us', 'auth'], 'https://logfire-us.pydantic.dev'),
+    ],
+    ids=['base-url', 'region'],
+)
+def test_auth_cli_url_overrides_env(monkeypatch: pytest.MonkeyPatch, args: list[str], expected_url: str) -> None:
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'http://env:8080')
+    parse_auth = Mock()
+
+    def capture_args(args: argparse.Namespace) -> None:
+        """Capture the parsed auth arguments."""
+        parse_auth(args)
+
+    monkeypatch.setattr(logfire._internal.cli, 'parse_auth', capture_args)
+
+    main(args)
+
+    assert parse_auth.call_args.args[0].logfire_url == expected_url
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
@@ -1343,7 +1396,12 @@ def test_auth_logout_wrong_region(default_credentials: Path, capsys: pytest.Capt
     assert 'No user token was found matching' in capsys.readouterr().err
 
 
-def test_auth_no_region_specified(tmp_path: Path) -> None:
+@pytest.mark.parametrize('base_url_env', [None, ''], ids=['unset', 'empty'])
+def test_auth_no_region_specified(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, base_url_env: str | None) -> None:
+    if base_url_env is None:
+        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
+    else:
+        monkeypatch.setenv('LOGFIRE_BASE_URL', base_url_env)
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))

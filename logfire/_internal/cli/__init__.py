@@ -851,6 +851,7 @@ def _get_logfire_url(logfire_url: str | None, region: str | None) -> str | None:
         return logfire_url
     if region is not None:
         return REGIONS[region]['base_url']
+    return os.environ.get('LOGFIRE_BASE_URL') or None
 
 
 class SplitArgs(argparse.Action):
