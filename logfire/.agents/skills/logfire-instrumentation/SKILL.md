@@ -13,7 +13,7 @@ Invoke this skill when:
 - User mentions Logfire in any context
 - User asks to "add logging" or "see what my app is doing"
 - User wants to monitor AI/LLM calls (PydanticAI, OpenAI, Anthropic)
-- User asks to add observability to an AI agent or LLM pipeline
+- User asks to add observability to an AI agent or LLM pipeline, including specific frameworks like LangChain, LangGraph, CrewAI, AutoGen, OpenAI Agents SDK, Claude Agent SDK, or Google ADK
 
 ## How Logfire Works
 
@@ -64,7 +64,9 @@ Install `logfire` with extras matching the detected frameworks. Each instrumente
 uv add 'logfire[fastapi,httpx,asyncpg]'
 ```
 
-The full list of available extras: `fastapi`, `starlette`, `django`, `flask`, `httpx`, `requests`, `asyncpg`, `psycopg`, `psycopg2`, `sqlalchemy`, `redis`, `pymongo`, `mysql`, `sqlite3`, `celery`, `aiohttp`, `aws-lambda`, `system-metrics`, `litellm`, `dspy`, `google-genai`.
+The full list of available extras: `fastapi`, `starlette`, `asgi`, `wsgi`, `django`, `flask`, `httpx`, `requests`, `asyncpg`, `psycopg`, `psycopg2`, `sqlalchemy`, `redis`, `pymongo`, `mysql`, `sqlite3`, `celery`, `aiohttp`, `aiohttp-client`, `aiohttp-server`, `aws-lambda`, `system-metrics`, `litellm`, `dspy`, `google-genai`.
+
+A few instrumentors need no extra, just the target library installed: `instrument_surrealdb()` (SurrealDB), `instrument_mcp()` (the MCP Python SDK, client and server), `instrument_pydantic()` (BaseModel validation events — distinct from `instrument_pydantic_ai()` below), and `instrument_print()` (redirects `print()` calls). `gateway`, `datasets`, and `variables` are extras too, but for separate product features (the AI Gateway proxy, the evals SDK, and managed feature flags) — not app instrumentation.
 
 #### Configure and Instrument
 
@@ -312,7 +314,7 @@ source and the product surface it lights up.
 | **Docker** — per-container CPU, memory, network, block I/O | Container stats | OTel Collector `docker_stats` receiver, no app changes |
 | **Kubernetes** — clusters, nodes, pods, workloads | `k8s.*` resource attributes + kubelet/cluster metrics | OTel Collector Kubernetes receivers |
 | **Metrics explorer / Dashboards / Alerts** | [Custom metrics](#custom-metrics) + any OTel metrics (database, queue, cache servers, ...) | `logfire.metric_*`, or Collector receivers |
-| **AI / LLM views** — token usage, tool calls, agent runs | LLM/agent spans | `instrument_pydantic_ai()` / `instrument_openai()` / ... (Step 3, AI/LLM Instrumentation) |
+| **AI / LLM views** — token usage, tool calls, agent runs | LLM/agent spans | `instrument_pydantic_ai()` / `instrument_openai()` / ... (Step 3, AI/LLM Instrumentation); agent frameworks below |
 
 The first two rows are app-SDK work — Steps 1-4 above. **Hosts, Docker, Kubernetes,
 and infrastructure-service metrics (Postgres, Redis, MongoDB, Elasticsearch,
@@ -323,6 +325,28 @@ largest source of "data we could be collecting" that pure app instrumentation
 misses; reach for it whenever the goal is maximal coverage, the user mentions a
 host/VM/container/cluster, or names infrastructure by product (Docker,
 Kubernetes, Postgres, Redis, ...) rather than application code.
+
+### Supported Languages
+
+Native SDKs: **Python**, **JavaScript/TypeScript**, **Rust**. Any other language via raw OpenTelemetry — Logfire is a fully compliant OTel backend and ingests any OTLP, so a language with its own OTel SDK needs no Logfire-specific package at all.
+
+### Agent Frameworks
+
+Coverage depth (cost, tool spans, message content) varies by framework — check the product's own integration docs before assuming parity with PydanticAI.
+
+| Framework | How | Coverage |
+|-----------|-----|----------|
+| PydanticAI | `instrument_pydantic_ai()` | Full — agent runs, tool calls, LLM requests |
+| OpenAI Agents SDK | `instrument_openai_agents()` | Agent runs + tokens (no cost/tools/messages yet) |
+| Claude Agent SDK | `instrument_claude_agent_sdk()` | LLM spans + cost (doesn't yet populate the Agents view) |
+| AutoGen | `instrument_openai()` + native OpenTelemetry | Full, including cost |
+| LangChain, LangGraph, Google ADK | Native OpenTelemetry — just `logfire.configure()`, no instrument call | Varies by framework |
+| CrewAI, Agno, smolagents | Third-party OpenInference instrumentor (`openinference-instrumentation-*`) | Agent detected; CrewAI has no LLM spans (no token/model/cost) |
+| Vercel AI SDK (JS) | `experimental_telemetry` (see JS section) | Full, including cost |
+
+### Infrastructure Integrations
+
+Beyond the Collector receivers in the [collector reference](./references/collector/host-and-infra-metrics.md) (hosts, Docker, Kubernetes, and the Postgres/MySQL/Redis/MongoDB/Kafka/RabbitMQ/Nginx/Apache/Elasticsearch/Memcached table — which also covers cloud-provider metrics: GCP Cloud Monitoring, AWS ECS container metrics, and broader AWS CloudWatch via the AWS Distro for OpenTelemetry collector), Logfire ingests any OTLP a Collector can produce.
 
 ## References
 

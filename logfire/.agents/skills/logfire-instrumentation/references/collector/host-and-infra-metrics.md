@@ -149,6 +149,23 @@ the receiver to the services the project actually depends on (read
 `pyproject.toml` / `package.json` / `docker-compose.yml` to detect them), and set
 `service.instance.id` on each so per-instance metrics stay distinct.
 
+## Cloud provider metrics → Metrics & Dashboards
+
+- **GCP**: the `googlecloudmonitoring` receiver pulls Cloud Monitoring (formerly
+  Stackdriver) metrics — needs a service account with monitoring read
+  permissions and an explicit `metrics_list` of metric names to collect.
+- **AWS**: the `awsecscontainermetrics` receiver reads ECS task-metadata-endpoint
+  metrics directly, no extra IAM beyond the task role. For broader CloudWatch
+  metrics (RDS, ALB, and other services not on the ECS metadata endpoint), use
+  the `awscloudwatchmetrics` receiver, which ships only in the AWS Distro for
+  OpenTelemetry (ADOT) collector image
+  (`public.ecr.aws/aws-observability/aws-otel-collector`), not the stock
+  Contrib distribution — and needs `cloudwatch:GetMetricData` /
+  `GetMetricStatistics` / `ListMetrics` IAM permissions.
+
+Full setup, IAM policies, and example ECS/Cloud Run deployments:
+https://pydantic.dev/docs/logfire/guides/cloud-metrics/
+
 ## Service & resource metadata
 
 Whatever the source, set resource attributes so data is grouped correctly across
