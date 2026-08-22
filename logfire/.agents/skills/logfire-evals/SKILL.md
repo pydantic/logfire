@@ -1,6 +1,6 @@
 ---
 name: logfire-evals
-description: Evaluate Python AI/agent code against a dataset of test cases using pydantic_evals, and review results in Logfire's Datasets & Experiments UI. Use this skill whenever the user asks to "set up evals", "add an evaluation", "test my agent against cases", "write a dataset of test cases", "score my LLM output", "add an LLM judge", "check tool-call correctness", or mentions pydantic_evals, Datasets & Experiments, or evaluating AI/agent behavior against known inputs. This is Python-only, and is for scoring DEFINED test cases offline — not for instrumenting live production traffic (use `logfire-instrumentation` for that) and not for infrastructure monitoring (use `logfire-infrastructure`).
+description: Evaluate Python AI/agent code against a dataset of test cases using pydantic_evals, and review results in Logfire's Datasets & Experiments UI. Also covers redirecting an existing Braintrust Eval() suite to Logfire with no code changes. Use this skill whenever the user asks to "set up evals", "add an evaluation", "test my agent against cases", "write a dataset of test cases", "score my LLM output", "add an LLM judge", "check tool-call correctness", "send Braintrust evals to Logfire", "migrate from Braintrust", or mentions pydantic_evals, Braintrust, Datasets & Experiments, or evaluating AI/agent behavior against known inputs. This is Python-only, and is for scoring DEFINED test cases offline — not for instrumenting live production traffic (use `logfire-instrumentation` for that) and not for infrastructure monitoring (use `logfire-infrastructure`).
 ---
 
 # Evaluate with pydantic_evals and Logfire
@@ -17,6 +17,21 @@ Identify the function or agent under test (a PydanticAI agent, an LLM-calling fu
 
 - **In-code dataset**: a Python module defining `Case`/`Dataset` directly — the default for an agent-driven workflow.
 - **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`) — `client.get_dataset(name, include_cases=True)` / `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not the CLI auth flow below. Only relevant if the user specifically wants case editing outside code.
+- **Existing Braintrust suite**: don't rewrite it — see below, skip straight past Steps 2-3.
+
+### Already using Braintrust?
+
+Keep the existing `Eval()` code (Python `braintrust>=0.30.1` / TypeScript `braintrust>=3.24.0` — verified versions) and redirect its next run to Logfire by changing environment variables only, no `pydantic_evals` involved:
+
+```bash
+export BRAINTRUST_APP_URL="https://logfire-us.pydantic.dev/v1/braintrust"  # EU: logfire-eu.pydantic.dev
+export BRAINTRUST_API_KEY="<logfire-project-write-token>"                  # Project -> Settings -> Write tokens
+unset BRAINTRUST_API_URL BRAINTRUST_PROXY_URL  # these override the endpoint above if set — the #1 "it still hit Braintrust" cause
+```
+
+This is a **compatibility preview, not full parity**: covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It does not cover Braintrust-hosted datasets/prompts/functions, BTQL, the model proxy, server-side scoring, or post-finalization feedback — and `summarize_scores=False`, a manual `flush()` without a comparison, or the Rust SDK never request the summary this endpoint needs, so nothing lands even though the run appears to succeed. Full detail and the concept-translation table (Braintrust "project" → Logfire dataset name, "scorer" → evaluator, etc.): https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/.
+
+Verify the same way as any other run (Step 4) — the SDK's own printed result URL also opens directly in Logfire.
 
 ## Step 2: Authenticate and Select the Exact Project
 
