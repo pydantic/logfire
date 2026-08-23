@@ -74,7 +74,7 @@ Narrow the list with the search box, the status dropdown (**All statuses**, **Av
 
 The catalog is also reachable through the [Logfire MCP server](../../how-to-guides/mcp-server.md), so an AI coding assistant or an on-call agent can put monitoring in place for you. `integration_list` returns the catalog with your project's install and detection state, and `integration_install` installs one. This is what an agent reaches for when it needs dashboards and alerts to exist before it can investigate a problem.
 
-## Integrations available to everyone
+## Available integrations
 
 | Integration | Tags |
 |---|---|
