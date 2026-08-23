@@ -21,13 +21,15 @@ instrumented, never reconfigured.
 from __future__ import annotations
 
 import socket
-import threading
 import time
 from typing import Any
 
 from requests import Session
 from requests.adapters import DEFAULT_POOLBLOCK, HTTPAdapter
 from urllib3.connection import HTTPConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+
+_now = time.monotonic
 
 IDLE_CONNECTION_RECYCLE_SECONDS = 30
 """Drop pooled connections when the session has gone unused for longer than this.
@@ -79,11 +81,51 @@ def keepalive_socket_options() -> list[tuple[int, int, int | bytes]]:
     return options
 
 
+class _IdleRecyclingPoolMixin(HTTPConnectionPool):
+    """Closes a pooled connection that has sat idle longer than the recycle window.
+
+    The unit that goes stale is one connection, not the session: a session can be busy
+    continuously while an individual pooled connection sits unused. That is the normal shape for
+    Logfire, where one session carries traces, metrics and logs from different threads, so a
+    steady trace stream keeps the session active while the connection that last served a metric
+    export waits out the full export interval.
+
+    `urllib3` already drops a pooled connection it can see was closed. This extends that to the
+    case it cannot see, closing on the way out of the pool and letting `urllib3` reconnect
+    lazily, exactly as it does for a connection it detected as dropped.
+    """
+
+    idle_recycle_seconds: float = IDLE_CONNECTION_RECYCLE_SECONDS
+
+    def _put_conn(self, conn: Any) -> Any:
+        if conn is not None:
+            conn._logfire_idle_since = _now()
+        return super()._put_conn(conn)
+
+    def _get_conn(self, timeout: float | None = None) -> Any:
+        conn = super()._get_conn(timeout)
+        idle_since = getattr(conn, '_logfire_idle_since', None)
+        if idle_since is not None and _now() - idle_since > self.idle_recycle_seconds:
+            conn.close()
+        return conn
+
+
+def _pool_classes(idle_recycle_seconds: float) -> dict[str, type[Any]]:
+    """Pool classes bound to one recycle window.
+
+    Built per adapter rather than passed through `connection_pool_kw`, because `urllib3` feeds
+    that mapping to its pool-key normalizer, which rejects keys it does not know.
+    """
+    namespace = {'idle_recycle_seconds': idle_recycle_seconds}
+    return {
+        'http': type('LogfireHTTPConnectionPool', (_IdleRecyclingPoolMixin, HTTPConnectionPool), namespace),
+        'https': type('LogfireHTTPSConnectionPool', (_IdleRecyclingPoolMixin, HTTPSConnectionPool), namespace),
+    }
+
+
 class LogfireHTTPAdapter(HTTPAdapter):
     """A `requests` adapter that enables TCP keepalive and recycles idle pooled connections."""
 
-    # `_recycle_lock` holds a lock, which cannot be pickled, so it is rebuilt in `__setstate__`
-    # rather than listed here.
     __attrs__ = [*HTTPAdapter.__attrs__, '_idle_recycle_seconds']
 
     def __init__(
@@ -94,8 +136,6 @@ class LogfireHTTPAdapter(HTTPAdapter):
     ) -> None:
         # Set before `super().__init__`, which calls `init_poolmanager`.
         self._idle_recycle_seconds = idle_recycle_seconds
-        self._recycle_lock = threading.Lock()
-        self._last_used = time.monotonic()
         super().__init__(*args, **kwargs)
 
     def init_poolmanager(
@@ -103,36 +143,13 @@ class LogfireHTTPAdapter(HTTPAdapter):
     ) -> None:
         pool_kwargs.setdefault('socket_options', keepalive_socket_options())
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
-
-    def __setstate__(self, state: dict[str, Any]) -> None:
-        self._recycle_lock = threading.Lock()
-        self._last_used = time.monotonic()
-        state.setdefault('_idle_recycle_seconds', IDLE_CONNECTION_RECYCLE_SECONDS)
-        super().__setstate__(state)  # type: ignore[misc]
-
-    def send(self, *args: Any, **kwargs: Any) -> Any:
-        with self._recycle_lock:
-            if time.monotonic() - self._last_used > self._idle_recycle_seconds:
-                # Only idle connections sit in the pool. Anything in flight has been checked out
-                # and is untouched by this, so concurrent requests are not disturbed.
-                self.poolmanager.clear()
-            self._last_used = time.monotonic()
-        try:
-            return super().send(*args, **kwargs)
-        finally:
-            # Stamp again on the way out so that a slow or streaming response does not make the
-            # *next* request look as though it followed an idle gap.
-            with self._recycle_lock:
-                self._last_used = time.monotonic()
+        # `getattr` because unpickling restores attributes in an order we do not control.
+        window = getattr(self, '_idle_recycle_seconds', IDLE_CONNECTION_RECYCLE_SECONDS)
+        self.poolmanager.pool_classes_by_scheme = _pool_classes(window)
 
 
 def install_connection_policy(session: Session, *, idle_recycle_seconds: float | None = None) -> None:
-    """Apply the keepalive and idle recycle policy to a session Logfire owns.
-
-    A single adapter serves both schemes so that idleness is tracked per session rather than per
-    scheme; a session that talks only HTTPS would otherwise leave the HTTP adapter's clock
-    permanently stale.
-    """
+    """Apply the keepalive and idle recycle policy to a session Logfire owns."""
     kwargs: dict[str, Any] = {} if idle_recycle_seconds is None else {'idle_recycle_seconds': idle_recycle_seconds}
     adapter = LogfireHTTPAdapter(**kwargs)
     session.mount('http://', adapter)
