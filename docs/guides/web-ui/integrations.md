@@ -9,7 +9,9 @@ An **integration** is a ready-made observability bundle for a piece of infrastru
 
 They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md) already scrapes from those services. The Collector is a separate program that gathers telemetry and forwards it to Logfire. Point it at Redis, open the catalog, and install: you get the dashboard and alerts without working out which attributes the receiver emits, writing the SQL behind each panel, or repeating that work for the next service.
 
-![The Integrations catalog](../../images/guide/browser-integrations-catalog.png)
+!!! warning "Give every service instance a unique identity"
+
+    Before using a setup snippet, replace its example identity values with values for your deployment. In particular, `service.instance.id` must be stable and unique for each service instance the Collector scrapes. Reusing an example such as `localhost:6379` across hosts merges their independent counters into one metric stream, which can make dashboard rates and alerts wrong.
 
 ## What an integration installs
 
@@ -24,20 +26,30 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
     Alerts are installed without a notification channel, so nothing pages anyone until you attach one.
 
+!!! warning "Notifications do not yet name the affected instance"
+
+    An integration alert notification currently shows the breached value but not the service instance that produced it. Use the integration's dashboard to compare instances and identify the affected one before responding.
+
 ## Install an integration
 
-1. **Send telemetry.** Point your OpenTelemetry Collector at the service. Each integration's **Setup** tab has the configuration to copy. On self-hosted Logfire, substitute your own ingest endpoint.
-2. **Open the catalog.** In the project sidebar, under **Observe**, select **Integrations**.
+1. **Send telemetry.** Point your OpenTelemetry Collector at the service. Each integration's **Set up** tab has the configuration to copy. On self-hosted Logfire, substitute your own ingest endpoint.
+2. **Open the catalog.** Open the <OpenInLogfire path="integrations" variant="inline" label="Integrations catalog" /> for your project.
 3. **Install**, either way round:
     - Select **Detect and Install** at the top of the catalog. Logfire checks every integration against the telemetry in your project and installs the ones it finds.
     - Or find one integration and select **Install** on its row, or open it with **View details** and install from there.
-4. **Attach a notification channel.** Open the integration's **Alerts** tab, or your project's [Alerts](alerts.md) page, and give the alerts a channel and schedule so they can reach you.
+4. **Attach a notification channel.** Review the installed set on the integration's **Alerts** tab. Then open your project's [Alerts](alerts.md) page and give each alert a channel and schedule so it can reach you.
+
+## Verify the installation
+
+The integration's status changes to **Installed**. Open **View details**, then check that its **Dashboards** tab marks the bundled dashboard as **Added** and its **Alerts** tab lists the bundled alerts. When the service's metrics are arriving, select **Open** on the dashboard and confirm that its panels contain data for your selected time range.
+
+## Keep an integration current
 
 Integrations keep themselves current. When Logfire revises an integration's content, your installed alerts are brought in line automatically, and its dashboards render from Logfire's definition rather than a per-project copy, so a revised dashboard is already the one you are looking at.
 
 A sync rewrites the alert's own definition: its name, description, query, and evaluation windows. A correction to an alert's query therefore reaches alerts you have already installed. It never touches what you chose: the notification channel you attached, or whether the alert is switched on.
 
-Because the on and off state is yours, it is set only at install. If Logfire later changes whether an alert is recommended or diagnostic, that applies to new installs; an alert you already have stays as you left it, and you can switch it off yourself.
+Because the on and off state is yours, Logfire does not change it when an existing alert moves between the recommended and diagnostic tiers. An alert you already have stays as you left it. An alert added to the integration later uses its current tier when the sync creates it.
 
 An integration can show **Update available** with an **Update** action in the window between a Logfire release and the sync that follows it. Selecting it is safe but not required: it applies the same content sync, and additionally re-enables any of the integration's dashboards you had turned off.
 
@@ -45,14 +57,14 @@ An integration can show **Update available** with an **Update** action in the wi
 
 ## Read the catalog
 
-The catalog is a table grouped by category: data stores, messaging, web and proxies, infrastructure, AI, and languages. Each row shows the service, its tags, its contents as a count of dashboards and alerts, and its **status** for your project:
+The catalog groups the integrations visible to your project by service type. Each row shows the service, its tags, its contents as a count of dashboards and alerts, and its **status** for your project:
 
 - **Available**: no telemetry from this service has been seen.
 - **Detected**: the service's metrics are arriving and it is ready to install.
 - **Installed**: its dashboards are enabled and its alerts exist.
 - **Update available**: installed, but Logfire has since revised the content.
 
-Narrow the list with the search box, the status dropdown (**All statuses**, **Available**, **Installed**), and the tag chips: `Database`, `Cache`, `SQL`, `NoSQL`, `Search`, `Queue`, `Streaming`, `Web Server`, and `Proxy`. Selecting several tags matches any of them.
+Narrow the list with the search box, the status dropdown (**All statuses**, **Available**, **Installed**), and the tag chips: `Database`, `Cache`, `SQL`, `NoSQL`, `Search`, `Queue`, `Streaming`, `Web Server`, and `Proxy`. The **Available** filter includes detected integrations that you have not installed. Selecting several tags matches any of them.
 
 !!! note "Detection runs on demand"
 
@@ -62,7 +74,7 @@ Narrow the list with the search box, the status dropdown (**All statuses**, **Av
 
 The catalog is also reachable through the [Logfire MCP server](../../how-to-guides/mcp-server.md), so an AI coding assistant or an on-call agent can put monitoring in place for you. `integration_list` returns the catalog with your project's install and detection state, and `integration_install` installs one. This is what an agent reaches for when it needs dashboards and alerts to exist before it can investigate a problem.
 
-## Available integrations
+## Integrations available to everyone
 
 | Integration | Tags |
 |---|---|
