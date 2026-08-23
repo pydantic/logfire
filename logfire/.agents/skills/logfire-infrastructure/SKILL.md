@@ -11,7 +11,13 @@ Do **not** use this skill for application-level traces, logs, or AI/agent spans 
 
 The OpenTelemetry Collector ships host, container, cluster, and infrastructure-service metrics to Logfire with **no application code changes** — Logfire ingests any OTLP, so the Collector is the entire mechanism. This is optional and is an advanced tool: if the user only wants their app's own traces, `logfire-instrumentation`'s language SDKs are enough on their own.
 
-## Step 1: Identify What to Monitor
+## Step 1: Authenticate and Select the Exact Project
+
+Do not open, read, or run any infrastructure config file (`docker-compose.yml`, a Kubernetes manifest, or similar) until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's being monitored. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
+
+Check first — `logfire --non-interactive whoami` — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
+
+## Step 2: Identify What to Monitor
 
 Detect the infrastructure actually in play, don't assume:
 
@@ -23,13 +29,9 @@ Detect the infrastructure actually in play, don't assume:
 
 More than one can apply at once — a single Collector can run multiple receivers in parallel pipelines.
 
-## Step 2: Authenticate and Select the Exact Project
-
-Check first — `logfire --non-interactive whoami` — and skip to Step 3 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
-
 ## Step 3: Configure the Collector
 
-Follow the [collector reference](./references/collector/host-and-infra-metrics.md) for the receiver(s) identified in Step 1 — it covers the shared exporter setup, then a dedicated section per source: host metrics, Docker, Kubernetes, database/queue/cache servers, and cloud-provider metrics, each with the exact receiver name, a working config, and the caveats that actually bite (Docker socket permissions, API version pinning, `host.docker.internal` vs `localhost`, IAM permissions, ADOT vs. Contrib collector images).
+Follow the [collector reference](./references/collector/host-and-infra-metrics.md) for the receiver(s) identified in Step 2 — it covers the shared exporter setup, then a dedicated section per source: host metrics, Docker, Kubernetes, database/queue/cache servers, and cloud-provider metrics, each with the exact receiver name, a working config, and the caveats that actually bite (Docker socket permissions, API version pinning, `host.docker.internal` vs `localhost`, IAM permissions, ADOT vs. Contrib collector images).
 
 Set the same service & resource metadata conventions the [collector reference](./references/collector/host-and-infra-metrics.md) describes — `host.name`, `service.name`, `service.instance.id` — so data groups correctly across the Hosts, Kubernetes, and Metrics pages.
 
