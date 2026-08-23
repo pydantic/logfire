@@ -161,17 +161,8 @@ pip install "logfire[gateway]"
 logfire gateway launch claude
 ```
 
-For a self-hosted Logfire instance, pass its public URL as `--base-url`:
-
-```bash
-uvx --with 'logfire[gateway]' logfire \
-  --base-url https://<your-logfire-host> \
-  gateway launch claude
-```
-
-The browser opens the instance's normal login and consent flow. The CLI receives a short-lived OAuth credential, so you do not need to put a Gateway API key in an environment variable. The Logfire Helm chart supports this flow in version `0.13.42` and later.
-
-By default, the CLI also sends Gateway requests to the host passed with `--base-url`. If the Gateway is exposed on a different host, add `--gateway-url https://<your-gateway-host>` after `claude`.
+!!! note
+    For self-hosted Logfire, set `--base-url https://<your-logfire-host>`. Set `--gateway-url https://<your-gateway-host>` only if the Gateway is exposed at a different URL.
 
 Or run just the proxy and configure a tool manually with `logfire gateway serve`. See the [CLI reference](../../cli.md#ai-gateway-gateway) for details.
 
