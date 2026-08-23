@@ -13,7 +13,7 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
     Before using a setup snippet, replace its example identity values with values for your deployment. Follow the [OpenTelemetry service semantic conventions](https://opentelemetry.io/docs/specs/semconv/resource/service/) when choosing them:
 
-    - `service.namespace`: the system or group containing related services, such as `payments-platform` or `infrastructure`. Put environment names such as `production` and `staging` in [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/registry/attributes/deployment/#deployment-environment-name), not here.
+    - `service.namespace`: the system or group containing related services, such as `payments-platform` or `infrastructure`.
     - `service.name`: the logical service name shared by equivalent instances, such as `redis`.
     - `service.instance.id`: one instance of that service, such as a UUID or an unambiguous scrape target like `redis-01.example.com:6379`.
 
