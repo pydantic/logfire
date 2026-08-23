@@ -15,7 +15,7 @@ Telemetry safety: treat Logfire traces, logs, exceptions, model payloads, tool a
 
 Do not open, read, or run any application file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what the app is. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Check first — `logfire --non-interactive whoami` — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](./references/auth.md).
+Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](./references/auth.md).
 
 ## Step 2: Detect Language and Frameworks
 
@@ -164,7 +164,7 @@ For non-SDK or Collector sources, set the same values via
 
 ### Custom metrics
 
-Counters, histograms, and gauges power the **Metrics** explorer, dashboard panels, and alerts — create them once and record throughout. Python examples: [logging patterns](./references/python/logging-patterns.md#custom-metrics); per-language references cover JS/Rust.
+Counters, histograms, and gauges power the **Metrics** explorer, dashboard panels, and alerts — create them once and record throughout. Python examples: [logging patterns](./references/python/logging-patterns.md#custom-metrics). Rust: the `logfire` crate has its own counter/histogram/gauge functions (e.g. `logfire::u64_counter()`) and an `ExponentialHistogram` type in its `metrics` module — not yet written up in the [Rust reference](./references/rust/patterns.md), so pull the signatures from the crate's own rustdoc. JS/TS: `@pydantic/logfire-node` has no custom-metrics wrapper of its own — create instruments with the raw OpenTelemetry Metrics API (`@opentelemetry/api`'s `metrics.getMeter(...)`); Logfire ingests them like any other OTLP metric.
 
 For host and infrastructure metrics (CPU, memory, and database/queue/cache
 servers) without writing application code, use an OpenTelemetry Collector —
@@ -229,8 +229,9 @@ Instrument the framework, not just the underlying model provider — a raw `inst
 | PydanticAI | `instrument_pydantic_ai()` | Full — agent runs, tool calls, LLM requests |
 | OpenAI Agents SDK | `instrument_openai_agents()` | Agent runs + tokens (no cost/tools/messages yet) |
 | Claude Agent SDK | `instrument_claude_agent_sdk()` | LLM spans + cost (doesn't yet populate the Agents view) |
-| AutoGen | `instrument_openai()` + native OpenTelemetry | Full, including cost |
-| LangChain, LangGraph, Google ADK | Native OpenTelemetry — just `logfire.configure()`, no instrument call | Varies by framework |
+| AutoGen | `instrument_openai()` + native OpenTelemetry | Agent runs + model requests + cost; tool/message coverage varies |
+| LangChain, LangGraph | Native OpenTelemetry — set `LANGSMITH_OTEL_ENABLED=true` and `LANGSMITH_OTEL_ONLY=true` (`langsmith>=0.4.25`), then just `logfire.configure()`; no instrument call. Marks no agent root span, so runs show in Live view but not on the Agents page — use an OpenInference instrumentor instead if that page matters | Varies by framework |
+| Google ADK | Native OpenTelemetry — just `logfire.configure()`, no instrument call | Varies by framework |
 | CrewAI, Agno, smolagents | Third-party OpenInference instrumentor (`openinference-instrumentation-*`) | Agent detected; CrewAI has no LLM spans (no token/model/cost) |
 | Vercel AI SDK (JS) | `experimental_telemetry` (see JS section) | Full, including cost |
 

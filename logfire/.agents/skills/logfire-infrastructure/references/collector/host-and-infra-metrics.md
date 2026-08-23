@@ -69,13 +69,19 @@ preferred for true host coverage because it runs per host, independent of any ap
 
 ## Docker containers → Docker page
 
-Use the `docker_stats` receiver, pointed at the Docker socket:
+Use the `docker_stats` receiver — **Contrib-only, not in the core Collector image** (`otelcol-contrib`, not `otelcol`) — pointed at the Docker socket, and added to an active metrics pipeline (a receiver defined but never referenced under `service.pipelines` collects nothing):
 
 ```yaml
 receivers:
   docker_stats:
     endpoint: unix:///var/run/docker.sock
     api_version: "1.44"   # quoted string -- a bare float like 1.44 is rejected
+
+service:
+  pipelines:
+    metrics:
+      receivers: [docker_stats]
+      exporters: [otlphttp/logfire]
 ```
 
 Modern builds of the receiver auto-negotiate the API version; older builds

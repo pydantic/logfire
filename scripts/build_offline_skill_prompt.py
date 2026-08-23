@@ -71,7 +71,7 @@ def _render_skill(name: str) -> str:
     skill_md = skill_dir / 'SKILL.md'
     if not skill_md.is_file():
         raise BuildOfflinePromptError(f'{skill_md} does not exist')
-    description, body = _strip_frontmatter(skill_md.read_text())
+    description, body = _strip_frontmatter(skill_md.read_text(encoding='utf-8'))
     section = [f'# Skill: {name}', '']
     if description:
         section += [f'*{description}*', '']
@@ -84,7 +84,7 @@ def _render_appendix(name: str) -> str:
     parts: list[str] = []
     for ref in _reference_files(skill_dir):
         relative = ref.relative_to(SKILLS_ROOT)
-        parts.append(f'## {relative}\n\n{ref.read_text().strip()}')
+        parts.append(f'## {relative}\n\n{ref.read_text(encoding="utf-8").strip()}')
     return '\n\n'.join(parts)
 
 
@@ -139,10 +139,10 @@ def main() -> None:
     )
 
     if args.output:
-        args.output.write_text(prompt)
+        args.output.write_text(prompt, encoding='utf-8')
         print(f'wrote {args.output}', file=sys.stderr)
     else:
-        print(prompt)
+        sys.stdout.write(prompt)
 
 
 if __name__ == '__main__':
