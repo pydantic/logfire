@@ -45,15 +45,11 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
 The integration's status changes to **Installed**. Open **View details**, then check that its **Dashboards** tab marks the bundled dashboard as **Added** and its **Alerts** tab lists the bundled alerts. When the service's metrics are arriving, select **Open** on the dashboard and confirm that its panels contain data for your selected time range.
 
-## Keep an integration current
+## Integrations stay current automatically
 
-Integrations keep themselves current. When Logfire revises an integration's content, your installed alerts are brought in line automatically, and its dashboards render from Logfire's definition rather than a per-project copy, so a revised dashboard is already the one you are looking at.
+Logfire maintains installed integrations for you. We may revise dashboards and alert queries over time to improve them, and your project receives those changes automatically. Your notification channels and the enabled or disabled state of existing alerts stay unchanged.
 
-A sync rewrites the alert's own definition: its name, description, query, and evaluation windows. A correction to an alert's query therefore reaches alerts you have already installed. It never touches what you chose: the notification channel you attached, or whether the alert is switched on.
-
-Because the on and off state is yours, Logfire does not change it when an existing alert moves between the recommended and diagnostic tiers. An alert you already have stays as you left it. An alert added to the integration later uses its current tier when the sync creates it.
-
-An integration can show **Update available** with an **Update** action in the window between a Logfire release and the sync that follows it. Selecting it is safe but not required: it applies the same content sync, and additionally re-enables any of the integration's dashboards you had turned off.
+An integration may briefly show **Update available** while an automatic update is pending. No manual action is required.
 
 **Uninstall** deletes the alerts the integration created and disables its bundled dashboards for the project. Alerts and dashboards you made yourself are left alone.
 
