@@ -13,7 +13,7 @@ Agentic evaluators (tool-call correctness, trajectory matching) need more than t
 
 ## Step 1: Check for an Existing Braintrust Suite First
 
-Cheap check, before anything else: does this repo already have an existing Braintrust `Eval()` suite (a `braintrust` dependency, `from braintrust import Eval`, or similar)? This path needs **no CLI auth at all** — don't run Step 2 for it.
+Cheap check, before anything else: does this repo already have an existing Braintrust suite — actual `Eval(...)` calls or `from braintrust import Eval` in source, not just a `braintrust` dependency listed without any real usage? This path needs **no CLI auth at all** — don't run Step 2 for it.
 
 Keep the existing `Eval()` code (Python `braintrust>=0.30.1` / TypeScript `braintrust>=3.24.0` — verified versions) and redirect its next run to Logfire by changing environment variables only, no `pydantic_evals` involved:
 
@@ -109,6 +109,8 @@ If editing a hosted dataset: `client.push_dataset(dataset)` **overwrites** serve
 ## Step 5: Verify
 
 A report printing to the terminal isn't proof it reached Logfire — confirm the run actually landed. **Never report a case as passed, a score, or a run as complete without having actually checked it in this session** — if a run fails, cancels, or produces no scores, report that failure plainly; never substitute an invented score or a manual guess at what the result "should" be.
+
+**Came from the Step 1 Braintrust path (Step 2 skipped)?** There's no `whoami`-resolved project to look up here — use the SDK's own printed result URL instead, which already opens directly in the right Logfire project. Confirm the same things below (completion, pass mix, case detail) from that page rather than searching by name.
 
 1. **Query for the run directly, if a Logfire MCP server or API is connected** — the root span for a run is named `evaluate {name}` and carries `gen_ai.operation.name = 'experiment'`, `dataset_name`, and `task_name` attributes; find the most recent one matching your dataset's name and confirm `logfire.experiment.metadata` shows the case count and pass rate you expect. Otherwise, open **AI Evaluations → Datasets & Experiments → Experiments** in Logfire for the exact project from Step 2, and find the run by name/timestamp.
 2. **Read the Overview tab (or the queried metadata) first**: completion count, assertion pass mix, task errors, average duration. **If completion says "Not reported,"** the run sent case data but never signaled it finished — treat that as a broken run, not a passing one.

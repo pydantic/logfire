@@ -32,6 +32,6 @@ If a request is genuinely ambiguous between two adjacent surfaces (e.g., "watch 
 
 ## What Every One of These Skills Shares
 
-Each of `logfire-instrumentation`, `logfire-infrastructure`, and `logfire-evals` has its own Step 2 (Authenticate and Select the Exact Project) with the exact `logfire --non-interactive auth` / `projects use` / `whoami` commands and flags — they're independently runnable on purpose, so any one of them works standalone if that's the only skill fetched. Authenticating once resolves `whoami` for the rest of the session, so if a second skill from this table gets fetched afterward, its own Step 2 will report "already resolved" and can be skipped.
+Each of `logfire-instrumentation`, `logfire-infrastructure`, and `logfire-evals` authenticates early — an explicit numbered step near the top of the skill (Step 1 for the first two, Step 2 for `logfire-evals`, which checks for an existing Braintrust suite first) — linking to the same shared reference for the exact `logfire --non-interactive auth` / `projects use` / `whoami` commands and flags. They're independently runnable on purpose, so any one of them works standalone if that's the only skill fetched. Authenticating once resolves `whoami` for the rest of the session, so if a second skill from this table gets fetched afterward, its own auth step will report "already resolved" and can be skipped.
 
 Never print, log, hard-code, commit, or echo a token or its credentials file, in any of these skills, at any point.
