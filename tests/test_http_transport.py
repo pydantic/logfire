@@ -7,7 +7,6 @@ from unittest.mock import Mock
 
 import pytest
 import requests
-from requests.adapters import HTTPAdapter
 from urllib3.connection import HTTPConnection
 
 from logfire._internal.auth import UserToken
@@ -18,6 +17,8 @@ from logfire._internal.http_transport import (
     IDLE_CONNECTION_RECYCLE_SECONDS,
     TCP_KEEPALIVE_IDLE_SECONDS,
     LogfireHTTPAdapter,
+    _IdleRecyclingPoolMixin,  # pyright: ignore[reportPrivateUsage]
+    _pool_classes,  # pyright: ignore[reportPrivateUsage]
     install_connection_policy,
     keepalive_socket_options,
 )
@@ -55,70 +56,96 @@ def test_explicit_socket_options_are_not_overridden() -> None:
     assert adapter.poolmanager.connection_pool_kw['socket_options'] == []
 
 
+def test_adapter_registers_the_recycling_pools() -> None:
+    adapter = LogfireHTTPAdapter(idle_recycle_seconds=11)
+    classes = adapter.poolmanager.pool_classes_by_scheme
+
+    for scheme in ('http', 'https'):
+        assert issubclass(classes[scheme], _IdleRecyclingPoolMixin)
+        assert classes[scheme].idle_recycle_seconds == 11
+
+
 @pytest.fixture
 def clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     now = [1000.0]
-    monkeypatch.setattr('logfire._internal.http_transport.time.monotonic', lambda: now[0])
+    # Patch the module's own indirection rather than `time.monotonic`, which urllib3 shares.
+    monkeypatch.setattr('logfire._internal.http_transport._now', lambda: now[0])
     return now
 
 
+def make_pool(monkeypatch: pytest.MonkeyPatch, idle_recycle_seconds: float) -> Any:
+    def not_dropped(conn: Any) -> bool:
+        return False
+
+    # Mock connections are not real sockets, so urllib3's own liveness check must stand aside.
+    monkeypatch.setattr('urllib3.connectionpool.is_connection_dropped', not_dropped)
+    pool = _pool_classes(idle_recycle_seconds)['https']('example.com', maxsize=5)
+    # urllib3 pre-fills the pool with `None` placeholders; drain them so seeded connections are
+    # not discarded as "pool is full".
+    while not pool.pool.empty():
+        pool.pool.get(block=False)
+    return pool
+
+
 @pytest.fixture
-def make_adapter(monkeypatch: pytest.MonkeyPatch, clock: list[float]):
-    """Build a real adapter whose network send is stubbed and whose pool clears are recorded."""
-
-    def factory(*, send_duration: float = 0.0, **kwargs: Any) -> LogfireHTTPAdapter:
-        def fake_send(self: HTTPAdapter, *args: Any, **kw: Any) -> Any:
-            clock[0] += send_duration
-            return Mock()
-
-        monkeypatch.setattr(HTTPAdapter, 'send', fake_send)
-        adapter = LogfireHTTPAdapter(**kwargs)
-        adapter.poolmanager = Mock(wraps=adapter.poolmanager)
-        return adapter
-
-    return factory
+def pool(monkeypatch: pytest.MonkeyPatch, clock: list[float]) -> Any:
+    return make_pool(monkeypatch, IDLE_CONNECTION_RECYCLE_SECONDS)
 
 
-def test_pool_is_not_cleared_within_the_idle_window(make_adapter: Any, clock: list[float]) -> None:
-    adapter = make_adapter()
+def test_connection_used_within_the_window_is_reused(pool: Any, clock: list[float]) -> None:
+    conn = Mock()
+    pool._put_conn(conn)
+
     clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS - 1
-    adapter.send(Mock())
-    adapter.poolmanager.clear.assert_not_called()
+
+    assert pool._get_conn() is conn
+    conn.close.assert_not_called()
 
 
-def test_pool_is_cleared_after_the_idle_window(make_adapter: Any, clock: list[float]) -> None:
-    adapter = make_adapter()
+def test_connection_idle_beyond_the_window_is_closed(pool: Any, clock: list[float]) -> None:
+    conn = Mock()
+    pool._put_conn(conn)
+
     clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS + 1
-    adapter.send(Mock())
-    adapter.poolmanager.clear.assert_called_once()
+
+    # urllib3 reconnects lazily, so the connection is still handed back, just closed first.
+    assert pool._get_conn() is conn
+    conn.close.assert_called_once()
 
 
-def test_steady_use_never_clears_the_pool(make_adapter: Any, clock: list[float]) -> None:
-    """A session used more often than the window keeps its connections."""
-    adapter = make_adapter()
-    for _ in range(10):
+def test_a_busy_session_still_recycles_a_connection_that_sat_idle(pool: Any, clock: list[float]) -> None:
+    """Idleness is per connection, not per session.
+
+    One Logfire session carries traces, metrics and logs from different threads. A steady trace
+    stream keeps the session busy while the connection that last served a metric export waits out
+    the whole export interval, so a session-level clock would never fire for it.
+    """
+    idle_conn, busy_conn = Mock(name='idle'), Mock(name='busy')
+    pool._put_conn(idle_conn)  # parked at the bottom of the LIFO pool
+    pool._put_conn(busy_conn)
+
+    # Traffic keeps cycling the top connection well inside the window.
+    for _ in range(5):
         clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS / 2
-        adapter.send(Mock())
-    adapter.poolmanager.clear.assert_not_called()
+        assert pool._get_conn() is busy_conn
+        pool._put_conn(busy_conn)
+    busy_conn.close.assert_not_called()
+
+    # The one underneath has been idle the whole time and must not be trusted.
+    assert pool._get_conn() is busy_conn
+    assert pool._get_conn() is idle_conn
+    idle_conn.close.assert_called_once()
 
 
-def test_a_slow_response_does_not_count_as_idleness(make_adapter: Any, clock: list[float]) -> None:
-    """The clock is stamped on completion, so a long read must not trigger the next clear."""
-    adapter = make_adapter(send_duration=IDLE_CONNECTION_RECYCLE_SECONDS * 3)
+def test_recycle_window_is_configurable(monkeypatch: pytest.MonkeyPatch, clock: list[float]) -> None:
+    pool = make_pool(monkeypatch, idle_recycle_seconds=5)
+    conn = Mock()
+    pool._put_conn(conn)
 
-    adapter.send(Mock())
-    adapter.poolmanager.clear.assert_not_called()
-
-    clock[0] += 1
-    adapter.send(Mock())
-    adapter.poolmanager.clear.assert_not_called()
-
-
-def test_idle_recycle_seconds_is_configurable(make_adapter: Any, clock: list[float]) -> None:
-    adapter = make_adapter(idle_recycle_seconds=5)
     clock[0] += 6
-    adapter.send(Mock())
-    adapter.poolmanager.clear.assert_called_once()
+
+    pool._get_conn()
+    conn.close.assert_called_once()
 
 
 def test_install_connection_policy_mounts_both_schemes() -> None:
@@ -127,18 +154,16 @@ def test_install_connection_policy_mounts_both_schemes() -> None:
 
     http, https = session.get_adapter('http://x'), session.get_adapter('https://x')
     assert isinstance(https, LogfireHTTPAdapter)
-    # One adapter for both schemes, so idleness is tracked per session.
+    # One adapter for both schemes, so a session has a single pool manager.
     assert http is https
 
 
 def test_adapter_survives_pickling() -> None:
-    """`requests.Session` is picklable and the lock is not, so it must be rebuilt on unpickling."""
+    """`requests.Session` is picklable, so the adapter must rebuild its pools on unpickling."""
     restored = pickle.loads(pickle.dumps(LogfireHTTPAdapter(idle_recycle_seconds=7)))
 
     assert isinstance(restored, LogfireHTTPAdapter)
-    assert restored._idle_recycle_seconds == 7  # pyright: ignore[reportPrivateUsage]
-    # Without a rebuilt lock this would raise AttributeError rather than reach the stubbed send.
-    assert restored._recycle_lock is not None  # pyright: ignore[reportPrivateUsage]
+    assert restored.poolmanager.pool_classes_by_scheme['https'].idle_recycle_seconds == 7
 
 
 def _otlp_exporter_session() -> requests.Session:
@@ -165,4 +190,7 @@ def _remote_variables_session() -> requests.Session:
 )
 def test_sessions_logfire_owns_get_the_policy(make_session: Any) -> None:
     session = make_session()
-    assert isinstance(session.get_adapter('https://example.com'), LogfireHTTPAdapter)
+    adapter = session.get_adapter('https://example.com')
+
+    assert isinstance(adapter, LogfireHTTPAdapter)
+    assert issubclass(adapter.poolmanager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
