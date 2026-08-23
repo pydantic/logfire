@@ -18,7 +18,19 @@ read it in place of fetching it. This build omits the `./references/...` deep-di
 
 # Set Up Logfire
 
-Logfire is an observability platform built on OpenTelemetry, with several distinct product surfaces. Route to the specific skill for the surface the user actually wants — don't try to cover all of this from within this file.
+Logfire is an observability platform built on OpenTelemetry, with several distinct product surfaces. This skill authenticates, orients, and routes you to the specific skill for the surface you actually need — don't try to cover install/instrument/verify detail from within this file.
+
+Keep the user informed with short updates, but proceed through ordinary, reversible setup without asking approval — no clean tree, branch, commits, or plan needed, and no commands the user could run only because you chose not to. Pause only for: browser auth, a genuinely ambiguous app/project after inspection, materially increasing production telemetry or cost, deploy/infra changes, or destructive/unrelated work — then ask one concrete question. Never report a check, a score, or a run as verified without having actually confirmed it in this session.
+
+## Step 1: Authenticate and Select the Exact Project
+
+Do not open, read, or run any project file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's in the repo yet.
+
+Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
+
+## Step 2: Understand the Repo
+
+Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and package manager. Then match what you find against the table below to decide what to fetch next:
 
 | Surface | Covers | Skill |
 |---------|--------|-------|
@@ -30,22 +42,13 @@ Logfire is an observability platform built on OpenTelemetry, with several distin
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
 | AI Gateway | Spend caps, failover, and routing for model calls (`logfire gateway`) | no dedicated skill yet — see the product's own docs |
 
-## Route the Request
+- No specific scope given (e.g. "set up Logfire in this repo end to end")? Default to `logfire-instrumentation` for ordinary application code. Repo evidence of more than one surface — a `docker-compose.yml`, Kubernetes manifests, an already-running app with no observability yet, an agent worth evaluating rather than just observing — fetch the matching additional skill(s) too.
+- A request already scoped to one surface ("monitor my Postgres server", "set up evals for this agent") → fetch that skill directly, skipping the rest of this table.
+- Genuinely ambiguous between two adjacent surfaces (e.g. "watch my Postgres" could mean Collector-level infrastructure metrics or app-level query instrumentation)? Ask one clarifying question rather than guessing — loading the wrong skill wastes the user's time reading instructions for a job they didn't ask for.
 
-Fetch the matching skill(s) directly rather than acting on a guess here:
+## Step 3: Fetch the Right Skill(s)
 
-- "add logfire" / "instrument my app" / "add tracing, logging, or monitoring to my code" → `logfire-instrumentation`
-- "monitor my host/server/Docker/Kubernetes/database" or infrastructure named by product rather than by code → `logfire-infrastructure`
-- "set up evals" / "test my agent against cases" / "score with an LLM judge" → `logfire-evals`
-- "query/search/find/summarize errors in Logfire" → `logfire-query`
-- "open in Logfire" / "show me the live view" / "give me a link" → `logfire-ui`
-- "get me set up properly" / "send as much data as would be useful" / no specific scope given, or the request genuinely spans more than one surface → fetch `logfire-instrumentation` and `logfire-infrastructure` together; add `logfire-evals` too if the project is an AI agent worth evaluating, not just observing.
-
-If a request is genuinely ambiguous between two adjacent surfaces (e.g., "watch my Postgres" could mean Collector-level infrastructure metrics or app-level query instrumentation), ask one clarifying question rather than guessing which skill to load — loading the wrong one wastes the user's time reading instructions for a job they didn't ask for.
-
-## What Every One of These Skills Shares
-
-Each of `logfire-instrumentation`, `logfire-infrastructure`, and `logfire-evals` authenticates early — an explicit numbered step near the top of the skill (Step 1 for the first two, Step 2 for `logfire-evals`, which checks for an existing Braintrust suite first) — linking to the same shared reference for the exact `logfire --non-interactive auth` / `projects use` / `whoami` commands and flags. They're independently runnable on purpose, so any one of them works standalone if that's the only skill fetched. Authenticating once resolves `whoami` for the rest of the session, so if a second skill from this table gets fetched afterward, its own auth step will report "already resolved" and can be skipped.
+Fetch the skill(s) identified in Step 2 now, for the actual install/instrument/verify steps. Each one's own authenticate step will report "already resolved" from here and skip straight to its own detection/install work — they're independently fetchable on purpose, so this composes whether someone reaches a specific skill through this hub or on its own.
 
 Never print, log, hard-code, commit, or echo a token or its credentials file, in any of these skills, at any point.
 
