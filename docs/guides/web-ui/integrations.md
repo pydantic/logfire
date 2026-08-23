@@ -49,8 +49,6 @@ The integration's status changes to **Installed**. Open **View details**, then c
 
 Logfire maintains installed integrations for you. We may revise dashboards and alert queries over time to improve them, and your project receives those changes automatically. Your notification channels and the enabled or disabled state of existing alerts stay unchanged.
 
-An integration may briefly show **Update available** while an automatic update is pending. No manual action is required.
-
 **Uninstall** deletes the alerts the integration created and disables its bundled dashboards for the project. Alerts and dashboards you made yourself are left alone.
 
 ## Read the catalog
@@ -60,7 +58,6 @@ The catalog groups the integrations visible to your project by service type. Eac
 - **Available**: no telemetry from this service has been seen.
 - **Detected**: the service's metrics are arriving and it is ready to install.
 - **Installed**: its dashboards are enabled and its alerts exist.
-- **Update available**: installed, but Logfire has since revised the content.
 
 Narrow the list with the search box, the status dropdown (**All statuses**, **Available**, **Installed**), and the tag chips: `Database`, `Cache`, `SQL`, `NoSQL`, `Search`, `Queue`, `Streaming`, `Web Server`, and `Proxy`. The **Available** filter includes detected integrations that you have not installed. Selecting several tags matches any of them.
 
