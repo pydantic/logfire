@@ -11,15 +11,9 @@ description: Evaluate Python AI/agent code against a dataset of test cases using
 
 Agentic evaluators (tool-call correctness, trajectory matching) need more than that: they read the task's own execution span tree, so without a working `logfire.configure()` they don't just fail to upload — every case reports "No span tree available" and the check never ran at all.
 
-## Step 1: Detect What to Evaluate
+## Step 1: Check for an Existing Braintrust Suite First
 
-Identify the function or agent under test (a PydanticAI agent, an LLM-calling function, any callable that takes an input and returns an output) and whether a dataset already exists:
-
-- **In-code dataset**: a Python module defining `Case`/`Dataset` directly — the default for an agent-driven workflow.
-- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`) — `client.get_dataset(name, include_cases=True)` / `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not the CLI auth flow below. Only relevant if the user specifically wants case editing outside code.
-- **Existing Braintrust suite**: don't rewrite it — see below, skip straight past Steps 2-3.
-
-### Already using Braintrust?
+Cheap check, before anything else: does this repo already have an existing Braintrust `Eval()` suite (a `braintrust` dependency, `from braintrust import Eval`, or similar)? This path needs **no CLI auth at all** — don't run Step 2 for it.
 
 Keep the existing `Eval()` code (Python `braintrust>=0.30.1` / TypeScript `braintrust>=3.24.0` — verified versions) and redirect its next run to Logfire by changing environment variables only, no `pydantic_evals` involved:
 
@@ -31,13 +25,24 @@ unset BRAINTRUST_API_URL BRAINTRUST_PROXY_URL  # these override the endpoint abo
 
 This is a **compatibility preview, not full parity**: covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It does not cover Braintrust-hosted datasets/prompts/functions, BTQL, the model proxy, server-side scoring, or post-finalization feedback — and `summarize_scores=False`, a manual `flush()` without a comparison, or the Rust SDK never request the summary this endpoint needs, so nothing lands even though the run appears to succeed. Full detail and the concept-translation table (Braintrust "project" → Logfire dataset name, "scorer" → evaluator, etc.): https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/.
 
-Verify the same way as any other run (Step 4) — the SDK's own printed result URL also opens directly in Logfire.
+Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens directly in Logfire, and nothing else here (auth, dataset definition) applies to this path.
+
+**No existing Braintrust suite? Continue to Step 2 now**, before the more detailed identification in Step 3 — nothing past this point requires knowing the function/agent or dataset shape yet.
 
 ## Step 2: Authenticate and Select the Exact Project
 
-Check first — `logfire --non-interactive whoami` — and skip to Step 3 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety) plus where a hosted-dataset API key comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is only for `logfire.configure()`; Step 1's hosted-dataset operations use a separate API key with different scopes.
+Do not open, read, or run any evaluation or dataset file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's under test. Auth is also the one step that can block on a human (browser sign-in), so doing it right after the cheap Braintrust check means that wait begins immediately, not after Step 3's more detailed detection work.
 
-## Step 3: Define the Dataset and Run It
+Check first — `logfire --non-interactive whoami` — and skip to Step 3 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety) plus where a hosted-dataset API key comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is only for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+
+## Step 3: Detect What to Evaluate
+
+Identify the function or agent under test (a PydanticAI agent, an LLM-calling function, any callable that takes an input and returns an output) and whether a dataset already exists:
+
+- **In-code dataset**: a Python module defining `Case`/`Dataset` directly — the default for an agent-driven workflow.
+- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`) — `client.get_dataset(name, include_cases=True)` / `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
+
+## Step 4: Define the Dataset and Run It
 
 ```bash
 uv add 'logfire[datasets]'
@@ -101,7 +106,7 @@ The `Python` evaluator (arbitrary code execution) was removed for security reaso
 
 If editing a hosted dataset: `client.push_dataset(dataset)` **overwrites** server-side evaluators on every push, including removing ones you deleted locally — don't push a stale local copy over a dataset others have edited in the UI.
 
-## Step 4: Verify
+## Step 5: Verify
 
 A report printing to the terminal isn't proof it reached Logfire — confirm the run actually landed. **Never report a case as passed, a score, or a run as complete without having actually checked it in this session** — if a run fails, cancels, or produces no scores, report that failure plainly; never substitute an invented score or a manual guess at what the result "should" be.
 
