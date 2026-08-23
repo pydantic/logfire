@@ -8,6 +8,8 @@ from unittest.mock import Mock
 import pytest
 import requests
 from urllib3.connection import HTTPConnection
+from urllib3.connectionpool import HTTPSConnectionPool
+from urllib3.poolmanager import PoolManager
 
 from logfire._internal.auth import UserToken
 from logfire._internal.client import LogfireClient
@@ -18,7 +20,8 @@ from logfire._internal.http_transport import (
     TCP_KEEPALIVE_IDLE_SECONDS,
     LogfireHTTPAdapter,
     _IdleRecyclingPoolMixin,  # pyright: ignore[reportPrivateUsage]
-    _pool_classes,  # pyright: ignore[reportPrivateUsage]
+    _install_recycling_pools,  # pyright: ignore[reportPrivateUsage]
+    _recycling_pool_class,  # pyright: ignore[reportPrivateUsage]
     install_connection_policy,
     keepalive_socket_options,
 )
@@ -42,6 +45,43 @@ def test_keepalive_idle_option_is_set_on_platforms_that_have_one() -> None:
     idle_options = {getattr(socket, name) for name in names}
     values = [value for (_level, option, value) in keepalive_socket_options() if option in idle_options]
     assert values == [TCP_KEEPALIVE_IDLE_SECONDS]
+
+
+def test_the_macos_spelling_of_the_idle_option_is_used_when_it_is_the_only_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Linux calls it TCP_KEEPIDLE, macOS calls the same thing TCP_KEEPALIVE."""
+    monkeypatch.delattr(socket, 'TCP_KEEPIDLE', raising=False)
+    monkeypatch.setattr(socket, 'TCP_KEEPALIVE', 0x10, raising=False)
+
+    assert (socket.IPPROTO_TCP, 0x10, TCP_KEEPALIVE_IDLE_SECONDS) in keepalive_socket_options()
+
+
+def test_a_platform_missing_an_option_still_gets_the_rest(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ('TCP_KEEPIDLE', 'TCP_KEEPALIVE', 'TCP_KEEPINTVL', 'TCP_KEEPCNT'):
+        monkeypatch.delattr(socket, name, raising=False)
+
+    assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in keepalive_socket_options()
+
+
+def test_a_platform_without_keepalive_leaves_the_defaults_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delattr(socket, 'SO_KEEPALIVE', raising=False)
+
+    assert keepalive_socket_options() == list(HTTPConnection.default_socket_options)
+
+
+def test_a_connection_class_without_default_socket_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Under Pyodide `urllib3` swaps in an Emscripten connection that has no defaults at all."""
+
+    class EmscriptenLikeConnection:
+        pass
+
+    monkeypatch.setattr('urllib3.connection.HTTPConnection', EmscriptenLikeConnection)
+    options = keepalive_socket_options()
+
+    assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in options
+    for default in HTTPConnection.default_socket_options:
+        assert default not in options
 
 
 def test_adapter_passes_socket_options_to_the_pool() -> None:
@@ -79,7 +119,7 @@ def make_pool(monkeypatch: pytest.MonkeyPatch, idle_recycle_seconds: float) -> A
 
     # Mock connections are not real sockets, so urllib3's own liveness check must stand aside.
     monkeypatch.setattr('urllib3.connectionpool.is_connection_dropped', not_dropped)
-    pool = _pool_classes(idle_recycle_seconds)['https']('example.com', maxsize=5)
+    pool: Any = _recycling_pool_class(HTTPSConnectionPool, idle_recycle_seconds)('example.com', maxsize=5)
     # urllib3 pre-fills the pool with `None` placeholders; drain them so seeded connections are
     # not discarded as "pool is full".
     while not pool.pool.empty():
@@ -148,6 +188,54 @@ def test_recycle_window_is_configurable(monkeypatch: pytest.MonkeyPatch, clock: 
     conn.close.assert_called_once()
 
 
+def test_connections_urllib3_never_pooled_are_passed_through(pool: Any) -> None:
+    """`urllib3` puts `None` back after a failed request, and builds fresh connections lazily."""
+    pool._put_conn(None)
+
+    conn = pool._get_conn()
+
+    assert not hasattr(conn, '_logfire_idle_since')
+
+
+def test_recycling_pools_are_derived_from_the_classes_the_manager_already_uses() -> None:
+    """A SOCKS proxy manager brings pool classes of its own, which must not be replaced."""
+
+    class CustomPool(HTTPSConnectionPool):
+        pass
+
+    manager = PoolManager()
+    manager.pool_classes_by_scheme = {'https': CustomPool}  # pyright: ignore[reportAttributeAccessIssue]
+
+    _install_recycling_pools(manager, IDLE_CONNECTION_RECYCLE_SECONDS)
+
+    installed = manager.pool_classes_by_scheme['https']
+    assert issubclass(installed, CustomPool)
+    assert issubclass(installed, _IdleRecyclingPoolMixin)
+
+
+def test_proxied_requests_get_the_policy_too() -> None:
+    """`requests` builds a separate manager per proxy, which `init_poolmanager` never sees."""
+    adapter = LogfireHTTPAdapter(idle_recycle_seconds=13)
+
+    manager = adapter.proxy_manager_for('http://proxy.example.com')
+
+    assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in manager.connection_pool_kw['socket_options']
+    pool_class = manager.pool_classes_by_scheme['https']
+    assert issubclass(pool_class, _IdleRecyclingPoolMixin)
+    assert pool_class.idle_recycle_seconds == 13
+
+
+def test_a_reused_proxy_manager_is_not_wrapped_again() -> None:
+    """`requests` caches proxy managers, so re-applying the policy must be a no-op."""
+    adapter = LogfireHTTPAdapter()
+    proxy = 'http://proxy.example.com'
+
+    first = adapter.proxy_manager_for(proxy).pool_classes_by_scheme['https']
+    second = adapter.proxy_manager_for(proxy).pool_classes_by_scheme['https']
+
+    assert first is second
+
+
 def test_install_connection_policy_mounts_both_schemes() -> None:
     session = requests.Session()
     install_connection_policy(session)
@@ -163,6 +251,7 @@ def test_adapter_survives_pickling() -> None:
     restored = pickle.loads(pickle.dumps(LogfireHTTPAdapter(idle_recycle_seconds=7)))
 
     assert isinstance(restored, LogfireHTTPAdapter)
+    assert restored._idle_recycle_seconds == 7  # pyright: ignore[reportPrivateUsage]
     assert restored.poolmanager.pool_classes_by_scheme['https'].idle_recycle_seconds == 7
 
 

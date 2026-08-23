@@ -11,8 +11,8 @@ second stall surfaced as `Read timed out`.
 Every session Logfire creates therefore gets two measures:
 
 - **TCP keepalive**, so an idle connection keeps producing traffic and the flow is not reclaimed.
-- **An idle recycle window**, so a session unused for longer than the window drops its pooled
-  connections and reconnects rather than gambling on one that may already be dead.
+- **An idle recycle window**, so a pooled connection unused for longer than the window is closed
+  and reconnected rather than gambling on one that may already be dead.
 
 This applies only to sessions Logfire itself creates. Clients belonging to the user are
 instrumented, never reconfigured.
@@ -26,13 +26,15 @@ from typing import Any
 
 from requests import Session
 from requests.adapters import DEFAULT_POOLBLOCK, HTTPAdapter
-from urllib3.connection import HTTPConnection
-from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3 import connection as urllib3_connection
+from urllib3.connectionpool import HTTPConnectionPool
+from urllib3.poolmanager import PoolManager
 
 _now = time.monotonic
+"""Indirection so tests can drive the clock without touching the one `urllib3` itself uses."""
 
 IDLE_CONNECTION_RECYCLE_SECONDS = 30
-"""Drop pooled connections when the session has gone unused for longer than this.
+"""Close a pooled connection that has sat unused for longer than this.
 
 Chosen to sit below the things that would otherwise reclaim the connection first: the default
 60 second metric export interval (`OTEL_METRIC_EXPORT_INTERVAL`), and the idle timeouts of
@@ -54,29 +56,33 @@ def keepalive_socket_options() -> list[tuple[int, int, int | bytes]]:
     """`urllib3`'s default socket options plus TCP keepalive.
 
     Building on `HTTPConnection.default_socket_options` keeps `TCP_NODELAY`, which `urllib3` sets
-    and which we have no reason to drop.
+    and which we have no reason to drop. The class is read off the module at call time because
+    `urllib3` swaps it out under Pyodide, for an Emscripten connection that talks over `fetch()`
+    and so has neither a socket nor any default options.
     """
-    options: list[tuple[int, int, int | bytes]] = [
-        *HTTPConnection.default_socket_options,
-        (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
-    ]
+    defaults = getattr(urllib3_connection.HTTPConnection, 'default_socket_options', None)
+    options: list[tuple[int, int, int | bytes]] = [*(defaults or [])]
 
-    def add_if_supported(name: str, value: int) -> bool:
+    def add_if_supported(level: int, name: str, value: int) -> bool:
         # Looked up by name because these constants are platform specific: referring to them
         # directly would not type check on a platform that lacks them.
         option = getattr(socket, name, None)
         if option is None:
             return False
-        options.append((socket.IPPROTO_TCP, option, value))
+        options.append((level, option, value))
         return True
+
+    if not add_if_supported(socket.SOL_SOCKET, 'SO_KEEPALIVE', 1):
+        # Nothing to keep alive, so none of the knobs below mean anything either.
+        return options
 
     # How long a connection may be idle before probing starts. Without this the system default
     # applies, which is two hours on most platforms and so useless against a NAT timeout.
     # Linux (and recent Windows) call it TCP_KEEPIDLE; macOS calls the same thing TCP_KEEPALIVE.
-    if not add_if_supported('TCP_KEEPIDLE', TCP_KEEPALIVE_IDLE_SECONDS):
-        add_if_supported('TCP_KEEPALIVE', TCP_KEEPALIVE_IDLE_SECONDS)
-    add_if_supported('TCP_KEEPINTVL', TCP_KEEPALIVE_INTERVAL_SECONDS)
-    add_if_supported('TCP_KEEPCNT', TCP_KEEPALIVE_FAILED_PROBES)
+    if not add_if_supported(socket.IPPROTO_TCP, 'TCP_KEEPIDLE', TCP_KEEPALIVE_IDLE_SECONDS):
+        add_if_supported(socket.IPPROTO_TCP, 'TCP_KEEPALIVE', TCP_KEEPALIVE_IDLE_SECONDS)
+    add_if_supported(socket.IPPROTO_TCP, 'TCP_KEEPINTVL', TCP_KEEPALIVE_INTERVAL_SECONDS)
+    add_if_supported(socket.IPPROTO_TCP, 'TCP_KEEPCNT', TCP_KEEPALIVE_FAILED_PROBES)
 
     return options
 
@@ -104,22 +110,32 @@ class _IdleRecyclingPoolMixin(HTTPConnectionPool):
 
     def _get_conn(self, timeout: float | None = None) -> Any:
         conn = super()._get_conn(timeout)
+        # Absent on a connection this pool has never handed back, i.e. a brand new one.
         idle_since = getattr(conn, '_logfire_idle_since', None)
         if idle_since is not None and _now() - idle_since > self.idle_recycle_seconds:
             conn.close()
         return conn
 
 
-def _pool_classes(idle_recycle_seconds: float) -> dict[str, type[Any]]:
-    """Pool classes bound to one recycle window.
+def _recycling_pool_class(base: type[HTTPConnectionPool], idle_recycle_seconds: float) -> type[HTTPConnectionPool]:
+    return type(
+        f'IdleRecycling{base.__name__}', (_IdleRecyclingPoolMixin, base), {'idle_recycle_seconds': idle_recycle_seconds}
+    )
 
-    Built per adapter rather than passed through `connection_pool_kw`, because `urllib3` feeds
-    that mapping to its pool-key normalizer, which rejects keys it does not know.
+
+def _install_recycling_pools(manager: PoolManager, idle_recycle_seconds: float) -> None:
+    """Point a pool manager at recycling versions of the pool classes it already uses.
+
+    Derived from whatever the manager has rather than named outright, because the classes vary:
+    a SOCKS proxy manager brings its own, and Pyodide swaps in others again. Installed on the
+    manager rather than passed through `connection_pool_kw`, because `urllib3` feeds that mapping
+    to its pool-key normalizer, which rejects keys it does not know.
     """
-    namespace = {'idle_recycle_seconds': idle_recycle_seconds}
-    return {
-        'http': type('LogfireHTTPConnectionPool', (_IdleRecyclingPoolMixin, HTTPConnectionPool), namespace),
-        'https': type('LogfireHTTPSConnectionPool', (_IdleRecyclingPoolMixin, HTTPSConnectionPool), namespace),
+    manager.pool_classes_by_scheme = {
+        # `requests` hands back a proxy manager it has already built, so the classes may be ours
+        # from an earlier call; subclassing again each time would nest them without end.
+        scheme: cls if issubclass(cls, _IdleRecyclingPoolMixin) else _recycling_pool_class(cls, idle_recycle_seconds)
+        for scheme, cls in manager.pool_classes_by_scheme.items()
     }
 
 
@@ -143,9 +159,15 @@ class LogfireHTTPAdapter(HTTPAdapter):
     ) -> None:
         pool_kwargs.setdefault('socket_options', keepalive_socket_options())
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
-        # `getattr` because unpickling restores attributes in an order we do not control.
-        window = getattr(self, '_idle_recycle_seconds', IDLE_CONNECTION_RECYCLE_SECONDS)
-        self.poolmanager.pool_classes_by_scheme = _pool_classes(window)
+        _install_recycling_pools(self.poolmanager, self._idle_recycle_seconds)
+
+    def proxy_manager_for(self, proxy: str, **proxy_kwargs: Any) -> Any:
+        # A proxied request goes through a manager of its own, built here rather than by
+        # `init_poolmanager`, so the policy has to be applied again as each one appears.
+        proxy_kwargs.setdefault('socket_options', keepalive_socket_options())
+        manager = super().proxy_manager_for(proxy, **proxy_kwargs)
+        _install_recycling_pools(manager, self._idle_recycle_seconds)
+        return manager
 
 
 def install_connection_policy(session: Session, *, idle_recycle_seconds: float | None = None) -> None:
