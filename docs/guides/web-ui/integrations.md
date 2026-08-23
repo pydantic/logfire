@@ -11,12 +11,18 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
 !!! warning "Give every service instance a unique identity"
 
-    Before using a setup snippet, replace its example identity values with values for your deployment. The combination of `service.namespace`, `service.name`, and `service.instance.id` must be globally unique for each service instance the Collector scrapes. Keep that identity stable for the lifetime of the instance, and give every independently running instance a different combination. Reusing a complete identity across hosts merges their independent counters into one metric stream, which can make dashboard rates and alerts wrong.
+    Before using a setup snippet, replace its example identity values with values for your deployment. Follow the [OpenTelemetry service semantic conventions](https://opentelemetry.io/docs/specs/semconv/resource/service/) when choosing them:
+
+    - `service.namespace`: the system or group containing related services, such as `payments-platform` or `infrastructure`.
+    - `service.name`: the logical service name shared by equivalent instances, such as `redis`.
+    - `service.instance.id`: one instance of that service, such as a UUID or an unambiguous scrape target like `redis-01.example.com:6379`.
+
+    The combination of all three values must be globally unique for each service instance the Collector scrapes. Keep that identity stable for the lifetime of the instance, and give every independently running instance a different combination. Reusing a complete identity across hosts merges their independent counters into one metric stream, which can make dashboard rates and alerts wrong.
 
 ## What an integration installs
 
-- **A standard dashboard.** A curated set of panels for the service. For Redis: memory against `maxmemory`, command throughput, keyspace hit ratio, evictions, connected clients, and replication. Standard dashboards render from one definition Logfire maintains, so installing enables it for your project rather than copying it. There is no per-project copy to drift. Installing the integration is how you enable it: infrastructure dashboards are not listed on the [Dashboards](dashboards.md) page alongside the general-purpose ones.
-- **Alerts.** Health alerts grounded in the service's own operational guidance. For Redis: memory near `maxmemory`, high eviction rate, low keyspace hit ratio, rejected connections, and high memory fragmentation. Every integration also includes a *not reporting metrics* alert that fires when the service stops sending telemetry.
+- **A standard dashboard.** A curated set of panels for the service. For example, the Redis dashboard covers memory against `maxmemory`, command throughput, keyspace hit ratio, evictions, connected clients, and replication. Standard dashboards render from one definition Logfire maintains, so installing enables it for your project rather than copying it. There is no per-project copy to drift. Installing the integration is how you enable it: infrastructure dashboards are not listed on the [Dashboards](dashboards.md) page alongside the general-purpose ones.
+- **Alerts.** Health alerts grounded in the service's own operational guidance. For example, the Redis integration alerts on memory near `maxmemory`, high eviction rate, low keyspace hit ratio, rejected connections, and high memory fragmentation. Every integration also includes a *not reporting metrics* alert that fires when the service stops sending telemetry.
 - **Setup instructions.** The OpenTelemetry Collector receiver configuration to scrape the service, ready to copy.
 - **Detection.** A check that confirms the service's metrics are already arriving in your project, so you only install what is relevant.
 
@@ -26,15 +32,11 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
     Alerts are installed without a notification channel, so nothing pages anyone until you attach one.
 
-!!! warning "Notifications do not yet name the affected instance"
-
-    An integration alert notification currently shows the breached value but not the service instance that produced it. Use the integration's dashboard to compare instances and identify the affected one before responding.
-
 ## Install an integration
 
 1. **Send telemetry.** Point your OpenTelemetry Collector at the service. Each integration's **Set up** tab has the configuration to copy. On self-hosted Logfire, substitute your own ingest endpoint.
 2. **Open the catalog.** Open the <OpenInLogfire path="integrations" variant="inline" label="Integrations catalog" /> for your project.
-3. **Install**, either way round:
+3. **Install** in one of two ways:
     - Select **Detect and Install** at the top of the catalog. Logfire checks every integration against the telemetry in your project and installs the ones it finds.
     - Or find one integration and select **Install** on its row, or open it with **View details** and install from there.
 4. **Attach a notification channel.** Review the installed set on the integration's **Alerts** tab. Then open your project's [Alerts](alerts.md) page and give each alert a channel and schedule so it can reach you.

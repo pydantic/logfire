@@ -80,7 +80,7 @@ To enable a standard dashboard:
 
 You can view and interact with standard dashboards, but you cannot edit them.
 
-To enable dashboards and alerts for infrastructure services such as Redis, PostgreSQL, and Kafka, select **Integrations** under **Observe** in your project's sidebar. Choose the service, then select **Install**. See [Integrations](integrations.md) for setup, detection, and alert configuration.
+To enable dashboards and alerts for infrastructure services such as Redis, PostgreSQL, and Kafka, select **Integrations** under **Misc** in your project's sidebar. Choose the service, then select **Install**. See [Integrations](integrations.md) for setup, detection, and alert configuration.
 
 ### Using a Standard Dashboard as a Template
 
