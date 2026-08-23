@@ -11,7 +11,7 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
 !!! warning "Give every service instance a unique identity"
 
-    Before using a setup snippet, replace its example identity values with values for your deployment. In particular, `service.instance.id` must be stable and unique for each service instance the Collector scrapes. Reusing an example such as `localhost:6379` across hosts merges their independent counters into one metric stream, which can make dashboard rates and alerts wrong.
+    Before using a setup snippet, replace its example identity values with values for your deployment. The combination of `service.namespace`, `service.name`, and `service.instance.id` must be globally unique for each service instance the Collector scrapes. Keep that identity stable for the lifetime of the instance, and give every independently running instance a different combination. Reusing a complete identity across hosts merges their independent counters into one metric stream, which can make dashboard rates and alerts wrong.
 
 ## What an integration installs
 
