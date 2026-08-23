@@ -97,6 +97,16 @@ Launch a supported integration through the proxy:
 logfire gateway launch claude
 ```
 
+For a self-hosted instance, set its public URL with the global `--base-url` option:
+
+```bash
+uvx --with 'logfire[gateway]' logfire \
+  --base-url https://<your-logfire-host> \
+  gateway launch claude
+```
+
+The CLI uses the same host for Gateway requests by default. If the Gateway is exposed on a different host, add `--gateway-url https://<your-gateway-host>` after `claude`.
+
 You can also run only the proxy and configure a tool manually:
 
 ```bash
