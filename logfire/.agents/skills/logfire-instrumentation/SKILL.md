@@ -112,7 +112,7 @@ let shutdown_handler = logfire::configure()
     .finish()?;
 ```
 
-Set `LOGFIRE_TOKEN` in your environment or use the Logfire CLI to select a project.
+Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section, not the local one.
 
 #### Structured Logging (Rust)
 
@@ -129,6 +129,12 @@ logfire::info!("Created user {user_id}", user_id = uid);
 ```
 
 Always call `shutdown_handler.shutdown()` before program exit to flush data.
+
+### Other Languages (Go, Java, .NET, PHP, Ruby, ...)
+
+No dedicated Logfire SDK — install that language's own OpenTelemetry SDK and point its OTLP exporter at Logfire: [Alternative clients](https://pydantic.dev/docs/logfire/guides/alternative-clients/) has the exact endpoint, protocol (`http/protobuf`, not the gRPC default some exporters ship with), and header format.
+
+For the write token that endpoint needs, see [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section — for local development, reuse the token `projects use` already put in `.logfire/logfire_credentials.json` rather than assuming a fresh one has to come from the UI.
 
 ## Step 4: Set Service Metadata and Metrics
 

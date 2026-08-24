@@ -104,15 +104,25 @@ def _render_appendix(name: str, *, only_mandatory: bool = False) -> str:
 
 
 def _preamble(*, include_references: bool) -> str:
+    # Every skill body links to its own and other skills' references by relative path
+    # (`./references/...`, `../logfire-x/references/...`) -- correct for the individual
+    # SKILL.md files these bodies are copied from verbatim, but not for this flattened
+    # bundle, which sits one directory above every skill it concatenates. Rather than
+    # rewrite every link (risking a subtly wrong path that's harder to catch than an
+    # unrewritten one), this note tells the reader the resolution rule directly: strip the
+    # relative prefix, keep the skill-qualified remainder, and match it against an
+    # appendix heading below -- never follow either link shape as a literal path.
     references_note = (
-        ' A pointer to a file under `./references/...` means the matching entry in the '
-        '**Reference Files** appendix at the end, headed with that same path.'
+        ' A pointer to a file under `./references/...` (same skill) or '
+        '`../<skill-name>/references/...` (a different skill) means the matching entry in '
+        'the **Reference Files** appendix at the end, headed with that skill-qualified '
+        "path -- never follow either as a literal path from this file's own location."
         if include_references
         else ' This build omits the `./references/...` deep-dive files (language-specific '
         "edge cases) to stay shorter, EXCEPT the authenticate reference every skill's "
         'Step 1 depends on -- that one is always included below, not just linked to -- so '
-        'if a pointer to any other `./references/...` file turns out to matter, fetch it '
-        'directly from the repo instead.'
+        'if a pointer to any other `./references/...` or `../<skill-name>/references/...` '
+        'file turns out to matter, fetch it directly from the repo instead.'
     )
     return (
         '# Pydantic Logfire — Offline Setup Prompt\n\n'

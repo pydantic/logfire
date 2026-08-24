@@ -37,4 +37,4 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 Fetch the skill(s) identified in Step 2 now, for the actual install/instrument/verify steps. Each one's own authenticate step still runs its own `whoami` check first — that's what confirms it's the same project and region resolved here, not an assumption carried over — and only then skips the rest of its auth commands. They're independently fetchable on purpose, so this composes whether someone reaches a specific skill through this hub or on its own.
 
-Never print, log, hard-code, commit, or echo a token or its credentials file, in any of these skills, at any point.
+Never print, log, hard-code, commit, or echo a token, in any of these skills, at any point. The one exception — reading `.logfire/logfire_credentials.json`'s `token` key programmatically to hand a non-native-SDK application its write token, never to display it — is in [auth.md](../logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session).

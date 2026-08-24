@@ -7,7 +7,7 @@ nothing below needs a network fetch to resolve.
 
 A pointer to "the `logfire-infrastructure` skill" (or any other skill named
 above) means the section below headed `# Skill: logfire-infrastructure` --
-read it in place of fetching it. This build omits the `./references/...` deep-dive files (language-specific edge cases) to stay shorter, EXCEPT the authenticate reference every skill's Step 1 depends on -- that one is always included below, not just linked to -- so if a pointer to any other `./references/...` file turns out to matter, fetch it directly from the repo instead.
+read it in place of fetching it. This build omits the `./references/...` deep-dive files (language-specific edge cases) to stay shorter, EXCEPT the authenticate reference every skill's Step 1 depends on -- that one is always included below, not just linked to -- so if a pointer to any other `./references/...` or `../<skill-name>/references/...` file turns out to matter, fetch it directly from the repo instead.
 
 
 ---
@@ -50,7 +50,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 Fetch the skill(s) identified in Step 2 now, for the actual install/instrument/verify steps. Each one's own authenticate step still runs its own `whoami` check first — that's what confirms it's the same project and region resolved here, not an assumption carried over — and only then skips the rest of its auth commands. They're independently fetchable on purpose, so this composes whether someone reaches a specific skill through this hub or on its own.
 
-Never print, log, hard-code, commit, or echo a token or its credentials file, in any of these skills, at any point.
+Never print, log, hard-code, commit, or echo a token, in any of these skills, at any point. The one exception — reading `.logfire/logfire_credentials.json`'s `token` key programmatically to hand a non-native-SDK application its write token, never to display it — is in [auth.md](../logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session).
 
 ---
 
@@ -167,7 +167,7 @@ let shutdown_handler = logfire::configure()
     .finish()?;
 ```
 
-Set `LOGFIRE_TOKEN` in your environment or use the Logfire CLI to select a project.
+Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section, not the local one.
 
 #### Structured Logging (Rust)
 
@@ -184,6 +184,12 @@ logfire::info!("Created user {user_id}", user_id = uid);
 ```
 
 Always call `shutdown_handler.shutdown()` before program exit to flush data.
+
+### Other Languages (Go, Java, .NET, PHP, Ruby, ...)
+
+No dedicated Logfire SDK — install that language's own OpenTelemetry SDK and point its OTLP exporter at Logfire: [Alternative clients](https://pydantic.dev/docs/logfire/guides/alternative-clients/) has the exact endpoint, protocol (`http/protobuf`, not the gRPC default some exporters ship with), and header format.
+
+For the write token that endpoint needs, see [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section — for local development, reuse the token `projects use` already put in `.logfire/logfire_credentials.json` rather than assuming a fresh one has to come from the UI.
 
 ## Step 4: Set Service Metadata and Metrics
 
@@ -532,13 +538,14 @@ npx logfire whoami
 - Any command failing with `NonInteractiveError` explains what to do next in its own message — usually the exact missing flag (commonly `--org`), but `auth` with no region instead prints a runnable `--region <id> auth` line per region. Follow what the message says and retry once. Don't drop `--non-interactive` to make the error go away; that trades a clear message for the hang it exists to prevent.
 - `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
 - If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing.
-- Never print, log, hard-code, commit, echo, or read a token or its credentials file (`.logfire/logfire_credentials.json`, `~/.logfire/default.toml`) — each just holds a token under a `token` key, so check only whether the file exists, not its contents. A bad or missing credential surfaces as a CLI error, not a prompt.
+- Never print, log, hard-code, commit, or echo a token, and don't read `~/.logfire/default.toml`'s contents — a bad or missing credential surfaces as a CLI error, not a prompt. The one exception is reading `.logfire/logfire_credentials.json`'s `token` key programmatically, and only to hand it to a non-native-SDK application language that needs the actual value (see below) — never to print, display, or otherwise surface it.
 
 ## If the calling skill needs a write token, not just a CLI session
 
-`logfire-infrastructure`'s Collector exporter and any use of `logfire.experimental.api_client.LogfireAPIClient` need a token minted separately from this CLI session:
+Some callers need an actual token value, not just an authenticated CLI session:
 
+- **A setup with no Logfire SDK reading local credentials for it** needs a write token for its OTLP exporter's Authorization header — check the language's own instrumentation reference for whether its SDK already handles this before assuming you need to extract one. When nothing does: for local development, reuse what `projects use` already created instead of minting anything new — read the `token` key from `.logfire/logfire_credentials.json` programmatically and pass it through the runtime's own gitignored local secret mechanism (an environment variable, or a local `.env` the app already loads safely), never printing, logging, or echoing the value itself. For a deployed/production instance, mint a separate write token from **Project Settings → Write tokens** instead and use the platform's own secret manager — a long-lived service shouldn't share the same credential as your CLI session.
 - A **write token** for a Collector exporter comes from **Project Settings → Write tokens** in the Logfire UI — the CLI's own credentials authenticate you as a person, not the Collector as a data source.
 - An **API key** for `LogfireAPIClient` (hosted-dataset push/pull) comes from **Settings → API Keys**, scoped `project:read_datasets`/`project:write_datasets` — a generic write/read token lacks those scopes.
 
-Same rule applies to both: never print, log, hard-code, commit, or echo the value — inject it via environment variable and check only that it's set, not its value.
+Same rule applies to all three: never print, log, hard-code, commit, or echo the value — inject it via environment variable and check only that it's set, not its value.
