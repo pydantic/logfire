@@ -82,6 +82,7 @@ from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.forwarding import OTLPForwardingManager
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
+from logfire._internal.interactive import NonInteractiveError
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
@@ -1986,6 +1987,291 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
                 'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
             ),
         ]
+
+
+@pytest.mark.xdist_group(name='sequential')
+def test_create_new_project_selects_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """The organization-selection prompt already has `default=user_default_organization_name
+
+    or organizations[0]` -- the same outcome a person pressing Enter would get -- so an
+    exhausted stdin picks that organization instead of raising an `EOFError` traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        prompt_mock = stack.enter_context(
+            mock.patch('rich.prompt.Prompt.ask', side_effect=[EOFError, 'mytestproject1', ''])
+        )
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/account/me',
+            json={'default_organization': {'organization_name': 'fake_org1'}},
+        )
+
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        # The default (`fake_org1`, from `account/me` above) is where the project must
+        # land -- if the EOF fallback picked the WRONG organization, this mock would 404
+        # instead of the create call succeeding.
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org1/projects',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert prompt_mock.mock_calls == [
+            call(
+                '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+                choices=['fake_org', 'fake_org1'],
+                default='fake_org1',
+            ),
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_initialize_project_completes_with_no_tty_at_the_final_prompt(tmp_dir_cwd: Path, tmp_path: Path):
+    """`configure()` finishes even when stdin runs out at the very last prompt.
+
+    That final "Press Enter to continue" discards its answer either way -- it exists to
+    give a person a beat before moving on -- so an `EOFError` there must not turn an
+    already-completed setup into a crash. This is the exact shape of a real failure: an
+    agent piping just enough answers to satisfy the prompts it can see ahead of time
+    (`printf 'y\\n1\\n' | python -c 'import logfire; logfire.configure()'`) and hitting an
+    unhandled traceback on the one prompt it had no way to anticipate.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
+        # Only two real answers, same as `printf 'y\n1\n'` -- the third prompt (the final
+        # "Press Enter to continue") has nothing left to read.
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert confirm_mock.mock_calls == [call('Do you want to use one of your existing projects? ', default=True)]
+        assert prompt_mock.mock_calls == [
+            call(
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
+                choices=['1'],
+                default='1',
+            ),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_initialize_project_uses_existing_projects_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """ "Do you want to use one of your existing projects?" already has `default=True` --
+
+    the same outcome a person pressing Enter would get -- so an exhausted stdin reaches
+    that same outcome (and then continues into `use_existing_project`) instead of an
+    `EOFError` traceback on the very first prompt of the whole flow.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=EOFError))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        # The `use_existing_project` prompt was still reached, proving the first Confirm
+        # defaulted to True rather than skipping straight to project creation.
+        assert prompt_mock.mock_calls[0] == call(
+            "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
+            choices=['1'],
+            default='1',
+        )
+        assert confirm_mock.mock_calls == [call('Do you want to use one of your existing projects? ', default=True)]
+
+
+def test_create_new_project_confirms_the_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """The organization-creation "Continue?" confirm already has `default=True` -- the
+
+    exact prompt a real user copying `logfire auth && python -c '...configure()'` out of
+    the docs would hit with no terminal attached. An exhausted stdin reaches the same
+    outcome pressing Enter would (create it) instead of an `EOFError` traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        # Only the first Confirm ("use one of your existing projects?") has a real
+        # answer; there are no existing projects, so it is never asked. The "Continue?"
+        # confirm that matters here has nothing to read.
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=EOFError))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['myproject', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_project_name_prompt_with_no_safe_default_and_no_tty_fails_with_guidance(tmp_dir_cwd: Path, tmp_path: Path):
+    """A rejected project name has NO safe default left to fall back on ("Ellipsis" is a
+
+    sentinel meaning "an answer is required", not a suggestion -- see the comment beside
+    `project_name_default = ...`). So once the first name is rejected, an exhausted stdin
+    must raise the same guidance `--non-interactive` would rather than silently retrying
+    with a project literally named "Ellipsis".
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True]))
+        stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['existingprojectname', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
+            [{'status_code': 409}],
+        )
+
+        with pytest.raises(NonInteractiveError) as exc_info:
+            logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        message = str(exc_info.value)
+        assert "A project with the name 'existingprojectname' already exists" in message
+        assert 'Cannot prompt because there is nothing left to read from stdin.' in message
+        assert 'logfire projects new PROJECT_NAME --org fake_org' in message
+
+        # No retry with the rejected name's sentinel default -- only the one doomed POST.
+        create_requests = [r for r in request_mocker.request_history if r.method == 'POST']
+        assert len(create_requests) == 1
+        assert not (tmp_dir_cwd / '.logfire/logfire_credentials.json').exists()
 
 
 def test_send_to_logfire_true(tmp_path: Path) -> None:
