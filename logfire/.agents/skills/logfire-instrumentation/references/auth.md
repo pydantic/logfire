@@ -36,13 +36,14 @@ npx logfire whoami
 - Any command failing with `NonInteractiveError` explains what to do next in its own message — usually the exact missing flag (commonly `--org`), but `auth` with no region instead prints a runnable `--region <id> auth` line per region. Follow what the message says and retry once. Don't drop `--non-interactive` to make the error go away; that trades a clear message for the hang it exists to prevent.
 - `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
 - If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing.
-- Never print, log, hard-code, commit, echo, or read a token or its credentials file (`.logfire/logfire_credentials.json`, `~/.logfire/default.toml`) — each just holds a token under a `token` key, so check only whether the file exists, not its contents. A bad or missing credential surfaces as a CLI error, not a prompt.
+- Never print, log, hard-code, commit, or echo a token, and don't read `~/.logfire/default.toml`'s contents — a bad or missing credential surfaces as a CLI error, not a prompt. The one exception is reading `.logfire/logfire_credentials.json`'s `token` key programmatically, and only to hand it to a non-native-SDK application language that needs the actual value (see below) — never to print, display, or otherwise surface it.
 
 ## If the calling skill needs a write token, not just a CLI session
 
-`logfire-infrastructure`'s Collector exporter and any use of `logfire.experimental.api_client.LogfireAPIClient` need a token minted separately from this CLI session:
+Some callers need an actual token value, not just an authenticated CLI session:
 
+- **A non-native-SDK application language** (anything without a Logfire SDK — Go, Java, .NET, PHP, Ruby, generic OpenTelemetry) needs a write token for its OTLP exporter's Authorization header. For local development, reuse what `projects use` already created instead of minting anything new: read the `token` key from `.logfire/logfire_credentials.json` programmatically and pass it through the runtime's own gitignored local secret mechanism (an environment variable, or a local `.env` the app already loads safely) — same pattern as `LOGFIRE_TOKEN` for Rust and Workers, just under the OTLP header name instead. Never print, log, or echo the value itself. For a deployed/production instance, mint a separate write token from **Project Settings → Write tokens** instead and use the platform's own secret manager — a long-lived service shouldn't share the same credential as your CLI session.
 - A **write token** for a Collector exporter comes from **Project Settings → Write tokens** in the Logfire UI — the CLI's own credentials authenticate you as a person, not the Collector as a data source.
 - An **API key** for `LogfireAPIClient` (hosted-dataset push/pull) comes from **Settings → API Keys**, scoped `project:read_datasets`/`project:write_datasets` — a generic write/read token lacks those scopes.
 
-Same rule applies to both: never print, log, hard-code, commit, or echo the value — inject it via environment variable and check only that it's set, not its value.
+Same rule applies to all three: never print, log, hard-code, commit, or echo the value — inject it via environment variable and check only that it's set, not its value.

@@ -130,6 +130,12 @@ logfire::info!("Created user {user_id}", user_id = uid);
 
 Always call `shutdown_handler.shutdown()` before program exit to flush data.
 
+### Other Languages (Go, Java, .NET, PHP, Ruby, ...)
+
+No dedicated Logfire SDK — install that language's own OpenTelemetry SDK and point its OTLP exporter at Logfire: [Alternative clients](https://pydantic.dev/docs/logfire/guides/alternative-clients/) has the exact endpoint, protocol (`http/protobuf`, not the gRPC default some exporters ship with), and header format.
+
+For the write token that endpoint needs, see [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section — for local development, reuse the token `projects use` already put in `.logfire/logfire_credentials.json` rather than assuming a fresh one has to come from the UI.
+
 ## Step 4: Set Service Metadata and Metrics
 
 These apply to every language and are what make the **Services**, **Hosts**,
