@@ -7,7 +7,7 @@ nothing below needs a network fetch to resolve.
 
 A pointer to "the `logfire-infrastructure` skill" (or any other skill named
 above) means the section below headed `# Skill: logfire-infrastructure` --
-read it in place of fetching it. This build omits the `./references/...` deep-dive files (language-specific edge cases) to stay shorter, EXCEPT the authenticate reference every skill's Step 1 depends on -- that one is always included below, not just linked to -- so if a pointer to any other `./references/...` file turns out to matter, fetch it directly from the repo instead.
+read it in place of fetching it. This build omits the `./references/...` deep-dive files (language-specific edge cases) to stay shorter, EXCEPT the authenticate reference every skill's Step 1 depends on -- that one is always included below, not just linked to -- so if a pointer to any other `./references/...` or `../<skill-name>/references/...` file turns out to matter, fetch it directly from the repo instead.
 
 
 ---
@@ -167,7 +167,7 @@ let shutdown_handler = logfire::configure()
     .finish()?;
 ```
 
-Set `LOGFIRE_TOKEN` in your environment — the Rust SDK doesn't auto-read `.logfire/logfire_credentials.json` the way Python's does. For local development, reuse the token `projects use` already created rather than minting a new one: see [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section.
+Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section, not the local one.
 
 #### Structured Logging (Rust)
 
@@ -544,7 +544,7 @@ npx logfire whoami
 
 Some callers need an actual token value, not just an authenticated CLI session:
 
-- **A non-native-SDK application language** (anything without a Logfire SDK — Go, Java, .NET, PHP, Ruby, generic OpenTelemetry) needs a write token for its OTLP exporter's Authorization header. For local development, reuse what `projects use` already created instead of minting anything new: read the `token` key from `.logfire/logfire_credentials.json` programmatically and pass it through the runtime's own gitignored local secret mechanism (an environment variable, or a local `.env` the app already loads safely) — same pattern as `LOGFIRE_TOKEN` for Rust and Workers, just under the OTLP header name instead. Never print, log, or echo the value itself. For a deployed/production instance, mint a separate write token from **Project Settings → Write tokens** instead and use the platform's own secret manager — a long-lived service shouldn't share the same credential as your CLI session.
+- **A language with no Logfire SDK to read credentials for it** (Go, Java, .NET, PHP, Ruby, generic OpenTelemetry, Cloudflare Workers, Deno) needs a write token for its OTLP exporter's Authorization header. Python, Node.js, and Rust don't need this — their SDKs already fall back to `.logfire/logfire_credentials.json` themselves when `LOGFIRE_TOKEN` is unset, so there's nothing to extract manually. For everything else, local development can still reuse what `projects use` already created instead of minting anything new: read the `token` key from `.logfire/logfire_credentials.json` programmatically and pass it through the runtime's own gitignored local secret mechanism (an environment variable, or a local `.env` the app already loads safely) — never print, log, or echo the value itself. For a deployed/production instance, mint a separate write token from **Project Settings → Write tokens** instead and use the platform's own secret manager — a long-lived service shouldn't share the same credential as your CLI session.
 - A **write token** for a Collector exporter comes from **Project Settings → Write tokens** in the Logfire UI — the CLI's own credentials authenticate you as a person, not the Collector as a data source.
 - An **API key** for `LogfireAPIClient` (hosted-dataset push/pull) comes from **Settings → API Keys**, scoped `project:read_datasets`/`project:write_datasets` — a generic write/read token lacks those scopes.
 

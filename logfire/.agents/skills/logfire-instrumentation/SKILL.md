@@ -112,7 +112,7 @@ let shutdown_handler = logfire::configure()
     .finish()?;
 ```
 
-Set `LOGFIRE_TOKEN` in your environment — the Rust SDK doesn't auto-read `.logfire/logfire_credentials.json` the way Python's does. For local development, reuse the token `projects use` already created rather than minting a new one: see [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section.
+Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section, not the local one.
 
 #### Structured Logging (Rust)
 
