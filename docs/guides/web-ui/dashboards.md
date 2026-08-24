@@ -147,7 +147,7 @@ To configure a chart:
 
 ### Variables
 
-Variables let you change what a dashboard shows without editing its queries: pick a service from a dropdown, enter a shop ID, or focus on a single host. You define a variable once, reference it in your SQL queries as `$variable_name`, and Logfire adds a selector for it to the top of the dashboard.
+Variables let you change what a dashboard shows without editing its queries. You define a variable once, reference it in your SQL queries as `$variable_name`, and Logfire adds a selector for it to the top of the dashboard.
 
 To add variables to a custom dashboard:
 
@@ -173,7 +173,7 @@ The **Source** setting controls where a list variable's options come from:
 
 <!-- TODO screenshot: variable editor form with the Source dropdown open, showing all three sources -->
 
-A query source keeps the dropdown in sync with your data automatically. For example, if your metrics record a `tenant_id` attribute, this query fills the dropdown with every shop ID captured on the `api.requests` metric:
+A query source keeps the dropdown in sync with your data automatically. For example, if your metrics record a `tenant_id` attribute, this query fills the dropdown with every tenant ID captured on the `api.requests` metric:
 
 ```sql
 SELECT DISTINCT attributes->>'tenant_id'
