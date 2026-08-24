@@ -7,8 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 import requests
-from urllib3.connection import HTTPConnection
-from urllib3.connectionpool import HTTPSConnectionPool
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from urllib3.poolmanager import PoolManager
 
 from logfire._internal.auth import UserToken
@@ -94,6 +94,32 @@ def test_explicit_socket_options_are_not_overridden() -> None:
     adapter = LogfireHTTPAdapter()
     adapter.init_poolmanager(1, 1, socket_options=[])
     assert adapter.poolmanager.connection_pool_kw['socket_options'] == []
+
+
+@pytest.mark.parametrize(
+    ('base', 'expected_connection', 'expected_scheme'),
+    [
+        (HTTPConnectionPool, HTTPConnection, 'http'),
+        (HTTPSConnectionPool, HTTPSConnection, 'https'),
+    ],
+)
+def test_derived_pools_keep_their_own_connection_class(
+    base: type[HTTPConnectionPool], expected_connection: type[HTTPConnection], expected_scheme: str
+) -> None:
+    """The mixin must not shadow `ConnectionCls`, or HTTPS pools would open plaintext connections.
+
+    It inherits `HTTPConnectionPool` so the `super()` calls resolve for type checking, which
+    raises the fair question of whether an HTTPS pool then builds plain `HTTPConnection`s. It does
+    not: the mixin defines neither `ConnectionCls` nor `scheme` in its own `__dict__`, and
+    attribute lookup walks each class's own `__dict__` along the MRO, so `HTTPSConnectionPool`
+    is the first to supply them.
+    """
+    cls = _recycling_pool_class(base, IDLE_CONNECTION_RECYCLE_SECONDS)
+
+    assert cls.ConnectionCls is expected_connection
+    assert cls.scheme == expected_scheme
+    assert 'ConnectionCls' not in _IdleRecyclingPoolMixin.__dict__
+    assert 'scheme' not in _IdleRecyclingPoolMixin.__dict__
 
 
 def test_adapter_registers_the_recycling_pools() -> None:
