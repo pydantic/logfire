@@ -18,9 +18,12 @@ def extract_agent_setup_prompt(path: Path, component: str) -> str:
     assert len(fence) >= 3 and set(fence) == {'`'}
     assert lines[-1] == fence
 
+    # If the prompt embeds its own code fence (it doesn't, currently -- this is a short
+    # prompt with no code block of its own), the outer fence must outrun it, or the inner
+    # fence closes the outer block early.
     embedded_fence_lengths = [len(line) - len(line.lstrip('`')) for line in lines[1:-1] if line.startswith('`')]
-    assert embedded_fence_lengths
-    assert len(fence) > max(embedded_fence_lengths)
+    if embedded_fence_lengths:
+        assert len(fence) > max(embedded_fence_lengths)
 
     prompt = '\n'.join(lines[1:-1])
     assert prompt
