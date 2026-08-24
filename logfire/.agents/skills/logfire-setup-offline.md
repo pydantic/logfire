@@ -37,8 +37,8 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | `logfire-instrumentation` |
 | Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | `logfire-infrastructure` |
 | Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | `logfire-evals` |
-| Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | no dedicated skill yet — use a connected Logfire MCP server, or the product's own docs |
-| Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | no dedicated skill yet — see the product's own docs |
+| Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | `logfire-query` — not in this repo; install from [github.com/pydantic/skills](https://github.com/pydantic/skills) or fetch its SKILL.md directly from there |
+| Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | `logfire-ui` — same source as above |
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
 | AI Gateway | Spend caps, failover, and routing for model calls (`logfire gateway`) | no dedicated skill yet — see the product's own docs |
 
