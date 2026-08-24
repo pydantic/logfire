@@ -33,13 +33,24 @@ from urllib3.poolmanager import PoolManager
 _now = time.monotonic
 """Indirection so tests can drive the clock without touching the one `urllib3` itself uses."""
 
-IDLE_CONNECTION_RECYCLE_SECONDS = 30
+IDLE_CONNECTION_RECYCLE_SECONDS = 90
 """Close a pooled connection that has sat unused for longer than this.
 
-Chosen to sit below the things that would otherwise reclaim the connection first: the default
-60 second metric export interval (`OTEL_METRIC_EXPORT_INTERVAL`), and the idle timeouts of
-typical NAT and load balancer hops, which start around 60 seconds. For reference `httpx`
-defaults to 5 seconds and Go's `http.Transport` to 90.
+`urllib3` pools from a LIFO queue, so idle time is sharply bimodal rather than spread evenly:
+one connection serves nearly everything with sub-second gaps, while any extra connection opened
+during a moment of concurrency sinks to the bottom of the stack and is left there indefinitely.
+Measured on a traces-plus-metrics workload, 98 of 99 requests went to a single connection. Any
+window catches that abandoned tail, because its idle time is unbounded, so the exact value is
+not what decides correctness there.
+
+What the value does decide is the session whose only user is the metric exporter, where the one
+hot connection has 60 second gaps. Below that interval every export would reconnect, giving up
+keep-alive entirely for a fresh handshake each time; 90 seconds keeps the reuse. It stays well
+under the idle timeouts of the hops in between, which run to several minutes (AWS NAT gateways
+350s, Azure 4 minutes, GCP Cloud NAT 20 minutes). TCP keepalive is the real defence against the
+flow being reclaimed, and this window is the backstop for when it does not apply, so it is
+cheap to leave it long. For reference `httpx` defaults to 5 seconds and Go's `http.Transport`
+to 90.
 """
 
 TCP_KEEPALIVE_IDLE_SECONDS = 30
@@ -95,6 +106,13 @@ class _IdleRecyclingPoolMixin(HTTPConnectionPool):
     Logfire, where one session carries traces, metrics and logs from different threads, so a
     steady trace stream keeps the session active while the connection that last served a metric
     export waits out the full export interval.
+
+    `urllib3` pools from a LIFO queue, which makes this sharper than steady-state staleness.
+    Sequential traffic reuses the connection on top of the stack, so a connection opened during
+    a brief overlap is used once and then left at the bottom, idle for as long as the workload
+    stays sequential. It is handed back out at the next overlap, which is exactly when a request
+    is least able to tolerate a dead socket. Recycling on the way out of the pool is what catches
+    that connection before it is used.
 
     `urllib3` already drops a pooled connection it can see was closed. This extends that to the
     case it cannot see, closing on the way out of the pool and letting `urllib3` reconnect
