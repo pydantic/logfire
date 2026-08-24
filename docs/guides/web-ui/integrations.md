@@ -7,6 +7,10 @@ description: "Use the Logfire integrations catalog to install ready-made dashboa
 
 An **integration** is a ready-made observability bundle for a piece of infrastructure you run: a standard dashboard, a set of health alerts, and the configuration needed to collect the data. Logfire ships integrations for Redis, PostgreSQL, MySQL, MongoDB, Elasticsearch, Memcached, RabbitMQ, Kafka, NGINX, and Apache.
 
+!!! note "Integrations are in Beta"
+
+    Integrations are available in every project, but their dashboards, alerts, and setup instructions may change while the feature is in Beta.
+
 They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md) already scrapes from those services. The Collector is a separate program that gathers telemetry and forwards it to Logfire. Point it at Redis, open the catalog, and install: you get the dashboard and alerts without working out which attributes the receiver emits, writing the SQL behind each panel, or repeating that work for the next service.
 
 !!! warning "Give every service instance a unique identity"
