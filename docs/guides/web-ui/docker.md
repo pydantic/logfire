@@ -4,9 +4,6 @@ description: "Browse every Docker container, image and Compose project shipping 
 ---
 # Docker
 
-!!! note "Beta: feedback welcome"
-    The Docker view is in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](https://pydantic.dev/docs/logfire/join-slack/) or email [support@pydantic.dev](mailto:support@pydantic.dev).
-
 The <OpenInLogfire path="docker" variant="inline" label="Docker view" /> shows every Docker container reporting stats to your project (CPU, memory, network and block I/O) alongside the application traces those containers produced. The same stats are folded three ways: by **container**, by **image**, and by **Compose project**.
 
 You'll find Docker in the project sidebar under **Infrastructure**, after **Kubernetes**.
