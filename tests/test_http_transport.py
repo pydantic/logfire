@@ -300,6 +300,22 @@ def _remote_variables_session() -> requests.Session:
     return provider._session  # pyright: ignore[reportPrivateUsage]
 
 
+def test_the_sse_stream_session_gets_the_policy() -> None:
+    """The SSE stream is the longest-lived connection the SDK opens, so it matters most there.
+
+    It is built by its own session rather than the polling one, so covering the provider's
+    polling session says nothing about it.
+    """
+    provider = LogfireRemoteVariableProvider(base_url='https://x', token='t', options=VariablesOptions())
+
+    with provider._new_sse_session() as session:  # pyright: ignore[reportPrivateUsage]
+        adapter = session.get_adapter('https://example.com')
+        assert isinstance(adapter, LogfireHTTPAdapter)
+        assert issubclass(adapter.poolmanager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
+        # Still the SSE session, not the polling one.
+        assert session.headers['Accept'] == 'text/event-stream'
+
+
 @pytest.mark.parametrize(
     'make_session',
     [
