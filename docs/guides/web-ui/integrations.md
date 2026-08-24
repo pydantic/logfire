@@ -25,7 +25,7 @@ They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/
 
 ## What an integration installs
 
-- **A standard dashboard.** A curated set of panels for the service. For example, the Redis dashboard covers memory against `maxmemory`, command throughput, keyspace hit ratio, evictions, connected clients, and replication. Standard dashboards render from one definition Logfire maintains, so installing enables it for your project rather than copying it. There is no per-project copy to drift. Installing the integration is how you enable it: infrastructure dashboards are not listed on the [Dashboards](dashboards.md) page alongside the general-purpose ones.
+- **A standard dashboard.** A curated set of panels for the service. For example, the Redis dashboard covers memory against `maxmemory`, command throughput, keyspace hit ratio, evictions, connected clients, and replication. Standard dashboards render from one definition Logfire maintains, so installing enables it for your project rather than copying it. There is no per-project copy to drift. Installing the integration is how you enable its service dashboard.
 - **Alerts.** Health alerts grounded in the service's own operational guidance. For example, the Redis integration alerts on memory near `maxmemory`, high eviction rate, low keyspace hit ratio, rejected connections, and high memory fragmentation. Every integration also includes a *not reporting metrics* alert that fires when the service stops sending telemetry.
 - **Setup instructions.** The OpenTelemetry Collector receiver configuration to scrape the service, ready to copy.
 - **Detection.** A check that confirms the service's metrics are already arriving in your project, so you only install what is relevant.
