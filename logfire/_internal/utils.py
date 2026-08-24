@@ -211,8 +211,22 @@ class UnexpectedResponse(RequestException):
             raise cls(response)
 
 
-DATA_DIR_FILENAMES = {'.gitignore', 'logfire_credentials.json'}
-"""The files that Logfire itself writes into a data directory."""
+READ_TOKEN_FILENAME = 'read_token.json'
+"""Where `logfire read-tokens create --save` stores a read token.
+
+Deliberately NOT a new key inside `logfire_credentials.json`: that file is loaded with
+`LogfireCredentials(**data)`, so an unrecognised key raises `LogfireConfigError` in every
+SDK version released before it. A separate file cannot break an older reader.
+"""
+
+DATA_DIR_FILENAMES = {'.gitignore', 'logfire_credentials.json', READ_TOKEN_FILENAME}
+"""The files that Logfire itself writes into a data directory.
+
+Membership is load-bearing beyond bookkeeping: `ensure_data_dir_exists` only seeds the
+`.gitignore` when the directory holds nothing else, so a file omitted here would stop the
+ignore rule being restored for a directory containing it -- and this one holds a
+credential.
+"""
 
 
 def ensure_data_dir_exists(data_dir: Path) -> None:
