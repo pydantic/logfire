@@ -5,7 +5,7 @@ description: "Use the Logfire integrations catalog to install ready-made dashboa
 
 # Integrations
 
-An **integration** is a ready-made observability bundle for a piece of infrastructure you run: a standard dashboard, a set of health alerts, and the configuration needed to collect the data. Logfire ships integrations for Redis, PostgreSQL, MySQL, MongoDB, Elasticsearch, Memcached, RabbitMQ, Kafka, NGINX, and Apache.
+An **integration** is a ready-made observability bundle for a piece of infrastructure you run: a standard dashboard, a set of health alerts, and the configuration needed to collect the data. The catalog covers common databases, caches, queues, streaming systems, web servers, and proxies.
 
 !!! note "Integrations are in Beta"
 
@@ -84,8 +84,8 @@ The catalog is also reachable through the [Logfire MCP server](../../how-to-guid
 | MongoDB | Database, NoSQL |
 | Elasticsearch | Database, Search |
 | RabbitMQ | Queue |
-| Kafka | Queue, Streaming |
+| Apache Kafka | Queue, Streaming |
 | NGINX | Proxy, Web Server |
-| Apache | Web Server |
+| Apache HTTP Server | Web Server |
 
 Integrations are added over time. Each is a data-only definition, so the catalog grows without new per-service code.
