@@ -17,7 +17,7 @@ Use the package manager detected in [project-detection.md](./project-detection.m
 
 ## Environment Variables
 
-Node.js and Cloudflare read Logfire-specific environment values:
+Node.js and Cloudflare read Logfire-specific environment values. `LOGFIRE_TOKEN` is optional for local Node.js development specifically: `@pydantic/logfire-node` falls back to `.logfire/logfire_credentials.json` when it's unset, same as the Python SDK — set it explicitly only to override that (a different token, a non-Node runtime, or production, where it should be a separately-minted token per [auth.md](../auth.md)'s "If the calling skill needs a write token" section, not the local one).
 
 ```bash
 LOGFIRE_TOKEN=your-write-token

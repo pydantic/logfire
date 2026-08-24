@@ -167,7 +167,7 @@ let shutdown_handler = logfire::configure()
     .finish()?;
 ```
 
-Set `LOGFIRE_TOKEN` in your environment or use the Logfire CLI to select a project.
+Set `LOGFIRE_TOKEN` in your environment — the Rust SDK doesn't auto-read `.logfire/logfire_credentials.json` the way Python's does. For local development, reuse the token `projects use` already created rather than minting a new one: see [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section.
 
 #### Structured Logging (Rust)
 
