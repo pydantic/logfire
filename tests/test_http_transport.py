@@ -13,11 +13,13 @@ from urllib3.poolmanager import PoolManager
 
 from logfire._internal.auth import UserToken
 from logfire._internal.client import LogfireClient
-from logfire._internal.config import VariablesOptions
+from logfire._internal.config import LogfireConfig, LogfireCredentials, VariablesOptions
 from logfire._internal.exporters.otlp import OTLPExporterHttpSession
 from logfire._internal.http_transport import (
     IDLE_CONNECTION_RECYCLE_SECONDS,
+    TCP_KEEPALIVE_FAILED_PROBES,
     TCP_KEEPALIVE_IDLE_SECONDS,
+    TCP_KEEPALIVE_INTERVAL_SECONDS,
     LogfireHTTPAdapter,
     _IdleRecyclingPoolMixin,  # pyright: ignore[reportPrivateUsage]
     _install_recycling_pools,  # pyright: ignore[reportPrivateUsage]
@@ -45,6 +47,21 @@ def test_keepalive_idle_option_is_set_on_platforms_that_have_one() -> None:
     idle_options = {getattr(socket, name) for name in names}
     values = [value for (_level, option, value) in keepalive_socket_options() if option in idle_options]
     assert values == [TCP_KEEPALIVE_IDLE_SECONDS]
+
+
+@pytest.mark.parametrize(
+    ('option_name', 'expected'),
+    [
+        ('TCP_KEEPINTVL', TCP_KEEPALIVE_INTERVAL_SECONDS),
+        ('TCP_KEEPCNT', TCP_KEEPALIVE_FAILED_PROBES),
+    ],
+)
+def test_keepalive_probe_options_are_tuned_when_supported(option_name: str, expected: int) -> None:
+    option = getattr(socket, option_name, None)
+    if option is None:  # pragma: no cover
+        pytest.skip(f'platform exposes no {option_name}')
+
+    assert (socket.IPPROTO_TCP, option, expected) in keepalive_socket_options()
 
 
 def test_the_macos_spelling_of_the_idle_option_is_used_when_it_is_the_only_one(
@@ -87,6 +104,31 @@ def test_a_connection_class_without_default_socket_options(monkeypatch: pytest.M
 def test_adapter_passes_socket_options_to_the_pool() -> None:
     adapter = LogfireHTTPAdapter()
     assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in adapter.poolmanager.connection_pool_kw['socket_options']
+
+
+def test_connected_socket_has_tuned_tcp_keepalive() -> None:
+    with socket.socket() as listener:
+        listener.bind(('127.0.0.1', 0))
+        listener.listen()
+
+        adapter = LogfireHTTPAdapter()
+        pool: Any = adapter.poolmanager.connection_from_host('127.0.0.1', listener.getsockname()[1], scheme='http')
+        connection = pool._new_conn()
+        connection.connect()
+        try:
+            client_socket = connection.sock
+            assert client_socket is not None
+            assert client_socket.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) == 1
+
+            idle_option = getattr(socket, 'TCP_KEEPIDLE', None) or getattr(socket, 'TCP_KEEPALIVE', None)
+            if idle_option is not None:
+                assert client_socket.getsockopt(socket.IPPROTO_TCP, idle_option) == TCP_KEEPALIVE_IDLE_SECONDS
+            if interval_option := getattr(socket, 'TCP_KEEPINTVL', None):
+                assert client_socket.getsockopt(socket.IPPROTO_TCP, interval_option) == TCP_KEEPALIVE_INTERVAL_SECONDS
+            if probe_option := getattr(socket, 'TCP_KEEPCNT', None):
+                assert client_socket.getsockopt(socket.IPPROTO_TCP, probe_option) == TCP_KEEPALIVE_FAILED_PROBES
+        finally:
+            connection.close()
 
 
 def test_explicit_socket_options_are_not_overridden() -> None:
@@ -300,6 +342,27 @@ def _remote_variables_session() -> requests.Session:
     return provider._session  # pyright: ignore[reportPrivateUsage]
 
 
+def _assert_connection_policy(session: requests.Session) -> None:
+    adapter = session.get_adapter('https://example.com')
+    assert isinstance(adapter, LogfireHTTPAdapter)
+    assert issubclass(adapter.poolmanager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
+
+
+def test_credentials_check_session_gets_the_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_session: list[requests.Session] = []
+
+    def from_token(cls: type[LogfireCredentials], token: str, session: requests.Session, base_url: str) -> None:
+        assert token == 'test-token'
+        assert base_url == 'https://logfire-us.pydantic.dev'
+        captured_session.append(session)
+
+    monkeypatch.setattr(LogfireCredentials, 'from_token', classmethod(from_token))
+
+    assert LogfireConfig()._initialize_credentials_from_token('test-token') is None  # pyright: ignore[reportPrivateUsage]
+    [session] = captured_session
+    _assert_connection_policy(session)
+
+
 def test_the_sse_stream_session_gets_the_policy() -> None:
     """The SSE stream is the longest-lived connection the SDK opens, so it matters most there.
 
@@ -309,9 +372,7 @@ def test_the_sse_stream_session_gets_the_policy() -> None:
     provider = LogfireRemoteVariableProvider(base_url='https://x', token='t', options=VariablesOptions())
 
     with provider._new_sse_session() as session:  # pyright: ignore[reportPrivateUsage]
-        adapter = session.get_adapter('https://example.com')
-        assert isinstance(adapter, LogfireHTTPAdapter)
-        assert issubclass(adapter.poolmanager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
+        _assert_connection_policy(session)
         # Still the SSE session, not the polling one.
         assert session.headers['Accept'] == 'text/event-stream'
 
@@ -326,7 +387,4 @@ def test_the_sse_stream_session_gets_the_policy() -> None:
 )
 def test_sessions_logfire_owns_get_the_policy(make_session: Any) -> None:
     session = make_session()
-    adapter = session.get_adapter('https://example.com')
-
-    assert isinstance(adapter, LogfireHTTPAdapter)
-    assert issubclass(adapter.poolmanager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
+    _assert_connection_policy(session)

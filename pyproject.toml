@@ -311,6 +311,9 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true
+markers = [
+    "otel_collector: requires Docker and runs against a pinned OpenTelemetry Collector",
+]
 # The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
 filterwarnings = [

@@ -57,6 +57,7 @@ from logfire._internal.cli.run import (
     instrumented_packages_text,
 )
 from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, sanitize_project_name
+from logfire._internal.http_transport import LogfireHTTPAdapter
 from logfire._internal.utils import READ_TOKEN_FILENAME
 from logfire.exceptions import LogfireConfigError
 from tests.import_used_for_tests import run_script_test
@@ -106,6 +107,27 @@ def test_whoami_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_cli_owned_session_gets_connection_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    sessions: list[requests.Session] = []
+    install_connection_policy = logfire._internal.cli.install_connection_policy
+
+    def capture_session(session: requests.Session) -> None:
+        install_connection_policy(session)
+        sessions.append(session)
+
+    monkeypatch.setattr(logfire._internal.cli, 'install_connection_policy', capture_session)
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+
+        main(['whoami'])
+
+    [session] = sessions
+    assert isinstance(session.get_adapter('https://example.com'), LogfireHTTPAdapter)
 
 
 def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
