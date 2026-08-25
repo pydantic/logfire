@@ -1,5 +1,6 @@
 import gc
 import os
+import socket
 import subprocess
 import sys
 import textwrap
@@ -25,7 +26,9 @@ from logfire._internal.exporters.otlp import (
     BodyTooLargeError,
     DiskRetryer,
     OTLPExporterHttpSession,
+    SuppressedConnectionError,
     cleanup_disk_retryers,
+    raise_for_retryable_status,
 )
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.exporters.wrapper import WrapperSpanExporter
@@ -64,6 +67,35 @@ def test_connect_timeout(timeout: float | tuple[float, float], expected: tuple[f
     session.post('http://example.com', data=b'', timeout=timeout)
 
     assert adapter.timeouts == [expected, expected]
+
+
+@pytest.mark.parametrize(
+    ('status_code', 'is_retryable'),
+    [
+        (200, False),
+        (400, False),
+        (401, False),
+        (403, False),
+        (404, False),
+        (408, True),
+        (429, True),
+        (499, False),
+        (500, True),
+        (502, True),
+        (503, True),
+        (504, True),
+        (599, True),
+    ],
+)
+def test_retryable_http_status_classification(status_code: int, is_retryable: bool) -> None:
+    response = Response()
+    response.status_code = status_code
+
+    if is_retryable:
+        with pytest.raises(requests.exceptions.HTTPError):
+            raise_for_retryable_status(response)
+    else:
+        assert raise_for_retryable_status(response) is None
 
 
 def test_connect_timeout_is_preserved_for_disk_retry(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -243,6 +275,28 @@ def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert marker_file.read_text() == str(retryer_dir)
     assert not retryer_dir.exists()
+
+
+def test_closing_the_session_discards_pending_disk_retries() -> None:
+    """Characterize the current durability boundary: the disk queue does not survive process exit."""
+    session = OTLPExporterHttpSession()
+    try:
+        with socket.socket() as unavailable_server:
+            unavailable_server.bind(('127.0.0.1', 0))
+            endpoint = f'http://127.0.0.1:{unavailable_server.getsockname()[1]}'
+            with pytest.raises((SuppressedConnectionError, requests.exceptions.ReadTimeout)):
+                session.post(endpoint, data=b'data', timeout=0.2)
+
+        retryer = session.retryer
+        retry_thread = retryer.thread
+        assert retry_thread is not None
+
+        session.close()
+        retry_thread.join(timeout=5)
+        assert not retry_thread.is_alive()
+        assert not retryer.dir.exists()
+    finally:
+        session.close()
 
 
 def test_cleanup_disk_retryers_skips_dead_weakrefs(monkeypatch: pytest.MonkeyPatch) -> None:
