@@ -42,6 +42,8 @@ class StaleConnectionProxy:
                 continue
             except OSError:
                 return
+            with self._lock:
+                self._sockets.append(client)
             # CONNECT headers can arrive over multiple packets. Give the proxy a
             # realistic handshake deadline, then switch to short polling once the
             # tunnel is established so shutdown remains responsive.
@@ -50,6 +52,8 @@ class StaleConnectionProxy:
             try:
                 initial_upstream_data = self._read_connect_request(client) if self._accept_connect else b''
                 upstream = socket.create_connection(self._upstream, timeout=2)
+                with self._lock:
+                    self._sockets.append(upstream)
                 upstream.settimeout(0.1)
                 if self._accept_connect:
                     client.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
@@ -61,13 +65,21 @@ class StaleConnectionProxy:
                 if upstream is not None:
                     upstream.close()
                 continue
+            if self._closed.is_set():
+                client.close()
+                upstream.close()
+                return
             with self._lock:
                 self._next_connection_id += 1
                 connection_id = self._next_connection_id
-                self._sockets.extend((client, upstream))
-            for source, destination in ((client, upstream), (upstream, client)):
-                thread = threading.Thread(target=self._forward, args=(connection_id, source, destination), daemon=True)
-                self._threads.append(thread)
+                threads: list[threading.Thread] = []
+                for source, destination in ((client, upstream), (upstream, client)):
+                    thread = threading.Thread(
+                        target=self._forward, args=(connection_id, source, destination), daemon=True
+                    )
+                    self._threads.append(thread)
+                    threads.append(thread)
+            for thread in threads:
                 thread.start()
 
     def _read_connect_request(self, client: socket.socket) -> bytes:
@@ -132,9 +144,12 @@ class StaleConnectionProxy:
                 except OSError:
                     pass
         deadline = time.monotonic() + 2
-        for thread in self._threads:
+        self._threads[0].join(timeout=max(0, deadline - time.monotonic()))
+        with self._lock:
+            threads = list(self._threads)
+        for thread in threads[1:]:
             thread.join(timeout=max(0, deadline - time.monotonic()))
-        if live_threads := [thread.name for thread in self._threads if thread.is_alive()]:
+        if live_threads := [thread.name for thread in threads if thread.is_alive()]:
             raise AssertionError(f'stale connection proxy threads did not stop: {live_threads}')
 
 
