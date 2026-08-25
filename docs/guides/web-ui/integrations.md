@@ -51,7 +51,7 @@ The integration's status changes to **Installed**. Open **View details**, then c
 
 ## Integrations stay current automatically
 
-Logfire maintains installed integrations for you. We may revise dashboards and alert queries over time to improve them, and your project receives those changes automatically. Your notification channels and the enabled or disabled state of existing alerts stay unchanged.
+Logfire maintains installed integrations for you. We may revise dashboards and alert queries over time to improve them, and your project receives those changes automatically. Changes you make to an alert's notification channels or enabled state are preserved.
 
 **Uninstall** deletes the alerts the integration created and disables its bundled dashboards for the project. Alerts and dashboards you made yourself are left alone.
 
