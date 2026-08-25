@@ -162,7 +162,7 @@ logfire gateway launch claude
 ```
 
 !!! note
-    For self-hosted Logfire, run `logfire --base-url "https://<your-logfire-host>" gateway launch claude`. If the Gateway is exposed at a different URL, append `--gateway-url "https://<your-gateway-host>"`.
+    For self-hosted Logfire, set `LOGFIRE_BASE_URL` to your Logfire URL or pass `--base-url "https://<your-logfire-host>"` before `gateway`. If the Gateway is exposed at a different URL, set `LOGFIRE_GATEWAY_URL` or append `--gateway-url "https://<your-gateway-host>"`.
 
 Or run just the proxy and configure a tool manually with `logfire gateway serve`. See the [CLI reference](../../cli.md#ai-gateway-gateway) for details.
 
