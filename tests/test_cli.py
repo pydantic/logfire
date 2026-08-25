@@ -3965,6 +3965,7 @@ def test_gateway_cli_adapter_exits_for_launch(monkeypatch: pytest.MonkeyPatch) -
         return 0
 
     monkeypatch.setattr(gateway_cli, '_run_launch', run_launch)
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'https://logfire.example.com')
 
     with pytest.raises(SystemExit) as exc_info:
         main(['--region', 'eu', 'gateway', 'launch', 'claude'])
@@ -3994,6 +3995,30 @@ def test_gateway_cli_adapter_exits_for_serve(monkeypatch: pytest.MonkeyPatch) ->
 
     assert exc_info.value.code == 130
     assert calls == [([], gateway_cli.GatewayCommandContext(raw_args=['serve'], region=None, logfire_url=None))]
+
+
+def test_gateway_cli_uses_logfire_base_url_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], gateway_cli.GatewayCommandContext]] = []
+
+    def run_launch(raw_args: list[str], context: gateway_cli.GatewayCommandContext) -> int:
+        calls.append((raw_args, context))
+        return 0
+
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'https://logfire.example.com')
+    monkeypatch.setattr(gateway_cli, '_run_launch', run_launch)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['gateway', 'launch', 'claude'])
+
+    assert exc_info.value.code == 0
+    assert calls == [
+        (
+            ['claude'],
+            gateway_cli.GatewayCommandContext(
+                raw_args=['launch', 'claude'], region=None, logfire_url='https://logfire.example.com'
+            ),
+        )
+    ]
 
 
 def test_gateway_optional_dependency_error(monkeypatch: pytest.MonkeyPatch) -> None:
