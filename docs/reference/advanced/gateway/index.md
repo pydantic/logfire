@@ -161,6 +161,9 @@ pip install "logfire[gateway]"
 logfire gateway launch claude
 ```
 
+!!! note
+    For self-hosted Logfire, run `logfire --base-url "https://<your-logfire-host>" gateway launch claude`. If the Gateway is exposed at a different URL, append `--gateway-url "https://<your-gateway-host>"`.
+
 Or run just the proxy and configure a tool manually with `logfire gateway serve`. See the [CLI reference](../../cli.md#ai-gateway-gateway) for details.
 
 ## See also

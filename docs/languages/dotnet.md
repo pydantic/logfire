@@ -36,13 +36,9 @@ This adds the OpenTelemetry Protocol (OTLP) exporter, the way you send data to L
 ```sh
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
-export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 ```
 
 The endpoint above is for the US [data region](../reference/data-regions.md). If your project is in the EU region, use `https://logfire-eu.pydantic.dev` instead.
-
-!!! note "HTTP or gRPC"
-    The .NET OTLP exporter defaults to gRPC. Logfire's managed platform accepts both gRPC and HTTP, so the default works; this page uses HTTP (`http/protobuf`) to match the other language guides. Set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` (or set it in code, shown below) to follow these examples.
 
 **3. Add the code**
 
@@ -60,7 +56,7 @@ var activitySource = new ActivitySource("hello-dotnet");
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .AddSource("hello-dotnet")
     .ConfigureResource(r => r.AddService("hello-dotnet"))
-    .AddOtlpExporter() // reads the OTEL_EXPORTER_OTLP_* environment variables, including the protocol
+    .AddOtlpExporter() // reads the OTEL_EXPORTER_OTLP_* environment variables
     .Build();
 
 using (var activity = activitySource.StartActivity("hello"))
@@ -87,13 +83,12 @@ Each row is one span, with its service, name, and duration. The screenshot shows
 
 ## Configure in code instead of environment variables
 
-If you would rather not set environment variables, pass the options to `AddOtlpExporter`. When you set the endpoint in code you must include the signal path `/v1/traces` yourself:
+If you would rather not set environment variables, pass the options to `AddOtlpExporter`:
 
 ```csharp
 .AddOtlpExporter(o =>
 {
-    o.Endpoint = new Uri("https://logfire-us.pydantic.dev/v1/traces");
-    o.Protocol = OtlpExportProtocol.HttpProtobuf;
+    o.Endpoint = new Uri("https://logfire-us.pydantic.dev");
     o.Headers = "Authorization=your-write-token";
 })
 ```
@@ -104,7 +99,7 @@ If you would rather not set environment variables, pass the options to `AddOtlpE
 |---|---|---|
 | Connection refused, or nothing arrives | The endpoint points at the wrong region | Confirm the endpoint matches your [data region](../reference/data-regions.md) (`logfire-us`/`logfire-eu`) |
 | Nothing exported even though config looks right | The tracer provider only records sources you register | Make sure `.AddSource("...")` matches the name you passed to `new ActivitySource("...")` |
-| A 404 when configuring the endpoint in code | With `http/protobuf`, the code `Endpoint` property is used as-is and does not append the signal path | Include `/v1/traces` in the URL, or use the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable (which appends it for you) |
+| A 404 when configuring the endpoint in code with `http/protobuf` | Setting `o.Protocol = OtlpExportProtocol.HttpProtobuf` makes the code `Endpoint` property used as-is, without appending the signal path | Include `/v1/traces` in the URL yourself, or leave the protocol on its default (gRPC), which needs no path |
 | Can't tell what the SDK is doing | No local visibility into what is being recorded | Add the `OpenTelemetry.Exporter.Console` package, then `.AddConsoleExporter()` to the builder, to print each span to your terminal as it is created |
 
 ## Next steps

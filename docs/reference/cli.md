@@ -97,6 +97,9 @@ Launch a supported integration through the proxy:
 logfire gateway launch claude
 ```
 
+!!! note
+    For self-hosted Logfire, run `logfire --base-url "https://<your-logfire-host>" gateway launch claude`. If the Gateway is exposed at a different URL, append `--gateway-url "https://<your-gateway-host>"`.
+
 You can also run only the proxy and configure a tool manually:
 
 ```bash

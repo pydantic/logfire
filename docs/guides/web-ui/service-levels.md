@@ -1,62 +1,73 @@
 ---
-title: "Service Levels: SLOs, reliability targets, and burn-rate alerts"
-description: "Set a reliability target — a Service Level Objective (SLO) — for a service, for example 99.9% of requests succeed over 30 days, and let Logfire track the error budget and page you before you miss it."
+title: "Set reliability targets for services and large language model providers"
+description: "Define measurable reliability goals, track error budgets and burn rates, and investigate the events that put a target at risk."
 ---
 # Service Levels
 
-A **reliability target** — Logfire's name for a **Service Level Objective (SLO)**, the industry-standard way to set a measurable reliability goal — is a promise about a service, written as a percentage over a time window: *"99.9% of requests succeed over the last 30 days."* In Logfire you set one on a service, and Logfire watches the service and **pages you when it's heading toward missing the promise, well before users notice.** (An SLO is your *internal* target; a Service Level Agreement, or SLA, is the external contract with financial consequences — Logfire tracks SLOs.)
+Set a measurable reliability goal for a service or large language model (LLM) provider, then watch its error budget and burn rate before the target is missed.
 
-The <OpenInLogfire path="service-levels" variant="inline" label="Service Levels" /> page lists every reliability target across the project. Each target lives on its service, under the service's **Reliability** tab.
+A service level objective (SLO) is a target for how reliable a service should be, such as "99.9% of checkout requests succeed over the last 30 days." Logfire calls each SLO a **reliability target**. An SLO is an internal engineering target; a service level agreement (SLA) is an external contract.
+
+You'll find <OpenInLogfire path="service-levels" variant="inline" label="Service levels" /> under **Notify** in the project sidebar. The page lists every target in the project. Search by target name, service, provider, or description; filter by status; or group by service, status, time window, source, or not at all. Service detail pages show the same targets on their **Reliability** page.
 
 !!! note "Plans and limits"
-    Reliability targets are an **Enterprise** feature, with a limited number available on the **Growth** plan (and no limit when self-hosted). Your plan sets how many targets your organization can create.
+    Reliability targets are available on **Growth**, **Enterprise**, and self-hosted Logfire. Growth organizations can create up to five targets across the organization and use windows up to 30 days. Enterprise and self-hosted organizations have no target-count limit and can use windows up to 90 days. Project retention still limits the available history.
 
-## What a reliability target is made of
+## Choose what good looks like
 
-When you create a target you answer three questions:
+A target combines:
 
-- **What counts as a "good" request, and out of which requests?** Logfire measures a fraction — good events divided by total events. This ratio is the service's **Service Level Indicator (SLI)**, the signal the SLO is measured against. You define both parts with a boolean SQL condition: *"What counts as a failure?"* and *"Out of which set of events?"*
-- **What's the target?** A percentage — presets run from **99.0%** to **99.99%** (default **99.9%**).
-- **Over what window?** A **rolling window** — the trailing period the percentage is measured over. Presets are **1, 7, 28, 30, and 90 days** (default 30). Your plan caps the maximum window.
+1. The total events or values to measure.
+2. The subset that counts as bad.
+3. The percentage that should be good over a rolling time window.
 
-Two derived ideas do the heavy lifting:
+The resulting good-event ratio is the service level indicator (SLI). Percentage presets range from **99%** to **99.99%**, with **99.9%** as the default. Window presets are **1, 7, 28, 30, and 90 days**.
 
-- **Error budget** — the small fraction of failures the target *allows*. A 99.9% target over 30 days budgets 0.1% of events to fail; the target's detail page shows **"Error budget remaining."**
-- **Burn rate** — how fast you're spending that budget right now. Burning at 1× exactly uses the budget over the window; 14.4× would exhaust a 30-day budget in about two days.
+Two derived values show whether the goal is at risk:
 
-## Create a reliability target
+- **Error budget** is the amount of unreliability the target allows. A 99.9% target allows 0.1% of included events to be bad.
+- **Burn rate** is how quickly the service is spending that budget. At 1x, one complete budget would be consumed over the target's rolling window.
 
-1. Open a service, go to its **Reliability** tab, and click **New target**.
-2. Pick a template — the card you choose sets what "good" means:
-    - **Availability** — good = requests that didn't error.
-    - **Latency** — good = requests under a **Max duration (seconds)** you set.
-    - **AI quality** — a *quality* SLI (the SLI dimension that sits alongside availability and latency): good = requests whose evaluation score clears a **Minimum eval score** (reads `gen_ai.evaluation.score.value`, populated by [pydantic-evals](../../evaluate/overview.md)).
-3. Fill in the wizard: name it, confirm the good/total conditions, and choose **where the data comes from** — **Events** (one row per request, remote procedure call (RPC), or job — most targets use this) or **Metrics** (sum a counter or gauge you already record). Both are **count-based** SLIs (good ÷ total), the request-based style the SRE literature recommends; Logfire doesn't use time-based/uptime SLIs. Optionally scope to specific deployment **environments**.
-4. Set the **Target (%)** and **Rolling window**. A **live preview** backtests the target against your recent data so you can see the success rate and burn before you commit.
-5. Optionally choose notification channels for the alerts Logfire is about to generate, then click **Create target**.
+## Start from a template
 
-## Burn-rate alerts, created for you
+From a service detail page, select **Reliability**, then **New target** and choose:
 
-Every target automatically generates **up to three burn-rate alerts**, so you don't hand-write alert SQL:
+- **Availability** for records that did not error.
+- **Latency** for records below a duration threshold.
+- **AI / LLM calls** for calls without a provider-side failure.
+- **AI quality (eval score)** for records that reach an evaluation threshold. An evaluation (eval) is a repeatable test of model or agent behavior. This template uses `gen_ai.evaluation.score.value`, which [Pydantic Evals](../../evaluate/overview.md) can populate.
+- **Custom SQL**, using Structured Query Language conditions, when the preset conditions do not fit.
 
-| Tier | Reacts to | Fires at | Severity |
-|------|-----------|----------|----------|
-| **Fast burn** | a sudden outage (1h / 5m windows) | 14.4× budget burn | pages you |
-| **Medium burn** | a steady problem (6h / 30m) | 6× burn | pages you |
-| **Slow burn** | a slow leak (3d / 6h) | 1× burn | opens a ticket |
+## Choose records or metrics
 
-These three tiers follow the [Google SRE Workbook's **multiwindow, multi-burn-rate** method](https://sre.google/workbook/alerting-on-slos/): each checks **two windows at once** so a brief blip doesn't page you but a real regression does. Route each alert to a channel from the target's detail page — see [Alerts](alerts.md) for channels and notifications. Tiers that can't structurally fire for a low target are skipped.
+**Records** measure rows such as requests, remote procedure calls (RPCs), background jobs, and LLM calls. Define the total population and bad subset with SQL boolean conditions. The setup wizard previews matching records before you save.
 
-## Track a target
+**Metrics** measure a count or other additive value, a gauge fraction, a cumulative counter, or values below a histogram latency threshold. Their burn-rate history appears after you save the target.
 
-The target's detail page shows three cards — **Current service level**, **Target**, and **Error budget remaining** — a **burn-rate chart** for the last 7 days, the state of its three burn-rate alerts, and a **How it's measured** panel with the exact good/total queries. When a target is breached, **Investigate failing events** jumps to the matching events in the [Live view](live.md).
+You can restrict either source to selected deployment environments. Set the target percentage and window, then choose notification channels for its generated alerts.
 
-## Reliability targets for LLM providers
+## Let Logfire watch the burn rate
 
-If a service calls an LLM, you can install ready-made **availability targets** for the providers it uses in one step — **LLM providers** on the Reliability tab (or the reliability chips on the [LLMs and Providers](llms.md) page). Logfire ships presets for **OpenAI**, **Anthropic**, **Google (Gemini / Vertex)**, and a catch-all **Any LLM provider**, each defaulting to **99% over 28 days**, counting only server-side failures (5xx, rate limits, timeouts) as bad.
+Each target generates up to three alerts:
 
-## Next steps
+| Tier | Windows | Threshold | Severity |
+|------|---------|-----------|----------|
+| **Fast burn** | 1 hour and 5 minutes | 14.4x | page |
+| **Medium burn** | 6 hours and 30 minutes | 6x | page |
+| **Slow burn** | 3 days and 6 hours | 1x | ticket |
 
-- [Alerts](alerts.md) — route the generated burn-rate alerts and add your own.
-- [Detect Service is Down](../../how-to-guides/detect-service-is-down.md) — a lighter-weight uptime check.
-- [Services](services.md) — where reliability targets are created and reviewed.
+These tiers follow the multiwindow, multi-burn-rate method in the [Google Site Reliability Engineering (SRE) Workbook](https://sre.google/workbook/alerting-on-slos/). Checking two windows keeps a brief spike from firing an alert meant for a sustained regression. Logfire omits a tier when the target is too low for that tier to fire meaningfully.
+
+Route alerts from the target detail page. See [Alerts](alerts.md) for notification-channel setup.
+
+## Track the budget and investigate failures
+
+The target detail page shows **Current service level**, **Target**, and **Error budget remaining**. **Reliability history** defaults to hourly error-budget history for the last 24 hours; switch to **Burn rate** and choose a time span to inspect budget consumption.
+
+The **How it's measured** panel records the scope and exact conditions. Select **Investigate failing events** to open the matching records in [Explore](explore.md).
+
+## Monitor an LLM provider
+
+On the **Providers** tab of [LLMs and Providers](llms.md), select **Set reliability targets** for an observed provider. Choose an availability or latency target for that provider across every service that calls it. To limit an LLM target to one service, create it from that service's **Reliability** page instead.
+
+Provider targets default to **99% over 28 days**. Availability targets treat server failures, rate limits, timeouts, and connection errors as bad. Recognized OpenAI and Anthropic client errors, such as invalid requests or credentials, are excluded because they do not measure provider availability.
