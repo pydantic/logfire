@@ -231,9 +231,17 @@ def _collector_addresses(container_name: str) -> tuple[str, int, str, int]:
     tls_port_result = subprocess.run(
         ['docker', 'port', container_name, '4319/tcp'], capture_output=True, text=True, check=True
     )
-    host, http_port_text = http_port_result.stdout.strip().rsplit(':', 1)
-    tls_host, tls_port_text = tls_port_result.stdout.strip().rsplit(':', 1)
-    return host, int(http_port_text), tls_host, int(tls_port_text)
+    host, http_port = _ipv4_collector_address(http_port_result.stdout, '4318/tcp')
+    tls_host, tls_port = _ipv4_collector_address(tls_port_result.stdout, '4319/tcp')
+    return host, http_port, tls_host, tls_port
+
+
+def _ipv4_collector_address(output: str, container_port: str) -> tuple[str, int]:
+    for mapping in output.splitlines():
+        host, host_port = mapping.strip().rsplit(':', 1)
+        if host == '127.0.0.1':
+            return host, int(host_port)
+    raise RuntimeError(f'Docker did not publish an IPv4 mapping for Collector port {container_port}: {output!r}')
 
 
 @pytest.fixture(scope='session')

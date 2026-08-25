@@ -11,9 +11,10 @@ from urllib3.connection import HTTPConnection, HTTPSConnection
 from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from urllib3.poolmanager import PoolManager
 
+import logfire
 from logfire._internal.auth import UserToken
 from logfire._internal.client import LogfireClient
-from logfire._internal.config import LogfireConfig, LogfireCredentials, VariablesOptions
+from logfire._internal.config import LogfireCredentials, VariablesOptions
 from logfire._internal.exporters.otlp import OTLPExporterHttpSession
 from logfire._internal.http_transport import (
     IDLE_CONNECTION_RECYCLE_SECONDS,
@@ -348,7 +349,9 @@ def _assert_connection_policy(session: requests.Session) -> None:
     assert issubclass(adapter.poolmanager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
 
 
-def test_credentials_check_session_gets_the_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_credentials_check_session_gets_the_policy(
+    monkeypatch: pytest.MonkeyPatch, config_kwargs: dict[str, Any]
+) -> None:
     captured_session: list[requests.Session] = []
 
     def from_token(cls: type[LogfireCredentials], token: str, session: requests.Session, base_url: str) -> None:
@@ -358,7 +361,8 @@ def test_credentials_check_session_gets_the_policy(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(LogfireCredentials, 'from_token', classmethod(from_token))
 
-    assert LogfireConfig()._initialize_credentials_from_token('test-token') is None  # pyright: ignore[reportPrivateUsage]
+    config_kwargs.update(send_to_logfire=True, token='test-token')
+    logfire.configure(**config_kwargs)
     [session] = captured_session
     _assert_connection_policy(session)
 
