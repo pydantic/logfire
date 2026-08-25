@@ -20,12 +20,15 @@ OTLP_BASE_ENDPOINT=https://logfire-us.pydantic.dev
 OTLP_API_KEY=<your-write-token>
 OTEL_EXPORTER_TYPE=otlp
 OTEL_EXPORTER_OTLP_PROTOCOL=http
+OTEL_METRIC_EXPORT_INTERVAL=60000
 OTEL_SAMPLING_RATE=1.0
 ```
 
 For an EU project, use `https://logfire-eu.pydantic.dev`. Leave `OTLP_TRACE_ENDPOINT` and `OTLP_METRIC_ENDPOINT` unset when using the base URL. Dify appends `/v1/traces` and `/v1/metrics`, and sends `OTLP_API_KEY` as a Bearer authorization token.
 
 `OTEL_SAMPLING_RATE=1.0` records every eligible trace and is useful while verifying the connection. Lower it after considering traffic volume and cost.
+
+`OTEL_METRIC_EXPORT_INTERVAL` is in milliseconds. Dify defaults to 60,000 (one minute); setting it makes the intended interval explicit in your deployment. Keep it at one minute unless you have a specific need for finer resolution.
 
 !!! warning "Review captured data"
     Current Dify spans can contain user, tenant, application, and workflow identifiers, plus database and outbound-request metadata. Review this data before enabling production traffic. The Logfire SDK's scrubbing feature does not process telemetry sent directly by Dify. If Dify cannot omit sensitive content before sending it, do not enable this route for workflows whose telemetry must be redacted.

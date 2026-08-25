@@ -48,7 +48,7 @@ A working setup for a single host (Linux VM, container host, or laptop), exporti
 ```yaml
 receivers:
   hostmetrics:
-    collection_interval: 30s
+    collection_interval: 60s
     # Set root_path: /hostfs when running the collector inside a container
     # with the host filesystem bind-mounted at /hostfs (Linux only).
     scrapers:
@@ -56,7 +56,10 @@ receivers:
       memory: {}
       load:
         cpu_average: true         # normalise load across CPUs
-      disk: {}
+      disk:
+        exclude:
+          devices: ['^(loop|ram)[0-9]+$']
+          match_type: regexp
       filesystem:
         include_virtual_filesystems: false
       network:
@@ -89,6 +92,10 @@ service:
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp/logfire]
 ```
+
+Keep the collection interval at 60 seconds unless you have a specific need for finer resolution. Some Collector deployment presets use 10 seconds, which sends six times as many datapoints. The `processes` scraper above is inexpensive because it reports aggregate counts. Do not confuse it with the singular `process` scraper, which reports CPU, memory, and disk metrics for every process ID. Leave `process` off, or filter it to a small set of stable process names. See [Cardinality and cost](../../how-to-guides/otel-collector/host-monitoring.md#cardinality-and-cost) for details.
+
+At a 60-second interval, the **Status** badge has no timing buffer before its one-minute `stale` threshold. Collection, export, or network delays can therefore make a healthy host appear `stale` briefly between samples. Treat short transitions as timing jitter; a sustained `stale` status indicates a collection or export problem. If an uninterrupted `live` badge is operationally important, that is a specific reason to choose a finer interval despite the extra datapoints.
 
 The pipeline shape (`memory_limiter` first, `batch` last, enrichment in the middle) is the same for any other receivers you add. See [OpenTelemetry Collector Overview](../../how-to-guides/otel-collector/otel-collector-overview.md) for the broader patterns and authentication options. If you haven't set anything up, the empty state on the Hosts page also deep-links to the **Everything else** tab of the add-data wizard.
 

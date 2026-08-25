@@ -23,7 +23,7 @@ OTEL_METRICS_EXPORTER_INTERVAL=60000
 
 For an EU project, use `https://logfire-eu.pydantic.dev`. LobeChat sends both signals over OTLP/HTTP and appends the signal paths to the base URL. It currently reports the service as `lobehub`.
 
-The metrics interval is in milliseconds. LobeChat's default is one second; the example changes it to one minute to reduce telemetry volume.
+The metrics interval is in milliseconds. LobeChat's default is one second; the example changes it to one minute, which sends one-sixtieth as many datapoints. Keep the interval at one minute unless you have a specific need for finer resolution.
 
 For a non-production development build, also set `ENABLE_TELEMETRY_IN_DEV=1`. Restart LobeChat after applying the environment.
 
