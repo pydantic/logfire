@@ -29,6 +29,7 @@ from logfire._internal.http_transport import (
     keepalive_socket_options,
 )
 from logfire.variables.remote import LogfireRemoteVariableProvider
+from tests.test_configure import wait_for_check_token_thread
 
 
 def test_keepalive_socket_options_enable_keepalive_and_keep_urllib3_defaults() -> None:
@@ -363,6 +364,7 @@ def test_credentials_check_session_gets_the_policy(
 
     config_kwargs.update(send_to_logfire=True, token='test-token')
     logfire.configure(**config_kwargs)
+    wait_for_check_token_thread()
     [session] = captured_session
     _assert_connection_policy(session)
 
