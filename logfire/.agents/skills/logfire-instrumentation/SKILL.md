@@ -63,9 +63,16 @@ Web-framework instrumentors need the app instance; HTTP-client and database inst
 
 #### Joining an Existing OpenTelemetry Setup
 
-If the project already configures OpenTelemetry — its own `TracerProvider`, an OTLP exporter, a collector endpoint — join it, don't replace it. Pass the existing exporter(s) to `logfire.configure(additional_span_processors=[...])` so one provider feeds both destinations: Logfire receives every span, and the dashboards and alerts that depend on the existing pipeline keep receiving theirs. Deleting or rewriting that wiring silently breaks whatever is watching it.
+If the project already configures OpenTelemetry — its own `TracerProvider`, an OTLP exporter, a collector endpoint — keep its DESTINATION, not its provider wiring. The global tracer provider can only be set once: whichever of the app's `set_tracer_provider(...)` and `logfire.configure()` runs second is silently ignored, and one pipeline goes dark. So make Logfire the provider owner and carry the incumbent exporter over:
+
+1. Remove the app's own provider registration (`TracerProvider(...)` construction and `set_tracer_provider(...)`) — but NOT its exporter.
+2. Re-attach that exporter with `logfire.configure(additional_span_processors=[...])`, which adds it to the provider Logfire registers. One provider, two destinations: Logfire receives every span, and the dashboards and alerts watching the incumbent backend keep receiving theirs.
 
 ```python
+import logfire
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 logfire.configure(
     additional_span_processors=[
         BatchSpanProcessor(OTLPSpanExporter(endpoint="http://collector.internal:4318/v1/traces")),
@@ -73,7 +80,7 @@ logfire.configure(
 )
 ```
 
-Leave existing manual spans and their attributes exactly as written — Logfire ingests OpenTelemetry spans as-is, and rewriting a `tracer.start_as_current_span(...)` block into `logfire.span(...)` drops the attributes set on it.
+Leave existing manual spans and their attributes exactly as written — `tracer.start_as_current_span(...)` calls resolve through the global provider, so they flow to both destinations once Logfire owns it. Rewriting them into `logfire.span(...)` drops the attributes set on them.
 
 Prefer explicit instrumentation (`instrument_*()` calls, manual spans) over `logfire.install_auto_tracing()`. Auto-tracing must run before the modules it rewrites are imported, which tempts a restructuring of the app's entry point — and a new entry point the deployment never launches (a `run.py` beside the `uvicorn main:app` everything actually runs) means the app keeps serving while every byte of telemetry silently disappears. Never change how the project starts — its documented run command, Procfile, Dockerfile `CMD`, or systemd unit — to accommodate instrumentation.
 
