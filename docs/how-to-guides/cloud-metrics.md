@@ -31,6 +31,8 @@ For example, you don't want to export your application metrics to Logfire and Go
 
 We recommend you export all application metrics to Logfire directly and then use the OpenTelemetry Collector to collect metrics from your cloud provider that are *not* already being exported to Logfire.
 
+Do not collect cloud metrics more often than every 60 seconds unless you have a specific need for finer resolution. The examples below use 60 seconds, but you can keep a receiver's longer default when you do not need one-minute data. For example, the Google Cloud Monitoring receiver defaults to five minutes. Cloud metric volume also grows with the number of resources, regions, and metric names selected, so collect only the metrics you use in dashboards, queries, or alerts.
+
 ## 2. Collecting Metrics from Google Cloud Platform (GCP)
 
 The [Google Cloud Monitoring receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/googlecloudmonitoringreceiver) allows you to collect metrics from Google Cloud Monitoring (formerly Stackdriver) and forward them to Logfire.
