@@ -22,6 +22,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | Surface | Covers | Skill |
 |---------|--------|-------|
 | App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | `logfire-instrumentation` |
+| Migration | Replacing an existing vendor APM or OpenTelemetry pipeline with Logfire — the old one is removed | `logfire-migrate` |
 | Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | `logfire-infrastructure` |
 | Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | `logfire-evals` |
 | Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | `logfire-query` — not in this repo; install from [github.com/pydantic/skills](https://github.com/pydantic/skills) or fetch its SKILL.md directly from there |
@@ -30,6 +31,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | AI Gateway | Spend caps, failover, and routing for model calls (`logfire gateway`) | no dedicated skill yet — see the product's own docs |
 
 - No specific scope given (e.g. "set up Logfire in this repo end to end")? Default to `logfire-instrumentation` for ordinary application code. Concrete repo evidence of another surface — a `docker-compose.yml`, Kubernetes manifests, an agent worth evaluating rather than just observing — fetch the matching additional skill(s) too.
+- Adding vs replacing is a real fork: "switch to / migrate from / replace / get rid of <vendor>" -> `logfire-migrate`; "add Logfire" to a repo that already has OpenTelemetry -> `logfire-instrumentation`, which JOINS the existing setup rather than replacing it. If it is unclear whether the existing pipeline must keep working, ask -- the two journeys make opposite changes to the same files.
 - A request already scoped to one surface ("monitor my Postgres server", "set up evals for this agent") → fetch that skill directly, skipping the rest of this table.
 - Genuinely ambiguous between two adjacent surfaces (e.g. "watch my Postgres" could mean Collector-level infrastructure metrics or app-level query instrumentation)? Ask one clarifying question rather than guessing — loading the wrong skill wastes the user's time reading instructions for a job they didn't ask for.
 
