@@ -53,7 +53,7 @@ Wiring a receiver isn't done when the Collector starts cleanly — confirm the d
 3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline (not defined but never referenced under `service.pipelines`), and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
 4. **Fix and re-check** until the specific source is visible, not just "some" data.
 
-Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the Hosts view** (the project's URL from `whoami`, plus `/hosts`), so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## References
 
