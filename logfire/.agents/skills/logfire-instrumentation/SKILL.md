@@ -198,7 +198,7 @@ Instrumentation isn't done when the code compiles or an SDK reports "connected."
 
 If nothing arrives at all, trace the path in order: authentication and exact project/region (Step 1), `configure()` called before `instrument_*()` (Python) or before the app's own imports run (JS/TS preload order), the correct packages/extras installed, then the exercised code path and exporter/flush behavior. Make the smallest safe correction and verify again — report one specific blocker, not a generic checklist.
 
-Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. **Include the project's URL** (from `whoami` or `projects status`) as a direct link to the Live view, so the user can see their own traces arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## Going Further: Full Coverage Map
 

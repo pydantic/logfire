@@ -118,4 +118,4 @@ A report printing to the terminal isn't proof it reached Logfire — confirm the
 4. **Drill into a failing case's trace in Live view** for the actual evidence, rather than trusting the summary score alone.
 5. **Fix and re-run** until the cases that should pass do, and any tool-call/trajectory checks show real span data, not "No span tree available."
 
-Close with a final report built from what you just confirmed — the run name, exact case count and pass rate you queried, and which evaluators ran — not a template.
+Close with a final report built from what you just confirmed — the run name, exact case count and pass rate you queried, and which evaluators ran — not a template. **Include the direct link to this experiment** (the SDK's own printed result URL, or the Datasets & Experiments page you opened it from), so the user can see the run without having to ask where to look.

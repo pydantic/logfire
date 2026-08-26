@@ -253,7 +253,7 @@ Instrumentation isn't done when the code compiles or an SDK reports "connected."
 
 If nothing arrives at all, trace the path in order: authentication and exact project/region (Step 1), `configure()` called before `instrument_*()` (Python) or before the app's own imports run (JS/TS preload order), the correct packages/extras installed, then the exercised code path and exporter/flush behavior. Make the smallest safe correction and verify again — report one specific blocker, not a generic checklist.
 
-Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. **Include the project's URL** (from `whoami` or `projects status`) as a direct link to the Live view, so the user can see their own traces arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## Going Further: Full Coverage Map
 
@@ -365,7 +365,7 @@ Wiring a receiver isn't done when the Collector starts cleanly — confirm the d
 3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline (not defined but never referenced under `service.pipelines`), and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
 4. **Fix and re-check** until the specific source is visible, not just "some" data.
 
-Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the Hosts view** (the project's URL from `whoami`, plus `/hosts`), so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## References
 
@@ -492,7 +492,7 @@ A report printing to the terminal isn't proof it reached Logfire — confirm the
 4. **Drill into a failing case's trace in Live view** for the actual evidence, rather than trusting the summary score alone.
 5. **Fix and re-run** until the cases that should pass do, and any tool-call/trajectory checks show real span data, not "No span tree available."
 
-Close with a final report built from what you just confirmed — the run name, exact case count and pass rate you queried, and which evaluators ran — not a template.
+Close with a final report built from what you just confirmed — the run name, exact case count and pass rate you queried, and which evaluators ran — not a template. **Include the direct link to this experiment** (the SDK's own printed result URL, or the Datasets & Experiments page you opened it from), so the user can see the run without having to ask where to look.
 
 ---
 
