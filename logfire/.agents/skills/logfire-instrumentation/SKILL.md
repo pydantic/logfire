@@ -61,6 +61,22 @@ logfire.instrument_httpx()
 
 Web-framework instrumentors need the app instance; HTTP-client and database instrumentors are global and take no arguments. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
 
+#### Joining an Existing OpenTelemetry Setup
+
+If the project already configures OpenTelemetry — its own `TracerProvider`, an OTLP exporter, a collector endpoint — join it, don't replace it. Pass the existing exporter(s) to `logfire.configure(additional_span_processors=[...])` so one provider feeds both destinations: Logfire receives every span, and the dashboards and alerts that depend on the existing pipeline keep receiving theirs. Deleting or rewriting that wiring silently breaks whatever is watching it.
+
+```python
+logfire.configure(
+    additional_span_processors=[
+        BatchSpanProcessor(OTLPSpanExporter(endpoint="http://collector.internal:4318/v1/traces")),
+    ],
+)
+```
+
+Leave existing manual spans and their attributes exactly as written — Logfire ingests OpenTelemetry spans as-is, and rewriting a `tracer.start_as_current_span(...)` block into `logfire.span(...)` drops the attributes set on it.
+
+Prefer explicit instrumentation (`instrument_*()` calls, manual spans) over `logfire.install_auto_tracing()`. Auto-tracing must run before the modules it rewrites are imported, which tempts a restructuring of the app's entry point — and a new entry point the deployment never launches (a `run.py` beside the `uvicorn main:app` everything actually runs) means the app keeps serving while every byte of telemetry silently disappears. Never change how the project starts — its documented run command, Procfile, Dockerfile `CMD`, or systemd unit — to accommodate instrumentation.
+
 #### Structured Logging and AI/LLM Instrumentation
 
 Use `{key}` placeholders with keyword arguments, never f-strings — `logfire.info('Created user {user_id}', user_id=uid)`, not `logfire.info(f'Created user {uid}')`. The former makes `user_id` a searchable attribute; the latter is a flat string. Full patterns (spans, exceptions, stdlib logging bridge, capfire testing): [Python logging patterns](./references/python/logging-patterns.md).
