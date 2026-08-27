@@ -6,6 +6,7 @@ import functools
 import inspect
 import os
 import re
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -18,6 +19,7 @@ import logfire
 from logfire import LogfireSpan
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
+from .._internal.stack_info import is_non_user_path
 from .._internal.utils import get_version
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -368,6 +370,19 @@ IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNO
 _pydantic_plugin_config_value: PydanticPlugin | None = None
 
 
+def _module_is_non_user_code(module: str) -> bool:
+    """Check if the named module belongs to the standard library, an installed package, or logfire itself.
+
+    Models are only defined in modules that have already been imported by the time the plugin sees them,
+    so the module's `__file__` is the most direct answer available, with no importing or searching required.
+    Modules that aren't in `sys.modules` (e.g. models created by `pydantic.create_model` with a fake
+    `__module__`) and modules without a file (namespace packages, C extensions) count as user code,
+    since instrumenting too much is better than silently dropping a user's models.
+    """
+    file = getattr(sys.modules.get(module), '__file__', None)
+    return file is not None and is_non_user_path(file)
+
+
 def get_pydantic_plugin_config() -> PydanticPlugin:
     """Get the Pydantic plugin config."""
     if _pydantic_plugin_config_value is not None:
@@ -400,7 +415,9 @@ def _include_model(schema_type_path: SchemaTypePath) -> bool:
     # check if the model is in include models
     if include:
         return any(re.search(f'{pattern}$', f'{module}::{schema_type_path.name}') for pattern in include)
-    return True
+
+    # `include` is the only way to instrument third party models, so without it only instrument user code.
+    return not _module_is_non_user_code(module)
 
 
 @lru_cache  # only patch once

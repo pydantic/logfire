@@ -126,6 +126,13 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
         ({'.*test_module.*::MyModel'}, set(), 'my_test_module1', 'MyModel', True),
         ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel1', True),
         ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel3', False),
+        # patterns are anchored at the end of `module::ModelName`, so a bare package name matches
+        # nothing at all: the string ends in the model's name, not the module's.
+        ({'openai'}, set(), 'openai.types.chat', 'ChatCompletion', False),
+        ({'openai.*'}, set(), 'openai.types.chat', 'ChatCompletion', True),
+        # an unanchored pattern can also match part-way through an unrelated module
+        ({r'apps\..*'}, set(), 'django.apps.config', 'AppConfig', True),
+        ({r'^apps\..*'}, set(), 'django.apps.config', 'AppConfig', False),
         # exclude
         (set(), {'MyModel'}, '', 'MyModel', False),
         (set(), {'MyModel'}, '', 'MyModel1', True),
@@ -136,11 +143,28 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
         ({'MyModel'}, {'MyModel1'}, '', 'MyModel', True),
         ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel2', True),
         ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel1', False),
+        # neither include nor exclude: instrument user code, but not third party modules,
+        # where 'third party' means the module was imported from a file in the standard library,
+        # an installed package, or logfire itself.
+        (set(), set(), __name__, 'MyModel', True),  # this test file isn't installed anywhere
+        (set(), set(), 'not_a_real_module', 'MyModel', True),  # unimported modules are assumed to be user code
+        (set(), set(), 'builtins', 'MyModel', True),  # C modules have no file to check, but also no models
+        (set(), set(), 'os', 'MyModel', False),  # standard library
+        (set(), set(), 'pydantic.main', 'MyModel', False),  # installed in site-packages
+        (set(), set(), 'logfire.integrations.pydantic', 'MyModel', False),  # logfire itself
+        # include overrides the default of not instrumenting third party modules
+        ({'pydantic.main::MyModel'}, set(), 'pydantic.main', 'MyModel', True),
     ),
 )
 def test_logfire_plugin_include_exclude_models(
     include: set[str], exclude: set[str], module: str, name: str, expected_to_include: bool
 ) -> None:
+    """`include` and `exclude` decide which models are instrumented, defaulting to only user code.
+
+    Without `include`, third party models are skipped so that libraries which use validation errors as
+    control flow don't flood the user with noise, as documented and as reported in
+    https://github.com/pydantic/logfire/issues/2053.
+    """
     logfire.configure(
         send_to_logfire=False,
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
