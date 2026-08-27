@@ -25,7 +25,11 @@ NON_USER_CODE_PREFIXES: tuple[str, ...] = ()
 def add_non_user_code_prefix(path: str | Path) -> None:
     """Add a path to the list of prefixes that are considered non-user code.
 
-    This prevents the stack info from including frames from the given path.
+    This has two effects for code under the given path:
+
+    - Its frames are left out of the stack info recorded on spans and logs.
+    - Its pydantic models aren't instrumented by `logfire.instrument_pydantic` unless
+      [`include`][logfire.PydanticPlugin.include] names them explicitly.
 
     This is for advanced users and shouldn't often be needed.
     By default, the following prefixes are already included:
