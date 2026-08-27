@@ -126,6 +126,13 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
         ({'.*test_module.*::MyModel'}, set(), 'my_test_module1', 'MyModel', True),
         ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel1', True),
         ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel3', False),
+        # patterns are anchored at the end of `module::ModelName`, so a bare package name matches
+        # nothing at all: the string ends in the model's name, not the module's.
+        ({'openai'}, set(), 'openai.types.chat', 'ChatCompletion', False),
+        ({'openai.*'}, set(), 'openai.types.chat', 'ChatCompletion', True),
+        # an unanchored pattern can also match part-way through an unrelated module
+        ({r'apps\..*'}, set(), 'django.apps.config', 'AppConfig', True),
+        ({r'^apps\..*'}, set(), 'django.apps.config', 'AppConfig', False),
         # exclude
         (set(), {'MyModel'}, '', 'MyModel', False),
         (set(), {'MyModel'}, '', 'MyModel1', True),

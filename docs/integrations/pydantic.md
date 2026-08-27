@@ -83,22 +83,32 @@ third-party if it was imported from the standard library or from an installed pa
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
-logfire.instrument_pydantic(include={'openai'})
+logfire.instrument_pydantic(include={'openai.*'})
 ```
-
-!!! note
-    This is about where a module's file lives, not who wrote it. If you install your own application
-    into `site-packages` — which a container image does whenever it runs `pip install .` — then your
-    models are third-party by this rule, and you'll see no validations at all until you name your own
-    package in `include`.
 
 Opt your own modules out with the [`exclude`][logfire.PydanticPlugin.exclude] setting:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
-logfire.instrument_pydantic(exclude={'app.api.v1'})
+logfire.instrument_pydantic(exclude={'app.api.v1.*'})
 ```
+
+!!! warning "Both settings take regular expressions, matched at the end"
+    Each pattern is matched against `module::ModelName` — for instance
+    `openai.types.chat::ChatCompletion` — and is anchored at the end, as if it were written
+    `openai$`. A bare package name therefore matches nothing at all, because the string ends in the
+    model's name rather than the module's. Write `openai.*`, not `openai`.
+
+    Anchor the start with `^` too if the name is a common word, since an unanchored pattern can match
+    part-way through an unrelated module: `apps\..*` also matches `django.apps.config::AppConfig`,
+    while `^apps\..*` matches only your own `apps.` packages.
+
+!!! note
+    Third-party is about where a module's file lives, not who wrote it. If you install your own
+    application into `site-packages` — which a container image does whenever it runs `pip install .`
+    — then your models are third-party by this rule, and you'll see no validations at all until you
+    name your own package in `include`, for example `include={'myapp.*'}`.
 
 ### Per-model configuration
 

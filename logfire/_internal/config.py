@@ -306,9 +306,16 @@ class PydanticPlugin:
     * `metrics`: Send only metrics.
     """
     include: set[str] = field(default_factory=set[str])
-    """By default, third party modules are not instrumented. This option allows you to include specific modules."""
+    """By default, third party modules are not instrumented. This option allows you to include specific modules.
+
+    Each entry is a regular expression matched against `module::ModelName` and anchored at the end,
+    so use e.g. `openai.*` rather than `openai`, which would only match a model actually named `openai`.
+    """
     exclude: set[str] = field(default_factory=set[str])
-    """Exclude specific modules from instrumentation."""
+    """Exclude specific modules from instrumentation.
+
+    Matched the same way as `include`.
+    """
 
 
 @dataclass
