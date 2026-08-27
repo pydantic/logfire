@@ -13,16 +13,16 @@ from logfire.experimental.annotations import get_traceparent, record_feedback
 
 logfire.configure()
 
-with logfire.span("answer question") as span:
+with logfire.span('answer question') as span:
     traceparent = get_traceparent(span)
     # Run the operation that you want to evaluate here.
 
 record_feedback(
     traceparent,
-    "helpfulness",
+    'helpfulness',
     True,
-    comment="The response answered the question.",
-    extra={"review_source": "support-team"},
+    comment='The response answered the question.',
+    extra={'review_source': 'support-team'},
 )
 ```
 
