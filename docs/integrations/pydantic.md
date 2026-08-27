@@ -75,8 +75,10 @@ imported *after* that call.
 
 ### Third-party modules
 
-By default the plugin does not instrument third-party modules, to avoid noise. Opt specific ones in
-with the [`include`][logfire.PydanticPlugin.include] setting:
+By default the plugin does not instrument third-party modules, to avoid noise. A module counts as
+third-party if it was imported from the standard library or from an installed package (somewhere like
+`site-packages`) rather than from your own source code. Opt specific ones in with the
+[`include`][logfire.PydanticPlugin.include] setting:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
