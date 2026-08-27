@@ -86,6 +86,12 @@ import logfire
 logfire.instrument_pydantic(include={'openai'})
 ```
 
+!!! note
+    This is about where a module's file lives, not who wrote it. If you install your own application
+    into `site-packages` — which a container image does whenever it runs `pip install .` — then your
+    models are third-party by this rule, and you'll see no validations at all until you name your own
+    package in `include`.
+
 Opt your own modules out with the [`exclude`][logfire.PydanticPlugin.exclude] setting:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
