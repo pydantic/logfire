@@ -17,3 +17,7 @@ out
 # Node/Cloudflare
 node_modules
 .wrangler
+
+# Murmur local config (per-developer, not checked in)
+.murmur/murmur.local.yaml
+.murmur/murmur.*.local.yaml

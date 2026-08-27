@@ -1,0 +1,9 @@
+# Shared team configuration — check this file into version control.
+#
+# Per-developer settings (encrypted profile, SSH keys, username) belong
+# in murmur.local.yaml, which is gitignored and written by `murmur setup`.
+
+tenant:
+  provider: github_app
+  org: pydantic
+workspace: logfire-sdk
