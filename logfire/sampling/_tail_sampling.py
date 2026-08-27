@@ -105,7 +105,8 @@ class SamplingOptions:
     for a common use case.
 
     Every span in a trace will be stored in memory until either the trace is included by tail sampling
-    or it's completed and discarded, so large traces may consume a lot of memory.
+    or every started span has ended and the trace is discarded. Large traces and traces with long-running
+    spans may therefore consume a lot of memory.
     """
 
     @classmethod
