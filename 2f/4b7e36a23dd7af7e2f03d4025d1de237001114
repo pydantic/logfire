@@ -1,0 +1,19 @@
+docs/how-to-guides/sampling.md
+  s_045a93cb5e3954::t_948687af44a8e3 211,213-217,219-220,239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2f4b7e36a23dd7af7e2f03d4025d1de237001114",
+  "prompts": {},
+  "sessions": {
+    "s_045a93cb5e3954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04304-376d-7333-94a3-b2d9d41cd416",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
