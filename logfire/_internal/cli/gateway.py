@@ -618,7 +618,7 @@ def parse_gateway(args: argparse.Namespace) -> None:
     context = GatewayCommandContext(
         raw_args=list(args.gateway_args or []),
         region=args.region,
-        logfire_url=args.logfire_url,
+        logfire_url=args.logfire_url or os.getenv('LOGFIRE_BASE_URL'),
     )
     command = parse_gateway_command(context)
     code = execute_gateway_command(command, context)

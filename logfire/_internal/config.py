@@ -115,7 +115,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
-from .interactive import require_answer
+from .interactive import ask_or_default, ask_required, require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
@@ -573,7 +573,7 @@ def configure(
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
+            [f-string magic](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
@@ -2054,10 +2054,13 @@ class LogfireCredentials:
                     f'No {project_message} found for the current user{org_message}.',
                     'logfire projects use PROJECT_NAME --org ORGANIZATION',
                 )
-                expand_search = Prompt.ask(
-                    f'No {project_message} found for the current user{org_message}. Choose from all projects?',
-                    choices=['y', 'n'],
-                    default='y',
+                expand_search = ask_or_default(
+                    lambda: Prompt.ask(
+                        f'No {project_message} found for the current user{org_message}. Choose from all projects?',
+                        choices=['y', 'n'],
+                        default='y',
+                    ),
+                    'y',
                 )
                 if expand_search == 'n':
                     # user didn't want to expand search, print a hint and quit
@@ -2088,10 +2091,13 @@ class LogfireCredentials:
                 f'Several projects are available:\n{project_choices_str}',
                 'logfire projects use PROJECT_NAME --org ORGANIZATION',
             )
-            selected_project_key = Prompt.ask(
-                f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
-                choices=list(project_choices.keys()),
-                default='1',
+            selected_project_key = ask_or_default(
+                lambda: Prompt.ask(
+                    f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
+                    choices=list(project_choices.keys()),
+                    default='1',
+                ),
+                '1',
             )
             project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
             organization = project_info_tuple[0]
@@ -2143,11 +2149,15 @@ class LogfireCredentials:
                         'logfire projects new PROJECT_NAME --org ORGANIZATION',
                         'logfire projects new PROJECT_NAME --default-org',
                     )
-                    organization = Prompt.ask(
-                        '\nTo create and use a new project, please provide the following information:\n'
-                        'Select the organization to create the project in',
-                        choices=organizations,
-                        default=user_default_organization_name or organizations[0],
+                    org_default = user_default_organization_name or organizations[0]
+                    organization = ask_or_default(
+                        lambda: Prompt.ask(
+                            '\nTo create and use a new project, please provide the following information:\n'
+                            'Select the organization to create the project in',
+                            choices=organizations,
+                            default=org_default,
+                        ),
+                        org_default,
                     )
             else:
                 organization = organizations[0]
@@ -2159,8 +2169,12 @@ class LogfireCredentials:
                         f'logfire projects new PROJECT_NAME --org {organization}',
                         'logfire projects new PROJECT_NAME --default-org',
                     )
-                    confirm = Confirm.ask(
-                        f'The project will be created in the organization "{organization}". Continue?', default=True
+                    confirm = ask_or_default(
+                        lambda: Confirm.ask(
+                            f'The project will be created in the organization "{organization}". Continue?',
+                            default=True,
+                        ),
+                        True,
                     )
                     if not confirm:
                         sys.exit(1)
@@ -2182,6 +2196,22 @@ class LogfireCredentials:
             """A runnable `projects new`, carrying the organization already settled on."""
             return f'logfire projects new {name} --org {organization}'
 
+        def ask_project_name(prompt: str) -> str:
+            """Ask for a project name, falling back to `project_name_default` on EOF.
+
+            Unless it is the `...` sentinel, in which case there is no safe name to fall
+            back on (see the comment below), so an exhausted stdin gets the same
+            `NonInteractiveError` guidance `--non-interactive` would rather than silently
+            creating a project called Ellipsis.
+            """
+            if project_name_default is ...:  # pyright: ignore[reportUnnecessaryComparison]  # it really can be
+                return ask_required(
+                    lambda: Prompt.ask(prompt, default=project_name_default),
+                    prompt.strip(),
+                    name_remedy('PROJECT_NAME'),
+                )
+            return ask_or_default(lambda: Prompt.ask(prompt, default=project_name_default), project_name_default)
+
         while True:
             if not project_name:
                 # `project_name_prompt` carries WHY a name is being asked for -- it is
@@ -2196,7 +2226,7 @@ class LogfireCredentials:
                     project_name_prompt.strip(),
                     name_remedy('PROJECT_NAME' if name_rejected else project_name_default),
                 )
-            project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
+            project_name = project_name or ask_project_name(project_name_prompt)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
                 # A name that was SUPPLIED and is malformed skips the guard above, so
                 # without this the recovery prompt below reads stdin and hangs.
@@ -2206,13 +2236,12 @@ class LogfireCredentials:
                     'a hyphen.',
                     name_remedy('PROJECT_NAME'),
                 )
-                project_name = Prompt.ask(
+                project_name = ask_project_name(
                     "\nThe project name you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
                     '  * may contain single hyphens\n'
                     '  * may not start or end with a hyphen\n\n'
-                    'Enter the project name you want to use:',
-                    default=project_name_default,
+                    'Enter the project name you want to use:'
                 )
 
             try:
@@ -2262,7 +2291,12 @@ class LogfireCredentials:
 
         projects = client.get_user_projects()
         if projects:
-            use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
+            # `default=True` already says what "no answer" means, same as a real person
+            # pressing Enter would give -- an exhausted stdin gets that same outcome
+            # rather than an EOFError traceback (see `ask_or_default`).
+            use_existing_projects = ask_or_default(
+                lambda: Confirm.ask('Do you want to use one of your existing projects? ', default=True), True
+            )
             if use_existing_projects:  # pragma: no branch
                 credentials = cls.use_existing_project(client=client, projects=projects)
 
@@ -2271,10 +2305,17 @@ class LogfireCredentials:
 
         try:
             result = cls(**credentials, logfire_api_url=client.base_url)
-            Prompt.ask(
-                f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
-                'Press Enter to continue'
-            )
+            # This prompt exists to give a person a beat before moving on -- nothing is
+            # done with the answer either way. When there is no one to press the key,
+            # there is no beat to give, so an exhausted stdin just continues rather than
+            # raising an EOFError traceback after the project was already created.
+            try:
+                Prompt.ask(
+                    f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
+                    'Press Enter to continue'
+                )
+            except EOFError:
+                pass
             return result
         except TypeError as e:  # pragma: no cover
             raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e

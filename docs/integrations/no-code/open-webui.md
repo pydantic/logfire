@@ -36,6 +36,8 @@ OTEL_METRICS_EXPORT_INTERVAL_MILLIS=60000
 
 Replace `otel-collector` if the Collector has a different hostname. Restart Open WebUI after applying the environment.
 
+`OTEL_METRICS_EXPORT_INTERVAL_MILLIS` is in milliseconds. Open WebUI defaults to 10,000 milliseconds, so the recommended 60,000-millisecond setting sends one-sixth as many datapoints. Keep it at one minute unless you have a specific need for finer resolution.
+
 ## Configure the Collector
 
 Create a [project write token](../../how-to-guides/create-write-tokens.md), expose the Collector's OTLP receiver using Open WebUI's default gRPC transport, and forward all three signals to Logfire over OTLP using HTTP:

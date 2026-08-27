@@ -1,92 +1,93 @@
 ---
-title: "Logfire Services view: RED metrics and topology"
-description: "Browse every service shipping spans to your Logfire project. See requests, errors and latency at a glance, drill into a service's RED breakdown, and explore a topology graph drawn from your traces."
+title: "Monitor services, dependencies, and operations"
+description: "Find busy, slow, or failing services, then investigate their trends, operations, dependencies, versions, and recent errors."
 ---
 # Services
 
-The <OpenInLogfire path="services" variant="inline" label="Services view" /> is the entry point for finding the service you want to investigate. Each service that ships spans to your project appears as one row, sorted by whatever metric matters right now (requests, error rate, latency). Click a row to drill into its detail page, click a recent failed trace, and you land in the [Live View](live.md) with the failing trace open.
+Use the <OpenInLogfire path="services" variant="inline" label="Services view" /> to find which services are busy, slow, or failing, then follow the signal to the operation or trace responsible.
 
-You'll find Services in the project sidebar, between [SQL Workbench](explore.md) and [Hosts](hosts.md).
+A span is one unit of work: a single operation, with a name, a start, and a duration. A trace is the full journey of one request, made of nested spans. Logfire builds the Services view from the spans your project receives.
 
-![Services inventory page](../../images/services/inventory.png)
+You'll find **Services** near the top of the project sidebar, alongside **Live** and **Agents**.
 
-## The Services inventory
+## Find the service that needs attention
 
-The inventory shows summary cards (services in range, total requests, error rate, p95 latency), an **Activity over time** chart with a Requests / Errors / Latency toggle, and one row per service with:
+The inventory defaults to the last 15 minutes. Summary cards and the **Activity over time** chart show request volume, errors, and latency across your services. The table adds:
 
-- **Language** (detected from `telemetry.sdk.language`)
-- **Requests** in the current window
-- **Throughput** sparkline
-- **Error rate**
-- **p95 / p99 latency**
+- Search by resource name, type, or badge.
+- Sort by name, type, request count, error rate, or p95 latency. **p95** and **p99** mean the 95th- and 99th-percentile latency.
+- Quick links to service details, [Live View](live.md), and [Explore](explore.md).
+- A **Reliability** column when reliability targets are available.
 
-Sort by any column. The time picker is shared with the rest of the observability surfaces.
+When the **Databases** or **Queues** toggle is available, you can include resources inferred from database and messaging spans. On narrow screens, rows become cards with the same key signals and separate sort controls.
 
-## Service detail page
+Each resource type is limited to its 200 busiest entries in the selected range. Logfire displays a warning when results reach that limit.
 
-Click a row to open the service detail page.
+![Services inventory with summary signals and service rows](../../images/services/inventory.png)
 
-![Service detail page with RED cards and trend charts](../../images/services/service-detail.png)
+## Investigate one service
 
-You'll see:
+Select a service to open its detail page. It shows:
 
-- **Headline cards** for the service's requests, error rate, latency p50, latency p95, and operation count.
-- **Side-by-side trend charts** for requests and errors and for latency percentiles (p50, p95, p99), with **deployment markers** so you can see whether a spike lines up with a release.
-- A **Service topology** panel showing cross-service calls in the current window, with the service you opened highlighted.
-- **Top operations**: the highest-traffic and slowest spans inside the service.
-- **Recent errors**: a short list of failed traces, each linking straight to the [Live View](live.md) so you can investigate.
+- Headline request, error-rate, median latency (p50), p95 latency, and operation-count cards.
+- Request, error, and latency trends, with deployment markers when version data is available.
+- Reliability targets, top operations, database dependencies, versions, and recent errors.
+- Links that preserve the service filter in **Live view** and **Explore**.
 
-Two buttons in the header ([Live view](live.md) and [SQL Workbench](explore.md)) hand the whole service off to the live view or SQL Workbench in one click. The detail page defaults to the last 30 minutes.
+![Service detail page with request, error, and latency signals](../../images/services/service-detail.png)
 
-The topology graph and the operations / errors tables below the trends:
+## Read the topology correctly
 
-![Service detail topology graph and operations table](../../images/services/topology.png)
+The topology is a one-hop view centered on the selected service. Every edge represents spans that crossed a direct service boundary in the current time range.
 
-## Topology graph
+Traffic on a neighboring node or edge includes only calls exchanged with the selected service, not that neighbor's total traffic. The selected service shows its inbound error rate; neighboring nodes do not claim to summarize the health of the whole service.
 
-The topology graph is drawn from spans that cross service boundaries. Each node is a service; each edge represents real calls between them in the current window. Nodes are colored by error rate so a bleeding dependency is visible at a glance.
+Select a neighboring service to open its detail page.
 
-Click any node to jump to that service's detail page. Click any recent failed trace from the panel below to land on the trace itself in the [Live View](live.md).
+![One-hop service topology centered on checkout](../../images/services/topology.png)
 
-## How services are detected
+## Send the attributes the page needs
 
-Logfire identifies a service from the [OpenTelemetry `service.name` resource attribute](https://opentelemetry.io/docs/specs/semconv/resource/#service) on the spans you send. If you instrument your application with the [Python SDK](../onboarding-checklist/integrate.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/), or any OpenTelemetry-compatible instrumentation, `service.name` is set for you. The Services view picks up new services within a minute or two of their first span.
-
-The RED counts are computed from **service entry spans**: the trace roots (`parent_span_id IS NULL`) plus any span whose parent's `service.name` differs from the span's own. ([`service_name`](../../reference/sql.md#service_name) is the column name on Logfire's `records` table; the underlying OTel resource attribute is `service.name`.) That gives downstream services in a call chain real counts even when they're nested inside a longer trace, while still letting the topology graph draw edges between them.
-
-### Resource attributes the inventory uses
+OpenTelemetry (OTel) is the open industry standard for collecting traces, metrics, and logs. Logfire uses these OTel resource and span attributes:
 
 | Attribute | What it does |
 |-----------|--------------|
-| `service.name` | **Required.** The row in the inventory. Use the workload name (e.g. `cart`, `payment-api`), not a hostname or pod name. |
-| `service.version` | Drives the version pills on the detail page and the deployment markers on the trend charts. |
-| `service.instance.id` | Stable per replica. When the OpenTelemetry Operator's auto-instrumentation is enabled, it defaults this to `<namespace>.<pod>.<container>`. |
-| `deployment.environment.name` | Lets you filter the inventory by env (the `all envs` picker in the breadcrumb). The older `deployment.environment` is honoured too. |
-| `telemetry.sdk.language` | Drives the **Language** column. Auto-set by every OTel SDK. |
+| `service.name` | Groups spans into a named service row. Use a stable workload name such as `cart`, not a hostname or pod name. Without it, telemetry may appear under an unknown-service fallback. |
+| `service.version` | Adds versions and deployment markers to service details. |
+| `deployment.environment.name` | Lets you filter by environment. The older `deployment.environment` is also honored. |
+| `telemetry.sdk.language` | Sets the service's type badge. OTel SDKs normally add it. |
+| `db.system.name` | Identifies a database. The older `db.system` is also honored. |
+| `messaging.system` | Identifies a queue or messaging system. |
 
-### Topology edges
+Propagate trace context between workloads so Logfire can reconstruct service boundaries. The topology omits an edge when the relevant spans or parent context do not reach Logfire.
 
-The graph draws an edge wherever a span's `service.name` differs from its parent's `service.name`. The renderer reads only `service.name` today, so edges to external dependencies (third-party APIs, managed databases) are labelled with the calling service's name rather than the dependency itself. Give every span-emitting component a distinct, meaningful `service.name` and the graph will be readable.
+**Requests** is an approximate count of distinct traces that included the service. A trace that re-enters the service counts once. **Errors** estimates how many of those traces contained an error for that service. These probabilistic counts typically have 1 to 2% standard error.
 
-## Get your first row to appear
+Sampling means keeping a representative subset of telemetry instead of every event. Sampling before export affects inventory counts and can remove topology edges because this page describes the telemetry Logfire received.
 
-If your project is empty, the fastest path to a Services row is one span from the Python SDK:
+## Send a first service span
+
+Copy a write token from **Project settings → Write tokens**, then run:
 
 ```bash
 pip install logfire
-export LOGFIRE_TOKEN=<your write token from project Settings → Write tokens>
+export LOGFIRE_TOKEN="your-write-token"
 export OTEL_SERVICE_NAME=cart
-python -c "import logfire; logfire.configure(); logfire.info('hi')"
+python - <<'PY'
+import logfire
+
+logfire.configure(inspect_arguments=False)
+with logfire.span("first cart request"):
+    pass
+PY
 ```
 
-Refresh the Services page. `cart` should appear within a minute or two. For broader instrumentation paths (FastAPI, Django, gRPC, OTel Collector), see the [Onboarding Checklist](../onboarding-checklist/integrate.md).
+Refresh Services and expand the time range if needed. For FastAPI, Django, gRPC, OpenTelemetry Collector, and other integrations, see [Integrate your application](../onboarding-checklist/integrate.md).
 
-## Troubleshooting
+## Fix missing or split services
 
-| Symptom | Likely cause |
-|---------|--------------|
-| Service doesn't appear in the inventory | No `service.name` resource attribute on the spans, or the project hasn't received any span yet. Both the Python and TypeScript SDKs set `service.name` for you; if you send raw OTLP, set it explicitly. |
-| The row shows under `(unknown)` | Same as above: `service.name` is the row key. |
-| One service appears as two rows | `service.name` differs across replicas (e.g. one carries a hostname suffix). Pin it via `OTEL_SERVICE_NAME` or the SDK's `service_name` argument so every replica reports the same string. |
-| An edge between two services is missing from the topology | Either no span actually crossed that service boundary in the window, or tail sampling dropped the spans that did. The graph reads from real cross-boundary spans, not from a configured topology. |
-| Counts are way lower than expected | Head or tail sampling is dropping spans before they reach Logfire. RED metrics on this page count what arrived, not what was emitted. |
+| Symptom | What to check |
+|---------|---------------|
+| A service is missing | Confirm a span arrived in the selected time and environment range. If it appears as `unknown_service`, set a stable `service.name`. Also check whether the result reached the 200-service limit. |
+| One service appears as two rows | Keep `service.name` identical across replicas with `OTEL_SERVICE_NAME` or the SDK's `service_name` argument. |
+| A topology edge is missing | Confirm both workloads use distinct service names, propagate trace context, and export the spans that cross the boundary. |

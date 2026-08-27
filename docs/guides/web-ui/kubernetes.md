@@ -44,7 +44,7 @@ Every detail page links into the [Live View](live.md) for the trace investigatio
 
 ## Setting up
 
-The recommended path is the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator, a DaemonSet `OpenTelemetryCollector` running every preset this view reads from: `kubeletMetrics` (with `metric_groups` already set to `[node, pod, container]`), `clusterMetrics` (`k8s_cluster` with leader election so it only emits from one pod), `hostMetrics`, `kubernetesAttributes` (the trace-enrichment processor), and `kubernetesEvents`, plus the ServiceAccount, RBAC and CRDs it all needs. You just point its OTLP exporter at Logfire:
+The recommended path is the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator, a DaemonSet `OpenTelemetryCollector` running every preset this view reads from: `kubeletMetrics`, `clusterMetrics` (`k8s_cluster` with leader election so it only emits from one pod), `hostMetrics`, `kubernetesAttributes` (the trace-enrichment processor), and `kubernetesEvents`, plus the ServiceAccount, role-based access control (RBAC), and custom resource definitions (CRDs) it all needs. You point its OpenTelemetry Protocol (OTLP) exporter at Logfire and reduce the default metric volume:
 
 ```yaml
 # values.yaml: Logfire-shaped overrides for opentelemetry-kube-stack.
@@ -67,6 +67,21 @@ extraEnvs:
 collectors:
   daemon:
     config:
+      # These receiver presets currently use 10 or 15 seconds. One minute is
+      # a better default for infrastructure metrics and sends far fewer points.
+      receivers:
+        host_metrics:
+          collection_interval: 60s
+        kubelet_stats:
+          collection_interval: 60s
+          # Add `volume` only if you need persistent-volume metrics.
+          metric_groups: [node, pod, container]
+          # Keep container IDs for correlation, but skip volume metadata.
+          extra_metadata_labels: [container.id]
+        k8s_cluster:
+          collection_interval: 60s
+          node_conditions_to_report: [Ready]
+          allocatable_types_to_report: [cpu, memory]
       exporters:
         otlphttp/logfire:
           endpoint: https://logfire-us.pydantic.dev   # or https://logfire-eu.pydantic.dev
@@ -90,6 +105,8 @@ helm upgrade --install otel-stack open-telemetry/opentelemetry-kube-stack \
 
 Data starts flowing within a minute or two of the daemon pods reaching `Ready`. The chart wires the `k8sattributes` processor into the daemon's trace pipeline so the **drill-down from a pod to the spans that pod emitted** in the [Live View](live.md) works out of the box.
 
+Keep these metric receivers at 60 seconds unless you have a specific need for finer resolution. The chart's shorter preset intervals send four to six times as many datapoints. The example also leaves the kubelet `volume` group off because the current view does not display persistent-volume metrics. Container, pod, volume, interface, and per-process dimensions can multiply metric volume quickly; see [Control Kubernetes metric volume](../../how-to-guides/otel-collector/kubernetes-monitoring.md#control-kubernetes-metric-volume) before enabling more groups or attributes.
+
 For the full per-piece breakdown (RBAC, both collector configs, the `k8sattributes` processor's pod_association chain, and a kind walkthrough), see the [Kubernetes monitoring](../../how-to-guides/otel-collector/kubernetes-monitoring.md) how-to-guide. For an end-to-end article including a real application sending traces and unified dashboards, see [Full-stack Kubernetes observability with Logfire](https://pydantic.dev/articles/kubernetes-cluster-observability-logfire).
 
 If you have not set anything up yet, the empty state on each tab has a **Set up** button that deep-links to the relevant page of the add-data wizard.
@@ -103,7 +120,7 @@ The chart's `kubernetesEvents` preset turns Kubernetes events (pod scheduling, O
 | Symptom | Likely cause |
 |---------|--------------|
 | Clusters tab is empty or shows `pods: 0` | The cluster-scope collector (or the chart's `clusterMetrics` preset) is not running, or `k8s_cluster` is missing from the metrics pipeline. |
-| Nodes tab CPU and memory columns are blank | `kubeletstats` is running with the default `metric_groups: [container, pod]`. Add `node` to the list (the chart preset includes it by default). |
+| Nodes tab CPU and memory columns are blank | A custom `kubeletstats.metric_groups` list omits `node`. Add `node` to the list (the receiver and chart preset include it by default). |
 | Pod row has no traces to drill into | The `k8sattributes` processor is not on the trace pipeline, so spans never get `k8s.pod.name` etc. attached. The chart wires this in by default; if you assembled the setup by hand, see [Kubernetes monitoring](../../how-to-guides/otel-collector/kubernetes-monitoring.md#what-k8sattributesprocessor-actually-does). |
 | Cluster metrics appear duplicated across nodes | `k8s_cluster` is running on every replica without `k8s_leader_elector`. The chart configures the elector; from-scratch setups must add it. |
 | Two clusters collide as one row in the **Clusters** tab | Both clusters report the same `k8s.cluster.name`. Set a unique `clusterName` on each via the chart's top-level `clusterName:` value or the `resource/cluster` processor in a hand-rolled setup. |

@@ -18,8 +18,9 @@ import types
 import webbrowser
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine, Generator
 from contextlib import ExitStack, asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import IO, Any, cast
 from unittest.mock import Mock, call, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -36,7 +37,17 @@ import logfire._internal.cli.gateway as gateway_cli
 import logfire._internal.cli.gateway_auth as gateway_auth
 from logfire import VERSION
 from logfire._internal.auth import UserToken
-from logfire._internal.cli import OrgProjectAction, SplitArgs, main
+from logfire._internal.cli import (
+    READ_TOKEN_TTL,
+    STATUS_MAX_ROWS,
+    OrgProjectAction,
+    SplitArgs,
+    _has_git_dir,  # pyright: ignore[reportPrivateUsage]
+    _is_git_tracked,  # pyright: ignore[reportPrivateUsage]
+    _load_saved_read_token,  # pyright: ignore[reportPrivateUsage]
+    _organization_from_project_url,  # pyright: ignore[reportPrivateUsage]
+    main,
+)
 from logfire._internal.cli.run import (
     InstrumentationRecommendation,
     collect_instrumentation_context,
@@ -46,6 +57,7 @@ from logfire._internal.cli.run import (
     instrumented_packages_text,
 )
 from logfire._internal.config import LogfireConfigWarning, LogfireCredentials, sanitize_project_name
+from logfire._internal.utils import READ_TOKEN_FILENAME
 from logfire.exceptions import LogfireConfigError
 from tests.import_used_for_tests import run_script_test
 
@@ -163,7 +175,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
         with pytest.warns(
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
-            main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+            main(['--base-url=http://localhost:0', 'whoami', '--data-dir', str(tmp_dir_cwd)])
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -211,7 +223,7 @@ def test_whoami_logged_in(
 
         m.get('http://localhost/v1/account/me', json={'name': 'test-user'})
 
-        main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+        main(['--base-url=http://localhost:0', 'whoami', '--data-dir', str(tmp_dir_cwd)])
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Logged in as: test-user',
@@ -926,6 +938,326 @@ def test_non_interactive_remedies_are_pasteable() -> None:
         assert not set(suggestion) & set('<>|&;$`()'), f'not pasteable: {suggestion!r}'
 
 
+def _status_credentials(tmp_dir_cwd: Path, *, read_token: bool = True) -> Path:
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/test-org/orders',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    if read_token:
+        _save_fake_read_token(data_dir)
+    return data_dir
+
+
+def _save_fake_read_token(
+    data_dir: Path,
+    *,
+    token: str = 'fake_read_token',
+    base_url: str = 'https://logfire-us.pydantic.dev',
+    organization: str = 'test-org',
+    project_name: str = 'orders',
+    expires_at: str | None = None,
+) -> Path:
+    """The file `read-tokens create --save` writes, which `projects status` now reads."""
+    path = data_dir / READ_TOKEN_FILENAME
+    path.write_text(
+        json.dumps(
+            {
+                'token': token,
+                'base_url': base_url,
+                'organization': organization,
+                'project_name': project_name,
+                'expires_at': expires_at or (datetime.now(tz=timezone.utc) + timedelta(days=30)).isoformat(),
+            }
+        )
+    )
+    return path
+
+
+def _mock_status_backend(m: requests_mock.Mocker, rows: list[dict[str, Any]]) -> None:
+    """The only call `projects status` makes: the query itself.
+
+    It deliberately does NOT mock the read-tokens endpoint. `projects status` must use the
+    saved token rather than creating one, and a mock here would hide a regression back to
+    minting per invocation -- requests_mock raises `NoMockAddress` for the unregistered
+    POST, so that regression fails loudly instead of passing.
+
+    The response is the WIRE shape -- `{"schema": {...}, "data": [...]}` -- not the
+    columns/rows shape the query client maps it to. Returning the mapped shape would make
+    the test pass against a body the server never sends.
+    """
+    m.post(
+        'https://logfire-us.pydantic.dev/v2/query',
+        json={
+            # Mirrors the real body, verified against staging: fields carry `nullable`
+            # and the schema carries `metadata`, even though this command reads neither.
+            'schema': {
+                'fields': [{'name': k, 'data_type': 'Utf8', 'nullable': False} for k in (rows[0] if rows else {})],
+                'metadata': {},
+            },
+            'data': rows,
+        },
+    )
+
+
+def test_projects_status_reports_what_arrived(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """One row per service, so a partly-instrumented system is visible as such.
+
+    This is the case the command exists for: an agent that instrumented the web app and
+    forgot the worker sees `orders-worker` missing, which no amount of "no errors in the
+    log" would have told it.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(
+            m,
+            [
+                {'service_name': 'orders-web', 'records': 12, 'last_seen': '2026-08-18T20:00:00Z'},
+                {'service_name': 'orders-worker', 'records': 3, 'last_seen': '2026-08-18T20:00:05Z'},
+            ],
+        )
+
+        main(['projects', 'status'])
+
+    query = next(r for r in m.request_history if r.path.endswith('/v2/query'))
+    body = query.json()
+    sql = body['sql']
+    assert 'GROUP BY service_name' in sql, sql
+    assert 'count(*)' in sql, sql
+    # A time bound, so a long-lived project does not scan its whole history.
+    assert body.get('min_timestamp'), body
+    # And a ceiling, so this cannot become an enormous query on a busy project.
+    assert body['limit'] == STATUS_MAX_ROWS, body
+
+    err = capsys.readouterr().err
+    assert 'test-org/orders' in err
+    assert 'orders-web' in err
+    assert 'orders-worker' in err
+    assert '12' in err
+    # The read token is minted to run the query and must never be shown: putting a live
+    # credential in the caller's output is the thing this command exists to avoid.
+    assert 'fake_read_token' not in err
+
+
+def test_projects_status_works_from_a_saved_read_token_alone(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No write credentials at all -- only a saved read token -- must still work.
+
+    `read-tokens --project ORGANIZATION/PROJECT_NAME create --save` never touches
+    `logfire_credentials.json`; a directory that only ever ran that command (never
+    `projects use`) is a legitimate, real user-reported state, not an edge case. Before
+    this, `projects status` insisted on write credentials it had no actual use for, and
+    sent a read-only user looking for `projects use` instead of the read-tokens command
+    that would have actually gotten them unstuck.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    _save_fake_read_token(data_dir, organization='alexmojaki', project_name='test38')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(m, [{'service_name': 'orders-web', 'records': 5, 'last_seen': '2026-08-18T20:00:00Z'}])
+
+        main(['projects', 'status'])
+
+    err = capsys.readouterr().err
+    assert 'alexmojaki/test38' in err
+    assert 'orders-web' in err
+    # The read token is minted to run the query and must never be shown: putting a live
+    # credential in the caller's output is the thing this command exists to avoid.
+    assert 'fake_read_token' not in err
+
+
+def test_projects_status_says_nothing_yet_rather_than_failing(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No data during setup usually means "not yet", not "broken"."""
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(m, [])
+
+        main(['projects', 'status'])
+
+    err = capsys.readouterr().err
+    assert 'No telemetry' in err
+    assert 'Run the application' in err
+
+
+def test_projects_status_json_is_machine_readable(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`--json` on stdout, so an agent can branch on it without parsing a table."""
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(m, [{'service_name': 'orders-web', 'records': 12, 'last_seen': '2026-08-18T20:00:00Z'}])
+
+        main(['projects', 'status', '--json'])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload['organization'] == 'test-org'
+    assert payload['project_name'] == 'orders'
+    assert payload['services'] == [{'service_name': 'orders-web', 'records': 12, 'last_seen': '2026-08-18T20:00:00Z'}]
+    assert 'fake_read_token' not in captured.out
+    assert 'fake_read_token' not in captured.err
+
+
+def test_projects_status_without_credentials_says_what_to_run(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No write credentials and no saved read token: point at minting a read token
+    directly, not at `projects use` -- this command never needs write credentials, so
+    telling a read-only user to go get some would be pointing them at the wrong fix.
+    """
+    with pytest.raises(SystemExit) as exc_info:
+        main(['projects', 'status'])
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert 'No usable read token' in err
+    # Runnable as printed: `<name>` would be shell input redirection.
+    assert 'logfire read-tokens --project ORGANIZATION/PROJECT_NAME create --save' in err
+    assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
+
+
+@pytest.mark.parametrize(
+    ('project_url', 'expected'),
+    [
+        # The shape the CLI actually writes into the credentials file.
+        ('https://logfire-us.pydantic.dev/test-org/orders', 'test-org'),
+        ('https://logfire-eu.pydantic.dev/test-org/orders', 'test-org'),
+        # Self-hosted, where the deployment lives under a path prefix.
+        ('https://logfire.example.com/logfire/acme/orders', 'acme'),
+        # A trailing slash must not shift the answer by one segment.
+        ('https://logfire-us.pydantic.dev/test-org/orders/', 'test-org'),
+        # Hyphens and digits are legal in both names.
+        ('https://logfire-us.pydantic.dev/acme-2/orders-api', 'acme-2'),
+        # Not enough path to name an organization.
+        ('https://logfire-us.pydantic.dev/orders', None),
+        ('https://logfire-us.pydantic.dev/', None),
+        ('https://logfire-us.pydantic.dev', None),
+        ('', None),
+    ],
+)
+def test_organization_from_project_url(project_url: str, expected: str | None) -> None:
+    """The organization is the second-to-last path segment, or nothing.
+
+    Pure, so every shape is enumerable here rather than through a command with four
+    mocked collaborators. The `None` cases matter: the credentials file is user-editable
+    and `projects status` must say something useful rather than raise IndexError.
+    """
+    assert _organization_from_project_url(project_url) == expected
+
+
+def test_projects_status_when_the_project_url_names_no_organization(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A credentials file that cannot name an organization exits cleanly.
+
+    Reachable in practice: the file is plain JSON in the repo and people edit it. Before
+    this it was the one uncovered branch in the command.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['projects', 'status'])
+    assert exc_info.value.code == 1
+    assert 'Cannot tell which organization' in capsys.readouterr().err
+
+
+def test_projects_status_reports_a_failed_query(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A rejected query says what the server said, rather than raising.
+
+    Reachable whenever the read token is refused or the backend is unhappy, and the
+    status code plus body is the only thing that tells someone which it was.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        # No read-tokens mock: `_status_credentials`'s default `read_token=True` already
+        # saves one, so `projects status` uses that and never mints -- registering a
+        # read-tokens mock here would sit dead, and a regression back to minting per
+        # invocation would pass this test instead of failing it.
+        m.post(
+            'https://logfire-us.pydantic.dev/v2/query',
+            status_code=401,
+            text='Invalid read token',
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['projects', 'status'])
+
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert 'Could not read the project' in err
+    assert '401' in err
+    assert 'Invalid read token' in err
+
+
 def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
@@ -1050,7 +1382,7 @@ expiration = "fake_exp"
 
 def test_projects_help(capsys: pytest.CaptureFixture[str]) -> None:
     main(['projects'])
-    assert capsys.readouterr().out.splitlines()[0] == 'usage: logfire projects [-h] {list,new,use} ...'
+    assert capsys.readouterr().out.splitlines()[0] == 'usage: logfire projects [-h] {list,new,status,use} ...'
 
 
 def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1742,6 +2074,1045 @@ def test_create_read_token(tmp_dir_cwd: Path, default_credentials: Path, capsys:
         output = capsys.readouterr().out
         assert output == snapshot('fake_token\n')
 
+    # Without `--save` the token is printed and NOT given an expiry: it is being pasted
+    # into something we do not control, and silently breaking that later is worse than
+    # leaving it.
+    assert 'expires_at' not in m.request_history[-1].json()
+
+
+def _read_token_backend(m: requests_mock.Mocker, token: str = 'saved_read_token') -> None:
+    m.post(
+        'https://logfire-us.pydantic.dev/v1/organizations/test-org/projects/orders/read-tokens',
+        json={'token': token},
+    )
+
+
+def test_projects_status_ignores_a_malicious_logfire_api_url(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The read token must go to the host it was minted against, never wherever the repo
+    file says.
+
+    `logfire_credentials.json` lives inside the project this command runs in, so a
+    malicious or tampered repository can set `logfire_api_url` to anything. If that value
+    controlled where the read token is sent, checking out an untrusted repo and running
+    `projects status` in it would hand the token straight to an attacker.
+
+    The query host comes from the SAVED token file's own `base_url` instead, recorded when
+    the token was created from a trusted source (CLI flags or `~/.logfire/default.toml`,
+    never from anything inside the project) -- see `_save_read_token`. An earlier version
+    derived the host from the token's own region prefix, which also closed this hole but
+    broke self-hosted deployments; see `test_projects_status_uses_a_self_hosted_read_token`.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/test-org/orders',
+                # The attack: a tampered repo pointing this at a server it controls.
+                'logfire_api_url': 'https://attacker.example.com',
+            }
+        )
+    )
+    # Saved with the REAL host, as it would be by a legitimate `--save` run -- proving the
+    # query follows this recorded value rather than the credentials file.
+    _save_fake_read_token(data_dir)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        # Only the REAL host is registered. If the code used `logfire_api_url` instead,
+        # the POST would target `attacker.example.com` and requests_mock would raise
+        # `NoMockAddress` -- so this test fails loudly rather than passing if the
+        # vulnerability comes back.
+        _mock_status_backend(m, [{'service_name': 'orders-web', 'records': 1, 'last_seen': '2026-08-18T20:00:00Z'}])
+
+        main(['projects', 'status'])
+
+    query = next(r for r in m.request_history if r.path.endswith('/v2/query'))
+    assert query.hostname == 'logfire-us.pydantic.dev'
+    assert 'attacker.example.com' not in {r.hostname for r in m.request_history}
+    assert 'orders-web' in capsys.readouterr().err
+
+
+def test_projects_status_uses_a_self_hosted_read_token(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A self-hosted deployment's read token must go to the self-hosted host.
+
+    Self-hosted instances (`logfire --base-url=https://logfire.example.com auth`) use an
+    arbitrary URL that cannot be recovered from a token's shape -- an earlier version of
+    the exfiltration fix derived the query host from the token's own region prefix, which
+    would have silently sent a self-hosted token to the hosted US service instead: the
+    right server for nobody, and a leak to a real host, not just a broken command.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire.example.com/test-org/orders',
+                'logfire_api_url': 'https://logfire.example.com',
+            }
+        )
+    )
+    _save_fake_read_token(data_dir, base_url='https://logfire.example.com')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire.example.com', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire.example.com/v2/query',
+            json={
+                'schema': {'fields': [{'name': 'service_name', 'data_type': 'Utf8', 'nullable': False}]},
+                'data': [{'service_name': 'orders-web', 'records': 1, 'last_seen': '2026-08-18T20:00:00Z'}],
+            },
+        )
+
+        main(['projects', 'status'])
+
+    query = next(r for r in m.request_history if r.path.endswith('/v2/query'))
+    assert query.hostname == 'logfire.example.com'
+    assert 'orders-web' in capsys.readouterr().err
+
+
+def test_projects_status_displays_the_host_it_actually_queried(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The displayed project URL must name the host the query actually went to.
+
+    Matching organization and project name does not guarantee a matching host --
+    `logfire_credentials.json` and a saved read token are two separate files, and nothing
+    stops them naming different deployments for what happens to be the same org/project
+    pair. The query always goes to `saved.base_url`; showing `credentials.project_url`
+    instead would tell the user a host their request never touched.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                'project_url': 'https://logfire-us.pydantic.dev/test-org/orders',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    _save_fake_read_token(data_dir, base_url='https://logfire.example.com')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire.example.com/v2/query',
+            json={
+                'schema': {'fields': [{'name': 'service_name', 'data_type': 'Utf8', 'nullable': False}]},
+                'data': [],
+            },
+        )
+
+        main(['projects', 'status', '--json'])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['project_url'] == 'https://logfire.example.com/test-org/orders'
+
+
+def test_read_token_save_writes_the_file_and_prints_nothing(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--save` exists so the credential never reaches a terminal or a transcript.
+
+    The measured failure it fixes: agents told to verify their own work ran
+    `read-tokens create`, which writes the token to stdout, and every one of them ended up
+    with a live credential in the transcript that ships to a model provider.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+
+        # No `--project`: it should fall back to the linked project, which is the whole
+        # point of the no-argument form.
+        main(['read-tokens', 'create', '--save'])
+
+    captured = capsys.readouterr()
+    assert captured.out == '', 'the token must never reach stdout'
+    assert 'saved_read_token' not in captured.err, 'nor stderr'
+    assert 'test-org/orders' in captured.err
+
+    saved = json.loads((data_dir / READ_TOKEN_FILENAME).read_text())
+    assert saved['token'] == 'saved_read_token'
+    assert saved['organization'] == 'test-org'
+    assert saved['project_name'] == 'orders'
+    # The host the CREATE request actually used, not read back from anywhere in the
+    # project -- this is what lets `projects status` trust it later. See
+    # test_projects_status_ignores_a_malicious_logfire_api_url.
+    assert saved['base_url'] == 'https://logfire-us.pydantic.dev'
+
+    # An expiry, because the CLI cannot revoke a token it has written to disk.
+    requested = m.request_history[-1].json()
+    assert requested['expires_at'], requested
+    expiry = datetime.fromisoformat(saved['expires_at'])
+    assert timedelta(days=READ_TOKEN_TTL.days - 1) < expiry - datetime.now(tz=timezone.utc) <= READ_TOKEN_TTL
+
+    # Owner-only: this file holds a credential that can read the whole project.
+    assert (data_dir / READ_TOKEN_FILENAME).stat().st_mode & 0o077 == 0
+
+
+def test_read_token_save_with_explicit_project_needs_no_linked_directory(tmp_dir_cwd: Path) -> None:
+    """`--project` bypasses the linked-directory fallback entirely.
+
+    Every other `--save` test relies on `_status_credentials` linking the directory.
+    `--project` is the OTHER way to reach `parse_create_read_token`'s org/project
+    resolution -- no `logfire_credentials.json` needed at all -- and that branch was
+    otherwise never exercised for the `--save` path, only for plain `create`.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/other-org/projects/other-project/read-tokens',
+            json={'token': 'explicit_project_token'},
+        )
+
+        main(['read-tokens', '--project', 'other-org/other-project', 'create', '--save'])
+
+    saved = json.loads((tmp_dir_cwd / '.logfire' / READ_TOKEN_FILENAME).read_text())
+    assert saved['organization'] == 'other-org'
+    assert saved['project_name'] == 'other-project'
+    assert saved['token'] == 'explicit_project_token'
+
+
+def test_read_token_create_without_project_or_linked_directory_says_what_to_run(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No `--project` and nothing linked: the remedy must name both ways out.
+
+    `parse_create_read_token` falls back to the linked directory when `--project` is
+    omitted, sharing `_load_credentials_or_exit` with `whoami` and (formerly) `projects
+    status` for that. `projects status` reads write credentials directly now, so this is
+    the only remaining caller that passes `_load_credentials_or_exit` a `remedy` -- and
+    without a test here, that branch would go uncovered.
+    """
+    with pytest.raises(SystemExit) as exc_info:
+        main(['read-tokens', 'create'])
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert 'No Logfire credentials found' in err
+    assert '--project' in err
+    assert 'logfire projects use PROJECT_NAME --org ORGANIZATION' in err
+
+
+def test_read_token_create_without_save_writes_no_file(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Printed mode must not ALSO persist a copy to disk.
+
+    `--save` is what makes a token durable; without it, nothing should be left behind for
+    `projects status` to pick up later, since the caller asked for the token in hand, not
+    stored.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m, token='printed_token')
+
+        main(['read-tokens', 'create'])
+
+    assert capsys.readouterr().out == 'printed_token\n'
+    assert not (data_dir / READ_TOKEN_FILENAME).exists()
+
+
+def test_read_token_save_rotates_a_previously_saved_token(tmp_dir_cwd: Path) -> None:
+    """Running `--save` again must replace the old token, not merge with it.
+
+    The realistic workflow is re-running this to get a fresh token before an old one
+    expires; a loader that somehow preferred stale data over the new file would silently
+    defeat that.
+
+    The stale token is padded far longer than the fresh one on purpose: writing without
+    truncating (no `O_TRUNC`) would leave the old file's tail bytes after the new, shorter
+    JSON document, and a same-or-shorter stale value would not expose that -- this makes a
+    dropped `O_TRUNC` produce genuinely invalid JSON instead of silently still parsing.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    _save_fake_read_token(data_dir, token='stale_token_' + 'x' * 200)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m, token='fresh_token')
+
+        main(['read-tokens', 'create', '--save'])
+
+    saved = json.loads((data_dir / READ_TOKEN_FILENAME).read_text())
+    assert saved['token'] == 'fresh_token'
+    loaded = _load_saved_read_token(data_dir, organization='test-org', project_name='orders')
+    assert loaded is not None and loaded.token == 'fresh_token'
+
+
+def test_projects_status_json_output_escapes_control_characters(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--json` is safe for the same attacker-controlled service name, but for a different
+    reason than the table is.
+
+    The table needs `_printable` to strip control characters explicitly. `--json` does not
+    call it -- `json.dumps` already escapes control characters inside a JSON string
+    (`\\u001b`, not a literal ESC byte), so the raw value is safe by construction. This
+    pins that: nobody should "fix" this by routing JSON output through `_printable` too
+    (which would mangle legitimate unicode service names for no reason), and if the output
+    ever moves off `json.dumps` the replacement needs the same guarantee.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(
+            m, [{'service_name': 'evil\x1b[2K\rorders-web', 'records': 1, 'last_seen': '2026-08-18T20:00:00Z'}]
+        )
+
+        main(['projects', 'status', '--json'])
+
+    out = capsys.readouterr().out
+    assert '\x1b' not in out
+    assert '\\u001b' in out
+    payload = json.loads(out)
+    assert payload['services'][0]['service_name'] == 'evil\x1b[2K\rorders-web'
+
+
+def test_read_token_save_keeps_the_data_dir_gitignored(tmp_dir_cwd: Path) -> None:
+    """The saved token must not be the thing that leaves a data directory untracked-but-visible.
+
+    `ensure_data_dir_exists` only seeds `.gitignore` when the directory holds nothing but
+    the files Logfire writes itself, so a filename missing from `DATA_DIR_FILENAMES`
+    would silently stop that rule being restored -- for a directory that now contains a
+    read token.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    (data_dir / '.gitignore').unlink(missing_ok=True)
+    _save_fake_read_token(data_dir)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+        main(['read-tokens', 'create', '--save'])
+
+    assert (data_dir / '.gitignore').read_text() == '*'
+
+
+def test_projects_status_without_a_saved_token_says_what_to_run(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No token: one message naming the command, and no silent minting.
+
+    The command used to create a read token per invocation. Those are permanent and the
+    CLI cannot revoke them, so a user polling "has my data arrived yet?" four times left
+    four live credentials behind.
+    """
+    _status_credentials(tmp_dir_cwd, read_token=False)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        # Nothing registered at all: any request whatsoever fails the test.
+        with pytest.raises(SystemExit) as exc_info:
+            main(['projects', 'status'])
+
+    assert exc_info.value.code == 1
+    assert m.request_history == [], 'it must not call the API without a token'
+    err = capsys.readouterr().err
+    assert 'read-tokens create --save' in err
+
+
+_REMOVE_KEY = object()
+"""Marker for "delete this field", which a plain override dict cannot express."""
+
+
+@pytest.mark.parametrize(
+    'override,reason',
+    [
+        ({'organization': 'other-org'}, 'issued for a different organization'),
+        ({'project_name': 'other-project'}, 'issued for a different project'),
+        ({'organization': ''}, 'empty organization'),
+        ({'organization': 123}, 'organization is not a string'),
+        ({'organization': _REMOVE_KEY}, 'no organization key -- an older saved-token file'),
+        ({'project_name': ''}, 'empty project_name'),
+        ({'project_name': _REMOVE_KEY}, 'no project_name key -- an older saved-token file'),
+        ({'expires_at': (datetime.now(tz=timezone.utc) - timedelta(days=1)).isoformat()}, 'already expired'),
+        ({'expires_at': 'not a timestamp'}, 'unparseable expiry'),
+        ({'token': ''}, 'empty token'),
+        ({'token': 123}, 'token is not a string'),
+        ({'token': _REMOVE_KEY}, 'no token key'),
+        ({'base_url': ''}, 'empty base_url'),
+        ({'base_url': _REMOVE_KEY}, 'no base_url key -- an older saved-token file'),
+    ],
+)
+def test_saved_read_token_is_rejected_when_unusable(tmp_dir_cwd: Path, override: dict[str, Any], reason: str) -> None:
+    """A saved token is only used for the project it was issued for, and only while valid.
+
+    `logfire projects use` repoints a directory; a token left from the previous project
+    would otherwise be sent for the new one and produce a baffling 401 -- or, if the two
+    happened to be in the same org, somebody else's data.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    path = _save_fake_read_token(data_dir)
+    data: dict[str, Any] = json.loads(path.read_text())
+    for key, value in override.items():
+        if value is _REMOVE_KEY:
+            data.pop(key, None)
+        else:
+            data[key] = value
+    path.write_text(json.dumps(data))
+
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None, reason
+
+
+def test_load_saved_read_token_refuses_a_symlink(tmp_dir_cwd: Path) -> None:
+    """A symlinked `read_token.json` must not be trusted, even with valid-looking content.
+
+    `_save_read_token` refuses to write through a symlink, but that only protects writes
+    THIS command makes -- a symlink planted some other way (committed to the repo, dropped
+    in by another tool) never goes through that check. Following it here would hand
+    whatever `base_url` and `token` the symlink target holds straight into the next
+    request's URL and `Authorization` header: an attacker who can plant the symlink chooses
+    where this command sends that token.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    victim = tmp_dir_cwd / 'victim.json'
+    victim.write_text(
+        json.dumps(
+            {
+                'token': 'read-token',
+                'base_url': 'http://169.254.169.254',
+                'organization': 'test-org',
+                'project_name': 'orders',
+            }
+        )
+    )
+    (data_dir / READ_TOKEN_FILENAME).symlink_to(victim)
+
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
+def test_load_saved_read_token_refuses_a_git_tracked_file(tmp_dir_cwd: Path) -> None:
+    """A `read_token.json` already in the git index must not be trusted either.
+
+    `.gitignore` only stops an untracked file from being added -- it does nothing for one
+    already in the index, so an attacker with commit access (or a malicious PR) can ship a
+    tracked `read_token.json` naming their own `base_url`. `_save_read_token` refuses to
+    write through a tracked path, but a file that arrived via a commit was never written by
+    this command at all, so that check never ran against it.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    path = _save_fake_read_token(data_dir, base_url='http://169.254.169.254')
+    subprocess.run(['git', 'init', '--quiet'], cwd=tmp_dir_cwd, check=True)
+    subprocess.run(['git', 'add', '--force', str(path)], cwd=tmp_dir_cwd, check=True)
+
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
+def test_load_saved_read_token_treats_unconfirmed_tracking_as_unusable(tmp_dir_cwd: Path) -> None:
+    """An ambiguous git-tracking check must fail this call closed too, but by returning
+    "no usable token" rather than raising -- unlike `_save_read_token`, where the safe
+    outcome is to BLOCK. Here the safe outcome is to fall back to the same "no token saved"
+    path an absent file already takes, which the caller turns into one clean message
+    naming `read-tokens create --save`, not a crash.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    _save_fake_read_token(data_dir)
+
+    with patch(
+        'logfire._internal.cli._is_git_tracked',
+        side_effect=LogfireConfigError('could not confirm'),
+    ):
+        assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
+@pytest.mark.parametrize('kwargs', [{'organization': 'test-org'}, {'project_name': 'orders'}])
+def test_load_saved_read_token_rejects_exactly_one_filter(tmp_dir_cwd: Path, kwargs: dict[str, str]) -> None:
+    """Passing only one of `organization`/`project_name` must not check the token against
+    half a project identity.
+
+    A token whose organization matches but whose project does not (or vice versa) would
+    otherwise pass -- matching a same-named project in a different organization, or a
+    different project in the same organization -- neither of which is "the linked
+    project". Both together (a real match check) or neither (trust the token's own
+    identity) are the only valid calls; one alone is a caller bug, not a valid filter.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    _save_fake_read_token(data_dir, organization='test-org', project_name='orders')
+
+    assert _load_saved_read_token(data_dir, **kwargs) is None
+
+
+def test_saved_read_token_survives_a_naive_expiry(tmp_dir_cwd: Path) -> None:
+    """A timestamp without a timezone must not blow up the comparison.
+
+    This file is always written with an aware timestamp, but it is a plain JSON file a
+    user can edit, and `datetime` raises rather than coerces when comparing naive to
+    aware.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    _save_fake_read_token(
+        data_dir, expires_at=(datetime.now(tz=timezone.utc) + timedelta(days=1)).replace(tzinfo=None).isoformat()
+    )
+    loaded = _load_saved_read_token(data_dir, organization='test-org', project_name='orders')
+    assert loaded is not None and loaded.token == 'fake_read_token'
+
+
+def test_read_token_save_refuses_to_follow_a_symlink(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A symlink at the destination must not be followed, and the refusal must be clean.
+
+    The data directory lives inside the user's repository, so a symlink can arrive by
+    being committed to it. Following one would apply `O_TRUNC` and an ownership-only mode
+    change to whatever it points at -- destroying that file and handing the write to
+    somewhere the user did not choose. The refusal itself must not ALSO be a raw
+    traceback: `_save_read_token` raises `LogfireConfigError` for this, and an earlier
+    version of `parse_create_read_token` let that escape uncaught -- worse than most such
+    bugs, because it happens AFTER a token has already been minted, leaving the caller
+    unsure whether anything happened.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    victim = tmp_dir_cwd / 'victim.txt'
+    victim.write_text('important')
+    (data_dir / READ_TOKEN_FILENAME).symlink_to(victim)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['read-tokens', 'create', '--save'])
+
+    assert exc_info.value.code == 1
+    assert victim.read_text() == 'important', 'the symlink target was written through'
+
+
+def test_read_token_save_refuses_a_git_tracked_destination(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`.gitignore` does not protect an already-tracked file.
+
+    A `read_token.json` committed before this feature existed -- or by mistake, since
+    `.gitignore` only stops NEW files from being added -- would otherwise get a live,
+    permanent credential written straight into it, and the next `git commit -am` would
+    publish it. Refuse rather than write.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    path = data_dir / READ_TOKEN_FILENAME
+    path.write_text('{}')
+    subprocess.run(['git', 'init', '--quiet'], cwd=tmp_dir_cwd, check=True)
+    subprocess.run(['git', 'add', '--force', str(path)], cwd=tmp_dir_cwd, check=True)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['read-tokens', 'create', '--save'])
+
+    assert exc_info.value.code == 1
+    assert 'already tracked by git' in capsys.readouterr().err
+    assert path.read_text() == '{}', 'the tracked file was written through'
+
+
+def test_is_git_tracked_treats_no_git_binary_and_no_repo_as_untracked(tmp_dir_cwd: Path) -> None:
+    """No `git` binary, and no `.git` anywhere in the path's ancestry either.
+
+    The threat this check guards against -- a path already in git's index -- is
+    categorically impossible without a repository, so a machine with neither must still be
+    able to save a read token rather than being blocked over an unrelated environment gap.
+    """
+    with patch('logfire._internal.cli.shutil.which', return_value=None):
+        assert _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME) is False
+
+
+def test_is_git_tracked_fails_closed_when_git_binary_is_missing_but_a_repo_exists(tmp_dir_cwd: Path) -> None:
+    """No `git` binary is not proof that no repository exists.
+
+    A repository's index is just files on disk, and can already track this path on a
+    machine where `git` itself is missing or off `PATH` for this one call -- exactly the
+    condition `shutil.which` alone cannot distinguish from "no repository at all". Once a
+    `.git` is visibly present, that gap must fail closed, not silently permit the write.
+    """
+    (tmp_dir_cwd / '.git').mkdir()
+    with (
+        patch('logfire._internal.cli.shutil.which', return_value=None),
+        pytest.raises(LogfireConfigError, match='Could not confirm whether'),
+    ):
+        _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
+
+
+def test_has_git_dir_fails_closed_on_a_real_permission_error(tmp_dir_cwd: Path) -> None:
+    """`Path.exists()` swallows a permission-denied ancestor and reports "not found" --
+    confirmed empirically against this Python's actual behavior, not merely assumed from
+    its docs. `_has_git_dir` must not inherit that through a plain `.exists()` call: an
+    inaccessible ancestor reading as "no repository" is exactly the state most likely on a
+    machine that has been tampered with, not evidence that no repository is there.
+    """
+    locked = tmp_dir_cwd / 'locked'
+    locked.mkdir()
+    inner = locked / 'inner'
+    inner.mkdir()
+    os.chmod(locked, 0o000)
+    try:
+        # Running as root, or with CAP_DAC_OVERRIDE, bypasses permission bits entirely --
+        # confirming the lock actually took effect before relying on it, rather than
+        # asserting straight into `_has_git_dir`, is what keeps this a real test of the
+        # fix instead of a false failure wherever it does not.
+        try:
+            inner.stat()
+        except PermissionError:
+            pass
+        else:
+            pytest.skip('permission bits are not enforced in this environment (root or CAP_DAC_OVERRIDE)')
+        with pytest.raises(PermissionError):
+            _has_git_dir(inner)
+    finally:
+        os.chmod(locked, 0o755)
+
+
+def test_is_git_tracked_fails_closed_when_the_repository_walk_itself_fails(tmp_dir_cwd: Path) -> None:
+    """A filesystem error while looking for `.git` must not escape as a raw traceback.
+
+    Walking up for a repository can hit a permission-denied intermediate directory or a
+    symlink loop `.resolve()` cannot settle -- `OSError`, not a clean "no repository here".
+    Letting that propagate unchanged would break the one contract every other failure mode
+    in this function honors: a clean `LogfireConfigError`, not a bare traceback, and it
+    would do so on exactly the kind of filesystem state most likely to be the OS itself
+    refusing to answer, not proof of anything about the file's tracked status.
+    """
+    with (
+        patch('logfire._internal.cli.shutil.which', return_value=None),
+        patch('logfire._internal.cli._has_git_dir', side_effect=PermissionError('denied')),
+        pytest.raises(LogfireConfigError, match='Could not confirm whether'),
+    ):
+        _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
+
+
+def test_is_git_tracked_fails_closed_when_git_exists_but_cannot_answer(tmp_dir_cwd: Path) -> None:
+    """git present but unable to answer must NOT be treated the same as "untracked".
+
+    Silently proceeding here would defeat the whole check on exactly the machine states an
+    attacker aiming at this file is best positioned to engineer -- the check itself timing
+    out, or some other OS-level failure -- so this raises and blocks the write instead of
+    guessing safe.
+    """
+    with (
+        patch('logfire._internal.cli.shutil.which', return_value='/usr/bin/git'),
+        patch('logfire._internal.cli.subprocess.run', side_effect=subprocess.TimeoutExpired(cmd='git', timeout=5)),
+        pytest.raises(LogfireConfigError, match='Could not confirm whether'),
+    ):
+        _is_git_tracked(tmp_dir_cwd / READ_TOKEN_FILENAME)
+
+
+def test_read_token_save_narrows_an_existing_permissive_file(tmp_dir_cwd: Path) -> None:
+    """An existing world-readable file must be restricted BEFORE the token is written.
+
+    The mode passed to `os.open` applies only when it creates the file, so without an
+    explicit `fchmod` the token would be written into a file others can read and only
+    locked down afterwards.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    path = data_dir / READ_TOKEN_FILENAME
+    path.write_text('{}')
+    path.chmod(0o644)
+
+    observed: list[int] = []
+    real_fdopen = os.fdopen
+
+    def spy(fd: int, *args: Any, **kwargs: Any) -> IO[Any]:
+        # The mode at the moment the file becomes writable, which is what matters.
+        observed.append(os.fstat(fd).st_mode & 0o777)
+        return cast('IO[Any]', real_fdopen(fd, *args, **kwargs))
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        stack.enter_context(patch('logfire._internal.cli.os.fdopen', spy))
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _read_token_backend(m)
+        main(['read-tokens', 'create', '--save'])
+
+    assert observed == [0o600], 'the token was written while the file was still permissive'
+    assert path.stat().st_mode & 0o077 == 0
+
+
+def test_projects_status_rejects_a_non_200_response(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """204 is not an error by `response.ok`, but it has no body to parse.
+
+    Without an exact status check this failed with a JSON decode error instead of the
+    command's own message.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post('https://logfire-us.pydantic.dev/v2/query', status_code=204, text='')
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['projects', 'status'])
+
+    assert exc_info.value.code == 1
+    assert 'Could not read the project: 204' in capsys.readouterr().err
+
+
+def test_projects_status_reports_a_network_failure_cleanly(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A timeout, DNS failure, or refused connection must not print a raw traceback.
+
+    `requests.post` raises `RequestException` for these rather than returning a response,
+    so the non-200 branch alone does not catch them.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post('https://logfire-us.pydantic.dev/v2/query', exc=requests.exceptions.ConnectTimeout)
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['projects', 'status'])
+
+    assert exc_info.value.code == 1
+    assert 'Could not reach https://logfire-us.pydantic.dev' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    'body,reason',
+    [
+        ('not json at all', 'not JSON -- a proxy or WAF page instead of the real backend'),
+        ('{"no_data_key": []}', 'JSON but missing "data"'),
+        ('{"data": "not a list"}', '"data" is a string, not a list'),
+        ('{"data": ["not", "objects"]}', '"data" is a list of strings, not row objects'),
+    ],
+)
+def test_projects_status_rejects_a_malformed_200_response(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str], body: str, reason: str
+) -> None:
+    """A 200 whose body does not look like the query response must not crash.
+
+    A 200 status does not guarantee the real backend produced the body -- a proxy or WAF
+    can intercept the request and answer with its own page. Without this, a malformed body
+    fails several lines further down with a raw `JSONDecodeError`, `KeyError`, or
+    `AttributeError` instead of this command's own message.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post('https://logfire-us.pydantic.dev/v2/query', status_code=200, text=body)
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(['projects', 'status'])
+
+    assert exc_info.value.code == 1, reason
+    assert 'Could not read the project: unexpected response shape' in capsys.readouterr().err, reason
+
+
+def test_projects_status_strips_control_characters_from_service_names(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A service name is submitted telemetry, so it is attacker-controlled text.
+
+    Written raw to a terminal it could clear the screen or forge rows in the very table
+    someone is reading to decide whether their setup worked.
+    """
+    _status_credentials(tmp_dir_cwd)
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(
+            m,
+            [{'service_name': 'evil\x1b[2K\rorders-web', 'records': 1, 'last_seen': '2026-08-18T20:00:00Z'}],
+        )
+        main(['projects', 'status'])
+
+    err = capsys.readouterr().err
+    assert '\x1b' not in err, 'an ANSI escape reached the terminal'
+    assert '\r' not in err
+
+
+def test_projects_status_strips_control_characters_from_the_header(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`organization`/`project_name`/`project_url` come from `logfire_credentials.json`,
+    a file inside the project this command runs in -- the same threat model
+    `_save_read_token`'s docstring covers for the read token itself. Written raw to the
+    `Project  <org>/<name>` header they are just as attacker-controlled as a service name.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir()
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'evil\x1b[2Korders',
+                'project_url': 'https://logfire-us.pydantic.dev/evil\x1b[2Korg/evil\x1b[2Korders',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+    # Matches what `_organization_from_project_url` derives from the malicious
+    # `project_url` above -- the saved token is scoped to org/project, and a mismatch
+    # would fail with "no usable read token" before the header is ever printed.
+    _save_fake_read_token(data_dir, organization='evil\x1b[2Korg', project_name='evil\x1b[2Korders')
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        _mock_status_backend(m, [])
+        main(['projects', 'status'])
+
+    assert '\x1b' not in capsys.readouterr().err, 'an ANSI escape reached the terminal'
+
+
+def test_saved_read_token_without_an_expiry_is_still_usable(tmp_dir_cwd: Path) -> None:
+    """No `expires_at` means unbounded, not invalid.
+
+    This CLI always writes one, so a file without it was written by a different version
+    or edited by hand. Refusing it would break a working setup over a field we added;
+    the expiry exists to bound a leak, not to gate the happy path.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    path = _save_fake_read_token(data_dir)
+    data: dict[str, Any] = json.loads(path.read_text())
+    del data['expires_at']
+    path.write_text(json.dumps(data))
+
+    loaded = _load_saved_read_token(data_dir, organization='test-org', project_name='orders')
+    assert loaded is not None and loaded.token == 'fake_read_token'
+
+
+def test_read_token_save_when_the_project_url_names_no_organization(
+    tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--save` needs an organization, and the credentials file does not store one.
+
+    It is recovered from the project URL, so a URL that does not carry one has to fail
+    with something better than an `IndexError`.
+    """
+    data_dir = tmp_dir_cwd / '.logfire'
+    data_dir.mkdir(exist_ok=True)
+    (data_dir / 'logfire_credentials.json').write_text(
+        json.dumps(
+            {
+                'token': 'fake_write_token',
+                'project_name': 'orders',
+                # One path segment, so there is no organization to take.
+                'project_url': 'https://logfire-us.pydantic.dev/orders',
+                'logfire_api_url': 'https://logfire-us.pydantic.dev',
+            }
+        )
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['read-tokens', 'create', '--save'])
+
+    assert exc_info.value.code == 1
+    assert 'Cannot tell which organization' in capsys.readouterr().err
+
+
+def test_clean_removes_the_saved_read_token(tmp_dir_cwd: Path) -> None:
+    """`logfire clean` must not leave a credential behind.
+
+    It deletes the write credentials, so a data directory that still held a read token
+    afterwards would be "cleaned" while retaining something that can read the whole
+    project.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd)
+    assert (data_dir / READ_TOKEN_FILENAME).exists()
+
+    main(['clean', '--yes'])
+
+    assert not (data_dir / READ_TOKEN_FILENAME).exists()
+    assert not (data_dir / 'logfire_credentials.json').exists()
+
+
+def test_saved_read_token_survives_a_corrupt_file(tmp_dir_cwd: Path) -> None:
+    """Unreadable is treated as absent, so the caller gives the one useful instruction."""
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    (data_dir / READ_TOKEN_FILENAME).write_text('{not json')
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+    (data_dir / READ_TOKEN_FILENAME).write_text('["a list"]')
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
+
+def test_saved_read_token_rejects_a_non_string_expiry(tmp_dir_cwd: Path) -> None:
+    """A PRESENT but wrongly-typed `expires_at` must not be treated as absent.
+
+    Absence means unbounded -- this CLI always writes the key, so a missing one came from
+    an older version or a hand-edited file, and the expiry exists to bound a leak rather
+    than to gate the happy path. `null`/a number/etc. are different: this file always
+    writes a string, so a non-string value did not come from a normal run, and treating it
+    the same as absence (as `isinstance(expires_at, str)` alone does) lets a tampered file
+    defeat the TTL entirely instead of merely losing it.
+    """
+    data_dir = _status_credentials(tmp_dir_cwd, read_token=False)
+    (data_dir / READ_TOKEN_FILENAME).write_text(
+        json.dumps(
+            {
+                'token': 'fake_read_token',
+                'base_url': 'https://logfire-us.pydantic.dev',
+                'organization': 'test-org',
+                'project_name': 'orders',
+                'expires_at': None,
+            }
+        )
+    )
+    assert _load_saved_read_token(data_dir, organization='test-org', project_name='orders') is None
+
 
 def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
@@ -2023,6 +3394,130 @@ def test_projects_use_wrong_project(
                 choices=['1'],
                 default='1',
             ),
+        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
+        }
+
+
+def test_projects_use_expands_search_with_no_tty(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """ "Choose from all projects?" already has `default='y'` -- the same outcome a person
+
+    pressing Enter would get -- so an exhausted stdin reaches that same outcome (and then
+    continues into project-by-number selection) instead of an `EOFError` traceback.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=[EOFError, '1']))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use', 'wrong-project', '--org', 'fake_org'])
+
+        assert prompt_mock.mock_calls == [
+            call(
+                'No projects with name `wrong-project` found for the current user in organization `fake_org`. Choose from all projects?',
+                choices=['y', 'n'],
+                default='y',
+            ),
+            call(
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/myproject\n",
+                choices=['1'],
+                default='1',
+            ),
+        ]
+
+        output = capsys.readouterr().err
+        assert output == snapshot('Project configured successfully. You will be able to view it at: fake_project_url\n')
+
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-us.pydantic.dev',
+        }
+
+
+def test_projects_use_selects_by_number_with_no_tty(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The project-by-number prompt already has `default='1'` -- the first listed project,
+
+    same as a person pressing Enter would get -- so an exhausted stdin picks that project
+    instead of raising an `EOFError` traceback.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        prompt_mock = stack.enter_context(patch('rich.prompt.Prompt.ask', side_effect=[EOFError]))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
+            json=[
+                {'organization_name': 'fake_org', 'project_name': 'myproject'},
+                {'organization_name': 'fake_org', 'project_name': 'otherproject'},
+            ],
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/write-tokens/',
+            [create_project_response],
+        )
+
+        main(['projects', 'use'])
+
+        assert prompt_mock.mock_calls == [
+            call(
+                (
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
+                    '1. fake_org/myproject\n'
+                    '2. fake_org/otherproject\n'
+                ),
+                choices=['1', '2'],
+                default='1',
+            )
         ]
 
         output = capsys.readouterr().err
@@ -2470,6 +3965,7 @@ def test_gateway_cli_adapter_exits_for_launch(monkeypatch: pytest.MonkeyPatch) -
         return 0
 
     monkeypatch.setattr(gateway_cli, '_run_launch', run_launch)
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'https://logfire.example.com')
 
     with pytest.raises(SystemExit) as exc_info:
         main(['--region', 'eu', 'gateway', 'launch', 'claude'])
@@ -2499,6 +3995,30 @@ def test_gateway_cli_adapter_exits_for_serve(monkeypatch: pytest.MonkeyPatch) ->
 
     assert exc_info.value.code == 130
     assert calls == [([], gateway_cli.GatewayCommandContext(raw_args=['serve'], region=None, logfire_url=None))]
+
+
+def test_gateway_cli_uses_logfire_base_url_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], gateway_cli.GatewayCommandContext]] = []
+
+    def run_launch(raw_args: list[str], context: gateway_cli.GatewayCommandContext) -> int:
+        calls.append((raw_args, context))
+        return 0
+
+    monkeypatch.setenv('LOGFIRE_BASE_URL', 'https://logfire.example.com')
+    monkeypatch.setattr(gateway_cli, '_run_launch', run_launch)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['gateway', 'launch', 'claude'])
+
+    assert exc_info.value.code == 0
+    assert calls == [
+        (
+            ['claude'],
+            gateway_cli.GatewayCommandContext(
+                raw_args=['launch', 'claude'], region=None, logfire_url='https://logfire.example.com'
+            ),
+        )
+    ]
 
 
 def test_gateway_optional_dependency_error(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -962,7 +962,7 @@ class Logfire:
     ) -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/python/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -3040,7 +3040,7 @@ class Logfire:
 
         This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
         exposed in the frontend code.
-        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
         for more details.
 
         We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
@@ -3078,7 +3078,7 @@ class Logfire:
 
         This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
         exposed in the frontend code.
-        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
         for more details.
 
         We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
