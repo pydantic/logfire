@@ -44,7 +44,7 @@ If you need a provider that is not listed here, contact [support@pydantic.dev](m
 
 1. Log in to Logfire and switch to your **Enterprise Cloud organization**.
 2. Go to **Settings** in the left-hand menu.
-3. Scroll down to the **Identity Providers** section.
+3. Select **Single sign-on**.
 4. Note the **Redirect URI** shown. You will need this when configuring the Azure app.
 
 ---
@@ -82,7 +82,7 @@ From your app registration, gather the following:
 
 ## Step 5: Configure the OIDC Provider in Logfire
 
-1. Return to **Logfire** → **Organization Settings** → **Identity Providers**.
+1. Return to **Logfire** → **Settings** → **Single sign-on**.
 2. Click **Add OIDC Provider** and select **Azure** (Microsoft Entra ID).
 3. Fill in the fields:
    - **Client ID**: your Azure Client ID
@@ -133,7 +133,7 @@ During the transition, existing login methods (e.g., Google, GitHub) remain acti
 
 Once your team has successfully migrated to Entra ID SSO:
 
-- You can **disconnect** individual login methods from **Organization Settings** → **Identity Providers**.
+- You can **disconnect** individual login methods from **Settings** → **Single sign-on**.
 - Advise team members to use the SSO login URL going forward. If other providers are still enabled, users may inadvertently log in with their personal accounts instead.
 
 ### Linking Accounts for Existing Users
@@ -154,7 +154,7 @@ Users who joined the organization before SSO was configured need to connect thei
 
 | Step | Action |
 |---|---|
-| 1 | Copy the Redirect URI from Logfire Organization Settings |
+| 1 | Copy the Redirect URI from Logfire Settings → Single sign-on |
 | 2 | Create a **Web** app registration in Azure Entra ID with that Redirect URI |
 | 3 | Generate a Client Secret in Azure |
 | 4 | Collect Client ID, Client Secret, and Tenant ID |

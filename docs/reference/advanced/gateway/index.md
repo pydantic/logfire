@@ -7,6 +7,9 @@ description: "Route LLM calls through a single Logfire-managed endpoint with bui
 
 The Logfire AI Gateway lets you route LLM calls through a single endpoint with built-in spending limits, fallbacks, and usage tracking. Instead of scattering provider API keys across your applications, you point your existing SDKs (OpenAI, Anthropic, Google GenAI, Pydantic AI, or plain HTTP) at the gateway and authenticate with a gateway API key that you manage in Logfire.
 
+!!! note
+    The gateway is for **routing** your model calls. If you only want to **see and debug** the calls you already make, you don't need it: [instrument a framework](../../../integrations/llms/index.md) instead.
+
 The gateway gives you:
 
 - **One endpoint, many providers**: call OpenAI, Anthropic, Google, AWS Bedrock, Groq, Mistral, and more through provider-compatible endpoints, using the SDKs you already have.
@@ -157,6 +160,9 @@ The Logfire CLI can run a local authenticating proxy and launch supported AI cod
 pip install "logfire[gateway]"
 logfire gateway launch claude
 ```
+
+!!! note
+    For self-hosted Logfire, set `LOGFIRE_BASE_URL` to your Logfire URL or pass `--base-url "https://<your-logfire-host>"` before `gateway`. If the Gateway is exposed at a different URL, set `LOGFIRE_GATEWAY_URL` or append `--gateway-url "https://<your-gateway-host>"`.
 
 Or run just the proxy and configure a tool manually with `logfire gateway serve`. See the [CLI reference](../../cli.md#ai-gateway-gateway) for details.
 

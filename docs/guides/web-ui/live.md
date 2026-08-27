@@ -4,7 +4,7 @@ description: "Use Logfire Live View to watch traces and logs in real time. Pivot
 ---
 # Live View
 
-The live view is the focal point of **Logfire**, where you can see traces arrive in real-time.
+The <OpenInLogfire path="" variant="inline" label="live view" /> is the focal point of **Logfire**, where you can see traces arrive in real-time.
 
 The live view is useful for watching what's going on within your application in real-time (as the name suggests). You can also explore historical data in the **search pane**.
 
@@ -25,7 +25,7 @@ As the greyed out `SELECT * FROM RECORDS WHERE` implies, you're searching inside
 It has auto-complete & schema hints, so try typing something to get a reminder. To run your query click `Run` or
 keyboard shortcut `cmd+enter` (or `ctrl+enter` on Windows/Linux).
 
-Note: you can run more complex queries on the [explore screen](explore.md)
+Note: you can run more complex queries in [SQL Workbench](explore.md).
 
 The records table fields are documented in the [SQL reference](../../reference/sql.md).
 

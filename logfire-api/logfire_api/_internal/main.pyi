@@ -1,5 +1,6 @@
 import anthropic
 import httpx
+import httpx2
 import openai
 import opentelemetry.trace as trace_api
 import pydantic_ai
@@ -401,7 +402,7 @@ class Logfire:
     def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/python/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -481,9 +482,9 @@ class Logfire:
                 Exclude specific modules from instrumentation.
         """
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -712,9 +713,9 @@ class Logfire:
             kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
         """
     @overload
-    def instrument_httpx(self, client: httpx.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.Client | httpx2.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.AsyncClient | httpx2.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_httpx(self, client: None = None, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, async_request_hook: HttpxAsyncRequestHook | None = None, async_response_hook: HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     def instrument_celery(self, **kwargs: Any) -> None:
@@ -1220,15 +1221,16 @@ class Logfire:
     @overload
     def template_var(self, name: str, *, type: type[T], default: T | ResolveFunction[T], inputs_type: type[InputsT], description: str | None = None, template_mismatch_policy: TemplateMismatchPolicy | None = None) -> TemplateVariable[T, InputsT]: ...
     def variables_clear(self) -> None:
-        """Clear all registered variables from this Logfire instance.
+        """Clear all variables registered with this Logfire instance's config.
 
         This removes all variables previously registered via [`var()`][logfire.Logfire.var]
-        or [`template_var()`][logfire.Logfire.template_var],
-        allowing them to be re-registered. This is primarily intended for use in tests
-        to ensure a clean state between test cases.
+        or [`template_var()`][logfire.Logfire.template_var] on this instance or any
+        [`with_settings()`][logfire.Logfire.with_settings] sibling that shares its config,
+        allowing them to be re-registered. This is primarily intended for use in tests to
+        ensure a clean state between test cases.
         """
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
-        """Get all variables registered with this Logfire instance."""
+        """Get all variables registered with this Logfire instance's config."""
     def variables_push(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
         """Push variable definitions (metadata only) to the configured variable provider.
 
@@ -1242,7 +1244,8 @@ class Logfire:
 
         Args:
             variables: Variable instances to push. If None, all variables
-                registered with this Logfire instance will be pushed.
+                registered with this Logfire instance's config will be pushed, including
+                variables registered on `with_settings()` siblings.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, fail if any existing label values are incompatible with new schemas
@@ -1332,7 +1335,8 @@ class Logfire:
 
         Args:
             variables: Variable instances to validate. If None, all variables
-                registered with this Logfire instance will be validated.
+                registered with this Logfire instance's config will be validated, including
+                variables registered on `with_settings()` siblings.
 
         Returns:
             A ValidationReport containing any errors found. Use `report.is_valid` to check
@@ -1412,7 +1416,9 @@ class Logfire:
         No labels or versions are created - use this to build a template config that can be edited.
 
         Args:
-            variables: Variable instances to include. If None, uses all registered variables.
+            variables: Variable instances to include. If None, uses all variables registered
+                with this Logfire instance\'s config, including variables registered on
+                `with_settings()` siblings.
 
         Returns:
             A VariablesConfig with minimal configs for each variable.
@@ -1437,7 +1443,7 @@ class Logfire:
 
         This is for proxying telemetry from a browser to Logfire so that the write token doesn\'t need to be
         exposed in the frontend code.
-        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
         for more details.
 
         We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
@@ -1450,7 +1456,7 @@ class Logfire:
                 If the body exceeds this size, the response will be a 413, rejecting the payload.
 
         Returns:
-            A `ForwardExportRequestResponse` containing the repsonse status code, body, and headers.
+            A `ForwardExportRequestResponse` containing the response status code, body, and headers.
         '''
     async def forward_export_request_starlette(self, request: Request, *, max_body_size: int = ...) -> Response:
         """Forward an OpenTelemetry export request to the Logfire backend.
@@ -1460,7 +1466,7 @@ class Logfire:
 
         This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
         exposed in the frontend code.
-        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
         for more details.
 
         We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.

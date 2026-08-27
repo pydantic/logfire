@@ -12,10 +12,11 @@ async def main():
 
 
 async def bar():
-    await foo()
-    mock_block()
-    mock_block()
-    await asyncio.create_task(foo(), name='foo 2')
+    with logfire.span('in bar'):
+        await foo()
+        mock_block()
+        mock_block()
+        await asyncio.create_task(foo(), name='foo 2')
     mock_block()
     mock_block()
     mock_block()

@@ -16,7 +16,7 @@ def instrument_pydantic_ai(
     obj: Agent | Model | None,
     include_binary_content: bool | None,
     include_content: bool | None,
-    version: Literal[1, 2, 3] | None,
+    version: Literal[1, 2, 3, 4, 5] | None,
     event_mode: Literal['attributes', 'logs'] | None,
     **kwargs: Any,
 ) -> None | InstrumentedModel:

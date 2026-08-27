@@ -73,13 +73,14 @@ Both variants include the following metrics:
 
 To enable a standard dashboard:
 
-1. Go to the **Dashboards** tab in the top navigation bar.
+1. Open <OpenInLogfire path="dashboards" variant="inline" label="Dashboards" /> for your project.
 2. Click the **+ Dashboard** button.
-3. Browse the list of available dashboards under the **Standard** tab.
-![Standard dashboards](../../images/guide/browser-standard-dashboards-list.png)
+3. Browse the available dashboards under the **Agents**, **Infrastructure**, and **Logfire** tabs.
 4. Click **Enable dashboard** to add it to your project.
 
 You can view and interact with standard dashboards, but you cannot edit them.
+
+To enable dashboards and alerts for infrastructure services such as Redis, PostgreSQL, and Kafka, select **Integrations** under **Misc** in your project's sidebar. Choose the service, then select **Install**. See [Integrations](integrations.md) for setup, detection, and alert configuration.
 
 ### Using a Standard Dashboard as a Template
 
@@ -147,12 +148,7 @@ To configure a chart:
 
 ### Variables
 
-You can define variables to make dashboards dynamic.
-
-#### Variable Types
-
-* **Text variable**: Allows users to enter any string value.
-* **List variable**: Allows users to select a value from a predefined list.
+Variables let you change what a dashboard shows without editing its queries. You define a variable once, reference it in your SQL queries as `$variable_name`, and Logfire adds a selector for it to the top of the dashboard.
 
 To add variables to a custom dashboard:
 
@@ -161,7 +157,41 @@ To add variables to a custom dashboard:
 3. Click **+ Add variable**.
 4. Define and configure your variables.
 
-Once defined, variables can be referenced in SQL queries using the format `$your_variable_name`
+<!-- TODO screenshot: dashboard toolbar with variable selectors, ideally one multiple-value dropdown with All selected -->
+
+Each variable has a **Name** (how you reference it in queries), plus an optional **Display Label** and **Description** shown on its selector. There are two variable types:
+
+* **Text variable**: viewers type any value into a text field. Check **Constant** to make the field read-only. This is useful for a value you reference in several queries and want to change in one place.
+* **List variable**: viewers pick from a dropdown of options.
+
+#### List variables
+
+The **Source** setting controls where a list variable's options come from:
+
+* **Static List Variable**: options you type in by hand. Paste a comma-separated list to add several values at once.
+* **Logfire Query List Variable**: options are loaded from a SQL query against your data. The query must return exactly one column, and each distinct non-null value becomes an option.
+* **Time Bucket Variable**: time intervals derived from the dashboard's time range. This source powers the built-in [`$resolution`](#resolution-variable) variable, and you'll rarely need to create one yourself.
+
+<!-- TODO screenshot: variable editor form with the Source dropdown open, showing all three sources -->
+
+A query source keeps the dropdown in sync with your data automatically. For example, if your metrics record a `tenant_id` attribute, this query fills the dropdown with every tenant ID captured on the `api.requests` metric:
+
+```sql
+SELECT DISTINCT attributes->>'tenant_id'
+FROM metrics
+WHERE metric_name = 'api.requests' AND attributes->>'tenant_id' IS NOT NULL
+ORDER BY 1
+```
+
+!!! note
+    A list variable's selector stays hidden in the dashboard toolbar until it has more than one option, so a query that returns zero or one value won't show a dropdown.
+
+List variables have a few more settings:
+
+* **Allow Multiple Values**: viewers can select several options at once. The variable then resolves to a list of values in SQL, which changes how you compare it: see [using variables in queries](#using-variables-in-queries).
+* **Allow All option**: adds an **All** entry to the dropdown. By default, selecting **All** fills the variable with every option in the list. Tick **Use Custom All Value** to send a fixed placeholder string instead: the query pattern for this is also covered in [using variables in queries](#using-variables-in-queries).
+* **Capturing Regexp Filter**: a regular expression that transforms the options *after they load.* The expression must contain at least one capturing group (a part of the pattern wrapped in parentheses). An option is kept only if it matches, and its value is replaced by the captured text. For example, with the options `api-prod`, `web-prod`, and `api-staging`, the filter `(.*)-prod` produces the options `api` and `web`.
+* **Sort**: order the options alphabetically or numerically, ascending or descending. By default, options keep the order they were loaded in.
 
 #### Panel variables
 
@@ -175,6 +205,68 @@ To add a variable to a panel:
 4. Save the variable, then save the panel.
 
 Panel variables are referenced in the panel's SQL with the same `$your_variable_name` syntax. If a panel variable has the same name as a dashboard variable, the panel variable takes precedence for that panel's queries. The variable definition is saved with the panel, so the selector persists across reloads.
+
+#### Using variables in queries
+
+Reference a variable anywhere in a panel's SQL query as `$variable_name`, or `${variable_name}` if the name would otherwise run into the text after it:
+
+```sql
+SELECT count() FROM records WHERE service_name = $service_name
+```
+
+Write the variable bare, without quotes. Logfire sends the selected value separately from the query and inserts it as a properly quoted SQL value. Writing `'$service_name'` in quotes would search for the literal text `$service_name` instead.
+
+A variable with **Allow Multiple Values** enabled resolves to a list of values rather than a single one. Compare it with `= ANY(...)` instead of `=`:
+
+```sql
+SELECT count() FROM records WHERE service_name = ANY($service_name)
+```
+
+When a viewer selects **All** on a multiple-value variable, it resolves to the list of every option, so the `ANY` comparison above matches all of them.
+
+For a single-value variable, **All** needs different handling: a list of every option can't be compared with `=`, and the query fails. Instead, tick **Use Custom All Value**, set **Custom All Value** to a placeholder string that will never appear in your data, and write the query to skip the filter when it sees that placeholder:
+
+```sql
+SELECT count()
+FROM records
+WHERE (service_name = $service_name OR $service_name = 'all-values')
+```
+
+Variables can only be used in SQL queries. They cannot be used in chart titles or other non-query fields.
+
+Tick **Show rendered query** in the panel editor to see the query with all variable values filled in. This is useful for copying a query somewhere variables don't exist, like the [SQL Workbench](explore.md).
+
+### Built-in variables
+
+Every dashboard provides some variables automatically. You can use them in any dashboard query without defining anything.
+
+#### Resolution variable
+
+All dashboards have access to a special `$resolution` variable that holds a time interval, like `1 minute`, matched to the dashboard's time range. Use it to group timestamps into buckets for time series charts:
+
+```sql
+SELECT
+  time_bucket($resolution, start_timestamp) AS x,
+  count(1) as count
+FROM records
+GROUP BY x;
+```
+
+By default the resolution is picked automatically to balance detail against query cost, and it adjusts as the time range changes. Viewers can select a fixed resolution instead with the resolution dropdown in the top left corner of the dashboard.
+
+#### Time range and context variables
+
+These variables describe the dashboard's current time range and where it lives:
+
+| Variable | Value |
+| -------- | ----- |
+| `$__from`, `$__to` | Start and end of the time range, as Unix millisecond timestamps |
+| `$__from_iso_string`, `$__to_iso_string` | Start and end of the time range, as ISO 8601 timestamps in UTC |
+| `$__range` | Length of the time range as human-readable text, e.g. `1 hour` |
+| `$__range_s`, `$__range_ms` | Length of the time range in seconds and in milliseconds |
+| `$__organization`, `$__project` | Names of the current organization and project |
+| `$__dashboard_slug` | The dashboard's URL slug |
+| `$__envs` | The environments selected in the environment filter, as one comma-separated string |
 
 ---
 
@@ -213,30 +305,6 @@ LIMIT 10
 For comprehensive examples, advanced patterns, and chart-specific configuration tips, see the [Writing SQL Queries for Dashboards](../../how-to-guides/write-dashboard-queries.md) guide.
 
 Please also refer to the [SQL Reference](../../reference/sql.md) and [Metrics Schema](../../guides/web-ui/explore.md#metrics-schema) for more information on the data available to you.
-
----
-
-### Variable Usage
-
-You can reference dashboard variables in SQL queries using the `$variable` syntax:
-
-```sql
-SELECT count() FROM records WHERE service_name = $service_name
-```
-
-Variables can only be used in SQL queries. They cannot be used in chart titles or other non-query fields.
-
-### Resolution Variable
-
-All dashboards have access to a special `$resolution` variable that can be used in your queries. This value is dynamically selected based on the dashboard's time duration to ensure optimal performance and data density. You can use it for time bucketing:
-
-```sql
-SELECT
-  time_bucket($resolution, start_timestamp) AS x,
-  count(1) as count
-FROM records
-GROUP BY x;
-```
 
 ---
 

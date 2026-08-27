@@ -1,5 +1,6 @@
 import atexit
 import requests
+from ..constants import HTTP_CONNECT_TIMEOUT as HTTP_CONNECT_TIMEOUT
 from ..utils import logger as logger, platform_is_emscripten as platform_is_emscripten
 from .wrapper import WrapperLogExporter as WrapperLogExporter, WrapperSpanExporter as WrapperSpanExporter
 from _typeshed import Incomplete
@@ -25,6 +26,7 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
+    def request(self, method: str, url: str, **kwargs: Any): ...
     def post(self, url: str, data: bytes, **kwargs: Any): ...
     @cached_property
     def retryer(self) -> DiskRetryer: ...
@@ -60,6 +62,8 @@ class BodyTooLargeError(Exception):
     size: Incomplete
     max_size: Incomplete
     def __init__(self, size: int, max_size: int) -> None: ...
+
+class SuppressedConnectionError(Exception): ...
 
 class QuietSpanExporter(WrapperSpanExporter):
     """A SpanExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""

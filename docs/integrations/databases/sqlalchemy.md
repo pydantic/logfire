@@ -1,9 +1,19 @@
 ---
-title: "Logfire SQLAlchemy Integration & Setup Guide"
-description: "Guide to set up database tracing for SQLAlchemy. Use Logfire to monitor all engine queries, connection pools, and database performance in one unified view."
+title: "Instrument SQLAlchemy: see every database query your app runs"
+description: "See every database query your app runs through SQLAlchemy (the SQL, how long it took, and which ones failed) as spans in Logfire."
 integration: otel
 ---
-The [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy] method will create a span for every query executed by a [SQLAlchemy][sqlalchemy] engine.
+# SQLAlchemy
+
+See every database query your app runs through [SQLAlchemy](https://www.sqlalchemy.org/) in Logfire: the SQL statement, how long it took, and which ones failed. Each query becomes a **span** (one timed step, with a name and a duration), shown nested inside the request that triggered it, so you can spot the slow or failing query behind a slow endpoint.
+
+## What you'll capture
+
+- One span per query, with its duration and status
+- The SQL statement that ran, and the database it ran against
+- Failed queries, with the error
+
+{{ before_you_start() }}
 
 ## Installation
 
@@ -13,11 +23,11 @@ Install `logfire` with the `sqlalchemy` extra:
 
 ## Usage
 
-Let's see a minimal example below. You can run it with `python main.py`:
+Call `logfire.configure()`, then `logfire.instrument_sqlalchemy()` with your engine. A minimal example you can run with `python main.py`:
 
-=== "Instrument a Single Engine"
+=== "One engine"
 
-    ```py title="main.py" skip-run="true" skip-reason="global-state"
+    ```py title="main.py" skip-run="true" skip-reason="global-state" hl_lines="8"
     from sqlalchemy import create_engine
 
     import logfire
@@ -28,9 +38,9 @@ Let's see a minimal example below. You can run it with `python main.py`:
     logfire.instrument_sqlalchemy(engine=engine)
     ```
 
-=== "Instrument Multiple Engines"
+=== "Multiple engines"
 
-    ```py title="main.py" skip-run="true" skip-reason="global-state"
+    ```py title="main.py" skip-run="true" skip-reason="global-state" hl_lines="9"
     from sqlalchemy import create_engine
 
     import logfire
@@ -42,15 +52,27 @@ Let's see a minimal example below. You can run it with `python main.py`:
     logfire.instrument_sqlalchemy(engines=[engine_one, engine_two])
     ```
 
-The keyword arguments of `logfire.instrument_sqlalchemy()` are passed to the `SQLAlchemyInstrumentor().instrument()` method of the OpenTelemetry SQLAlchemy Instrumentation package, read more about it [here][opentelemetry-sqlalchemy].
+!!! warning "Pass your engine explicitly"
+    Prefer the `engine` or `engines` argument. If you don't specify one, `instrument_sqlalchemy()` only works when it's called *before* `sqlalchemy` is imported, in which case it instruments every engine.
 
-!!! warning
-    It's best to use the `engine` or `engines` arguments. If no engine is specified, then `instrument_sqlalchemy` may
-    only work if it's called before `sqlalchemy` is imported, in which case all engines are instrumented.
+!!! tip "Using SQLModel?"
+    [SQLModel](https://sqlmodel.tiangolo.com/) is built on SQLAlchemy, so the same call instruments it.
 
-!!! tip
-    If you use [SQLModel][sqlmodel], you can use the same `SQLAlchemyInstrumentor` to instrument it.
+## Verify it worked
+
+Run a query through your engine, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see a span for the query, with its duration and the SQL it ran, nested under the request span if you've also instrumented your [web framework](../web-frameworks/index.md).
+
+## Troubleshooting
+
+Not seeing queries? Check that `logfire.configure()` ran before `instrument_sqlalchemy()`, that your write token is set, that you passed your `engine` (or `engines`), and that you called the instrument function exactly once.
+
+## Advanced
+
+The keyword arguments of `logfire.instrument_sqlalchemy()` are passed straight to the OpenTelemetry `SQLAlchemyInstrumentor().instrument()` method. See the [OpenTelemetry SQLAlchemy instrumentation][opentelemetry-sqlalchemy] docs for the full option list.
+
+## Reference
+
+- [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy]: the Logfire API reference.
+- [OpenTelemetry SQLAlchemy instrumentation][opentelemetry-sqlalchemy]: the underlying package.
 
 [opentelemetry-sqlalchemy]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/sqlalchemy/sqlalchemy.html
-[sqlalchemy]: https://www.sqlalchemy.org/
-[sqlmodel]: https://sqlmodel.tiangolo.com/

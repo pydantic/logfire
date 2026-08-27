@@ -24,6 +24,7 @@ import logfire
 from logfire import ConsoleOptions
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.exporters.console import (
+    ConsoleLogExporter,
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
@@ -942,6 +943,11 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
             "  {'key': 'value'}",
         ]
     )
+
+
+def test_console_log_exporter_force_flush():
+    exporter = ConsoleLogExporter(SimpleConsoleSpanExporter())
+    assert exporter.force_flush() is True
 
 
 def test_truncated_json(capsys: pytest.CaptureFixture[str]) -> None:

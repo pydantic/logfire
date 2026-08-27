@@ -1,13 +1,12 @@
 ---
-title: Pydantic Logfire Integrations
-description: "Overview of Pydantic Logfire integrations for LLM Clients & AI Frameworks by OpenAI, Anthropic, LangChain, etc., as well as web frameworks, databases & more."
+title: "Integrations: instrument the libraries you already use"
+description: "Browse Logfire integrations for LLM clients, AI frameworks and platforms, web frameworks, databases, and more."
 ---
 # Integrations
 
-**Pydantic Logfire** supports first-class integration with many popular Python packages using a single `logfire.instrument_<package>()`
-function call. Each of these should be called exactly once after [`logfire.configure()`][logfire.configure].
+Instrument the libraries you already use (your web framework, database driver, HTTP client, LLM SDK) and their work shows up in Logfire automatically, as **spans** (one unit of work: a single operation, with a name, a start, and a duration) nested inside the request that triggered them. You don't add logging by hand; you turn on the integration once and get the **traces** (the full journey of one request, made of nested spans) for free.
 
-For example, to instrument FastAPI and HTTPX, you would do:
+Most integrations are a single `logfire.instrument_<package>()` call, made once after [`logfire.configure()`][logfire.configure]. For example, to instrument FastAPI and HTTPX:
 
 ```python
 from fastapi import FastAPI
@@ -23,16 +22,20 @@ logfire.instrument_httpx()
 # ... your application code here ...
 ```
 
+Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [no-code platforms](no-code/index.md) and [OpenRouter Broadcast](llms/openrouter.md).
+
 If a package you are using is not listed in this documentation, please let us know on our [Slack][slack]!
 
-## Documented Integrations
+## Documented integrations
 
 **Logfire** has documented integrations with many technologies, including:
 
-- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic
+- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, OpenRouter, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic ([grouped under AI](llms/index.md))
+- _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
+- _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
-- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
-- _HTTP Clients_: HTTPX, Requests, AIOHTTP
+- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch
+- _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
 - _Testing_: Pytest
@@ -47,16 +50,29 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [AIOHTTP](http-clients/aiohttp.md)        | HTTP Client             | [`logfire.instrument_aiohttp_client()`,][logfire.Logfire.instrument_aiohttp_client] [`logfire.instrument_aiohttp_server()`][logfire.Logfire.instrument_aiohttp_server] |
 | [Airflow](event-streams/airflow.md)       | Task Scheduler          | N/A (built in, config needed)                                                                                                                                          |
 | [Anthropic](llms/anthropic.md)            | AI                      | [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic]                                                                                               |
+| [Agno](llms/agno.md)                      | AI Agent Framework      | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [AutoGen](llms/autogen.md)                | AI Agent Framework      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] plus native OpenTelemetry                                                                           |
+| [CrewAI](llms/crewai.md)                  | AI Agent Framework      | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [Google ADK](llms/google-adk.md)          | AI Agent Framework      | N/A (native OpenTelemetry support)                                                                                                                                     |
+| [Haystack](llms/haystack.md)              | AI Framework            | N/A (native OpenTelemetry via `opentelemetry-haystack`)                                                                                                                |
+| [Instructor](llms/instructor.md)          | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai]                                                                                                     |
+| [LangGraph](llms/langgraph.md)            | AI Agent Framework      | N/A (built-in OpenTelemetry support)                                                                                                                                   |
+| [Letta](llms/letta.md)                    | AI Agent Framework      | N/A (OpenTelemetry Collector)                                                                                                                                          |
+| [Semantic Kernel](llms/semantic-kernel.md) | AI Agent Framework     | N/A (native OpenTelemetry support)                                                                                                                                     |
+| [smolagents](llms/smolagents.md)          | AI Agent Framework      | N/A (OpenInference instrumentor)                                                                                                                                       |
+| [Strands Agents](llms/strands.md)         | AI Agent Framework      | N/A (native OpenTelemetry support)                                                                                                                                     |
 | [ASGI](web-frameworks/asgi.md)            | Web Framework Interface | [`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi]                                                                                                         |
 | [AWS Lambda](aws-lambda.md)               | Cloud Function          | [`logfire.instrument_aws_lambda()`][logfire.Logfire.instrument_aws_lambda]                                                                                             |
 | [Asyncpg](databases/asyncpg.md)           | Database                | [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg]                                                                                                   |
 | [BigQuery](databases/bigquery.md)         | Database                | N/A (built in, no config needed)                                                                                                                                       |
 | [Celery](event-streams/celery.md)         | Task Queue              | [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery]                                                                                                     |
 | [Django](web-frameworks/django.md)        | Web Framework           | [`logfire.instrument_django()`][logfire.Logfire.instrument_django]                                                                                                     |
+| [Elasticsearch](databases/elasticsearch.md) | Database              | N/A (native OpenTelemetry support in the client)                                                                                                                       |
 | [FastAPI](web-frameworks/fastapi.md)      | Web Framework           | [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi]                                                                                                   |
 | [FastStream](event-streams/faststream.md) | Task Queue              | N/A (built in, config needed)                                                                                                                                          |
 | [Flask](web-frameworks/flask.md)          | Web Framework           | [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask]                                                                                                       |
 | [HTTPX](http-clients/httpx.md)            | HTTP Client             | [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]                                                                                                       |
+| [HTTPX2](http-clients/httpx2.md)          | HTTP Client             | [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]                                                                                                       |
 | [LangChain](llms/langchain.md)            | AI Framework            | N/A (built-in OpenTelemetry support)                                                                                                                                   |
 | [LlamaIndex](llms/llamaindex.md)          | AI Framework            | N/A (requires LlamaIndex OpenTelemetry package)                                                                                                                        |
 | [LiteLLM](llms/litellm.md)                | AI Gateway              | N/A (requires LiteLLM callback setup)                                                                                                                                  |
@@ -92,9 +108,9 @@ instrumentation package. You can find the list of all OpenTelemetry instrumentat
 Many of the integrations documented in the previous section are based upon the OpenTelemetry instrumentation packages
 with first-class support built into **Logfire**.
 
-## Creating Custom Integrations
+## Creating custom integrations
 
-If you are a maintainer of a package and would like to create an integration for **Logfire**, you can do it! :smile:
+If you are a maintainer of a package and would like to create an integration for **Logfire**, you can do it!
 
 We've created a shim package called `logfire-api`, which can be used to integrate your package with **Logfire**.
 

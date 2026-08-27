@@ -7,6 +7,7 @@ from typing import Any, cast
 import pytest
 from inline_snapshot import snapshot
 
+from logfire._internal.config import LogfireConfigWarning
 from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 
 # This file is intended to be updated by the Logfire developers, with the development platform running locally.
@@ -53,6 +54,15 @@ def test_infers_base_url_from_token(
 ):
     client = client_class(read_token=token)
     assert client.base_url == expected
+
+
+@pytest.mark.parametrize('client_class', [AsyncLogfireQueryClient, LogfireQueryClient])
+def test_infers_base_url_from_unknown_token_region(
+    client_class: type[AsyncLogfireQueryClient | LogfireQueryClient],
+):
+    with pytest.warns(LogfireConfigWarning, match="Unknown region 'unknownregion'"):
+        client = client_class(read_token='pylf_v1_unknownregion_123456')
+    assert client.base_url == 'https://logfire-us.pydantic.dev'
 
 
 def test_info_sync():
@@ -195,7 +205,7 @@ def test_query_arrow_read_sync():
         """
         with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
             arrow_result = client.query_arrow(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
-        assert arrow_result.to_pylist() == snapshot(  # type: ignore
+        assert arrow_result.to_pylist() == snapshot(
             [
                 {
                     'kind': 'log',
@@ -339,7 +349,7 @@ async def test_query_arrow_read_async():
         """
         with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
             arrow_result = await client.query_arrow(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
-        assert arrow_result.to_pylist() == snapshot(  # type: ignore
+        assert arrow_result.to_pylist() == snapshot(
             [
                 {
                     'kind': 'log',

@@ -1,3 +1,4 @@
+from .otlp import SuppressedConnectionError as SuppressedConnectionError
 from .wrapper import WrapperMetricExporter as WrapperMetricExporter
 from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
 from typing import Any

@@ -33,7 +33,7 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
-from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
+from opentelemetry.sdk._logs import Logger as SDKLogger, LoggerProvider as SDKLoggerProvider, LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
@@ -54,7 +54,12 @@ from opentelemetry.sdk.metrics import (
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
-from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace import (
+    SpanProcessor,
+    SynchronousMultiSpanProcessor,
+    Tracer as SDKTracer,
+    TracerProvider as SDKTracerProvider,
+)
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
@@ -62,7 +67,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack, assert_type
 
-from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
+from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
@@ -110,6 +115,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
+from .interactive import ask_or_default, ask_required, require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
@@ -128,6 +134,7 @@ if TYPE_CHECKING:
     from typing import TextIO
 
     from logfire.variables import VariablesConfig
+    from logfire.variables.variable import TemplateVariable, Variable
 
     from .main import Logfire
 
@@ -269,11 +276,16 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_RESOURCE_DETECTORS` environment variable (a comma-separated list of names).
     """
 
-    def generate_base_url(self, token: str) -> str:
+    def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
+        """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
+
+        Unknown regions warn by default. The background credential check opts out because the
+        synchronous exporter setup has already emitted the same warning.
+        """
         if self.base_url is not None:
             return self.base_url
 
-        return get_base_url_from_token(token)
+        return get_base_url_from_token(token, warn_unknown_region=warn_unknown_region)
 
 
 @dataclass
@@ -561,7 +573,7 @@ def configure(
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
+            [f-string magic](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
@@ -954,6 +966,56 @@ class _LogfireConfigData:
         self.metrics = metrics
 
 
+def _register_at_fork_resource_updates(
+    proxy_tracer_provider: ProxyTracerProvider,
+    proxy_meter_provider: ProxyMeterProvider,
+    proxy_logger_provider: ProxyLoggerProvider,
+) -> None:
+    if not hasattr(os, 'register_at_fork'):  # pragma: no cover
+        return
+
+    proxy_tracer_provider_ref = weakref.ref(proxy_tracer_provider)
+    proxy_meter_provider_ref = weakref.ref(proxy_meter_provider)
+    proxy_logger_provider_ref = weakref.ref(proxy_logger_provider)
+
+    @handle_internal_errors
+    def fix_pid():
+        proxy_tracer_provider = proxy_tracer_provider_ref()
+        proxy_meter_provider = proxy_meter_provider_ref()
+        proxy_logger_provider = proxy_logger_provider_ref()
+        if not proxy_tracer_provider or not proxy_meter_provider or not proxy_logger_provider:
+            return
+
+        pid_resource = Resource({'process.pid': os.getpid()})
+
+        # This callback runs before OpenTelemetry resets its locks, so update the same backing state as its
+        # lock-taking `_update_resource` methods without acquiring inherited locks. Tests snapshot those methods
+        # so that changes to these private implementation details are caught when OpenTelemetry is upgraded.
+        tracer_provider = proxy_tracer_provider.provider
+        if isinstance(tracer_provider, SDKTracerProvider):
+            new_resource = tracer_provider.resource.merge(pid_resource)
+            tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+            for proxy_tracer in proxy_tracer_provider.tracers:
+                if isinstance(proxy_tracer.tracer, SDKTracer):
+                    proxy_tracer.tracer.resource = new_resource
+
+        meter_provider = proxy_meter_provider.provider
+        if isinstance(meter_provider, MeterProvider):
+            meter_provider._sdk_config.resource = meter_provider._sdk_config.resource.merge(  # pyright: ignore[reportPrivateUsage]
+                pid_resource
+            )
+
+        logger_provider = proxy_logger_provider.provider
+        if isinstance(logger_provider, SDKLoggerProvider):
+            new_resource = logger_provider.resource.merge(pid_resource)
+            logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+            for proxy_logger in proxy_logger_provider.loggers:
+                if isinstance(proxy_logger.logger, SDKLogger):
+                    proxy_logger.logger._resource = new_resource  # pyright: ignore[reportPrivateUsage]
+
+    os.register_at_fork(after_in_child=fix_pid)
+
+
 class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
@@ -1018,7 +1080,9 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
+        _register_at_fork_resource_updates(self._tracer_provider, self._meter_provider, self._logger_provider)
         self._otlp_forwarding = OTLPForwardingManager([])
+        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -1435,6 +1499,8 @@ class LogfireConfig(_LogfireConfigData):
                     resource=resource,
                     views=self.metrics.views,
                 )
+                # For easy testing
+                meter_provider._logfire_metric_readers = metric_readers  # type: ignore
                 for reader in metric_readers:
                     with suppress(Exception):
                         # Prevent metric readers from recording metrics about themselves which just adds noise.
@@ -1443,17 +1509,6 @@ class LogfireConfig(_LogfireConfigData):
                         reader._metrics = type(reader._metrics)('', NoOpMeterProvider())  # type: ignore
             else:
                 meter_provider = NoOpMeterProvider()
-
-            if hasattr(os, 'register_at_fork'):  # pragma: no branch
-
-                def fix_pid():  # pragma: no cover
-                    with handle_internal_errors:
-                        new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
-                        tracer_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-                        meter_provider._resource = new_resource  # pyright: ignore[reportAttributeAccessIssue]
-                        logger_provider._resource = new_resource  # pyright: ignore[reportPrivateUsage]
-
-                os.register_at_fork(after_in_child=fix_pid)
 
             # we need to shut down any existing providers to avoid leaking resources (like threads)
             # but if this takes longer than 100ms you should call `logfire.shutdown` before reconfiguring
@@ -1481,10 +1536,8 @@ class LogfireConfig(_LogfireConfigData):
                         'Remote variables require an API key. '
                         'Set the LOGFIRE_API_KEY environment variable or pass api_key to logfire.configure().'
                     )
-                # Determine base URL: prefer config, then advanced settings, then infer from token
-                base_url = self.advanced.base_url or get_base_url_from_token(self.api_key)
                 self._variable_provider = LogfireRemoteVariableProvider(
-                    base_url=base_url,
+                    base_url=self.advanced.generate_base_url(self.api_key),
                     token=self.api_key,
                     options=self.variables,
                     server_response_hook=self.advanced.server_response_hook,
@@ -1497,6 +1550,7 @@ class LogfireConfig(_LogfireConfigData):
             )
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
+
             self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
@@ -1663,9 +1717,8 @@ class LogfireConfig(_LogfireConfigData):
             from logfire.variables.remote import LogfireRemoteVariableProvider
 
             options = VariablesOptions()
-            base_url = self.advanced.base_url or get_base_url_from_token(api_key)
             provider = LogfireRemoteVariableProvider(
-                base_url=base_url,
+                base_url=self.advanced.generate_base_url(api_key),
                 token=api_key,
                 options=options,
                 server_response_hook=self.advanced.server_response_hook,
@@ -1687,7 +1740,13 @@ class LogfireConfig(_LogfireConfigData):
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
         install_logfire_response_hook(session, self.advanced.server_response_hook)
-        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
+        # This runs in the background `check_logfire_token` thread, where a warning would be
+        # attributed to the thread rather than to the user's `configure()` call and so wouldn't
+        # be deduplicated against it. The synchronous exporter setup already warns for every
+        # token in the same list, so stay silent here.
+        return LogfireCredentials.from_token(
+            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+        )
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -1990,17 +2049,23 @@ class LogfireCredentials:
                     'No projects found for the current user. You can create a new project with `logfire projects new`'
                 )
                 return None
-            elif (
-                Prompt.ask(
-                    f'No {project_message} found for the current user{org_message}. Choose from all projects?',
-                    choices=['y', 'n'],
-                    default='y',
+            else:
+                require_answer(
+                    f'No {project_message} found for the current user{org_message}.',
+                    'logfire projects use PROJECT_NAME --org ORGANIZATION',
                 )
-                == 'n'
-            ):
-                # user didn't want to expand search, print a hint and quit
-                console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
-                return None
+                expand_search = ask_or_default(
+                    lambda: Prompt.ask(
+                        f'No {project_message} found for the current user{org_message}. Choose from all projects?',
+                        choices=['y', 'n'],
+                        default='y',
+                    ),
+                    'y',
+                )
+                if expand_search == 'n':
+                    # user didn't want to expand search, print a hint and quit
+                    console.print(f'You can create a new project{org_message} with `logfire projects new{org_flag}`')
+                    return None
             # try all projects
             filtered_projects = projects
             organization = None
@@ -2022,10 +2087,17 @@ class LogfireCredentials:
             project_choices_str = '\n'.join(
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
             )
-            selected_project_key = Prompt.ask(
-                f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
-                choices=list(project_choices.keys()),
-                default='1',
+            require_answer(
+                f'Several projects are available:\n{project_choices_str}',
+                'logfire projects use PROJECT_NAME --org ORGANIZATION',
+            )
+            selected_project_key = ask_or_default(
+                lambda: Prompt.ask(
+                    f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
+                    choices=list(project_choices.keys()),
+                    default='1',
+                ),
+                '1',
             )
             project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
             organization = project_info_tuple[0]
@@ -2072,38 +2144,110 @@ class LogfireCredentials:
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
                 else:
-                    organization = Prompt.ask(
-                        '\nTo create and use a new project, please provide the following information:\n'
-                        'Select the organization to create the project in',
-                        choices=organizations,
-                        default=user_default_organization_name or organizations[0],
+                    require_answer(
+                        'Several organizations are available and none was selected: ' + ', '.join(organizations),
+                        'logfire projects new PROJECT_NAME --org ORGANIZATION',
+                        'logfire projects new PROJECT_NAME --default-org',
+                    )
+                    org_default = user_default_organization_name or organizations[0]
+                    organization = ask_or_default(
+                        lambda: Prompt.ask(
+                            '\nTo create and use a new project, please provide the following information:\n'
+                            'Select the organization to create the project in',
+                            choices=organizations,
+                            default=org_default,
+                        ),
+                        org_default,
                     )
             else:
                 organization = organizations[0]
                 if not default_organization:
-                    confirm = Confirm.ask(
-                        f'The project will be created in the organization "{organization}". Continue?', default=True
+                    # Creating a project is a side effect, so this is never assumed --
+                    # `--default-org` is how a caller says yes ahead of time.
+                    require_answer(
+                        f'This would create a project in the organization "{organization}".',
+                        f'logfire projects new PROJECT_NAME --org {organization}',
+                        'logfire projects new PROJECT_NAME --default-org',
+                    )
+                    confirm = ask_or_default(
+                        lambda: Confirm.ask(
+                            f'The project will be created in the organization "{organization}". Continue?',
+                            default=True,
+                        ),
+                        True,
                     )
                     if not confirm:
                         sys.exit(1)
 
         project_name_default: str = default_project_name()
         project_name_prompt = 'Enter the project name'
+        name_rejected = False
+
+        # The organization is settled by this point -- every branch above either kept the
+        # one that was passed or assigned one -- so the suggestion can name it outright.
+        # Suggestions must carry it: a bare `projects new PROJECT_NAME` handed to someone
+        # who passed `--org` stops at the prompt they had already answered.
+        #
+        # Always `--org <name>`, never `--default-org`, even when that is how the
+        # organization was chosen. Naming it explicitly reproduces the same result either
+        # way, and it cannot go wrong when BOTH flags were passed -- where `--default-org`
+        # would send the retry to the default organization rather than the requested one.
+        def name_remedy(name: str) -> str:
+            """A runnable `projects new`, carrying the organization already settled on."""
+            return f'logfire projects new {name} --org {organization}'
+
+        def ask_project_name(prompt: str) -> str:
+            """Ask for a project name, falling back to `project_name_default` on EOF.
+
+            Unless it is the `...` sentinel, in which case there is no safe name to fall
+            back on (see the comment below), so an exhausted stdin gets the same
+            `NonInteractiveError` guidance `--non-interactive` would rather than silently
+            creating a project called Ellipsis.
+            """
+            if project_name_default is ...:  # pyright: ignore[reportUnnecessaryComparison]  # it really can be
+                return ask_required(
+                    lambda: Prompt.ask(prompt, default=project_name_default),
+                    prompt.strip(),
+                    name_remedy('PROJECT_NAME'),
+                )
+            return ask_or_default(lambda: Prompt.ask(prompt, default=project_name_default), project_name_default)
+
         while True:
-            project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
+            if not project_name:
+                # `project_name_prompt` carries WHY a name is being asked for -- it is
+                # rewritten below when the backend rejects one -- so the refusal repeats
+                # the real reason rather than the generic "none was given".
+                #
+                # Once a name has been rejected there is no good name to suggest: the
+                # default WAS the rejected one, and `project_name_default` is set to `...`
+                # on that path, so suggesting it produces `logfire projects new Ellipsis`
+                # -- which runs, and creates a project called Ellipsis.
+                require_answer(
+                    project_name_prompt.strip(),
+                    name_remedy('PROJECT_NAME' if name_rejected else project_name_default),
+                )
+            project_name = project_name or ask_project_name(project_name_prompt)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
-                project_name = Prompt.ask(
+                # A name that was SUPPLIED and is malformed skips the guard above, so
+                # without this the recovery prompt below reads stdin and hangs.
+                require_answer(
+                    f'The project name {project_name!r} is invalid: it may contain lowercase '
+                    'alphanumeric characters and single hyphens, and may not start or end with '
+                    'a hyphen.',
+                    name_remedy('PROJECT_NAME'),
+                )
+                project_name = ask_project_name(
                     "\nThe project name you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
                     '  * may contain single hyphens\n'
                     '  * may not start or end with a hyphen\n\n'
-                    'Enter the project name you want to use:',
-                    default=project_name_default,
+                    'Enter the project name you want to use:'
                 )
 
             try:
                 project = client.create_new_project(organization, project_name)
             except ProjectAlreadyExists:
+                name_rejected = True
                 project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
@@ -2111,6 +2255,7 @@ class LogfireCredentials:
                 project_name = None
                 continue
             except InvalidProjectName as exc:
+                name_rejected = True
                 project_name_default = ...  # pyright: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
@@ -2146,7 +2291,12 @@ class LogfireCredentials:
 
         projects = client.get_user_projects()
         if projects:
-            use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
+            # `default=True` already says what "no answer" means, same as a real person
+            # pressing Enter would give -- an exhausted stdin gets that same outcome
+            # rather than an EOFError traceback (see `ask_or_default`).
+            use_existing_projects = ask_or_default(
+                lambda: Confirm.ask('Do you want to use one of your existing projects? ', default=True), True
+            )
             if use_existing_projects:  # pragma: no branch
                 credentials = cls.use_existing_project(client=client, projects=projects)
 
@@ -2155,10 +2305,17 @@ class LogfireCredentials:
 
         try:
             result = cls(**credentials, logfire_api_url=client.base_url)
-            Prompt.ask(
-                f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
-                'Press Enter to continue'
-            )
+            # This prompt exists to give a person a beat before moving on -- nothing is
+            # done with the answer either way. When there is no one to press the key,
+            # there is no beat to give, so an exhausted stdin just continues rather than
+            # raising an EOFError traceback after the project was already created.
+            try:
+                Prompt.ask(
+                    f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
+                    'Press Enter to continue'
+                )
+            except EOFError:
+                pass
             return result
         except TypeError as e:  # pragma: no cover
             raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
@@ -2193,11 +2350,18 @@ def _get_creds_file(creds_dir: Path) -> Path:
     return creds_dir / CREDENTIALS_FILENAME
 
 
-def get_base_url_from_token(token: str) -> str:
-    """Get the base API URL from the token's region."""
+def get_base_url_from_token(token: str, warn_unknown_region: bool = True) -> str:
+    """Get the base API URL from the token's region.
+
+    Args:
+        token: The Logfire token to read the region from.
+        warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
+            unrecognised and the US region is used as a fallback. This is on by default for every
+            caller; disable it only when the same token has already produced the warning.
+    """
     # default to US for tokens that were created before regions were added:
     region = 'us'
-    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
+    if match := LOGFIRE_TOKEN_REGION_PATTERN.match(token):
         region = match.group('region')
 
         if region == 'stagingus':
@@ -2206,6 +2370,12 @@ def get_base_url_from_token(token: str) -> str:
             return 'https://logfire-eu.pydantic.info'
 
         if region not in REGIONS:
+            if warn_unknown_region:
+                warn_at_user_stacklevel(
+                    f'Unknown region {region!r} in Logfire token, falling back to the US region. '
+                    f'Known regions: {", ".join(sorted(REGIONS))}.',
+                    category=LogfireConfigWarning,
+                )
             region = 'us'
 
     return REGIONS[region]['base_url']

@@ -20,7 +20,7 @@ OpenTelemetry Collector, which will then forward the data to AWS S3.
 
 The pattern this page sets up is **dual-export**: every span, metric, and log is sent to *both* Logfire and S3 from the same Collector pipeline.
 
-- **Logfire** is your live querying surface. The UI, dashboards, alerts, and the Explore page all read from Logfire's backend.
+- **Logfire** is your live querying surface. The UI, dashboards, alerts, and SQL Workbench all read from Logfire's backend.
 - **S3** is the cold archive. Objects sit there cheaply for as long as your bucket policy keeps them, and you reach for them only when you need to audit, replay, or analyze data older than Logfire's retention window.
 
 You do not query S3 live. When you need archived data, you spin up a second Collector with the [`awss3receiver`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awss3receiver) and replay a time range into whatever destination you want: for example, back into Logfire under a different project, into a local file, or into another OTel-compatible tool.

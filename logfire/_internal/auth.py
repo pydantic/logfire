@@ -24,7 +24,16 @@ HOME_LOGFIRE = Path.home() / '.logfire'
 DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 """File used to store user tokens."""
 
+_DEVICE_FLOW_TIMEOUT = 15
+"""Timeout (in seconds) for both requests in the device authorization flow.
 
+The `wait` endpoint blocks server-side for ~10 seconds while it waits for the user to
+authenticate, so this is a snug bound around that rather than a general-purpose HTTP timeout.
+Both halves of the flow use it so they can't drift apart.
+"""
+
+
+LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
 PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
     r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_'
     r'(?:(?P<organization_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_)?)'
@@ -88,14 +97,18 @@ class UserToken:
 
     def __str__(self) -> str:
         region = 'us'
-        if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token):
-            region = match.group('region')
+        token_match = PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token)
+        region_match = token_match or LOGFIRE_TOKEN_REGION_PATTERN.match(self.token)
+        if region_match:
+            region = region_match.group('region')
             if region not in REGIONS:
                 region = 'us'
 
         token_repr = f'{region.upper()} ({self.base_url}) - '
-        if match:
-            token_repr += match.group('safe_part') + match.group('token')[:5]
+        if token_match:
+            token_repr += token_match.group('safe_part') + token_match.group('token')[:5]
+        elif region_match:
+            token_repr += self.token[region_match.end() : region_match.end() + 5]
         else:
             token_repr += self.token[:5]
         token_repr += '****'
@@ -245,7 +258,7 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
     machine_name = platform.uname()[1]
     device_auth_endpoint = urljoin(base_api_url, '/v1/device-auth/new/')
     try:
-        res = session.post(device_auth_endpoint, params={'machine_name': machine_name})
+        res = session.post(device_auth_endpoint, params={'machine_name': machine_name}, timeout=_DEVICE_FLOW_TIMEOUT)
         UnexpectedResponse.raise_for_status(res)
     except requests.RequestException as e:  # pragma: no cover
         raise LogfireConfigError('Failed to request a device code.') from e
@@ -272,7 +285,7 @@ def poll_for_token(session: requests.Session, device_code: str, base_api_url: st
     errors = 0
     while True:
         try:
-            res = session.get(auth_endpoint, timeout=15)
+            res = session.get(auth_endpoint, timeout=_DEVICE_FLOW_TIMEOUT)
             UnexpectedResponse.raise_for_status(res)
         except requests.RequestException as e:
             errors += 1

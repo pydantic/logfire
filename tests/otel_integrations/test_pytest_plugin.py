@@ -59,6 +59,11 @@ def logfire_pytester(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch,
     monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
     monkeypatch.delenv('TRACEPARENT', raising=False)
     monkeypatch.delenv('TRACESTATE', raising=False)
+    # The outer suite may itself run under xdist; don't leak its worker env vars into
+    # the inner pytest runs, where the plugin would detect them as xdist mode.
+    monkeypatch.delenv('PYTEST_XDIST_WORKER', raising=False)
+    monkeypatch.delenv('PYTEST_XDIST_WORKER_COUNT', raising=False)
+    monkeypatch.delenv('PYTEST_XDIST_TESTRUNUID', raising=False)
 
     # Create a conftest that captures spans to a JSON file
     # NOTE: We use trylast=True so this runs AFTER the logfire pytest plugin configures

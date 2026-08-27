@@ -62,6 +62,9 @@ Two plugins are available:
 | **Logfire** | Gives Codex Logfire skills and the hosted Logfire MCP server for instrumentation, querying, and opening UI views. |
 | **Logfire Exporter** | Exports completed Codex turns and tool calls to Logfire as OpenTelemetry traces. |
 
+!!! note
+    Logfire Exporter requires a Logfire write token before it can export anything; see [Export Codex Activity to Logfire](codex-logfire-exporter.md) for the one-time setup.
+
 These plugins solve different problems and can be installed together. After enabling **Logfire Exporter**,
 restart Codex and run `/hooks` if Codex asks you to review or trust the new hooks.
 

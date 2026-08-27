@@ -1,8 +1,12 @@
 import argparse
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, NamedTuple
 
 __all__ = ['main', 'logfire_info']
+
+class SavedReadToken(NamedTuple):
+    token: str
+    base_url: str
 
 def logfire_info() -> str:
     """Show versions of logfire, OS and related packages."""

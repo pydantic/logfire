@@ -9,7 +9,7 @@ description: "Automatically group exceptions and track Pydantic issues in your a
     Please [create a GitHub issue](https://github.com/pydantic/logfire/issues/new/choose){:target="\_blank"}
     if you find bugs or have questions.
 
-Issues provide automatic exception tracking and grouping. Enable issues to identify, prioritize, and resolve problems in your application.
+The <OpenInLogfire path="issues" variant="inline" label="Issues" /> page provides automatic exception tracking and grouping. Enable it to identify, prioritize, and resolve problems in your application.
 
 ![Enable issues screen](../../images/guide/browser-issues-enable-issues.png)
 

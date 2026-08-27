@@ -83,6 +83,9 @@ class WrapperLogExporter(LogRecordExporter):
     def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
         return self.exporter.export(batch)
 
+    def force_flush(self, timeout_millis: int = 10_000) -> bool:
+        return self.exporter.force_flush(timeout_millis)
+
     def shutdown(self):
         return self.exporter.shutdown()
 

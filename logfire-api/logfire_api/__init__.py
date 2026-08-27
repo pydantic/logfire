@@ -85,7 +85,7 @@ except ImportError:
             def parent(self):
                 return None
 
-            def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
+            def set_attribute(self, key: str, value: Any) -> None: ...  # pragma: no cover
 
         class Logfire:
             def __getattr__(self, attr):
@@ -131,10 +131,12 @@ except ImportError:
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
 
-            def instrument(self, *args, **kwargs):
+            def instrument(self, msg_template=None, **kwargs):
                 def decorator(func):
                     return func
 
+                if callable(msg_template):
+                    return decorator(msg_template)
                 return decorator
 
             def instrument_asgi(self, app, *args, **kwargs):
@@ -213,7 +215,6 @@ except ImportError:
                 return MagicMock()
 
             def shutdown(self, *args, **kwargs) -> None: ...
-
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
@@ -300,7 +301,6 @@ except ImportError:
 
         class MetricsOptions:
             def __init__(self, *args, **kwargs) -> None: ...
-
 
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...

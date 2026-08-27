@@ -136,6 +136,15 @@ class BlobPart(TypedDict):
     modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
 
 
+class FilePart(TypedDict):
+    """Provider file reference part."""
+
+    type: Literal['file']
+    file_id: str
+    media_type: NotRequired[str]
+    modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
+
+
 class ReasoningPart(TypedDict):
     """Reasoning/thinking content part."""
 
@@ -144,7 +153,7 @@ class ReasoningPart(TypedDict):
 
 
 MessagePart: TypeAlias = (
-    TextPart | ToolCallPart | ToolCallResponsePart | UriPart | BlobPart | ReasoningPart | dict[str, Any]
+    TextPart | ToolCallPart | ToolCallResponsePart | UriPart | BlobPart | FilePart | ReasoningPart | dict[str, Any]
 )
 """A message part.
 

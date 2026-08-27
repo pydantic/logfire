@@ -10,7 +10,7 @@ If you only want one slice of this, jump straight to the relevant section. Every
 
 ## Quickstart: the `opentelemetry-kube-stack` Helm chart
 
-For the fastest path from an empty cluster to a populated [Kubernetes view](../../guides/web-ui/kubernetes.md), use the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator and a DaemonSet `OpenTelemetryCollector` running every preset the view reads from: `kubeletMetrics` (with `metric_groups: [node, pod, container]`), `clusterMetrics` (`k8s_cluster` with `k8s_leader_elector` so it only emits from one pod), `hostMetrics`, `kubernetesAttributes`, `kubernetesEvents`, plus the ServiceAccount, CRDs and RBAC it all needs. You provide a small `values.yaml` to point its OTLP exporter at Logfire:
+For the fastest path from an empty cluster to a populated [Kubernetes view](../../guides/web-ui/kubernetes.md), use the upstream [`opentelemetry-kube-stack`](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack) Helm chart. By default it deploys the OpenTelemetry Operator and a DaemonSet `OpenTelemetryCollector` running every preset the view reads from: `kubeletMetrics`, `clusterMetrics` (`k8s_cluster` with `k8s_leader_elector` so it only emits from one pod), `hostMetrics`, `kubernetesAttributes`, `kubernetesEvents`, plus the ServiceAccount, custom resource definitions (CRDs), and role-based access control (RBAC) it all needs. You provide a small `values.yaml` to point its OpenTelemetry Protocol (OTLP) exporter at Logfire and reduce the default metric volume:
 
 ```yaml
 # values.yaml: Logfire-shaped overrides for opentelemetry-kube-stack.
@@ -31,6 +31,21 @@ extraEnvs:
 collectors:
   daemon:
     config:
+      # These receiver presets currently use 10 or 15 seconds. One minute is
+      # a better default for infrastructure metrics and sends far fewer points.
+      receivers:
+        host_metrics:
+          collection_interval: 60s
+        kubelet_stats:
+          collection_interval: 60s
+          # Add `volume` only if you need persistent-volume metrics.
+          metric_groups: [node, pod, container]
+          # Keep container IDs for correlation, but skip volume metadata.
+          extra_metadata_labels: [container.id]
+        k8s_cluster:
+          collection_interval: 60s
+          node_conditions_to_report: [Ready]
+          allocatable_types_to_report: [cpu, memory]
       exporters:
         otlphttp/logfire:
           endpoint: https://logfire-us.pydantic.dev   # or https://logfire-eu.pydantic.dev
@@ -52,7 +67,7 @@ helm upgrade --install otel-stack open-telemetry/opentelemetry-kube-stack \
   -n observability -f values.yaml
 ```
 
-Data starts flowing within a minute or two of the daemon pods reaching `Ready`. Validated against a 3-node kind cluster with chart 0.15.2 / operator + collector 0.151.0; the daemon collector exports cleanly with no dropped batches, and the `k8s_cluster` receiver completes initial cache sync via leader election.
+Data starts flowing within a minute or two of the daemon pods reaching `Ready`. The chart configures the daemon Collector pipelines and runs the `k8s_cluster` receiver behind leader election so only one Collector exports cluster-wide metrics.
 
 The rest of this page is the **from-scratch walkthrough**: recommended if you want to understand every piece, customise beyond what the chart's value overrides expose, or deploy without the chart's bundled Operator (for example on a managed platform that already provides one). If you took the Helm path above, you can skip directly to [What `k8sattributesprocessor` actually does](#what-k8sattributesprocessor-actually-does) and [Verifying it works on the Logfire side](#verifying-it-works-on-the-logfire-side).
 
@@ -79,6 +94,20 @@ The recommended layout is two Collector workloads sharing one image, one config 
     *"Things about a node, or things sent by Pods on a node"* → DaemonSet.
 
 The two share one ClusterRole and one ServiceAccount because the receivers and processor want the same set of read permissions on the Kubernetes API.
+
+## Control Kubernetes metric volume
+
+Use a 60-second collection interval for `kubeletstats`, `k8s_cluster`, and `hostmetrics` unless you have a specific need for finer resolution. The Helm chart presets currently use 10 seconds for host and cluster metrics and 15 seconds for kubelet metrics. Moving them to 60 seconds sends one-sixth and one-quarter as many datapoints respectively.
+
+The main volume multipliers are:
+
+- **Containers and pods:** `kubeletstats` emits CPU, memory, filesystem, and network series for each container and pod. More replicas produce more datapoints on every collection.
+- **Persistent volumes:** the `volume` metric group adds several series for every volume. The current Logfire Kubernetes view does not display these metrics, so the examples keep this group off. Add it only when you need persistent-volume charts or alerts.
+- **Interfaces and metadata:** leave `collect_all_network_interfaces` at its default of `false`. Enabling it splits network metrics across every interface. Extra metadata such as `container.id` can also create a new series whenever a container restarts. The examples keep the ID for correlation but omit `k8s.volume.type` because volume metrics are off.
+- **Node conditions and allocatable resources:** every entry in `node_conditions_to_report` and `allocatable_types_to_report` adds a value per node. Start with the `Ready` condition and `cpu` and `memory` allocatable types, then add pod or storage capacity deliberately if you use it.
+- **Host processes:** the chart's `hostmetrics` preset does not enable the singular `process` scraper, and neither do the examples on this page. Keep it off unless you need per-process CPU, memory, and disk data. It emits roughly seven datapoints per process ID per collection on Linux. The plural `processes` scraper only emits aggregate counts and is much cheaper.
+
+Also keep cluster-scoped metrics behind leader election or in a single-replica Deployment. Running `k8s_cluster` on every node duplicates the same cluster data once per Collector.
 
 ## Prerequisites: write token and namespace
 
@@ -204,9 +233,9 @@ data:
       # Cluster-level metrics: pod phase, deployment available/desired replicas,
       # node conditions, allocatable cpu/memory, etc.
       k8s_cluster:
-        collection_interval: 30s
-        node_conditions_to_report: [Ready, MemoryPressure, DiskPressure, PIDPressure]
-        allocatable_types_to_report: [cpu, memory, ephemeral-storage, pods]
+        collection_interval: 60s
+        node_conditions_to_report: [Ready]
+        allocatable_types_to_report: [cpu, memory]
 
       # Kubernetes Events as OTel log records.
       # Watch mode keeps a long-lived connection open; pull mode polls.
@@ -344,10 +373,10 @@ metadata:
 data:
   config.yaml: |-
     receivers:
-      # Per-container/pod/node CPU, memory, network, filesystem, volume
+      # Per-container/pod/node CPU, memory, network, and filesystem
       # metrics scraped from the local node's kubelet.
       kubeletstats:
-        collection_interval: 30s
+        collection_interval: 60s
         auth_type: serviceAccount
         endpoint: "https://${env:KUBE_NODE_NAME}:10250"
         # On managed clusters (EKS/GKE/AKS) the kubelet certificate is usually
@@ -356,10 +385,10 @@ data:
         # and you need this set to true. It bypasses TLS verification of the
         # kubelet: fine on a node-local connection, less so over the network.
         insecure_skip_verify: true
-        metric_groups: [node, pod, container, volume]
+        # Add `volume` only if you need persistent-volume metrics.
+        metric_groups: [node, pod, container]
         extra_metadata_labels:
           - container.id
-          - k8s.volume.type
 
       # Tails container stdout/stderr written by the container runtime to
       # /var/log/pods/<namespace>_<pod>_<uid>/<container>/<n>.log.
@@ -396,15 +425,22 @@ data:
       # Node-level metrics from /proc and /sys, mounted from the host.
       # Optional: skip this receiver and its volume mounts if you don't want it.
       hostmetrics:
-        collection_interval: 30s
+        collection_interval: 60s
         root_path: /host
         scrapers:
           cpu:
           memory:
           load:
           disk:
+            exclude:
+              devices: ['^(loop|ram)[0-9]+$']
+              match_type: regexp
           filesystem:
+            include_virtual_filesystems: false
           network:
+            exclude:
+              interfaces: [lo, 'veth.*']
+              match_type: regexp
           paging:
 
       # Apps on this node send OTLP here. Enriching at the agent (not at a

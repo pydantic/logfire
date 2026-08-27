@@ -211,14 +211,43 @@ class UnexpectedResponse(RequestException):
             raise cls(response)
 
 
+READ_TOKEN_FILENAME = 'read_token.json'
+"""Where `logfire read-tokens create --save` stores a read token.
+
+Deliberately NOT a new key inside `logfire_credentials.json`: that file is loaded with
+`LogfireCredentials(**data)`, so an unrecognised key raises `LogfireConfigError` in every
+SDK version released before it. A separate file cannot break an older reader.
+"""
+
+DATA_DIR_FILENAMES = {'.gitignore', 'logfire_credentials.json', READ_TOKEN_FILENAME}
+"""The files that Logfire itself writes into a data directory.
+
+Membership is load-bearing beyond bookkeeping: `ensure_data_dir_exists` only seeds the
+`.gitignore` when the directory holds nothing else, so a file omitted here would stop the
+ignore rule being restored for a directory containing it -- and this one holds a
+credential.
+"""
+
+
 def ensure_data_dir_exists(data_dir: Path) -> None:
     if data_dir.exists():
         if not data_dir.is_dir():  # pragma: no cover
             raise ValueError(f'Data directory {data_dir} exists but is not a directory')
-        return
-    data_dir.mkdir(parents=True, exist_ok=True)
-    gitignore = data_dir / '.gitignore'
-    gitignore.write_text('*')
+    else:
+        data_dir.mkdir(parents=True, exist_ok=True)
+    # Seed the .gitignore for a newly created directory, and for an existing one holding nothing
+    # but the files Logfire writes itself. That covers a directory emptied by `logfire clean`, and
+    # restores the ignore rule for one left with an unignored credentials file, since this runs
+    # before that file is rewritten. Skip a directory with any other contents: `--data-dir` can
+    # point at a directory of the user's own, and a `.gitignore` of `*` there would ignore all of it.
+    if {path.name for path in data_dir.iterdir()} <= DATA_DIR_FILENAMES:
+        try:
+            # Exclusive creation, so an existing .gitignore keeps its rules, and a symlink planted
+            # in a data directory that arrived from elsewhere is refused rather than followed.
+            with (data_dir / '.gitignore').open('x') as gitignore:
+                gitignore.write('*')
+        except FileExistsError:
+            pass
 
 
 def get_version(version: str) -> Version:

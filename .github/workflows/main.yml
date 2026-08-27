@@ -7,6 +7,7 @@ on:
     tags:
       - "**"
   pull_request: { }
+  merge_group: { }
 
 env:
   CI: true
@@ -31,6 +32,9 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --python 3.12 --frozen
+
+      - name: Test docs navigation dispatcher contract
+        run: uv run pytest .github/workflows/scripts/test_docs_navigation_workflow.py
 
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd  # v3.0.1
         with:
@@ -64,19 +68,7 @@ jobs:
 
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
-    # Use Depot 4-core runners for maintainer PRs (faster CPUs/more cores)
-    # Use 'ci:slow' label to force standard GitHub runners (e.g. during Depot outages)
-    # Use 'ci:fast' label to opt-in fork PRs to Depot runners
-    runs-on: >-
-      ${{
-        !contains(github.event.pull_request.labels.*.name, 'ci:slow')
-        && (
-          github.event.pull_request.head.repo.full_name == github.repository
-          || contains(github.event.pull_request.labels.*.name, 'ci:fast')
-        )
-        && 'depot-ubuntu-24.04-4'
-        || 'ubuntu-latest'
-      }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -123,7 +115,7 @@ jobs:
           uv pip install 'opentelemetry-exporter-otlp-proto-http==${{ matrix.otel-version }}.*'
 
       - run: mkdir coverage
-      - run: uv run --no-sync coverage run -m pytest --junitxml=coverage/test-results.xml
+      - run: uv run --no-sync coverage run -m pytest -n logical --dist=loadgroup --junitxml=coverage/test-results.xml
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}-otel-${{ matrix.otel-version }}
       - name: store coverage files
@@ -258,7 +250,7 @@ jobs:
         run: uv build --all
 
       - name: Publish logfire and logfire-api to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           skip-existing: true
           verbose: true

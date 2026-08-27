@@ -150,7 +150,12 @@ def process_attribute(
         assert value == os.getpid()
         return 1234
     if name == 'service.instance.id':
-        if re.match(r'^[0-9a-f]{32}$', value):
+        # OpenTelemetry <=1.42 set this to `uuid4().hex` (32 hex chars); 1.43+ uses the
+        # dashed UUID form. Normalise either representation to a fixed value so snapshots
+        # stay deterministic across OTel versions.
+        if re.match(r'^[0-9a-f]{32}$', value) or re.match(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', value
+        ):
             return '0' * 32
     if parse_json_attributes and isinstance(value, str) and (value.startswith('{') or value.startswith('[')):
         try:

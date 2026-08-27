@@ -1,20 +1,27 @@
 ---
 title: Logfire OTel Integration with Alternative Clients
-description: "Guide on how to use the standard OpenTelemetry SDK to export Node.js, Rust or Go data to Logfire."
+description: "Use the standard OpenTelemetry SDK to send data to Logfire from any language, with worked Python, Node.js, and Rust examples."
 ---
 # Alternative clients
 
+Several languages have a dedicated page. Send data with the standard OpenTelemetry SDK from [Go](../languages/go.md), [.NET](../languages/dotnet.md), or [Java](../languages/java.md), or use a first-party SDK for [Python](../guides/onboarding-checklist/index.md), [Rust](../languages/rust.md), or [TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/). If your language is not listed, this page shows the generic pattern that works anywhere.
+
 **Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs
 in many languages to export to the **Logfire** backend, including those outside our
-[first-class supported languages](../languages.md). Depending on your SDK, you may need to set only
+[first-class supported languages](../instrument/index.md). Depending on your SDK, you may need to set only
 these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
 
-- `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for both traces and metrics, or:
+- `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for traces, metrics, and logs, or set one signal at a time:
     - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-us.pydantic.dev/v1/traces` for just traces
     - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-us.pydantic.dev/v1/metrics` for just metrics
     - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://logfire-us.pydantic.dev/v1/logs` for just logs
+- `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` so the SDK exports over HTTP (see the note below).
 - `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` - see [Create Write Tokens](./create-write-tokens.md)
   to obtain a write token and replace `your-write-token` with it.
+- `OTEL_SERVICE_NAME=your-service-name` to set the name your service is grouped under in Logfire. Without it, your data appears under `(unknown)` in the [Services](../guides/web-ui/services.md) view.
+
+!!! note "HTTP or gRPC"
+    Logfire's managed platform accepts OpenTelemetry data over both HTTP and gRPC. This page uses HTTP (`http/protobuf`) because every SDK supports it out of the box; if your SDK defaults to gRPC (for example Java and .NET), you can leave it on gRPC or set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` to match these examples.
 
 !!! note
     This page shows `https://logfire-us.pydantic.dev` as the base URL which is for the US [region](../reference/data-regions.md).
@@ -28,6 +35,7 @@ First, run these commands:
 pip install opentelemetry-exporter-otlp
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+export OTEL_SERVICE_NAME=my-service
 ```
 
 Then run this script with `python`:
@@ -59,7 +67,7 @@ exporter = OTLPSpanExporter(
 
 ## Example with NodeJS
 
-> See also our [JS/TS SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) which supports many JS environments, including NodeJS, web browsers, and Cloudflare Workers.
+> See also our [JS/TS SDK](https://pydantic.dev/docs/logfire/instrument/typescript/) which supports many JS environments, including NodeJS, web browsers, and Cloudflare Workers.
 
 Create a `main.js` file containing the following:
 
@@ -96,7 +104,7 @@ node main.js
 
 ## Example with Rust
 
-> See also our [Rust SDK](https://github.com/pydantic/logfire-rust) which provides a more streamlined developer experience for Rust applications.
+> See the dedicated [Rust](../languages/rust.md) page for the first-party `logfire` crate, which gives you a native Rust API over OpenTelemetry. The example below uses the raw OpenTelemetry SDK instead.
 
 First, set up a new Cargo project:
 
@@ -104,6 +112,7 @@ First, set up a new Cargo project:
 cargo new --bin otel-example && cd otel-example
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
+export OTEL_SERVICE_NAME=my-service
 ```
 
 Update the `Cargo.toml` and `main.rs` files with the following contents:
@@ -163,43 +172,16 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 Finally, use `cargo run` to execute.
 
-## Example with Go
+## Verify
 
-Create a file `main.go` containing the following:
+Run your program, then open the [Live view](../guides/web-ui/live.md) for your project. You should see a trace with a single span named `Hello World`.
 
-```go
-package main
+## Troubleshooting
 
-import (
-    "context"
-    "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-    "go.opentelemetry.io/otel/sdk/trace"
-)
-
-func main() {
-    ctx := context.Background()
-    traceExporter, _ := otlptracehttp.New(ctx)
-    batchSpanProcessor := trace.NewBatchSpanProcessor(traceExporter)
-    tracerProvider := trace.NewTracerProvider(trace.WithSpanProcessor(batchSpanProcessor))
-    tracer := tracerProvider.Tracer("my_tracer")
-
-    ctx, span := tracer.Start(ctx, "Hello World")
-    span.End()
-
-    tracerProvider.Shutdown(ctx)
-}
-```
-
-Then run these commands:
-
-```sh
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
-export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
-
-# Optional, but otherwise you will see the service name set to `unknown_service:otel_example`
-export OTEL_RESOURCE_ATTRIBUTES="service.name=my_service"
-
-go mod init otel_example
-go mod tidy
-go run .
-```
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| Nothing arrives, with a connection error or no error at all | The endpoint points at the wrong region, or (older self-hosted) a build without gRPC ingest | Confirm the endpoint matches your [data region](../reference/data-regions.md); on an older self-hosted Logfire, set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`. |
+| Requests rejected with `401` or `403` | Missing or invalid write token | Set `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` with a valid [write token](./create-write-tokens.md). |
+| Data appears under `(unknown)` in the [Services](../guides/web-ui/services.md) view | No service name set | Set `OTEL_SERVICE_NAME=your-service-name`. |
+| Connection or TLS errors | The endpoint points at the wrong region | Use `https://logfire-us.pydantic.dev` (US) or `https://logfire-eu.pydantic.dev` (EU). |
+| Requests rejected with `413`, or records missing with a `logfire ingest error` span in the project | The batch is over 100 MB, or its timestamps fall outside the accepted window | See [Ingest limits](../reference/limits.md). |

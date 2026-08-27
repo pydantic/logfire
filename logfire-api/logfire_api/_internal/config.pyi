@@ -16,6 +16,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendin
 from .exporters.test import TestExporter as TestExporter
 from .forwarding import OTLPForwardingManager as OTLPForwardingManager
 from .integrations.executors import instrument_executors as instrument_executors
+from .interactive import require_answer as require_answer
 from .logs import ProxyLoggerProvider as ProxyLoggerProvider
 from .main import Logfire as Logfire
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -25,10 +26,10 @@ from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
 from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
-from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN as PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS as REGIONS
+from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN as LOGFIRE_TOKEN_REGION_PATTERN, REGIONS as REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
 from logfire._internal.collect_system_info import collect_package_info as collect_package_info
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
@@ -36,10 +37,12 @@ from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.variables import VariablesConfig as VariablesConfig
 from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
+from logfire.variables.variable import TemplateVariable as TemplateVariable, Variable as Variable
 from logfire.version import VERSION as VERSION
 from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.metrics.view import View
+from opentelemetry.sdk.resources import ResourceDetector
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
@@ -73,7 +76,13 @@ class AdvancedOptions:
     exception_callback: ExceptionCallback | None = ...
     emit_configuration_span: bool | None = ...
     server_response_hook: ServerResponseCallback | None = ...
-    def generate_base_url(self, token: str) -> str: ...
+    resource_detectors: Sequence[ResourceDetector | str] | None = ...
+    def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
+        """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
+
+        Unknown regions warn by default. The background credential check opts out because the
+        synchronous exporter setup has already emitted the same warning.
+        """
 
 @dataclass
 class PydanticPlugin:
@@ -133,7 +142,7 @@ class LocalVariablesOptions:
 
 class DeprecatedKwargs(TypedDict): ...
 
-def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
+def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
     """Configure the logfire SDK.
 
     Args:
@@ -167,6 +176,15 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
             Defaults to the `LOGFIRE_ENVIRONMENT` environment variable.
 
+        resource_attributes: Additional
+            [resource attributes](https://opentelemetry.io/docs/concepts/resources/) to include on all telemetry,
+            e.g. `{'host.name': 'my-host'}`. These take precedence over attributes produced by resource detectors
+            (see `AdvancedOptions.resource_detectors`) and over the `OTEL_RESOURCE_ATTRIBUTES` environment variable.
+            See the [SQL reference](https://logfire.pydantic.dev/docs/reference/sql/#resource-attributes) for the
+            full precedence list and how to query the resulting attributes.
+
+            Defaults to the `LOGFIRE_RESOURCE_ATTRIBUTES` environment variable (a comma-separated `key=value` list).
+
         console: Whether to control terminal output. If `None` uses the `LOGFIRE_CONSOLE_*` environment variables,
             otherwise defaults to `ConsoleOption(colors='auto', indent_spans=True, include_timestamps=True, include_tags=True, verbose=False)`.
             If `False` disables console output. It can also be disabled by setting `LOGFIRE_CONSOLE` environment variable to `false`.
@@ -180,7 +198,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
+            [f-string magic](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
@@ -226,6 +244,7 @@ class _LogfireConfigData:
     service_name: str
     service_version: str | None
     environment: str | None
+    resource_attributes: Mapping[str, Any]
     console: ConsoleOptions | Literal[False] | None
     data_dir: Path
     additional_span_processors: Sequence[SpanProcessor] | None
@@ -240,14 +259,14 @@ class _LogfireConfigData:
     advanced: AdvancedOptions
 
 class LogfireConfig(_LogfireConfigData):
-    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, variables: VariablesOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
+    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, variables: VariablesOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
         """Create a new LogfireConfig.
 
         Users should never need to call this directly, instead use `logfire.configure`.
 
         See `_LogfireConfigData` for parameter documentation.
         """
-    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | list[str] | None, api_key: str | None, service_name: str | None, service_version: str | None, environment: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, variables: VariablesOptions | LocalVariablesOptions | None, distributed_tracing: bool | None, advanced: AdvancedOptions | None) -> None: ...
+    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | list[str] | None, api_key: str | None, service_name: str | None, service_version: str | None, environment: str | None, resource_attributes: Mapping[str, Any] | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, variables: VariablesOptions | LocalVariablesOptions | None, distributed_tracing: bool | None, advanced: AdvancedOptions | None) -> None: ...
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:
@@ -403,8 +422,15 @@ class LogfireCredentials:
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
 
-def get_base_url_from_token(token: str) -> str:
-    """Get the base API URL from the token's region."""
+def get_base_url_from_token(token: str, warn_unknown_region: bool = True) -> str:
+    """Get the base API URL from the token's region.
+
+    Args:
+        token: The Logfire token to read the region from.
+        warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
+            unrecognised and the US region is used as a fallback. This is on by default for every
+            caller; disable it only when the same token has already produced the warning.
+    """
 def get_git_revision_hash() -> str:
     """Get the current git commit hash."""
 def sanitize_project_name(name: str) -> str:
@@ -412,7 +438,17 @@ def sanitize_project_name(name: str) -> str:
 def default_project_name(): ...
 def get_runtime_version() -> str: ...
 @functools.cache
-def common_resource_attributes(): ...
-def host_resource_attributes(): ...
+def common_resource_attributes() -> dict[str, Any]:
+    """Auto-derived `process.runtime.*`, `host.*` and `os.*` attributes, used as low-precedence defaults.
+
+    The `host.*`/`os.*` attributes let the Logfire Hosts page surface a row without the customer opting into
+    the experimental `OTEL_EXPERIMENTAL_RESOURCE_DETECTORS` env var or passing `resource_detectors`. All of
+    these are applied below the env vars (and below the `resource_detectors`/`resource_attributes` configure
+    arguments), so any of those still wins — e.g. a customer whose `socket.gethostname()` is a useless
+    container ID can override `host.name` cleanly.
+    """
+def host_resource_attributes() -> dict[str, Any]: ...
 
 class LogfireNotConfiguredWarning(UserWarning): ...
+class LogfireConfigWarning(UserWarning):
+    """Warning emitted for non-fatal configuration problems, e.g. an unknown resource detector name."""
