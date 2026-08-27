@@ -230,11 +230,8 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                     buffer.ended.append(span)
                     dropped = self.check_span(TailSamplingSpanInfo(span, None, 'end', buffer))
                     buffer.outstanding -= 1
-                    # The root ending is not a reliable signal that the trace is complete:
-                    # a detached child, background task, or streaming finalizer can end later.
-                    # Drop the buffer only once every started span has ended (unless sampling
-                    # already dropped it via check_span).
-                    if not dropped and buffer.outstanding <= 0:
+                    # Drop the buffer only once every started span has ended
+                    if buffer.outstanding <= 0:
                         self.traces.pop(trace_id, None)
 
         # This code may take longer since it calls processors which might do anything.
