@@ -10,7 +10,7 @@ Connect the framework, prompts, tools, and agent workflow you already use to the
 !!! note "Gateway vs. instrument"
     These guides **route** your model calls through the gateway for spending caps, failover, and shared keys. If you only want to **see and debug** the calls you already make, you don't need the gateway: [instrument a framework](../../../../integrations/llms/index.md) instead.
 
-Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider or at a [routing group](../index.md#routing-groups), which can fail over to another provider or distribute requests across several providers.
+Each guide shows the two client settings you need to change: the API key and gateway URL. You can point them at one model provider or a [Gateway endpoint](../index.md#gateway-endpoints), which can fail over to another provider or distribute requests across several providers.
 
 ## Before you start
 
@@ -26,7 +26,7 @@ Each guide shows the two client settings you need to change: the API key and gat
 
 The examples use the OpenAI-compatible route for the US region, `https://gateway-us.pydantic.dev/proxy/openai`. For the EU region, use `gateway-eu` instead. For a self-hosted organization, copy the URL from the **Connect** tab.
 
-Most examples use an OpenAI-compatible client. The provider or routing group you select must support the OpenAI request format and the model name in the example. Provider-native APIs, such as Anthropic Messages, require that provider's client. See [Connect an SDK](../index.md#connect-an-sdk) for both patterns.
+Most examples use an OpenAI-compatible client. The provider or Gateway endpoint you select must support the OpenAI request format and the model name in the example. Provider-native APIs, such as Anthropic Messages, require that provider's client. See [Connect an SDK](../index.md#connect-an-sdk) for both patterns.
 
 !!! note "Model data passes through Logfire"
     These settings send prompts, tool inputs, and model responses through the Logfire AI Gateway and the selected model provider. If gateway telemetry is enabled, Logfire records the model, latency, token usage, and conversation content in your selected project. Calls to built-in providers count toward your gateway spend.
@@ -54,4 +54,4 @@ Most examples use an OpenAI-compatible client. The provider or routing group you
 
 ## Next steps
 
-Read the [AI Gateway overview](../index.md) to learn how providers, routing groups, spending limits, and telemetry work together.
+Read the [AI Gateway overview](../index.md) to learn how providers, Gateway endpoints, spending limits, and telemetry work together.
