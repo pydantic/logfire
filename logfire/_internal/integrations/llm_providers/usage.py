@@ -28,11 +28,6 @@ def get_usage_attributes(
     pydantic-ai's resolution order:
     https://github.com/pydantic/pydantic-ai/blob/28a58d53b4d75b4da6d3b372edb9651f9cbe2411/pydantic_ai_slim/pydantic_ai/usage.py#L327-L329
 
-    Pass model_ref when the response body isn't shaped the way genai_prices' extractors
-    expect, so that the model and token counts the caller already has are priced directly
-    instead. cache_read_tokens/cache_write_tokens are only read in that case, and
-    input_tokens is expected to already include them (the genai_prices convention).
-
     Token/raw-usage and cost fail independently: a cost error does not prevent tokens
     from being set. Cost errors are silently caught (expected for unknown models etc.).
     """
@@ -69,15 +64,14 @@ def get_usage_attributes(
                     response_data = response.model_dump()
                 # `anthropic` is a flavor on the aws provider only, so it is chosen from
                 # the resolved provider rather than assumed.
-                flavor = api_flavor or (
+                api_flavor = api_flavor or (
                     'anthropic' if provider.id == 'aws' and provider_id == 'anthropic' else 'default'
                 )
-                extracted_model_ref, price_usage = provider.extract_usage(response_data, api_flavor=flavor)
-                if extracted_model_ref is None:
+                model_ref, price_usage = provider.extract_usage(response_data, api_flavor=api_flavor)
+                if model_ref is None:
                     continue
-                price_model_ref = extracted_model_ref
 
-                price = calc_price(price_usage, model_ref=price_model_ref, provider_id=provider.id)
+                price = calc_price(price_usage, model_ref=model_ref, provider_id=provider.id)
                 result['operation.cost'] = float(price.total_price)
                 break
             except Exception:
