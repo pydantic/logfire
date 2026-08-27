@@ -19,7 +19,7 @@ The badge means the provider *can* serve embeddings; which embedding models are 
 
 Each route reports its chat and embedding models separately. List them with `GET /proxy/models`.
 
-The requests on this page need two values. Create or reveal a gateway API key on the **API Keys** tab and use it in place of `<YOUR_GATEWAY_API_KEY>`; for the route, use a provider slug from the **Providers** tab (or a routing group slug from **Routing**). The examples below use `openai`.
+The requests on this page need two values. Create or reveal a gateway API key on the **API Keys** tab and use it in place of `<YOUR_GATEWAY_API_KEY>`; for the route, use a provider slug from the **Providers** tab or a gateway endpoint slug from **Endpoints**. The examples below use `openai`.
 
 ```bash
 curl "https://gateway-us.pydantic.dev/proxy/models?route=openai" \
