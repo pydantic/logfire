@@ -326,7 +326,6 @@ def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -
     cache_write_tokens = usage.cache_creation_input_tokens or 0
     input_tokens = usage.input_tokens + cache_read_tokens + cache_write_tokens
     output_tokens = usage.output_tokens
-    model = getattr(response, 'model', None)
 
     return get_usage_attributes(
         response,
@@ -335,9 +334,6 @@ def get_anthropic_usage_attributes(response: Any, base_url: str | None = None) -
         output_tokens,
         provider_id='anthropic',
         provider_url=base_url,
-        model_ref=model if isinstance(model, str) else None,
-        cache_read_tokens=cache_read_tokens,
-        cache_write_tokens=cache_write_tokens,
     )
 
 

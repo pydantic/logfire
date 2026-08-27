@@ -13,9 +13,6 @@ def get_usage_attributes(
     provider_id: str,
     api_flavor: str | None = None,
     provider_url: str | None = None,
-    model_ref: str | None = None,
-    cache_read_tokens: int | None = None,
-    cache_write_tokens: int | None = None,
 ) -> dict[str, Any]:
     """Build usage attributes: INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW, operation.cost.
 
@@ -66,30 +63,19 @@ def get_usage_attributes(
             try:
                 provider = get_snapshot().find_provider(None, candidate_id, candidate_url)
 
-                if model_ref is not None:
-                    # The response body is not shaped the way the extractors expect, so price
-                    # the model and token counts the caller already has.
-                    from genai_prices import Usage as PriceUsage
-
-                    price_model_ref = model_ref
-                    price_usage = PriceUsage(
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
-                        cache_read_tokens=cache_read_tokens,
-                        cache_write_tokens=cache_write_tokens,
-                    )
+                if api_flavor == 'embeddings':
+                    response_data = response.model_dump(include={'model', 'usage'})
                 else:
-                    if api_flavor == 'embeddings':
-                        response_data = response.model_dump(include={'model', 'usage'})
-                    else:
-                        response_data = response.model_dump()
-                    # `anthropic` is a flavor on the aws provider only, so it is chosen from
-                    # the resolved provider rather than assumed.
-                    flavor = api_flavor or ('anthropic' if provider.id == 'aws' else 'default')
-                    extracted_model_ref, price_usage = provider.extract_usage(response_data, api_flavor=flavor)
-                    if extracted_model_ref is None:
-                        continue
-                    price_model_ref = extracted_model_ref
+                    response_data = response.model_dump()
+                # `anthropic` is a flavor on the aws provider only, so it is chosen from
+                # the resolved provider rather than assumed.
+                flavor = api_flavor or (
+                    'anthropic' if provider.id == 'aws' and provider_id == 'anthropic' else 'default'
+                )
+                extracted_model_ref, price_usage = provider.extract_usage(response_data, api_flavor=flavor)
+                if extracted_model_ref is None:
+                    continue
+                price_model_ref = extracted_model_ref
 
                 price = calc_price(price_usage, model_ref=price_model_ref, provider_id=provider.id)
                 result['operation.cost'] = float(price.total_price)
