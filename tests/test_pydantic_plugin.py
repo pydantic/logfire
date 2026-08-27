@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
-import sysconfig
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, Annotated, Any, cast
+from typing import TYPE_CHECKING, Annotated, Any
 from unittest.mock import patch
 
 import cloudpickle
@@ -28,7 +26,6 @@ from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic_core import core_schema
 
 import logfire
-import logfire.integrations.pydantic as logfire_pydantic
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import (
@@ -139,11 +136,28 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
         ({'MyModel'}, {'MyModel1'}, '', 'MyModel', True),
         ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel2', True),
         ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel1', False),
+        # neither include nor exclude: instrument user code, but not third party modules,
+        # where 'third party' means the module was imported from a file in the standard library,
+        # an installed package, or logfire itself.
+        (set(), set(), __name__, 'MyModel', True),  # this test file isn't installed anywhere
+        (set(), set(), 'not_a_real_module', 'MyModel', True),  # unimported modules are assumed to be user code
+        (set(), set(), 'builtins', 'MyModel', True),  # C modules have no file to check, but also no models
+        (set(), set(), 'os', 'MyModel', False),  # standard library
+        (set(), set(), 'pydantic.main', 'MyModel', False),  # installed in site-packages
+        (set(), set(), 'logfire.integrations.pydantic', 'MyModel', False),  # logfire itself
+        # include overrides the default of not instrumenting third party modules
+        ({'pydantic.main::MyModel'}, set(), 'pydantic.main', 'MyModel', True),
     ),
 )
 def test_logfire_plugin_include_exclude_models(
     include: set[str], exclude: set[str], module: str, name: str, expected_to_include: bool
 ) -> None:
+    """`include` and `exclude` decide which models are instrumented, defaulting to only user code.
+
+    Without `include`, third party models are skipped so that libraries which use validation errors as
+    control flow don't flood the user with noise, as documented and as reported in
+    https://github.com/pydantic/logfire/issues/2053.
+    """
     logfire.configure(
         send_to_logfire=False,
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
@@ -158,95 +172,6 @@ def test_logfire_plugin_include_exclude_models(
         assert result != (None, None, None)
     else:
         assert result == (None, None, None)
-
-
-def _new_pydantic_plugin_result(
-    module: str,
-    name: str,
-    *,
-    include: set[str] | None = None,
-    exclude: set[str] | None = None,
-) -> tuple[object | None, object | None, object | None]:
-    getattr(logfire_pydantic, '_module_is_non_user_code').cache_clear()
-    getattr(logfire_pydantic, '_non_user_code_prefixes').cache_clear()
-    logfire.configure(
-        send_to_logfire=False,
-        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
-    )
-    logfire.instrument_pydantic(record='all', include=include or set(), exclude=exclude or set())
-    plugin = LogfirePydanticPlugin()
-    return cast(
-        tuple[object | None, object | None, object | None],
-        plugin.new_schema_validator(
-            core_schema.int_schema(), None, SchemaTypePath(module=module, name=name), 'BaseModel', None, {}
-        ),
-    )
-
-
-def test_pydantic_plugin_excludes_non_user_modules_by_default() -> None:
-    purelib = sysconfig.get_path('purelib')
-    assert purelib is not None
-
-    def fake_find_spec(module: str) -> SimpleNamespace | None:
-        if module == 'third_party_pkg.models':
-            return SimpleNamespace(
-                origin=os.path.join(purelib, 'third_party_pkg', 'models.py'),
-                submodule_search_locations=[],
-            )
-        if module == 'tests.test_pydantic_plugin':
-            return SimpleNamespace(origin=__file__, submodule_search_locations=[])
-        return None
-
-    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
-        assert _new_pydantic_plugin_result('third_party_pkg.models', 'ThirdPartyModel') == (None, None, None)
-        assert _new_pydantic_plugin_result('tests.test_pydantic_plugin', 'MyModel') != (None, None, None)
-
-
-def test_pydantic_plugin_include_overrides_default_non_user_filter() -> None:
-    purelib = sysconfig.get_path('purelib')
-    assert purelib is not None
-
-    def fake_find_spec(module: str) -> SimpleNamespace | None:
-        if module == 'third_party_pkg.models':
-            return SimpleNamespace(
-                origin=os.path.join(purelib, 'third_party_pkg', 'models.py'),
-                submodule_search_locations=[],
-            )
-        return None
-
-    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
-        assert _new_pydantic_plugin_result('third_party_pkg.models', 'ThirdPartyModel') == (None, None, None)
-        assert _new_pydantic_plugin_result(
-            'third_party_pkg.models',
-            'ThirdPartyModel',
-            include={'third_party_pkg.models::ThirdPartyModel'},
-        ) != (None, None, None)
-
-
-def test_pydantic_plugin_handles_find_spec_failures_as_user_code() -> None:
-    def fake_find_spec(module: str) -> SimpleNamespace | None:
-        if module == 'broken_pkg.models':
-            raise RuntimeError('broken parent import')
-        if module == 'invalid_name':
-            raise ValueError('invalid module name')
-        if module == 'namespace_pkg.models':
-            return SimpleNamespace(origin=None, submodule_search_locations=[])
-        return None
-
-    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
-        assert _new_pydantic_plugin_result('broken_pkg.models', 'BrokenModel') != (None, None, None)
-        assert _new_pydantic_plugin_result('invalid_name', 'InvalidModel') != (None, None, None)
-        assert _new_pydantic_plugin_result('namespace_pkg.models', 'NamespaceModel') != (None, None, None)
-
-
-def test_pydantic_plugin_excludes_builtin_modules_by_default() -> None:
-    def fake_find_spec(module: str) -> SimpleNamespace | None:
-        if module == 'builtins':
-            return SimpleNamespace(origin='built-in', submodule_search_locations=None)
-        return None
-
-    with patch('logfire.integrations.pydantic.importlib.util.find_spec', side_effect=fake_find_spec):
-        assert _new_pydantic_plugin_result('builtins', 'int') == (None, None, None)
 
 
 def test_get_schema_name():

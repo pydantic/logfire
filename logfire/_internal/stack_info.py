@@ -108,15 +108,22 @@ def get_user_frame_and_stacklevel() -> tuple[FrameType | None, int]:
     return None, 0
 
 
+def is_non_user_path(path: str | Path) -> bool:
+    """Check if the file path is in a location that doesn't contain user code.
+
+    Specifically the standard library, site-packages (wherever opentelemetry is installed),
+    the logfire package, and anything registered with `add_non_user_code_prefix`.
+    """
+    return str(Path(path).absolute()).startswith(NON_USER_CODE_PREFIXES)
+
+
 @lru_cache(maxsize=8192)
 def is_user_code(code: CodeType) -> bool:
     """Check if the code object is from user code.
 
     A code object is not user code if:
     - It is from a file in
-        - the standard library
-        - site-packages (specifically wherever opentelemetry is installed)
-        - the logfire package
+        - a non-user location, see `is_non_user_path`
         - an unknown location (e.g. a dynamically generated code object) indicated by a filename starting with '<'
     - It is a list/dict/set comprehension.
         These are artificial frames only created before Python 3.12,
@@ -124,7 +131,7 @@ def is_user_code(code: CodeType) -> bool:
         On the other hand, generator expressions and lambdas might be called far away from where they are defined.
     """
     return not (
-        str(Path(code.co_filename).absolute()).startswith(NON_USER_CODE_PREFIXES)
+        is_non_user_path(code.co_filename)
         or code.co_filename.startswith('<')
         or code.co_name in ('<listcomp>', '<dictcomp>', '<setcomp>')
     )

@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import functools
-import importlib.util
 import inspect
 import os
 import re
-import site
-import sysconfig
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar
 
 import pydantic
@@ -22,6 +19,7 @@ import logfire
 from logfire import LogfireSpan
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
+from .._internal.stack_info import is_non_user_path
 from .._internal.utils import get_version
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -372,54 +370,17 @@ IGNORED_MODULE_PREFIXES: tuple[str, ...] = tuple(f'{module}.' for module in IGNO
 _pydantic_plugin_config_value: PydanticPlugin | None = None
 
 
-@lru_cache
-def _non_user_code_prefixes() -> tuple[Path, ...]:
-    prefixes = {
-        sysconfig.get_path('purelib'),
-        sysconfig.get_path('platlib'),
-        sysconfig.get_path('stdlib'),
-        sysconfig.get_path('platstdlib'),
-        site.getusersitepackages(),
-        str(Path(logfire.__file__).resolve().parent),
-    }
-    return tuple(Path(prefix).resolve() for prefix in prefixes if prefix)
-
-
-def _path_has_prefix(path: Path, prefix: Path) -> bool:
-    try:
-        path.relative_to(prefix)
-    except ValueError:
-        return False
-    else:
-        return True
-
-
-@lru_cache
 def _module_is_non_user_code(module: str) -> bool:
-    if not module:
-        return False
+    """Check if the named module belongs to the standard library, an installed package, or logfire itself.
 
-    try:
-        spec = importlib.util.find_spec(module)
-    except Exception:
-        return False
-
-    if spec is None:
-        return False
-
-    if spec.origin in ('built-in', 'frozen'):
-        return True
-
-    module_paths: list[Path] = []
-    if spec.origin and not spec.origin.startswith('<'):
-        module_paths.append(Path(spec.origin).resolve())
-    module_paths.extend(Path(path).resolve() for path in spec.submodule_search_locations or ())
-
-    if not module_paths:
-        return False
-
-    prefixes = _non_user_code_prefixes()
-    return all(any(_path_has_prefix(path, prefix) for prefix in prefixes) for path in module_paths)
+    Models are only defined in modules that have already been imported by the time the plugin sees them,
+    so the module's `__file__` is the most direct answer available, with no importing or searching required.
+    Modules that aren't in `sys.modules` (e.g. models created by `pydantic.create_model` with a fake
+    `__module__`) and modules without a file (namespace packages, C extensions) count as user code,
+    since instrumenting too much is better than silently dropping a user's models.
+    """
+    file = getattr(sys.modules.get(module), '__file__', None)
+    return file is not None and is_non_user_path(file)
 
 
 def get_pydantic_plugin_config() -> PydanticPlugin:
@@ -454,6 +415,8 @@ def _include_model(schema_type_path: SchemaTypePath) -> bool:
     # check if the model is in include models
     if include:
         return any(re.search(f'{pattern}$', f'{module}::{schema_type_path.name}') for pattern in include)
+
+    # `include` is the only way to instrument third party models, so without it only instrument user code.
     return not _module_is_non_user_code(module)
 
 
