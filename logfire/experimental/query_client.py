@@ -72,18 +72,6 @@ class ColumnDetails(TypedDict):
     """Whether the column is nullable or not."""
 
 
-class ColumnData(ColumnDetails):
-    """The data of a column in the column-oriented JSON-format query results."""
-
-    values: list[Any]
-
-
-class QueryResults(TypedDict):
-    """The (column-oriented) results of a JSON-format query."""
-
-    columns: list[ColumnData]
-
-
 class RowQueryResults(TypedDict):
     """The row-oriented results of a JSON-format query."""
 
