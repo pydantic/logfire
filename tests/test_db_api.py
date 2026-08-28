@@ -187,6 +187,7 @@ def test_execute_sends_limit():
     capture: dict[str, Any] = {}
     conn = make_connection(capture=capture, limit=500)
     cur = conn.cursor()
+    assert cur.limit == 500
     cur.execute('SELECT 1')
     assert capture['body']['limit'] == 500
     conn.close()
@@ -196,7 +197,9 @@ def test_execute_cursor_limit_override():
     capture: dict[str, Any] = {}
     conn = make_connection(capture=capture, limit=500)
     cur = conn.cursor()
+    assert cur.limit == 500
     cur.limit = 100
+    assert cur.limit == 100
     cur.execute('SELECT 1')
     assert capture['body']['limit'] == 100
     conn.close()
@@ -447,6 +450,8 @@ def test_connection_timestamps():
     ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
     conn = make_connection(capture=capture, min_timestamp=ts, max_timestamp=ts)
     cur = conn.cursor()
+    assert cur.min_timestamp == ts
+    assert cur.max_timestamp == ts
     cur.execute('SELECT 1')
     assert capture['body']['min_timestamp'] == ts.isoformat()
     assert capture['body']['max_timestamp'] == ts.isoformat()
@@ -457,13 +462,28 @@ def test_cursor_timestamp_override():
     capture: dict[str, Any] = {}
     conn_ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
     cur_ts = datetime(2024, 6, 1, tzinfo=timezone.utc)
-    conn = make_connection(capture=capture, min_timestamp=conn_ts)
+    conn = make_connection(capture=capture, min_timestamp=conn_ts, max_timestamp=conn_ts)
     cur = conn.cursor()
     assert cur.min_timestamp == conn_ts
+    assert cur.max_timestamp == conn_ts
     cur.min_timestamp = cur_ts
+    cur.max_timestamp = cur_ts
     assert cur.min_timestamp == cur_ts
+    assert cur.max_timestamp == cur_ts
     cur.execute('SELECT 1')
     assert capture['body']['min_timestamp'] == cur_ts.isoformat()
+    assert capture['body']['max_timestamp'] == cur_ts.isoformat()
+    conn.close()
+
+
+def test_cursor_max_timestamp_none_override():
+    capture: dict[str, Any] = {}
+    conn = make_connection(capture=capture, max_timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc))
+    cur = conn.cursor()
+    cur.max_timestamp = None
+    assert cur.max_timestamp is None
+    cur.execute('SELECT 1')
+    assert 'max_timestamp' not in capture['body']
     conn.close()
 
 

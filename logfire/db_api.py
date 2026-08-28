@@ -28,8 +28,13 @@ from logfire.experimental.query_client import LogfireQueryClient
 if TYPE_CHECKING:
     from logfire.experimental.query_client import ColumnDetails
 
+
 # TODO: make use of PEP 661 sentinels once accepted.
-_UNSET = Enum('_UNSET', 'UNSET').UNSET
+class _Unset(Enum):
+    UNSET = 'UNSET'
+
+
+_UNSET = _Unset.UNSET
 """Sentinel to distinguish 'not set' from an explicit `None`."""
 
 # ---------------------------------------------------------------------------
@@ -196,8 +201,8 @@ class Cursor:
 
         # Per-cursor overrides (an absent override inherits from the connection)
         self._min_timestamp: datetime | None = None
-        self.max_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
-        self.limit: int = _UNSET  # type: ignore[assignment]
+        self._max_timestamp: datetime | None | _Unset = _UNSET
+        self._limit: int | _Unset = _UNSET
 
     # -- min_timestamp -----------------------------------------------------
 
@@ -209,6 +214,26 @@ class Cursor:
     @min_timestamp.setter
     def min_timestamp(self, value: datetime) -> None:
         self._min_timestamp = value
+
+    @property
+    def max_timestamp(self) -> datetime | None:
+        """Upper `start_timestamp` bound, inherited from the connection unless overridden."""
+        max_timestamp = self._max_timestamp
+        return self._connection.max_timestamp if isinstance(max_timestamp, _Unset) else max_timestamp
+
+    @max_timestamp.setter
+    def max_timestamp(self, value: datetime | None) -> None:
+        self._max_timestamp = value
+
+    @property
+    def limit(self) -> int:
+        """Row limit, inherited from the connection unless overridden."""
+        limit = self._limit
+        return self._connection.limit if isinstance(limit, _Unset) else limit
+
+    @limit.setter
+    def limit(self, value: int) -> None:
+        self._limit = value
 
     # -- PEP 249 properties ------------------------------------------------
 
@@ -242,8 +267,8 @@ class Cursor:
         result = self._connection.client.query_json_rows(
             sql=sql,
             min_timestamp=self.min_timestamp,
-            max_timestamp=self.max_timestamp if self.max_timestamp is not _UNSET else self._connection.max_timestamp,
-            limit=self.limit if self.limit is not _UNSET else self._connection.limit,
+            max_timestamp=self.max_timestamp,
+            limit=self.limit,
         )
 
         self._columns = result['columns']
@@ -254,7 +279,7 @@ class Cursor:
             (col['name'], col['datatype'], None, None, None, None, col.get('nullable')) for col in self._columns
         ]
 
-        effective_limit = self.limit if self.limit is not _UNSET else self._connection.limit
+        effective_limit = self.limit
         if self.rowcount == effective_limit:
             warnings.warn(
                 f'Query returned {effective_limit} rows which is the limit. '
