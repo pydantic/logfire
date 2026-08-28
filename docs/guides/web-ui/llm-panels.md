@@ -54,7 +54,25 @@ Click an LLM span to open the details panel.
 | [LiteLLM](../../integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |
 | [Anthropic](../../integrations/llms/anthropic.md)                                     | ✅            | ✅     | ✅                 |
 | [Claude Agent SDK](../../integrations/llms/claude-agent-sdk.md)                       | ✅            | ✅     | ✅                 |
+| LangGraph (via OpenInference)                                                         | ✅            |       | ✅                 |
+| CrewAI (via OpenInference)                                                            | ✅            |       | ✅                 |
+| smolagents (via OpenInference)                                                        | ✅            |       | ✅                 |
+| Agno (via OpenInference)                                                              | ✅            |       | ✅                 |
+| classic AutoGen (via OpenInference)                                                   | ✅            |       | ✅                 |
 | [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
+
+### OpenInference Support
+
+Frameworks using [OpenInference semantic conventions](https://github.com/Arize-ai/openinference) (such as LangGraph, CrewAI, smolagents, Agno, and classic AutoGen) emit LLM spans with flattened message attributes like `llm.input_messages.<i>.message.*` and `llm.output_messages.<i>.message.*`. Logfire automatically renders these conversations in the LLM details panel, including:
+
+- User, system, assistant, and tool messages
+- Multimodal content blocks (text, images)
+- Tool calls with structured arguments
+- Tool responses with `tool_call_id` linking
+
+Token counts are read from `llm.token_count.prompt` and `llm.token_count.completion` attributes.
+
+### Manual Logging
 
 Tokens and costs are more generally supported by any instrumentation that follows the standard [OpenTelemetry semantic conventions for GenAI spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/). The following snippet shows the attributes required if you want to log the data manually:
 
