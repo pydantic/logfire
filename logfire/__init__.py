@@ -62,6 +62,7 @@ instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
 instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
 instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
 instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
+instrument_botocore = DEFAULT_LOGFIRE_INSTANCE.instrument_botocore
 instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
@@ -173,6 +174,7 @@ __all__ = (
     'instrument_sqlalchemy',
     'instrument_sqlite3',
     'instrument_aws_lambda',
+    'instrument_botocore',
     'instrument_redis',
     'instrument_pymongo',
     'instrument_mysql',
