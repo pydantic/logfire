@@ -519,7 +519,9 @@ class _BaseLogfireAPIClient(Generic[T]):
         try:
             from pydantic_evals import Dataset
         except ImportError:
-            raise ImportError('pydantic-evals is required for this operation. Install with: pip install pydantic-evals')
+            raise ImportError(
+                'pydantic-evals is required for this operation. Install with: pip install pydantic-evals'
+            ) from None
 
         typed_dataset_cls = cast(
             type[Dataset[InputsT, OutputT, MetadataT]],
