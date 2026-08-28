@@ -13,7 +13,7 @@ Each link says why it's here.
 
 1. **[Scrub sensitive data](../how-to-guides/scrubbing.md)**: the SDK scans traces and logs and redacts likely-sensitive values (passwords, tokens, and personally identifiable information, or PII) *before* they're sent to Logfire. Start here to control exactly what leaves your machines and to add your own redaction rules. Note one gap the guide explains: LLM prompt and response content is not scrubbed by default, so use `include_content=False` when those messages may carry secrets.
 
-2. **[Choose your data region](../reference/data-regions.md)**: Logfire stores data in separate US and EU regions, and you pick your region when you sign up. Your account in each region is separate, with its own login and data, and nothing is shared between them, so choose up front for data residency and local regulations; a project's data stays in its region.
+2. **[Choose your data region](../reference/data-regions.md)**: Logfire stores data in separate US and EU regions, and your region follows the URL you sign up at. Your account in each region is separate, with its own login and data, and nothing is shared between them, so choose up front for data residency and local regulations; a project's data stays in its region.
 
 3. **[Compliance](../compliance.md)**: Logfire is SOC 2 Type II certified and HIPAA compliant, offers business associate agreements (BAAs), and provides an EU region for GDPR. Use this page to request the SOC 2 report and other documentation.
 
