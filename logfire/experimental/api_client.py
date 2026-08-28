@@ -54,11 +54,11 @@ from collections.abc import Sequence
 from datetime import datetime
 from functools import cache
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, cast, overload
 from uuid import UUID
 
 from pydantic import TypeAdapter, ValidationError
-from typing_extensions import NotRequired, Self, TypedDict
+from typing_extensions import NotRequired, Self, TypedDict, TypeForm, TypeVar
 
 from logfire._internal.config import get_base_url_from_token
 from logfire._internal.stack_info import warn_at_user_stacklevel
@@ -503,9 +503,9 @@ class _BaseLogfireAPIClient(Generic[T]):
         self,
         response: Response,
         *,
-        input_type: type[InputsT] | None,
-        output_type: type[OutputT] | None,
-        metadata_type: type[MetadataT] | None,
+        input_type: TypeForm[InputsT] | None,
+        output_type: TypeForm[OutputT],
+        metadata_type: TypeForm[MetadataT],
         include_cases: bool,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]],
         custom_report_evaluator_types: Sequence[type[Any]],
@@ -521,9 +521,10 @@ class _BaseLogfireAPIClient(Generic[T]):
         except ImportError:
             raise ImportError('pydantic-evals is required for this operation. Install with: pip install pydantic-evals')
 
-        output_type = output_type or Any  # type: ignore
-        metadata_type = metadata_type or Any  # type: ignore
-        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore
+        typed_dataset_cls = cast(
+            type[Dataset[InputsT, OutputT, MetadataT]],
+            Dataset[input_type, output_type, metadata_type],
+        )
         return _from_dict_compat(typed_dataset_cls, data, custom_evaluator_types, custom_report_evaluator_types)
 
 
@@ -1026,9 +1027,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     def get_dataset(
         self,
         id_or_name: str,
-        input_type: type[InputsT],
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
+        input_type: TypeForm[InputsT],
+        output_type: TypeForm[OutputT] = Any,
+        metadata_type: TypeForm[MetadataT] = Any,
         *,
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
         custom_report_evaluator_types: Sequence[type[Any]] = (),
@@ -1037,9 +1038,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     def get_dataset(
         self,
         id_or_name: str,
-        input_type: type[InputsT] | None = None,
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
+        input_type: TypeForm[InputsT] | None = None,
+        output_type: TypeForm[OutputT] = Any,
+        metadata_type: TypeForm[MetadataT] = Any,
         *,
         include_cases: bool = True,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
@@ -1376,9 +1377,9 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     async def get_dataset(
         self,
         id_or_name: str,
-        input_type: type[InputsT],
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
+        input_type: TypeForm[InputsT],
+        output_type: TypeForm[OutputT] = Any,
+        metadata_type: TypeForm[MetadataT] = Any,
         *,
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
         custom_report_evaluator_types: Sequence[type[Any]] = (),
@@ -1387,9 +1388,9 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     async def get_dataset(
         self,
         id_or_name: str,
-        input_type: type[InputsT] | None = None,
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
+        input_type: TypeForm[InputsT] | None = None,
+        output_type: TypeForm[OutputT] = Any,
+        metadata_type: TypeForm[MetadataT] = Any,
         *,
         include_cases: bool = True,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
