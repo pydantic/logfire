@@ -3,9 +3,11 @@ from __future__ import annotations
 import copy
 import json
 import re
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, TypedDict, cast
 
 import typing_extensions
@@ -68,6 +70,8 @@ DEFAULT_PATTERNS = [
 # position in large strings. Custom patterns are not constrained by this prefix.
 _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
+
+_SCRUBBING_FLAGS = re.IGNORECASE | re.DOTALL
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -205,13 +209,98 @@ class NoopScrubber(BaseScrubber):
 NOOP_SCRUBBER = NoopScrubber()
 
 
+def _compile_pattern(pattern: str) -> re.Pattern[str]:
+    """Compile one pattern on its own, naming it if it's invalid.
+
+    Compiling separately means the position in the error message points into the pattern
+    the user actually wrote, instead of into the combined pattern they never see.
+    """
+    try:
+        return re.compile(pattern, _SCRUBBING_FLAGS)
+    except re.error as e:
+        raise re.error(f'{e.msg} (in scrubbing pattern {pattern!r})', pattern, e.pos) from e
+
+
+def _can_be_joined(pattern: str) -> bool:
+    """Whether `pattern` still means the same thing after another pattern in an alternation.
+
+    Global inline flags such as `(?s)` are only allowed at the very start of a pattern, so a pattern
+    using them can't be combined with any other. Python 3.10 only warns about this, later versions
+    raise, so turn that warning into an error to get the same answer everywhere. Any other warning
+    is silenced: the pattern has already been compiled on its own, which is where the user should
+    hear about it once.
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            warnings.simplefilter('error', DeprecationWarning)
+            re.compile(f'x|{pattern}', _SCRUBBING_FLAGS)
+    except (re.error, DeprecationWarning):
+        return False
+    return True
+
+
+def _compile_patterns(extra_patterns: Sequence[str] | None) -> list[re.Pattern[str]]:
+    """Compile the default and extra patterns into as few regexes as possible.
+
+    Patterns are combined into one alternation wherever that's safe, because one regex search
+    is considerably cheaper than one per pattern on the short strings that most span attributes
+    are made of.
+
+    A pattern containing a capture group can't be combined: all patterns in an alternation share
+    one group numbering space, so its groups would be renumbered, and a numeric backreference or
+    conditional in it would then refer to a group belonging to another pattern. That pattern would
+    silently never match, and data the user expected to be redacted would be exported. Giving such
+    a pattern its own regex keeps its group numbering to itself, so it behaves as written.
+
+    Only neighbouring patterns are combined, so the result stays in the configured order. Where two
+    patterns match at the same position the earlier one has always won, and it still does.
+    """
+    compiled_patterns: list[re.Pattern[str]] = []
+    joinable = [_DEFAULT_PATTERN]
+
+    def flush_joinable():
+        if joinable:
+            with warnings.catch_warnings():
+                # Each pattern has already been compiled on its own, which is where any warning
+                # belongs: it names a position in the user's pattern, not in the combined one.
+                warnings.simplefilter('ignore')
+                compiled_patterns.append(re.compile('|'.join(joinable), _SCRUBBING_FLAGS))
+            joinable.clear()
+
+    for pattern in extra_patterns or []:
+        compiled = _compile_pattern(pattern)
+        if compiled.groups or not _can_be_joined(pattern):
+            flush_joinable()
+            compiled_patterns.append(compiled)
+        else:
+            joinable.append(pattern)
+    flush_joinable()
+    return compiled_patterns
+
+
+def _leftmost_match(patterns: Sequence[re.Pattern[str]], value: str) -> re.Match[str] | None:
+    """Find the leftmost match of any pattern, as a single combined pattern would.
+
+    Where several patterns match at the same position the earliest one wins, which is also how
+    `re` picks between the branches of an alternation.
+    """
+    best: re.Match[str] | None = None
+    for pattern in patterns:
+        match = pattern.search(value)
+        if match and (best is None or match.start() < best.start()):
+            best = match
+            if best.start() == 0:  # No later pattern can match further left.
+                break
+    return best
+
+
 class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
     def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
         # See ScrubbingOptions for more info on these parameters.
-        patterns = [_DEFAULT_PATTERN, *(patterns or [])]
-        self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        self._patterns = _compile_patterns(patterns)
         self._callback = callback
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
@@ -251,7 +340,11 @@ class SpanScrubber:
     """
 
     def __init__(self, parent: Scrubber):
-        self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        patterns = parent._patterns  # pyright: ignore[reportPrivateUsage]
+        # Runs for every attribute key and value, so call the single regex directly when there's only one.
+        self._search: Callable[[str], re.Match[str] | None] = (
+            patterns[0].search if len(patterns) == 1 else partial(_leftmost_match, patterns)
+        )
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.did_scrub = False
@@ -315,7 +408,7 @@ class SpanScrubber:
         Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
         """
         if isinstance(value, str):
-            if match := self._pattern.search(value):
+            if match := self._search(value):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
@@ -333,7 +426,7 @@ class SpanScrubber:
             for k, v in cast('Mapping[str, Any]', value).items():
                 if k in BaseScrubber.SAFE_KEYS:
                     result[k] = v
-                elif match := self._pattern.search(k):
+                elif match := self._search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
