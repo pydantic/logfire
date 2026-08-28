@@ -218,6 +218,7 @@ class Logfire:
         _level: LevelName | int | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
         _span_kind: SpanKind = SpanKind.INTERNAL,
+        _new_trace: bool = False,
     ) -> LogfireSpan:
         try:
             if _level is not None:
@@ -274,6 +275,7 @@ class Logfire:
                 json_schema_properties,
                 links=_links,
                 span_kind=_span_kind,
+                new_trace=_new_trace,
             )
         except Exception:
             log_internal_error()
@@ -573,6 +575,7 @@ class Logfire:
         _level: LevelName | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
         _span_kind: SpanKind = SpanKind.INTERNAL,
+        _new_trace: bool = False,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -596,6 +599,8 @@ class Logfire:
                 If not provided, defaults to `INTERNAL`.
                 Users don't typically need to set this.
                 Not related to the `kind` column of the `records` table in Logfire.
+            _new_trace: Set to `True` to start a new trace root. When a valid span is current,
+                the new root includes a span link to it instead of using it as a parent.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -609,6 +614,7 @@ class Logfire:
             _level=_level,
             _links=_links,
             _span_kind=_span_kind,
+            _new_trace=_new_trace,
         )
 
     @overload
@@ -3130,6 +3136,7 @@ class LogfireSpan(ReadableSpan):
         json_schema_properties: JsonSchemaProperties,
         links: Sequence[tuple[SpanContext, otel_types.Attributes]],
         span_kind: SpanKind = SpanKind.INTERNAL,
+        new_trace: bool = False,
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
@@ -3137,6 +3144,7 @@ class LogfireSpan(ReadableSpan):
         self._json_schema_properties = json_schema_properties
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
         self._span_kind = span_kind
+        self._new_trace = new_trace
 
         self._added_attributes = False
         self._token: None | Token[Context] = None
@@ -3151,11 +3159,19 @@ class LogfireSpan(ReadableSpan):
     def _start(self):
         if self._span is not None:
             return
+        context: Context | None = None
+        links = self._links
+        if self._new_trace:
+            previous_span_context = trace_api.get_current_span().get_span_context()
+            context = trace_api.set_span_in_context(trace_api.INVALID_SPAN)
+            if previous_span_context.is_valid and all(link.context != previous_span_context for link in links):
+                links = [*links, trace_api.Link(previous_span_context)]
         self._span = self._tracer.start_span(
             name=self._span_name,
             attributes=self._otlp_attributes,
-            links=self._links,
+            links=links,
             kind=self._span_kind,
+            context=context,
         )
 
     @handle_internal_errors
