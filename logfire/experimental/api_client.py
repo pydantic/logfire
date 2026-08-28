@@ -79,8 +79,8 @@ DEFAULT_TIMEOUT = Timeout(30.0)
 
 T = TypeVar('T', bound=BaseClient)
 InputsT = TypeVar('InputsT')
-OutputT = TypeVar('OutputT')
-MetadataT = TypeVar('MetadataT')
+OutputT = TypeVar('OutputT', default=Any)
+MetadataT = TypeVar('MetadataT', default=Any)
 ResponseT = TypeVar('ResponseT')
 
 _UNSET: Any = object()
@@ -255,16 +255,6 @@ def _validate_dataset_name(name: str) -> None:
             f'Invalid dataset name {name!r}. '
             'Names must start with a letter or digit and contain only letters, digits, dots, hyphens, and underscores.'
         )
-
-
-def _import_pydantic_evals() -> tuple[type, type]:
-    """Import pydantic-evals types, raising ImportError if not available."""
-    try:
-        from pydantic_evals import Case, Dataset
-
-        return Dataset, Case
-    except ImportError:
-        raise ImportError('pydantic-evals is required for this operation. Install with: pip install pydantic-evals')
 
 
 @cache
@@ -508,6 +498,33 @@ class _BaseLogfireAPIClient(Generic[T]):
         if response.status_code == 204:
             return None
         return response.json()
+
+    def _get_dataset(
+        self,
+        response: Response,
+        *,
+        input_type: type[InputsT] | None,
+        output_type: type[OutputT] | None,
+        metadata_type: type[MetadataT] | None,
+        include_cases: bool,
+        custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]],
+        custom_report_evaluator_types: Sequence[type[Any]],
+    ) -> Dataset[InputsT, OutputT, MetadataT] | DatasetDetail | ExportedDataset:
+        data = self._handle_response(response)
+        if not include_cases:
+            return _validate_or_warn(_dataset_detail_adapter, data)
+        if input_type is None:
+            return _validate_or_warn(_exported_dataset_adapter, data)
+
+        try:
+            from pydantic_evals import Dataset
+        except ImportError:
+            raise ImportError('pydantic-evals is required for this operation. Install with: pip install pydantic-evals')
+
+        output_type = output_type or Any  # type: ignore
+        metadata_type = metadata_type or Any  # type: ignore
+        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore
+        return _from_dict_compat(typed_dataset_cls, data, custom_evaluator_types, custom_report_evaluator_types)
 
 
 class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
@@ -1074,19 +1091,19 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             info = client.get_dataset('qa-dataset', include_cases=False)
             ```
         """
-        if not include_cases:
+        if include_cases:
+            response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
+        else:
             response = self.client.get(f'/v1/datasets/{id_or_name}/')
-            return _validate_or_warn(_dataset_detail_adapter, self._handle_response(response))
-
-        response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
-        data = self._handle_response(response)
-
-        if input_type is None:
-            return _validate_or_warn(_exported_dataset_adapter, data)
-
-        Dataset, _ = _import_pydantic_evals()
-        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
-        return _from_dict_compat(typed_dataset_cls, data, custom_evaluator_types, custom_report_evaluator_types)
+        return self._get_dataset(
+            response,
+            input_type=input_type,
+            output_type=output_type,
+            metadata_type=metadata_type,
+            include_cases=include_cases,
+            custom_evaluator_types=custom_evaluator_types,
+            custom_report_evaluator_types=custom_report_evaluator_types,
+        )
 
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
@@ -1382,16 +1399,16 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         See `LogfireAPIClient.get_dataset` for full documentation.
         """
-        if not include_cases:
+        if include_cases:
+            response = await self.client.get(f'/v1/datasets/{id_or_name}/export/')
+        else:
             response = await self.client.get(f'/v1/datasets/{id_or_name}/')
-            return _validate_or_warn(_dataset_detail_adapter, self._handle_response(response))
-
-        response = await self.client.get(f'/v1/datasets/{id_or_name}/export/')
-        data = self._handle_response(response)
-
-        if input_type is None:
-            return _validate_or_warn(_exported_dataset_adapter, data)
-
-        Dataset, _ = _import_pydantic_evals()
-        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
-        return _from_dict_compat(typed_dataset_cls, data, custom_evaluator_types, custom_report_evaluator_types)
+        return self._get_dataset(
+            response,
+            input_type=input_type,
+            output_type=output_type,
+            metadata_type=metadata_type,
+            include_cases=include_cases,
+            custom_evaluator_types=custom_evaluator_types,
+            custom_report_evaluator_types=custom_report_evaluator_types,
+        )

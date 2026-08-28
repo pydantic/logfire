@@ -9,7 +9,6 @@ import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
-from unittest.mock import patch
 from uuid import UUID
 
 import httpx
@@ -31,7 +30,6 @@ from logfire.experimental.api_client import (
     _from_dict_compat,
     _from_dict_supports_report_evaluators,
     _get_dataset_type_args,
-    _import_pydantic_evals,
     _serialize_case,
     _serialize_evaluators,
     _serialize_value,
@@ -305,20 +303,6 @@ class TestSerializeCase:
         )
         result = _serialize_case(case)
         assert result == {'inputs': {'q': 'hi'}, 'metadata': {'source': 'test'}, 'evaluators': []}
-
-
-class TestImportPydanticEvals:
-    def test_success(self):
-        Dataset, Case_ = _import_pydantic_evals()
-        from pydantic_evals import Case as RealCase, Dataset as RealDataset
-
-        assert Dataset is RealDataset
-        assert Case_ is RealCase
-
-    def test_import_error(self):
-        with patch.dict('sys.modules', {'pydantic_evals': None}):
-            with pytest.raises(ImportError, match='pydantic-evals is required'):
-                _import_pydantic_evals()
 
 
 class TestFromDictCompat:
