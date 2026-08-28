@@ -11,7 +11,7 @@ Go from install to your first trace in about 5 minutes. A trace is the full reco
 
 You need a Logfire account and a project to send your data to:
 
-1. [Create a free account](https://logfire.pydantic.dev/login) and follow the prompts. The sign-up screen shows your [data region](reference/data-regions.md) (where your data is stored), with a link to switch to the other one.
+1. [Create a free account](https://logfire.pydantic.dev/login) and follow the prompts. Your [data region](reference/data-regions.md) (where your data is stored) is shown at the foot of the sign-up card, with a link to switch to the other one.
 2. Create your first project when asked. A project is a namespace that holds your data; everything you send to Logfire belongs to one.
 
 !!! note "This sends your data to Logfire"
