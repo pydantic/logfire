@@ -194,7 +194,7 @@ class Cursor:
         self.rowcount = -1
         self.arraysize = 1
 
-        # Per-cursor overrides (`None`/`_UNSET` mean inherit from the connection)
+        # Per-cursor overrides (an absent override inherits from the connection)
         self._min_timestamp: datetime | None = None
         self.max_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
         self.limit: int = _UNSET  # type: ignore[assignment]
@@ -202,9 +202,9 @@ class Cursor:
     # -- min_timestamp -----------------------------------------------------
 
     @property
-    def min_timestamp(self) -> datetime | None:
-        """Per-cursor override for the lower `start_timestamp` bound."""
-        return self._min_timestamp
+    def min_timestamp(self) -> datetime:
+        """Lower `start_timestamp` bound, inherited from the connection unless overridden."""
+        return self._connection.min_timestamp if self._min_timestamp is None else self._min_timestamp
 
     @min_timestamp.setter
     def min_timestamp(self, value: datetime) -> None:
@@ -241,7 +241,7 @@ class Cursor:
 
         result = self._connection.client.query_json_rows(
             sql=sql,
-            min_timestamp=self.min_timestamp if self.min_timestamp is not None else self._connection.min_timestamp,
+            min_timestamp=self.min_timestamp,
             max_timestamp=self.max_timestamp if self.max_timestamp is not _UNSET else self._connection.max_timestamp,
             limit=self.limit if self.limit is not _UNSET else self._connection.limit,
         )

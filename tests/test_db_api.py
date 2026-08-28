@@ -459,7 +459,9 @@ def test_cursor_timestamp_override():
     cur_ts = datetime(2024, 6, 1, tzinfo=timezone.utc)
     conn = make_connection(capture=capture, min_timestamp=conn_ts)
     cur = conn.cursor()
+    assert cur.min_timestamp == conn_ts
     cur.min_timestamp = cur_ts
+    assert cur.min_timestamp == cur_ts
     cur.execute('SELECT 1')
     assert capture['body']['min_timestamp'] == cur_ts.isoformat()
     conn.close()
