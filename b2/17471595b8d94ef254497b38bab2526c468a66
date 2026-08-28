@@ -1,0 +1,43 @@
+logfire/experimental/query_client.py
+  h_d9dd17644dded9 379,579
+  s_8a4a90228c94b6::t_dd87ff437b3e8e 153
+  h_d9dd17644dded9 7,9,166-168
+tests/test_db_api.py
+  s_68896bd8bb6c7c::t_50da1c6e0a4658 66
+logfire/db_api.py
+  s_68896bd8bb6c7c::t_50da1c6e0a4658 24,137,197-198,210,242-244,246-247,345
+  s_68896bd8bb6c7c::t_f90fb9a0a819da 245
+tests/test_query_client.py
+  s_68896bd8bb6c7c::t_d072d3a675fc09 312
+  s_68896bd8bb6c7c::t_3c57498463c35e 40,102,142,158,188,230,249,276,284,287,304,315,352-363
+  s_68896bd8bb6c7c::t_926d004dfef50f 364-365
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b217471595b8d94ef254497b38bab2526c468a66",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_68896bd8bb6c7c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04866-acca-7503-942b-cf55412104f6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_8a4a90228c94b6": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1787917376419",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
