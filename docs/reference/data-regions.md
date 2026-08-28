@@ -29,7 +29,7 @@ Logfire is hosted independently in each region at [logfire-us.pydantic.dev](http
 
 Your account is created in whichever region you sign up at, and [migration between regions is not currently available](#region-migration), so make sure the stated region is the one you want before you continue.
 
-![The data region, shown at the foot of the Logfire sign-in card, with a link to change to the other region](../images/logfire-screenshot-region-picker.png)
+![The data region, shown at the foot of the Logfire sign-in card, with a link to change to the other region](../images/logfire-screenshot-region-footer.png)
 
 !!! tip "Signing in to Logfire"
     We don't detect your sessions across regions; each region is hosted independently. Bookmark and sign in to your regional URL directly: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
