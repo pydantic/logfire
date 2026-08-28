@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
@@ -1012,6 +1013,13 @@ class TestLogfireAPIClient:
         from pydantic_evals import Dataset
 
         assert isinstance(result, Dataset)
+
+    def test_get_dataset_typed_without_pydantic_evals(self, monkeypatch: pytest.MonkeyPatch):
+        client = make_client()
+        monkeypatch.setitem(sys.modules, 'pydantic_evals', None)
+
+        with pytest.raises(ImportError, match='pydantic-evals is required for this operation'):
+            client.get_dataset('test-dataset', input_type=MyInput)
 
     def test_add_cases_with_dicts(self):
         client = make_client()
