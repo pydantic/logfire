@@ -19,6 +19,7 @@ from requests import RequestException, Session
 
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
+from logfire._internal.http_transport import install_connection_policy
 from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
 from logfire._internal.utils import UnexpectedResponse, suppress_instrumentation
 from logfire.variables.abstract import (
@@ -91,6 +92,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._token = token
         self._server_response_hook = server_response_hook
         self._session = Session()
+        install_connection_policy(self._session)
         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
         install_logfire_response_hook(self._session, server_response_hook)
         self._timeout = options.timeout
@@ -268,6 +270,26 @@ class LogfireRemoteVariableProvider(VariableProvider):
         with suppress_instrumentation():
             self._sse_listener_loop()
 
+    def _new_sse_session(self) -> Session:
+        """Build the session for a single SSE connection attempt.
+
+        Separate from the polling session so that reconnecting cannot disturb polling, and
+        separate from the loop below so the connection policy on this stream, the longest-lived
+        connection the SDK opens, can be asserted without driving the loop.
+        """
+        session = Session()
+        install_connection_policy(session)
+        session.headers.update(
+            {
+                'Authorization': f'bearer {self._token}',
+                'User-Agent': UA_HEADER,
+                'Accept': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+            }
+        )
+        install_logfire_response_hook(session, self._server_response_hook)
+        return session
+
     def _sse_listener_loop(self):  # pragma: no cover
         """Connect to the SSE endpoint, reconnecting with backoff until shutdown."""
         sse_url = urljoin(self._base_url, '/v1/variable-updates/')
@@ -276,18 +298,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         while not self._shutdown:
             try:
-                # Use a separate session for SSE to avoid conflicts with polling
-                with Session() as sse_session:
-                    sse_session.headers.update(
-                        {
-                            'Authorization': f'bearer {self._token}',
-                            'User-Agent': UA_HEADER,
-                            'Accept': 'text/event-stream',
-                            'Cache-Control': 'no-cache',
-                        }
-                    )
-                    install_logfire_response_hook(sse_session, self._server_response_hook)
-
+                with self._new_sse_session() as sse_session:
                     # Open streaming connection
                     response = sse_session.get(sse_url, stream=True, timeout=(10, None))
                     if response.status_code != 200:

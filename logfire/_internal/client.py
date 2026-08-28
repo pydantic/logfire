@@ -12,6 +12,7 @@ from logfire.version import VERSION
 
 from .auth import UserToken, UserTokenCollection
 from .constants import HTTP_CONNECT_TIMEOUT
+from .http_transport import install_connection_policy
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .utils import UnexpectedResponse
 
@@ -47,6 +48,7 @@ class LogfireClient:
         self.base_url = user_token.base_url
         self._token = user_token.token
         self._session = Session()
+        install_connection_policy(self._session)
         self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
         install_logfire_response_hook(self._session, server_response_hook)
 

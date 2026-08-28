@@ -114,6 +114,7 @@ from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
+from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
 from .interactive import ask_or_default, ask_required, require_answer
 from .logs import ProxyLoggerProvider
@@ -1746,6 +1747,7 @@ class LogfireConfig(_LogfireConfigData):
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
+        install_connection_policy(session)
         install_logfire_response_hook(session, self.advanced.server_response_hook)
         # This runs in the background `check_logfire_token` thread, where a warning would be
         # attributed to the thread rather than to the user's `configure()` call and so wouldn't
