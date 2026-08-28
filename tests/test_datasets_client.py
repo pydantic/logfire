@@ -1014,6 +1014,19 @@ class TestLogfireAPIClient:
 
         assert isinstance(result, Dataset)
 
+    def test_get_dataset_typed_type_form_with_defaults(self):
+        export = {
+            'name': 'test-dataset',
+            'cases': [{'name': 'test-case', 'inputs': [1, 2]}],
+        }
+        responses = {('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=export)}
+        client = make_client(responses)
+
+        result = client.get_dataset('test-dataset', input_type=list[int])
+
+        assert _get_dataset_type_args(result) == (list[int], Any, Any)
+        assert result.cases[0].inputs == [1, 2]
+
     def test_get_dataset_typed_without_pydantic_evals(self, monkeypatch: pytest.MonkeyPatch):
         client = make_client()
         monkeypatch.setitem(sys.modules, 'pydantic_evals', None)
@@ -1436,6 +1449,20 @@ class TestAsyncLogfireAPIClient:
         from pydantic_evals import Dataset
 
         assert isinstance(result, Dataset)
+
+    @pytest.mark.anyio
+    async def test_get_dataset_typed_type_form_with_defaults(self):
+        export = {
+            'name': 'test-dataset',
+            'cases': [{'name': 'test-case', 'inputs': [1, 2]}],
+        }
+        responses = {('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=export)}
+        client = make_async_client(responses)
+
+        result = await client.get_dataset('test-dataset', input_type=list[int])
+
+        assert _get_dataset_type_args(result) == (list[int], Any, Any)
+        assert result.cases[0].inputs == [1, 2]
 
     @pytest.mark.anyio
     async def test_add_cases_with_dicts(self):
