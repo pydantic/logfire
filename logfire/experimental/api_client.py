@@ -518,7 +518,9 @@ class _BaseLogfireAPIClient(Generic[T]):
 
         try:
             from pydantic_evals import Dataset
-        except ImportError:
+        except ModuleNotFoundError as e:
+            if e.name != 'pydantic_evals':
+                raise
             raise ImportError(
                 'pydantic-evals is required for this operation. Install with: pip install pydantic-evals'
             ) from None

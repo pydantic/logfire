@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import sys
 import warnings
@@ -1032,6 +1033,26 @@ class TestLogfireAPIClient:
         monkeypatch.setitem(sys.modules, 'pydantic_evals', None)
 
         with pytest.raises(ImportError, match='pydantic-evals is required for this operation'):
+            client.get_dataset('test-dataset', input_type=MyInput)
+
+    def test_get_dataset_typed_with_broken_pydantic_evals_dependency(self, monkeypatch: pytest.MonkeyPatch):
+        client = make_client()
+        import_ = builtins.__import__
+
+        def mock_import(
+            name: str,
+            globals: dict[str, Any] | None = None,
+            locals: dict[str, Any] | None = None,
+            fromlist: tuple[str, ...] = (),
+            level: int = 0,
+        ) -> Any:
+            if name == 'pydantic_evals':
+                raise ModuleNotFoundError("No module named 'broken_dependency'", name='broken_dependency')
+            return import_(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, '__import__', mock_import)
+
+        with pytest.raises(ModuleNotFoundError, match='broken_dependency'):
             client.get_dataset('test-dataset', input_type=MyInput)
 
     def test_add_cases_with_dicts(self):
