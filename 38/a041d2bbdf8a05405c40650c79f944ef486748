@@ -1,0 +1,24 @@
+logfire/experimental/api_client.py
+  s_3f33466118a3ad::t_84f15aa4fa6393 522-524
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "38a041d2bbdf8a05405c40650c79f944ef486748",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_3f33466118a3ad": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04904-d47e-7f11-a597-801b4a85ca01",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
