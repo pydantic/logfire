@@ -1,7 +1,7 @@
 import argparse
 import httpx
 from ..interactive import require_answer as require_answer
-from .ai_tools import AiToolIntegration as AiToolIntegration, LOCAL_TOKEN_PLACEHOLDER as LOCAL_TOKEN_PLACEHOLDER, ai_tool_names as ai_tool_names, gateway_template_values as gateway_template_values, resolve_ai_tool as resolve_ai_tool
+from .ai_tools import AiToolIntegration as AiToolIntegration, LOCAL_TOKEN_PLACEHOLDER as LOCAL_TOKEN_PLACEHOLDER, gateway_ai_tool_names as gateway_ai_tool_names, gateway_template_values as gateway_template_values, resolve_ai_tool as resolve_ai_tool
 from .gateway_auth import CimdOAuthClient as CimdOAuthClient, GATEWAY_CIMD_PATH as GATEWAY_CIMD_PATH, GatewayAuth as GatewayAuth, GatewayError as GatewayError, OAuthSession as OAuthSession, discover_oauth_metadata as discover_oauth_metadata
 from _typeshed import Incomplete
 from dataclasses import dataclass

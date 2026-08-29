@@ -83,7 +83,7 @@ npx skills add pydantic/skills
 ```
 
 OpenCode reads `SKILL.md` files from both the project directory and `~/.agents/skills/`, walking up
-from the current directory to the git worktree root. Confirm what it picked up with:
+from the current directory to the root of your repository. Confirm what it picked up with:
 
 ```bash
 opencode debug skill

@@ -6664,6 +6664,100 @@ def test_parse_prompt_pi_adapter_listed_under_another_name(
     assert 'pi install npm:pi-mcp-adapter' in warning
 
 
+def test_parse_prompt_pi_already_configured_still_warns_about_adapter(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A config Pi cannot read is exactly when the adapter hint matters most."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'mcp.json').write_text(
+        json.dumps({'mcpServers': {'logfire': {'url': 'https://logfire-us.pydantic.dev/mcp'}}})
+    )
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    _, err = capsys.readouterr()
+    warning = ' '.join(err.split())
+    assert 'pi install npm:pi-mcp-adapter' in warning
+    # Nothing was rewritten, since `--update` was not passed.
+    assert 'added to Pi' not in warning
+    assert 'updated in Pi' not in warning
+
+
+@pytest.mark.parametrize(
+    'content,detail',
+    [
+        ('[]', 'does not contain a JSON object'),
+        ('{"mcpServers": []}', 'has an "mcpServers" value that is not a JSON object'),
+    ],
+)
+def test_parse_prompt_pi_unexpected_json_shape(
+    content: str,
+    detail: str,
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Valid JSON of the wrong shape must be reported, not raise an AttributeError."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'mcp.json').write_text(content)
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    _, err = capsys.readouterr()
+    assert detail in ' '.join(err.split())
+
+
+@pytest.mark.parametrize('content', ['[]', '{"packages": {}}'])
+def test_parse_prompt_pi_settings_unexpected_shape(
+    content: str,
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pi's settings file belongs to Pi, so an unreadable shape must not abort the flow."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'settings.json').write_text(content)
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    _, err = capsys.readouterr()
+    warning = ' '.join(err.split())
+    assert 'Logfire MCP server added to Pi.' in warning
+    assert 'pi install npm:pi-mcp-adapter' in warning
+
+
 def test_parse_prompt_pi_invalid_json(
     prompt_http_calls: None,
     capsys: pytest.CaptureFixture[str],
@@ -6686,7 +6780,7 @@ def test_parse_prompt_pi_invalid_json(
 
     out, err = capsys.readouterr()
     assert out == snapshot('')
-    assert 'Failed to parse' in err
+    assert 'is not valid JSON' in ' '.join(err.split())
 
 
 def test_parse_prompt_pi_already_configured(
@@ -6697,10 +6791,13 @@ def test_parse_prompt_pi_already_configured(
 ) -> None:
     monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
     monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
 
     existing = json.dumps({'mcpServers': {'logfire': {'url': 'https://old.example/mcp'}}}, indent=2)
     (tmp_path / '.pi').mkdir()
     (tmp_path / '.pi' / 'mcp.json').write_text(existing)
+    # With the adapter present there is nothing to report, so this isolates the no-rewrite path.
+    (tmp_path / '.pi' / 'settings.json').write_text(json.dumps({'packages': ['npm:pi-mcp-adapter']}))
 
     def check_output(x: list[str]) -> bytes:
         return tmp_path.as_posix().encode('utf-8')

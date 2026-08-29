@@ -249,7 +249,8 @@ Then create `.pi/mcp.json` in your project root:
 }
 ```
 
-Restart Pi, then run `/mcp reconnect logfire` to connect and complete the browser login.
+Restart Pi, then run `/mcp-auth logfire` to complete the browser login. `/mcp reconnect logfire`
+only reconnects, so on a new configuration it leaves the server unauthenticated.
 
 !!! warning
     `pi-mcp-adapter` is a third-party package, maintained neither by Pi's authors nor by Pydantic.

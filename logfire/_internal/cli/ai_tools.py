@@ -8,7 +8,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 from rich.console import Console
 
@@ -229,11 +229,17 @@ def _pi_adapter_installed(root_dir: Path) -> bool:
     agent_dir = Path(os.getenv('PI_CODING_AGENT_DIR', Path.home() / '.pi' / 'agent'))
     for settings_path in (root_dir / '.pi' / 'settings.json', agent_dir / 'settings.json'):
         try:
-            settings: dict[str, Any] = json.loads(settings_path.read_text())
+            settings: object = json.loads(settings_path.read_text())
         except (OSError, json.JSONDecodeError):
             continue
-        packages = cast('list[str | dict[str, Any]]', settings.get('packages', []))
-        for package in packages:
+        # Someone else's settings file is not ours to validate: an unexpected shape means we
+        # cannot tell whether the adapter is installed, which is the same answer as absent.
+        if not isinstance(settings, dict):
+            continue
+        packages = cast('dict[str, Any]', settings).get('packages', [])
+        if not isinstance(packages, list):
+            continue
+        for package in cast('list[str | dict[str, Any]]', packages):
             # Entries are either a source string or a `{'source': ...}` object.
             source = package.get('source', '') if isinstance(package, dict) else package
             if isinstance(source, str) and PI_MCP_ADAPTER_PACKAGE in source:
@@ -245,31 +251,46 @@ def _configure_pi_mcp(mcp_url: str, console: Console, update: bool) -> None:
     root_dir = _git_root_or_cwd()
     pi_config = root_dir / '.pi' / 'mcp.json'
 
+    def invalid(detail: str) -> NoReturn:
+        console.print(f'{pi_config} {detail}. Please fix the file or update it manually.')
+        raise SystemExit(1)
+
+    pi_config_json: dict[str, Any] = {}
     if pi_config.exists():
         try:
-            pi_config_json: dict[str, Any] = json.loads(pi_config.read_text())
+            loaded: object = json.loads(pi_config.read_text())
         except json.JSONDecodeError:
-            console.print(f'Failed to parse {pi_config} as JSON. Please fix the file or update it manually.')
-            raise SystemExit(1) from None
-    else:
-        pi_config_json = {}
-    already_configured = 'logfire' in pi_config_json.get('mcpServers', {})
+            invalid('is not valid JSON')
+        if not isinstance(loaded, dict):
+            invalid('does not contain a JSON object')
+        pi_config_json = cast('dict[str, Any]', loaded)
+
+    servers = pi_config_json.setdefault('mcpServers', {})
+    if not isinstance(servers, dict):
+        invalid('has an "mcpServers" value that is not a JSON object')
+    servers = cast('dict[str, Any]', servers)
+    already_configured = 'logfire' in servers
+
+    # The warning is reported even when nothing is written, since a configuration Pi cannot
+    # read is exactly the case where the reader most needs to hear about the adapter.
+    def warn_if_adapter_missing() -> None:
+        if not _pi_adapter_installed(root_dir):
+            console.print(
+                'Pi has no built-in MCP support, so this configuration is only read once the '
+                f'community-maintained `{PI_MCP_ADAPTER_PACKAGE}` package is installed:\n'
+                f'    pi install npm:{PI_MCP_ADAPTER_PACKAGE}',
+                style='yellow',
+            )
 
     if already_configured and not update:
+        warn_if_adapter_missing()
         return
 
-    pi_config_json.setdefault('mcpServers', {})['logfire'] = pi_mcp_json(mcp_url)
+    servers['logfire'] = pi_mcp_json(mcp_url)
     pi_config.parent.mkdir(parents=True, exist_ok=True)
     pi_config.write_text(json.dumps(pi_config_json, indent=2))
     console.print(f'Logfire MCP server {"updated in" if already_configured else "added to"} Pi.', style='green')
-
-    if not _pi_adapter_installed(root_dir):
-        console.print(
-            'Pi has no built-in MCP support, so this configuration is only read once the '
-            f'community-maintained `{PI_MCP_ADAPTER_PACKAGE}` package is installed:\n'
-            f'    pi install npm:{PI_MCP_ADAPTER_PACKAGE}',
-            style='yellow',
-        )
+    warn_if_adapter_missing()
 
 
 def pi_mcp_json(url: str) -> dict[str, Any]:

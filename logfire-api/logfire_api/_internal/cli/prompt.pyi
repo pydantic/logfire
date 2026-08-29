@@ -1,6 +1,6 @@
 import argparse
 from _typeshed import Incomplete
-from logfire._internal.cli.ai_tools import resolve_ai_tool as resolve_ai_tool
+from logfire._internal.cli.ai_tools import mcp_ai_tool_names as mcp_ai_tool_names, resolve_ai_tool as resolve_ai_tool
 from logfire._internal.cli.auth import parse_auth as parse_auth
 from logfire._internal.client import LogfireClient as LogfireClient
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
