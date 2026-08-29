@@ -237,13 +237,12 @@ def _configure_opencode_mcp(mcp_url: str, console: Console, update: bool) -> Non
 
 
 def opencode_mcp_json(url: str) -> dict[str, Any]:
+    # No `oauth` key: OpenCode detects the requirement on its first connection. Note that an
+    # explicit `oauth: false` is not the way to describe a key-authenticated server here, it
+    # selects a transport this server answers with a 405.
     return {
         'type': 'remote',
         'url': url,
-        # Matches what `opencode mcp add` writes for this server, and what the docs show, so
-        # configuring by either route produces the same entry. OpenCode reports a server
-        # without this key as `connected` rather than `connected (OAuth)`.
-        'oauth': {},
     }
 
 

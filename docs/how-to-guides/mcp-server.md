@@ -200,15 +200,13 @@ and the global `~/.config/opencode/opencode.json` work the same way):
   "mcp": {
     "logfire": {
       "type": "remote",
-      "url": "https://logfire-us.pydantic.dev/mcp",
-      "oauth": {}
+      "url": "https://logfire-us.pydantic.dev/mcp"
     }
   }
 }
 ```
 
-This is the same file the prompts above produce. Run `opencode mcp auth logfire` afterwards to
-complete the browser login.
+Run `opencode mcp auth logfire` afterwards to complete the browser login.
 
 !!! note
     `logfire prompt --opencode` writes this same entry, but names the server `logfire-mcp`. If you
@@ -222,9 +220,9 @@ complete the browser login.
 !!! note
     Never set `"oauth": false` here. It reads like the way to say "this server uses a static
     key", but it drops the connection to a transport this server answers with a `405`, whether
-    or not you also send a token, and `opencode mcp list` reports `failed`. Leaving `oauth` out
-    entirely does work, but OpenCode then reports the server as `connected` rather than
-    `connected (OAuth)`.
+    or not you also send a token, and `opencode mcp list` reports `failed`. Leave `oauth` out
+    and OpenCode detects the requirement on its first connection. The prompts above record
+    `"oauth": {}`, which is equivalent.
 
 ### Pi
 

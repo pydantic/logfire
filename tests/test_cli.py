@@ -6999,7 +6999,7 @@ def test_parse_prompt_opencode_whitespace_only_config(
 
     config = json.loads((tmp_path / 'opencode.jsonc').read_text())
     assert config == snapshot(
-        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp', 'oauth': {}}}}
+        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp'}}}
     )
 
 
@@ -7078,7 +7078,7 @@ def test_parse_prompt_opencode_logfire_mcp_update(
 
     config = json.loads((tmp_path / 'opencode.jsonc').read_text())
     assert config == snapshot(
-        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp', 'oauth': {}}}}
+        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp'}}}
     )
     out, err = capsys.readouterr()
     assert out == snapshot('This is the prompt\n')
