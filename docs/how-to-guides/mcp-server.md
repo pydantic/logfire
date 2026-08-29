@@ -200,22 +200,26 @@ and the global `~/.config/opencode/opencode.json` work the same way):
   "mcp": {
     "logfire": {
       "type": "remote",
-      "url": "https://logfire-us.pydantic.dev/mcp"
+      "url": "https://logfire-us.pydantic.dev/mcp",
+      "oauth": {}
     }
   }
 }
 ```
 
-Run `opencode mcp auth logfire` afterwards to complete the browser login.
+This is the same file the prompts above produce. Run `opencode mcp auth logfire` afterwards to
+complete the browser login.
 
 !!! note
     The key is `mcp`, not `mcpServers`. A Claude-style `mcpServers` block is ignored silently:
     `opencode mcp list` simply reports that no servers are configured.
 
 !!! note
-    Leave `oauth` out. OpenCode detects the requirement on its first connection, and setting
-    `"oauth": false` drops the connection to a transport this server answers with a `405`,
-    whether or not you also send a token. `opencode mcp list` then reports `failed`.
+    Never set `"oauth": false` here. It reads like the way to say "this server uses a static
+    key", but it drops the connection to a transport this server answers with a `405`, whether
+    or not you also send a token, and `opencode mcp list` reports `failed`. Leaving `oauth` out
+    entirely does work, but OpenCode then reports the server as `connected` rather than
+    `connected (OAuth)`.
 
 ### Pi
 
