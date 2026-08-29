@@ -213,10 +213,9 @@ Run `opencode mcp auth logfire` afterwards to complete the browser login.
     `opencode mcp list` simply reports that no servers are configured.
 
 !!! note
-    Do not set `"oauth": false` for the Logfire server. That setting is for servers authenticated
-    by a static API key, and it disables the OAuth flow this server requires, leaving
-    `opencode mcp list` reporting `failed` with a `405`. Omitting `oauth` entirely is fine:
-    OpenCode detects the requirement on its first connection.
+    Leave `oauth` out. OpenCode detects the requirement on its first connection, and setting
+    `"oauth": false` drops the connection to a transport this server answers with a `405`,
+    whether or not you also send a token. `opencode mcp list` then reports `failed`.
 
 ### Pi
 
