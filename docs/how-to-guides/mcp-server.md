@@ -394,6 +394,40 @@ Some clients need a different shape for key-based auth:
 
     Then export the key Codex reads: `export LOGFIRE_MCP_TOKEN=<your-logfire-api-key>`
 
+- **OpenCode**: add the header in `opencode.json`. Do not also set `"oauth": false`, which fails
+  with a `405` whether or not a token is sent:
+
+    ```json
+    {
+      "mcp": {
+        "logfire": {
+          "type": "remote",
+          "url": "https://logfire-us.pydantic.dev/mcp",
+          "headers": {
+            "Authorization": "Bearer <your-logfire-api-key>"
+          }
+        }
+      }
+    }
+    ```
+
+- **Pi**: reference an environment variable from `.pi/mcp.json`, which needs
+  [`pi-mcp-adapter`](#pi):
+
+    ```json
+    {
+      "mcpServers": {
+        "logfire": {
+          "url": "https://logfire-us.pydantic.dev/mcp",
+          "auth": "bearer",
+          "bearerTokenEnv": "LOGFIRE_MCP_TOKEN"
+        }
+      }
+    }
+    ```
+
+    Then export the key the adapter reads: `export LOGFIRE_MCP_TOKEN='<your-logfire-api-key>'`
+
 - **Claude Desktop**: custom connectors are OAuth-only, so for key-based auth use `mcp-remote` in
   `claude_desktop_config.json`:
 
