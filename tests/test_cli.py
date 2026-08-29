@@ -6794,6 +6794,70 @@ def test_parse_prompt_refuses_to_write_through_symlink(
     assert 'Refusing to write through it' in ' '.join(err.split())
 
 
+@pytest.mark.parametrize('tool,config', [('--pi', '.pi/mcp.json'), ('--opencode', 'opencode.jsonc')])
+def test_parse_prompt_refuses_dangling_symlink(
+    tool: str,
+    config: str,
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A link to a missing file must not cause that file to be created outside the checkout."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    monkeypatch.setattr(Path, 'cwd', lambda: repo)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    absent = tmp_path / 'absent.json'
+    config_path = repo / config
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.symlink_to(absent)
+
+    def check_output(x: list[str]) -> bytes:
+        return repo.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', tool])
+
+    assert not absent.exists()
+    _, err = capsys.readouterr()
+    assert 'Refusing to write through it' in ' '.join(err.split())
+
+
+def test_parse_prompt_pi_refuses_symlinked_parent_directory(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Linking the directory, rather than the file, must be refused by the location check."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    monkeypatch.setattr(Path, 'cwd', lambda: repo)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    outside_dir = tmp_path / 'outside'
+    outside_dir.mkdir()
+    (repo / '.pi').symlink_to(outside_dir, target_is_directory=True)
+
+    def check_output(x: list[str]) -> bytes:
+        return repo.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    assert list(outside_dir.iterdir()) == []
+    _, err = capsys.readouterr()
+    assert 'resolves outside' in ' '.join(err.split())
+
+
 def test_parse_prompt_pi_undecodable_config(
     prompt_http_calls: None,
     capsys: pytest.CaptureFixture[str],

@@ -190,13 +190,19 @@ def _write_repo_config(path: Path, content: str, root_dir: Path, console: Consol
     user can write. A plain write would follow that link and overwrite the target with our
     configuration, so both the location and the final write are checked.
     """
-    if not path.parent.resolve().is_relative_to(root_dir.resolve()):
+    resolved_parent = path.parent.resolve()
+    if not resolved_parent.is_relative_to(root_dir.resolve()):
         console.print(f'{path} resolves outside {root_dir}. Refusing to write through it.')
         raise SystemExit(1)
     try:
-        # O_NOFOLLOW covers the final component, and closes the window between the check
-        # above and the write, where the path could be replaced with a link.
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
+        # The directory is opened by its already-resolved path, so no link is followed to
+        # reach it, and the file is then opened relative to that descriptor. O_NOFOLLOW
+        # rejects the final component if it is a link, including a dangling one.
+        dir_fd = os.open(resolved_parent, os.O_RDONLY)
+        try:
+            fd = os.open(path.name, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644, dir_fd=dir_fd)
+        finally:
+            os.close(dir_fd)
     except OSError:
         console.print(f'{path} is a symbolic link or could not be opened. Refusing to write through it.')
         raise SystemExit(1) from None
@@ -208,10 +214,12 @@ def _configure_opencode_mcp(mcp_url: str, console: Console, update: bool) -> Non
     root_dir = _git_root_or_cwd()
 
     opencode_config = root_dir / 'opencode.jsonc'
-    opencode_config.touch()
 
+    # Deliberately not `touch()`ed first: that follows a dangling symlink and creates its
+    # target, which is exactly the write outside the checkout that `_write_repo_config`
+    # exists to prevent. The file is created by the write itself when it is missing.
     try:
-        opencode_config_content = opencode_config.read_text()
+        opencode_config_content = opencode_config.read_text() if opencode_config.is_file() else ''
     except UnicodeDecodeError:
         console.print(f'Failed to read {opencode_config} as text. Please fix the file or update it manually.')
         raise SystemExit(1) from None
