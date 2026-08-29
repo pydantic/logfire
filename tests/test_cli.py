@@ -6636,6 +6636,124 @@ Logfire MCP server added to Pi.
 """)
 
 
+def test_parse_prompt_pi_adapter_listed_under_another_name(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unrelated packages, in either entry shape, must not be mistaken for the adapter."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'settings.json').write_text(
+        json.dumps({'packages': ['npm:some-other-package', {'source': 'npm:another-one'}]})
+    )
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    _, err = capsys.readouterr()
+    warning = ' '.join(err.split())
+    assert 'pi install npm:pi-mcp-adapter' in warning
+
+
+def test_parse_prompt_pi_invalid_json(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'mcp.json').write_text('{not json')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('')
+    assert 'Failed to parse' in err
+
+
+def test_parse_prompt_pi_already_configured(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    existing = json.dumps({'mcpServers': {'logfire': {'url': 'https://old.example/mcp'}}}, indent=2)
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'mcp.json').write_text(existing)
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    assert (tmp_path / '.pi' / 'mcp.json').read_text() == existing
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot('')
+
+
+def test_parse_prompt_pi_update(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'mcp.json').write_text(
+        json.dumps({'mcpServers': {'logfire': {'url': 'https://old.example/mcp'}}})
+    )
+    (tmp_path / '.pi' / 'settings.json').write_text(json.dumps({'packages': ['npm:pi-mcp-adapter']}))
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi', '--update'])
+
+    assert json.loads((tmp_path / '.pi' / 'mcp.json').read_text()) == snapshot(
+        {
+            'mcpServers': {
+                'logfire': {
+                    'url': 'https://logfire-us.pydantic.dev/mcp',
+                    'auth': 'oauth',
+                    'protocolVersion': 'auto',
+                }
+            }
+        }
+    )
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot('Logfire MCP server updated in Pi.\n')
+
+
 def test_parse_prompt_opencode_no_git(
     prompt_http_calls: None,
     capsys: pytest.CaptureFixture[str],
