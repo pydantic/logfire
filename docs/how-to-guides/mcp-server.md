@@ -211,6 +211,11 @@ This is the same file the prompts above produce. Run `opencode mcp auth logfire`
 complete the browser login.
 
 !!! note
+    `logfire prompt --opencode` writes this same entry, but names the server `logfire-mcp`. If you
+    configure OpenCode by hand as `logfire` and later run that command, you will have two entries
+    pointing at the same server. Keep whichever you prefer and delete the other.
+
+!!! note
     The key is `mcp`, not `mcpServers`. A Claude-style `mcpServers` block is ignored silently:
     `opencode mcp list` simply reports that no servers are configured.
 

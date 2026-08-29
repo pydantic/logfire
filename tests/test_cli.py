@@ -6758,6 +6758,90 @@ def test_parse_prompt_pi_settings_unexpected_shape(
     assert 'pi install npm:pi-mcp-adapter' in warning
 
 
+@pytest.mark.parametrize('tool,config', [('--pi', '.pi/mcp.json'), ('--opencode', 'opencode.jsonc')])
+def test_parse_prompt_refuses_to_write_through_symlink(
+    tool: str,
+    config: str,
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A repository must not be able to redirect our write at a file outside the checkout."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    monkeypatch.setattr(Path, 'cwd', lambda: repo)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    outsider = tmp_path / 'outside.json'
+    outsider.write_text('{"do": "not touch"}')
+
+    config_path = repo / config
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.symlink_to(outsider)
+
+    def check_output(x: list[str]) -> bytes:
+        return repo.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', tool])
+
+    assert outsider.read_text() == '{"do": "not touch"}'
+    _, err = capsys.readouterr()
+    assert 'Refusing to write through it' in ' '.join(err.split())
+
+
+def test_parse_prompt_pi_undecodable_config(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bytes that are not valid UTF-8 must report the file, not raise UnicodeDecodeError."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'mcp.json').write_bytes(b'\xff\xfe not utf-8')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    _, err = capsys.readouterr()
+    assert 'is not valid JSON' in ' '.join(err.split())
+
+
+def test_parse_prompt_opencode_undecodable_config(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_bytes(b'\xff\xfe not utf-8')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    _, err = capsys.readouterr()
+    assert 'Failed to read' in ' '.join(err.split())
+
+
 def test_parse_prompt_pi_invalid_json(
     prompt_http_calls: None,
     capsys: pytest.CaptureFixture[str],
@@ -6915,7 +6999,7 @@ def test_parse_prompt_opencode_whitespace_only_config(
 
     config = json.loads((tmp_path / 'opencode.jsonc').read_text())
     assert config == snapshot(
-        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp'}}}
+        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp', 'oauth': {}}}}
     )
 
 
@@ -6994,7 +7078,7 @@ def test_parse_prompt_opencode_logfire_mcp_update(
 
     config = json.loads((tmp_path / 'opencode.jsonc').read_text())
     assert config == snapshot(
-        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp'}}}
+        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp', 'oauth': {}}}}
     )
     out, err = capsys.readouterr()
     assert out == snapshot('This is the prompt\n')

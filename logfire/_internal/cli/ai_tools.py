@@ -183,13 +183,38 @@ def _git_root_or_cwd() -> Path:
     return Path(output.decode('utf-8').strip())
 
 
+def _write_repo_config(path: Path, content: str, root_dir: Path, console: Console) -> None:
+    """Write a configuration file inside the checkout, refusing to follow a symlink out of it.
+
+    A repository can ship one of these paths, or a parent of it, as a symlink to any file the
+    user can write. A plain write would follow that link and overwrite the target with our
+    configuration, so both the location and the final write are checked.
+    """
+    if not path.parent.resolve().is_relative_to(root_dir.resolve()):
+        console.print(f'{path} resolves outside {root_dir}. Refusing to write through it.')
+        raise SystemExit(1)
+    try:
+        # O_NOFOLLOW covers the final component, and closes the window between the check
+        # above and the write, where the path could be replaced with a link.
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
+    except OSError:
+        console.print(f'{path} is a symbolic link or could not be opened. Refusing to write through it.')
+        raise SystemExit(1) from None
+    with os.fdopen(fd, 'w') as config_file:
+        config_file.write(content)
+
+
 def _configure_opencode_mcp(mcp_url: str, console: Console, update: bool) -> None:
     root_dir = _git_root_or_cwd()
 
     opencode_config = root_dir / 'opencode.jsonc'
     opencode_config.touch()
 
-    opencode_config_content = opencode_config.read_text()
+    try:
+        opencode_config_content = opencode_config.read_text()
+    except UnicodeDecodeError:
+        console.print(f'Failed to read {opencode_config} as text. Please fix the file or update it manually.')
+        raise SystemExit(1) from None
     if opencode_config_content.strip():
         try:
             opencode_config_json: dict[str, Any] = json.loads(opencode_config_content)
@@ -207,7 +232,7 @@ def _configure_opencode_mcp(mcp_url: str, console: Console, update: bool) -> Non
         return
 
     opencode_config_json.setdefault('mcp', {})['logfire-mcp'] = opencode_mcp_json(mcp_url)
-    opencode_config.write_text(json.dumps(opencode_config_json, indent=2))
+    _write_repo_config(opencode_config, json.dumps(opencode_config_json, indent=2), root_dir, console)
     console.print(f'Logfire MCP server {"updated in" if already_configured else "added to"} OpenCode.', style='green')
 
 
@@ -215,6 +240,10 @@ def opencode_mcp_json(url: str) -> dict[str, Any]:
     return {
         'type': 'remote',
         'url': url,
+        # Matches what `opencode mcp add` writes for this server, and what the docs show, so
+        # configuring by either route produces the same entry. OpenCode reports a server
+        # without this key as `connected` rather than `connected (OAuth)`.
+        'oauth': {},
     }
 
 
@@ -230,7 +259,7 @@ def _pi_adapter_installed(root_dir: Path) -> bool:
     for settings_path in (root_dir / '.pi' / 'settings.json', agent_dir / 'settings.json'):
         try:
             settings: object = json.loads(settings_path.read_text())
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             continue
         # Someone else's settings file is not ours to validate: an unexpected shape means we
         # cannot tell whether the adapter is installed, which is the same answer as absent.
@@ -259,7 +288,7 @@ def _configure_pi_mcp(mcp_url: str, console: Console, update: bool) -> None:
     if pi_config.exists():
         try:
             loaded: object = json.loads(pi_config.read_text())
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             invalid('is not valid JSON')
         if not isinstance(loaded, dict):
             invalid('does not contain a JSON object')
@@ -288,7 +317,7 @@ def _configure_pi_mcp(mcp_url: str, console: Console, update: bool) -> None:
 
     servers['logfire'] = pi_mcp_json(mcp_url)
     pi_config.parent.mkdir(parents=True, exist_ok=True)
-    pi_config.write_text(json.dumps(pi_config_json, indent=2))
+    _write_repo_config(pi_config, json.dumps(pi_config_json, indent=2), root_dir, console)
     console.print(f'Logfire MCP server {"updated in" if already_configured else "added to"} Pi.', style='green')
     warn_if_adapter_missing()
 
