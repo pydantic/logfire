@@ -875,9 +875,7 @@ def test_non_interactive_gateway_refuses_instead_of_prompting() -> None:
     from logfire._internal.interactive import NonInteractiveError, set_non_interactive
 
     with ExitStack() as stack:
-        stack.enter_context(
-            patch('logfire._internal.cli.gateway.gateway_ai_tool_names', return_value=['claude', 'codex'])
-        )
+        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude', 'codex']))
         stack.enter_context(
             patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
         )
@@ -904,7 +902,7 @@ def test_non_interactive_gateway_message_matches_how_many_are_installed() -> Non
     from logfire._internal.interactive import NonInteractiveError, set_non_interactive
 
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.cli.gateway.gateway_ai_tool_names', return_value=['claude']))
+        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude']))
         stack.enter_context(
             patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
         )
@@ -5820,7 +5818,7 @@ def test_gateway_interactive_integration(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert exc_info.value.code == 127
 
-    def fake_gateway_ai_tool_names() -> tuple[str, ...]:
+    def fake_ai_tool_names() -> tuple[str, ...]:
         return ('codex',)
 
     def fake_resolve_ai_tool(_name: str) -> types.SimpleNamespace:
@@ -5831,7 +5829,7 @@ def test_gateway_interactive_integration(monkeypatch: pytest.MonkeyPatch) -> Non
         assert default == 'codex'
         return 'codex'
 
-    monkeypatch.setattr(gateway_cli, 'gateway_ai_tool_names', fake_gateway_ai_tool_names)
+    monkeypatch.setattr(gateway_cli, 'ai_tool_names', fake_ai_tool_names)
     monkeypatch.setattr(gateway_cli, 'resolve_ai_tool', fake_resolve_ai_tool)
     monkeypatch.setattr(gateway_cli.Prompt, 'ask', fake_prompt_ask)
 
@@ -6243,34 +6241,7 @@ def test_parse_prompt_without_project_errors(prompt_http_calls: None, capsys: py
 def test_ai_tool_names() -> None:
     from logfire._internal.cli.ai_tools import ai_tool_names
 
-    assert ai_tool_names() == snapshot(('claude', 'codex', 'opencode', 'pi'))
-
-
-def test_gateway_and_mcp_ai_tool_names_differ() -> None:
-    """Pi can be pointed at the Logfire MCP server but cannot be launched through the gateway."""
-    from logfire._internal.cli.ai_tools import gateway_ai_tool_names, mcp_ai_tool_names
-
-    assert gateway_ai_tool_names() == snapshot(('claude', 'codex', 'opencode'))
-    assert mcp_ai_tool_names() == snapshot(('claude', 'codex', 'opencode', 'pi'))
-
-
-def test_gateway_launch_rejects_tool_without_gateway_support(capsys: pytest.CaptureFixture[str]) -> None:
-    run_launch = getattr(gateway_cli, '_run_launch')
-    context = gateway_cli.GatewayCommandContext(raw_args=['launch', 'pi'], region='us', logfire_url=None)
-
-    assert run_launch(['pi'], context) == 2
-    assert 'cannot be launched through the Logfire AI Gateway' in capsys.readouterr().err
-
-
-def test_build_gateway_env_without_gateway_support(tmp_path: Path) -> None:
-    from logfire._internal.cli.ai_tools import resolve_ai_tool
-
-    with pytest.raises(LogfireConfigError) as exc_info:
-        resolve_ai_tool('pi').build_gateway_env(
-            proxy_base='http://127.0.0.1:1234', model=None, workdir=tmp_path, local_token='token'
-        )
-
-    assert str(exc_info.value) == snapshot('Pi does not support the Logfire AI Gateway.')
+    assert ai_tool_names() == snapshot(('claude', 'codex', 'opencode'))
 
 
 def test_resolve_ai_tool_unknown() -> None:
@@ -6279,9 +6250,7 @@ def test_resolve_ai_tool_unknown() -> None:
     with pytest.raises(SystemExit) as exc_info:
         resolve_ai_tool('unknown')
 
-    assert str(exc_info.value) == snapshot(
-        "unknown AI tool integration: 'unknown'. Available: claude, codex, opencode, pi"
-    )
+    assert str(exc_info.value) == snapshot("unknown AI tool integration: 'unknown'. Available: claude, codex, opencode")
 
 
 def test_ai_tool_without_mcp_config_errors() -> None:
@@ -6565,438 +6534,6 @@ This is the prompt
     assert err == snapshot("""\
 Logfire MCP server added to OpenCode.
 """)
-
-
-def test_parse_prompt_pi(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Pi's MCP config is written for the third-party adapter, so its absence must be reported."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    assert json.loads((tmp_path / '.pi' / 'mcp.json').read_text()) == snapshot(
-        {
-            'mcpServers': {
-                'logfire': {
-                    'url': 'https://logfire-us.pydantic.dev/mcp',
-                    'auth': 'oauth',
-                    'protocolVersion': 'auto',
-                }
-            }
-        }
-    )
-
-    out, err = capsys.readouterr()
-    assert out == snapshot("""\
-This is the prompt
-""")
-    # Rich hard-wraps to the console width, which varies between a single test run and the full
-    # suite, so assert on the content rather than the line breaks.
-    warning = ' '.join(err.split())
-    assert 'Logfire MCP server added to Pi.' in warning
-    assert 'Pi has no built-in MCP support' in warning
-    assert 'pi install npm:pi-mcp-adapter' in warning
-
-
-def test_parse_prompt_pi_with_adapter_installed(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """With the adapter listed in Pi's settings, the install hint is not repeated."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'settings.json').write_text(json.dumps({'packages': ['npm:pi-mcp-adapter']}))
-
-    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    _, err = capsys.readouterr()
-    assert err == snapshot("""\
-Logfire MCP server added to Pi.
-""")
-
-
-def test_parse_prompt_pi_adapter_listed_under_another_name(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Unrelated packages, in either entry shape, must not be mistaken for the adapter."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'settings.json').write_text(
-        json.dumps({'packages': ['npm:some-other-package', {'source': 'npm:another-one'}]})
-    )
-
-    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    _, err = capsys.readouterr()
-    warning = ' '.join(err.split())
-    assert 'pi install npm:pi-mcp-adapter' in warning
-
-
-def test_parse_prompt_pi_already_configured_still_warns_about_adapter(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A config Pi cannot read is exactly when the adapter hint matters most."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'mcp.json').write_text(
-        json.dumps({'mcpServers': {'logfire': {'url': 'https://logfire-us.pydantic.dev/mcp'}}})
-    )
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    _, err = capsys.readouterr()
-    warning = ' '.join(err.split())
-    assert 'pi install npm:pi-mcp-adapter' in warning
-    # Nothing was rewritten, since `--update` was not passed.
-    assert 'added to Pi' not in warning
-    assert 'updated in Pi' not in warning
-
-
-@pytest.mark.parametrize(
-    'content,detail',
-    [
-        ('[]', 'does not contain a JSON object'),
-        ('{"mcpServers": []}', 'has an "mcpServers" value that is not a JSON object'),
-    ],
-)
-def test_parse_prompt_pi_unexpected_json_shape(
-    content: str,
-    detail: str,
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Valid JSON of the wrong shape must be reported, not raise an AttributeError."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'mcp.json').write_text(content)
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    with pytest.raises(SystemExit):
-        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    _, err = capsys.readouterr()
-    assert detail in ' '.join(err.split())
-
-
-@pytest.mark.parametrize('content', ['[]', '{"packages": {}}'])
-def test_parse_prompt_pi_settings_unexpected_shape(
-    content: str,
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Pi's settings file belongs to Pi, so an unreadable shape must not abort the flow."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'settings.json').write_text(content)
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    _, err = capsys.readouterr()
-    warning = ' '.join(err.split())
-    assert 'Logfire MCP server added to Pi.' in warning
-    assert 'pi install npm:pi-mcp-adapter' in warning
-
-
-@pytest.mark.parametrize('tool,config', [('--pi', '.pi/mcp.json'), ('--opencode', 'opencode.jsonc')])
-def test_parse_prompt_refuses_to_write_through_symlink(
-    tool: str,
-    config: str,
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A repository must not be able to redirect our write at a file outside the checkout."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    repo = tmp_path / 'repo'
-    repo.mkdir()
-    monkeypatch.setattr(Path, 'cwd', lambda: repo)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    outsider = tmp_path / 'outside.json'
-    outsider.write_text('{"do": "not touch"}')
-
-    config_path = repo / config
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.symlink_to(outsider)
-
-    def check_output(x: list[str]) -> bytes:
-        return repo.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    with pytest.raises(SystemExit):
-        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', tool])
-
-    assert outsider.read_text() == '{"do": "not touch"}'
-    _, err = capsys.readouterr()
-    assert 'Refusing to write through it' in ' '.join(err.split())
-
-
-@pytest.mark.parametrize('tool,config', [('--pi', '.pi/mcp.json'), ('--opencode', 'opencode.jsonc')])
-def test_parse_prompt_refuses_dangling_symlink(
-    tool: str,
-    config: str,
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A link to a missing file must not cause that file to be created outside the checkout."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    repo = tmp_path / 'repo'
-    repo.mkdir()
-    monkeypatch.setattr(Path, 'cwd', lambda: repo)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    absent = tmp_path / 'absent.json'
-    config_path = repo / config
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.symlink_to(absent)
-
-    def check_output(x: list[str]) -> bytes:
-        return repo.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    with pytest.raises(SystemExit):
-        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', tool])
-
-    assert not absent.exists()
-    _, err = capsys.readouterr()
-    assert 'Refusing to write through it' in ' '.join(err.split())
-
-
-def test_parse_prompt_pi_refuses_symlinked_parent_directory(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Linking the directory, rather than the file, must be refused by the location check."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    repo = tmp_path / 'repo'
-    repo.mkdir()
-    monkeypatch.setattr(Path, 'cwd', lambda: repo)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    outside_dir = tmp_path / 'outside'
-    outside_dir.mkdir()
-    (repo / '.pi').symlink_to(outside_dir, target_is_directory=True)
-
-    def check_output(x: list[str]) -> bytes:
-        return repo.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    with pytest.raises(SystemExit):
-        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    assert list(outside_dir.iterdir()) == []
-    _, err = capsys.readouterr()
-    assert 'resolves outside' in ' '.join(err.split())
-
-
-def test_parse_prompt_pi_undecodable_config(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Bytes that are not valid UTF-8 must report the file, not raise UnicodeDecodeError."""
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'mcp.json').write_bytes(b'\xff\xfe not utf-8')
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    with pytest.raises(SystemExit):
-        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    _, err = capsys.readouterr()
-    assert 'is not valid JSON' in ' '.join(err.split())
-
-
-def test_parse_prompt_opencode_undecodable_config(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-
-    (tmp_path / 'opencode.jsonc').write_bytes(b'\xff\xfe not utf-8')
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    with pytest.raises(SystemExit):
-        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
-
-    _, err = capsys.readouterr()
-    assert 'Failed to read' in ' '.join(err.split())
-
-
-def test_parse_prompt_pi_invalid_json(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'mcp.json').write_text('{not json')
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    with pytest.raises(SystemExit):
-        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    out, err = capsys.readouterr()
-    assert out == snapshot('')
-    assert 'is not valid JSON' in ' '.join(err.split())
-
-
-def test_parse_prompt_pi_already_configured(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    existing = json.dumps({'mcpServers': {'logfire': {'url': 'https://old.example/mcp'}}}, indent=2)
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'mcp.json').write_text(existing)
-    # With the adapter present there is nothing to report, so this isolates the no-rewrite path.
-    (tmp_path / '.pi' / 'settings.json').write_text(json.dumps({'packages': ['npm:pi-mcp-adapter']}))
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
-
-    assert (tmp_path / '.pi' / 'mcp.json').read_text() == existing
-    out, err = capsys.readouterr()
-    assert out == snapshot('This is the prompt\n')
-    assert err == snapshot('')
-
-
-def test_parse_prompt_pi_update(
-    prompt_http_calls: None,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
-    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
-    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
-
-    (tmp_path / '.pi').mkdir()
-    (tmp_path / '.pi' / 'mcp.json').write_text(
-        json.dumps({'mcpServers': {'logfire': {'url': 'https://old.example/mcp'}}})
-    )
-    (tmp_path / '.pi' / 'settings.json').write_text(json.dumps({'packages': ['npm:pi-mcp-adapter']}))
-
-    def check_output(x: list[str]) -> bytes:
-        return tmp_path.as_posix().encode('utf-8')
-
-    monkeypatch.setattr(subprocess, 'check_output', check_output)
-
-    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi', '--update'])
-
-    assert json.loads((tmp_path / '.pi' / 'mcp.json').read_text()) == snapshot(
-        {
-            'mcpServers': {
-                'logfire': {
-                    'url': 'https://logfire-us.pydantic.dev/mcp',
-                    'auth': 'oauth',
-                    'protocolVersion': 'auto',
-                }
-            }
-        }
-    )
-    out, err = capsys.readouterr()
-    assert out == snapshot('This is the prompt\n')
-    assert err == snapshot('Logfire MCP server updated in Pi.\n')
 
 
 def test_parse_prompt_opencode_no_git(

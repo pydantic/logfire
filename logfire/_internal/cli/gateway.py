@@ -27,7 +27,7 @@ from ..interactive import require_answer
 from .ai_tools import (
     LOCAL_TOKEN_PLACEHOLDER,
     AiToolIntegration,
-    gateway_ai_tool_names,
+    ai_tool_names,
     gateway_template_values,
     resolve_ai_tool,
 )
@@ -400,7 +400,7 @@ def _split_extra_args(args: list[str]) -> tuple[list[str], list[str]]:
 
 
 def _launch_epilog() -> str:
-    names = ', '.join(sorted(gateway_ai_tool_names()))
+    names = ', '.join(sorted(ai_tool_names()))
     return f'Supported integrations: {names}'
 
 
@@ -443,7 +443,7 @@ def _parse_serve_args(raw: list[str], context: GatewayCommandContext) -> argpars
 
 
 def _interactive_integration() -> str:
-    installed = [name for name in gateway_ai_tool_names() if resolve_ai_tool(name).binary_path()]
+    installed = [name for name in ai_tool_names() if resolve_ai_tool(name).binary_path()]
     if not installed:
         console.print('[red]No supported integration binaries were found on PATH.[/]')
         raise SystemExit(127)
@@ -479,12 +479,6 @@ def _run_launch(raw: list[str], context: GatewayCommandContext) -> int:
     pre, extra = _split_extra_args(raw)
     args = _parse_launch_args(pre, context)
     integration = resolve_ai_tool(args.integration or _interactive_integration())
-    if not integration.supports_gateway():
-        console.print(
-            f'[red]error:[/] {integration.display_name} cannot be launched through the Logfire AI Gateway. '
-            f'Supported integrations: {", ".join(sorted(gateway_ai_tool_names()))}.'
-        )
-        return 2
     if args.config:
         _configure_only(integration, region=args.gateway_region, model=args.model)
         return 0
