@@ -288,20 +288,6 @@ Create a `.vscode/mcp.json` file in your project's root directory:
 See the [VS Code MCP server documentation](https://code.visualstudio.com/docs/agent-customization/mcp-servers)
 to enable, disable, and manage configured servers.
 
-### Gemini CLI
-
-Add to `~/.gemini/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "logfire": {
-      "httpUrl": "https://logfire-us.pydantic.dev/mcp"
-    }
-  }
-}
-```
-
 ### Cline
 
 Open the Cline panel, click the MCP Servers icon, and add to `cline_mcp_settings.json`:

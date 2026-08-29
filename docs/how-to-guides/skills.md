@@ -1,6 +1,6 @@
 ---
 title: Coding Agent Skills
-description: Use Pydantic's coding agent skills and plugins to give Claude Code, Codex, Cursor, Gemini CLI, and other agents up-to-date Logfire knowledge.
+description: Use Pydantic's coding agent skills and plugins to give Claude Code, Codex, Cursor, OpenCode, Pi, and other agents up-to-date Logfire knowledge.
 ---
 
 # Coding Agent Skills
@@ -121,7 +121,7 @@ The CLI is interactive and lets you pick individual skills (e.g. `logfire-instru
 `logfire-query`) rather than installing the whole bundle.
 
 This works with 30+ agents via the [agentskills.io](https://agentskills.io) standard, including
-Claude Code, Codex, Cursor, and Gemini CLI.
+Claude Code, Codex, Cursor, OpenCode, and Pi.
 
 ### Library Skills
 
