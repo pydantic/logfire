@@ -265,7 +265,11 @@ To generate a prompt for an LLM to investigate an issue in your project (assumin
 logfire prompt "why are my requests slow?"
 ```
 
-Use `--claude`, `--codex`, or `--opencode` to verify (and set up) the MCP configuration for the respective coding tool, `--update` to replace an existing Logfire MCP server configuration, and `--project <org>/<project>` to select the project.
+Use `--claude`, `--codex`, `--opencode`, or `--pi` to verify (and set up) the MCP configuration for the respective coding tool, `--update` to replace an existing Logfire MCP server configuration, and `--project <org>/<project>` to select the project.
+
+!!! note
+    Pi has no built-in MCP support, so `--pi` writes the configuration read by the
+    community-maintained `pi-mcp-adapter` package. See [Connect to MCP Server](../how-to-guides/mcp-server.md#pi).
 
 [terms-of-service]: https://pydantic.dev/legal/terms-of-service
 [privacy_policy]: https://pydantic.dev/legal/privacy-policy

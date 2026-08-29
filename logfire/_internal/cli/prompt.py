@@ -7,12 +7,14 @@ import sys
 
 from rich.console import Console
 
-from logfire._internal.cli.ai_tools import resolve_ai_tool
+from logfire._internal.cli.ai_tools import mcp_ai_tool_names, resolve_ai_tool
 from logfire._internal.cli.auth import parse_auth
 from logfire._internal.client import LogfireClient
 from logfire.exceptions import LogfireConfigError
 
-PROMPT_AI_TOOLS = ('claude', 'codex', 'opencode')
+# Derived from the integration registry so a tool that gains MCP support does not also have to be
+# added here, and so the `--<tool>` flags always match the tools that can actually be configured.
+PROMPT_AI_TOOLS = mcp_ai_tool_names()
 
 
 def parse_prompt(args: argparse.Namespace) -> None:

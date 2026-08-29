@@ -150,6 +150,109 @@ codex mcp add logfire --url https://logfire-us.pydantic.dev/mcp
 
 Codex opens a browser window where you can complete the login process.
 
+### OpenCode
+
+Run the interactive setup:
+
+```bash
+opencode mcp add
+```
+
+Answer its prompts as follows:
+
+| Prompt | Answer |
+| --- | --- |
+| **Location** | `Global` to use the server in every project, or `Project` for just the current one |
+| **Enter MCP server name** | `logfire` |
+| **Select MCP server type** | `Remote` |
+| **Enter MCP server URL** | `https://logfire-us.pydantic.dev/mcp` |
+| **Does this server require OAuth authentication?** | `Yes` |
+| **Do you have a pre-registered client ID?** | `No` |
+
+The last prompt only appears after answering `Yes` to the previous one. Answer `No`: the Logfire
+server supports dynamic client registration, so OpenCode registers itself and needs no client ID.
+
+Then authenticate, which opens your browser:
+
+```bash
+opencode mcp auth logfire
+```
+
+Confirm it worked. The server is listed as `connected (OAuth)`:
+
+```bash
+opencode mcp list
+```
+
+!!! warning "Paste the URL only, without surrounding quotes"
+    The prompt takes a bare URL. A trailing `"` copied from a JSON example becomes part of the
+    address, and `opencode mcp list` then reports
+    `failed: SSE error: Invalid content type, expected "text/event-stream"`.
+
+#### Configuring by hand
+
+Instead of the prompts, add the server to `opencode.json` in your project root (`opencode.jsonc`
+and the global `~/.config/opencode/opencode.json` work the same way):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "logfire": {
+      "type": "remote",
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
+Run `opencode mcp auth logfire` afterwards to complete the browser login.
+
+!!! note
+    The key is `mcp`, not `mcpServers`. A Claude-style `mcpServers` block is ignored silently:
+    `opencode mcp list` simply reports that no servers are configured.
+
+!!! note
+    Do not set `"oauth": false` for the Logfire server. That setting is for servers authenticated
+    by a static API key, and it disables the OAuth flow this server requires, leaving
+    `opencode mcp list` reporting `failed` with a `405`. Omitting `oauth` entirely is fine:
+    OpenCode detects the requirement on its first connection.
+
+### Pi
+
+[Pi](https://pi.dev) intentionally ships without MCP support. Its documentation states that it
+"does not include built-in MCP", and there is no `pi mcp` command. If you only want Logfire
+knowledge in Pi, install the [Logfire coding agent skills](skills.md), which Pi supports natively
+and which need no MCP server.
+
+To query your telemetry from Pi, MCP support can be added with the community-maintained
+[`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) package:
+
+```bash
+pi install npm:pi-mcp-adapter
+```
+
+Then create `.pi/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "url": "https://logfire-us.pydantic.dev/mcp",
+      "auth": "oauth",
+      "protocolVersion": "auto"
+    }
+  }
+}
+```
+
+Restart Pi, then run `/mcp reconnect logfire` to connect and complete the browser login.
+
+!!! warning
+    `pi-mcp-adapter` is a third-party package, maintained neither by Pi's authors nor by Pydantic.
+    It is not covered by Logfire's support, and its configuration format may change independently
+    of both Pi and Logfire.
+
 ### Cursor
 
 Create a `.cursor/mcp.json` file in your project root:

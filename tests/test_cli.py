@@ -875,7 +875,9 @@ def test_non_interactive_gateway_refuses_instead_of_prompting() -> None:
     from logfire._internal.interactive import NonInteractiveError, set_non_interactive
 
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude', 'codex']))
+        stack.enter_context(
+            patch('logfire._internal.cli.gateway.gateway_ai_tool_names', return_value=['claude', 'codex'])
+        )
         stack.enter_context(
             patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
         )
@@ -902,7 +904,7 @@ def test_non_interactive_gateway_message_matches_how_many_are_installed() -> Non
     from logfire._internal.interactive import NonInteractiveError, set_non_interactive
 
     with ExitStack() as stack:
-        stack.enter_context(patch('logfire._internal.cli.gateway.ai_tool_names', return_value=['claude']))
+        stack.enter_context(patch('logfire._internal.cli.gateway.gateway_ai_tool_names', return_value=['claude']))
         stack.enter_context(
             patch('logfire._internal.cli.gateway.resolve_ai_tool', return_value=Mock(binary_path=lambda: '/x'))
         )
@@ -5818,7 +5820,7 @@ def test_gateway_interactive_integration(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert exc_info.value.code == 127
 
-    def fake_ai_tool_names() -> tuple[str, ...]:
+    def fake_gateway_ai_tool_names() -> tuple[str, ...]:
         return ('codex',)
 
     def fake_resolve_ai_tool(_name: str) -> types.SimpleNamespace:
@@ -5829,7 +5831,7 @@ def test_gateway_interactive_integration(monkeypatch: pytest.MonkeyPatch) -> Non
         assert default == 'codex'
         return 'codex'
 
-    monkeypatch.setattr(gateway_cli, 'ai_tool_names', fake_ai_tool_names)
+    monkeypatch.setattr(gateway_cli, 'gateway_ai_tool_names', fake_gateway_ai_tool_names)
     monkeypatch.setattr(gateway_cli, 'resolve_ai_tool', fake_resolve_ai_tool)
     monkeypatch.setattr(gateway_cli.Prompt, 'ask', fake_prompt_ask)
 
@@ -6241,7 +6243,34 @@ def test_parse_prompt_without_project_errors(prompt_http_calls: None, capsys: py
 def test_ai_tool_names() -> None:
     from logfire._internal.cli.ai_tools import ai_tool_names
 
-    assert ai_tool_names() == snapshot(('claude', 'codex', 'opencode'))
+    assert ai_tool_names() == snapshot(('claude', 'codex', 'opencode', 'pi'))
+
+
+def test_gateway_and_mcp_ai_tool_names_differ() -> None:
+    """Pi can be pointed at the Logfire MCP server but cannot be launched through the gateway."""
+    from logfire._internal.cli.ai_tools import gateway_ai_tool_names, mcp_ai_tool_names
+
+    assert gateway_ai_tool_names() == snapshot(('claude', 'codex', 'opencode'))
+    assert mcp_ai_tool_names() == snapshot(('claude', 'codex', 'opencode', 'pi'))
+
+
+def test_gateway_launch_rejects_tool_without_gateway_support(capsys: pytest.CaptureFixture[str]) -> None:
+    run_launch = getattr(gateway_cli, '_run_launch')
+    context = gateway_cli.GatewayCommandContext(raw_args=['launch', 'pi'], region='us', logfire_url=None)
+
+    assert run_launch(['pi'], context) == 2
+    assert 'cannot be launched through the Logfire AI Gateway' in capsys.readouterr().err
+
+
+def test_build_gateway_env_without_gateway_support(tmp_path: Path) -> None:
+    from logfire._internal.cli.ai_tools import resolve_ai_tool
+
+    with pytest.raises(LogfireConfigError) as exc_info:
+        resolve_ai_tool('pi').build_gateway_env(
+            proxy_base='http://127.0.0.1:1234', model=None, workdir=tmp_path, local_token='token'
+        )
+
+    assert str(exc_info.value) == snapshot('Pi does not support the Logfire AI Gateway.')
 
 
 def test_resolve_ai_tool_unknown() -> None:
@@ -6250,7 +6279,9 @@ def test_resolve_ai_tool_unknown() -> None:
     with pytest.raises(SystemExit) as exc_info:
         resolve_ai_tool('unknown')
 
-    assert str(exc_info.value) == snapshot("unknown AI tool integration: 'unknown'. Available: claude, codex, opencode")
+    assert str(exc_info.value) == snapshot(
+        "unknown AI tool integration: 'unknown'. Available: claude, codex, opencode, pi"
+    )
 
 
 def test_ai_tool_without_mcp_config_errors() -> None:
@@ -6533,6 +6564,75 @@ This is the prompt
 """)
     assert err == snapshot("""\
 Logfire MCP server added to OpenCode.
+""")
+
+
+def test_parse_prompt_pi(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pi's MCP config is written for the third-party adapter, so its absence must be reported."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    assert json.loads((tmp_path / '.pi' / 'mcp.json').read_text()) == snapshot(
+        {
+            'mcpServers': {
+                'logfire': {
+                    'url': 'https://logfire-us.pydantic.dev/mcp',
+                    'auth': 'oauth',
+                    'protocolVersion': 'auto',
+                }
+            }
+        }
+    )
+
+    out, err = capsys.readouterr()
+    assert out == snapshot("""\
+This is the prompt
+""")
+    # Rich hard-wraps to the console width, which varies between a single test run and the full
+    # suite, so assert on the content rather than the line breaks.
+    warning = ' '.join(err.split())
+    assert 'Logfire MCP server added to Pi.' in warning
+    assert 'Pi has no built-in MCP support' in warning
+    assert 'pi install npm:pi-mcp-adapter' in warning
+
+
+def test_parse_prompt_pi_with_adapter_installed(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With the adapter listed in Pi's settings, the install hint is not repeated."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+    monkeypatch.setenv('PI_CODING_AGENT_DIR', str(tmp_path / 'agent'))
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    (tmp_path / '.pi').mkdir()
+    (tmp_path / '.pi' / 'settings.json').write_text(json.dumps({'packages': ['npm:pi-mcp-adapter']}))
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--pi'])
+
+    _, err = capsys.readouterr()
+    assert err == snapshot("""\
+Logfire MCP server added to Pi.
 """)
 
 

@@ -35,8 +35,9 @@ from ..interactive import NonInteractiveError, is_non_interactive, require_answe
 from ..server_response import install_logfire_response_hook
 from ..tracer import SDKTracerProvider
 from ..utils import READ_TOKEN_FILENAME, ensure_data_dir_exists
+from .ai_tools import resolve_ai_tool
 from .auth import parse_auth, parse_logout
-from .prompt import parse_prompt
+from .prompt import PROMPT_AI_TOOLS, parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
@@ -988,9 +989,12 @@ def _main(args: list[str] | None = None) -> None:
     cmd_prompt = subparsers.add_parser('prompt', help=parse_prompt.__doc__)
     agent_code_argument_group = cmd_prompt.add_argument_group(title='code agentic specific options')
     agent_code_group = agent_code_argument_group.add_mutually_exclusive_group()
-    agent_code_group.add_argument('--claude', action='store_true', help='verify the Claude Code setup')
-    agent_code_group.add_argument('--codex', action='store_true', help='verify the Cursor setup')
-    agent_code_group.add_argument('--opencode', action='store_true', help='verify the OpenCode setup')
+    for _tool_name in PROMPT_AI_TOOLS:
+        agent_code_group.add_argument(
+            f'--{_tool_name}',
+            action='store_true',
+            help=f'verify the {resolve_ai_tool(_tool_name).display_name} setup',
+        )
     cmd_prompt.add_argument(
         '--update', action='store_true', help='replace any existing Logfire MCP server configuration'
     )

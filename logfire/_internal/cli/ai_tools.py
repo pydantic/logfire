@@ -8,7 +8,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from rich.console import Console
 
@@ -28,7 +28,10 @@ class AiToolIntegration:
     name: str
     display_name: str
     binary: str
-    env: dict[str, str]
+    # `None` means the tool cannot be launched through the Logfire AI Gateway, the same way
+    # `configure_mcp=None` means it cannot be pointed at the Logfire MCP server. Both capabilities
+    # are optional and are checked before use rather than assumed.
+    env: dict[str, str] | None = None
     model_env: dict[str, str] = field(default_factory=dict[str, str])
     setup: Callable[[str, str | None, Path, str], dict[str, str]] | None = None
     configure_mcp: Callable[[str, Console, bool], None] | None = None
@@ -38,9 +41,14 @@ class AiToolIntegration:
     def binary_path(self) -> str | None:
         return shutil.which(self.binary)
 
+    def supports_gateway(self) -> bool:
+        return self.env is not None
+
     def build_gateway_env(
         self, *, proxy_base: str, model: str | None, workdir: Path, local_token: str
     ) -> dict[str, str]:
+        if self.env is None:
+            raise LogfireConfigError(f'{self.display_name} does not support the Logfire AI Gateway.')
         values = gateway_template_values(proxy_base, local_token)
         effective_model = model
         env: dict[str, str] = {}
@@ -86,6 +94,16 @@ def resolve_ai_tool(name: str) -> AiToolIntegration:
 
 def ai_tool_names() -> tuple[str, ...]:
     return tuple(AI_TOOL_INTEGRATIONS)
+
+
+def gateway_ai_tool_names() -> tuple[str, ...]:
+    """Names of the tools that can be launched through the Logfire AI Gateway."""
+    return tuple(name for name, tool in AI_TOOL_INTEGRATIONS.items() if tool.supports_gateway())
+
+
+def mcp_ai_tool_names() -> tuple[str, ...]:
+    """Names of the tools whose MCP configuration `logfire prompt` can write."""
+    return tuple(name for name, tool in AI_TOOL_INTEGRATIONS.items() if tool.configure_mcp is not None)
 
 
 def _opencode_gateway_setup(base: str, model: str | None, workdir: Path, local_token: str) -> dict[str, str]:
@@ -156,13 +174,17 @@ def _configure_codex_mcp(mcp_url: str, console: Console, update: bool) -> None:
         console.print('Logfire MCP server added to Codex.', style='green')
 
 
-def _configure_opencode_mcp(mcp_url: str, console: Console, update: bool) -> None:
+def _git_root_or_cwd() -> Path:
+    """The repository root the agent will treat as the project, falling back to the cwd."""
     try:
         output = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'])
     except (subprocess.CalledProcessError, FileNotFoundError):
-        root_dir = Path.cwd()
-    else:
-        root_dir = Path(output.decode('utf-8').strip())
+        return Path.cwd()
+    return Path(output.decode('utf-8').strip())
+
+
+def _configure_opencode_mcp(mcp_url: str, console: Console, update: bool) -> None:
+    root_dir = _git_root_or_cwd()
 
     opencode_config = root_dir / 'opencode.jsonc'
     opencode_config.touch()
@@ -193,6 +215,70 @@ def opencode_mcp_json(url: str) -> dict[str, Any]:
     return {
         'type': 'remote',
         'url': url,
+    }
+
+
+# Pi has no built-in MCP support: its docs state that it "intentionally does not include built-in
+# MCP", and there is no `pi mcp` command. MCP reaches Pi only through the third-party
+# `pi-mcp-adapter` package, which reads `mcpServers` from `.pi/mcp.json` among other paths.
+PI_MCP_ADAPTER_PACKAGE = 'pi-mcp-adapter'
+
+
+def _pi_adapter_installed(root_dir: Path) -> bool:
+    """Whether `pi-mcp-adapter` is listed in Pi's project-local or global settings."""
+    agent_dir = Path(os.getenv('PI_CODING_AGENT_DIR', Path.home() / '.pi' / 'agent'))
+    for settings_path in (root_dir / '.pi' / 'settings.json', agent_dir / 'settings.json'):
+        try:
+            settings: dict[str, Any] = json.loads(settings_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        packages = cast('list[str | dict[str, Any]]', settings.get('packages', []))
+        for package in packages:
+            # Entries are either a source string or a `{'source': ...}` object.
+            source = package.get('source', '') if isinstance(package, dict) else package
+            if isinstance(source, str) and PI_MCP_ADAPTER_PACKAGE in source:
+                return True
+    return False
+
+
+def _configure_pi_mcp(mcp_url: str, console: Console, update: bool) -> None:
+    root_dir = _git_root_or_cwd()
+    pi_config = root_dir / '.pi' / 'mcp.json'
+
+    if pi_config.exists():
+        try:
+            pi_config_json: dict[str, Any] = json.loads(pi_config.read_text())
+        except json.JSONDecodeError:
+            console.print(f'Failed to parse {pi_config} as JSON. Please fix the file or update it manually.')
+            raise SystemExit(1) from None
+    else:
+        pi_config_json = {}
+    already_configured = 'logfire' in pi_config_json.get('mcpServers', {})
+
+    if already_configured and not update:
+        return
+
+    pi_config_json.setdefault('mcpServers', {})['logfire'] = pi_mcp_json(mcp_url)
+    pi_config.parent.mkdir(parents=True, exist_ok=True)
+    pi_config.write_text(json.dumps(pi_config_json, indent=2))
+    console.print(f'Logfire MCP server {"updated in" if already_configured else "added to"} Pi.', style='green')
+
+    if not _pi_adapter_installed(root_dir):
+        console.print(
+            'Pi has no built-in MCP support, so this configuration is only read once the '
+            f'community-maintained `{PI_MCP_ADAPTER_PACKAGE}` package is installed:\n'
+            f'    pi install npm:{PI_MCP_ADAPTER_PACKAGE}',
+            style='yellow',
+        )
+
+
+def pi_mcp_json(url: str) -> dict[str, Any]:
+    # `auth` and `protocolVersion` match how `pi-mcp-adapter` ships its own OAuth-authenticated
+    # remote servers; the hosted Logfire MCP server authenticates through the browser too.
+    return {
+        'url': url,
+        'auth': 'oauth',
+        'protocolVersion': 'auto',
     }
 
 
@@ -227,5 +313,16 @@ AI_TOOL_INTEGRATIONS: dict[str, AiToolIntegration] = {
         setup=_opencode_gateway_setup,
         configure_mcp=_configure_opencode_mcp,
         description='OpenCode',
+    ),
+    # No `env`: Pi configures a gateway base URL through `models.json` in its agent directory, and
+    # the only override for that directory (`PI_CODING_AGENT_DIR`) also relocates credentials,
+    # settings, and skills, so pointing it at the gateway's temporary working directory would hand
+    # the user a blank-slate Pi.
+    'pi': AiToolIntegration(
+        name='pi',
+        display_name='Pi',
+        binary='pi',
+        configure_mcp=_configure_pi_mcp,
+        description='Pi coding agent',
     ),
 }

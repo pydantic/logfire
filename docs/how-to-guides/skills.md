@@ -73,6 +73,42 @@ See also:
 - [Connect to MCP Server](mcp-server.md) for how the Logfire plugin configures MCP access.
 - [Export Codex Activity to Logfire](codex-logfire-exporter.md) for exporter setup, configuration, and troubleshooting.
 
+### OpenCode
+
+[OpenCode](https://opencode.ai) discovers skills from `.agents/skills/`, so the cross-agent install
+below works without extra configuration:
+
+```bash
+npx skills add pydantic/skills
+```
+
+OpenCode reads `SKILL.md` files from both the project directory and `~/.agents/skills/`, walking up
+from the current directory to the git worktree root. Confirm what it picked up with:
+
+```bash
+opencode debug skill
+```
+
+!!! note
+    OpenCode requires each skill's `name` field to match the directory containing its `SKILL.md`.
+    The Logfire skills follow that rule, so they load unchanged.
+
+### Pi
+
+[Pi](https://pi.dev) implements the [Agent Skills standard](https://agentskills.io/specification)
+and loads skills from `~/.agents/skills/` globally and `.agents/skills/` in your project, so the
+cross-agent install works there too:
+
+```bash
+npx skills add pydantic/skills
+```
+
+Each skill is also available as a `/skill:<name>` command, for example `/skill:logfire-instrumentation`.
+
+!!! note
+    Pi only loads project-local skills after you trust the project. Approve the prompt on first
+    run, or pass `--approve` to trust the files for a single run.
+
 ### Cross-Agent
 
 Install the Logfire skill using the [skills CLI](https://github.com/vercel-labs/skills):
