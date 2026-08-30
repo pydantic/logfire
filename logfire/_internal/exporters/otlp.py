@@ -365,7 +365,7 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
             start_time=span.end_time,
             end_time=span.end_time,
         )
-        with contextlib.suppress(BodyTooLargeError):
+        with contextlib.suppress(Exception):
             super().export([error_span])
 
 

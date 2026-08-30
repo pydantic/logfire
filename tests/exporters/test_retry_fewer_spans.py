@@ -160,3 +160,22 @@ def test_single_span_too_large_exports_diagnostic(max_size: int | None) -> None:
         'num_event_attributes',
         'num_link_attributes',
     } | ({'max_size'} if max_size is not None else set())
+
+
+def test_single_span_too_large_suppresses_diagnostic_export_error() -> None:
+    class DiagnosticErrorExporter(TestExporter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+            self.calls += 1
+            if self.calls == 1:
+                raise BodyTooLargeError(20_000_000, 5_000_000)
+            raise RuntimeError('diagnostic export failed')
+
+    test_exporter = DiagnosticErrorExporter()
+    exporter = RetryFewerSpansSpanExporter(test_exporter)
+
+    assert exporter.export(TEST_SPANS[:1]) is SpanExportResult.FAILURE
+    assert test_exporter.calls == 2
