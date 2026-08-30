@@ -13,7 +13,11 @@ import pytest
 import requests
 import requests.exceptions
 from dirty_equals import IsStr
+from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
+from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
 
@@ -25,6 +29,7 @@ from logfire._internal.exporters.otlp import (
     BodyTooLargeError,
     DiskRetryer,
     OTLPExporterHttpSession,
+    RetryFewerSpansSpanExporter,
     cleanup_disk_retryers,
 )
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
@@ -39,12 +44,26 @@ class SinkHTTPAdapter(HTTPAdapter):
     def __init__(self) -> None:
         super().__init__()
         self.timeouts: list[float | tuple[float, float] | None] = []
+        self.body_sizes: list[int] = []
 
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
         self.timeouts.append(kwargs.get('timeout'))
+        assert request.body is None or isinstance(request.body, bytes)
+        self.body_sizes.append(len(request.body or b''))
         resp = Response()
         resp.status_code = 200
         return resp
+
+
+class StatusCodeHTTPAdapter(SinkHTTPAdapter):
+    def __init__(self, *status_codes: int) -> None:
+        super().__init__()
+        self.status_codes = list(status_codes)
+
+    def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
+        response = super().send(request, *args, **kwargs)
+        response.status_code = self.status_codes.pop(0)
+        return response
 
 
 @pytest.mark.parametrize(
@@ -93,6 +112,58 @@ def test_max_body_size_bytes() -> None:
     # The exact serialized size depends on the OpenTelemetry version, so match the message shape
     # rather than a hardcoded byte count.
     assert str(e.value) == IsStr(regex=r'Request body is too large \(\d+ bytes\), must be less than 10 bytes\.')
+
+
+def test_backend_payload_too_large_splits_spans() -> None:
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(413, 200, 200)
+    session.mount('http://', adapter)
+    exporter = RetryFewerSpansSpanExporter(
+        BodySizeCheckingOTLPSpanExporter(session=session, compression=Compression.NoCompression)
+    )
+
+    assert exporter.export(TEST_SPANS[:2]) is SpanExportResult.SUCCESS
+    assert len(adapter.timeouts) == 3
+
+
+def test_single_backend_payload_too_large_exports_bounded_diagnostic() -> None:
+    large_value = 'x' * (2 * 1024 * 1024)
+    original = TEST_SPANS[0]
+    span = ReadableSpan(
+        name=original.name,
+        context=original.context,
+        parent=original.parent,
+        resource=Resource({'large': large_value}),
+        attributes={
+            'code.filepath': [large_value],
+            'code.function': [large_value],
+            'code.lineno': [1],
+        },
+        start_time=original.start_time,
+        end_time=original.end_time,
+        instrumentation_scope=InstrumentationScope('test', attributes={'large': large_value}),
+    )
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(413, 413)
+    session.mount('http://', adapter)
+    exporter = RetryFewerSpansSpanExporter(
+        BodySizeCheckingOTLPSpanExporter(session=session, compression=Compression.NoCompression)
+    )
+
+    assert exporter.export([span]) is SpanExportResult.FAILURE
+    assert len(adapter.timeouts) == 2
+    assert adapter.body_sizes[0] > 5 * 1024 * 1024
+    assert adapter.body_sizes[1] < 10_000
+
+
+def test_other_client_errors_are_not_split() -> None:
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(400)
+    session.mount('http://', adapter)
+    exporter = RetryFewerSpansSpanExporter(BodySizeCheckingOTLPSpanExporter(session=session))
+
+    assert exporter.export(TEST_SPANS[:2]) is SpanExportResult.FAILURE
+    assert len(adapter.timeouts) == 1
 
 
 def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:

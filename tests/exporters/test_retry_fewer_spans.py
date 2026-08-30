@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
+from typing import cast
 
 import pytest
 from opentelemetry.sdk.resources import Resource
@@ -100,3 +102,61 @@ def test_retry_fewer_spans_when_too_many():
     res = exporter.export(TEST_SPANS)
     assert res is SpanExportResult.SUCCESS
     assert test_exporter.exported_spans == TEST_SPANS
+
+
+class SingleSpanTooLargeExporter(TestExporter):
+    def __init__(self, max_size: int | None) -> None:
+        super().__init__()
+        self.max_size = max_size
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        if spans[0].name.startswith('test span name'):
+            raise BodyTooLargeError(20_000_000, self.max_size)
+        return super().export(spans)
+
+
+@pytest.mark.parametrize('max_size', [None, 5_000_000])
+def test_single_span_too_large_exports_diagnostic(max_size: int | None) -> None:
+    test_exporter = SingleSpanTooLargeExporter(max_size)
+    exporter = RetryFewerSpansSpanExporter(test_exporter)
+
+    assert exporter.export(TEST_SPANS[:1]) is SpanExportResult.FAILURE
+    [diagnostic] = test_exporter.exported_spans
+    assert diagnostic.name == 'Failed to export a span of size {size:,} bytes: {span_name}'
+    assert diagnostic.context == TEST_SPANS[0].context
+    assert diagnostic.resource == Resource.get_empty()
+    assert diagnostic.instrumentation_scope is None
+    assert diagnostic.start_time == diagnostic.end_time == TEST_SPANS[0].end_time
+    attributes = dict(diagnostic.attributes or {})
+    filepath = cast(str, attributes.pop('code.filepath'))
+    json_schema = json.loads(cast(str, attributes.pop('logfire.json_schema')))
+    expected_attributes = {
+        'logfire.span_type': 'log',
+        'logfire.level_num': 17,
+        'logfire.msg_template': 'Failed to export a span of size {size:,} bytes: {span_name}',
+        'logfire.msg': 'Failed to export a span of size 20,000,000 bytes: test span name 1',
+        'size': 20_000_000,
+        'code.function': 'test_function',
+        'code.lineno': 321,
+        'span_name': 'test span name 1',
+        'num_attributes': 4,
+        'num_events': 2,
+        'num_links': 0,
+        'num_event_attributes': 3,
+        'num_link_attributes': 0,
+    }
+    if max_size is not None:
+        expected_attributes['max_size'] = max_size
+    assert attributes == expected_attributes
+    assert len(filepath) <= 300
+    assert len(filepath) < len('super/' * 100 + 'long/path.py')
+    assert filepath.startswith('super/') and filepath.endswith('long/path.py')
+    assert set(json_schema['properties']) == {
+        'size',
+        'span_name',
+        'num_attributes',
+        'num_events',
+        'num_links',
+        'num_event_attributes',
+        'num_link_attributes',
+    } | ({'max_size'} if max_size is not None else set())
