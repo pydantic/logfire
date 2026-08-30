@@ -141,6 +141,27 @@ def test_backend_payload_too_large_splits_spans() -> None:
     assert span_counts == [2, 1, 1]
 
 
+def test_backend_payload_too_large_reports_decompressed_size() -> None:
+    original = TEST_SPANS[0]
+    span = ReadableSpan(
+        name=original.name,
+        context=original.context,
+        attributes={'large': 'x' * 200_000},
+        start_time=original.start_time,
+        end_time=original.end_time,
+    )
+    session = OTLPExporterHttpSession()
+    adapter = StatusCodeHTTPAdapter(413)
+    session.mount('http://', adapter)
+    exporter = BodySizeCheckingOTLPSpanExporter(session=session, compression=Compression.Gzip)
+
+    with pytest.raises(BodyTooLargeError) as exc_info:
+        exporter.export([span])
+
+    assert exc_info.value.max_size is None
+    assert exc_info.value.size > adapter.body_sizes[0]
+
+
 def test_single_backend_payload_too_large_exports_bounded_diagnostic() -> None:
     large_value = 'x' * (2 * 1024 * 1024)
     original = TEST_SPANS[0]

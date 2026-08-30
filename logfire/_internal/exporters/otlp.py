@@ -75,6 +75,8 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 
         response = super()._export(serialized_data, *args, **kwargs)
         if response.status_code == 413:
+            # The backend checks the decompressed payload, so keep this in the same
+            # pre-compression units as the local size limit above.
             raise BodyTooLargeError(len(serialized_data), None)
         return response
 
