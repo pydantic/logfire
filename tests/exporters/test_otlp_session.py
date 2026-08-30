@@ -14,6 +14,7 @@ import requests
 import requests.exceptions
 from dirty_equals import IsStr
 from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
@@ -44,12 +45,15 @@ class SinkHTTPAdapter(HTTPAdapter):
     def __init__(self) -> None:
         super().__init__()
         self.timeouts: list[float | tuple[float, float] | None] = []
+        self.bodies: list[bytes] = []
         self.body_sizes: list[int] = []
 
     def send(self, request: PreparedRequest, *args: Any, **kwargs: Any) -> Response:
         self.timeouts.append(kwargs.get('timeout'))
         assert request.body is None or isinstance(request.body, bytes)
-        self.body_sizes.append(len(request.body or b''))
+        body = request.body or b''
+        self.bodies.append(body)
+        self.body_sizes.append(len(body))
         resp = Response()
         resp.status_code = 200
         return resp
@@ -124,6 +128,17 @@ def test_backend_payload_too_large_splits_spans() -> None:
 
     assert exporter.export(TEST_SPANS[:2]) is SpanExportResult.SUCCESS
     assert len(adapter.timeouts) == 3
+    span_counts: list[int] = []
+    for body in adapter.bodies:
+        request = ExportTraceServiceRequest.FromString(body)
+        span_counts.append(
+            sum(
+                len(scope_spans.spans)
+                for resource_spans in request.resource_spans
+                for scope_spans in resource_spans.scope_spans
+            )
+        )
+    assert span_counts == [2, 1, 1]
 
 
 def test_single_backend_payload_too_large_exports_bounded_diagnostic() -> None:
