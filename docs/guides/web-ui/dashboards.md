@@ -43,6 +43,9 @@ This dashboard gives an overview of how long each of your web server endpoints t
 - **5xx request count:** Number of server errors (HTTP status code of 500 or greater) per endpoint.
 - **4xx request count:** Number of bad requests (HTTP status code between 400 and 499) per endpoint.
 
+!!! note
+    Metrics sent through an OpenTelemetry Collector (a separate program that gathers and forwards telemetry) or another OpenTelemetry Protocol (OTLP) exporter must use delta temporality. Delta values report only the change during each collection interval. If the metrics reach Logfire as cumulative values, you can still query them in Explore, but the dashboard stays empty. When an OpenTelemetry SDK creates the metrics, set `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta` in the application process. This configures the SDK before it sends metrics either directly to Logfire or through a Collector; do not set it on the Collector process. If you cannot configure the source, use the Collector's [cumulative-to-delta processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/cumulativetodeltaprocessor).
+
 ### LLM Tokens and Costs
 
 This dashboard breaks down input and output LLM token usage by model. It comes in two variants. Both have the same charts, but they use different data sources:
