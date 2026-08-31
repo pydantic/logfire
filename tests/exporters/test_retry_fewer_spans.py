@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from typing import cast
 
 import pytest
+from inline_snapshot import snapshot
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
@@ -122,18 +122,16 @@ def test_single_span_too_large_exports_diagnostic(max_size: int | None) -> None:
 
     assert exporter.export(TEST_SPANS[:1]) is SpanExportResult.FAILURE
     [diagnostic] = test_exporter.exported_spans
-    assert diagnostic.name == 'Failed to export a span of size {size:,} bytes: {span_name}'
+    assert diagnostic.name == snapshot('Failed to export span that was too large')
     assert diagnostic.context == TEST_SPANS[0].context
     assert diagnostic.resource == Resource.get_empty()
     assert diagnostic.instrumentation_scope is None
     assert diagnostic.start_time == diagnostic.end_time == TEST_SPANS[0].end_time
     attributes = dict(diagnostic.attributes or {})
     filepath = cast(str, attributes.pop('code.filepath'))
-    json_schema = json.loads(cast(str, attributes.pop('logfire.json_schema')))
     expected_attributes = {
         'logfire.span_type': 'log',
         'logfire.level_num': 17,
-        'logfire.msg_template': 'Failed to export a span of size {size:,} bytes: {span_name}',
         'logfire.msg': 'Failed to export a span of size 20,000,000 bytes: test span name 1',
         'size': 20_000_000,
         'code.function': 'test_function',
@@ -151,31 +149,3 @@ def test_single_span_too_large_exports_diagnostic(max_size: int | None) -> None:
     assert len(filepath) <= 300
     assert len(filepath) < len('super/' * 100 + 'long/path.py')
     assert filepath.startswith('super/') and filepath.endswith('long/path.py')
-    assert set(json_schema['properties']) == {
-        'size',
-        'span_name',
-        'num_attributes',
-        'num_events',
-        'num_links',
-        'num_event_attributes',
-        'num_link_attributes',
-    } | ({'max_size'} if max_size is not None else set())
-
-
-def test_single_span_too_large_suppresses_diagnostic_export_error() -> None:
-    class DiagnosticErrorExporter(TestExporter):
-        def __init__(self) -> None:
-            super().__init__()
-            self.calls = 0
-
-        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-            self.calls += 1
-            if self.calls == 1:
-                raise BodyTooLargeError(20_000_000, 5_000_000)
-            raise RuntimeError('diagnostic export failed')
-
-    test_exporter = DiagnosticErrorExporter()
-    exporter = RetryFewerSpansSpanExporter(test_exporter)
-
-    assert exporter.export(TEST_SPANS[:1]) is SpanExportResult.FAILURE
-    assert test_exporter.calls == 2

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import atexit
-import contextlib
 import random
 import shutil
 import time
@@ -25,17 +24,15 @@ from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
 
 import logfire
+from logfire._internal.utils import handle_internal_errors
 
 from ..constants import (
-    ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_MESSAGE_KEY,
-    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     HTTP_CONNECT_TIMEOUT,
     OTLP_MAX_INT_SIZE,
     log_level_attributes,
 )
-from ..json_schema import attributes_json_schema, attributes_json_schema_properties
 from ..stack_info import STACK_INFO_KEYS
 from ..utils import logger, platform_is_emscripten, truncate_string
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
@@ -307,7 +304,10 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
             return super().export(spans)
         except BodyTooLargeError as e:
             if len(spans) == 1:
-                self._log_too_large_span(e, spans[0])
+                error_span = self._make_log_too_large_span(e, spans[0])
+                with handle_internal_errors:
+                    super().export([error_span])
+
                 return SpanExportResult.FAILURE
 
             half = len(spans) // 2
@@ -317,14 +317,16 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
                 return SpanExportResult.FAILURE
             return SpanExportResult.SUCCESS
 
-    def _log_too_large_span(self, e: BodyTooLargeError, span: ReadableSpan) -> None:
+    @staticmethod
+    @handle_internal_errors
+    def _make_log_too_large_span(e: BodyTooLargeError, span: ReadableSpan) -> ReadableSpan:
         original_attributes = span.attributes or {}
         new_attributes: dict[str, Any] = {'size': e.size}
         if e.max_size is not None:
             new_attributes['max_size'] = e.max_size
 
-        with contextlib.suppress(Exception):
-            for key in STACK_INFO_KEYS:
+        for key in STACK_INFO_KEYS:
+            with handle_internal_errors:
                 if key in original_attributes:  # pragma: no branch
                     value = original_attributes[key]
                     if isinstance(value, str):
@@ -332,8 +334,8 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
                     elif key == 'code.lineno' and type(value) is int and 0 <= value <= OTLP_MAX_INT_SIZE:
                         new_attributes[key] = value
 
-        span_name = truncate_string(span.name, max_length=1000)
-        with contextlib.suppress(Exception):
+        with handle_internal_errors:
+            span_name = truncate_string(span.name, max_length=1000)
             new_attributes.update(
                 span_name=span_name,
                 num_attributes=len(original_attributes),
@@ -343,20 +345,16 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
                 num_link_attributes=sum(len(link.attributes or {}) for link in span.links),
             )
 
-        message_template = 'Failed to export a span of size {size:,} bytes: {span_name}'
         message = f'Failed to export a span of size {e.size:,} bytes: {span_name}'
         attributes = {
             ATTRIBUTES_SPAN_TYPE_KEY: 'log',
             **log_level_attributes('error'),
-            ATTRIBUTES_MESSAGE_TEMPLATE_KEY: message_template,
             ATTRIBUTES_MESSAGE_KEY: message,
             **new_attributes,
         }
-        json_schema_properties = attributes_json_schema_properties(new_attributes)
-        attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
 
-        error_span = ReadableSpan(
-            name=message_template,
+        return ReadableSpan(
+            name='Failed to export span that was too large',
             # The original span was rejected, so this small record replaces it in the same trace.
             context=span.context,
             parent=span.parent,
@@ -365,8 +363,6 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
             start_time=span.end_time,
             end_time=span.end_time,
         )
-        with contextlib.suppress(Exception):
-            super().export([error_span])
 
 
 class BodyTooLargeError(Exception):
