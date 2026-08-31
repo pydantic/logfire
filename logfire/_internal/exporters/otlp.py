@@ -304,8 +304,8 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
             return super().export(spans)
         except BodyTooLargeError as e:
             if len(spans) == 1:
-                error_span = self._make_log_too_large_span(e, spans[0])
                 with handle_internal_errors:
+                    error_span = self._make_log_too_large_span(e, spans[0])
                     super().export([error_span])
 
                 return SpanExportResult.FAILURE
@@ -318,7 +318,6 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
             return SpanExportResult.SUCCESS
 
     @staticmethod
-    @handle_internal_errors
     def _make_log_too_large_span(e: BodyTooLargeError, span: ReadableSpan) -> ReadableSpan:
         original_attributes = span.attributes or {}
         new_attributes: dict[str, Any] = {'size': e.size}
