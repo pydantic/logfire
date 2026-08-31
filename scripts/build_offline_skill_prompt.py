@@ -34,6 +34,7 @@ SKILLS_ROOT = REPO_ROOT / 'logfire' / '.agents' / 'skills'
 SKILL_ORDER = [
     'logfire-setup',
     'logfire-instrumentation',
+    'logfire-migrate',
     'logfire-infrastructure',
     'logfire-evals',
 ]
