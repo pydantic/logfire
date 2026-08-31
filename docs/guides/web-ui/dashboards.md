@@ -37,14 +37,14 @@ Finally, scroll all the way to the right to see the 'SQL filter to copy to Live 
 
 This dashboard gives an overview of how long each of your web server endpoints takes to respond to requests and how often they succeed and fail. It relies on the standard OpenTelemetry `http.server.duration`/`http.server.request.duration` metric which is collected by many instrumentation libraries, including those for FastAPI, Flask, Django, ASGI, and WSGI. The charts give a breakdown by endpoint (and sometimes status code) both overall and over time. Hover over each time series to see the most impactful endpoint at the top of the tooltip. The charts show:
 
-!!! note
-    Metrics sent through an OpenTelemetry Collector (a separate program that gathers and forwards telemetry) or another OpenTelemetry Protocol (OTLP) exporter must use delta temporality. Delta values report only the change during each collection interval. If the metrics reach Logfire as cumulative values, you can still query them in Explore, but the dashboard stays empty. When an OpenTelemetry SDK creates the metrics, set `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta` in the application process. This configures the SDK before it sends metrics either directly to Logfire or through a Collector; do not set it on the Collector process. If you cannot configure the source, use the Collector's [cumulative-to-delta processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/cumulativetodeltaprocessor).
-
 - **Total duration:** Endpoints which need to either be optimized or called less often.
 - **Average duration:** Endpoints which are slow on average and need to be optimized.
 - **2xx request count:** Number of successful requests (HTTP status code between 200 and 299) per endpoint.
 - **5xx request count:** Number of server errors (HTTP status code of 500 or greater) per endpoint.
 - **4xx request count:** Number of bad requests (HTTP status code between 400 and 499) per endpoint.
+
+!!! note
+    Metrics sent through an OpenTelemetry Collector (a separate program that gathers and forwards telemetry) or another OpenTelemetry Protocol (OTLP) exporter must use delta temporality. Delta values report only the change during each collection interval. If the metrics reach Logfire as cumulative values, you can still query them in Explore, but the dashboard stays empty. When an OpenTelemetry SDK creates the metrics, set `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta` in the application process. This configures the SDK before it sends metrics either directly to Logfire or through a Collector; do not set it on the Collector process. If you cannot configure the source, use the Collector's [cumulative-to-delta processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/cumulativetodeltaprocessor).
 
 ### LLM Tokens and Costs
 
