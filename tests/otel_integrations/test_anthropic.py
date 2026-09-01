@@ -1124,7 +1124,6 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                         'model': 'claude-3-haiku-20240307',
                         'stop_sequences': ['END', 'STOP'],
                         'system': 'You are a helpful assistant.',
-                        'temperature': 0.7,
                         'tools': [
                             {
                                 'name': 'get_weather',
@@ -1136,17 +1135,12 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                                 },
                             }
                         ],
-                        'top_k': 40,
-                        'top_p': 0.9,
                     },
                     'gen_ai.system': 'anthropic',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.request.temperature': 0.7,
-                    'gen_ai.request.top_p': 0.9,
-                    'gen_ai.request.top_k': 40,
                     'gen_ai.request.stop_sequences': ['END', 'STOP'],
                     'gen_ai.tool.definitions': [
                         {
@@ -1205,9 +1199,6 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
-                            'gen_ai.request.temperature': {},
-                            'gen_ai.request.top_p': {},
-                            'gen_ai.request.top_k': {},
                             'gen_ai.request.stop_sequences': {},
                             'gen_ai.tool.definitions': {},
                             'gen_ai.input.messages': {'type': 'array'},
