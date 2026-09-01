@@ -4,7 +4,7 @@ import gc
 import json
 import logging
 from collections.abc import AsyncIterator, Iterator
-from typing import Any
+from typing import Any, cast
 
 import anthropic
 import httpx2 as httpx
@@ -1031,10 +1031,13 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
 
 
 def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
-    response = instrumented_client.post(
-        '/v1/complete',
-        body={'max_tokens_to_sample': 1000, 'model': 'claude-2.1', 'prompt': 'prompt'},
-        cast_to=dict[str, Any],
+    response = cast(
+        dict[str, Any],
+        instrumented_client.post(
+            '/v1/complete',
+            body={'max_tokens_to_sample': 1000, 'model': 'claude-2.1', 'prompt': 'prompt'},
+            cast_to=object,
+        ),
     )
     assert response['completion'] == 'completion'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
