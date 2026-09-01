@@ -42,7 +42,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
 | AI Gateway | Spend caps, failover, and routing for model calls (`logfire gateway`) | no dedicated skill yet — see the product's own docs |
 
-- No specific scope given (e.g. "set up Logfire in this repo end to end")? Default to `logfire-instrumentation` for ordinary application code. Concrete repo evidence of another surface — a `docker-compose.yml`, Kubernetes manifests, an agent worth evaluating rather than just observing — fetch the matching additional skill(s) too.
+- No specific scope given (e.g. "set up Logfire in this repo end to end")? Default to `logfire-instrumentation` for ordinary application code. Incidental Docker, Kubernetes, infrastructure, or eval files do not expand the initial setup: get one representative application service to verified first data, then offer the matching additional skill(s). If the repository is clearly infrastructure-only, route directly to `logfire-infrastructure` instead.
 - A request already scoped to one surface ("monitor my Postgres server", "set up evals for this agent") → fetch that skill directly, skipping the rest of this table.
 - Genuinely ambiguous between two adjacent surfaces (e.g. "watch my Postgres" could mean Collector-level infrastructure metrics or app-level query instrumentation)? Ask one clarifying question rather than guessing — loading the wrong skill wastes the user's time reading instructions for a job they didn't ask for.
 
@@ -80,11 +80,13 @@ Identify the project language and instrumentable libraries:
 - **JavaScript/TypeScript**: Read `package.json`. Common frameworks: Express, Next.js, Fastify. Also check for Cloudflare Workers or Deno.
 - **Rust**: Read `Cargo.toml`.
 
+For a broad setup request or a repository with multiple runnable services, choose one representative service with the shortest path to a real request, job, or agent run. Complete Steps 3-5 for only that service and confirm fresh data reaches Logfire before touching another service or language. If the user named a specific target, start there. After the first service is verified, expand one service at a time.
+
 Then continue to Step 3: Install and Instrument.
 
 ## Step 3: Install and Instrument
 
-Follow every applicable subsection for the language(s) detected in Step 2 — a polyglot repo (e.g. a Python backend with a JS/TS frontend) needs more than one.
+Follow only the subsection(s) needed by the representative service selected in Step 2. Do not instrument every detected language or package during the first pass.
 
 ### Python
 
@@ -197,6 +199,8 @@ These apply to every language and are what make the **Services**, **Hosts**,
 **Metrics**, and **Dashboards** views useful — don't skip them when the goal is
 broad coverage.
 
+For the first-data pass, set a meaningful `service.name`, but do not let optional metrics or exhaustive metadata delay the first verified record. Return for those after Step 5 succeeds.
+
 ### Service metadata
 
 Every span and metric carries resource attributes the product uses to group and
@@ -253,14 +257,17 @@ Instrumentation isn't done when the code compiles or an SDK reports "connected."
 
 If nothing arrives at all, trace the path in order: authentication and exact project/region (Step 1), `configure()` called before `instrument_*()` (Python) or before the app's own imports run (JS/TS preload order), the correct packages/extras installed, then the exercised code path and exporter/flush behavior. Make the smallest safe correction and verify again — report one specific blocker, not a generic checklist.
 
+After the representative service is verified, offer to instrument the next service or language and add broader metadata, metrics, or infrastructure coverage. Continue only with the work the user wants, one verified source at a time.
+
 Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. **Include the project's URL** (from `whoami` or `projects status`) as a direct link to the Live view, so the user can see their own traces arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## Going Further: Full Coverage Map
 
 Logfire's value scales with how much useful telemetry you send. When the user
 asks to "get me set up properly" or "send as much data as would be useful,"
-don't stop at app traces — work down this map. Each row is a distinct data
-source and the product surface it lights up.
+first get the representative service to verified first data. Then work down
+this map one source at a time, verifying each source before adding the next.
+Each row is a distinct data source and the product surface it lights up.
 
 | To get this in the UI | Send this | How |
 |-----------------------|-----------|-----|
