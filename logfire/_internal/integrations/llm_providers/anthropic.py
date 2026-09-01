@@ -275,7 +275,7 @@ class AnthropicMessageStreamState(StreamState):
 
         if type(chunk).__module__.startswith('anthropic.types.beta'):
             self._message = beta_accumulate_event(
-                event=cast(Any, chunk), current_snapshot=self._message, request_headers=httpx.Headers()
+                event=cast(Any, chunk), current_snapshot=self._message, request_headers=cast(Any, httpx.Headers())
             )
         else:
             self._message = accumulate_event(event=chunk, current_snapshot=self._message)
