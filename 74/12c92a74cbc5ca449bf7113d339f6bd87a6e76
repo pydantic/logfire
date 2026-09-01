@@ -1,0 +1,28 @@
+tests/otel_integrations/test_anthropic.py
+  s_8965e552681bea::t_4142db3cf9f376 10,23,51,1034-1042,1103
+tests/otel_integrations/test_anthropic_bedrock.py
+  s_8965e552681bea::t_4142db3cf9f376 4,11
+logfire/_internal/integrations/llm_providers/anthropic.py
+  s_8965e552681bea::t_4142db3cf9f376 278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "7412c92a74cbc5ca449bf7113d339f6bd87a6e76",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8965e552681bea": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05d03-78f5-7ed2-a44d-d806189797ac",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
