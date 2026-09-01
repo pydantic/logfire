@@ -27,7 +27,7 @@ exporters:
   otlphttp/logfire:
     endpoint: 'https://logfire-us.pydantic.dev'   # EU: https://logfire-eu.pydantic.dev
     headers:
-      Authorization: '${env:LOGFIRE_TOKEN}'
+      Authorization: 'Bearer ${env:LOGFIRE_TOKEN}'
 ```
 
 Create a write token in the Logfire UI (Project Settings → Write tokens) and set it as
@@ -47,19 +47,35 @@ Use the `hostmetrics` receiver. Each host that ships these metrics appears on th
 ```yaml
 receivers:
   hostmetrics:
-    collection_interval: 30s
+    collection_interval: 60s
     scrapers:
       cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
       memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
       load:
       disk:
       filesystem:
+        include_virtual_filesystems: false
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
       network:
-      process:
+      processes:
+processors:
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
 service:
   pipelines:
     metrics:
       receivers: [hostmetrics]
+      processors: [resourcedetection]
       exporters: [otlphttp/logfire]
 ```
 
@@ -184,10 +200,8 @@ the receiver to the services the project actually depends on (read
 - **AWS**: the `awsecscontainermetrics` receiver reads ECS task-metadata-endpoint
   metrics directly, no extra IAM beyond the task role. For broader CloudWatch
   metrics (RDS, ALB, and other services not on the ECS metadata endpoint), use
-  the `awscloudwatchmetrics` receiver, which ships only in the AWS Distro for
-  OpenTelemetry (ADOT) collector image
-  (`public.ecr.aws/aws-observability/aws-otel-collector`), not the stock
-  Contrib distribution — and needs `cloudwatch:GetMetricData` /
+  the `awscloudwatch` receiver available in the stock Contrib distribution. It
+  needs `cloudwatch:GetMetricData` /
   `GetMetricStatistics` / `ListMetrics` IAM permissions.
 
 Full setup, IAM policies, and example ECS/Cloud Run deployments:
@@ -196,8 +210,9 @@ https://pydantic.dev/docs/logfire/guides/cloud-metrics/
 ## Service & resource metadata
 
 Whatever the source, set resource attributes so data is grouped correctly across
-the UI. From the Collector, use the `resource`/`resourcedetection` processors or
-`OTEL_RESOURCE_ATTRIBUTES`:
+the UI. From the Collector, use the `resource`/`resourcedetection` processors. The
+`OTEL_RESOURCE_ATTRIBUTES` variable is consumed only when the `resourcedetection`
+processor includes its `env` detector:
 
 - `service.name`, `service.version`, `deployment.environment`
 - `service.instance.id` — per-replica identity (standard dashboards filter on it)

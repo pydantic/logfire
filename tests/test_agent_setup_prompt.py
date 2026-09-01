@@ -65,6 +65,37 @@ def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
     assert 'Follow every applicable subsection' not in instrumentation
 
 
+def test_setup_hub_routes_every_surface_to_a_fetchable_skill() -> None:
+    hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
+
+    for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+        assert f'[`{skill}`](../{skill}/SKILL.md)' in hub
+    for skill in ('logfire-query', 'logfire-ui'):
+        assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
+    assert 'not in this repo' not in hub
+
+
+def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
+    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-infrastructure'
+    reference = (skill_root / 'references' / 'collector' / 'host-and-infra-metrics.md').read_text()
+
+    assert "Authorization: 'Bearer ${env:LOGFIRE_TOKEN}'" in reference
+    assert 'collection_interval: 60s' in reference
+    assert 'system.cpu.utilization:' in reference
+    assert 'system.memory.utilization:' in reference
+    assert 'system.filesystem.utilization:' in reference
+    assert '\n      processes:\n' in reference
+    assert '\n      process:\n' not in reference
+    assert 'detectors: [env, system]' in reference
+
+
+def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
+    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+
+    assert 'custom_evaluator_types=[ExactMatch]' in evals
+    assert 'custom_report_evaluator_types=[...]' in evals
+
+
 def _wrap(component: str, prompt_lines: list[str]) -> str:
     return f'<{component}>\n\n````text\n' + '\n'.join(prompt_lines) + f'\n````\n\n</{component}>\n'
 

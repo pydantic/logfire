@@ -361,7 +361,7 @@ otelcol-contrib validate --config=collector-config.yaml
 # or, for the core (non-Contrib) distribution: otelcol validate --config=...
 ```
 
-If neither binary is on `PATH`, find the actual binary name from how the Collector is deployed (the container image's entrypoint, the systemd unit, the Helm chart's `command:`) rather than guessing — `docker compose config` or `kubectl get pod <name> -o yaml` will show it.
+If neither binary is on `PATH`, inspect the running Collector container (for example with `kubectl exec`) or use the deployment-specific validation command from the image entrypoint, systemd unit, or Helm chart. `docker compose config` or `kubectl get pod <name> -o yaml` can show the command when it is explicitly configured.
 
 ## Step 4: Verify
 
@@ -372,7 +372,7 @@ Wiring a receiver isn't done when the Collector starts cleanly — confirm the d
 3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline (not defined but never referenced under `service.pipelines`), and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
 4. **Fix and re-check** until the specific source is visible, not just "some" data.
 
-Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the Hosts view** (the project's URL from `whoami`, plus `/hosts`), so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the relevant view** (`/hosts`, `/docker`, `/kubernetes`, or `/metrics`, based on the source) using the project's URL from `whoami`, so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## References
 
@@ -421,7 +421,7 @@ Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`
 Identify the function or agent under test (a PydanticAI agent, an LLM-calling function, any callable that takes an input and returns an output) and whether a dataset already exists:
 
 - **In-code dataset**: a Python module defining `Case`/`Dataset` directly — the default for an agent-driven workflow.
-- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
+- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[ExactMatch]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
 
 ## Step 4: Define the Dataset and Run It
 
