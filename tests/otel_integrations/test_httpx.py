@@ -11,7 +11,7 @@ import httpx
 import httpx2
 import pytest
 from dirty_equals import IsAnyStr, IsStr
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
 from opentelemetry.instrumentation.httpx import (
     HTTPX2ClientInstrumentor,
@@ -1117,7 +1117,9 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
                     'logfire.msg': 'GET example.org/foo',
                     'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
-                    'http.request.header.accept-encoding': ('gzip, deflate',),
+                    'http.request.header.accept-encoding': (
+                        Is('gzip, deflate, zstd' if isinstance(httpx_family, HTTPXClientFamily) else 'gzip, deflate'),
+                    ),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user-agent': (IsAnyStr(regex=r'^python-httpx2?/\d+(?:\.\d+)+$'),),
                     'http.status_code': 200,
@@ -1126,7 +1128,9 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
                     'network.protocol.version': '1.1',
                     'http.response.header.host': ('example.org:8080',),
                     'http.response.header.accept': ('*/*',),
-                    'http.response.header.accept-encoding': ('gzip, deflate',),
+                    'http.response.header.accept-encoding': (
+                        Is('gzip, deflate, zstd' if isinstance(httpx_family, HTTPXClientFamily) else 'gzip, deflate'),
+                    ),
                     'http.response.header.connection': ('keep-alive',),
                     'http.response.header.user-agent': (IsAnyStr(regex=r'^python-httpx2?/\d+(?:\.\d+)+$'),),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000001-01',),
