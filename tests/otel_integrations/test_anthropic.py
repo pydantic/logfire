@@ -7,11 +7,10 @@ from collections.abc import AsyncIterator, Iterator
 from typing import Any, cast
 
 import anthropic
-import httpx
+import httpx2 as httpx
 import pydantic
 import pytest
 from anthropic.types import (
-    Completion,
     Message,
     MessageDeltaUsage,
     MessageStartEvent,
@@ -21,7 +20,7 @@ from anthropic.types import (
     Usage,
 )
 from dirty_equals import IsInt, IsPartialDict, IsStr
-from httpx._transports.mock import MockTransport
+from httpx2 import MockTransport
 from inline_snapshot import snapshot
 
 import logfire
@@ -49,9 +48,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     if request.url == 'https://api.anthropic.com/v1/complete':
         return httpx.Response(
             200,
-            json=Completion(id='test_id', completion='completion', model='claude-2.1', type='completion').model_dump(
-                mode='json'
-            ),
+            json={'id': 'test_id', 'completion': 'completion', 'model': 'claude-2.1', 'type': 'completion'},
         )
     assert request.url in ['https://api.anthropic.com/v1/messages'], f'Unexpected URL: {request.url}'
     json_body = json.loads(request.content)
@@ -1034,8 +1031,15 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
 
 
 def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
-    response = instrumented_client.completions.create(max_tokens_to_sample=1000, model='claude-2.1', prompt='prompt')
-    assert response.completion == 'completion'
+    response = cast(
+        dict[str, Any],
+        instrumented_client.post(
+            '/v1/complete',
+            body={'max_tokens_to_sample': 1000, 'model': 'claude-2.1', 'prompt': 'prompt'},
+            cast_to=object,
+        ),
+    )
+    assert response['completion'] == 'completion'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1089,16 +1093,20 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
             },
         }
     ]
-    response = instrumented_client.messages.create(
-        max_tokens=1000,
-        model='claude-3-haiku-20240307',
-        system='You are a helpful assistant.',
-        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-        temperature=0.7,
-        top_p=0.9,
-        top_k=40,
-        stop_sequences=['END', 'STOP'],
-        tools=cast(Any, tools),
+    response = instrumented_client.post(
+        '/v1/messages',
+        body={
+            'max_tokens': 1000,
+            'model': 'claude-3-haiku-20240307',
+            'system': 'You are a helpful assistant.',
+            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+            'temperature': 0.7,
+            'top_p': 0.9,
+            'top_k': 40,
+            'stop_sequences': ['END', 'STOP'],
+            'tools': tools,
+        },
+        cast_to=Message,
     )
     assert isinstance(response.content[0], TextBlock)
     assert response.content[0].text == 'Nine'

@@ -1,14 +1,14 @@
 from collections.abc import Iterator
 from urllib.parse import quote
 
-import httpx
+import httpx2 as httpx
 import pydantic
 import pytest
 from anthropic import Anthropic, AsyncAnthropic
 from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, Usage
 from dirty_equals import IsPartialDict
-from httpx._transports.mock import MockTransport
+from httpx2 import MockTransport
 from inline_snapshot import snapshot
 
 import logfire

@@ -5,7 +5,6 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
-import httpx
 from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
@@ -275,7 +274,7 @@ class AnthropicMessageStreamState(StreamState):
 
         if type(chunk).__module__.startswith('anthropic.types.beta'):
             self._message = beta_accumulate_event(
-                event=cast(Any, chunk), current_snapshot=self._message, request_headers=httpx.Headers()
+                event=cast(Any, chunk), current_snapshot=self._message, request_headers=cast(Any, {})
             )
         else:
             self._message = accumulate_event(event=chunk, current_snapshot=self._message)
