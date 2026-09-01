@@ -27,17 +27,6 @@ import pytest
 from inline_snapshot import snapshot
 
 import logfire
-from logfire._internal.integrations.claude_agent_sdk import (
-    _clear_state,
-    _content_blocks_to_output_messages,
-    _ConversationState,
-    _extract_usage,
-    _inject_tracing_hooks,
-    _set_state,
-    post_tool_use_failure_hook,
-    post_tool_use_hook,
-    pre_tool_use_hook,
-)
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
@@ -55,6 +44,18 @@ from claude_agent_sdk import (
     ToolUseBlock,
 )
 from claude_agent_sdk.types import HookContext
+
+from logfire._internal.integrations.claude_agent_sdk import (
+    _clear_state,
+    _content_blocks_to_output_messages,
+    _ConversationState,
+    _extract_usage,
+    _inject_tracing_hooks,
+    _set_state,
+    post_tool_use_failure_hook,
+    post_tool_use_hook,
+    pre_tool_use_hook,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
