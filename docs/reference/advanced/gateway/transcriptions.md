@@ -20,7 +20,7 @@ Two kinds of transcription models are metered differently:
 - **Token-priced models** (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `gpt-transcribe`): the JSON response carries a usage object with audio and text token counts, and the gateway prices them from its model catalog.
 - **Duration-priced models** (`whisper-1`, Mistral's `voxtral-mini-latest`, Groq's `whisper-large-v3` and `whisper-large-v3-turbo`): the response reports the audio duration, which the gateway records as usage. Groq's responses carry no usage object at all, so request `response_format: verbose_json` there — the gateway meters the duration that format reports.
 
-All response formats work (`json`, `verbose_json`, `text`, `srt`, `vtt`); if the provider has **Require cost data** enabled, formats that produce no usage (`text`/`srt`/`vtt`) are refused up front.
+The `response_format` field passes through to the provider, so the model must support the format you request: `whisper-1` accepts all the OpenAI formats (`json`, `verbose_json`, `text`, `srt`, `vtt`), while the token-priced `gpt-4o-transcribe` family accepts only `json` and `text` — check your provider's own documentation for other models. If the provider has **Require cost data** enabled, formats that produce no usage (`text`/`srt`/`vtt`) are refused up front.
 
 Streaming transcription and `audio/translations` are not supported through the gateway yet.
 
@@ -76,7 +76,7 @@ The examples below use an `openai` route in the US region pointing at your own O
     console.log(transcription.text)
     ```
 
-Usage is recorded on every transcription request like any other gateway call (and estimated cost too, when pricing data is available for the model), so transcriptions show up in your **Spending** analytics and (when telemetry is enabled) as traces alongside the rest of your LLM traffic, with the transcript as the response text. The audio content itself never enters your telemetry: traces carry a summary of the form fields (model, filename, size), not the file bytes.
+Usage is recorded on every transcription request like any other gateway call (and estimated cost too, when pricing data is available for the model), so transcriptions show up in your **Spending** analytics and (when telemetry is enabled) as traces alongside the rest of your LLM traffic, with the transcript as the response text. The raw audio never enters your telemetry — traces carry a summary of the form fields (model, filename, size), not the file bytes — but the transcript text itself is recorded as the response message, just like a chat completion's output. Keep that in mind if your recordings contain sensitive content.
 
 The `prompt` form field (context you give the model about the audio) goes through the gateway's input guardrails like any chat message; the audio content itself is not inspected.
 
