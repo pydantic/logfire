@@ -20,7 +20,7 @@ Two kinds of transcription models are metered differently:
 - **Token-priced models** (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `gpt-transcribe`): the JSON response carries a usage object with audio and text token counts, and the gateway prices them from its model catalog.
 - **Duration-priced models** (`whisper-1`, Mistral's `voxtral-mini-latest`, Groq's `whisper-large-v3` and `whisper-large-v3-turbo`): the response reports the audio duration, which the gateway records as usage. Groq's responses carry no usage object at all, so request `response_format: verbose_json` there — the gateway meters the duration that format reports.
 
-The `response_format` field passes through to the provider, so the model must support the format you request: `whisper-1` accepts all the OpenAI formats (`json`, `verbose_json`, `text`, `srt`, `vtt`), while the token-priced `gpt-4o-transcribe` family accepts only `json` and `text` — check your provider's own documentation for other models. If the provider has **Require cost data** enabled, formats that produce no usage (`text`/`srt`/`vtt`) are refused up front.
+The `response_format` field passes through to the provider, so the model must support the format you request: `whisper-1` accepts all the OpenAI formats (`json`, `verbose_json`, `text`, `srt`, `vtt`), while the token-priced models above accept only `json` (`gpt-4o-transcribe-diarize` also documents `text`) — check your provider's own documentation for other models. If the provider has **Require cost data** enabled, formats that produce no usage (`text`/`srt`/`vtt`) are refused up front.
 
 Streaming transcription and `audio/translations` are not supported through the gateway yet.
 
