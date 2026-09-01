@@ -22,18 +22,8 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import anyio
+import pydantic
 import pytest
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ClaudeSDKClient,
-    HookMatcher,
-    TextBlock,
-    ThinkingBlock,
-    ToolResultBlock,
-    ToolUseBlock,
-)
-from claude_agent_sdk.types import HookContext
 from inline_snapshot import snapshot
 
 import logfire
@@ -48,7 +38,23 @@ from logfire._internal.integrations.claude_agent_sdk import (
     post_tool_use_hook,
     pre_tool_use_hook,
 )
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+if get_version(pydantic.__version__) < get_version('2.11'):
+    pytest.skip('Claude Agent SDK requires Pydantic 2.11 or higher', allow_module_level=True)
+
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ClaudeSDKClient,
+    HookMatcher,
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+)
+from claude_agent_sdk.types import HookContext
 
 # ---------------------------------------------------------------------------
 # Constants
