@@ -200,8 +200,11 @@ the receiver to the services the project actually depends on (read
 - **AWS**: the `awsecscontainermetrics` receiver reads ECS task-metadata-endpoint
   metrics directly, no extra IAM beyond the task role. For broader CloudWatch
   metrics (RDS, ALB, and other services not on the ECS metadata endpoint), use
-  the `awscloudwatch` receiver available in the stock Contrib distribution. It
-  needs `cloudwatch:GetMetricData` /
+  the `awscloudwatch` receiver available in the stock Contrib distribution.
+  Configure `metrics.queries[].stats` or `metrics.discovery.stats` explicitly
+  (for example, `[Average]`) so the receiver emits Gauge points; omitted stats
+  produce Summary points, which Logfire does not currently ingest. It needs
+  `cloudwatch:GetMetricData` /
   `GetMetricStatistics` / `ListMetrics` IAM permissions.
 
 Full setup, IAM policies, and example ECS/Cloud Run deployments:

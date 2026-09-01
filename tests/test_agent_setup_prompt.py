@@ -65,7 +65,7 @@ def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
     assert 'Follow every applicable subsection' not in instrumentation
 
 
-def test_setup_hub_routes_every_surface_to_a_fetchable_skill() -> None:
+def test_setup_hub_routes_each_surface_to_its_skill() -> None:
     hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
 
     for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
@@ -87,6 +87,8 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
     assert '\n      processes:\n' in reference
     assert '\n      process:\n' not in reference
     assert 'detectors: [env, system]' in reference
+    assert '`metrics.queries[].stats` or `metrics.discovery.stats` explicitly' in reference
+    assert 'omitted stats\n  produce Summary points' in reference
 
 
 def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
@@ -94,6 +96,13 @@ def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
 
     assert 'custom_evaluator_types=[ExactMatch]' in evals
     assert 'custom_report_evaluator_types=[...]' in evals
+
+
+def test_evals_skill_keeps_local_runs_local_and_smoke_tests_report_evaluators() -> None:
+    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+
+    assert 'Skip authentication and continue to Step 3 only when the user explicitly wants a local-only' in evals
+    assert 'report_evaluators=dataset.report_evaluators' in evals
 
 
 def _wrap(component: str, prompt_lines: list[str]) -> str:
