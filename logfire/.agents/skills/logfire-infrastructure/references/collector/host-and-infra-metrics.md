@@ -203,7 +203,9 @@ the receiver to the services the project actually depends on (read
   the `awscloudwatch` receiver available in the stock Contrib distribution.
   Configure `metrics.queries[].stats` or `metrics.discovery.stats` explicitly
   (for example, `[Average]`) so the receiver emits Gauge points; omitted stats
-  produce Summary points, which Logfire does not currently ingest. It needs
+  produce Summary points. Logfire drops those points at ingest and emits a
+  `logfire ingest error`; payloads that mix supported and Summary points may be
+  partially ingested. It needs
   `cloudwatch:GetMetricData` /
   `GetMetricStatistics` / `ListMetrics` IAM permissions.
 

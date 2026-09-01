@@ -102,7 +102,8 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
     assert '\n      process:\n' not in reference
     assert 'detectors: [env, system]' in reference
     assert '`metrics.queries[].stats` or `metrics.discovery.stats` explicitly' in reference
-    assert 'omitted stats\n  produce Summary points' in reference
+    assert 'produce Summary points' in reference
+    assert 'Logfire drops those points at ingest' in reference
 
 
 def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
