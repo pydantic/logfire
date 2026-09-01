@@ -1129,10 +1129,8 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                         'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
                         'model': 'claude-3-haiku-20240307',
                         'stop_sequences': ['END', 'STOP'],
-                        'temperature': 0.7,
-                        'top_p': 0.9,
-                        'top_k': 40,
                         'system': 'You are a helpful assistant.',
+                        'temperature': 0.7,
                         'tools': [
                             {
                                 'name': 'get_weather',
@@ -1144,6 +1142,8 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                                 },
                             }
                         ],
+                        'top_k': 40,
+                        'top_p': 0.9,
                     },
                     'gen_ai.system': 'anthropic',
                     'gen_ai.provider.name': 'anthropic',
