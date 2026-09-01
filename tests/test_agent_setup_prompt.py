@@ -53,6 +53,18 @@ def test_agent_setup_prompt_states_the_load_bearing_content() -> None:
     assert 'Authenticate first, confirmed via `whoami`, before opening or running any application file' in prompt
 
 
+def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
+    hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
+    instrumentation = (
+        REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'SKILL.md'
+    ).read_text()
+
+    assert 'get one representative application service to verified first data' in hub
+    assert 'choose one representative service with the shortest path' in instrumentation
+    assert 'Do not instrument every detected language or package during the first pass' in instrumentation
+    assert 'Follow every applicable subsection' not in instrumentation
+
+
 def _wrap(component: str, prompt_lines: list[str]) -> str:
     return f'<{component}>\n\n````text\n' + '\n'.join(prompt_lines) + f'\n````\n\n</{component}>\n'
 

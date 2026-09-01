@@ -29,7 +29,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
 | AI Gateway | Spend caps, failover, and routing for model calls (`logfire gateway`) | no dedicated skill yet — see the product's own docs |
 
-- No specific scope given (e.g. "set up Logfire in this repo end to end")? Default to `logfire-instrumentation` for ordinary application code. Concrete repo evidence of another surface — a `docker-compose.yml`, Kubernetes manifests, an agent worth evaluating rather than just observing — fetch the matching additional skill(s) too.
+- No specific scope given (e.g. "set up Logfire in this repo end to end")? Default to `logfire-instrumentation` for ordinary application code. Incidental Docker, Kubernetes, infrastructure, or eval files do not expand the initial setup: get one representative application service to verified first data, then offer the matching additional skill(s). If the repository is clearly infrastructure-only, route directly to `logfire-infrastructure` instead.
 - A request already scoped to one surface ("monitor my Postgres server", "set up evals for this agent") → fetch that skill directly, skipping the rest of this table.
 - Genuinely ambiguous between two adjacent surfaces (e.g. "watch my Postgres" could mean Collector-level infrastructure metrics or app-level query instrumentation)? Ask one clarifying question rather than guessing — loading the wrong skill wastes the user's time reading instructions for a job they didn't ask for.
 
