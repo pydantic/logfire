@@ -4,7 +4,7 @@ import gc
 import json
 import logging
 from collections.abc import AsyncIterator, Iterator
-from typing import Any, cast
+from typing import Any
 
 import anthropic
 import httpx2 as httpx
@@ -1031,13 +1031,10 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
 
 
 def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
-    response = cast(
-        dict[str, Any],
-        instrumented_client.post(
-            '/v1/complete',
-            body={'max_tokens_to_sample': 1000, 'model': 'claude-2.1', 'prompt': 'prompt'},
-            cast_to=dict,
-        ),
+    response = instrumented_client.post(
+        '/v1/complete',
+        body={'max_tokens_to_sample': 1000, 'model': 'claude-2.1', 'prompt': 'prompt'},
+        cast_to=dict[str, Any],
     )
     assert response['completion'] == 'completion'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
@@ -1093,14 +1090,20 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
             },
         }
     ]
-    response = instrumented_client.messages.create(
-        max_tokens=1000,
-        model='claude-3-haiku-20240307',
-        system='You are a helpful assistant.',
-        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-        stop_sequences=['END', 'STOP'],
-        tools=cast(Any, tools),
-        extra_body={'temperature': 0.7, 'top_p': 0.9, 'top_k': 40},
+    response = instrumented_client.post(
+        '/v1/messages',
+        body={
+            'max_tokens': 1000,
+            'model': 'claude-3-haiku-20240307',
+            'system': 'You are a helpful assistant.',
+            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+            'temperature': 0.7,
+            'top_p': 0.9,
+            'top_k': 40,
+            'stop_sequences': ['END', 'STOP'],
+            'tools': tools,
+        },
+        cast_to=Message,
     )
     assert isinstance(response.content[0], TextBlock)
     assert response.content[0].text == 'Nine'
@@ -1123,6 +1126,9 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                         'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
                         'model': 'claude-3-haiku-20240307',
                         'stop_sequences': ['END', 'STOP'],
+                        'temperature': 0.7,
+                        'top_p': 0.9,
+                        'top_k': 40,
                         'system': 'You are a helpful assistant.',
                         'tools': [
                             {
@@ -1141,6 +1147,9 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.request.temperature': 0.7,
+                    'gen_ai.request.top_p': 0.9,
+                    'gen_ai.request.top_k': 40,
                     'gen_ai.request.stop_sequences': ['END', 'STOP'],
                     'gen_ai.tool.definitions': [
                         {
@@ -1199,6 +1208,9 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
+                            'gen_ai.request.temperature': {},
+                            'gen_ai.request.top_p': {},
+                            'gen_ai.request.top_k': {},
                             'gen_ai.request.stop_sequences': {},
                             'gen_ai.tool.definitions': {},
                             'gen_ai.input.messages': {'type': 'array'},
