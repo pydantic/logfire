@@ -62,6 +62,8 @@ def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
     assert 'get one representative application service to verified first data' in hub
     assert 'choose one representative service with the shortest path' in instrumentation
     assert 'Do not instrument every detected language or package during the first pass' in instrumentation
+    assert 'first get the representative service to verified first data' in instrumentation
+    assert 'verifying each source before adding the next' in instrumentation
     assert 'Follow every applicable subsection' not in instrumentation
 
 

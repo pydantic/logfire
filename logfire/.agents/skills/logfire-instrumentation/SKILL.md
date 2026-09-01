@@ -210,8 +210,9 @@ Close with a final report built from real values you just confirmed, not a templ
 
 Logfire's value scales with how much useful telemetry you send. When the user
 asks to "get me set up properly" or "send as much data as would be useful,"
-don't stop at app traces — work down this map. Each row is a distinct data
-source and the product surface it lights up.
+first get the representative service to verified first data. Then work down
+this map one source at a time, verifying each source before adding the next.
+Each row is a distinct data source and the product surface it lights up.
 
 | To get this in the UI | Send this | How |
 |-----------------------|-----------|-----|
