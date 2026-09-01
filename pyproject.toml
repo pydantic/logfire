@@ -208,8 +208,9 @@ dev = [
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.92.0; python_version >= '3.14'",
     "litellm >= 1.92.0; python_version >= '3.11' and python_version < '3.14'",
-    # LiteLLM 1.98 imports typing.NotRequired, which is unavailable on Python 3.10.
-    "litellm >= 1.92.0, < 1.98.0; python_version < '3.11'",
+    # LiteLLM 1.97 no longer matches our Python 3.10 VCR recordings, while 1.98 imports
+    # typing.NotRequired, which is unavailable on Python 3.10.
+    "litellm >= 1.92.0, < 1.97.0; python_version < '3.11'",
     "openinference-instrumentation-dspy >= 0",
     "dspy >= 3.1.0",
     "pip >= 0",
