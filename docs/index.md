@@ -14,7 +14,7 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 <AgentSetup>
 
 ````text
-This prompt was copied from the Pydantic Logfire website. Fetch https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-setup/SKILL.md -- using `curl` if what comes back reads like a summary rather than the raw file -- and follow it end to end to connect this repository to Logfire. Authenticate first, confirmed via `whoami`, before opening or running any application file -- then get real telemetry flowing.
+This prompt was copied from the Pydantic Logfire website. Follow https://pydantic.dev/.well-known/agent-skills/logfire-setup/SKILL.md end to end to connect this repository to Logfire. Authenticate first, confirmed via `whoami`, before opening or running any application file -- then get real telemetry flowing.
 ````
 
 </AgentSetup>

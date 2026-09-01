@@ -46,10 +46,8 @@ def test_agent_setup_prompt_states_the_load_bearing_content() -> None:
     """
     prompt = extract_agent_setup_prompt(REPO_ROOT / 'docs' / 'index.md', 'AgentSetup')
 
-    assert (
-        'https://raw.githubusercontent.com/pydantic/logfire/refs/heads/main/logfire/.agents/skills/logfire-setup/SKILL.md'
-        in prompt
-    )
+    assert 'https://pydantic.dev/.well-known/agent-skills/logfire-setup/SKILL.md' in prompt
+    assert 'raw.githubusercontent.com' not in prompt
     assert 'Authenticate first, confirmed via `whoami`, before opening or running any application file' in prompt
 
 
