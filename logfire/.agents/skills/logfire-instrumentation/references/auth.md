@@ -16,13 +16,13 @@ If that already reports the right project and region, you're done — skip strai
 
 ```bash
 # Python CLI (uvx logfire) -- always include --non-interactive:
-uvx logfire --non-interactive --region eu auth
+uvx logfire --non-interactive --region <region> auth
 uvx logfire --non-interactive projects list --json
 uvx logfire --non-interactive projects use <project-name> --org <organization-name>
 uvx logfire --non-interactive whoami
 
 # JS CLI (npx logfire) -- same commands and flags, but drop --non-interactive entirely:
-npx logfire --region eu auth
+npx logfire --region <region> auth
 npx logfire projects list --json
 npx logfire projects use <project-name> --org <organization-name>
 npx logfire whoami

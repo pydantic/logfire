@@ -65,6 +65,20 @@ def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
     assert 'Follow every applicable subsection' not in instrumentation
 
 
+def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> None:
+    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
+    instrumentation = (skill_root / 'SKILL.md').read_text()
+    auth = (skill_root / 'references' / 'auth.md').read_text()
+
+    assert '--region <region> auth' in auth
+    assert '--region eu auth' not in auth
+    assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
+    assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
+    assert 'LangGraph agents produce an agent root' in instrumentation
+    assert 'Neither path marks an agent root span' not in instrumentation
+    assert 'what Steps 3-4 covered' in instrumentation
+
+
 def test_setup_hub_routes_each_surface_to_its_skill() -> None:
     hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
 
