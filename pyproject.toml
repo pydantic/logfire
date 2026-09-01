@@ -206,11 +206,10 @@ dev = [
     "opentelemetry-instrumentation-google-genai >= 0.4b0, < 1.0b0",
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
-    "litellm != 1.92.0; python_version >= '3.14'",
-    "litellm >= 1.92.0; python_version >= '3.11' and python_version < '3.14'",
+    "litellm >= 1.98.0; python_version >= '3.11'",
     # LiteLLM 1.97 leaves its Message Pydantic model unresolved on Python 3.10, while
     # 1.98 imports typing.NotRequired, which is unavailable on Python 3.10.
-    "litellm >= 1.92.0, < 1.97.0; python_version < '3.11'",
+    "litellm >= 1.96.2, != 1.97.0, != 1.98.0; python_version < '3.11'",
     "openinference-instrumentation-dspy >= 0",
     "dspy >= 3.1.0",
     "pip >= 0",
