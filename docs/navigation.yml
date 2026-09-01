@@ -909,9 +909,15 @@ navigation:
         aliases:
           - "reference/query-api"
           - "how-to-guides/query-api"
-  - section: "Product & Experimentation"
+  - section: "User Experience"
     slug: ""
     contents:
+      - page: "Frontend"
+        path: "guides/web-ui/frontend.md"
+        slug: "observe/frontend"
+      - page: "Session Replays"
+        path: "guides/web-ui/session-replays.md"
+        slug: "observe/session-replays"
       - section: "Feature Flags"
         contents:
           - page: "Overview"
