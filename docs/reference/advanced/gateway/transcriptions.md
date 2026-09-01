@@ -5,28 +5,30 @@ description: "Transcribe audio through the Logfire AI Gateway with OpenAI-compat
 
 # Audio Transcriptions
 
-The AI Gateway proxies audio transcription requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/audio/transcriptions` endpoint. The request is the standard OpenAI `multipart/form-data` upload (the audio file rides along with the form fields), so `client.audio.transcriptions.create` works unchanged. Usage is recorded for every transcription call; estimated cost is tracked when pricing data is available for the model, and where the charge lands depends on the provider type: built-in provider usage draws from your prepaid gateway balance, while bring-your-own-key (BYOK) usage is billed directly by the upstream provider (see [Providers](index.md#providers)).
+The AI Gateway proxies audio transcription requests the same way it proxies chat: point an OpenAI-compatible client at a gateway route and call its `/audio/transcriptions` endpoint. The request is the standard OpenAI `multipart/form-data` upload (the audio file rides along with the form fields), so `client.audio.transcriptions.create` works unchanged. Usage is recorded for every transcription call, and estimated cost is tracked when pricing data is available for the model.
+
+Transcriptions currently require a bring-your-own-key (BYOK) provider — the upstream provider bills your own credential directly, and requests routed to a Logfire built-in provider are refused for now (see [Providers](index.md#providers)).
 
 ## Which providers can serve transcriptions
 
-Transcriptions are available for provider types whose `/audio/transcriptions` endpoint the gateway proxies as an OpenAI-compatible request: **OpenAI**, **Azure Foundry**, **Mistral** (voxtral models), **Ollama**, and **custom** OpenAI-compatible providers.
+Transcriptions are available for provider types whose `/audio/transcriptions` endpoint the gateway proxies as an OpenAI-compatible request: **OpenAI**, **Azure Foundry**, **Groq** (whisper models), **Mistral** (voxtral models), **Ollama**, and **custom** OpenAI-compatible providers.
 
 ## Models and response formats
 
 Two kinds of transcription models are metered differently:
 
-- **Token-priced models** (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `gpt-transcribe`): the JSON response carries a usage object with audio and text token counts, and the gateway prices them from its model catalog. These work on both built-in and BYOK providers.
-- **Duration-priced models** (`whisper-1`, Mistral's `voxtral-mini-latest`): the response reports the audio duration, which the gateway records as usage. These are BYOK-only for now.
+- **Token-priced models** (`gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `gpt-transcribe`): the JSON response carries a usage object with audio and text token counts, and the gateway prices them from its model catalog.
+- **Duration-priced models** (`whisper-1`, Mistral's `voxtral-mini-latest`, Groq's `whisper-large-v3` and `whisper-large-v3-turbo`): the response reports the audio duration, which the gateway records as usage. Groq's responses carry no usage object at all, so request `response_format: verbose_json` there — the gateway meters the duration that format reports.
 
-On a **built-in** provider, use a token-priced model with the default `json` response format; other combinations are refused up front because their responses carry no usage the gateway can bill. On **BYOK** providers all response formats work (`json`, `verbose_json`, `text`, `srt`, `vtt`); if the provider has **Require cost data** enabled, formats that produce no usage (`text`/`srt`/`vtt`) are refused up front.
+All response formats work (`json`, `verbose_json`, `text`, `srt`, `vtt`); if the provider has **Require cost data** enabled, formats that produce no usage (`text`/`srt`/`vtt`) are refused up front.
 
 Streaming transcription and `audio/translations` are not supported through the gateway yet.
 
 ## Sending a transcription request
 
-Address the request to `<gateway-base-url>/<route>/audio/transcriptions` as `multipart/form-data` with a `file` and a `model` field (plus the optional OpenAI fields: `language`, `prompt`, `temperature`, `response_format`). Uploads are capped at 25MB, matching OpenAI's limit.
+Address the request to `<gateway-base-url>/<route>/audio/transcriptions` as `multipart/form-data` with a `file` and a `model` field (plus the optional OpenAI fields: `language`, `prompt`, `temperature`, `response_format`). The gateway caps the request body at 30MB, slightly above the 25MB audio file limit OpenAI and Groq document, so a maximal upload plus its form fields still fits.
 
-The examples below use the `openai` route in the US region; see the [gateway base URLs](index.md#connect-an-sdk) for other regions.
+The examples below use an `openai` route in the US region pointing at your own OpenAI provider credential; see the [gateway base URLs](index.md#connect-an-sdk) for other regions.
 
 === "curl"
 
