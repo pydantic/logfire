@@ -29,18 +29,18 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 **No existing Braintrust suite? Continue to Step 2 now**, before the more detailed identification in Step 3 — nothing past this point requires knowing the function/agent or dataset shape yet.
 
-## Step 2: Authenticate and Select the Exact Project
+## Step 2: Authenticate When the Run Needs Logfire
 
-Do not open, read, or run any evaluation or dataset file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's under test. Auth is also the one step that can block on a human (browser sign-in), so doing it right after the cheap Braintrust check means that wait begins immediately, not after Step 3's more detailed detection work.
+Skip authentication and continue to Step 3 only when the user explicitly wants a local-only `pydantic_evals` run using evaluators that do not need span data; omit `logfire.configure()` in Step 4 so results stay in the terminal. Uploading results, using a hosted dataset, or running a span-based evaluator such as `ToolCorrectness` requires Logfire, so authenticate before opening or running evaluation files and target the exact project first.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 3 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety) plus where a hosted-dataset API key comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is only for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+For a Logfire-backed run, check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 3 if it already reports the right project and region. Otherwise, follow the full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, and token-file safety) in [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
 
 ## Step 3: Detect What to Evaluate
 
 Identify the function or agent under test (a PydanticAI agent, an LLM-calling function, any callable that takes an input and returns an output) and whether a dataset already exists:
 
 - **In-code dataset**: a Python module defining `Case`/`Dataset` directly — the default for an agent-driven workflow.
-- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
+- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[ExactMatch]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
 
 ## Step 4: Define the Dataset and Run It
 
@@ -84,7 +84,12 @@ report.print(include_input=True, include_output=True)
 **Before running the full dataset, run a smoke test on 2-3 cases** if the dataset is large or uses `LLMJudge`/any evaluator that makes a real, billed model call — a bug caught on 3 cases costs 3 model calls, the same bug caught on 300 costs 300:
 
 ```python
-smoke = Dataset(name=dataset.name, cases=dataset.cases[:3], evaluators=dataset.evaluators)
+smoke = Dataset(
+    name=dataset.name,
+    cases=dataset.cases[:3],
+    evaluators=dataset.evaluators,
+    report_evaluators=dataset.report_evaluators,
+)
 smoke_report = smoke.evaluate_sync(classify_sentiment)
 smoke_report.print(include_input=True, include_output=True)
 ```

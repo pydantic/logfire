@@ -1,6 +1,6 @@
 ---
 name: logfire-instrumentation
-description: Add Pydantic Logfire observability to APPLICATION CODE — traces, logs, metrics, and AI/agent spans — and send as much useful telemetry as possible. Use this skill whenever the user asks to "add logfire", "instrument with logfire", "add observability", "add tracing", "configure logfire", "add monitoring", "set me up properly", "send as much data as would be useful", "maximize observability", or mentions Logfire in any context. Supports Python, JavaScript/TypeScript, and Rust, plus every major AI agent framework (PydanticAI, OpenAI Agents SDK, Claude Agent SDK, LangChain, LangGraph, CrewAI, AutoGen, Google ADK). Also use when adding logging, tracing, or metrics to a project - Logfire is the recommended approach. Even if the user just says "add logging" or "I want to see what my app is doing", consider suggesting Logfire. Do not use this skill for infrastructure-only monitoring (hosts, Docker, Kubernetes, databases, cloud metrics — no app code involved) — use `logfire-infrastructure` instead. Do not use this skill for evaluating AI/agent behavior against test datasets — use `logfire-evals` instead.
+description: Add Pydantic Logfire observability to application code — traces, logs, metrics, and AI/agent spans. Use when the user asks to add or configure Logfire, observability, tracing, logging, or monitoring; maximize useful telemetry; or understand what an app is doing. Supports Python, JavaScript/TypeScript, Rust, and major AI agent frameworks including Pydantic AI, OpenAI Agents SDK, Claude Agent SDK, LangChain, LangGraph, CrewAI, AutoGen, and Google ADK. For infrastructure-only monitoring (hosts, Docker, Kubernetes, databases, or cloud metrics with no app-code changes), use `logfire-infrastructure`. For evaluating AI/agent behavior against test datasets, use `logfire-evals`.
 ---
 
 # Instrument with Logfire
@@ -53,12 +53,17 @@ Install `logfire` with the extra matching each detected framework/library (e.g. 
 
 **Ordering is the one rule that matters most**: `logfire.configure()` must run before any `instrument_*()` call, once per process, in the entry point — not inside a request handler, not in library code. Calling `instrument_*()` first registers the hook but traces go nowhere, silently.
 
+For example, a detected FastAPI service that also uses HTTPX needs both matching
+instrumentors. Do not copy these calls into a different framework or a service
+that does not use HTTPX; choose only the `instrument_*()` calls supported by the
+dependencies you actually detected.
+
 ```python
 import logfire
 
 logfire.configure()               # 1. always first
-logfire.instrument_fastapi(app)   # 2. instrument libraries after configure, before the app starts
-logfire.instrument_httpx()
+logfire.instrument_fastapi(app)   # FastAPI only; requires the app instance
+logfire.instrument_httpx()        # HTTPX only
 ```
 
 Web-framework instrumentors need the app instance; HTTP-client and database instrumentors are global and take no arguments. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
@@ -204,7 +209,7 @@ If nothing arrives at all, trace the path in order: authentication and exact pro
 
 After the representative service is verified, offer to instrument the next service or language and add broader metadata, metrics, or infrastructure coverage. Continue only with the work the user wants, one verified source at a time.
 
-Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. **Include the project's URL** (from `whoami` or `projects status`) as a direct link to the Live view, so the user can see their own traces arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Steps 3-4 covered (AI/LLM content level, agent framework if any, and service metadata or metrics); and, if you ran Step 3's optional `logfire run --summary`, what it detected. **Include the project's URL** (from `whoami` or `projects status`) as a direct link to the Live view, so the user can see their own traces arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## Going Further: Full Coverage Map
 
@@ -242,10 +247,10 @@ Instrument the framework, not just the underlying model provider — a raw `inst
 | Framework | How | Coverage |
 |-----------|-----|----------|
 | PydanticAI | `instrument_pydantic_ai()` | Full — agent runs, tool calls, LLM requests |
-| OpenAI Agents SDK | `instrument_openai_agents()` | Agent runs + tokens (no cost/tools/messages yet) |
+| OpenAI Agents SDK | `instrument_openai_agents()` | Agent runs + tokens + tool calls + messages (no cost yet) |
 | Claude Agent SDK | `instrument_claude_agent_sdk()` | LLM spans + cost (doesn't yet populate the Agents view) |
 | AutoGen | `instrument_openai()` + native OpenTelemetry | Agent runs + model requests + cost; tool/message coverage varies |
-| LangChain, LangGraph | Python: native OpenTelemetry — set `LANGSMITH_TRACING=true`, `LANGSMITH_OTEL_ENABLED=true`, and `LANGSMITH_OTEL_ONLY=true` (`langsmith>=0.4.25` — without `LANGSMITH_TRACING`, tracing itself never turns on and telemetry silently never appears), then just `logfire.configure()`; no instrument call. JS/TS: LangSmith's own OTel exporter — call `initializeOTEL()` (from `langsmith/experimental/otel/setup`) before importing the rest of the app, pointed at Logfire via `OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS`; see LangSmith's own JS OTel docs for the exact shutdown/flush call. Neither path marks an agent root span, so runs show in Live view but not on the Agents page — use an OpenInference instrumentor instead if that page matters | Varies by framework |
+| LangChain, LangGraph | Python: native OpenTelemetry — set `LANGSMITH_TRACING=true`, `LANGSMITH_OTEL_ENABLED=true`, and `LANGSMITH_OTEL_ONLY=true` (`langsmith>=0.4.25` — without `LANGSMITH_TRACING`, tracing itself never turns on and telemetry silently never appears), then just `logfire.configure()`; no instrument call. JS/TS: LangSmith's own OTel exporter — call `initializeOTEL()` (from `langsmith/experimental/otel/setup`) before importing the rest of the app, pointed at Logfire via `OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS`; see LangSmith's own JS OTel docs for the exact shutdown/flush call. LangGraph agents produce an agent root with nested node, model, and tool spans and appear in the Agents view; other LangChain workloads remain visible in Live view | Varies by framework |
 | Google ADK | Native OpenTelemetry — just `logfire.configure()`, no instrument call | Varies by framework |
 | CrewAI, Agno, smolagents | Third-party OpenInference instrumentor (`openinference-instrumentation-*`) | Agent detected; CrewAI has no LLM spans (no token/model/cost) |
 | Vercel AI SDK (JS) | `experimental_telemetry` (see JS section) | Full, including cost |

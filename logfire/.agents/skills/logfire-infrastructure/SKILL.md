@@ -42,7 +42,7 @@ otelcol-contrib validate --config=collector-config.yaml
 # or, for the core (non-Contrib) distribution: otelcol validate --config=...
 ```
 
-If neither binary is on `PATH`, find the actual binary name from how the Collector is deployed (the container image's entrypoint, the systemd unit, the Helm chart's `command:`) rather than guessing — `docker compose config` or `kubectl get pod <name> -o yaml` will show it.
+If neither binary is on `PATH`, inspect the running Collector container (for example with `kubectl exec`) or use the deployment-specific validation command from the image entrypoint, systemd unit, or Helm chart. `docker compose config` or `kubectl get pod <name> -o yaml` can show the command when it is explicitly configured.
 
 ## Step 4: Verify
 
@@ -53,7 +53,7 @@ Wiring a receiver isn't done when the Collector starts cleanly — confirm the d
 3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline (not defined but never referenced under `service.pipelines`), and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
 4. **Fix and re-check** until the specific source is visible, not just "some" data.
 
-Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the Hosts view** (the project's URL from `whoami`, plus `/hosts`), so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the relevant view** (`/hosts`, `/docker`, `/kubernetes`, or `/metrics`, based on the source) using the project's URL from `whoami`, so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## References
 

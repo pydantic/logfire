@@ -34,11 +34,11 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 | Surface | Covers | Skill |
 |---------|--------|-------|
-| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | `logfire-instrumentation` |
-| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | `logfire-infrastructure` |
-| Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | `logfire-evals` |
-| Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | `logfire-query` — not in this repo; install from [github.com/pydantic/skills](https://github.com/pydantic/skills) or fetch its SKILL.md directly from there |
-| Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | `logfire-ui` — same source as above |
+| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](../logfire-instrumentation/SKILL.md) |
+| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](../logfire-infrastructure/SKILL.md) |
+| Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | [`logfire-evals`](../logfire-evals/SKILL.md) |
+| Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | [`logfire-query`](https://pydantic.dev/.well-known/agent-skills/logfire-query/SKILL.md) |
+| Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | [`logfire-ui`](https://pydantic.dev/.well-known/agent-skills/logfire-ui/SKILL.md) |
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
 | AI Gateway | Spend caps, failover, and routing for model calls (`logfire gateway`) | no dedicated skill yet — see the product's own docs |
 
@@ -56,7 +56,7 @@ Never print, log, hard-code, commit, or echo a token, in any of these skills, at
 
 # Skill: logfire-instrumentation
 
-*Add Pydantic Logfire observability to APPLICATION CODE — traces, logs, metrics, and AI/agent spans — and send as much useful telemetry as possible. Use this skill whenever the user asks to "add logfire", "instrument with logfire", "add observability", "add tracing", "configure logfire", "add monitoring", "set me up properly", "send as much data as would be useful", "maximize observability", or mentions Logfire in any context. Supports Python, JavaScript/TypeScript, and Rust, plus every major AI agent framework (PydanticAI, OpenAI Agents SDK, Claude Agent SDK, LangChain, LangGraph, CrewAI, AutoGen, Google ADK). Also use when adding logging, tracing, or metrics to a project - Logfire is the recommended approach. Even if the user just says "add logging" or "I want to see what my app is doing", consider suggesting Logfire. Do not use this skill for infrastructure-only monitoring (hosts, Docker, Kubernetes, databases, cloud metrics — no app code involved) — use `logfire-infrastructure` instead. Do not use this skill for evaluating AI/agent behavior against test datasets — use `logfire-evals` instead.*
+*Add Pydantic Logfire observability to application code — traces, logs, metrics, and AI/agent spans. Use when the user asks to add or configure Logfire, observability, tracing, logging, or monitoring; maximize useful telemetry; or understand what an app is doing. Supports Python, JavaScript/TypeScript, Rust, and major AI agent frameworks including Pydantic AI, OpenAI Agents SDK, Claude Agent SDK, LangChain, LangGraph, CrewAI, AutoGen, and Google ADK. For infrastructure-only monitoring (hosts, Docker, Kubernetes, databases, or cloud metrics with no app-code changes), use `logfire-infrastructure`. For evaluating AI/agent behavior against test datasets, use `logfire-evals`.*
 
 # Instrument with Logfire
 
@@ -108,12 +108,17 @@ Install `logfire` with the extra matching each detected framework/library (e.g. 
 
 **Ordering is the one rule that matters most**: `logfire.configure()` must run before any `instrument_*()` call, once per process, in the entry point — not inside a request handler, not in library code. Calling `instrument_*()` first registers the hook but traces go nowhere, silently.
 
+For example, a detected FastAPI service that also uses HTTPX needs both matching
+instrumentors. Do not copy these calls into a different framework or a service
+that does not use HTTPX; choose only the `instrument_*()` calls supported by the
+dependencies you actually detected.
+
 ```python
 import logfire
 
 logfire.configure()               # 1. always first
-logfire.instrument_fastapi(app)   # 2. instrument libraries after configure, before the app starts
-logfire.instrument_httpx()
+logfire.instrument_fastapi(app)   # FastAPI only; requires the app instance
+logfire.instrument_httpx()        # HTTPX only
 ```
 
 Web-framework instrumentors need the app instance; HTTP-client and database instrumentors are global and take no arguments. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
@@ -259,7 +264,7 @@ If nothing arrives at all, trace the path in order: authentication and exact pro
 
 After the representative service is verified, offer to instrument the next service or language and add broader metadata, metrics, or infrastructure coverage. Continue only with the work the user wants, one verified source at a time.
 
-Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Step 4 covered (AI/LLM content level, agent framework if any); and, if you ran Step 3's optional `logfire run --summary`, what it detected. **Include the project's URL** (from `whoami` or `projects status`) as a direct link to the Live view, so the user can see their own traces arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from real values you just confirmed, not a template — org, project, and region from `whoami`; the service name(s) actually seen; what Steps 3-4 covered (AI/LLM content level, agent framework if any, and service metadata or metrics); and, if you ran Step 3's optional `logfire run --summary`, what it detected. **Include the project's URL** (from `whoami` or `projects status`) as a direct link to the Live view, so the user can see their own traces arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## Going Further: Full Coverage Map
 
@@ -297,10 +302,10 @@ Instrument the framework, not just the underlying model provider — a raw `inst
 | Framework | How | Coverage |
 |-----------|-----|----------|
 | PydanticAI | `instrument_pydantic_ai()` | Full — agent runs, tool calls, LLM requests |
-| OpenAI Agents SDK | `instrument_openai_agents()` | Agent runs + tokens (no cost/tools/messages yet) |
+| OpenAI Agents SDK | `instrument_openai_agents()` | Agent runs + tokens + tool calls + messages (no cost yet) |
 | Claude Agent SDK | `instrument_claude_agent_sdk()` | LLM spans + cost (doesn't yet populate the Agents view) |
 | AutoGen | `instrument_openai()` + native OpenTelemetry | Agent runs + model requests + cost; tool/message coverage varies |
-| LangChain, LangGraph | Python: native OpenTelemetry — set `LANGSMITH_TRACING=true`, `LANGSMITH_OTEL_ENABLED=true`, and `LANGSMITH_OTEL_ONLY=true` (`langsmith>=0.4.25` — without `LANGSMITH_TRACING`, tracing itself never turns on and telemetry silently never appears), then just `logfire.configure()`; no instrument call. JS/TS: LangSmith's own OTel exporter — call `initializeOTEL()` (from `langsmith/experimental/otel/setup`) before importing the rest of the app, pointed at Logfire via `OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS`; see LangSmith's own JS OTel docs for the exact shutdown/flush call. Neither path marks an agent root span, so runs show in Live view but not on the Agents page — use an OpenInference instrumentor instead if that page matters | Varies by framework |
+| LangChain, LangGraph | Python: native OpenTelemetry — set `LANGSMITH_TRACING=true`, `LANGSMITH_OTEL_ENABLED=true`, and `LANGSMITH_OTEL_ONLY=true` (`langsmith>=0.4.25` — without `LANGSMITH_TRACING`, tracing itself never turns on and telemetry silently never appears), then just `logfire.configure()`; no instrument call. JS/TS: LangSmith's own OTel exporter — call `initializeOTEL()` (from `langsmith/experimental/otel/setup`) before importing the rest of the app, pointed at Logfire via `OTEL_EXPORTER_OTLP_ENDPOINT`/`OTEL_EXPORTER_OTLP_HEADERS`; see LangSmith's own JS OTel docs for the exact shutdown/flush call. LangGraph agents produce an agent root with nested node, model, and tool spans and appear in the Agents view; other LangChain workloads remain visible in Live view | Varies by framework |
 | Google ADK | Native OpenTelemetry — just `logfire.configure()`, no instrument call | Varies by framework |
 | CrewAI, Agno, smolagents | Third-party OpenInference instrumentor (`openinference-instrumentation-*`) | Agent detected; CrewAI has no LLM spans (no token/model/cost) |
 | Vercel AI SDK (JS) | `experimental_telemetry` (see JS section) | Full, including cost |
@@ -361,7 +366,7 @@ otelcol-contrib validate --config=collector-config.yaml
 # or, for the core (non-Contrib) distribution: otelcol validate --config=...
 ```
 
-If neither binary is on `PATH`, find the actual binary name from how the Collector is deployed (the container image's entrypoint, the systemd unit, the Helm chart's `command:`) rather than guessing — `docker compose config` or `kubectl get pod <name> -o yaml` will show it.
+If neither binary is on `PATH`, inspect the running Collector container (for example with `kubectl exec`) or use the deployment-specific validation command from the image entrypoint, systemd unit, or Helm chart. `docker compose config` or `kubectl get pod <name> -o yaml` can show the command when it is explicitly configured.
 
 ## Step 4: Verify
 
@@ -372,7 +377,7 @@ Wiring a receiver isn't done when the Collector starts cleanly — confirm the d
 3. **If nothing appears**, check in order: the exporter endpoint/region and write token, that the receiver is in an active pipeline (not defined but never referenced under `service.pipelines`), and that resource attributes (`host.name`, `service.name`) are set — the [reference's own Verify section](./references/collector/host-and-infra-metrics.md) has the full troubleshooting path.
 4. **Fix and re-check** until the specific source is visible, not just "some" data.
 
-Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the Hosts view** (the project's URL from `whoami`, plus `/hosts`), so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
+Close with a final report built from what you just confirmed — org/project/region from `whoami`, which receiver(s) are active, and the exact host/container/cluster identifier you verified — not a template. **Include a direct link to the relevant view** (`/hosts`, `/docker`, `/kubernetes`, or `/metrics`, based on the source) using the project's URL from `whoami`, so the user can see their own source arrive without having to ask where to look. A report with a placeholder in it means a step above was skipped, not finished.
 
 ## References
 
@@ -410,18 +415,18 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 **No existing Braintrust suite? Continue to Step 2 now**, before the more detailed identification in Step 3 — nothing past this point requires knowing the function/agent or dataset shape yet.
 
-## Step 2: Authenticate and Select the Exact Project
+## Step 2: Authenticate When the Run Needs Logfire
 
-Do not open, read, or run any evaluation or dataset file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's under test. Auth is also the one step that can block on a human (browser sign-in), so doing it right after the cheap Braintrust check means that wait begins immediately, not after Step 3's more detailed detection work.
+Skip authentication and continue to Step 3 only when the user explicitly wants a local-only `pydantic_evals` run using evaluators that do not need span data; omit `logfire.configure()` in Step 4 so results stay in the terminal. Uploading results, using a hosted dataset, or running a span-based evaluator such as `ToolCorrectness` requires Logfire, so authenticate before opening or running evaluation files and target the exact project first.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 3 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety) plus where a hosted-dataset API key comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is only for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+For a Logfire-backed run, check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 3 if it already reports the right project and region. Otherwise, follow the full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, and token-file safety) in [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
 
 ## Step 3: Detect What to Evaluate
 
 Identify the function or agent under test (a PydanticAI agent, an LLM-calling function, any callable that takes an input and returns an output) and whether a dataset already exists:
 
 - **In-code dataset**: a Python module defining `Case`/`Dataset` directly — the default for an agent-driven workflow.
-- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
+- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[ExactMatch]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
 
 ## Step 4: Define the Dataset and Run It
 
@@ -465,7 +470,12 @@ report.print(include_input=True, include_output=True)
 **Before running the full dataset, run a smoke test on 2-3 cases** if the dataset is large or uses `LLMJudge`/any evaluator that makes a real, billed model call — a bug caught on 3 cases costs 3 model calls, the same bug caught on 300 costs 300:
 
 ```python
-smoke = Dataset(name=dataset.name, cases=dataset.cases[:3], evaluators=dataset.evaluators)
+smoke = Dataset(
+    name=dataset.name,
+    cases=dataset.cases[:3],
+    evaluators=dataset.evaluators,
+    report_evaluators=dataset.report_evaluators,
+)
 smoke_report = smoke.evaluate_sync(classify_sentiment)
 smoke_report.print(include_input=True, include_output=True)
 ```
@@ -525,13 +535,13 @@ If that already reports the right project and region, you're done — skip strai
 
 ```bash
 # Python CLI (uvx logfire) -- always include --non-interactive:
-uvx logfire --non-interactive --region eu auth
+uvx logfire --non-interactive --region <region> auth
 uvx logfire --non-interactive projects list --json
 uvx logfire --non-interactive projects use <project-name> --org <organization-name>
 uvx logfire --non-interactive whoami
 
 # JS CLI (npx logfire) -- same commands and flags, but drop --non-interactive entirely:
-npx logfire --region eu auth
+npx logfire --region <region> auth
 npx logfire projects list --json
 npx logfire projects use <project-name> --org <organization-name>
 npx logfire whoami
