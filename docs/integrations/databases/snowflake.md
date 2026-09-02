@@ -28,9 +28,10 @@ queries through, so queries issued via Snowpark's `DataFrame` API get spans too.
 
 Snowflake's **compute cost** for a query (credits consumed, bytes scanned, warehouse queuing)
 is not available at query time; Snowflake only exposes it minutes later through account-usage
-views. To bring that data into Logfire, run the OpenTelemetry Collector's [`snowflakereceiver`][snowflakereceiver],
-and use the `sfqid` attribute this integration records to match a query span to its later cost
-data.
+views. To bring that data into Logfire, run the [OpenTelemetry Collector][otel-collector-overview]
+(a separate program that sits between your apps and Logfire, gathering telemetry and forwarding
+it) with its [`snowflakereceiver`][snowflakereceiver], and use the `sfqid` attribute this
+integration records to match a query span to its later cost data.
 
 {{ before_you_start() }}
 
@@ -112,3 +113,4 @@ cursor.execute('select current_version()')
 [snowflake]: https://www.snowflake.com/
 [snowflake-connector]: https://docs.snowflake.com/en/developer-guide/python-connector/python-connector
 [snowflakereceiver]: https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/snowflakereceiver/documentation.md
+[otel-collector-overview]: ../../how-to-guides/otel-collector/otel-collector-overview.md
