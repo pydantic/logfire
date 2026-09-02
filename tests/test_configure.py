@@ -2358,14 +2358,31 @@ def wait_for_check_token_thread():
 def test_token_check_is_synchronous_on_aws_lambda(monkeypatch: pytest.MonkeyPatch) -> None:
     # Lambda freezes the environment after the init phase; a background token check frozen
     # mid-request would fail once thawed. Inside Lambda the check must complete in configure().
+    # The mocked /v1/info response is held back until `release` is set, so configure() can only
+    # return early if it (wrongly) delegates the check to a background thread.
     monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'my-function')
-    with requests_mock.Mocker() as request_mocker:
-        request_mocker.get(
-            'https://logfire-us.pydantic.dev/v1/info',
-            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
-        )
+    release = threading.Event()
+    configured = threading.Event()
+
+    def held_back_info(_request: Any, _context: Any) -> dict[str, str]:
+        release.wait(timeout=5)
+        return {'project_name': 'myproject', 'project_url': 'fake_project_url'}
+
+    def run_configure() -> None:
         configure(token='foobar', send_to_logfire='if-token-present', console=False)
-        # No wait_for_check_token_thread(): the request must already be recorded.
+        configured.set()
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=held_back_info)
+        helper = threading.Thread(target=run_configure)
+        helper.start()
+        try:
+            # While the response is held back, configure() must still be waiting for it.
+            assert not configured.wait(timeout=0.5)
+        finally:
+            release.set()
+            helper.join(timeout=5)
+        assert configured.is_set()
         assert len(request_mocker.request_history) == 1
         assert not any(thread.name == 'check_logfire_token' for thread in threading.enumerate())
 
