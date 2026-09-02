@@ -492,7 +492,14 @@ def simplify_spans(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @pytest.mark.vcr()
 @pytest.mark.anyio
-async def test_responses(exporter: TestExporter):
+async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    def fake_get_openai_usage_attributes(_response: Any, base_url: str | None = None) -> dict[str, float]:
+        assert base_url == 'https://api.openai.com/v1/'
+        return {'operation.cost': 0.123}
+
+    monkeypatch.setattr(
+        'logfire._internal.integrations.openai_agents.get_openai_usage_attributes', fake_get_openai_usage_attributes
+    )
     logfire.instrument_openai_agents()
 
     @function_tool
@@ -529,6 +536,7 @@ async def test_responses(exporter: TestExporter):
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
+                    'operation.cost': 0.123,
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'}],
                     'events': [
@@ -666,6 +674,7 @@ async def test_responses(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.operation.name': 'chat',
+                    'operation.cost': 0.123,
                     'raw_input': [
                         {'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},
                         {

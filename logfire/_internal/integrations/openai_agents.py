@@ -35,7 +35,11 @@ from opentelemetry.trace import NonRecordingSpan, use_span
 from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
-from logfire._internal.integrations.llm_providers.openai import inputs_to_events, responses_output_events
+from logfire._internal.integrations.llm_providers.openai import (
+    get_openai_usage_attributes,
+    inputs_to_events,
+    responses_output_events,
+)
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
@@ -85,6 +89,7 @@ class LogfireTraceProviderWrapper:
                 return span
 
             extra_attributes: dict[str, Any] = {}
+            openai_cost_provider_url: str | None = None
             if isinstance(span_data, AgentSpanData):
                 msg_template = 'Agent run: {name!r}'
             elif isinstance(span_data, FunctionSpanData):
@@ -93,7 +98,7 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Chat completion with {gen_ai.request.model!r}'
             elif isinstance(span_data, ResponseSpanData):
                 msg_template = 'Responses API'
-                extra_attributes = get_magic_response_attributes()
+                extra_attributes, openai_cost_provider_url = get_magic_response_attributes()
                 if 'gen_ai.request.model' in extra_attributes:  # pragma: no branch
                     msg_template += ' with {gen_ai.request.model!r}'
             elif isinstance(span_data, GuardrailSpanData):
@@ -125,7 +130,7 @@ class LogfireTraceProviderWrapper:
                 **extra_attributes,
                 _tags=['LLM'] * isinstance(span_data, GenerationSpanData),
             )
-            helper = LogfireSpanHelper(logfire_span, parent)
+            helper = LogfireSpanHelper(logfire_span, parent, openai_cost_provider_url)
             return LogfireSpanWrapper(span, helper)
         except Exception:  # pragma: no cover
             log_internal_error()
@@ -164,6 +169,7 @@ class LogfireTraceProviderWrapper:
 class LogfireSpanHelper:
     span: LogfireSpan
     parent: Trace | Span[Any] | None = None
+    openai_cost_provider_url: str | None = None
 
     def start(self, mark_as_current: bool):
         cm = nullcontext()
@@ -294,7 +300,7 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         template = logfire_span.message_template
         assert template
         span_data = self.span_data
-        new_attrs = attributes_from_span_data(span_data, template)
+        new_attrs = attributes_from_span_data(span_data, template, self.span_helper.openai_cost_provider_url)
         if error := self.error:
             new_attrs['error'] = error
             logfire_span.set_level('error')
@@ -355,7 +361,9 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
         return self.wrapped.tracing_api_key
 
 
-def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[str, Any]:
+def attributes_from_span_data(
+    span_data: SpanData, msg_template: str, openai_cost_provider_url: str | None = None
+) -> dict[str, Any]:
     try:
         attributes = span_data.export()
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
@@ -366,6 +374,12 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         if isinstance(span_data, ResponseSpanData):
             if span_data.response:
                 attributes.update(get_basic_response_attributes(span_data.response))
+                if openai_cost_provider_url is not None:
+                    usage_attributes = get_openai_usage_attributes(
+                        span_data.response, base_url=openai_cost_provider_url or None
+                    )
+                    if 'operation.cost' in usage_attributes:
+                        attributes['operation.cost'] = usage_attributes['operation.cost']
             if span_data.input:
                 attributes['raw_input'] = span_data.input
             if events := get_response_span_events(span_data):
@@ -407,7 +421,7 @@ def get_basic_response_attributes(response: Response):
     }
 
 
-def get_magic_response_attributes() -> dict[str, Any]:
+def get_magic_response_attributes() -> tuple[dict[str, Any], str | None]:
     try:
         frame = inspect.currentframe()
         while frame and frame.f_code != response_span.__code__:
@@ -415,7 +429,7 @@ def get_magic_response_attributes() -> dict[str, Any]:
         if frame:
             frame = frame.f_back
         else:  # pragma: no cover
-            return {}
+            return {}, None
         assert frame
 
         result: dict[str, Any] = {}
@@ -425,12 +439,17 @@ def get_magic_response_attributes() -> dict[str, Any]:
             result['model_settings'] = model_settings
 
         model = frame.f_locals.get('self')
+        cost_provider_url: str | None = None
         if isinstance(model, OpenAIResponsesModel):  # pragma: no branch
             result['gen_ai.request.model'] = model.model
-        return result
+            client = getattr(model, '_client', None)
+            if getattr(client, '_is_instrumented_by_logfire', False):
+                base_url = getattr(client, 'base_url', None)
+                cost_provider_url = str(base_url) if base_url else ''
+        return result, cost_provider_url
     except Exception:  # pragma: no cover
         log_internal_error()
-        return {}
+        return {}, None
 
 
 def get_response_span_events(span: ResponseSpanData):
