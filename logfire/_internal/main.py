@@ -1012,17 +1012,25 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_surrealdb(obj, self)
 
-    def instrument_snowflake(self, conn_or_module: ModuleType | SnowflakeConnection | None = None) -> None:
+    def instrument_snowflake(
+        self,
+        conn_or_module: ModuleType | SnowflakeConnection | None = None,
+        *,
+        capture_parameters: bool = False,
+    ) -> None:
         """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector) so that a span is created for each query.
 
         Args:
             conn_or_module: Pass a single connection instance to instrument only that connection.
                 By default (`None`), all connections are instrumented, including ones created later.
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+                When the same target is instrumented more than once, the first call determines this setting.
         """
         from .integrations.snowflake import instrument_snowflake
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_snowflake(self, conn_or_module)
+        instrument_snowflake(self, conn_or_module, capture_parameters)
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).

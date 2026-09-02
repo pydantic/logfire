@@ -130,7 +130,6 @@ def test_instrument_execute(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_execute',
                     'code.lineno': 123,
                     'command': 'select * from my_table where id = %s',
-                    'params': '[1]',
                     'account': 'my_account',
                     'warehouse': 'my_wh',
                     'database': 'my_db',
@@ -141,7 +140,7 @@ def test_instrument_execute(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'sfqid': 'fake-sfqid-1',
                     'rowcount': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"params":{"type":"array","x-python-datatype":"tuple"},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
                 },
             }
         ]
@@ -168,7 +167,6 @@ def test_instrument_executemany(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_executemany',
                     'code.lineno': 123,
                     'command': 'insert into my_table values (%s)',
-                    'seqparams': '[[1],[2],[3]]',
                     'account': 'my_account',
                     'warehouse': 'my_wh',
                     'database': 'my_db',
@@ -179,7 +177,7 @@ def test_instrument_executemany(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'sfqid': 'fake-sfqid-2',
                     'rowcount': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"seqparams":{"type":"array","items":{"type":"array","x-python-datatype":"tuple"}},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
                 },
             }
         ]
@@ -212,7 +210,6 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_single_connection',
                     'code.lineno': 123,
                     'command': 'select 1',
-                    'params': 'null',
                     'account': 'my_account',
                     'warehouse': 'my_wh',
                     'database': 'my_db',
@@ -223,7 +220,7 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'sfqid': 'fake-sfqid-1',
                     'rowcount': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"params":{"type":"null"},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
                 },
             }
         ]
@@ -290,6 +287,44 @@ def test_instrument_snowflake_invalid_argument() -> None:
         logfire.instrument_snowflake('not a connection')  # pyright: ignore[reportArgumentType]
 
 
+def test_instrument_snowflake_connector_module(exporter: TestExporter) -> None:
+    import snowflake.connector
+
+    logfire.instrument_snowflake(snowflake.connector)
+
+    conn = snowflake.connector.connect(account='my_account')  # pyright: ignore[reportUnknownMemberType]
+    conn.cursor().execute('select 1')
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == [
+        'snowflake connect',
+        'snowflake execute',
+    ]
+
+
+def test_instrument_snowflake_does_not_capture_parameters_by_default(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+
+    conn = FakeConnection()
+    conn.cursor().execute('select %s', ('person@example.com',))
+    conn.cursor().executemany('insert into my_table values (%s)', [('person@example.com',)])
+
+    spans = exporter.exported_spans_as_dict()
+    assert 'params' not in spans[0]['attributes']
+    assert 'seqparams' not in spans[1]['attributes']
+
+
+def test_instrument_snowflake_captures_parameters_when_enabled(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake(capture_parameters=True)
+
+    conn = FakeConnection()
+    conn.cursor().execute('select %s', ('person@example.com',))
+    conn.cursor().executemany('insert into my_table values (%s)', [('person@example.com',)])
+
+    spans = exporter.exported_spans_as_dict()
+    assert spans[0]['attributes']['params'] == '["person@example.com"]'
+    assert spans[1]['attributes']['seqparams'] == '[["person@example.com"]]'
+
+
 def test_instrument_snowflake_idempotent(exporter: TestExporter) -> None:
     logfire.instrument_snowflake()
     logfire.instrument_snowflake()  # should not double-wrap
@@ -339,7 +374,6 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_execute_error',
                     'code.lineno': 123,
                     'command': 'select * from does_not_exist',
-                    'params': 'null',
                     'account': 'my_account',
                     'warehouse': 'null',
                     'database': 'null',
@@ -347,7 +381,7 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
                     'role': 'null',
                     'logfire.msg_template': 'snowflake execute {command}',
                     'logfire.msg': 'snowflake execute select * from does_not_exist',
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"params":{"type":"null"},"account":{},"warehouse":{"type":"null"},"database":{"type":"null"},"schema":{"type":"null"},"role":{"type":"null"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{"type":"null"},"database":{"type":"null"},"schema":{"type":"null"},"role":{"type":"null"}}}',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
@@ -367,6 +401,26 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_instrument_executemany_error(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+
+    conn = FakeConnection(account='my_account')
+    cursor = conn.cursor()
+
+    def broken_executemany(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any):
+        raise SnowflakeQueryError('syntax error')
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(SnowflakeCursor, 'executemany', broken_executemany)
+        logfire.instrument_snowflake()
+        with pytest.raises(SnowflakeQueryError, match='syntax error'):
+            cursor.executemany('insert into does_not_exist values (%s)', [(1,)])
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['name'] == 'snowflake executemany'
+    assert span['events'][0]['name'] == 'exception'
 
 
 # `log_internal_error` (logfire/_internal/utils.py) only swallows the caught error when the
@@ -396,3 +450,22 @@ def test_instrument_snowflake_missing_dependency(monkeypatch: pytest.MonkeyPatch
 
     with pytest.raises(ImportError, match=r'pip install snowflake-connector-python'):
         logfire.instrument_snowflake()
+
+
+def test_instrument_snowflake_preserves_transitive_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import builtins
+    import sys
+
+    original_import = builtins.__import__
+
+    def broken_import(name: str, *args: Any, **kwargs: Any):
+        if name == 'snowflake.connector':
+            raise ModuleNotFoundError("No module named 'missing_transitive'", name='missing_transitive')
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.delitem(sys.modules, 'logfire._internal.integrations.snowflake', raising=False)
+    monkeypatch.setattr(builtins, '__import__', broken_import)
+
+    with pytest.raises(ModuleNotFoundError, match='missing_transitive') as exc_info:
+        logfire.instrument_snowflake()
+    assert exc_info.value.name == 'missing_transitive'

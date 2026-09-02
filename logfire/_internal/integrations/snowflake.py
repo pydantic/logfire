@@ -12,7 +12,9 @@ try:
     import snowflake.connector as sf_connector
     from snowflake.connector.connection import SnowflakeConnection
     from snowflake.connector.cursor import SnowflakeCursor
-except ImportError as e:
+except ModuleNotFoundError as e:
+    if e.name not in {'snowflake', 'snowflake.connector'}:
+        raise
     raise ImportError('Run `pip install snowflake-connector-python` to use `logfire.instrument_snowflake()`.') from e
 
 CONNECTION_ATTRS = ('account', 'warehouse', 'database', 'schema', 'role')
@@ -25,17 +27,18 @@ def _connection_attributes(conn: Any) -> dict[str, Any]:
 def instrument_snowflake(
     logfire_instance: Logfire,
     conn_or_module: ModuleType | SnowflakeConnection | None,
+    capture_parameters: bool,
 ) -> None:
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='snowflake')
     if conn_or_module is None or conn_or_module is sf_connector:
-        _instrument_module(logfire_instance)
+        _instrument_module(logfire_instance, capture_parameters)
     elif isinstance(conn_or_module, SnowflakeConnection):
-        _instrument_connection(logfire_instance, conn_or_module)
+        _instrument_connection(logfire_instance, conn_or_module, capture_parameters)
     else:
         raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
 
 
-def _instrument_module(logfire_instance: Logfire) -> None:
+def _instrument_module(logfire_instance: Logfire, capture_parameters: bool) -> None:
     # The connect-patch guard and the cursor-patch guard are independent: even when connect()
     # is already patched, _patch_cursor_class still runs and makes its own idempotency check,
     # so re-instrumenting after something else resets SnowflakeCursor.execute (Task 5) still works.
@@ -54,20 +57,20 @@ def _instrument_module(logfire_instance: Logfire) -> None:
         wrapped_connect._logfire_patched = True  # type: ignore[attr-defined]
         sf_connector.connect = wrapped_connect
 
-    _patch_cursor_class(logfire_instance)
+    _patch_cursor_class(logfire_instance, capture_parameters)
 
 
-def _patch_cursor_class(logfire_instance: Logfire) -> None:
+def _patch_cursor_class(logfire_instance: Logfire, capture_parameters: bool) -> None:
     original_execute = SnowflakeCursor.__dict__.get('execute', SnowflakeCursor.execute)
     if not getattr(original_execute, '_logfire_patched', False):
-        SnowflakeCursor.execute = _wrap_execute(logfire_instance, original_execute)
+        SnowflakeCursor.execute = _wrap_execute(logfire_instance, original_execute, capture_parameters)
 
     original_executemany = SnowflakeCursor.__dict__.get('executemany', SnowflakeCursor.executemany)
     if not getattr(original_executemany, '_logfire_patched', False):
-        SnowflakeCursor.executemany = _wrap_executemany(logfire_instance, original_executemany)
+        SnowflakeCursor.executemany = _wrap_executemany(logfire_instance, original_executemany, capture_parameters)
 
 
-def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection) -> None:
+def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection, capture_parameters: bool) -> None:
     original_cursor_factory = conn.cursor
     if getattr(original_cursor_factory, '_logfire_patched', False):
         return
@@ -82,20 +85,24 @@ def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection)
         # nested duplicate spans per query.
         execute = SnowflakeCursor.execute
         if not getattr(execute, '_logfire_patched', False):
-            cursor.execute = types.MethodType(_wrap_execute(logfire_instance, execute), cursor)
+            cursor.execute = types.MethodType(_wrap_execute(logfire_instance, execute, capture_parameters), cursor)
         executemany = SnowflakeCursor.executemany
         if not getattr(executemany, '_logfire_patched', False):
-            cursor.executemany = types.MethodType(_wrap_executemany(logfire_instance, executemany), cursor)
+            cursor.executemany = types.MethodType(
+                _wrap_executemany(logfire_instance, executemany, capture_parameters), cursor
+            )
         return cursor
 
     wrapped_cursor_factory._logfire_patched = True  # type: ignore[attr-defined]
     conn.cursor = wrapped_cursor_factory
 
 
-def _wrap_execute(logfire_instance: Logfire, original: Any) -> Any:
+def _wrap_execute(logfire_instance: Logfire, original: Any, capture_parameters: bool) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-        attributes: dict[str, Any] = {'command': command, 'params': params}
+        attributes: dict[str, Any] = {'command': command}
+        if capture_parameters:
+            attributes['params'] = params
         with handle_internal_errors:
             attributes.update(_connection_attributes(self.connection))
         with logfire_instance.span('snowflake execute {command}', _span_name='snowflake execute', **attributes) as span:
@@ -109,10 +116,12 @@ def _wrap_execute(logfire_instance: Logfire, original: Any) -> Any:
     return wrapped
 
 
-def _wrap_executemany(logfire_instance: Logfire, original: Any) -> Any:
+def _wrap_executemany(logfire_instance: Logfire, original: Any, capture_parameters: bool) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any) -> Any:
-        attributes: dict[str, Any] = {'command': command, 'seqparams': seqparams}
+        attributes: dict[str, Any] = {'command': command}
+        if capture_parameters:
+            attributes['seqparams'] = seqparams
         with handle_internal_errors:
             attributes.update(_connection_attributes(self.connection))
         with logfire_instance.span(
