@@ -323,3 +323,13 @@ def test_internal_exception_error_does_not_break_query(exporter: TestExporter, m
 
     result = cursor.execute('select 1')  # must not raise, despite the broken `connection` property
     assert result is cursor
+
+
+def test_instrument_snowflake_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    monkeypatch.delitem(sys.modules, 'logfire._internal.integrations.snowflake', raising=False)
+    monkeypatch.setitem(sys.modules, 'snowflake.connector', None)  # type: ignore[arg-type]
+
+    with pytest.raises(ImportError, match=r'pip install snowflake-connector-python'):
+        logfire.instrument_snowflake()

@@ -5,12 +5,17 @@ import types
 from types import ModuleType
 from typing import Any
 
-import snowflake.connector as sf_connector
-from snowflake.connector.connection import SnowflakeConnection
-from snowflake.connector.cursor import SnowflakeCursor
-
 from logfire import Logfire
 from logfire._internal.utils import handle_internal_errors
+
+try:
+    import snowflake.connector as sf_connector
+    from snowflake.connector.connection import SnowflakeConnection
+    from snowflake.connector.cursor import SnowflakeCursor
+except ImportError as e:
+    raise ImportError(
+        'Run `pip install snowflake-connector-python` to use `logfire.instrument_snowflake()`.'
+    ) from e
 
 CONNECTION_ATTRS = ('account', 'warehouse', 'database', 'schema', 'role')
 
