@@ -90,13 +90,13 @@ if TYPE_CHECKING:
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
+    from snowflake.connector.connection import SnowflakeConnection
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.responses import Response
     from starlette.websockets import WebSocket
-    from snowflake.connector.connection import SnowflakeConnection
     from surrealdb.connections.async_template import AsyncTemplate
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
@@ -1012,11 +1012,8 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_surrealdb(obj, self)
 
-    def instrument_snowflake(
-        self, conn_or_module: ModuleType | SnowflakeConnection | None = None
-    ) -> None:
-        """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector)
-        so that a span is created for each query.
+    def instrument_snowflake(self, conn_or_module: ModuleType | SnowflakeConnection | None = None) -> None:
+        """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector) so that a span is created for each query.
 
         Args:
             conn_or_module: Pass a single connection instance to instrument only that connection.

@@ -55,13 +55,13 @@ def fake_snowflake_connect(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def fake_snowflake_execute(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_execute(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any):
-        self._sfqid = 'fake-sfqid-1'
-        self._total_rowcount = 3
+        self._sfqid = 'fake-sfqid-1'  # pyright: ignore[reportPrivateUsage]
+        self._total_rowcount = 3  # pyright: ignore[reportPrivateUsage]
         return self
 
     def fake_executemany(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any):
-        self._sfqid = 'fake-sfqid-2'
-        self._total_rowcount = len(seqparams)
+        self._sfqid = 'fake-sfqid-2'  # pyright: ignore[reportPrivateUsage]
+        self._total_rowcount = len(seqparams)  # pyright: ignore[reportPrivateUsage]
         return self
 
     monkeypatch.setattr(SnowflakeCursor, 'execute', fake_execute)
@@ -73,7 +73,7 @@ def test_instrument_connect(exporter: TestExporter) -> None:
 
     import snowflake.connector
 
-    conn = snowflake.connector.connect(
+    conn = snowflake.connector.connect(  # pyright: ignore[reportUnknownMemberType]
         account='my_account',
         warehouse='my_wh',
         database='my_db',
@@ -230,13 +230,31 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_single_connection_idempotent(exporter: TestExporter) -> None:
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)  # should not double-wrap conn.cursor
+
+    cursor = conn.cursor()
+    cursor.execute('select 1')
+
+    # Exactly one `snowflake execute` span, not two.
+    names = [s['name'] for s in exporter.exported_spans_as_dict()]
+    assert names.count('snowflake execute') == 1
+
+
+def test_instrument_snowflake_invalid_argument() -> None:
+    with pytest.raises(ValueError, match=r"Don't know how to instrument 'not a connection'"):
+        logfire.instrument_snowflake('not a connection')  # pyright: ignore[reportArgumentType]
+
+
 def test_instrument_snowflake_idempotent(exporter: TestExporter) -> None:
     logfire.instrument_snowflake()
     logfire.instrument_snowflake()  # should not double-wrap
 
     import snowflake.connector
 
-    conn = snowflake.connector.connect(account='my_account')
+    conn = snowflake.connector.connect(account='my_account')  # pyright: ignore[reportUnknownMemberType]
     cursor = conn.cursor()
     cursor.execute('select 1')
 
@@ -329,7 +347,7 @@ def test_instrument_snowflake_missing_dependency(monkeypatch: pytest.MonkeyPatch
     import sys
 
     monkeypatch.delitem(sys.modules, 'logfire._internal.integrations.snowflake', raising=False)
-    monkeypatch.setitem(sys.modules, 'snowflake.connector', None)  # type: ignore[arg-type]
+    monkeypatch.setitem(sys.modules, 'snowflake.connector', None)
 
     with pytest.raises(ImportError, match=r'pip install snowflake-connector-python'):
         logfire.instrument_snowflake()
