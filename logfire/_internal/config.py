@@ -126,6 +126,7 @@ from .utils import (
     SeededRandomIdGenerator,
     ensure_data_dir_exists,
     handle_internal_errors,
+    platform_is_aws_lambda,
     platform_is_emscripten,
     suppress_instrumentation,
 )
@@ -1371,6 +1372,15 @@ class LogfireConfig(_LogfireConfigData):
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
+                    elif platform_is_aws_lambda():
+                        # Skip the check inside AWS Lambda. `configure()` usually runs in the init
+                        # phase, and Lambda may freeze the environment right after init until the
+                        # first invocation arrives (proactive initialization), sometimes minutes
+                        # later. A thread frozen mid-request warns "Logfire API is unreachable" once
+                        # thawed although nothing is wrong, and running the check synchronously would
+                        # slow down every cold start. The check is not essential: the exporters
+                        # report a rejected token on the first export anyway.
+                        pass
                     else:
                         thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()

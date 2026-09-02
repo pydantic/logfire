@@ -467,6 +467,17 @@ def platform_is_emscripten() -> bool:
     return platform.system().lower() == 'emscripten'
 
 
+def platform_is_aws_lambda() -> bool:
+    """Return True when running inside an AWS Lambda function.
+
+    Lambda freezes the execution environment between the end of the init phase and the first
+    invocation (and between invocations), so background work started during init may be
+    interrupted for minutes. `AWS_LAMBDA_FUNCTION_NAME` is set by the runtime in every Lambda
+    execution environment.
+    """
+    return bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+
+
 def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None = None) -> str:
     """Return a canonical string representation of an exception traceback.
 

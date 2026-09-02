@@ -2355,6 +2355,29 @@ def wait_for_check_token_thread():
             thread.join()
 
 
+def test_token_check_is_skipped_on_aws_lambda(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Lambda freezes the environment after the init phase; a background token check frozen
+    # mid-request would warn once thawed, and a synchronous check would slow every cold start.
+    # Inside Lambda the check is skipped. The mocked /v1/info response is held back until
+    # `release` is set, so a (wrongly) started background thread would still be alive and
+    # visible when the assertions run.
+    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'my-function')
+    release = threading.Event()
+
+    def held_back_info(_request: Any, _context: Any) -> dict[str, str]:
+        release.wait(timeout=5)
+        return {'project_name': 'myproject', 'project_url': 'fake_project_url'}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=held_back_info)
+        try:
+            configure(token='foobar', send_to_logfire='if-token-present', console=False)
+            assert not any(thread.name == 'check_logfire_token' for thread in threading.enumerate())
+            assert request_mocker.request_history == []
+        finally:
+            release.set()
+
+
 def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:
