@@ -214,6 +214,7 @@ dev = [
     "dspy >= 3.1.0",
     "pip >= 0",
     "surrealdb >= 0",
+    "snowflake-connector-python >= 3",
     "pytest-examples>=0.0.18",
     "pytest-timeout>=2.4.0",
     "pytest-asyncio>=0.24.0",

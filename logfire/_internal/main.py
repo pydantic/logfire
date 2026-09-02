@@ -96,6 +96,7 @@ if TYPE_CHECKING:
     from starlette.requests import Request
     from starlette.responses import Response
     from starlette.websockets import WebSocket
+    from snowflake.connector.connection import SnowflakeConnection
     from surrealdb.connections.async_template import AsyncTemplate
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
@@ -1010,6 +1011,21 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_surrealdb(obj, self)
+
+    def instrument_snowflake(
+        self, conn_or_module: ModuleType | SnowflakeConnection | None = None
+    ) -> None:
+        """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector)
+        so that a span is created for each query.
+
+        Args:
+            conn_or_module: Pass a single connection instance to instrument only that connection.
+                By default (`None`), all connections are instrumented, including ones created later.
+        """
+        from .integrations.snowflake import instrument_snowflake
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_snowflake(self, conn_or_module)
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).

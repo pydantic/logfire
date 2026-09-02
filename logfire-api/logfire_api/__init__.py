@@ -172,6 +172,8 @@ except ImportError:
 
             def instrument_surrealdb(self, *args, **kwargs) -> None: ...
 
+            def instrument_snowflake(self, *args, **kwargs) -> None: ...
+
             def instrument_requests(self, *args, **kwargs) -> None: ...
 
             def instrument_httpx(self, *args, **kwargs) -> None: ...
@@ -251,6 +253,7 @@ except ImportError:
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
         instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
+        instrument_snowflake = DEFAULT_LOGFIRE_INSTANCE.instrument_snowflake
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
         instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
