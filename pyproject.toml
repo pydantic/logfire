@@ -362,6 +362,9 @@ filterwarnings = [
     # which pydantic-settings >= 2.15 warns about (IncompleteFieldDefinitionWarning).
     # No category here: naming the warning class would fail to import on jobs with older pydantic-settings.
     "ignore:Field 'lifespan' has an incomplete definition.*",
+    # snowflake.connector.options warns about our locked pyarrow version being outside its
+    # declared bound on Python 3.14 (pyarrow<24, we have 25.0.1). Just an import-time warning.
+    "ignore:You have an incompatible version of 'pyarrow' installed.*:UserWarning:snowflake.connector.options",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

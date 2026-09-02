@@ -243,6 +243,48 @@ def test_instrument_single_connection_idempotent(exporter: TestExporter) -> None
     assert names.count('snowflake execute') == 1
 
 
+def test_instrument_module_then_connection_no_double_wrap(exporter: TestExporter) -> None:
+    """Instrumenting the module first, then a connection, must not double-wrap that
+    connection's cursors: `_instrument_connection`'s cursor factory checks whether
+    `SnowflakeCursor.execute`/`executemany` are already class-patched (fresh, at
+    cursor-creation time) and skips its own per-instance wrapping when they are.
+    """
+    logfire.instrument_snowflake()
+
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn)
+
+    cursor = conn.cursor()
+    cursor.execute('select 1')
+    cursor.executemany('insert into my_table values (%s)', [(1,), (2,)])
+
+    names = [s['name'] for s in exporter.exported_spans_as_dict()]
+    assert names.count('snowflake execute') == 1
+    assert names.count('snowflake executemany') == 1
+
+
+def test_instrument_connection_then_module_no_double_wrap(exporter: TestExporter) -> None:
+    """Instrumenting a connection first, then the module, must not retroactively
+    double-wrap cursors created from that connection afterward: the cursor factory
+    re-reads `SnowflakeCursor.execute`/`executemany` fresh each time a cursor is
+    created, so it correctly sees the module-level class patch applied later and
+    defers to it instead of wrapping again.
+    """
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn)
+
+    logfire.instrument_snowflake()
+
+    # Cursor created *after* the module-level patch.
+    cursor = conn.cursor()
+    cursor.execute('select 1')
+    cursor.executemany('insert into my_table values (%s)', [(1,), (2,)])
+
+    names = [s['name'] for s in exporter.exported_spans_as_dict()]
+    assert names.count('snowflake execute') == 1
+    assert names.count('snowflake executemany') == 1
+
+
 def test_instrument_snowflake_invalid_argument() -> None:
     with pytest.raises(ValueError, match=r"Don't know how to instrument 'not a connection'"):
         logfire.instrument_snowflake('not a connection')  # pyright: ignore[reportArgumentType]
@@ -327,6 +369,9 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
     )
 
 
+# `log_internal_error` (logfire/_internal/utils.py) only swallows the caught error when the
+# running test's name contains the literal substring `test_internal_exception` (it checks
+# `PYTEST_CURRENT_TEST`); otherwise it re-raises. Renaming this test would silently break it.
 def test_internal_exception_error_does_not_break_query(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch) -> None:
     logfire.instrument_snowflake()
 

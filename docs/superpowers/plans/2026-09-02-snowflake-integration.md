@@ -195,7 +195,7 @@ In `logfire-api/logfire_api/__init__.py`, add next to `instrument_surrealdb` (~l
 
 And next to the `instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb` line (~line 253):
 
-```python
+```python skip-run="true" skip-reason="code-fragment"
         instrument_snowflake = DEFAULT_LOGFIRE_INSTANCE.instrument_snowflake
 ```
 
@@ -227,7 +227,7 @@ git commit -m "feat(snowflake): instrument connect()"
 
 Add to `tests/otel_integrations/test_snowflake.py`, using a `FakeConnection` whose `cursor()` builds a real `SnowflakeCursor` (its `__init__` only stores the connection reference — no network I/O — so this is safe) and monkeypatching `SnowflakeCursor.execute`/`executemany` to canned results instead of hitting the network:
 
-```python
+```python skip-run="true" skip-reason="code-fragment"
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -385,7 +385,7 @@ git commit -m "feat(snowflake): instrument cursor execute/executemany"
 
 `instrument_snowflake`'s single-connection branch checks `isinstance(conn_or_module, SnowflakeConnection)` (Task 1), so the test double for this task must be a real `SnowflakeConnection` subclass, not the plain `FakeConnection` used in Tasks 1–2. Add to `tests/otel_integrations/test_snowflake.py` (reusing the `fake_snowflake_execute` fixture from Task 2, but *not* the module-wide `fake_snowflake_connect` autouse fixture — this test instruments a connection object directly, so `snowflake.connector.connect` is never called):
 
-```python
+```python skip-run="true" skip-reason="code-fragment"
 class FakeSnowflakeConnection(SnowflakeConnection):
     def __init__(self, **kwargs: Any) -> None:
         # Deliberately skip SnowflakeConnection.__init__, which opens a real network

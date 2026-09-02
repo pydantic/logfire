@@ -53,7 +53,7 @@ Call [`logfire.instrument_snowflake()`][logfire.Logfire.instrument_snowflake] be
 With no arguments, it records queries from every connection in the process, including ones made
 later.
 
-```python title="main.py" hl_lines="6"
+```python title="main.py" hl_lines="6" skip-run="true" skip-reason="external-connection"
 import snowflake.connector
 
 import logfire
@@ -86,7 +86,7 @@ attributes, including `sfqid` and `rowcount`.
 Pass a connection instance to record queries from only that connection. Call
 `logfire.instrument_snowflake(conn)` after connecting:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import snowflake.connector
 
 import logfire

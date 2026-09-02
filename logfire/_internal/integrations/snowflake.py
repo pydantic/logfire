@@ -26,6 +26,7 @@ def instrument_snowflake(
     logfire_instance: Logfire,
     conn_or_module: ModuleType | SnowflakeConnection | None,
 ) -> None:
+    logfire_instance = logfire_instance.with_settings(custom_scope_suffix='snowflake')
     if conn_or_module is None or conn_or_module is sf_connector:
         _instrument_module(logfire_instance)
     elif isinstance(conn_or_module, SnowflakeConnection):
@@ -73,8 +74,18 @@ def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection)
 
     def wrapped_cursor_factory(*args: Any, **kwargs: Any) -> SnowflakeCursor:
         cursor = original_cursor_factory(*args, **kwargs)
-        cursor.execute = types.MethodType(_wrap_execute(logfire_instance, SnowflakeCursor.execute), cursor)
-        cursor.executemany = types.MethodType(_wrap_executemany(logfire_instance, SnowflakeCursor.executemany), cursor)
+        # Read the class methods fresh at cursor-creation time, not once when
+        # _instrument_connection is called: instrument_snowflake() (module-level) can patch
+        # SnowflakeCursor.execute/executemany either before or after this connection is
+        # instrumented. If the class is already patched, the cursor already gets spans via
+        # normal attribute lookup, so wrapping again here would double-wrap and produce
+        # nested duplicate spans per query.
+        execute = SnowflakeCursor.execute
+        if not getattr(execute, '_logfire_patched', False):
+            cursor.execute = types.MethodType(_wrap_execute(logfire_instance, execute), cursor)
+        executemany = SnowflakeCursor.executemany
+        if not getattr(executemany, '_logfire_patched', False):
+            cursor.executemany = types.MethodType(_wrap_executemany(logfire_instance, executemany), cursor)
         return cursor
 
     wrapped_cursor_factory._logfire_patched = True  # type: ignore[attr-defined]
