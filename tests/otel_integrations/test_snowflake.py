@@ -4,7 +4,6 @@ from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
-from snowflake.connector import connection as sf_connection
 
 import logfire
 from logfire._internal.exporters.test import TestExporter

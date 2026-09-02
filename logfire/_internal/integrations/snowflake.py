@@ -6,7 +6,6 @@ from typing import Any
 
 import snowflake.connector as sf_connector
 from snowflake.connector.connection import SnowflakeConnection
-from snowflake.connector.cursor import SnowflakeCursor
 
 from logfire import Logfire
 from logfire._internal.utils import handle_internal_errors
@@ -24,8 +23,6 @@ def instrument_snowflake(
 ) -> None:
     if conn_or_module is None or conn_or_module is sf_connector:
         _instrument_module(logfire_instance)
-    elif isinstance(conn_or_module, SnowflakeConnection):
-        _instrument_connection(logfire_instance, conn_or_module)
     else:
         raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
 
