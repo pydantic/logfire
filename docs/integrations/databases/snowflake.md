@@ -81,6 +81,8 @@ Query parameters may contain sensitive data. Logfire does not capture them by de
 them in spans, pass `capture_parameters=True` the first time you instrument a module or connection:
 
 ```python
+import logfire
+
 logfire.instrument_snowflake(capture_parameters=True)
 ```
 
