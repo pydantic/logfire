@@ -2355,6 +2355,21 @@ def wait_for_check_token_thread():
             thread.join()
 
 
+def test_token_check_is_synchronous_on_aws_lambda(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Lambda freezes the environment after the init phase; a background token check frozen
+    # mid-request would fail once thawed. Inside Lambda the check must complete in configure().
+    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'my-function')
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        configure(token='foobar', send_to_logfire='if-token-present', console=False)
+        # No wait_for_check_token_thread(): the request must already be recorded.
+        assert len(request_mocker.request_history) == 1
+        assert not any(thread.name == 'check_logfire_token' for thread in threading.enumerate())
+
+
 def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:

@@ -126,6 +126,7 @@ from .utils import (
     SeededRandomIdGenerator,
     ensure_data_dir_exists,
     handle_internal_errors,
+    platform_is_aws_lambda,
     platform_is_emscripten,
     suppress_instrumentation,
 )
@@ -1370,6 +1371,14 @@ class LogfireConfig(_LogfireConfigData):
                                         validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
+                        check_tokens()
+                    elif platform_is_aws_lambda():
+                        # Run the check synchronously: `configure()` is typically called at import
+                        # time, i.e. in the Lambda init phase, and Lambda may freeze the environment
+                        # right after init (proactive initialization) until the first invocation
+                        # arrives, sometimes minutes later. A thread frozen mid-TLS-handshake reads an
+                        # EOF once thawed and warns "Logfire API is unreachable" although nothing is
+                        # wrong. The synchronous check costs one HTTP round trip during init.
                         check_tokens()
                     else:
                         thread = Thread(target=check_tokens, name='check_logfire_token')
