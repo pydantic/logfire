@@ -228,3 +228,19 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_instrument_snowflake_idempotent(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+    logfire.instrument_snowflake()  # should not double-wrap
+
+    import snowflake.connector
+
+    conn = snowflake.connector.connect(account='my_account')
+    cursor = conn.cursor()
+    cursor.execute('select 1')
+
+    # Exactly one `snowflake connect` span and one `snowflake execute` span — not two of each.
+    names = [s['name'] for s in exporter.exported_spans_as_dict()]
+    assert names.count('snowflake connect') == 1
+    assert names.count('snowflake execute') == 1
