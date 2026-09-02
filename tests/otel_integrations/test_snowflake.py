@@ -244,3 +244,82 @@ def test_instrument_snowflake_idempotent(exporter: TestExporter) -> None:
     names = [s['name'] for s in exporter.exported_spans_as_dict()]
     assert names.count('snowflake connect') == 1
     assert names.count('snowflake execute') == 1
+
+
+class SnowflakeQueryError(Exception):
+    pass
+
+
+def test_instrument_execute_error(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+
+    conn = FakeConnection(account='my_account')
+    cursor = conn.cursor()
+
+    def broken_execute(self: SnowflakeCursor, command: str, params: Any = None, *a: Any, **k: Any):
+        raise SnowflakeQueryError('syntax error')
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(SnowflakeCursor, 'execute', broken_execute)
+        # Re-instrument so our wrapper picks up broken_execute as the new "original" to wrap.
+        logfire.instrument_snowflake()
+        with pytest.raises(SnowflakeQueryError):
+            cursor.execute('select * from does_not_exist')
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'snowflake execute',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_snowflake.py',
+                    'code.function': 'test_instrument_execute_error',
+                    'code.lineno': 123,
+                    'command': 'select * from does_not_exist',
+                    'params': 'null',
+                    'account': 'my_account',
+                    'warehouse': 'null',
+                    'database': 'null',
+                    'schema': 'null',
+                    'role': 'null',
+                    'logfire.msg_template': 'snowflake execute {command}',
+                    'logfire.msg': 'snowflake execute select * from does_not_exist',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"params":{"type":"null"},"account":{},"warehouse":{"type":"null"},"database":{"type":"null"},"schema":{"type":"null"},"role":{"type":"null"}}}',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'tests.otel_integrations.test_snowflake.SnowflakeQueryError',
+                            'exception.message': 'syntax error',
+                            'exception.stacktrace': 'tests.otel_integrations.test_snowflake.SnowflakeQueryError: syntax error',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+
+
+def test_internal_exception_error_does_not_break_query(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch) -> None:
+    logfire.instrument_snowflake()
+
+    conn = FakeConnection(account='my_account')
+    cursor = conn.cursor()
+
+    # Simulate a bug in our own attribute-reading code: `connection` raises instead of
+    # returning the real connection.
+    monkeypatch.setattr(
+        SnowflakeCursor, 'connection', property(lambda self: (_ for _ in ()).throw(RuntimeError('boom')))
+    )
+
+    result = cursor.execute('select 1')  # must not raise, despite the broken `connection` property
+    assert result is cursor
