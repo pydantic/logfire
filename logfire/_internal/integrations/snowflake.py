@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import types
 from types import ModuleType
 from typing import Any
 
@@ -24,6 +25,8 @@ def instrument_snowflake(
 ) -> None:
     if conn_or_module is None or conn_or_module is sf_connector:
         _instrument_module(logfire_instance)
+    elif isinstance(conn_or_module, SnowflakeConnection):
+        _instrument_connection(logfire_instance, conn_or_module)
     else:
         raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
 
@@ -58,6 +61,21 @@ def _patch_cursor_class(logfire_instance: Logfire) -> None:
     original_executemany = SnowflakeCursor.__dict__.get('executemany', SnowflakeCursor.executemany)
     if not getattr(original_executemany, '_logfire_patched', False):
         SnowflakeCursor.executemany = _wrap_executemany(logfire_instance, original_executemany)  # type: ignore[method-assign]
+
+
+def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection) -> None:
+    original_cursor_factory = conn.cursor
+    if getattr(original_cursor_factory, '_logfire_patched', False):
+        return
+
+    def wrapped_cursor_factory(*args: Any, **kwargs: Any) -> SnowflakeCursor:
+        cursor = original_cursor_factory(*args, **kwargs)
+        cursor.execute = types.MethodType(_wrap_execute(logfire_instance, SnowflakeCursor.execute), cursor)
+        cursor.executemany = types.MethodType(_wrap_executemany(logfire_instance, SnowflakeCursor.executemany), cursor)
+        return cursor
+
+    wrapped_cursor_factory._logfire_patched = True  # type: ignore[attr-defined]
+    conn.cursor = wrapped_cursor_factory  # type: ignore[method-assign]
 
 
 def _wrap_execute(logfire_instance: Logfire, original: Any) -> Any:
