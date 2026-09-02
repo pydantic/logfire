@@ -52,7 +52,7 @@ Call [`logfire.instrument_snowflake()`][logfire.Logfire.instrument_snowflake] be
 With no arguments, it records queries from every connection in the process, including ones made
 later.
 
-```python title="main.py" hl_lines="5"
+```python title="main.py" hl_lines="6"
 import snowflake.connector
 
 import logfire
