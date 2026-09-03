@@ -1,0 +1,27 @@
+logfire/integrations/pydantic.py
+  s_73c76bd7f6a664::t_5c36b9efe3dc3a 207
+  s_73c76bd7f6a664::t_a0e1ae72d2eb2c 230
+  s_73c76bd7f6a664::t_91a900409ca082 159
+  s_73c76bd7f6a664::t_ef235667e739b8 163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d8ca816e25f8ca2c5d037ebb19622506825304eb",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_73c76bd7f6a664": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1788450876081",
+        "model": "unknown"
+      },
+      "human_author": null
+    }
+  }
+}
