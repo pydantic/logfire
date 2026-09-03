@@ -8,9 +8,9 @@ Use <OpenInLogfire path="frontend/session-replays" variant="inline" label="Sessi
 
 A session replay records changes to the page's document structure and user interactions. Logfire reconstructs those events in a player. It does not store a video stream.
 
-!!! note "Experimental"
+!!! note "Early access"
 
-    Open **Settings → Early access**, choose **Show experimental features**, and enable **Frontend observability**. The same setting enables the Frontend and Session Replays pages.
+    Session Replay is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
 
 ## Record sessions
 
