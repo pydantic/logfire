@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import functools
-import inspect
 import os
 import re
 import sys
@@ -17,6 +16,7 @@ from typing_extensions import ParamSpec
 
 import logfire
 from logfire import LogfireSpan
+from logfire_pydantic_plugin import patch_pluggable_schema_validator
 
 from .._internal.config import GLOBAL_CONFIG, PydanticPlugin
 from .._internal.stack_info import is_non_user_path
@@ -339,7 +339,7 @@ class LogfirePydanticPlugin:
                     three `None` if recording is `off`.
             """
             # Patch a bug that occurs even if the plugin is disabled.
-            _patch_PluggableSchemaValidator()
+            patch_pluggable_schema_validator()
 
             logfire_settings = plugin_settings.get('logfire')
             if logfire_settings and 'record' in logfire_settings:
@@ -395,11 +395,6 @@ def set_pydantic_plugin_config(plugin_config: PydanticPlugin | None) -> None:
     """Set the pydantic plugin config."""
     global _pydantic_plugin_config_value
     _pydantic_plugin_config_value = plugin_config
-    # Keep the lazy entry-point shim in sync so it can enable recording without
-    # consulting GLOBAL_CONFIG before the heavy module is imported.
-    from logfire_pydantic_plugin import set_plugin_config_override
-
-    set_plugin_config_override(plugin_config)
 
 
 def _include_model(schema_type_path: SchemaTypePath) -> bool:
@@ -438,36 +433,6 @@ def _patch_build_wrapper():
     from pydantic.plugin import _schema_validator
 
     _schema_validator.build_wrapper = _build_wrapper
-
-
-@lru_cache  # only patch once
-def _patch_PluggableSchemaValidator():
-    """Patch a 'bug' in PluggableSchemaValidator.
-
-    Getting an attribute before proper initializing (e.g. when using cloudpickle)
-    leads to infinite recursion trying to get _schema_validator.
-    """
-    from pydantic.plugin._schema_validator import PluggableSchemaValidator
-
-    if (  # pragma: no branch
-        inspect.getsource(PluggableSchemaValidator.__getattr__).strip()
-        # Check that we're replacing the code that's known to be buggy.
-        == """
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._schema_validator, name)
-    """.strip()
-    ):
-
-        def __getattr__(self: Any, name: str) -> Any:
-            # Add these two lines to the above.
-            # The exact error or return value is not important, as long as the end result
-            # is an AttributeError rather than infinite recursion.
-            if name == '_schema_validator':
-                raise AttributeError(name)
-
-            return getattr(self._schema_validator, name)
-
-        PluggableSchemaValidator.__getattr__ = __getattr__
 
 
 P = ParamSpec('P')
