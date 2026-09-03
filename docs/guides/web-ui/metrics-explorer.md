@@ -44,7 +44,7 @@ The metric kind determines which calculations are available. The dropdown starts
 | Metric kind | What it represents | Default | Available calculations |
 |-------------|--------------------|---------|------------------------|
 | Gauge | A value that can rise or fall | `avg` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
-| Sum (counter) | A total that accumulates changes | `sum` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
+| Sum | A total that only increases (counter), or a value that can increase and decrease (up-down counter) | `sum` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
 | Histogram | A distribution stored in fixed buckets | `avg` | `avg`, `sum`, `min`, `max`, `count` |
 | Exponential histogram | A distribution whose bucket sizes grow exponentially | `avg` | `avg`, `sum`, `min`, `max`, `count` |
 
