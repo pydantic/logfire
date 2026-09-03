@@ -97,7 +97,7 @@ Changelog = "https://github.com/pydantic/logfire/blob/main/CHANGELOG.md"
 logfire = "logfire.cli:main"
 
 [project.entry-points."pydantic"]
-logfire-plugin = "logfire.integrations.pydantic:plugin"
+logfire-plugin = "logfire_pydantic_plugin:plugin"
 
 [project.entry-points."pytest11"]
 logfire = "logfire.testing"
@@ -248,7 +248,7 @@ members = ["logfire-api"]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["logfire"]
+packages = ["logfire", "logfire_pydantic_plugin"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/README.md", "CHANGELOG.md", "/Makefile", "/logfire", "/tests"]

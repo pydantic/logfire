@@ -395,6 +395,11 @@ def set_pydantic_plugin_config(plugin_config: PydanticPlugin | None) -> None:
     """Set the pydantic plugin config."""
     global _pydantic_plugin_config_value
     _pydantic_plugin_config_value = plugin_config
+    # Keep the lazy entry-point shim in sync so it can enable recording without
+    # consulting GLOBAL_CONFIG before the heavy module is imported.
+    from logfire_pydantic_plugin import set_plugin_config_override
+
+    set_plugin_config_override(plugin_config)
 
 
 def _include_model(schema_type_path: SchemaTypePath) -> bool:
