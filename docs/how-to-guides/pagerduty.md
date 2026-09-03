@@ -10,7 +10,7 @@ Page the right on-call team when a [Logfire alert](../guides/web-ui/alerts.md) f
 !!! info "Experimental"
     The PagerDuty integration is experimental and available to selected Logfire organizations. Email [engineering@pydantic.dev](mailto:engineering@pydantic.dev) if you want to try it.
 
-You connect a PagerDuty account once at the organization level. Each project can then create notification channels that route alerts to the approved PagerDuty services.
+You connect a PagerDuty account once at the organization level. Notification channels also belong to the organization. Every project in that organization can reuse them to route alerts to the approved PagerDuty services.
 
 ## What the integration does
 
@@ -43,11 +43,11 @@ The connection belongs to the Logfire organization. You can reuse it across ever
 
     ![The Logfire Connections page showing a connected PagerDuty account with one approved service](../images/guide/pagerduty-connected.png)
 
-Logfire receives one Events API integration key for each service you approve. It encrypts these credentials at rest. The app does not request PagerDuty REST API or OAuth permissions.
+For each service you approve, Logfire receives a key that lets it send alerts and resolve incidents for that service. Logfire encrypts these keys at rest. It does not request access to read or manage other PagerDuty data.
 
 ## Create a PagerDuty notification channel
 
-A notification channel is a destination that you attach to one or more alerts.
+A notification channel is an organization-level destination that you attach to one or more alerts.
 
 1. From your project's sidebar, open **Delivery**, then **Channels**.
 2. Click **New channel**.
@@ -73,7 +73,7 @@ Logfire requires a successful test before it creates the channel. This catches r
 3. Under **Send notifications to**, select the PagerDuty channel.
 4. Save the alert.
 
-One notification channel can serve several alerts. One alert can also notify several channels.
+One notification channel can serve alerts across projects in the same organization. One alert can also notify several channels.
 
 ## Verify the incident lifecycle
 
