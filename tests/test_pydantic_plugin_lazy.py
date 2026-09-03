@@ -8,6 +8,14 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic.version import VERSION
+
+from logfire._internal.utils import get_version
+
+requires_supported_plugin = pytest.mark.skipif(
+    get_version(VERSION) < get_version('2.5.0'),
+    reason='Pydantic instrumentation and its cloudpickle workaround require Pydantic >= 2.5.',
+)
 
 
 def run_script(script: str, cwd: Path, **settings: str) -> None:
@@ -42,6 +50,7 @@ assert not any(name.startswith('opentelemetry') for name in sys.modules)
     )
 
 
+@requires_supported_plugin
 def test_disabled_plugin_preserves_cloudpickle_compatibility(tmp_path: Path) -> None:
     run_script(
         """
@@ -58,7 +67,10 @@ assert 'logfire' not in sys.modules
     )
 
 
-@pytest.mark.parametrize('source', ['environment', 'model', 'file', 'configured_file', 'instrument'])
+@pytest.mark.parametrize(
+    'source',
+    ['environment', 'model', 'file', 'configured_file', pytest.param('instrument', marks=requires_supported_plugin)],
+)
 def test_entry_point_records_when_enabled(tmp_path: Path, source: str) -> None:
     setup = ''
     model_settings = ''
