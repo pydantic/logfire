@@ -65,7 +65,9 @@ def test_check_plugin_installed():
     """Check Pydantic has found the logfire pydantic plugin."""
     from pydantic.plugin import _loader
 
-    assert repr(next(iter(_loader.get_plugins()))) == 'LogfirePydanticPlugin()'
+    from logfire_pydantic_plugin import plugin
+
+    assert plugin in _loader.get_plugins()
 
 
 def test_disable_logfire_pydantic_plugin() -> None:
