@@ -18,6 +18,10 @@ Logfire Enterprise supports SSO through [Dex](https://github.com/dexidp/dex), an
 
 Dex works with common identity providers including Okta, Azure AD, Auth0, Google Workspace, LDAP/AD, and generic OIDC or SAML providers.
 
+## SCIM provisioning
+
+Logfire Enterprise supports [SCIM 2.0 user discovery and group provisioning](scim-provisioning.md) across managed and self-hosted deployments. Connect your identity provider to find existing Logfire users and synchronize organization and project access through mapped groups.
+
 ## Enterprise Cloud
 
 ### Target Users
@@ -40,6 +44,7 @@ Organizations requiring:
 | **Compliance & Custom Billing** | Tailored billing options and industry-specific compliance packages |
 | **Custom Retention**            | Extended data retention beyond the standard 30-day SaaS offering   |
 | **Custom SSO**                  | Login via custom identity providers (e.g. Okta, Azure AD, Auth0)   |
+| **SCIM provisioning**           | User discovery and mapped group access synchronization              |
 
 
 ## Enterprise Self-Hosted
@@ -63,6 +68,7 @@ Organizations with:
 | **Deployment** | Open-sourced Helm chart for quick deployment on any Kubernetes cluster |
 | **Storage & Retention** | Parquet storage on any S3-compatible object storage with customizable retention policies |
 | **Scalability** | Native Kubernetes scaling to match workload and cost requirements |
+| **SCIM provisioning** | User discovery and mapped group access synchronization |
 
 ### Support Services
 

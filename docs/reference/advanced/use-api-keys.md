@@ -24,7 +24,7 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 
     - **Audit logs**: List and retrieve audit log entries for your organization
     - **Billing usage**: View billing usage data for current and previous periods
-    - **SCIM provisioning**: Manage users and groups via the SCIM protocol for identity provider integration
+    - **[SCIM provisioning](../../scim-provisioning.md)**: Discover existing users and synchronize access through mapped identity-provider groups
     - **Organization management** _(self-hosted only)_: Create, list, update, and delete organizations
 
 ## API Documentation

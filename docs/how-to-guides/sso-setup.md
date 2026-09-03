@@ -165,4 +165,4 @@ Users who joined the organization before SSO was configured need to connect thei
 
 ---
 
-**See also:** [Enterprise Plan Overview](../enterprise.md)
+**See also:** [Provision group access with SCIM](../scim-provisioning.md) and [Enterprise Plan Overview](../enterprise.md)

@@ -19,9 +19,11 @@ Each link says why it's here.
 
 4. **[Single sign-on (SSO) setup](../how-to-guides/sso-setup.md)**: let your team sign in through your existing identity provider (Microsoft Entra ID, Okta, or a Keycloak OpenID Connect (OIDC) provider) instead of separate Logfire logins. Available on Enterprise Cloud.
 
-5. **[Self-hosted Logfire](../reference/self-hosted/overview.md)**: run the whole platform inside your own infrastructure when data can't leave your network at all. Covers production requirements, installation, and day-to-day operations.
+5. **[SCIM provisioning](../scim-provisioning.md)**: let your identity provider discover existing Logfire users and synchronize organization and project access through mapped groups. Available on Enterprise deployments.
 
-6. **[Billing and usage](../logfire-costs.md)**: understand what's metered (every span, log, and metric you send), the free monthly allowance, and the per-million rate above it, so cost holds no surprises.
+6. **[Self-hosted Logfire](../reference/self-hosted/overview.md)**: run the whole platform inside your own infrastructure when data can't leave your network at all. Covers production requirements, installation, and day-to-day operations.
+
+7. **[Billing and usage](../logfire-costs.md)**: understand what's metered (every span, log, and metric you send), the free monthly allowance, and the per-million rate above it, so cost holds no surprises.
 
 ## Related
 

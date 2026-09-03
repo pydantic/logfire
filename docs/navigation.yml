@@ -1013,6 +1013,10 @@ navigation:
         slug: "deploy/sso-setup"
         aliases:
           - "how-to-guides/sso-setup"
+      - page: "SCIM Provisioning"
+        path: "scim-provisioning.md"
+        source: "plain"
+        slug: "deploy/scim-provisioning"
       - page: "Enterprise"
         path: "enterprise.md"
         source: "plain"
