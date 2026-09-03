@@ -50,7 +50,7 @@ The metric kind determines which calculations are available. The dropdown starts
 
 `p50`, `p95`, and `p99` are percentiles: for example, `p95` is the value at or below which 95% of measurements fall.
 
-These are the four metric kinds the Metrics Explorer supports. Logfire does not store `Summary` metrics sent over the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive data. A `Summary` carries pre-computed quantiles instead of buckets. Logfire drops it during ingest and records an error in your project. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
+These are the four metric kinds the Metrics Explorer supports. Logfire does not store `Summary` metrics sent over the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive data. A `Summary` carries pre-computed quantiles instead of buckets. If a request also contains supported metrics, Logfire stores those metrics, drops the summaries, and reports a partial success. If every metric in the request is a `Summary`, the request fails. Logfire records the dropped summaries in your project as a `logfire ingest error`. Summaries most often come from Prometheus scrapes forwarded through the OpenTelemetry Collector's `prometheus` receiver. Send a histogram instead and calculate percentiles at query time. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
 
 !!! note "Percentiles on histograms"
     The Metrics Explorer does not expose `p50`/`p95`/`p99` directly on histogram metrics today. Pre-aggregated histograms, such as `http.server.request.duration`, report `avg`, `min`, `max`, `count`, and `sum`. For percentiles over a histogram, open **View SQL**, continue in [SQL Workbench](explore.md), and use the histogram bucket columns.
@@ -63,7 +63,7 @@ The columns used by the Metrics Explorer live on the `metrics` table. See the fu
 
 ## Send metrics to the catalog
 
-The Metrics Explorer reads from the OpenTelemetry metrics you're already sending to your Logfire project. OpenTelemetry (OTel) is the open industry standard for collecting traces, metrics, and logs; anything OpenTelemetry-compatible works with Logfire. There is no separate metric pipeline. If you instrument your application with the [Python SDK](../onboarding-checklist/add-metrics.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/), or the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md), each metric appears in the catalog within a minute or two of its first sample.
+The Metrics Explorer reads from the supported OpenTelemetry metrics you're already sending to your Logfire project. OpenTelemetry (OTel) is the open industry standard for collecting traces, metrics, and logs. Logfire accepts the metric kinds listed above from OpenTelemetry-compatible SDKs and collectors. There is no separate metric pipeline. If you instrument your application with the [Python SDK](../onboarding-checklist/add-metrics.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/), or the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md), each supported metric appears in the catalog within a minute or two of its first sample.
 
 Common sources include:
 
