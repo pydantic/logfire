@@ -156,11 +156,11 @@ class _ValidateWrapper:
                     result = validator(input_data, *args, **kwargs)
                 except ValidationError as error:
                     self._count_validation(success=False)
-                    self._on_error_log(error)
+                    self._on_error_log(error, input_data)
                     raise
                 except Exception as exception:
                     self._count_validation(success=False)
-                    self._on_exception_log(exception)
+                    self._on_exception_log(exception, input_data)
                     raise
                 else:
                     self._count_validation(success=True)
@@ -204,7 +204,7 @@ class _ValidateWrapper:
         )
         span.__exit__(None, None, None)
 
-    def _on_error_log(self, error: ValidationError):
+    def _on_error_log(self, error: ValidationError, input_data: Any):
         self._logfire.log(
             level='warn',
             msg_template='Validation on {schema_name} failed',
@@ -212,6 +212,7 @@ class _ValidateWrapper:
                 'schema_name': self.schema_name,
                 'error_count': error.error_count(),
                 'errors': error.errors(include_url=False),
+                'input_data': input_data,
             },
         )
 
@@ -226,13 +227,14 @@ class _ValidateWrapper:
         span.set_level('warn')
         span.__exit__(None, None, None)
 
-    def _on_exception_log(self, exception: Exception):
+    def _on_exception_log(self, exception: Exception, input_data: Any):
         self._logfire.log(
             level='error',
             msg_template='Validation on {schema_name} raised {exception_type}',
             attributes={
                 'schema_name': self.schema_name,
                 'exception_type': type(exception).__name__,
+                'input_data': input_data,
             },
             exc_info=exception,
         )
