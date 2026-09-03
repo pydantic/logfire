@@ -28,6 +28,7 @@ from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -3121,6 +3122,13 @@ class FastLogfireSpan:
 
 
 # Changes to this class may need to be reflected in `FastLogfireSpan` and `NoopSpan` as well.
+def _extract_span_context(carrier: Mapping[str, str]) -> SpanContext:
+    """Extract a remote span context without consulting the ambient context."""
+    normalized_carrier = {key.lower(): value for key, value in carrier.items()}
+    extracted = TraceContextTextMapPropagator().extract(normalized_carrier, context=Context())
+    return trace_api.get_current_span(extracted).get_span_context()
+
+
 class LogfireSpan(ReadableSpan):
     def __init__(
         self,
@@ -3139,6 +3147,7 @@ class LogfireSpan(ReadableSpan):
         self._span_kind = span_kind
 
         self._added_attributes = False
+        self._ended = False
         self._token: None | Token[Context] = None
         self._span: None | _LogfireWrappedSpan = None
 
@@ -3172,6 +3181,9 @@ class LogfireSpan(ReadableSpan):
 
     @handle_internal_errors
     def _end(self):
+        if self._ended:
+            return
+        self._ended = True
         if not self._span or not self._span.is_recording():
             return
         if self._added_attributes:
@@ -3234,11 +3246,49 @@ class LogfireSpan(ReadableSpan):
         for key, value in attributes.items():
             self.set_attribute(key, value)
 
-    def add_link(self, context: SpanContext, attributes: otel_types.Attributes = None) -> None:
-        if self._span is None:
-            self._links += [trace_api.Link(context=context, attributes=attributes)]
+    def add_link(
+        self,
+        context: LogfireSpan | trace_api.Span | SpanContext | trace_api.Link | Mapping[str, str] | str,
+        attributes: otel_types.Attributes = None,
+    ) -> None:
+        """Add a causal link to this span.
+
+        The linked context may be a Logfire or OpenTelemetry span, a span context,
+        an OpenTelemetry link, a W3C trace-context carrier, or a ``traceparent``
+        header value. For an OpenTelemetry link, explicit ``attributes`` replace
+        the attributes already stored on the link.
+
+        Add links before entering the span context manager when a sampler needs
+        to consider them. You can also add links while the span is recording.
+        """
+        resolved_context: SpanContext
+        if isinstance(context, trace_api.Link):
+            attributes = context.attributes if attributes is None else attributes
+            resolved_context = context.context
+        elif isinstance(context, str):
+            resolved_context = _extract_span_context({'traceparent': context})
+        elif isinstance(context, Mapping):
+            resolved_context = _extract_span_context(context)
+        elif isinstance(context, SpanContext):
+            resolved_context = context
+        elif isinstance(context, LogfireSpan):
+            if context._span is None:
+                raise ValueError('Cannot add a span link: the source span must be started first.')
+            resolved_context = context._span.get_span_context()
         else:
-            self._span.add_link(context, attributes)
+            resolved_context = context.get_span_context()
+
+        if not resolved_context.is_valid and isinstance(context, (str, Mapping)):
+            return
+        if not resolved_context.is_valid:
+            raise ValueError('Cannot add a span link: the span context is invalid.')
+
+        if self._span is None:
+            self._links += [trace_api.Link(context=resolved_context, attributes=attributes)]
+        elif self._ended:
+            raise RuntimeError('Cannot add a span link: the destination span has already ended.')
+        else:
+            self._span.add_link(resolved_context, attributes)
 
     # TODO(Marcelo): We should add a test for `record_exception`.
     def record_exception(

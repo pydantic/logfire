@@ -448,8 +448,11 @@ This is not to be confused with the OpenTelemetry span kind, which isn't stored 
 - `otel_status_code` is the [span status](https://opentelemetry.io/docs/concepts/signals/traces/#span-status). Rather use [`level`](#level).
 - `otel_status_message` is the span status description when the status is an error. In Python, this is a combination of the unqualified exception type and the exception message. Prefer using `exception_type` and `exception_message` instead.
 - `otel_events` is a JSON array of span events attached to the span. These are also copied into new rows of `records` with the [`kind`](#kind) set to `span_event`, unless the event name is `exception`.
-- `otel_links` is a JSON array of [span links](https://opentelemetry.io/docs/concepts/signals/traces/#span-links) attached to the span.
 - `otel_scope_attributes` is arbitrary additional structured data about the OpenTelemetry scope that produced the span/log, although this is very rarely used. See [`otel_scope_name`](#otel_scope_name) and [`otel_scope_version`](#otel_scope_version) which are more useful.
+
+##### `otel_links`
+
+This is a JSON array of [span links](https://opentelemetry.io/docs/concepts/signals/traces/#span-links) attached to the span.
 
 #### Other span attributes
 
