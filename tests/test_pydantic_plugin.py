@@ -700,8 +700,11 @@ def test_pydantic_plugin_sample_rate_config(exporter: TestExporter, config_kwarg
     assert len(exporter.exported_spans_as_dict()) == 1
 
 
-@pytest.mark.parametrize('tags', [['tag1', 'tag2'], ('tag1', 'tag2')])
-def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any) -> None:
+@pytest.mark.parametrize(
+    ('tags', 'expected'),
+    [(['tag1', 'tag2'], ('tag1', 'tag2')), (('tag1', 'tag2'), ('tag1', 'tag2')), ('tag1', ('tag1',))],
+)
+def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any, expected: tuple[str, ...]) -> None:
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'failure', 'tags': tags}}):
         x: int
 
@@ -709,7 +712,7 @@ def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any)
         MyModel.model_validate({'x': 'test'})
 
     span = exporter.exported_spans_as_dict()[0]
-    assert span['attributes']['logfire.tags'] == ('tag1', 'tag2')
+    assert span['attributes']['logfire.tags'] == expected
 
 
 def test_pydantic_plugin_nested_model(exporter: TestExporter):
