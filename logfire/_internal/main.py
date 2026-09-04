@@ -885,7 +885,7 @@ class Logfire:
         Returns:
             A new Logfire instance with the given settings applied.
         """
-        if sample_rate is not None and (sample_rate > 1 or sample_rate < 0):
+        if sample_rate is not None and not 0 <= sample_rate <= 1:
             raise ValueError('sample_rate must be between 0 and 1')
         return Logfire(
             config=self._config,
