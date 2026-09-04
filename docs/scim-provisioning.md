@@ -61,6 +61,9 @@ The collection endpoints support only the filters shown in the table, including 
 
 The API does not support `POST`, `PUT`, or `DELETE` operations for users or groups. It also does not expose `/ServiceProviderConfig`, `/ResourceTypes`, or `/Schemas`. Groups and users must already exist, so do not enable identity-provider actions that create or manage their lifecycle.
 
+!!! note "Self-hosted deployments"
+    This page describes the current group patch contract: case-insensitive operation and path names, filtered single-member removal paths, and rejection of an unsupported patch with `400`. An Enterprise Self-Hosted deployment runs the [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart) version you installed, so an older installation can still apply the earlier behavior, which accepted only `Add` and `Remove` with an exact `members` path and returned `204` for an operation it did not apply. If your deployment behaves that way, upgrade the chart or contact [Logfire support](mailto:support@pydantic.dev) to confirm the version you need. Enterprise Cloud always runs the current behavior.
+
 ## Choose a compatible identity-provider setup
 
 The current interface is designed for existing-user discovery and group-membership changes, not a provider's default end-to-end SCIM lifecycle flow.
