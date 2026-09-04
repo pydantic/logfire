@@ -560,6 +560,9 @@ def _transform_google_genai_span(span: ReadableSpanDict):
         **attributes,
         'gen_ai.operation.name': 'chat',
     }
+    # Rewrite the shared util.genai scope back to the specific instrumentation library so the span is
+    # attributable to google-genai (as it was before 1.0b0). Upstream issue:
+    # https://github.com/open-telemetry/opentelemetry-python-genai/issues/620
     span['instrumentation_scope'] = InstrumentationScope(
         name='opentelemetry.instrumentation.google_genai',
         version=scope.version,
