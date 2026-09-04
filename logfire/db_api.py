@@ -23,10 +23,10 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from logfire.experimental.query_client import LogfireQueryClient
+from logfire.query_client import LogfireQueryClient
 
 if TYPE_CHECKING:
-    from logfire.experimental.query_client import ColumnDetails
+    from logfire.query_client import ColumnDetails
 
 
 # TODO: make use of PEP 661 sentinels once accepted.
