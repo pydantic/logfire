@@ -87,7 +87,7 @@ To keep prices current when new models are released, install `genai-prices>=0.1.
 pip install "genai-prices>=0.1.6"
 ```
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import logfire
 
 logfire.configure(update_prices=True)
