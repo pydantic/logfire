@@ -19,7 +19,7 @@ from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -1964,6 +1964,10 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path}') from e
 
             try:
+                if not isinstance(data, dict):
+                    # e.g. the file holds a bare string or number, which has no keys to read.
+                    raise TypeError(f'expected an object, got {type(data).__name__}')
+                data = cast('dict[str, Any]', data)
                 # Handle legacy key
                 dashboard_url = data.pop('dashboard_url', None)
                 if dashboard_url is not None:
