@@ -1,0 +1,19 @@
+logfire/_internal/exporters/processor_wrapper.py
+  s_73c76bd7f6a664::t_344762c1776f01 562
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "990ceba6652e6b4123719faafb86e5af00049ff7",
+  "prompts": {},
+  "sessions": {
+    "s_73c76bd7f6a664": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1788450876081",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
