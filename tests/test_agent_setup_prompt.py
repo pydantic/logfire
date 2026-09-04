@@ -90,6 +90,8 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert '`app = logfire.instrument_wsgi(app)`' in integrations
     assert '`logfire.instrument_django()` | No' in integrations
     assert '`openai-agents` installed; imports as `agents`' in integrations
+    assert 'from myapp import app' in integrations
+    assert 'logfire.configure()\n    logfire.instrument_flask(app)' in integrations
     assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
     assert 'LangGraph agents produce an agent root' in instrumentation
     assert 'Neither path marks an agent root span' not in instrumentation
