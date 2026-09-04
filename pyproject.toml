@@ -198,6 +198,7 @@ dev = [
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.14.0",
     "pydantic-ai-slim[mcp]>=2",
+    "genai-prices>=0.1.6",
     "pydantic-evals>=2",
     # >=1.3.9 fixes path traversal / sandbox escape in file-search middleware and loaders (GHSA-gr75-jv2w-4656).
     "langchain>=1.3.9",
