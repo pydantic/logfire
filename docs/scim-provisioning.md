@@ -21,11 +21,11 @@ This is not a complete user and group lifecycle API. If your identity provider r
 
 Before configuring your identity provider:
 
-1. [Configure single sign-on](how-to-guides/sso-setup.md) and its group mappings.
+1. [Configure single sign-on](how-to-guides/sso-setup.md), then add the group mappings that assign organization and project roles as described below.
 2. In Logfire, go to **Organization settings → API keys**, create an organization API key, and grant it only the **SCIM provisioning** (`organization:scim`) scope. See [Using API Keys to Access Public APIs](reference/advanced/use-api-keys.md).
 3. Copy the API key when Logfire displays it. You cannot view it again.
 
-For managed deployments, go to **Organization settings → Single sign-on** to find the provider name and manage its group mappings. The identity provider must already exist before its SCIM endpoint is available. The group identifier must exactly match the group name or ID sent by your identity provider.
+For an Enterprise Cloud deployment, go to **Organization settings → Single sign-on** to find the provider name and manage its group mappings. The identity provider must already exist before its SCIM endpoint is available. The group identifier must exactly match the group name or ID sent by your identity provider.
 
 For a self-hosted deployment, configure group-to-role mappings in the deployment before enabling SCIM. Contact [Logfire support](mailto:support@pydantic.dev) if you need help with the deployment configuration.
 
@@ -39,7 +39,7 @@ Use the base URL for your deployment:
 | Enterprise Cloud, EU region | `https://api-eu.pydantic.dev/api/scim/{provider_name}` |
 | Enterprise Self-Hosted | `{api_origin}/api/scim` |
 
-For managed deployments, replace `{provider_name}` with the exact provider name shown under **Organization settings → Single sign-on**. The provider must belong to the same organization as the API key. For self-hosted deployments, replace `{api_origin}` with the API origin for that deployment.
+For an Enterprise Cloud deployment, replace `{provider_name}` with the exact provider name shown under **Organization settings → Single sign-on**. The provider must belong to the same organization as the API key. For self-hosted deployments, replace `{api_origin}` with the API origin for that deployment.
 
 Send the organization API key as a bearer token with every request:
 
@@ -51,7 +51,7 @@ Authorization: Bearer YOUR_SCIM_API_KEY
 
 | Method and path | Behavior |
 | --- | --- |
-| `GET /Users?filter=userName eq "email"` | Finds an existing user by email. Managed deployments return only users who already belong to the API key's organization. |
+| `GET /Users?filter=userName eq "email"` | Finds an existing user by email. Enterprise Cloud deployments return only users who already belong to the API key's organization. |
 | `GET /Users/{user_email}` | Gets an existing user by email. |
 | `GET /Groups?filter=displayName eq "group"` | Finds a configured group mapping by its exact group name or ID. |
 | `GET /Groups/{group_id}` | Gets a configured group mapping. |
@@ -65,7 +65,7 @@ The API does not support `POST`, `PUT`, or `DELETE` operations for users or grou
 
 The current interface is designed for existing-user discovery and group-membership changes, not a provider's default end-to-end SCIM lifecycle flow.
 
-- **Microsoft Entra ID:** The documented `PATCH /Groups/{group_id}` format matches [Entra's group-member add and remove requests](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#update-group-add-members). Configure provisioning to use only existing Logfire users and existing group mappings. User and group creation, updates, and deactivation are not supported.
+- **Microsoft Entra ID:** The request shape of [Entra's group-member add and remove requests](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#update-group-add-members) matches the documented `PATCH /Groups/{group_id}` format. Entra fills each `members[].value` with the SCIM `id` it recorded for the user when it provisioned or matched that user, which by default is the identifier your application returned rather than an email address. Logfire requires an email address there and silently skips any other value, so membership changes only apply when Entra's stored `id` for each user is that user's Logfire email address. Verify this on a single test user before enabling provisioning for everyone, and contact [Logfire support](mailto:support@pydantic.dev) if the values Entra sends are object IDs. Configure provisioning to use only existing Logfire users and existing group mappings. User and group creation, updates, and deactivation are not supported.
 - **Okta:** [Okta Group Push](https://developer.okta.com/docs/api/openapi/okta-scim/guides/scim-20/#update-specific-group-membership) is not currently compatible with this endpoint. Okta sends lowercase operation names and filtered member-removal paths, while Logfire currently accepts only the exact operations documented below. Custom Okta app integrations can also replace group membership with `PUT`, which Logfire does not support. Use [SSO group mappings](how-to-guides/sso-setup.md) to apply access when users sign in, or contact [Logfire support](mailto:support@pydantic.dev).
 
 For another identity provider, compare its group-membership request format with [Supported operations](#supported-operations) before enabling provisioning. A provider can report success for an operation that the current Logfire endpoint does not apply, so verify the resulting roles in Logfire during setup.
@@ -115,13 +115,13 @@ After a `204 No Content` response, open **Organization settings → Members** an
 
 Check that you used an organization API key with the **SCIM provisioning** (`organization:scim`) scope and sent it in the `Authorization` header. Also check that the URL matches your deployment type and region. Enterprise Cloud endpoints reject keys for organizations that are not on an Enterprise plan, even if the scope was available when the key was created. A non-self-hosted deployment rejects requests to the self-hosted route, and a self-hosted deployment rejects managed-provider routes.
 
-### A managed endpoint returns `404` for the identity provider
+### An Enterprise Cloud endpoint returns `404` for the identity provider
 
 Check that `{provider_name}` exactly matches the provider name in **Organization settings → Single sign-on**. The identity provider must already exist, and it and the API key must belong to the same organization.
 
 ### A user or group query returns no results
 
-Use the exact filter syntax from [Supported operations](#supported-operations). User lookup matches an email address. Group lookup matches a configured group name or ID. In a managed deployment, a discovered user must already belong to the API key's organization.
+Use the exact filter syntax from [Supported operations](#supported-operations). User lookup matches an email address. Group lookup matches a configured group name or ID. In an Enterprise Cloud deployment, a discovered user must already belong to the API key's organization.
 
 ### A group patch succeeds but a member's access does not change
 
@@ -130,5 +130,5 @@ Check all of the following:
 - The group has a mapping in Logfire or the self-hosted deployment configuration.
 - The operation is exactly `Add` or `Remove`, its path is exactly `members`, and its `value` is a list of member objects.
 - The identity provider is not sending a filtered removal path or replacing membership with `PUT`.
-- The member value is the email address of an existing Logfire account.
+- The member value is the email address of an existing Logfire account, not an identity-provider object ID or another identifier.
 - The user's current organization role can be changed safely. Logfire preserves required ownership and administrator access.

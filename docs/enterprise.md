@@ -20,7 +20,7 @@ Dex works with common identity providers including Okta, Azure AD, Auth0, Google
 
 ## SCIM provisioning
 
-Logfire Enterprise supports [SCIM 2.0 user discovery and group provisioning](scim-provisioning.md) across managed and self-hosted deployments. Connect your identity provider to find existing Logfire users and synchronize organization and project access through mapped groups.
+Logfire Enterprise supports [System for Cross-domain Identity Management (SCIM) 2.0 user discovery and group provisioning](scim-provisioning.md) across Enterprise Cloud and Enterprise Self-Hosted deployments. SCIM is the standard protocol identity providers use to keep application accounts and group membership in sync. Connect your identity provider to find existing Logfire users and synchronize organization and project access through mapped groups.
 
 ## Enterprise Cloud
 
