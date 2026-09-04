@@ -70,20 +70,37 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     instrumentation = (skill_root / 'SKILL.md').read_text()
     auth = (skill_root / 'references' / 'auth.md').read_text()
     integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
+    offline = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
+    npm_prefix = (
+        'env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
+        '--cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
+        '--prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire'
+    )
 
     assert '--region <region> auth' in auth
     assert '--region eu auth' not in auth
     assert 'python -I -m logfire' in auth
-    assert (
-        'env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts '
-        '--prefix "$(mktemp -d)" --package=logfire@0.22.5' in auth
-    )
-    assert '\nnpx logfire' not in auth
+    assert npm_prefix in auth
+    for document in (auth, instrumentation, offline):
+        assert not any(
+            line.lstrip().startswith(('npx ', 'npx@')) and 'logfire' in line for line in document.splitlines()
+        )
+        npm_commands = [line.strip() for line in document.splitlines() if 'npm ' in line and '-- logfire' in line]
+        assert all(line.startswith(npm_prefix) for line in npm_commands)
     assert 'JS CLI (POSIX shell)' in auth
     assert 'git ls-files -- .logfire' in auth
     assert 'neither\n`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink' in auth
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
     assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
+    assert f'{npm_prefix} projects status --json' in instrumentation
+    assert (
+        "uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive "
+        '--region <region> read-tokens --project <organization>/<project> create --save' in instrumentation
+    )
+    assert (
+        f'{npm_prefix} --region <region> read-tokens --project <organization>/<project> create --save'
+        in instrumentation
+    )
     assert 'cargo add logfire' in instrumentation
     assert 'logfire = "0.6"' not in instrumentation
     assert '`app = logfire.instrument_asgi(app)`' in integrations

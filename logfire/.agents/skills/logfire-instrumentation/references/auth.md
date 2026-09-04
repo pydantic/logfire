@@ -24,12 +24,13 @@ binary. The exact package version and `--ignore-scripts` keep the reviewed CLI
 artifact stable and prevent lifecycle scripts from running:
 
 ```bash
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire whoami
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire whoami
 ```
 
-Do not use a plain `npx logfire` command or omit the external `--prefix`. The npm
-CLI does not support `--non-interactive`; without a TTY it fails instead of
-prompting. On Windows, install `uv` from its
+Do not use a plain `npx logfire` command or omit the external `--prefix`, fresh
+`--cache`, or Node and shell overrides. The npm CLI does not support
+`--non-interactive`; without a TTY it fails instead of prompting. On Windows,
+install `uv` from its
 [official installation guide](https://docs.astral.sh/uv/getting-started/installation/)
 and use the isolated Python CLI above rather than translating the POSIX command
 into a repository-local npm invocation.
@@ -48,10 +49,10 @@ uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-i
 uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --region <region> whoami
 
 # JS CLI (POSIX shell)
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> auth
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> projects list --json
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> projects use <project-name> --org <organization-name>
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> whoami
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire --region <region> auth
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire --region <region> projects list --json
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire --region <region> projects use <project-name> --org <organization-name>
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire --region <region> whoami
 ```
 
 **On the Python CLI, always put `--non-interactive` immediately after `logfire`.**
