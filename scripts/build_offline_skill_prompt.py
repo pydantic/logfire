@@ -28,6 +28,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_ROOT = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+PUBLIC_SKILLS_ROOT = 'https://pydantic.dev/.well-known/agent-skills'
 
 # Hub first, then the three it routes to, in the order a reader would want
 # to meet them: detect/install first, the two optional add-ons after.
@@ -79,6 +80,13 @@ def _reference_files(skill_dir: Path) -> list[Path]:
     return sorted(references_dir.rglob('*.md'))
 
 
+def _rewrite_public_links_for_offline_bundle(text: str) -> str:
+    """Point links to bundled skills back at their inlined offline sections."""
+    for name in SKILL_ORDER:
+        text = text.replace(f'{PUBLIC_SKILLS_ROOT}/{name}/', f'../{name}/')
+    return text
+
+
 def _render_skill(name: str) -> str:
     skill_dir = SKILLS_ROOT / name
     skill_md = skill_dir / 'SKILL.md'
@@ -88,7 +96,7 @@ def _render_skill(name: str) -> str:
     section = [f'# Skill: {name}', '']
     if description:
         section += [f'*{description}*', '']
-    section.append(body)
+    section.append(_rewrite_public_links_for_offline_bundle(body))
     return '\n'.join(section)
 
 
@@ -99,7 +107,8 @@ def _render_appendix(name: str, *, only_mandatory: bool = False) -> str:
         relative = ref.relative_to(SKILLS_ROOT)
         if only_mandatory and relative.as_posix() not in MANDATORY_REFERENCES:
             continue
-        parts.append(f'## {relative}\n\n{ref.read_text(encoding="utf-8").strip()}')
+        content = _rewrite_public_links_for_offline_bundle(ref.read_text(encoding='utf-8').strip())
+        parts.append(f'## {relative}\n\n{content}')
     return '\n\n'.join(parts)
 
 

@@ -98,6 +98,15 @@ def test_separately_published_setup_skills_use_public_cross_skill_links() -> Non
         assert '../logfire-instrumentation/references/auth.md' not in content
 
 
+def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
+    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    offline = (skills_root / 'logfire-setup-offline.md').read_text()
+
+    for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+        assert f'https://pydantic.dev/.well-known/agent-skills/{skill}/' not in offline
+    assert '[Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md)' in offline
+
+
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
     skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-infrastructure'
     reference = (skill_root / 'references' / 'collector' / 'host-and-infra-metrics.md').read_text()
