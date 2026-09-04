@@ -82,11 +82,20 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
 def test_setup_hub_routes_each_surface_to_its_skill() -> None:
     hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
 
-    for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
-        assert f'[`{skill}`](../{skill}/SKILL.md)' in hub
-    for skill in ('logfire-query', 'logfire-ui'):
+    for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals', 'logfire-query', 'logfire-ui'):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
+    assert '../logfire-' not in hub
     assert 'not in this repo' not in hub
+
+
+def test_separately_published_setup_skills_use_public_cross_skill_links() -> None:
+    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    auth_url = 'https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md'
+
+    for skill in ('logfire-setup', 'logfire-infrastructure', 'logfire-evals'):
+        content = (skills_root / skill / 'SKILL.md').read_text()
+        assert auth_url in content
+        assert '../logfire-instrumentation/references/auth.md' not in content
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:

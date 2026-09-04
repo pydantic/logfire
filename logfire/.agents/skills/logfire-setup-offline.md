@@ -26,7 +26,7 @@ Keep the user informed with short updates, but proceed through ordinary, reversi
 
 Auth comes first because everything after it depends on having a valid, confirmed connection to the exact right Logfire project: instrumenting or inspecting the repo before that is either wasted if the connection turns out wrong, or worse, ends up silently wired to the wrong project. Do not open, read, or run any project file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's in the repo yet.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
+Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md).
 
 ## Step 2: Understand the Repo
 
@@ -34,9 +34,9 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 | Surface | Covers | Skill |
 |---------|--------|-------|
-| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](../logfire-instrumentation/SKILL.md) |
-| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](../logfire-infrastructure/SKILL.md) |
-| Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | [`logfire-evals`](../logfire-evals/SKILL.md) |
+| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/SKILL.md) |
+| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](https://pydantic.dev/.well-known/agent-skills/logfire-infrastructure/SKILL.md) |
+| Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | [`logfire-evals`](https://pydantic.dev/.well-known/agent-skills/logfire-evals/SKILL.md) |
 | Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | [`logfire-query`](https://pydantic.dev/.well-known/agent-skills/logfire-query/SKILL.md) |
 | Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | [`logfire-ui`](https://pydantic.dev/.well-known/agent-skills/logfire-ui/SKILL.md) |
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
@@ -50,7 +50,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 Fetch the skill(s) identified in Step 2 now, for the actual install/instrument/verify steps. Each one's own authenticate step still runs its own `whoami` check first — that's what confirms it's the same project and region resolved here, not an assumption carried over — and only then skips the rest of its auth commands. They're independently fetchable on purpose, so this composes whether someone reaches a specific skill through this hub or on its own.
 
-Never print, log, hard-code, commit, or echo a token, in any of these skills, at any point. The one exception — reading `.logfire/logfire_credentials.json`'s `token` key programmatically to hand a non-native-SDK application its write token, never to display it — is in [auth.md](../logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session).
+Never print, log, hard-code, commit, or echo a token, in any of these skills, at any point. The one exception — reading `.logfire/logfire_credentials.json`'s `token` key programmatically to hand a non-native-SDK application its write token, never to display it — is in [auth.md](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session).
 
 ---
 
@@ -339,7 +339,7 @@ The OpenTelemetry Collector ships host, container, cluster, and infrastructure-s
 
 Do not open, read, or run any infrastructure config file (`docker-compose.yml`, a Kubernetes manifest, or similar) until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's being monitored. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
+Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md).
 
 ## Step 2: Identify What to Monitor
 
@@ -419,7 +419,7 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 Skip authentication and continue to Step 3 only when the user explicitly wants a local-only `pydantic_evals` run using evaluators that do not need span data; omit `logfire.configure()` in Step 4 so results stay in the terminal. Uploading results, using a hosted dataset, or running a span-based evaluator such as `ToolCorrectness` requires Logfire, so authenticate before opening or running evaluation files and target the exact project first.
 
-For a Logfire-backed run, check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 3 if it already reports the right project and region. Otherwise, follow the full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, and token-file safety) in [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+For a Logfire-backed run, check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 3 if it already reports the right project and region. Otherwise, follow the full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, and token-file safety) in [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md). This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
 
 ## Step 3: Detect What to Evaluate
 

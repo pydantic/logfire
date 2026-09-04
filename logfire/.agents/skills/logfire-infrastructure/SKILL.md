@@ -15,7 +15,7 @@ The OpenTelemetry Collector ships host, container, cluster, and infrastructure-s
 
 Do not open, read, or run any infrastructure config file (`docker-compose.yml`, a Kubernetes manifest, or similar) until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's being monitored. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
+Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md).
 
 ## Step 2: Identify What to Monitor
 
