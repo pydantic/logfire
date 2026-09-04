@@ -83,17 +83,21 @@ For PydanticAI, each agent run becomes a parent span containing child spans for 
 
 ```python
 # gunicorn.conf.py
-from myapp import app
-
 import logfire
 
 
 def post_fork(server, worker):
     logfire.configure()
-    logfire.instrument_flask(app)
+
+
+def post_worker_init(worker):
+    logfire.instrument_flask(worker.wsgi)
 ```
 
-This example instruments a Flask application. For another framework, import its
-actual application instance and use the matching `instrument_*()` call. In
-preload mode especially, keep both calls inside `post_fork`, with `configure()`
-first, so instrumentation is installed after each worker is created.
+This example is specific to Flask: configure Logfire in `post_fork`, then
+instrument the loaded Flask application in `post_worker_init`. This preserves
+Gunicorn's application-loading lifecycle when preload mode is disabled and
+installs instrumentation in each worker when it is enabled. Other frameworks
+have different call signatures and placement requirements; follow their row in
+the table above and their integration documentation rather than mechanically
+substituting another `instrument_*()` call here.

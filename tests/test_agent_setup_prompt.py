@@ -90,8 +90,13 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert '`app = logfire.instrument_wsgi(app)`' in integrations
     assert '`logfire.instrument_django()` | No' in integrations
     assert '`openai-agents` installed; imports as `agents`' in integrations
-    assert 'from myapp import app' in integrations
-    assert 'logfire.configure()\n    logfire.instrument_flask(app)' in integrations
+    assert 'from myapp import app' not in integrations
+    assert (
+        'def post_fork(server, worker):\n'
+        '    logfire.configure()\n\n\n'
+        'def post_worker_init(worker):\n'
+        '    logfire.instrument_flask(worker.wsgi)' in integrations
+    )
     assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
     assert 'LangGraph agents produce an agent root' in instrumentation
     assert 'Neither path marks an agent root span' not in instrumentation
@@ -106,6 +111,18 @@ def test_setup_hub_routes_each_surface_to_its_skill() -> None:
     for skill in ('logfire-query', 'logfire-ui'):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
     assert 'not in this repo' not in hub
+
+
+def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
+    gunicorn_docs = (REPO_ROOT / 'docs' / 'integrations' / 'web-frameworks' / 'gunicorn.md').read_text()
+
+    assert 'from myapp import app' not in gunicorn_docs
+    assert (
+        'def post_fork(server, worker):\n'
+        '    logfire.configure()\n\n\n'
+        'def post_worker_init(worker):\n'
+        '    logfire.instrument_flask(worker.wsgi)' in gunicorn_docs
+    )
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
