@@ -367,13 +367,13 @@ class Logfire:
             A new Logfire instance with the given settings applied.
         """
     def force_flush(self, timeout_millis: int = 3000) -> bool:
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
     def url_from_eval(self, report: EvaluationReport[Any, Any, Any]) -> str | None:
         """Generate a Logfire URL to view an evaluation report.

@@ -910,13 +910,13 @@ class Logfire:
         )
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:  # pragma: no cover
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
         return self._config.force_flush(timeout_millis)
 

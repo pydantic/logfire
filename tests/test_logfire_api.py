@@ -166,7 +166,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('with_tags')
 
     assert hasattr(logfire_api, 'force_flush')
-    logfire_api.force_flush()
+    assert logfire_api.force_flush() is True
     logfire__all__.remove('force_flush')
 
     assert hasattr(logfire_api, 'no_auto_trace')

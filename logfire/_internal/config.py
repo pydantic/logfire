@@ -1505,19 +1505,21 @@ class LogfireConfig(_LogfireConfigData):
             self._ensure_flush_after_aws_lambda()
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
         self._meter_provider.force_flush(timeout_millis)
-        self._logger_provider.force_flush(timeout_millis)
-        # TODO: Combine non-tracer flush results into the returned status in a follow-up.
-        self._otlp_forwarding.force_flush(timeout_millis)
-        return self._tracer_provider.force_flush(timeout_millis)
+        results = (
+            self._logger_provider.force_flush(timeout_millis),
+            self._otlp_forwarding.force_flush(timeout_millis),
+            self._tracer_provider.force_flush(timeout_millis),
+        )
+        return all(result is not False for result in results)
 
     def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
         """Shut down variables, forwarding, traces, logs, and metrics."""
