@@ -474,20 +474,6 @@ def test_pydantic_plugin_include_exclude_strings():
     assert fresh_pydantic_plugin().exclude == {'exc'}
 
 
-def test_deprecated_configure_pydantic_plugin(config_kwargs: dict[str, Any]):
-    assert fresh_pydantic_plugin().record == 'off'
-
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
-
-    assert fresh_pydantic_plugin().record == 'all'
-
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.'
-    )
-
-
 def test_read_config_from_environment_variables() -> None:
     assert fresh_pydantic_plugin().record == 'off'
 
@@ -2884,76 +2870,9 @@ def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
     assert capsys.readouterr().err == ''
 
 
-def test_collect_system_metrics_false():
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: The `collect_system_metrics` argument has been removed. '
-            'System metrics are no longer collected by default.'
-        )
-    ):
-        logfire.configure(collect_system_metrics=False)  # type: ignore
-
-
-def test_collect_system_metrics_true():
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: The `collect_system_metrics` argument has been removed. '
-            'Use `logfire.instrument_system_metrics()` instead.'
-        )
-    ):
-        logfire.configure(collect_system_metrics=True)  # type: ignore
-
-
 def test_unknown_kwargs():
-    with inline_snapshot.extra.raises(snapshot('TypeError: configure() got unexpected keyword arguments: foo, bar')):
-        logfire.configure(foo=1, bar=2)  # type: ignore
-
-
-def test_project_name_deprecated():
-    with inline_snapshot.extra.raises(
-        snapshot('UserWarning: The `project_name` argument is deprecated and not needed.')
-    ):
-        logfire.configure(project_name='foo')  # type: ignore
-
-
-def test_base_url_deprecated():
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(base_url='foo')  # type: ignore
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `base_url` argument is deprecated. Use `advanced=logfire.AdvancedOptions(base_url=...)` instead.'
-    )
-    assert GLOBAL_CONFIG.advanced.base_url == 'foo'
-
-
-def test_combine_deprecated_and_new_advanced():
-    with inline_snapshot.extra.raises(
-        snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
-    ):
-        logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
-
-
-def test_additional_metric_readers_deprecated():
-    readers = [InMemoryMetricReader()]
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(additional_metric_readers=readers)  # type: ignore
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `additional_metric_readers` argument is deprecated. '
-        'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-    )
-    assert GLOBAL_CONFIG.metrics.additional_readers is readers  # type: ignore
-
-
-def test_additional_metric_readers_combined_with_metrics():
-    readers = [InMemoryMetricReader()]
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: Cannot specify both `additional_metric_readers` and `metrics`. '
-            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-        )
-    ):
-        logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
+    with inline_snapshot.extra.raises(snapshot("TypeError: configure() got an unexpected keyword argument 'foo'")):
+        logfire.configure(foo=1)  # type: ignore
 
 
 def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
