@@ -108,6 +108,13 @@ jobs:
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
+      - name: Install SQLModel compatible with pydantic ${{ matrix.pydantic-version }}
+        run: |
+          case "${{ matrix.pydantic-version }}" in
+            2.4|2.5|2.6) uv pip install 'sqlmodel<0.0.31' ;;
+            2.7|2.8|2.9|2.10) uv pip install 'sqlmodel<0.0.34' ;;
+          esac
+
       - name: Install OTel SDK ${{ matrix.otel-version }}
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
         run: |
