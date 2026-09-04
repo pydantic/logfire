@@ -436,9 +436,8 @@ def get_magic_response_attributes() -> tuple[dict[str, Any], str | None]:
         if isinstance(model, OpenAIResponsesModel):  # pragma: no branch
             result['gen_ai.request.model'] = model.model
             client = getattr(model, '_client', None)
-            if getattr(client, '_is_instrumented_by_logfire', False):
-                base_url = getattr(client, 'base_url', None)
-                cost_provider_url = str(base_url) if base_url else ''
+            base_url = getattr(client, 'base_url', None)
+            cost_provider_url = str(base_url) if base_url else None
         return result, cost_provider_url
     except Exception:  # pragma: no cover
         log_internal_error()
