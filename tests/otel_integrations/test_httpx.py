@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Generic, TypeAlias, TypeVar, cast
@@ -430,13 +431,17 @@ RESPONSE_ATTRIBUTES = {
 @pytest.mark.parametrize(
     ('instrument_kwargs', 'expected_attributes'),
     [
-        ({'capture_request_headers': True}, REQUEST_ATTRIBUTES),
-        ({'capture_request_headers': True, 'request_hook': request_hook}, {*REQUEST_ATTRIBUTES, 'request_hook'}),
-        ({'capture_request_headers': False, 'request_hook': request_hook}, {'request_hook'}),
-        ({'capture_response_headers': True}, RESPONSE_ATTRIBUTES),
-        ({'capture_response_headers': True, 'response_hook': response_hook}, {*RESPONSE_ATTRIBUTES, 'response_hook'}),
-        ({'capture_response_headers': False, 'response_hook': response_hook}, {'response_hook'}),
         ({'capture_headers': True}, {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES}),
+        (
+            {'capture_headers': True, 'request_hook': request_hook},
+            {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES, 'request_hook'},
+        ),
+        ({'capture_headers': False, 'request_hook': request_hook}, {'request_hook'}),
+        (
+            {'capture_headers': True, 'response_hook': response_hook},
+            {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES, 'response_hook'},
+        ),
+        ({'capture_headers': False, 'response_hook': response_hook}, {'response_hook'}),
     ],
 )
 def test_httpx_client_instrumentation_with_capture_headers(
@@ -458,19 +463,24 @@ def test_httpx_client_instrumentation_with_capture_headers(
 @pytest.mark.parametrize(
     ('instrument_kwargs', 'expected_attributes'),
     [
-        ({'capture_request_headers': True}, REQUEST_ATTRIBUTES),
-        ({'capture_request_headers': True, 'request_hook': request_hook}, {*REQUEST_ATTRIBUTES, 'request_hook'}),
-        ({'capture_request_headers': False, 'request_hook': request_hook}, {'request_hook'}),
-        ({'capture_response_headers': True}, RESPONSE_ATTRIBUTES),
-        ({'capture_response_headers': True, 'response_hook': response_hook}, {*RESPONSE_ATTRIBUTES, 'response_hook'}),
-        ({'capture_response_headers': False, 'response_hook': response_hook}, {'response_hook'}),
+        ({'capture_headers': True}, {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES}),
         (
-            {'capture_request_headers': True, 'request_hook': async_request_hook},
-            {*REQUEST_ATTRIBUTES, 'async_request_hook'},
+            {'capture_headers': True, 'request_hook': request_hook},
+            {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES, 'request_hook'},
+        ),
+        ({'capture_headers': False, 'request_hook': request_hook}, {'request_hook'}),
+        (
+            {'capture_headers': True, 'response_hook': response_hook},
+            {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES, 'response_hook'},
+        ),
+        ({'capture_headers': False, 'response_hook': response_hook}, {'response_hook'}),
+        (
+            {'capture_headers': True, 'request_hook': async_request_hook},
+            {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES, 'async_request_hook'},
         ),
         (
-            {'capture_response_headers': True, 'response_hook': async_response_hook},
-            {*RESPONSE_ATTRIBUTES, 'async_response_hook'},
+            {'capture_headers': True, 'response_hook': async_response_hook},
+            {*REQUEST_ATTRIBUTES, *RESPONSE_ATTRIBUTES, 'async_response_hook'},
         ),
     ],
 )
@@ -488,6 +498,22 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
 
     span = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]
     assert all(key in span['attributes'] for key in expected_attributes)
+
+
+@pytest.mark.parametrize('removed_parameter', ['capture_request_headers', 'capture_response_headers'])
+def test_removed_capture_header_parameters(removed_parameter: str, httpx_family: HTTPXFamilyType):
+    expected_message = f'The `{removed_parameter}` parameter has been removed. Use `capture_headers` instead.'
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with pytest.raises(TypeError) as exc_info:
+            cast(Any, logfire.instrument_httpx)(capture_all=True, capture_headers=True, **{removed_parameter: True})
+        assert str(exc_info.value) == expected_message
+
+    with httpx_family.client() as client:
+        with pytest.raises(TypeError) as exc_info:
+            cast(Any, logfire.instrument_httpx)(client, **{removed_parameter: True})
+        assert str(exc_info.value) == expected_message
 
 
 CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[Any]] = (
@@ -574,7 +600,7 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter, httpx_family: 
 def test_httpx_client_capture_full_request(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
         with httpx_family.client() as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
+            logfire.instrument_httpx(client, capture_headers=True, capture_request_body=True)
             response = client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
 
@@ -585,7 +611,7 @@ def test_httpx_client_capture_full_request(exporter: TestExporter, httpx_family:
 async def test_async_httpx_client_capture_full_request(exporter: TestExporter, httpx_family: HTTPXFamilyType):
     with check_traceparent_header() as checker:
         async with httpx_family.async_client() as client:
-            logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
+            logfire.instrument_httpx(client, capture_headers=True, capture_request_body=True)
             response = await client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
 

@@ -1,61 +1,71 @@
 ---
-title: "Logfire Metrics explorer: browse OpenTelemetry metrics without SQL"
-description: "A three-step wizard for browsing the OpenTelemetry metrics you're sending to Logfire. Pick a namespace, pick a metric, see what dimensions you can break it down by. View SQL on every card so you can graduate to the full editor when you're ready."
+title: "Find and compare metrics without SQL"
+description: "Use Logfire's Metrics Explorer to search OpenTelemetry metrics, preview recent activity, and compare values across attributes."
 ---
-# Metrics explorer
+# Metrics Explorer
 
-The **Metrics explorer** is built for the moment when you know a metric exists somewhere but you can't remember what it's called, you don't know which labels are useful, and you don't want to write a query yet. Three steps: pick a namespace, pick a metric, see what dimensions you can break it down by. No SQL required. The SQL is on every card when you want it.
+Find and compare the metrics your project receives without writing SQL. A **metric** is a number tracked over time, like requests per second or CPU load. Use the **Metrics Explorer** to search metric names, preview recent activity, and compare values across attributes such as `service.name` or `k8s.node.name`.
 
-Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics explorer" /> by clicking **Metrics** in the project sidebar, after **Kubernetes**.
+Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer" /> by clicking **Metrics** in the project sidebar. The selected time range controls the metrics, previews, and attributes the page shows.
 
-![Metrics explorer step 1: pick a namespace](../../images/metrics/wizard-step1.png)
+![Metrics Explorer search, recently active metrics, and namespace cards](../../images/metrics/metrics-overview.jpg)
 
-## The three steps
+## Find a metric
 
-### Step 1: Pick a namespace
+### Search or browse by namespace
 
-Metrics are grouped by **namespace**, which is the prefix before the first dot in the metric name. `http.server.duration` lives under `http`, `system.cpu.utilization` lives under `system`, `k8s.pod.cpu.usage` lives under `k8s`. Metrics whose name doesn't follow the `<namespace>.<metric>` convention (usually SDK-instrumented counters from your own code) land in an **Everything else** section at the bottom. The grouping is structural: no metadata file or instrument list to configure.
+The search box matches both metric names and namespaces. Use **Recently active** to open one of the latest metrics directly, or browse the namespace cards below it.
 
-The top of step 1 has a **Recently active** strip so the metrics you actually look at are one click away.
+A **namespace** is the prefix before the first dot in a metric name. `http.server.duration` lives under `http`, `system.cpu.utilization` lives under `system`, and `k8s.pod.cpu.usage` lives under `k8s`. A metric without a dot, such as `requests_total`, appears under **Everything else**. This grouping comes from the metric name and requires no separate configuration.
 
-### Step 2: Pick a metric
+### Choose a metric from a namespace
 
-Step 2 lists the metrics inside the namespace you picked. Each entry has a sparkline of recent activity, so empty metrics are obvious before you click. Metrics that haven't reported any data in the current window are hidden: the picker shows you what's live now, not what stopped emitting last quarter.
+Opening a namespace shows each metric's type, unit, and a small activity preview. Search within the namespace when the list is long. Large namespaces may be divided by the next part of the metric name, such as `k8s.container` and `k8s.node`, so related metrics stay together.
 
-### Step 3: Explore the dimensions
+![Metrics grouped within the k8s namespace](../../images/metrics/metric-catalog.jpg)
 
-Step 3 shows you a small chart per dimension (label) on the metric, with the cardinality of each dimension shown on the card. You can see what a breakdown would look like before committing to it; you can spot the high-cardinality ones that would explode if grouped on; and you can promote any dimension to the main chart with a click.
+## Compare a metric across attributes
 
-Each card has:
+Opening a metric shows its type, aggregation, chart interval, and overall values. The interval is chosen automatically from the time range. Change the aggregation to switch between calculations such as average, sum, minimum, maximum, or count.
 
-- **View SQL**: opens a dialog with the exact SQL that produced the chart. Copy it for a dashboard, or send it to a teammate.
-- **Open in SQL Workbench**: opens [SQL Workbench](explore.md) with that query already populated, so you can extend it.
+An **attribute** is a piece of context attached to a metric, such as a service, endpoint, or Kubernetes node. The **Break down by an attribute** section previews how the metric differs across each attribute's values. Each card shows a small chart and the number of values found in the selected time range. Attributes that have only one value are listed separately because they do not produce a useful comparison.
 
-Aggregations default sensibly by metric kind, with the rest available from the dropdown:
+Search the attributes when the list is long. Select an attribute card to make that comparison active. The URL updates so you can share the same view. Select **Overall** or **Remove breakdown** to return to the metric without a breakdown.
 
-| Metric kind | Default aggregation | Available in the dropdown |
-|-------------|---------------------|---------------------------|
-| Gauge | `avg` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
-| Sum (counter) | `sum` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
-| Histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
-| Exponential histogram | `avg` | `avg`, `sum`, `min`, `max`, `count` |
+Each chart provides two actions:
 
-Those four kinds are the whole list. Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a legacy type that carries pre-computed quantiles instead of buckets: a `Summary` is dropped at ingest, emitting an error into your project. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
+- **Add to dashboard** saves the chart to a dashboard.
+- **View SQL** shows the exact query behind the chart. From that dialog, copy the SQL or open it in [SQL Workbench](explore.md) for further editing.
+
+![Attribute breakdown previews with service.name selected](../../images/metrics/dimension-breakdowns.jpg)
+
+The metric kind determines which calculations are available. The dropdown starts with a suitable default for each kind:
+
+| Metric kind | What it represents | Default | Available calculations |
+|-------------|--------------------|---------|------------------------|
+| Gauge | A value that can rise or fall | `avg` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
+| Sum | A total that only increases (counter), or a value that can increase and decrease (up-down counter) | `sum` | `avg`, `sum`, `min`, `max`, `count`, `p50`, `p95`, `p99` |
+| Histogram | A distribution stored in fixed buckets | `avg` | `avg`, `sum`, `min`, `max`, `count` |
+| Exponential histogram | A distribution whose bucket sizes grow exponentially | `avg` | `avg`, `sum`, `min`, `max`, `count` |
+
+`p50`, `p95`, and `p99` are percentiles: for example, `p95` is the value at or below which 95% of measurements fall.
+
+These are the four metric kinds the Metrics Explorer supports. Logfire does not store `Summary` metrics sent over the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive data. A `Summary` carries pre-computed quantiles instead of buckets. If a request also contains supported metrics, Logfire stores those metrics, drops the summaries, and reports a partial success. If every metric in the request is a `Summary`, the request fails. Logfire records the dropped summaries in your project as a `logfire ingest error`. Summaries most often come from Prometheus scrapes forwarded through the OpenTelemetry Collector's `prometheus` receiver. Send a histogram instead and calculate percentiles at query time. See [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported).
 
 !!! note "Percentiles on histograms"
-    The wizard does not expose `p50`/`p95`/`p99` directly on histogram-typed metrics today: pre-aggregated histograms (e.g. `http.server.request.duration` from OTel SDK instrumentations) report `avg`, `min`, `max`, `count` and `sum` in the wizard. For percentiles over a histogram, switch to [SQL Workbench](explore.md) and use the histogram bucket columns; the **Open in SQL Workbench** button on every card hands you a query you can extend.
+    The Metrics Explorer does not expose `p50`/`p95`/`p99` directly on histogram metrics today. Pre-aggregated histograms, such as `http.server.request.duration`, report `avg`, `min`, `max`, `count`, and `sum`. For percentiles over a histogram, open **View SQL**, continue in [SQL Workbench](explore.md), and use the histogram bucket columns.
 
-## When the wizard isn't enough
+## Continue in SQL Workbench
 
-The wizard is for discovery. [SQL Workbench](explore.md) is for the real work. The **View SQL** and **Open in SQL Workbench** buttons on every card are the on-ramp between them, so you can do as much as the wizard handles and graduate without retyping anything.
+The Metrics Explorer covers discovery and common comparisons. Use [SQL Workbench](explore.md) when you need custom filtering, calculations, joins, or more series than a preview chart shows. Open **View SQL** on a chart, then select **Open in SQL Workbench** to continue without rebuilding the query.
 
-The columns you see in the wizard live on the `metrics` table; the full schema is in the [SQL reference](../../reference/sql.md).
+The columns used by the Metrics Explorer live on the `metrics` table. See the full schema in the [SQL reference](../../reference/sql.md).
 
-## How the data flows in
+## Send metrics to the catalog
 
-The Metrics explorer reads from the OpenTelemetry metrics you're already sending to your Logfire project: there's no separate metric pipeline. If you instrument your application with the [Python SDK](../onboarding-checklist/add-metrics.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/), or via the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md), every metric you emit appears in the catalog within a minute or two of its first sample.
+The Metrics Explorer reads from the supported OpenTelemetry metrics you're already sending to your Logfire project. OpenTelemetry (OTel) is the open industry standard for collecting traces, metrics, and logs. Logfire accepts the metric kinds listed above from OpenTelemetry-compatible SDKs and collectors. There is no separate metric pipeline. If you instrument your application with the [Python SDK](../onboarding-checklist/add-metrics.md), the [TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/), or the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md), each supported metric appears in the catalog within a minute or two of its first sample.
 
-The set of automatically-collected metrics that populate the wizard usefully includes:
+Common sources include:
 
 | Source | Namespace | Example metric |
 |--------|-----------|----------------|
@@ -65,16 +75,16 @@ The set of automatically-collected metrics that populate the wizard usefully inc
 | HTTP clients ([HTTPX](../../integrations/http-clients/httpx.md), [Requests](../../integrations/http-clients/requests.md), [AIOHTTP](../../integrations/http-clients/aiohttp.md)) | `http` | `http.client.request.duration` |
 | Kubernetes (`kubeletstatsreceiver`) | `k8s` | `k8s.pod.cpu.usage`, `k8s.node.memory.working_set` |
 | GenAI spans / metrics | `gen_ai` | `gen_ai.client.operation.duration`, `gen_ai.client.token.usage` |
-| Custom SDK counters (no dot) | *Everything else* (bottom section) | Whatever you emit with `logfire.metric_*` |
+| Custom SDK metrics (no dot) | *Everything else* | Whatever you emit with `logfire.metric_*` |
 
-The "Everything else" section at the bottom of step 1 catches metrics whose name doesn't follow the `<namespace>.<metric>` convention. Custom counters emitted via `logfire.metric_counter('hello.requests')` land here unless you give them a dotted name.
+The **Everything else** section catches metrics whose name has no namespace prefix. For example, `logfire.metric_counter('requests_total')` appears there, while `logfire.metric_counter('hello.requests')` creates the `hello` namespace.
 
 !!! note "Don't double-count system metrics"
     The SDK's [system-metrics integration](../../integrations/system-metrics.md) and an OpenTelemetry Collector running `hostmetricsreceiver` both write to the `system.*` namespace. Running both on the same host double-counts CPU, memory, and the rest. Pick one source per host.
 
 ## Get your first metric to appear
 
-To see a namespace appear in step 1, emit a counter from the Python SDK:
+To add a namespace to the catalog, emit a counter from the Python SDK:
 
 ```bash
 pip install logfire
@@ -88,15 +98,21 @@ logfire.configure()
 logfire.metric_counter('hello.requests').add(1)
 ```
 
-Refresh the Metrics view. `hello` appears in **Recently active** and as its own namespace (the name has a dot). The full Python SDK metric API is in [Add Metrics](../onboarding-checklist/add-metrics.md).
+Refresh the Metrics page. `hello.requests` appears in **Recently active**, and `hello` appears as a namespace. The full Python SDK metric API is in [Add Metrics](../onboarding-checklist/add-metrics.md).
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---------|--------------|
-| Metric appears in the catalog but the chart is empty | The metric stopped reporting within the current window. The wizard hides metrics with no recent data, but the catalog entry remains. Widen the time picker. |
+| Metric appears in the catalog but the chart is empty | The metric has no samples in the selected time range. Widen the time picker. |
 | Custom metric lands in **Everything else** instead of its own namespace | The metric name has no dot (e.g. `requests_total` instead of `app.requests.total`). The grouping is structural: give the name a dotted prefix to create a namespace. |
 | One metric never appears in the catalog while others from the same source do | It is a `Summary` metric, a type the OpenTelemetry spec marks legacy and Logfire does not store. Check for a `logfire ingest error` record naming the metric, and see [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported). |
-| Step 1 shows no namespaces at all | The project hasn't received any metric samples yet. The wizard reads from `metrics`-table data; if you're sending only spans, no namespaces will appear here. |
-| Two metric sources show up under `system.*` with overlapping series | The SDK's [system-metrics integration](../../integrations/system-metrics.md) and an OpenTelemetry Collector running `hostmetricsreceiver` are both running on the same host. See the [double-counting note](#how-the-data-flows-in). |
-| Promoting a dimension shows fewer series than the cardinality card claimed | The chart truncates after a fixed number of series. For full breakdowns of a high-cardinality dimension, open [SQL Workbench](explore.md) from the **Open in SQL Workbench** button on the card. |
+| The page shows no namespaces | The project hasn't received any metric samples yet. If you're sending only spans or logs, no namespaces will appear here. |
+| Two metric sources show up under `system.*` with overlapping series | The SDK's [system-metrics integration](../../integrations/system-metrics.md) and an OpenTelemetry Collector running `hostmetricsreceiver` are both running on the same host. See the [double-counting note](#send-metrics-to-the-catalog). |
+| An attribute card shows fewer series than its value count | Preview charts limit the number of series. Open **View SQL**, then continue in [SQL Workbench](explore.md) for a complete high-cardinality breakdown. |
+
+## Next steps
+
+- [Add application metrics](../onboarding-checklist/add-metrics.md) when the catalog does not yet contain the signal you need.
+- [Build a dashboard](dashboards.md) to keep the charts your team checks regularly in one place.
+- [Write a query in SQL Workbench](explore.md) when you need custom filters, joins, or calculations.
