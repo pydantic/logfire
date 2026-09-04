@@ -861,28 +861,12 @@ class Logfire:
         """
         return self.with_settings(tags=tags)
 
-    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:  # pragma: no cover
-        """A new Logfire instance with the given sampling ratio applied.
-
-        Args:
-            sample_rate: The sampling ratio to use.
-
-        Returns:
-            A new Logfire instance with the sampling ratio applied.
-        """
-        if sample_rate > 1 or sample_rate < 0:
-            raise ValueError('sample_rate must be between 0 and 1')
-        return Logfire(
-            config=self._config,
-            tags=self._tags,
-            sample_rate=sample_rate,
-        )
-
     def with_settings(
         self,
         *,
         tags: Sequence[str] = (),
         console_log: bool | None = None,
+        sample_rate: float | None = None,
         custom_scope_suffix: str | None = None,
     ) -> Logfire:
         """A new Logfire instance which uses the given settings.
@@ -890,6 +874,7 @@ class Logfire:
         Args:
             tags: Sequence of tags to include in the log.
             console_log: Whether to log to the console, defaults to `True`.
+            sample_rate: The sampling ratio to use, between 0 and 1. By default, the current ratio is preserved.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
                 It should only be used when instrumenting another library with Logfire, such as structlog or loguru.
@@ -900,11 +885,12 @@ class Logfire:
         Returns:
             A new Logfire instance with the given settings applied.
         """
-        # TODO add sample_rate once it's more stable
+        if sample_rate is not None and (sample_rate > 1 or sample_rate < 0):
+            raise ValueError('sample_rate must be between 0 and 1')
         return Logfire(
             config=self._config,
             tags=self._tags + tuple(tags),
-            sample_rate=self._sample_rate,
+            sample_rate=self._sample_rate if sample_rate is None else sample_rate,
             console_log=self._console_log if console_log is None else console_log,
             otel_scope=self._otel_scope if custom_scope_suffix is None else f'logfire.{custom_scope_suffix}',
         )

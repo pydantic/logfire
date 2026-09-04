@@ -341,21 +341,13 @@ class Logfire:
         Returns:
             A new Logfire instance with the `tags` added to any existing tags.
         """
-    def with_trace_sample_rate(self, sample_rate: float) -> Logfire:
-        """A new Logfire instance with the given sampling ratio applied.
-
-        Args:
-            sample_rate: The sampling ratio to use.
-
-        Returns:
-            A new Logfire instance with the sampling ratio applied.
-        """
-    def with_settings(self, *, tags: Sequence[str] = (), console_log: bool | None = None, custom_scope_suffix: str | None = None) -> Logfire:
+    def with_settings(self, *, tags: Sequence[str] = (), console_log: bool | None = None, sample_rate: float | None = None, custom_scope_suffix: str | None = None) -> Logfire:
         """A new Logfire instance which uses the given settings.
 
         Args:
             tags: Sequence of tags to include in the log.
             console_log: Whether to log to the console, defaults to `True`.
+            sample_rate: The sampling ratio to use, between 0 and 1. By default, the current ratio is preserved.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
                 It should only be used when instrumenting another library with Logfire, such as structlog or loguru.

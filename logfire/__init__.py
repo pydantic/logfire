@@ -72,7 +72,6 @@ instrument_claude_agent_sdk = DEFAULT_LOGFIRE_INSTANCE.instrument_claude_agent_s
 suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
-# with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
 url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
 forward_export_request = DEFAULT_LOGFIRE_INSTANCE.forward_export_request
@@ -183,7 +182,6 @@ __all__ = (
     'AutoTraceModule',
     'with_tags',
     'with_settings',
-    # 'with_trace_sample_rate',
     'suppress_scopes',
     'shutdown',
     'no_auto_trace',

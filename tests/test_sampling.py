@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
@@ -19,8 +18,7 @@ class SpanNode:
     children: list[SpanNode] = field(default_factory=list['SpanNode'])
 
 
-# TODO(Marcelo): Remove pragma when this file is covered by tests.
-def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:  # pragma: no cover
+def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:
     traces: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for span in exported_spans:
         trace_id: int = span['context']['trace_id']
@@ -47,13 +45,10 @@ def build_tree(exported_spans: list[dict[str, Any]]) -> list[SpanNode]:  # pragm
     return roots
 
 
-@pytest.mark.skipif(
-    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
-)
 @pytest.mark.parametrize('sample_rate', [-1, 1.5])
-def test_invalid_sample_rate(sample_rate: float) -> None:  # pragma: no cover
+def test_invalid_sample_rate(sample_rate: float) -> None:
     with pytest.raises(ValueError, match='sample_rate must be between 0 and 1'):
-        logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(sample_rate)
+        logfire.with_settings(sample_rate=sample_rate)
 
 
 def test_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
@@ -73,10 +68,7 @@ def test_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any
     assert len(exporter.exported_spans_as_dict()) == 588, len(exporter.exported_spans_as_dict())
 
 
-@pytest.mark.skipif(
-    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
-)
-def test_sample_rate_runtime() -> None:  # pragma: no cover
+def test_sample_rate_runtime() -> None:
     exporter = TestExporter()
 
     logfire.configure(
@@ -87,19 +79,16 @@ def test_sample_rate_runtime() -> None:  # pragma: no cover
     )
 
     for _ in range(100):
-        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.5).span('outer'):
+        with logfire.with_settings(sample_rate=0.5).span('outer'):
             with logfire.span('inner'):
                 pass
 
     # 100 iterations of 2 spans -> 200 spans
     # 50% sampling -> 100 spans (approximately)
-    assert len(exporter.exported_spans_as_dict()) == 102
+    assert 80 <= len(exporter.exported_spans_as_dict()) <= 120
 
 
-@pytest.mark.skipif(
-    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
-)
-def test_outer_sampled_inner_not() -> None:  # pragma: no cover
+def test_outer_sampled_inner_not() -> None:
     exporter = TestExporter()
 
     logfire.configure(
@@ -109,24 +98,20 @@ def test_outer_sampled_inner_not() -> None:  # pragma: no cover
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
     )
 
-    for _ in range(10):
-        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.1).span('1'):
+    for _ in range(100):
+        with logfire.with_settings(sample_rate=0.1).span('1'):
             with logfire.span('2'):
                 with logfire.span('3'):
                     pass
 
-    assert build_tree(exporter.exported_spans_as_dict()) == snapshot(
-        [
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        ]
+    trees = build_tree(exporter.exported_spans_as_dict())
+    assert 1 <= len(trees) <= 20
+    assert all(
+        tree == SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3')])]) for tree in trees
     )
 
 
-@pytest.mark.skipif(
-    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
-)
-def test_outer_and_inner_sampled() -> None:  # pragma: no cover
+def test_outer_and_inner_sampled() -> None:
     exporter = TestExporter()
 
     logfire.configure(
@@ -137,29 +122,18 @@ def test_outer_and_inner_sampled() -> None:  # pragma: no cover
     )
 
     for _ in range(10):
-        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.75).span('1'):
-            with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.75).span('2'):
-                with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.75).span('3'):
+        with logfire.with_settings(sample_rate=0.75).span('1'):
+            with logfire.with_settings(sample_rate=0.75).span('2'):
+                with logfire.with_settings(sample_rate=0.75).span('3'):
                     pass
 
-    assert build_tree(exporter.exported_spans_as_dict()) == snapshot(
-        [
-            SpanNode(name='1', children=[SpanNode(name='2', children=[])]),
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-            SpanNode(name='1', children=[]),
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-            SpanNode(name='1', children=[SpanNode(name='2', children=[SpanNode(name='3', children=[])])]),
-        ]
-    )
+    trees = build_tree(exporter.exported_spans_as_dict())
+    assert trees
+    assert any(tree.children and tree.children[0].children for tree in trees)
+    assert any(not tree.children or not tree.children[0].children for tree in trees)
 
 
-@pytest.mark.skipif(
-    not hasattr(logfire, 'with_trace_sample_rate'), reason='with_trace_sample_rate is hidden from public API'
-)
-def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
+def test_sampling_rate_does_not_get_overwritten() -> None:
     exporter = TestExporter()
 
     logfire.configure(
@@ -170,9 +144,9 @@ def test_sampling_rate_does_not_get_overwritten() -> None:  # pragma: no cover
     )
 
     for _ in range(10):
-        with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0).span('1'):
+        with logfire.with_settings(sample_rate=0).span('1'):
             for _ in range(100):
-                with logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(1).span('2'):
+                with logfire.with_settings(sample_rate=1).span('2'):
                     pass
 
-    assert build_tree(exporter.exported_spans_as_dict()) == snapshot([])
+    assert build_tree(exporter.exported_spans_as_dict()) == []
