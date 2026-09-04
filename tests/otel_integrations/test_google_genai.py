@@ -104,7 +104,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt(),
-                'end_time': 6000000000,
+                'end_time': 4000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gemini-2.0-flash-001',
                     'gen_ai.operation.name': 'chat',
@@ -148,43 +148,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
             },
         ]
     )
-    assert capfire.log_exporter.exported_logs_as_dicts() == snapshot(
-        [
-            {
-                'body': None,
-                'severity_number': None,
-                'severity_text': None,
-                'attributes': {
-                    'gen_ai.operation.name': 'generate_content',
-                    'gen_ai.request.model': 'gemini-2.0-flash-001',
-                    'gen_ai.provider.name': 'gemini',
-                    'gen_ai.response.finish_reasons': ('stop',),
-                    'gen_ai.response.model': 'gemini-2.0-flash-001',
-                    'gen_ai.response.id': '-QtkaLDGCIuT7dcPsNuzuAk',
-                    'gen_ai.usage.input_tokens': 58,
-                    'gen_ai.usage.output_tokens': 9,
-                    'gen_ai.tool.definitions': (
-                        {
-                            'name': 'get_current_weather',
-                            'description': """\
-Returns the current weather.
-
-Args:
-  location: The city and state, e.g. San Francisco, CA\
-""",
-                            'parameters': None,
-                            'type': 'function',
-                        },
-                    ),
-                },
-                'timestamp': 4000000000,
-                'observed_timestamp': 5000000000,
-                'trace_id': 1,
-                'span_id': 1,
-                'trace_flags': 1,
-            }
-        ]
-    )
+    assert capfire.log_exporter.exported_logs_as_dicts() == snapshot([])
 
 
 @pytest.mark.vcr()
@@ -239,7 +203,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt(),
-                'end_time': 6000000000,
+                'end_time': 4000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gemini-2.0-flash-001',
                     'gen_ai.operation.name': 'chat',
@@ -295,7 +259,7 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt(),
-                'end_time': 4000000000,
+                'end_time': 2000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gemini-2.5-flash',
                     'gen_ai.operation.name': 'chat',
@@ -354,3 +318,12 @@ def test_instrument_google_genai_without_capture_setting() -> None:
         os.environ.pop(env_var)
         logfire.instrument_google_genai()
         assert env_var not in os.environ
+
+
+def test_instrument_google_genai_preserves_explicit_emit_event() -> None:
+    # The instrumentation force-sets OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT=true; if the user set it
+    # explicitly, that choice should survive so they can still opt back into the redundant event log.
+    env_var = 'OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT'
+    with patch.dict(os.environ, {env_var: 'true'}):
+        logfire.instrument_google_genai()
+        assert os.environ[env_var] == 'true'

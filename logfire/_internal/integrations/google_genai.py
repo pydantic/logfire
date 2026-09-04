@@ -8,6 +8,7 @@ from logfire._internal.utils import safe_repr
 
 CAPTURE_MESSAGE_CONTENT_ENV_VAR = 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'
 LEGACY_CAPTURE_MESSAGE_CONTENT_VALUES = {'true': 'SPAN_ONLY', 'false': 'NO_CONTENT'}
+EMIT_EVENT_ENV_VAR = 'OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT'
 
 try:
     from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
@@ -42,6 +43,13 @@ def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
         if canonical_value is not None:
             os.environ[CAPTURE_MESSAGE_CONTENT_ENV_VAR] = canonical_value
 
+    # The instrumentation unconditionally sets OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT=true when it
+    # instruments, which makes it emit a `gen_ai.client.inference.operation.details` log event alongside
+    # every request span. In the span-based capture modes we use, that event is redundant (it duplicates the
+    # span attributes and, without content, adds nothing). Restore the user's own setting afterwards so the
+    # event follows the normal default for the content-capture mode (no event for NO_CONTENT / SPAN_ONLY).
+    emit_event = os.environ.get(EMIT_EVENT_ENV_VAR)
+
     GoogleGenAiSdkInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
@@ -49,3 +57,8 @@ def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
             **kwargs,
         }
     )
+
+    if emit_event is None:
+        os.environ.pop(EMIT_EVENT_ENV_VAR, None)
+    else:
+        os.environ[EMIT_EVENT_ENV_VAR] = emit_event
