@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import copy
+import difflib
 import json
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, TypedDict, cast
 
@@ -14,6 +15,7 @@ from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 
+from ..exceptions import LogfireConfigError
 from .constants import (
     ATTRIBUTES_CONFIG,
     ATTRIBUTES_JSON_SCHEMA_KEY,
@@ -35,39 +37,50 @@ from .integrations.llm_providers import semconv as gen_ai_semconv
 from .stack_info import STACK_INFO_KEYS
 from .utils import ReadableSpanDict, truncate_string
 
-DEFAULT_PATTERNS = [
-    'password',
-    'passwd',
-    'mysql_pwd',
-    'secret',
-    r'auth(?!ors?\b)',
-    'credential',
-    'private[._ -]?key',
-    'api[._ -]?key',
-    'session',
-    'cookie',
-    'social[._ -]?security',
-    'credit[._ -]?card',
-    'logfire[._ -]?token',
-    r'pylf_v\d+_',
-    *[
-        # Require these to be surrounded by word boundaries or underscores,
-        # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
-        rf'(?:\b|_){acronym}(?:\b|_)'
-        for acronym in [
-            'csrf',
-            'xsrf',
-            'jwt',
-            'ssn',
-        ]
-    ],
-]
+DEFAULT_PATTERNS: dict[str, str] = {
+    'password': 'password',
+    'passwd': 'passwd',
+    'mysql_pwd': 'mysql_pwd',
+    'secret': 'secret',
+    'auth': r'auth(?!ors?\b)',
+    'credential': 'credential',
+    'private_key': 'private[._ -]?key',
+    'api_key': 'api[._ -]?key',
+    'session': 'session',
+    'cookie': 'cookie',
+    'social_security': 'social[._ -]?security',
+    'credit_card': 'credit[._ -]?card',
+    'logfire_token': 'logfire[._ -]?token',
+    'pylf_token': r'pylf_v\d+_',
+    # The acronyms are required to be surrounded by word boundaries or underscores,
+    # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
+    'csrf': r'(?:\b|_)csrf(?:\b|_)',
+    'xsrf': r'(?:\b|_)xsrf(?:\b|_)',
+    'jwt': r'(?:\b|_)jwt(?:\b|_)',
+    'ssn': r'(?:\b|_)ssn(?:\b|_)',
+}
+"""The scrubbing patterns applied by default, keyed by the name used to refer to them in
+[`ScrubbingOptions.disabled_patterns`][logfire.ScrubbingOptions.disabled_patterns]."""
+
+CREDENTIAL_PATTERN_NAMES = frozenset({'logfire_token', 'pylf_token'})
+"""Patterns guarding Logfire's own write token, which cannot be disabled."""
+
 
 # Every default pattern starts matching at one of these characters. Checking this
 # inexpensive character class first avoids trying every alternative at every
 # position in large strings. Custom patterns are not constrained by this prefix.
 _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_'
-_DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
+
+
+def _default_pattern(patterns: Iterable[str]) -> str:
+    """The default patterns behind the start-character prefilter.
+
+    Built per scrubber rather than once, because `disabled_patterns` changes which defaults are in
+    it. The character class stays the full set either way: it only has to avoid excluding a possible
+    match, so listing a disabled pattern's start character costs a little speed and nothing else.
+    """
+    return rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(patterns)})'
+
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -92,6 +105,15 @@ class ScrubMatch:
 ScrubCallback = Callable[[ScrubMatch], Any]
 
 
+def _search(pattern: re.Pattern[str], text: str) -> re.Match[str] | None:
+    """Find the first match with any width.
+
+    A zero-width match would redact a value while reporting nothing as the reason, and a pattern
+    that can only match zero-width can never point at anything sensitive, so those are not matches.
+    """
+    return next((match for match in pattern.finditer(text) if match.end() > match.start()), None)
+
+
 class ScrubbedNote(TypedDict):
     path: JsonPath
     matched_substring: str
@@ -109,12 +131,128 @@ class ScrubbingOptions:
     The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
     """
 
-    extra_patterns: Sequence[str] | None = None
+    extra_patterns: Sequence[str] | Mapping[str, str] | None = None
     """
-    A sequence of regular expressions to detect sensitive data that should be redacted.
+    Regular expressions to detect sensitive data that should be redacted.
     For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
     The specified patterns are combined with the default patterns.
+
+    Pass a mapping to name them, e.g. `{'db_url_credentials': r'://[^:@/]+:[^@/]+@'}`. A named
+    pattern reports its **name** as the reason for redaction instead of the text it matched, which
+    matters for patterns that match the sensitive value itself rather than a key next to it:
+    an unnamed `r'://[^:@/]+:[^@/]+@'` produces `[Scrubbed due to '://admin:s3cr3t@']`, echoing the
+    credential it was meant to hide.
+
+    These are matched while the span is being created, on the thread creating it, so an
+    expensive pattern slows down the instrumented application itself. Avoid nested quantifiers
+    such as `(a+)+`, which can take exponential time on values you don't control.
     """
+
+    disabled_patterns: Sequence[str] | None = None
+    """
+    Names of default patterns to turn off, e.g. `['session']` to stop redacting values because
+    they look session-related. Passing a name that isn't a default pattern raises an error listing
+    the valid names, which are also documented in the scrubbing guide.
+
+    Disabling a pattern turns it off everywhere. To keep a pattern on and make an exception for
+    particular values, use `callback` instead.
+    """
+
+    safe_keys: Sequence[str] | None = None
+    """
+    Attribute names that are never redacted, in addition to the ones Logfire already treats as safe.
+
+    A safe key is matched exactly, at every nesting depth, and exempts **the entire value beneath
+    it** — nothing inside a safe key is scrubbed, however deeply nested, except for the patterns
+    guarding Logfire's own write token. Use it for keys you know are always safe to send.
+    """
+
+    def __post_init__(self) -> None:
+        if isinstance(self.extra_patterns, Mapping):
+            named_patterns = self.extra_patterns
+            for name, pattern in named_patterns.items():
+                if not isinstance(name, str) or not isinstance(pattern, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                    raise LogfireConfigError('`extra_patterns` must map names to regexes, both strings.')
+            self.extra_patterns = dict(named_patterns)
+            extra_patterns = tuple(named_patterns.values())
+        else:
+            extra_patterns = self.extra_patterns = _check_string_sequence(self.extra_patterns, 'extra_patterns')
+        disabled_patterns = self.disabled_patterns = _check_string_sequence(self.disabled_patterns, 'disabled_patterns')
+        safe_keys = self.safe_keys = _check_string_sequence(self.safe_keys, 'safe_keys')
+
+        for i, pattern in enumerate(extra_patterns):
+            try:
+                # Compiled individually rather than only as part of the joined pattern, so that the
+                # error names the offending pattern and reports a position relative to it.
+                compiled = re.compile(pattern)
+            except re.error as e:
+                raise LogfireConfigError(f'Invalid regex in `extra_patterns` at index {i}: {pattern!r} - {e}') from e
+            # A pattern that can match nothing matches at position 0 of every value, so it would
+            # redact all of them. Probing a sample string catches the zero-width patterns that
+            # don't match the empty string itself, such as `\b`.
+            probe = 'logfire scrubbing probe 0123456789 _-.'
+            if compiled.match('') is not None or any(m.start() == m.end() for m in compiled.finditer(probe)):
+                raise LogfireConfigError(
+                    f'`extra_patterns` contains a pattern matching the empty string at index {i}: {pattern!r}. '
+                    'It would match every value and redact all of them.'
+                )
+
+        for name in disabled_patterns:
+            if name not in DEFAULT_PATTERNS:
+                suggestions = difflib.get_close_matches(name, DEFAULT_PATTERNS)
+                did_you_mean = f' Did you mean {suggestions[0]!r}?' if suggestions else ''
+                raise LogfireConfigError(
+                    f'Unknown scrubbing pattern name {name!r} in `disabled_patterns`.{did_you_mean} '
+                    '`disabled_patterns` takes the names of default patterns, not regexes - '
+                    'use `extra_patterns` to add a regex. '
+                    f'Known names: {", ".join(sorted(DEFAULT_PATTERNS))}.'
+                )
+            if name in CREDENTIAL_PATTERN_NAMES:
+                raise LogfireConfigError(
+                    f"Refusing to disable the scrubbing pattern {name!r}: it guards Logfire's own write token, "
+                    'which would otherwise be recorded in spans and sent to Logfire, where anyone with read '
+                    'access to the project can see it. To make an exception for a specific value, keep the '
+                    'pattern enabled and return that value unredacted from `ScrubbingOptions.callback` instead.'
+                )
+
+        for i, key in enumerate(safe_keys):
+            if not key.strip():
+                raise LogfireConfigError(
+                    f'`safe_keys` contains an empty entry at index {i}. '
+                    'Safe keys are matched against attribute names exactly, so an empty key can never match.'
+                )
+            for name in sorted(CREDENTIAL_PATTERN_NAMES):
+                if re.search(DEFAULT_PATTERNS[name], key, re.IGNORECASE):
+                    raise LogfireConfigError(
+                        f'Refusing to add {key!r} to `safe_keys`: it matches the {name!r} pattern, which guards '
+                        "Logfire's own write token. Use `ScrubbingOptions.callback` to make an exception for a "
+                        'specific value instead.'
+                    )
+
+
+def _check_string_sequence(value: object, field_name: str) -> tuple[str, ...]:
+    """Reject anything that isn't really a sequence of strings.
+
+    A bare string is a `Sequence[str]` that iterates one character at a time, and a mapping
+    iterates its keys, so both would otherwise be accepted and mean something unintended.
+    """
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raise LogfireConfigError(
+            f'`{field_name}` must be a sequence of strings, got the string {value!r}. '
+            f'A bare string is iterated one character at a time. Pass [{value!r}].'
+        )
+    if not isinstance(value, Sequence):
+        raise LogfireConfigError(f'`{field_name}` must be a sequence of strings, got {type(value).__name__}.')
+    items: list[str] = []
+    for i, item in enumerate(cast('Sequence[Any]', value)):
+        if not isinstance(item, str):
+            raise LogfireConfigError(
+                f'`{field_name}` must contain only strings, but the entry at index {i} is {item!r}.'
+            )
+        items.append(item)
+    return tuple(items)
 
 
 class BaseScrubber(ABC):
@@ -181,6 +319,12 @@ class BaseScrubber(ABC):
         gen_ai_semconv.RESPONSE_MODEL,
     }
 
+    safe_keys: Collection[str] = SAFE_KEYS
+    """`SAFE_KEYS` plus any keys the user added via `ScrubbingOptions.safe_keys`."""
+
+    user_safe_keys: Collection[str] = frozenset()
+    """Only the keys the user added, which stay subject to the credential patterns."""
+
     @abstractmethod
     def scrub_span(self, span: ReadableSpanDict): ...
 
@@ -189,6 +333,9 @@ class BaseScrubber(ABC):
 
     @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
+
+    @abstractmethod
+    def scrub_credentials(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
 
 class NoopScrubber(BaseScrubber):
@@ -201,6 +348,9 @@ class NoopScrubber(BaseScrubber):
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
 
+    def scrub_credentials(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
+        return value, []
+
 
 NOOP_SCRUBBER = NoopScrubber()
 
@@ -208,11 +358,40 @@ NOOP_SCRUBBER = NoopScrubber()
 class Scrubber(BaseScrubber):
     """Redacts potentially sensitive data."""
 
-    def __init__(self, patterns: Sequence[str] | None, callback: ScrubCallback | None = None):
+    def __init__(
+        self,
+        patterns: Sequence[str] | Mapping[str, str] | None,
+        callback: ScrubCallback | None = None,
+        disabled_patterns: Sequence[str] | None = None,
+        safe_keys: Sequence[str] | None = None,
+    ):
         # See ScrubbingOptions for more info on these parameters.
-        patterns = [_DEFAULT_PATTERN, *(patterns or [])]
-        self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
+        disabled = set(disabled_patterns or ())
+        enabled_defaults = [regex for name, regex in DEFAULT_PATTERNS.items() if name not in disabled]
+        named_patterns: Mapping[str, str] = patterns if isinstance(patterns, Mapping) else {}
+        extra_patterns = list(named_patterns.values()) if named_patterns else list(patterns or [])
+        # Named patterns are compiled individually as well, only to identify which one produced a
+        # match. Doing it this way keeps them out of the pattern used for searching, which is on the
+        # hot path: capturing groups there would cost ~2x and would renumber any backreference in a
+        # user's own pattern.
+        self._named_patterns = [
+            (name, re.compile(pattern, re.IGNORECASE | re.DOTALL)) for name, pattern in named_patterns.items()
+        ]
+        # Each pattern is wrapped so that a top-level `|` in one of them can't change how the
+        # others are grouped. The group is non-capturing, which keeps the defaults out of the group
+        # numbering a user's backreference depends on. User patterns still share one numbering
+        # space with each other though, so a `\1` in one of several refers to the first group
+        # across all of them rather than its own - see #2237.
+        all_patterns = [_default_pattern(enabled_defaults), *extra_patterns]
+        self._pattern = re.compile('|'.join(f'(?:{p})' for p in all_patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
+        # Applied beneath safe keys, which is why these patterns can't be disabled.
+        self.credential_pattern = re.compile(
+            '|'.join(f'(?:{DEFAULT_PATTERNS[name]})' for name in sorted(CREDENTIAL_PATTERN_NAMES)),
+            re.IGNORECASE | re.DOTALL,
+        )
+        self.user_safe_keys = set(safe_keys or ())
+        self.safe_keys = BaseScrubber.SAFE_KEYS | self.user_safe_keys
 
     def scrub_log(self, log: LogRecord) -> LogRecord:
         span_scrubber = SpanScrubber(self)
@@ -242,6 +421,12 @@ class Scrubber(BaseScrubber):
         result = span_scrubber.scrub(path, value)
         return result, span_scrubber.scrubbed
 
+    def scrub_credentials(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:
+        """Apply only the patterns guarding Logfire's own token, for values exempt from the rest."""
+        span_scrubber = SpanScrubber(self)
+        result = span_scrubber.scrub(path, value, self.credential_pattern)
+        return result, span_scrubber.scrubbed
+
 
 class SpanScrubber:
     """Does the actual scrubbing work.
@@ -252,7 +437,11 @@ class SpanScrubber:
 
     def __init__(self, parent: Scrubber):
         self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._named_patterns = parent._named_patterns  # pyright: ignore[reportPrivateUsage]
         self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
+        self._credential_pattern = parent.credential_pattern
+        self._safe_keys = parent.safe_keys
+        self._user_safe_keys = parent.user_safe_keys
         self.scrubbed: list[ScrubbedNote] = []
         self.did_scrub = False
 
@@ -308,14 +497,18 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
-    def scrub(self, path: JsonPath, value: Any) -> Any:
+    def scrub(self, path: JsonPath, value: Any, pattern: re.Pattern[str] | None = None) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
         Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
+
+        `pattern` defaults to the full set. It narrows to the credential patterns beneath a safe key,
+        which exempts its contents from everything else but never from those.
         """
+        pattern = self._pattern if pattern is None else pattern
         if isinstance(value, str):
-            if match := self._pattern.search(value):
+            if match := _search(pattern, value):
                 if match.span() == (0, len(value)):
                     # If the *whole* string matches, e.g. the value is literally 'password' and nothing more,
                     # it's considered safe.
@@ -325,21 +518,25 @@ class SpanScrubber:
                 except json.JSONDecodeError:
                     return self._redact(ScrubMatch(path, value, match))
                 else:
-                    return json.dumps(self.scrub(path, value))
+                    return json.dumps(self.scrub(path, value, pattern))
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+            return [self.scrub(path + (i,), x, pattern) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
+                if k in self._user_safe_keys:
+                    # A user safe key names arbitrary application data, so it is exempt from
+                    # everything except the patterns guarding Logfire's own token.
+                    result[k] = self.scrub(path + (k,), v, self._credential_pattern)
+                elif k in self._safe_keys and pattern is not self._credential_pattern:
                     result[k] = v
-                elif match := self._pattern.search(k):
+                elif match := _search(pattern, k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))
                     if isinstance(redacted, str) and isinstance(v, Sequence) and not isinstance(v, str):
                         redacted = [redacted]
                     result[k] = redacted
                 else:
-                    result[k] = self.scrub(path + (k,), v)
+                    result[k] = self.scrub(path + (k,), v, pattern)
             return result
         return value
 
@@ -348,9 +545,22 @@ class SpanScrubber:
             self.did_scrub = self.did_scrub or result is not match.value
             return result
         self.did_scrub = True
-        matched_substring = match.pattern_match.group(0)
-        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
-        return f'[Scrubbed due to {matched_substring!r}]'
+        reason = self._pattern_name(match.pattern_match) or match.pattern_match.group(0)
+        # The note is kept whatever the reason, because the UI generates scrubbing-config
+        # suggestions from it.
+        self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=reason))
+        return f'[Scrubbed due to {reason!r}]'
+
+    def _pattern_name(self, pattern_match: re.Match[str]) -> str | None:
+        """The name of the named pattern responsible for `pattern_match`, if it was one.
+
+        Only reached when something is actually being redacted, so the cost is off the hot path.
+        """
+        for name, compiled in self._named_patterns:
+            candidate = compiled.match(pattern_match.string, pattern_match.start())
+            if candidate is not None and candidate.end() == pattern_match.end():
+                return name
+        return None
 
 
 class MessageValueCleaner:
@@ -379,7 +589,11 @@ class MessageValueCleaner:
         # Scrub before truncating so that the scrubber can see the full value.
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
-        if field_name not in self.scrubber.SAFE_KEYS:
+        if field_name in self.scrubber.user_safe_keys:
+            # Same exception as the attribute path: exempt from everything but the credential patterns.
+            value, scrubbed_notes = self.scrubber.scrub_credentials(('message', field_name), value)
+            self.scrubbed.extend(scrubbed_notes)
+        elif field_name not in self.scrubber.safe_keys:
             if self.check_keys:
                 # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
                 scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
