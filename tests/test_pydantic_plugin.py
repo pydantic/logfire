@@ -676,8 +676,8 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
                     'schema_name': 'MyDataclass',
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                    'input_data': "\"ArgsKwargs((), {'x': 'a'})\"",
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object","x-python-datatype":"unknown"}}}',
+                    'input_data': '{"args":[],"kwargs":{"x":"a"}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object","properties":{"args":{"type":"array","x-python-datatype":"tuple"}}}}}',
                 },
             }
         ]
