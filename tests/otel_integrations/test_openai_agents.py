@@ -11,6 +11,7 @@ from openai import AsyncOpenAI
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.integrations import openai_agents
 
 pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
 
@@ -492,7 +493,14 @@ def simplify_spans(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @pytest.mark.vcr()
 @pytest.mark.anyio
-async def test_responses(exporter: TestExporter):
+async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    get_openai_usage_attributes = openai_agents.get_openai_usage_attributes
+
+    def assert_provider_url(response: Any, base_url: str | None = None) -> dict[str, Any]:
+        assert base_url == 'https://api.openai.com/v1/'
+        return get_openai_usage_attributes(response, base_url)
+
+    monkeypatch.setattr(openai_agents, 'get_openai_usage_attributes', assert_provider_url)
     logfire.instrument_openai_agents()
 
     @function_tool
