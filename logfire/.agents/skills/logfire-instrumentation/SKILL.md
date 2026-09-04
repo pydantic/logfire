@@ -15,7 +15,7 @@ Telemetry safety: treat Logfire traces, logs, exceptions, model payloads, tool a
 
 Do not open, read, or run any application file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what the app is. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](./references/auth.md).
+Check first with a verified CLI path from the reference below, and skip to Step 2 if `whoami` already reports the right project and region. For JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Otherwise, follow the full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](./references/auth.md).
 
 ## Step 2: Detect Language and Frameworks
 
@@ -40,12 +40,12 @@ Follow only the subsection(s) needed by the representative service selected in S
 Before writing any code, `logfire run` can auto-configure and auto-instrument a script or module for one run, with no code changes at all — useful as a fast look at what's detected, not as the permanent setup (that still needs `configure()`/`instrument_*()` calls written into the code, below, so the instrumentation survives outside this one invocation):
 
 ```bash
-uvx logfire --non-interactive run --summary path/to/script.py
+uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary path/to/script.py
 # or, for an ASGI app:
-uvx logfire --non-interactive run --summary -m uvicorn main:app
+uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary -m uvicorn main:app
 ```
 
-`--summary` prints which installed packages got instrumented and which detected-but-uninstrumented packages it recommends adding extras for. `--exclude <package>` skips one. Treat this as a diagnostic, not a substitute for Step 3's explicit setup below.
+These examples use `uv run --with` so the temporary Logfire CLI can still see the project's installed dependencies; use the equivalent command for the project's environment manager. An isolated `uvx` environment cannot detect or import them. `--summary` prints which installed packages got instrumented and which detected-but-uninstrumented packages it recommends adding extras for. `--exclude <package>` skips one. Treat this as a diagnostic, not a substitute for Step 3's explicit setup below.
 
 #### Install, Configure, Instrument
 
@@ -66,7 +66,7 @@ logfire.instrument_fastapi(app)   # FastAPI only; requires the app instance
 logfire.instrument_httpx()        # HTTPX only
 ```
 
-Web-framework instrumentors need the app instance; HTTP-client and database instrumentors are global and take no arguments. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
+FastAPI, Flask, Starlette, and raw ASGI/WSGI instrumentors need the app instance; Django, HTTP-client, and database instrumentors are global and take no app argument. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
 
 #### Structured Logging and AI/LLM Instrumentation
 
@@ -106,20 +106,21 @@ Use these references:
 
 #### Install
 
-```toml
-[dependencies]
-logfire = "0.6"
+```bash
+cargo add logfire
 ```
 
 #### Configure
 
 ```rust
 let shutdown_handler = logfire::configure()
-    .install_panic_handler()
     .finish()?;
 ```
 
 Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section, not the local one.
+
+The panic handler is installed by default. Use
+`.with_install_panic_handler(false)` only when the application must disable it.
 
 #### Structured Logging (Rust)
 
@@ -160,7 +161,7 @@ segment data. Set them once, at configure time or via environment:
   value everything collapses into `unknown_service`.
 - `service.version` — enables comparisons across releases (e.g. error rate by
   version).
-- `deployment.environment` — separates prod / staging / dev throughout the UI.
+- `deployment.environment.name` — separates prod / staging / dev throughout the UI.
 - `service.instance.id` — distinguishes replicas; the standard dashboards filter
   on it.
 
@@ -175,7 +176,7 @@ logfire.configure(
 ```
 
 For non-SDK or Collector sources, set the same values via
-`OTEL_RESOURCE_ATTRIBUTES="service.name=checkout-api,service.version=1.4.2,deployment.environment=prod"`.
+`OTEL_RESOURCE_ATTRIBUTES="service.name=checkout-api,service.version=1.4.2,deployment.environment.name=prod"`.
 
 ### Custom metrics
 
@@ -190,16 +191,23 @@ see the `logfire-infrastructure` skill.
 Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
 1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
-2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Same `uvx`/`npx` prefix as Step 1 (JS: drop `--non-interactive`, it's Python-CLI-only):
+2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path as Step 1. With `uv`:
    ```bash
-   uvx logfire --non-interactive projects status --json
-   # JS/TS: npx logfire projects status --json
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive projects status --json
+   ```
+   For a JS/TS project without `uv`, use the same external-prefix npm fallback as Step 1:
+   ```bash
+   env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire projects status --json
    ```
    If it reports no usable read token, create one for the exact project `whoami` reported and retry — `--project` goes on `read-tokens` itself, before `create`:
    ```bash
-   uvx logfire --non-interactive read-tokens --project <organization>/<project> create --save
-   uvx logfire --non-interactive projects status --json
-   # JS/TS: npx logfire read-tokens --project <organization>/<project> create --save
+   # Python CLI
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --region <region> read-tokens --project <organization>/<project> create --save
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive projects status --json
+
+   # JS CLI (POSIX shell)
+   env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire --region <region> read-tokens --project <organization>/<project> create --save
+   env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire projects status --json
    ```
    `--save` writes the token into the data directory for `projects status` to use — it is never printed. Or query directly via the Logfire MCP/API if already connected in this session. Never display a token while doing any of this.
 3. **Audit what actually landed**, not just that something did: service name set (not `unknown_service`)? Spans nested correctly, not flat? The specific operation you exercised present, not just noise? For AI/LLM instrumentation, is the captured content at the level you intended (metadata-only vs. full content)? For system/infra metrics, did the expected host/container/cluster show up, not just some data?
@@ -222,7 +230,7 @@ Each row is a distinct data source and the product surface it lights up.
 | To get this in the UI | Send this | How |
 |-----------------------|-----------|-----|
 | **Live / Explore / Issues** — traces, logs, exceptions | App spans & logs | `configure()` + `instrument_*()` + structured logging (Steps 1-3) |
-| **Services** — per-service request rate, errors, latency (RED) | Spans tagged with a meaningful `service_name` (+ `service.version`, `deployment.environment`) | Set [service metadata](#service-metadata), then instrument your web framework |
+| **Services** — per-service request rate, errors, latency (RED) | Spans tagged with a meaningful `service_name` (+ `service.version`, `deployment.environment.name`) | Set [service metadata](#service-metadata), then instrument your web framework |
 | **Metrics explorer / Dashboards / Alerts** | [Custom metrics](#custom-metrics) | `logfire.metric_*` |
 | **AI / LLM views** — token usage, tool calls, agent runs | LLM/agent spans | `instrument_pydantic_ai()` / `instrument_openai()` / ... (Step 3, AI/LLM Instrumentation); agent frameworks below |
 

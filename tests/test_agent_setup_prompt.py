@@ -69,10 +69,51 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
     instrumentation = (skill_root / 'SKILL.md').read_text()
     auth = (skill_root / 'references' / 'auth.md').read_text()
+    integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
+    offline = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
+    npm_prefix = (
+        'env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
+        '--cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
+        '--prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire'
+    )
 
     assert '--region <region> auth' in auth
     assert '--region eu auth' not in auth
+    assert 'python -I -m logfire' in auth
+    assert npm_prefix in auth
+    for document in (auth, instrumentation, offline):
+        assert not any(
+            line.lstrip().startswith(('npx ', 'npx@')) and 'logfire' in line for line in document.splitlines()
+        )
+        npm_commands = [line.strip() for line in document.splitlines() if 'npm ' in line and '-- logfire' in line]
+        assert all(line.startswith(npm_prefix) for line in npm_commands)
+    assert 'JS CLI (POSIX shell)' in auth
+    assert 'git ls-files -- .logfire' in auth
+    assert 'neither\n`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink' in auth
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
+    assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
+    assert f'{npm_prefix} projects status --json' in instrumentation
+    assert (
+        "uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive "
+        '--region <region> read-tokens --project <organization>/<project> create --save' in instrumentation
+    )
+    assert (
+        f'{npm_prefix} --region <region> read-tokens --project <organization>/<project> create --save'
+        in instrumentation
+    )
+    assert 'cargo add logfire' in instrumentation
+    assert 'logfire = "0.6"' not in instrumentation
+    assert '`app = logfire.instrument_asgi(app)`' in integrations
+    assert '`app = logfire.instrument_wsgi(app)`' in integrations
+    assert '`logfire.instrument_django()` | No' in integrations
+    assert '`openai-agents` installed; imports as `agents`' in integrations
+    assert 'from myapp import app' not in integrations
+    assert (
+        'def post_fork(server, worker):\n'
+        '    logfire.configure()\n\n\n'
+        'def post_worker_init(worker):\n'
+        '    logfire.instrument_flask(worker.wsgi)' in integrations
+    )
     assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
     assert 'LangGraph agents produce an agent root' in instrumentation
     assert 'Neither path marks an agent root span' not in instrumentation
@@ -87,6 +128,18 @@ def test_setup_hub_routes_each_surface_to_its_skill() -> None:
     for skill in ('logfire-query', 'logfire-ui'):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
     assert 'not in this repo' not in hub
+
+
+def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
+    gunicorn_docs = (REPO_ROOT / 'docs' / 'integrations' / 'web-frameworks' / 'gunicorn.md').read_text()
+
+    assert 'from myapp import app' not in gunicorn_docs
+    assert (
+        'def post_fork(server, worker):\n'
+        '    logfire.configure()\n\n\n'
+        'def post_worker_init(worker):\n'
+        '    logfire.instrument_flask(worker.wsgi)' in gunicorn_docs
+    )
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:

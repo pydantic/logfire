@@ -1,6 +1,6 @@
 ---
 title: "Configure Logfire with Gunicorn"
-description: "Set up Logfire in Gunicorn's post_fork hook so each worker process sends data correctly under its pre-fork worker model."
+description: "Set up Logfire in Gunicorn's worker hooks so each worker process sends data correctly under its pre-fork worker model."
 integration: otel
 ---
 # Gunicorn
@@ -59,8 +59,10 @@ regardless of which worker handled it.
 ## Troubleshooting
 
 Not seeing your requests in Logfire? Check that `logfire.configure()` is called inside the `post_fork`
-hook (not at module top level, where it runs before workers fork), that your write token is set, and
-that any framework instrumentation runs once per worker inside the same hook.
+hook (not at module top level, where it runs before workers fork), and that your write token is set. For
+Flask, check that `instrument_flask(worker.wsgi)` runs inside `post_worker_init`, as shown below. Other
+frameworks can require different setup; choose the relevant framework from the
+[web framework integrations](index.md).
 
 ## Advanced
 
@@ -81,18 +83,19 @@ def index():
     return 'Hello from Flask + Gunicorn!'
 ```
 
-Import and instrument the app inside `post_fork`, so it happens once per worker
+Configure Logfire after each worker is forked, then instrument the application after Gunicorn loads it
 (`gunicorn_config.py`):
 
 ```py title="gunicorn_config.py" skip-run="true" skip-reason="server-start"
-from myapp import app
-
 import logfire
 
 
 def post_fork(server, worker):
     logfire.configure()
-    logfire.instrument_flask(app)
+
+
+def post_worker_init(worker):
+    logfire.instrument_flask(worker.wsgi)
 ```
 
 Then start Gunicorn:
@@ -105,7 +108,7 @@ Logfire now records a span for every request the Flask app handles, in every wor
 
 ## Reference
 
-- [Gunicorn `post_fork` setting](https://docs.gunicorn.org/en/latest/settings.html#post-fork): where
-  the configuration runs.
+- [Gunicorn server hooks](https://docs.gunicorn.org/en/latest/settings.html#server-hooks): where
+  configuration and application instrumentation run.
 - [`logfire.instrument_flask()`][logfire.Logfire.instrument_flask]: to instrument a Flask app, as
   shown above.

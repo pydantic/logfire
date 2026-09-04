@@ -219,7 +219,7 @@ the UI. From the Collector, use the `resource`/`resourcedetection` processors. T
 `OTEL_RESOURCE_ATTRIBUTES` variable is consumed only when the `resourcedetection`
 processor includes its `env` detector:
 
-- `service.name`, `service.version`, `deployment.environment`
+- `service.name`, `service.version`, `deployment.environment.name`
 - `service.instance.id` — per-replica identity (standard dashboards filter on it)
 - `host.name` — required for the Hosts page to identify a host
 
