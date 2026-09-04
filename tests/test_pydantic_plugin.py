@@ -12,7 +12,6 @@ import sqlmodel
 from dirty_equals import IsInt
 from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -701,27 +700,6 @@ def test_pydantic_plugin_sample_rate_config(exporter: TestExporter, config_kwarg
     assert len(exporter.exported_spans_as_dict()) == 1
 
 
-@pytest.mark.xfail(reason='We need to fix the nesting `trace_sample_rate` logic.')
-def test_pydantic_plugin_plugin_settings_sample_rate(exporter: TestExporter) -> None:
-    logfire.configure(
-        send_to_logfire=False,
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
-        advanced=logfire.AdvancedOptions(
-            id_generator=SeededRandomIdGenerator(),
-        ),
-        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
-    )
-
-    class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
-        x: int
-
-    for _ in range(10):
-        with pytest.raises(ValidationError):
-            MyModel.model_validate({'x': 'a'})
-
-    assert len(exporter.exported_spans_as_dict()) == 6
-
-
 @pytest.mark.parametrize('tags', [['tag1', 'tag2'], ('tag1', 'tag2')])
 def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any) -> None:
     class MyModel(BaseModel, plugin_settings={'logfire': {'record': 'failure', 'tags': tags}}):
@@ -732,33 +710,6 @@ def test_pydantic_plugin_plugin_settings_tags(exporter: TestExporter, tags: Any)
 
     span = exporter.exported_spans_as_dict()[0]
     assert span['attributes']['logfire.tags'] == ('tag1', 'tag2')
-
-
-@pytest.mark.xfail(reason='We need to fix the nesting `trace_sample_rate` logic.')
-def test_pydantic_plugin_plugin_settings_sample_rate_with_tag(exporter: TestExporter) -> None:
-    logfire.configure(
-        send_to_logfire=False,
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
-        advanced=logfire.AdvancedOptions(
-            id_generator=SeededRandomIdGenerator(),
-        ),
-        metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
-    )
-
-    class MyModel(
-        BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4, 'tags': 'test_tag'}}
-    ):
-        x: int
-
-    for _ in range(10):
-        with pytest.raises(ValidationError):
-            MyModel.model_validate({'x': 'a'})
-
-    assert len(exporter.exported_spans_as_dict()) == 6
-
-    # TODO(Marcelo): Why are those lines not being reached?
-    span = exporter.exported_spans_as_dict()[0]  # pragma: no cover
-    assert span['attributes']['logfire.tags'] == ('test_tag',)  # pragma: no cover
 
 
 def test_pydantic_plugin_nested_model(exporter: TestExporter):

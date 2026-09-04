@@ -56,8 +56,6 @@ class PluginSettings(TypedDict, total=False):
 class LogfireSettings(TypedDict, total=False):
     """Settings for the logfire integration."""
 
-    trace_sample_rate: float
-    """The sample rate to use for tracing."""
     tags: list[str]
     """Tags to add to the spans."""
     record: Literal['all', 'failure', 'metrics']
