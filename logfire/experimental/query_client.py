@@ -4,13 +4,12 @@ import platform
 import sys
 from datetime import datetime, timezone
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
-from typing_extensions import Self, deprecated
+from typing_extensions import Self
 
 from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
-from logfire._internal.stack_info import warn_at_user_stacklevel
 
 if sys.version_info >= (3, 11):
     from datetime import UTC
@@ -73,18 +72,6 @@ class ColumnDetails(TypedDict):
     """Whether the column is nullable or not."""
 
 
-class ColumnData(ColumnDetails):
-    """The data of a column in the column-oriented JSON-format query results."""
-
-    values: list[Any]
-
-
-class QueryResults(TypedDict):
-    """The (column-oriented) results of a JSON-format query."""
-
-    columns: list[ColumnData]
-
-
 class RowQueryResults(TypedDict):
     """The row-oriented results of a JSON-format query."""
 
@@ -93,15 +80,6 @@ class RowQueryResults(TypedDict):
 
     rows: list[dict[str, Any]]
     """The list of rows matching the query (e.g. `[{"service_name": "backend"}]`)."""
-
-
-def _rows_to_columns(result: RowQueryResults) -> QueryResults:
-    """Convert a row-oriented JSON query result to a column-oriented one."""
-    columns_by_name: dict[str, ColumnData] = {col['name']: {**col, 'values': []} for col in result['columns']}
-    for row in result['rows']:
-        for col_name, col_data in columns_by_name.items():
-            col_data['values'].append(row.get(col_name))
-    return {'columns': list(columns_by_name.values())}
 
 
 _FF_DATA_TYPE_KEYS_TO_REMOVE = {'dict_id', 'dict_is_ordered', 'metadata'}
@@ -145,7 +123,6 @@ T = TypeVar('T', bound=BaseClient)
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
 _USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
-_MIN_DATETIME = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -161,7 +138,7 @@ class _BaseLogfireQueryClient(Generic[T]):
     def _build_v2_body(
         self,
         sql: str,
-        min_timestamp: datetime | None,
+        min_timestamp: datetime,
         max_timestamp: datetime | None,
         limit: int | None,
         timezone: str | None = None,
@@ -174,14 +151,9 @@ class _BaseLogfireQueryClient(Generic[T]):
             body['limit'] = limit
 
         # /v2/query requires aware datetimes, assume UTC:
-        if min_timestamp is not None:
-            if min_timestamp.tzinfo is None:
-                min_timestamp = min_timestamp.replace(tzinfo=UTC)
-            body['min_timestamp'] = min_timestamp.isoformat()
-        else:
-            # For when `min_timestamp` is not provided (deprecated):
-            warn_at_user_stacklevel('Querying without a min_timestamp is deprecated', DeprecationWarning)
-            body['min_timestamp'] = _MIN_DATETIME
+        if min_timestamp.tzinfo is None:
+            min_timestamp = min_timestamp.replace(tzinfo=UTC)
+        body['min_timestamp'] = min_timestamp.isoformat()
         if max_timestamp is not None:
             if max_timestamp.tzinfo is None:
                 max_timestamp = max_timestamp.replace(tzinfo=UTC)
@@ -255,56 +227,13 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 'The read token info response is missing required fields: organization_name or project_name'
             )
 
-    @deprecated('query_json() is deprecated, use query_json_rows() instead', stacklevel=2)
-    def query_json(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-    ) -> QueryResults:
-        """Query Logfire data and return the results as a column-oriented dictionary."""
-        row_results = self.query_json_rows(  # type: ignore[reportDeprecated]
-            sql=sql,
-            min_timestamp=min_timestamp,
-            max_timestamp=max_timestamp,
-            limit=limit,
-        )
-        return _rows_to_columns(row_results)
-
-    # Note: on the next major version, move the keyword-only marker after `sql`:
-    @overload
-    @deprecated('Using query_json_rows() without a min_timestamp is deprecated')
     def query_json_rows(
         self,
         sql: str,
-        min_timestamp: None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
         *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> RowQueryResults: ...
-
-    @overload
-    def query_json_rows(
-        self,
-        sql: str,
         min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> RowQueryResults: ...
-
-    def query_json_rows(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        *,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults:
@@ -315,10 +244,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp: The minimum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
-
-                /// version-deprecated | v4.35.0
-                Not providing a `min_timestamp` is deprecated.
-                ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
@@ -345,39 +270,13 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         )
         return _map_v2_result(response.json())
 
-    # Note: on the next major version, move the keyword-only marker after `sql`:
-    @overload
-    @deprecated('Using query_arrow() without a min_timestamp is deprecated')
     def query_arrow(
         self,
         sql: str,
-        min_timestamp: None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
         *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> Table: ...
-
-    @overload
-    def query_arrow(
-        self,
-        sql: str,
         min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> Table: ...
-
-    def query_arrow(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        *,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table:
@@ -392,10 +291,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp: The minimum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
-
-                /// version-deprecated | v4.35.0
-                Not providing a `min_timestamp` is deprecated.
-                ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
@@ -424,39 +319,13 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             arrow_table: Table = reader.read_all()
         return arrow_table
 
-    # Note: on the next major version, move the keyword-only marker after `sql`:
-    @overload
-    @deprecated('Using query_csv() without a min_timestamp is deprecated')
     def query_csv(
         self,
         sql: str,
-        min_timestamp: None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
         *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> str: ...
-
-    @overload
-    def query_csv(
-        self,
-        sql: str,
         min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> str: ...
-
-    def query_csv(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        *,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str:
@@ -469,10 +338,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp: The minimum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
-
-                /// version-deprecated | v4.35.0
-                Not providing a `min_timestamp` is deprecated.
-                ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
@@ -499,7 +364,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         *,
         accept: _ACCEPT,
         sql: str,
-        min_timestamp: datetime | None = None,
+        min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         timezone: str | None = None,
@@ -562,56 +427,13 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
                 'The read token info response is missing required fields: organization_name or project_name'
             )
 
-    # Note: on the next major version, move the keyword-only marker after `sql`:
-    @overload
-    @deprecated('Using query_json_rows() without a min_timestamp is deprecated')
     async def query_json_rows(
         self,
         sql: str,
-        min_timestamp: None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
         *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> RowQueryResults: ...
-
-    @overload
-    async def query_json_rows(
-        self,
-        sql: str,
         min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> RowQueryResults: ...
-
-    @deprecated('query_json() is deprecated, use query_json_rows() instead', stacklevel=2)
-    async def query_json(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-    ) -> QueryResults:
-        """Query Logfire data and return the results as a column-oriented dictionary."""
-        row_results = await self.query_json_rows(  # type: ignore[reportDeprecated]
-            sql=sql,
-            min_timestamp=min_timestamp,
-            max_timestamp=max_timestamp,
-            limit=limit,
-        )
-        return _rows_to_columns(row_results)
-
-    async def query_json_rows(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        *,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> RowQueryResults:
@@ -622,10 +444,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp: The minimum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
-
-                /// version-deprecated | v4.35.0
-                Not providing a `min_timestamp` is deprecated.
-                ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
@@ -652,39 +470,13 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         )
         return _map_v2_result(response.json())
 
-    # Note: on the next major version, move the keyword-only marker after `sql`:
-    @overload
-    @deprecated('Using query_arrow() without a min_timestamp is deprecated')
     async def query_arrow(
         self,
         sql: str,
-        min_timestamp: None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
         *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> Table: ...
-
-    @overload
-    async def query_arrow(
-        self,
-        sql: str,
         min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> Table: ...
-
-    async def query_arrow(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        *,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> Table:
@@ -699,10 +491,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp: The minimum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
-
-                /// version-deprecated | v4.35.0
-                Not providing a `min_timestamp` is deprecated.
-                ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
@@ -731,39 +519,13 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             arrow_table: Table = reader.read_all()
         return arrow_table
 
-    # Note: on the next major version, move the keyword-only marker after `sql`:
-    @overload
-    @deprecated('Using query_csv() without a min_timestamp is deprecated')
     async def query_csv(
         self,
         sql: str,
-        min_timestamp: None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
         *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> str: ...
-
-    @overload
-    async def query_csv(
-        self,
-        sql: str,
         min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        *,
-        timezone: str | None = None,
-        environment: str | list[str] | None = None,
-    ) -> str: ...
-
-    async def query_csv(
-        self,
-        sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        *,
         timezone: str | None = None,
         environment: str | list[str] | None = None,
     ) -> str:
@@ -776,10 +538,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp: The minimum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
-
-                /// version-deprecated | v4.35.0
-                Not providing a `min_timestamp` is deprecated.
-                ///
             max_timestamp: The maximum timestamp to use when querying data. If the provided
                 [`datetime`][datetime.datetime] doesn't have a timezone set, it is assumed to
                 be UTC.
@@ -806,7 +564,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         *,
         accept: _ACCEPT,
         sql: str,
-        min_timestamp: datetime | None = None,
+        min_timestamp: datetime,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
         timezone: str | None = None,
