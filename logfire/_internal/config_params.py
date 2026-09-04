@@ -112,6 +112,8 @@ DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allo
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
 EMIT_CONFIGURATION_SPAN = ConfigParam(env_vars=['LOGFIRE_EMIT_CONFIGURATION_SPAN'], allow_file_config=True, default=False, tp=bool)
 """Whether to emit a `Logfire configured` log span after `logfire.configure()`."""
+UPDATE_PRICES = ConfigParam(env_vars=['LOGFIRE_UPDATE_PRICES'], allow_file_config=True, default=False, tp=bool)
+"""Whether to update model prices in the background."""
 
 # Instrumentation packages parameters
 HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
@@ -148,6 +150,7 @@ CONFIG_PARAMS = {
     'ignore_no_config': IGNORE_NO_CONFIG,
     'distributed_tracing': DISTRIBUTED_TRACING,
     'emit_configuration_span': EMIT_CONFIGURATION_SPAN,
+    'update_prices': UPDATE_PRICES,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
     'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,

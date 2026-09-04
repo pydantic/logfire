@@ -28,7 +28,7 @@ Add Logfire to the app that makes the model calls. Two lines do it: `logfire.con
 Install Logfire, the OpenAI SDK, and [`genai-prices`](https://github.com/pydantic/genai-prices), the open-source dataset Logfire prices calls from. `genai-prices` isn't a hard dependency of Logfire, so install it alongside; without it, calls are still traced but `operation.cost` is omitted (it ships with Pydantic AI, so you already have it there):
 
 ```bash
-pip install logfire openai genai-prices
+pip install logfire openai "genai-prices>=0.1.6"
 ```
 
 Set your write token and your OpenAI key so the app can send data and make model calls (in local development you can run `logfire projects use <your-project>` instead of the token):
@@ -38,14 +38,14 @@ export LOGFIRE_TOKEN=<your write token from Project → Settings → Write token
 export OPENAI_API_KEY=<your key from platform.openai.com/api-keys>
 ```
 
-Then instrument your calls:
+Then instrument your calls. Set `update_prices=True` to fetch new model prices in the background without waiting for a new `genai-prices` release.
 
 ```python skip-run="true" skip-reason="external-connection"
 import openai
 
 import logfire
 
-logfire.configure()
+logfire.configure(update_prices=True)
 logfire.instrument_openai()  # records every OpenAI call, with its tokens and cost
 
 client = openai.OpenAI()
@@ -55,6 +55,8 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message.content)
 ```
+
+This downloads prices from GitHub when Logfire starts, then once per hour. Leave it disabled if your environment cannot make this request, and update the installed `genai-prices` package instead.
 
 **What you'll see in Logfire:** open your project's [Live view](../guides/web-ui/live.md) and, within a few seconds, a span for the model call. It carries a token-usage badge (a coin icon); hover it to see the model name, input/output/total tokens, and the cost in US dollars. See [LLM panels](../guides/web-ui/llm-panels.md) for the full in-trace view of a single call.
 
@@ -155,7 +157,7 @@ The key insight: because cost is derived from the spans you send, the same instr
 
 ## Troubleshooting
 
-- **`operation.cost` is empty in Explore?** `genai-prices` isn't installed, so nothing prices the spans. Install it (`pip install genai-prices`). The browser UI still shows a cost, but a span without `operation.cost` can't be summed in SQL.
+- **`operation.cost` is empty in Explore?** Install `genai-prices>=0.1.6`. If the model is newer than your installed price data, pass `update_prices=True` to `logfire.configure()`. The browser UI may still show a cost, but a span without `operation.cost` can't be summed in SQL.
 - **No rows in the LLMs view?** Data hasn't arrived yet, or `LOGFIRE_TOKEN` or your provider key isn't set. Make a call and wait a few seconds.
 
 ## What's next

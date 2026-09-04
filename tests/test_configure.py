@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import gc
 import getpass
 import inspect
 import json
@@ -16,6 +17,7 @@ from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
 from time import sleep, time
+from types import ModuleType
 from typing import Any
 from unittest import mock
 from unittest.mock import call, patch
@@ -2588,6 +2590,7 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
                         'min_level': 0,
                         'add_baggage_to_attributes': False,
                         'distributed_tracing': True,
+                        'update_prices': False,
                         'head_sample_rate': 1.0,
                         'tail_sampling_enabled': False,
                         'code_source_set': False,
@@ -2620,6 +2623,127 @@ def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv('LOGFIRE_EMIT_CONFIGURATION_SPAN', '1')
     configure(send_to_logfire=False, console=False, inspect_arguments=False)
     assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
+
+
+def _mock_genai_prices_module() -> tuple[ModuleType, mock.MagicMock]:
+    module = ModuleType('genai_prices')
+    update_prices = mock.MagicMock()
+    module.UpdatePrices = update_prices  # pyright: ignore[reportAttributeAccessIssue]
+    return module, update_prices
+
+
+def test_update_prices_default_off(config_kwargs: dict[str, Any]) -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    with patch.dict(sys.modules, {'genai_prices': genai_prices}):
+        configure(**config_kwargs)
+
+    update_prices.assert_not_called()
+
+
+def test_update_prices_reuses_updater(config_kwargs: dict[str, Any]) -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    with patch.dict(sys.modules, {'genai_prices': genai_prices}):
+        configure(**config_kwargs, update_prices=True)
+        configure(**config_kwargs, update_prices=True)
+
+    update_prices.assert_called_once_with()
+
+
+def test_disabling_update_prices_stops_updater(config_kwargs: dict[str, Any]) -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    with patch.dict(sys.modules, {'genai_prices': genai_prices}):
+        configure(**config_kwargs, update_prices=True)
+        configure(**config_kwargs, update_prices=False)
+
+    update_prices.return_value.stop.assert_called_once_with()
+
+
+def test_update_prices_from_env(monkeypatch: pytest.MonkeyPatch, config_kwargs: dict[str, Any]) -> None:
+    monkeypatch.setenv('LOGFIRE_UPDATE_PRICES', 'true')
+    genai_prices, update_prices = _mock_genai_prices_module()
+    with patch.dict(sys.modules, {'genai_prices': genai_prices}):
+        configure(**config_kwargs)
+
+    update_prices.return_value.start.assert_called_once_with()
+
+
+def test_update_prices_warns_when_unavailable(config_kwargs: dict[str, Any]) -> None:
+    with (
+        patch.dict(sys.modules, {'genai_prices': None}),
+        pytest.warns(LogfireConfigWarning, match='requires the `genai-prices` package'),
+    ):
+        configure(**config_kwargs, update_prices=True)
+
+
+def test_update_prices_warns_when_start_fails(config_kwargs: dict[str, Any]) -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    update_prices.return_value.start.side_effect = RuntimeError('thread failed')
+    with (
+        patch.dict(sys.modules, {'genai_prices': genai_prices}),
+        pytest.warns(LogfireConfigWarning, match='Failed to start the model price updater: thread failed'),
+    ):
+        configure(**config_kwargs, update_prices=True)
+
+
+def test_update_prices_retries_after_start_failure(config_kwargs: dict[str, Any]) -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    update_prices.return_value.start.side_effect = [RuntimeError('thread failed'), None]
+    with (
+        patch.dict(sys.modules, {'genai_prices': genai_prices}),
+        pytest.warns(LogfireConfigWarning, match='Failed to start the model price updater: thread failed'),
+    ):
+        configure(**config_kwargs, update_prices=True)
+        configure(**config_kwargs, update_prices=True)
+
+    assert update_prices.return_value.start.call_count == 2
+
+
+def test_update_prices_can_be_reenabled(config_kwargs: dict[str, Any]) -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    with patch.dict(sys.modules, {'genai_prices': genai_prices}):
+        configure(**config_kwargs, update_prices=True)
+        configure(**config_kwargs, update_prices=False)
+        configure(**config_kwargs, update_prices=True)
+
+    assert update_prices.return_value.start.call_count == 2
+
+
+def test_update_prices_warns_and_does_not_start_on_emscripten(
+    monkeypatch: pytest.MonkeyPatch, config_kwargs: dict[str, Any]
+) -> None:
+    monkeypatch.setattr(config_module, 'platform_is_emscripten', lambda: True)
+    genai_prices, update_prices = _mock_genai_prices_module()
+    with (
+        patch.dict(sys.modules, {'genai_prices': genai_prices}),
+        pytest.warns(LogfireConfigWarning, match='not supported on Emscripten'),
+    ):
+        configure(**config_kwargs, update_prices=True)
+
+    update_prices.assert_not_called()
+
+
+def test_shutdown_stops_price_updater(config_kwargs: dict[str, Any]) -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    updater = update_prices.return_value
+    with patch.dict(sys.modules, {'genai_prices': genai_prices}):
+        local_logfire = configure(**config_kwargs, local=True, update_prices=True)
+        local_logfire.shutdown(flush=False)
+
+    updater.stop.assert_called_once_with()
+
+
+def test_local_config_garbage_collection_stops_price_updater() -> None:
+    genai_prices, update_prices = _mock_genai_prices_module()
+    updater = update_prices.return_value
+    with (
+        patch.dict(sys.modules, {'genai_prices': genai_prices}),
+        patch.object(LogfireConfig, '_ensure_flush_after_aws_lambda'),
+    ):
+        local_logfire = configure(local=True, send_to_logfire=False, console=False, update_prices=True)
+        del local_logfire
+        gc.collect()
+
+    updater.stop.assert_called_once_with()
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
