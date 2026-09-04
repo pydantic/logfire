@@ -330,7 +330,7 @@ class VariableProvider(ABC):
         Returns:
             The current VariablesConfig from the provider.
         """
-    def push_variables(self, variables: Sequence[Variable[object]], *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+    def push_variables(self, variables: Sequence[Variable[object]], *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """Push variable definitions to this provider.
 
         This method syncs local variable definitions (metadata only) with the provider:
@@ -343,7 +343,7 @@ class VariableProvider(ABC):
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, fail if any existing label values are incompatible with new schemas
-                or any reference errors are found.
+                or any reference errors are found. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -397,7 +397,7 @@ class VariableProvider(ABC):
         Returns:
             The created or updated VariableTypeConfig.
         """
-    def push_variable_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+    def push_variable_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         '''Push variable type definitions to this provider.
 
         This method syncs local type definitions with the provider:
@@ -413,7 +413,7 @@ class VariableProvider(ABC):
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, abort when existing label values are incompatible with
-                the new type schema.
+                the new type schema. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -459,7 +459,7 @@ class NoOpVariableProvider(VariableProvider):
         Returns:
             Always None since no provider is configured.
         """
-    def push_variables(self, variables: Sequence[Variable[Any]], *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+    def push_variables(self, variables: Sequence[Variable[Any]], *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """No-op implementation that prints a message about missing provider configuration.
 
         Returns:

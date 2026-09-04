@@ -138,7 +138,7 @@ logfire.variables_push(yes=True)
 ```
 
 !!! note "Schema Updates"
-    When you push a variable that already exists in Logfire, `logfire.variables_push()` will update the JSON schema if it has changed but will preserve existing versions, labels, and rollout configurations. If existing label values are incompatible with the new schema, you'll see a warning (or an error if using `strict=True`).
+    When you push a variable that already exists in Logfire, `logfire.variables_push()` will update the JSON schema if it has changed but will preserve existing versions, labels, and rollout configurations. By default, the push is rejected if existing label values are incompatible with the new schema. Pass `strict=False` to publish anyway and show a warning.
 
 !!! note "Write scope required"
     `logfire.variables_push()` and `logfire.variables_push_types()` require an API key with the `project:write_variables` scope.

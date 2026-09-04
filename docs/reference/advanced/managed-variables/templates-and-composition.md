@@ -345,7 +345,7 @@ with warnings.catch_warnings(record=True) as caught:
     #> True
 ```
 
-**Push / sync time is the real safety net.** `logfire.variables_validate()` reports missing references and cycles, and `logfire.variables_push(strict=True)` refuses to apply an invalid configuration. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a missing reference (or a cycle whose midpoint is a server-only variable) is caught before it ever ships.
+**Push / sync time is the real safety net.** `logfire.variables_validate()` reports missing references and cycles, and `logfire.variables_push()` refuses to apply an invalid configuration by default. The walk covers the *full* reachable graph (local code defaults and server-stored label values), so a missing reference (or a cycle whose midpoint is a server-only variable) is caught before it ever ships. Pass `strict=False` only when a missing reference is expected to resolve in another codebase or environment.
 
 A cycle (or depth overflow) is always a structural failure. When it occurs while composing a stored value, resolution falls back to the code default; the example below puts the cycle in the code defaults themselves, so resolution can only return the raw, uncomposed default:
 

@@ -2774,7 +2774,7 @@ class Logfire:
         *,
         dry_run: bool = False,
         yes: bool = False,
-        strict: bool = False,
+        strict: bool = True,
     ) -> bool:
         """Push variable definitions (metadata only) to the configured variable provider.
 
@@ -2793,7 +2793,7 @@ class Logfire:
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, fail if any existing label values are incompatible with new schemas
-                or any reference errors are found.
+                or any reference errors are found. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -2825,7 +2825,7 @@ class Logfire:
         *,
         dry_run: bool = False,
         yes: bool = False,
-        strict: bool = False,
+        strict: bool = True,
     ) -> bool:
         """Push variable type definitions to the configured variable provider.
 
@@ -2848,7 +2848,7 @@ class Logfire:
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, abort when existing label values are incompatible with
-                the new type schema.
+                the new type schema. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
