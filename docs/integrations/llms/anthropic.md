@@ -102,7 +102,7 @@ Not seeing your model calls in Logfire? Check these first:
 Logfire uses instrumentation version 2 by default. If your queries or dashboards still depend
 on the legacy `request_data` and `response_data` attributes, emit both formats while you migrate:
 
-```python skip-run="true" skip-reason="migration configuration example"
+```python
 import logfire
 
 logfire.configure()
