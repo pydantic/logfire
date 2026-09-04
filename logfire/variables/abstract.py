@@ -1480,15 +1480,13 @@ class VariableProvider(ABC):
         self.refresh(force=True)
         return self.get_all_variables_config()
 
-    # TODO(next major): consider making strict=True the default and requiring an explicit
-    #  opt-out for pushes that publish missing refs or undeclared template fields.
     def push_variables(
         self,
         variables: Sequence[Variable[object]],
         *,
         dry_run: bool = False,
         yes: bool = False,
-        strict: bool = False,
+        strict: bool = True,
     ) -> bool:
         """Push variable definitions to this provider.
 
@@ -1501,8 +1499,8 @@ class VariableProvider(ABC):
             variables: Variable instances to push.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas
-                or any reference errors are found.
+            strict: If True, fail on incompatible label values, missing references, or template-field issues.
+                Set to False to publish despite those issues. Reference cycles always block the push.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1778,7 +1776,7 @@ class VariableProvider(ABC):
         *,
         dry_run: bool = False,
         yes: bool = False,
-        strict: bool = False,
+        strict: bool = True,
     ) -> bool:
         """Push variable type definitions to this provider.
 
@@ -1795,7 +1793,7 @@ class VariableProvider(ABC):
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, abort when existing label values are incompatible with
-                the new type schema.
+                the new type schema. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -2002,7 +2000,7 @@ class NoOpVariableProvider(VariableProvider):
         *,
         dry_run: bool = False,
         yes: bool = False,
-        strict: bool = False,
+        strict: bool = True,
     ) -> bool:
         """No-op implementation that prints a message about missing provider configuration.
 

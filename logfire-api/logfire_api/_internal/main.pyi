@@ -1233,7 +1233,7 @@ class Logfire:
         """
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
         """Get all variables registered with this Logfire instance's config."""
-    def variables_push(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+    def variables_push(self, variables: list[Variable[Any] | TemplateVariable[Any, Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """Push variable definitions (metadata only) to the configured variable provider.
 
         This method syncs local variable definitions with the provider:
@@ -1250,8 +1250,8 @@ class Logfire:
                 variables registered on `with_settings()` siblings.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas
-                or any reference errors are found.
+            strict: If True, fail on incompatible label values, missing references, or template-field issues.
+                Set to False to publish despite those issues. Reference cycles always block the push.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1271,7 +1271,7 @@ class Logfire:
                 logfire.variables_push([feature_enabled])
             ```
         """
-    def variables_push_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+    def variables_push_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = True) -> bool:
         """Push variable type definitions to the configured variable provider.
 
         Variable types are reusable schema definitions that can be referenced by variables.
@@ -1293,7 +1293,7 @@ class Logfire:
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, abort when existing label values are incompatible with
-                the new type schema.
+                the new type schema. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
