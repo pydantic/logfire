@@ -67,7 +67,7 @@ def make_connection(
     max_timestamp: datetime | None = None,
 ) -> Connection:
     """Create a Connection backed by a mock transport."""
-    from logfire.experimental.query_client import LogfireQueryClient
+    from logfire.query_client import LogfireQueryClient
 
     transport = make_mock_transport(fields=fields, rows=rows, capture=capture)
     client = LogfireQueryClient(
