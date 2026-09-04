@@ -342,8 +342,8 @@ class VariableProvider(ABC):
             variables: Variable instances to push.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas
-                or any reference errors are found. Set to False to publish despite these issues.
+            strict: If True, fail on incompatible label values, missing references, or template-field issues.
+                Set to False to publish despite those issues. Reference cycles always block the push.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
