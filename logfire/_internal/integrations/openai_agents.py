@@ -379,11 +379,7 @@ def attributes_from_span_data(
             if events := get_response_span_events(span_data):
                 attributes['events'] = events
             if (usage := getattr(span_data.response, 'usage', None)) and getattr(usage, 'total_tokens', None):
-                if openai_cost_provider_url is not None:
-                    attributes.update(get_openai_usage_attributes(span_data.response, openai_cost_provider_url or None))
-                else:
-                    attributes['gen_ai.usage.input_tokens'] = usage.input_tokens
-                    attributes['gen_ai.usage.output_tokens'] = usage.output_tokens
+                attributes.update(get_openai_usage_attributes(span_data.response, openai_cost_provider_url))
         elif isinstance(span_data, GenerationSpanData):
             attributes['request_data'] = dict(
                 messages=list(span_data.input or []) + list(span_data.output or []), model=span_data.model
