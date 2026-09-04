@@ -129,14 +129,14 @@ def instrument_httpx(
 
     See the `Logfire.instrument_httpx` method for details.
     """
+    for removed_parameter in ('capture_request_headers', 'capture_response_headers'):
+        if removed_parameter in kwargs:
+            raise TypeError(f"instrument_httpx() got an unexpected keyword argument '{removed_parameter}'")
+
     if capture_all and (capture_headers or capture_request_body or capture_response_body):
         warn_at_user_stacklevel(
             'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
         )
-
-    for removed_parameter in ('capture_request_headers', 'capture_response_headers'):
-        if removed_parameter in kwargs:
-            raise TypeError(f"instrument_httpx() got an unexpected keyword argument '{removed_parameter}'")
 
     capture_all = cast(bool, GLOBAL_CONFIG.param_manager.load_param('httpx_capture_all', capture_all))
 

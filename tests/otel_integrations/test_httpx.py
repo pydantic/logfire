@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Generic, TypeAlias, TypeVar, cast
@@ -503,8 +504,10 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
 def test_removed_capture_header_parameters(removed_parameter: str, httpx_family: HTTPXFamilyType):
     expected_message = f"unexpected keyword argument '{removed_parameter}'"
 
-    with pytest.raises(TypeError, match=expected_message):
-        cast(Any, logfire.instrument_httpx)(**{removed_parameter: True})
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        with pytest.raises(TypeError, match=expected_message):
+            cast(Any, logfire.instrument_httpx)(capture_all=True, capture_headers=True, **{removed_parameter: True})
 
     with httpx_family.client() as client:
         with pytest.raises(TypeError, match=expected_message):
