@@ -6711,16 +6711,6 @@ Logfire MCP server added to OpenCode.
 """)
 
 
-def test_base_url_and_logfire_url(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
-):
-    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    with pytest.warns(
-        DeprecationWarning, match='The `--logfire-url` argument is deprecated. Use `--base-url` instead.'
-    ):
-        main(['--logfire-url', 'https://logfire-us.pydantic.dev', 'whoami'])
-
-
 def test_main_module() -> None:
     """Test that logfire.__main__ is importable for coverage."""
     assert subprocess.run([sys.executable, '-m', 'logfire', '--help'], check=True).returncode == 0
