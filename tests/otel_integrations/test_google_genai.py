@@ -338,10 +338,44 @@ def test_instrument_google_genai_without_capture_setting() -> None:
         assert env_var not in os.environ
 
 
-def test_instrument_google_genai_preserves_explicit_emit_event() -> None:
+@pytest.mark.vcr('test_instrument_google_genai.yaml')
+def test_instrument_google_genai_emit_event_opt_in(capfire: CaptureLogfire) -> None:
+    from google.genai import Client, types
+
     # The instrumentation force-sets OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT=true; if the user set it
-    # explicitly, that choice should survive so they can still opt back into the redundant event log.
+    # explicitly, that choice should survive so they can opt back into the event log. Unlike
+    # test_instrument_google_genai (which leaves it at the SPAN_ONLY default and gets no event), a request
+    # here should actually emit the event, proving the setting is honoured at request time.
     env_var = 'OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT'
     with patch.dict(os.environ, {env_var: 'true'}):
         logfire.instrument_google_genai()
         assert os.environ[env_var] == 'true'
+
+        client = Client()
+
+        def get_current_weather(location: str) -> str:
+            """Returns the current weather.
+
+            Args:
+              location: The city and state, e.g. San Francisco, CA
+            """
+            return 'rainy'
+
+        with warnings.catch_warnings():
+            # generate_content itself produces this warning, but only with pydantic 2.9.2 and python 3.13.
+            warnings.filterwarnings('ignore', category=UserWarning)
+
+            client.models.generate_content(  # type: ignore
+                model='gemini-2.0-flash-001',
+                contents=[
+                    'What is the weather like in Boston?',
+                    types.Part.from_bytes(data=b'123', mime_type='text/plain'),
+                ],
+                config=types.GenerateContentConfig(
+                    tools=[get_current_weather],
+                    system_instruction=[types.Part.from_text(text='help')],
+                ),
+            )
+
+    [log] = capfire.log_exporter.exported_logs_as_dicts()
+    assert log['attributes']['gen_ai.operation.name'] == 'generate_content'
