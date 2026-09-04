@@ -2805,7 +2805,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "4.41.0"
+version = "5.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -2951,7 +2951,6 @@ dev = [
     { name = "mysql-connector-python" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
-    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_version < '0'" },
     { name = "openai" },
     { name = "openai-agents", extra = ["voice"] },
     { name = "openinference-instrumentation-dspy" },
@@ -3168,7 +3167,7 @@ dev = [
 
 [[package]]
 name = "logfire-api"
-version = "4.41.0"
+version = "5.0.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]

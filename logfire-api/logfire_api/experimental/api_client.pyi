@@ -8,8 +8,8 @@ from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, ReportEvaluator
 from types import TracebackType
-from typing import Any, Generic, Literal, TypeVar, overload
-from typing_extensions import NotRequired, Self, TypedDict
+from typing import Any, Generic, Literal, overload
+from typing_extensions import NotRequired, Self, TypeForm, TypeVar, TypedDict
 from uuid import UUID
 
 Case = Any
@@ -19,8 +19,8 @@ ReportEvaluator = Any
 DEFAULT_TIMEOUT: Incomplete
 T = TypeVar('T', bound=BaseClient)
 InputsT = TypeVar('InputsT')
-OutputT = TypeVar('OutputT')
-MetadataT = TypeVar('MetadataT')
+OutputT = TypeVar('OutputT', default=Any)
+MetadataT = TypeVar('MetadataT', default=Any)
 ResponseT = TypeVar('ResponseT')
 
 class EvaluatorSpec(TypedDict):
@@ -424,7 +424,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     @overload
     def get_dataset(self, id_or_name: str, *, include_cases: Literal[True] = ...) -> ExportedDataset: ...
     @overload
-    def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (), custom_report_evaluator_types: Sequence[type[Any]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
+    def get_dataset(self, id_or_name: str, input_type: TypeForm[InputsT], output_type: TypeForm[OutputT] = ..., metadata_type: TypeForm[MetadataT] = ..., *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (), custom_report_evaluator_types: Sequence[type[Any]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     """Asynchronous client for managing Logfire datasets.
@@ -494,4 +494,4 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     @overload
     async def get_dataset(self, id_or_name: str, *, include_cases: Literal[True] = ...) -> ExportedDataset: ...
     @overload
-    async def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (), custom_report_evaluator_types: Sequence[type[Any]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
+    async def get_dataset(self, id_or_name: str, input_type: TypeForm[InputsT], output_type: TypeForm[OutputT] = ..., metadata_type: TypeForm[MetadataT] = ..., *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (), custom_report_evaluator_types: Sequence[type[Any]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
