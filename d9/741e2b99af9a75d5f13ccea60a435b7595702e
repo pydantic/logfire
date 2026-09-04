@@ -1,0 +1,37 @@
+CHANGELOG.md
+  s_73c76bd7f6a664::t_19f7e5157ecab7 20
+  s_73c76bd7f6a664::t_4e01652600add7 27,30
+  s_73c76bd7f6a664::t_618a40e43fffdc 15-19,22
+  s_73c76bd7f6a664::t_66b7bbe14ad360 13
+  s_73c76bd7f6a664::t_c2c090dffdfd55 8-9
+  s_73c76bd7f6a664::t_16526193f5d055 21
+  s_73c76bd7f6a664::t_04ca45ac08c7a0 28
+  s_73c76bd7f6a664::t_ea62369926412a 23
+  s_73c76bd7f6a664::t_0e901c3abbdfe8 5-7
+  s_73c76bd7f6a664::t_a4f6e42d9c925c 10-12
+  s_73c76bd7f6a664::t_8cfb0adb841231 14
+  s_73c76bd7f6a664::t_5b4375d56448b7 24-26
+  s_73c76bd7f6a664::t_9cb010421562f4 29
+  s_73c76bd7f6a664::t_cd2523293f60f5 31-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "d9741e2b99af9a75d5f13ccea60a435b7595702e",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_73c76bd7f6a664": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1788450876081",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
