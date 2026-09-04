@@ -1324,30 +1324,30 @@ def test_on_response_unknown_block_type() -> None:
     )
 
 
-def test_get_endpoint_config_latest_no_messages_no_system() -> None:
-    """Test get_endpoint_config with 'latest' version and empty messages + no system."""
+def test_get_endpoint_config_v2_no_messages_no_system() -> None:
+    """Test get_endpoint_config with version 2 and empty messages plus no system."""
     from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
 
     class MockOptions:
         url = '/v1/messages'
         json_data: dict[str, Any] = {'model': 'claude-3-haiku', 'messages': [], 'max_tokens': 100}
 
-    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
 
     assert config.message_template == 'Message with {request_data[model]!r}'
     assert 'gen_ai.input.messages' not in config.span_data
     assert 'gen_ai.system_instructions' not in config.span_data
 
 
-def test_get_endpoint_config_latest_messages_no_system() -> None:
-    """Test get_endpoint_config with messages but no system."""
+def test_get_endpoint_config_v2_messages_no_system() -> None:
+    """Test get_endpoint_config with version 2 messages but no system."""
     from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
 
     class MockOptions:
         url = '/v1/messages'
         json_data = {'model': 'claude-3-haiku', 'messages': [{'role': 'user', 'content': 'Hi'}], 'max_tokens': 100}
 
-    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
 
     assert 'gen_ai.input.messages' in config.span_data
     assert 'gen_ai.system_instructions' not in config.span_data
