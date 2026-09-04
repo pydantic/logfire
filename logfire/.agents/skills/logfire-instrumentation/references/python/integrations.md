@@ -5,11 +5,11 @@
 | Framework | Instrumentor | Needs app instance | Extra |
 |-----------|-------------|-------------------|-------|
 | FastAPI | `logfire.instrument_fastapi(app)` | Yes | `fastapi` |
-| Django | `logfire.instrument_django(app)` | Yes | `django` |
+| Django | `logfire.instrument_django()` | No | `django` |
 | Flask | `logfire.instrument_flask(app)` | Yes | `flask` |
 | Starlette | `logfire.instrument_starlette(app)` | Yes | `starlette` |
-| Any ASGI app | `logfire.instrument_asgi(app)` | Yes | `asgi` |
-| Any WSGI app | `logfire.instrument_wsgi(app)` | Yes | `wsgi` |
+| Any ASGI app | `app = logfire.instrument_asgi(app)` | Yes | `asgi` |
+| Any WSGI app | `app = logfire.instrument_wsgi(app)` | Yes | `wsgi` |
 
 ## HTTP Clients
 
@@ -41,7 +41,7 @@ PydanticAI, OpenAI, and Anthropic need **no Logfire extra** — install the libr
 |-----------|-------------|-------|
 | PydanticAI | `logfire.instrument_pydantic_ai()` | `pydantic-ai` installed (no extra) |
 | OpenAI | `logfire.instrument_openai()` | `openai` installed (no extra) |
-| OpenAI Agents SDK | `logfire.instrument_openai_agents()` | `agents` (openai-agents-python) installed (no extra) |
+| OpenAI Agents SDK | `logfire.instrument_openai_agents()` | `openai-agents` installed; imports as `agents` (no extra) |
 | Anthropic | `logfire.instrument_anthropic()` | `anthropic` installed (no extra) |
 | Claude Agent SDK | `logfire.instrument_claude_agent_sdk()` | `claude_agent_sdk` installed (no extra) |
 | LiteLLM | `logfire.instrument_litellm()` | `litellm` extra |
@@ -87,5 +87,8 @@ import logfire
 
 def post_fork(server, worker):
     logfire.configure()
-    logfire.instrument_fastapi(app)
 ```
+
+Add framework instrumentation in the worker too, using the actual application
+instance and the matching `instrument_*()` call. Do not reference an undefined
+`app` from `gunicorn.conf.py`.

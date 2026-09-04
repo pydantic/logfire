@@ -37,7 +37,6 @@ use logfire;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shutdown_handler = logfire::configure()
-        .install_panic_handler()  // captures panics as error spans
         .finish()?;
 
     // application code...
@@ -47,7 +46,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-Set `LOGFIRE_TOKEN` in your environment or use the Logfire CLI (`logfire auth`).
+Panic capture is enabled by default. Call
+`.with_install_panic_handler(false)` before `.finish()` only to disable it.
+
+Set `LOGFIRE_TOKEN` in your environment or follow the
+[authentication and project-selection flow](../auth.md), including `projects use`,
+to create `.logfire/logfire_credentials.json` for the selected project.
 
 ## Tracing Crate Compatibility
 
