@@ -523,6 +523,7 @@ def configure(
     code_source: CodeSource | None = None,
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
+    update_prices: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
@@ -607,6 +608,11 @@ def configure(
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
+        update_prices: Set to `True` to start downloading current model prices in the background immediately,
+            then once per hour. `configure()` does not wait for the first download to finish.
+            This requires `genai-prices>=0.1.6` and is disabled by default.
+
+            Defaults to the `LOGFIRE_UPDATE_PRICES` environment variable, or `False`.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -742,6 +748,7 @@ def configure(
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
+            update_prices=update_prices,
             advanced=advanced,
         )
     except LogfireConfigError as e:
@@ -830,6 +837,9 @@ class _LogfireConfigData:
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
+    update_prices: bool
+    """Whether to update model prices in the background."""
+
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -858,6 +868,7 @@ class _LogfireConfigData:
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        update_prices: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -874,6 +885,7 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
+        self.update_prices = param_manager.load_param('update_prices', update_prices)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
         if min_level is None:
@@ -1047,6 +1059,7 @@ class LogfireConfig(_LogfireConfigData):
         variables: VariablesOptions | None = None,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
+        update_prices: bool | None = None,
         advanced: AdvancedOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
@@ -1078,6 +1091,7 @@ class LogfireConfig(_LogfireConfigData):
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
+            update_prices=update_prices,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -1095,6 +1109,7 @@ class LogfireConfig(_LogfireConfigData):
         self._has_set_providers = False
         self._initialized = False
         self._lock = RLock()
+        self._price_updater_finalizer: Callable[[], Any] | None = None
 
     def configure(
         self,
@@ -1118,6 +1133,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        update_prices: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -1143,8 +1159,11 @@ class LogfireConfig(_LogfireConfigData):
                 code_source,
                 variables,
                 distributed_tracing,
+                update_prices,
                 advanced,
             )
+            if not self.update_prices:
+                self._release_price_updater()
             self.initialize()
 
     def initialize(self) -> None:
@@ -1615,6 +1634,44 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
+            self._sync_price_updater(emscripten)
+
+    def _sync_price_updater(self, emscripten: bool) -> None:
+        if not self.update_prices or self._price_updater_finalizer is not None:
+            return
+        if emscripten:
+            warn_at_user_stacklevel(
+                'Background model price updates are not supported on Emscripten.', LogfireConfigWarning
+            )
+            return
+
+        try:
+            from genai_prices import UpdatePrices
+        except Exception as exc:
+            warn_at_user_stacklevel(
+                '`logfire.configure(update_prices=True)` requires the `genai-prices` package. '
+                f'Background model price updates are disabled: {exc}',
+                LogfireConfigWarning,
+            )
+            return
+
+        try:
+            updater = UpdatePrices()
+            updater.start()
+        except Exception as exc:
+            warn_at_user_stacklevel(f'Failed to start the model price updater: {exc}', LogfireConfigWarning)
+            return
+
+        # Each config owns one updater handle. genai-prices combines all started handles into one process-wide worker,
+        # so Logfire and other libraries such as Pydantic AI can enable updates without creating duplicate workers.
+        self._price_updater_finalizer = weakref.finalize(self, _stop_price_updater, updater)
+
+    def _release_price_updater(self) -> None:
+        finalizer = self._price_updater_finalizer
+        self._price_updater_finalizer = None
+        if finalizer is not None:
+            finalizer()
+
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.
 
@@ -1632,6 +1689,8 @@ class LogfireConfig(_LogfireConfigData):
 
     def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
         """Shut down variables, forwarding, traces, logs, and metrics."""
+        with self._lock:
+            self._release_price_updater()
         start = time.monotonic()
 
         def remaining_ms() -> int:
@@ -1855,6 +1914,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
                 'min_level': config.min_level,
                 'add_baggage_to_attributes': config.add_baggage_to_attributes,
                 'distributed_tracing': config.distributed_tracing,
+                'update_prices': config.update_prices,
                 'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
                 'tail_sampling_enabled': sampling.tail is not None,
                 'code_source_set': config.code_source is not None,
@@ -1875,6 +1935,11 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
 
 # Global list to track all LogfireConfig instances for cleanup on exit
 _LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
+
+
+@handle_internal_errors
+def _stop_price_updater(updater: Any) -> None:
+    updater.stop()
 
 
 def exit_open_spans():  # pragma: no cover
