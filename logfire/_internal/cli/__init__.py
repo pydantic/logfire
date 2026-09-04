@@ -11,7 +11,6 @@ import platform
 import shutil
 import subprocess
 import sys
-import warnings
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from operator import itemgetter
@@ -903,7 +902,6 @@ def _main(args: list[str] | None = None) -> None:
         help='never prompt; fail with guidance if an answer would be required',
     )
     url_or_region_grp = global_opts.add_mutually_exclusive_group()
-    url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
     url_or_region_grp.add_argument(
         '--base-url', help='the base URL for self-hosted Logfire instances (e.g., http://localhost:8080)'
     )
@@ -1019,15 +1017,7 @@ def _main(args: list[str] | None = None) -> None:
         namespace = parser.parse_args(args)
     set_non_interactive(namespace.non_interactive)
 
-    if namespace.logfire_url:
-        warnings.warn(
-            'The `--logfire-url` argument is deprecated. Use `--base-url` instead.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-    namespace.logfire_url = namespace.logfire_url or namespace.base_url
-    namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
+    namespace.logfire_url = _get_logfire_url(namespace.base_url, namespace.region)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())
     tracer = trace.get_tracer(__name__)
