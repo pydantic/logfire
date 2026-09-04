@@ -55,8 +55,6 @@ def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'meter_provider': logfire_instance.config.get_meter_provider(),
-            # Pass this instance's logger provider so that, in the EVENT_ONLY / SPAN_AND_EVENT modes where the
-            # event log carries content, it's exported to this instance rather than the global default.
             'logger_provider': logfire_instance.config.get_logger_provider(),
             **kwargs,
         }
