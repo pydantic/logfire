@@ -1,0 +1,23 @@
+.github/workflows/main.yml
+  s_d87f8974971a8d::t_e3500d4aef7534 111-117
+.github/workflows/deps_test.yml
+  s_d87f8974971a8d::t_e3500d4aef7534 113-119
+tests/test_json_args.py
+  s_d87f8974971a8d::t_6078d22a966d3d 540
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f248b4195ded1725114f6babff6e3af3b99cbcbd",
+  "prompts": {},
+  "sessions": {
+    "s_d87f8974971a8d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06ccd-5b9f-7ef3-8bc6-c905180f6b5c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
