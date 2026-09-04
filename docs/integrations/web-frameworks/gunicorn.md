@@ -61,7 +61,8 @@ regardless of which worker handled it.
 Not seeing your requests in Logfire? Check that `logfire.configure()` is called inside the `post_fork`
 hook (not at module top level, where it runs before workers fork), and that your write token is set. For
 Flask, check that `instrument_flask(worker.wsgi)` runs inside `post_worker_init`, as shown below. Other
-frameworks can require different setup; follow that framework's [integration page](../index.md).
+frameworks can require different setup; choose the relevant framework from the
+[web framework integrations](index.md).
 
 ## Advanced
 
