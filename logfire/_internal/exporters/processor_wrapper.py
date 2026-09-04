@@ -559,6 +559,7 @@ def _transform_google_genai_span(span: ReadableSpanDict):
     span['attributes'] = {
         **attributes,
         'gen_ai.operation.name': 'chat',
+        'gen_ai.system': 'gemini',
     }
     # Rewrite the shared util.genai scope back to the specific instrumentation library so the span is
     # attributable to google-genai (as it was before 1.0b0). Upstream issue:
