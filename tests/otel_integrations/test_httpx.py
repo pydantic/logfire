@@ -502,16 +502,18 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
 
 @pytest.mark.parametrize('removed_parameter', ['capture_request_headers', 'capture_response_headers'])
 def test_removed_capture_header_parameters(removed_parameter: str, httpx_family: HTTPXFamilyType):
-    expected_message = f"unexpected keyword argument '{removed_parameter}'"
+    expected_message = f'The `{removed_parameter}` parameter has been removed. Use `capture_headers` instead.'
 
     with warnings.catch_warnings():
         warnings.simplefilter('error')
-        with pytest.raises(TypeError, match=expected_message):
+        with pytest.raises(TypeError) as exc_info:
             cast(Any, logfire.instrument_httpx)(capture_all=True, capture_headers=True, **{removed_parameter: True})
+        assert str(exc_info.value) == expected_message
 
     with httpx_family.client() as client:
-        with pytest.raises(TypeError, match=expected_message):
+        with pytest.raises(TypeError) as exc_info:
             cast(Any, logfire.instrument_httpx)(client, **{removed_parameter: True})
+        assert str(exc_info.value) == expected_message
 
 
 CAPTURE_JSON_BODY_PARAMETERS: tuple[tuple[str, ...], list[Any]] = (

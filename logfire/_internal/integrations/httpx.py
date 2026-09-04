@@ -131,7 +131,7 @@ def instrument_httpx(
     """
     for removed_parameter in ('capture_request_headers', 'capture_response_headers'):
         if removed_parameter in kwargs:
-            raise TypeError(f"instrument_httpx() got an unexpected keyword argument '{removed_parameter}'")
+            raise TypeError(f'The `{removed_parameter}` parameter has been removed. Use `capture_headers` instead.')
 
     if capture_all and (capture_headers or capture_request_body or capture_response_body):
         warn_at_user_stacklevel(
