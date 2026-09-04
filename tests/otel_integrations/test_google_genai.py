@@ -18,6 +18,12 @@ os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
 os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 
 pytestmark = [
+    # These tests share process-global state (the singleton google-genai instrumentor and its cached
+    # content-capture mode, the module-level env vars, and the VCR/HTTP replay). Under CI's
+    # `--dist=loadgroup` they must run on a single worker in collection order, together with the autouse
+    # `uninstrument_google_genai` fixture, or they contaminate each other (e.g. one test replaying another's
+    # cassette). They pass deterministically when run serially on one worker.
+    pytest.mark.xdist_group(name='google_genai'),
     # google-genai >= 2.9.0 requires pydantic >= 2.12.5. On older pydantic its generated
     # `_gaos` models (which declare `__pydantic_extra__` as a field) fail to import.
     pytest.mark.skipif(
@@ -162,6 +168,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
+                    'gen_ai.system': 'gemini',
                 },
             },
         ]
@@ -242,6 +249,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
+                    'gen_ai.system': 'gemini',
                 },
             },
         ]
@@ -300,6 +308,7 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                         }
                     ],
                     'gen_ai.response.model': 'gemini-2.5-flash',
+                    'gen_ai.system': 'gemini',
                 },
             }
         ]
