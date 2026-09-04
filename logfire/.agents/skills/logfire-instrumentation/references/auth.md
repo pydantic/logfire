@@ -2,37 +2,64 @@
 
 Shared by all three Logfire setup skills (instrumentation, infrastructure, evals) — whichever skill you're following, run this once per session; a later skill's own `whoami` check will report "already resolved" and can be skipped.
 
-Check first, before assuming anything needs to happen:
+Before trusting repository-local credentials, inspect path metadata only: neither
+`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink. In a Git
+worktree, `git ls-files -- .logfire` must report nothing except an optional
+`.logfire/.gitignore`; a tracked credentials file or tracked `.logfire` directory
+is unsafe. Stop and report the unsafe path rather than reading or overwriting it.
+This metadata check is allowed before the calling skill's repository-inspection
+step; do not open any application or configuration file yet.
+
+Then check, before assuming anything needs to happen. With `uv`, use an
+isolated, config-free, version-pinned environment and invoke Python in isolated
+mode so repository-local packages and `PYTHONPATH` cannot shadow the CLI:
 
 ```bash
-uvx logfire --non-interactive whoami
-# or, JS/TS project with no Python tooling: npx logfire whoami (no --non-interactive)
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive whoami
 ```
 
-If that already reports the right project and region, you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. Both are real, maintained CLIs (the JS one lives in `pydantic/logfire-js` and ships to npm as the bare `logfire` package) with near-identical commands — but they are not flag-identical:
-
-- **`--non-interactive` is Python-CLI-only right now.** The JS CLI (`npx logfire`) doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every `npx logfire` invocation below; keep it on every `uvx logfire` one.
-- **If `npx logfire <anything>` — including `--help`, or a name you made up — exits 0 with zero output**, that's a stale global npm install of `logfire` from before v0.21.9 shadowing the fetch (a real, now-fixed bug: invoking the published bin through a symlink, which is exactly how npx and global installs both work, made the entrypoint check fail silently). Check with `npm ls -g logfire`; if it reports a version below 0.21.9, uninstall it (`npm uninstall -g logfire`) so `npx` fetches current instead of using the stale global one, or use `uvx` for this step instead.
+In a JS/TS project without `uv`, use this POSIX-shell fallback. Every invocation
+gets a newly created external npm prefix, so npm cannot choose a repository-local
+binary. The exact package version and `--ignore-scripts` keep the reviewed CLI
+artifact stable and prevent lifecycle scripts from running:
 
 ```bash
-# Python CLI (uvx logfire) -- always include --non-interactive:
-uvx logfire --non-interactive --region <region> auth
-uvx logfire --non-interactive projects list --json
-uvx logfire --non-interactive projects use <project-name> --org <organization-name>
-uvx logfire --non-interactive whoami
-
-# JS CLI (npx logfire) -- same commands and flags, but drop --non-interactive entirely:
-npx logfire --region <region> auth
-npx logfire projects list --json
-npx logfire projects use <project-name> --org <organization-name>
-npx logfire whoami
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire whoami
 ```
 
-**On the Python CLI, always put `--non-interactive` immediately after `logfire`, on every invocation, for the rest of whichever skill sent you here too.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there's no TTY for the CLI to notice is missing, so it can't detect this on its own. It's the only way to guarantee a clear error instead of a silent hang. The JS CLI doesn't have this flag yet; if a JS-CLI command needs to ask something (e.g. which account, when more than one token is cached) with no TTY attached, it fails with a clear "not running in a terminal" error instead of hanging — so the outcome is the same either way, just reached differently.
+Do not use a plain `npx logfire` command or omit the external `--prefix`. The npm
+CLI does not support `--non-interactive`; without a TTY it fails instead of
+prompting. On Windows, install `uv` from its
+[official installation guide](https://docs.astral.sh/uv/getting-started/installation/)
+and use the isolated Python CLI above rather than translating the POSIX command
+into a repository-local npm invocation.
 
-- Determine the region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front — `--region {us,eu}` is global, right after `logfire --non-interactive`, before the subcommand.
+If `whoami` already reports the right project and region, you're done — skip
+straight to the rest of whichever skill sent you here. Never undo or
+re-authenticate over a session that's already valid. Otherwise, determine the
+region from the user's context or project URL before authenticating; if it is
+unknown, ask rather than guessing. Then run the matching sequence:
+
+```bash
+# Python CLI
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --region <region> auth
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --region <region> projects list --json
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --region <region> projects use <project-name> --org <organization-name>
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --region <region> whoami
+
+# JS CLI (POSIX shell)
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> auth
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> projects list --json
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> projects use <project-name> --org <organization-name>
+env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts --prefix "$(mktemp -d)" --package=logfire@0.22.5 -- logfire --region <region> whoami
+```
+
+**On the Python CLI, always put `--non-interactive` immediately after `logfire`.**
+Without it, a question with nobody to answer it can block on a read that never
+returns.
+
 - `auth` with `--non-interactive` does **not** open a browser — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently.
-- `projects list --json`: exactly one project returned? Use it. Several plausible and none identified? Ask the user. None exist? `uvx logfire --non-interactive projects new <project-name> --org <organization-name>` instead (JS: `npx logfire projects new <project-name> --org <organization-name>`).
+- `projects list --json`: exactly one project returned? Use it. Several plausible and none identified? Ask the user. None exist? Use `projects new <project-name> --org <organization-name>` with the same verified CLI prefix instead.
 - Any command failing with `NonInteractiveError` explains what to do next in its own message — usually the exact missing flag (commonly `--org`), but `auth` with no region instead prints a runnable `--region <id> auth` line per region. Follow what the message says and retry once. Don't drop `--non-interactive` to make the error go away; that trades a clear message for the hang it exists to prevent.
 - `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
 - If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing.

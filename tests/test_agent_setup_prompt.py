@@ -69,10 +69,27 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
     instrumentation = (skill_root / 'SKILL.md').read_text()
     auth = (skill_root / 'references' / 'auth.md').read_text()
+    integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
 
     assert '--region <region> auth' in auth
     assert '--region eu auth' not in auth
+    assert 'python -I -m logfire' in auth
+    assert (
+        'env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ exec --yes --ignore-scripts '
+        '--prefix "$(mktemp -d)" --package=logfire@0.22.5' in auth
+    )
+    assert '\nnpx logfire' not in auth
+    assert 'JS CLI (POSIX shell)' in auth
+    assert 'git ls-files -- .logfire' in auth
+    assert 'neither\n`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink' in auth
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
+    assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
+    assert 'cargo add logfire' in instrumentation
+    assert 'logfire = "0.6"' not in instrumentation
+    assert '`app = logfire.instrument_asgi(app)`' in integrations
+    assert '`app = logfire.instrument_wsgi(app)`' in integrations
+    assert '`logfire.instrument_django()` | No' in integrations
+    assert '`openai-agents` installed; imports as `agents`' in integrations
     assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
     assert 'LangGraph agents produce an agent root' in instrumentation
     assert 'Neither path marks an agent root span' not in instrumentation
