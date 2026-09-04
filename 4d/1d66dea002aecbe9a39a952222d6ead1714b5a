@@ -1,0 +1,14 @@
+logfire/integrations/pydantic.py
+  h_d9dd17644dded9 159-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4d1d66dea002aecbe9a39a952222d6ead1714b5a",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
