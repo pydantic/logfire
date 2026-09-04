@@ -105,6 +105,7 @@ on the legacy `request_data` and `response_data` attributes, emit both formats w
 ```python skip-run="true" skip-reason="migration configuration example"
 import logfire
 
+logfire.configure()
 logfire.instrument_anthropic(version=[1, 2])
 ```
 
