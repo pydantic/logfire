@@ -7,6 +7,7 @@ import requests
 from dirty_equals import IsInt
 from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
+from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics.export import (
@@ -380,6 +381,8 @@ def test_metrics_in_spans(exporter: TestExporter):
 
     with logfire.span('span'):
         tokens.add(100, attributes=dict(model='gpt4'))
+        tokens.add(123, context=Context())
+        tokens.add(456, {}, Context())
         with logfire.span('nested_span'):
             tokens.add(200, attributes=dict(model='gpt4'))
             tokens.add(500, attributes=dict(model='gemini-2.5'))
