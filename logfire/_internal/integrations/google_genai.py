@@ -48,6 +48,7 @@ def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
     # every request span. In the span-based capture modes we use, that event is redundant (it duplicates the
     # span attributes and, without content, adds nothing). Restore the user's own setting afterwards so the
     # event follows the normal default for the content-capture mode (no event for NO_CONTENT / SPAN_ONLY).
+    # Upstream issue: https://github.com/open-telemetry/opentelemetry-python-genai/issues/619
     emit_event = os.environ.get(EMIT_EVENT_ENV_VAR)
 
     GoogleGenAiSdkInstrumentor().instrument(
