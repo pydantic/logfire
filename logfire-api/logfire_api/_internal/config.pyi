@@ -270,13 +270,13 @@ class LogfireConfig(_LogfireConfigData):
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
     def shutdown(self, timeout_millis: int = 30000, flush: bool = True) -> bool:
         """Shut down variables, forwarding, traces, logs, and metrics."""

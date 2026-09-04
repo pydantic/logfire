@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from typing import Any
+from unittest import mock
 
 import pytest
 from inline_snapshot import snapshot
@@ -1249,6 +1250,41 @@ def test_push_variables_no_variables() -> None:
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
     result = logfire.variables_push([])
     assert result is False
+
+
+def test_variables_push_is_strict_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The public API rejects incompatible label values unless strict mode is explicitly disabled."""
+    provider = LocalVariableProvider(
+        VariablesConfig(
+            variables={
+                'strict_default': VariableConfig(
+                    name='strict_default',
+                    labels={'production': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'string'},
+                )
+            }
+        )
+    )
+    monkeypatch.setattr(logfire.DEFAULT_LOGFIRE_INSTANCE.config, '_variable_provider', provider)
+    variable = logfire.var(name='strict_default', default=0, type=int)
+
+    assert logfire.variables_push([variable], yes=True) is False
+    assert provider.get_all_variables_config().variables['strict_default'].json_schema == {'type': 'string'}
+
+
+def test_variables_push_types_is_strict_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The public type-push API passes the new strict default to its provider."""
+    provider = mock.Mock()
+    provider.push_variable_types.return_value = False
+    monkeypatch.setattr(logfire.DEFAULT_LOGFIRE_INSTANCE.config, '_variable_provider', provider)
+
+    class FeatureConfig(BaseModel):
+        enabled: bool
+
+    assert logfire.variables_push_types([FeatureConfig]) is False
+    provider.push_variable_types.assert_called_once_with([FeatureConfig], dry_run=False, yes=False, strict=True)
 
 
 def test_var_registers_variable() -> None:

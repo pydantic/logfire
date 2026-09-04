@@ -676,6 +676,43 @@ def test_logfire_shutdown_closes_providers(monkeypatch: pytest.MonkeyPatch, flus
     meter_provider.shutdown.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    ('logger_result', 'forwarding_result', 'tracer_result', 'expected'),
+    [
+        (True, True, True, True),
+        (None, True, True, True),
+        (False, True, True, False),
+        (True, False, True, False),
+        (True, True, False, False),
+    ],
+)
+def test_force_flush_combines_provider_results(
+    monkeypatch: pytest.MonkeyPatch,
+    logger_result: bool | None,
+    forwarding_result: bool,
+    tracer_result: bool,
+    expected: bool,
+) -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    meter_provider = mock.Mock()
+    logger_provider = mock.Mock()
+    logger_provider.force_flush.return_value = logger_result
+    otlp_forwarding = mock.Mock()
+    otlp_forwarding.force_flush.return_value = forwarding_result
+    tracer_provider = mock.Mock()
+    tracer_provider.force_flush.return_value = tracer_result
+    monkeypatch.setattr(config, '_meter_provider', meter_provider)
+    monkeypatch.setattr(config, '_logger_provider', logger_provider)
+    monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
+    monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+
+    assert config.force_flush(123) is expected
+    meter_provider.force_flush.assert_called_once_with(123)
+    logger_provider.force_flush.assert_called_once_with(123)
+    otlp_forwarding.force_flush.assert_called_once_with(123)
+    tracer_provider.force_flush.assert_called_once_with(123)
+
+
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     assert isinstance(processor, BatchSpanProcessor)
     try:
