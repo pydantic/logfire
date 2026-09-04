@@ -28,7 +28,7 @@ Set the token as the value for the environment variable `LOGFIRE_TOKEN` and logf
 
 You may want to not send data to logfire during local development, but still have the option to send it in production without changing your code.
 To do this we provide the parameter `send_to_logfire='if-token-present'` in the `logfire.configure()` function.
-If you set it to `'if-token-present'`, logfire will only send data to logfire if a write token is present in the environment variable `LOGFIRE_TOKEN` or there is a token saved locally.
+If you set it to `'if-token-present'`, Logfire will only send data if `LOGFIRE_TOKEN` contains a project API key with **Send telemetry** (`project:write_otlp`) permission or a write token, or if a token is saved locally.
 If you run tests in CI no data will be sent.
 
 You can also set the environment variable `LOGFIRE_SEND_TO_LOGFIRE` to configure this option.
