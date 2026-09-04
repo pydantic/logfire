@@ -25,11 +25,15 @@ class TraceBuffer:
     """Arguments of `SpanProcessor.on_start` and `SpanProcessor.on_end` for spans in a single trace.
 
     These are stored until either the trace is included by tail sampling or it's completed and discarded.
+    The buffer is kept until every started span has ended, not just until the root ends, so a
+    late child of a dropped trace is not exported and a late child that meets the sampling
+    criteria can still include the rest of the trace.
     """
 
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
     first_span: Span
+    outstanding: int = 0
 
     @cached_property
     def trace_id(self) -> int:
@@ -101,7 +105,8 @@ class SamplingOptions:
     for a common use case.
 
     Every span in a trace will be stored in memory until either the trace is included by tail sampling
-    or it's completed and discarded, so large traces may consume a lot of memory.
+    or every started span has ended and the trace is discarded. Large traces and traces with long-running
+    spans may therefore consume a lot of memory.
     """
 
     @classmethod
@@ -191,6 +196,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 if buffer is not None:
                     # This trace's spans haven't met the criteria yet, so add this span to the buffer.
                     # Only track started spans if there's a deferred processor that needs replay.
+                    buffer.outstanding += 1
                     if self.deferred_processor is not None:
                         buffer.started.append((span, parent_context))
                     dropped = self.check_span(TailSamplingSpanInfo(span, parent_context, 'start', buffer))
@@ -224,9 +230,9 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 if buffer is not None:
                     buffer.ended.append(span)
                     dropped = self.check_span(TailSamplingSpanInfo(span, None, 'end', buffer))
-                    if span.parent is None:
-                        # This is the root span, so the trace is hopefully complete.
-                        # Delete the buffer to save memory.
+                    buffer.outstanding -= 1
+                    # Drop the buffer only once every started span has ended
+                    if buffer.outstanding <= 0:
                         self.traces.pop(trace_id, None)
 
         # This code may take longer since it calls processors which might do anything.

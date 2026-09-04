@@ -1,5 +1,11 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 import os
+import sys
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from unittest import mock
 
 import pydantic
@@ -11,8 +17,84 @@ import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
-if get_version(pydantic.__version__) < get_version('2.5.0'):
-    pytest.skip('DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import', allow_module_level=True)
+
+@contextmanager
+def _event_loop_policy(policy: asyncio.AbstractEventLoopPolicy) -> Generator[None, None, None]:
+    previous_policy = asyncio.get_event_loop_policy()  # pyright: ignore[reportDeprecated]
+    asyncio.set_event_loop_policy(policy)  # pyright: ignore[reportDeprecated]
+    try:
+        yield
+    finally:
+        asyncio.set_event_loop_policy(previous_policy)  # pyright: ignore[reportDeprecated]
+
+
+@contextmanager
+def _current_event_loop(loop: asyncio.AbstractEventLoop) -> Generator[None, None, None]:
+    """Temporarily set a loop on Python 3.14+, where get_event_loop() never creates one."""
+    try:
+        previous_loop = asyncio.get_event_loop()
+    except RuntimeError:
+        previous_loop = None
+
+    asyncio.set_event_loop(loop)
+    try:
+        yield
+    finally:
+        asyncio.set_event_loop(previous_loop)
+
+
+@contextmanager
+def _isolated_litellm_event_loop() -> Generator[None, None, None]:
+    """Give LiteLLM a loop owned by this test without disturbing an existing loop."""
+    if sys.version_info >= (3, 14):
+        loop = asyncio.new_event_loop()
+        try:
+            with _current_event_loop(loop):
+                yield
+        finally:
+            loop.close()
+        return
+
+    test_policy = asyncio.DefaultEventLoopPolicy()
+    with _event_loop_policy(test_policy):
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            yield
+        finally:
+            loop.close()
+
+
+@pytest.fixture
+def isolated_litellm_event_loop() -> Iterator[None]:
+    with _isolated_litellm_event_loop():
+        yield
+
+
+def _assert_litellm_event_loop_is_isolated(existing_loop: asyncio.AbstractEventLoop) -> None:
+    with _isolated_litellm_event_loop():
+        isolated_loop = asyncio.get_event_loop()
+        assert isolated_loop is not existing_loop
+
+    assert isolated_loop.is_closed()
+    assert asyncio.get_event_loop() is existing_loop
+    assert not existing_loop.is_closed()
+
+
+def test_isolated_litellm_event_loop_preserves_existing_loop() -> None:
+    existing_loop = asyncio.new_event_loop()
+    try:
+        if sys.version_info >= (3, 14):
+            with _current_event_loop(existing_loop):
+                _assert_litellm_event_loop_is_isolated(existing_loop)
+        else:
+            existing_policy = asyncio.DefaultEventLoopPolicy()
+            with _event_loop_policy(existing_policy):
+                asyncio.set_event_loop(existing_loop)
+                _assert_litellm_event_loop_is_isolated(existing_loop)
+                assert asyncio.get_event_loop_policy() is existing_policy  # pyright: ignore[reportDeprecated]
+    finally:
+        existing_loop.close()
 
 
 def test_missing_openinference_dependency() -> None:
@@ -27,7 +109,10 @@ You can install this with:
 
 
 @pytest.mark.vcr()
-def test_dspy_instrumentation(exporter: TestExporter) -> None:
+@pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.10.0'), reason='LiteLLM requires Pydantic >= 2.10'
+)
+def test_dspy_instrumentation(exporter: TestExporter, isolated_litellm_event_loop: None) -> None:
     # Skip test if dspy can't be imported due to compatibility issues
     dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
 

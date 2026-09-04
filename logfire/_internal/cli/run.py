@@ -51,7 +51,6 @@ OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-celery': 'celery',
     'opentelemetry-instrumentation-confluent-kafka': 'confluent_kafka',
     'opentelemetry-instrumentation-django': 'django',
-    'opentelemetry-instrumentation-elasticsearch': 'elasticsearch',
     'opentelemetry-instrumentation-falcon': 'falcon',
     'opentelemetry-instrumentation-fastapi': 'fastapi',
     'opentelemetry-instrumentation-flask': 'flask',

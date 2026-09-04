@@ -38,7 +38,9 @@ By default, the prompts and completions are hidden: the spans show `<elided>` in
 capture the actual message content (so you can read the conversation in Logfire), set the
 `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` environment variable to `SPAN_ONLY`. This sends
 the prompt and response text to Logfire, so leave it off if that content is sensitive. Logfire also
-accepts the earlier values `true` and `false`, mapping them to `SPAN_ONLY` and `NO_CONTENT`.
+accepts the earlier values `true` and `false`, mapping them to `SPAN_ONLY` and `NO_CONTENT`. Other
+instrumentors can interpret this OpenTelemetry environment variable differently; for Google Agent
+Development Kit (ADK), see [its content-capture modes](./google-adk.md#usage).
 
 ```python hl_lines="8 10-11" skip-run="true" skip-reason="external-connection"
 import os

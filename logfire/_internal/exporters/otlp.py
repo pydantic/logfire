@@ -18,13 +18,23 @@ import requests.exceptions
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs._internal.export import LogRecordExportResult
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
 
 import logfire
+from logfire._internal.utils import handle_internal_errors
 
-from ..utils import logger, platform_is_emscripten
+from ..constants import (
+    ATTRIBUTES_MESSAGE_KEY,
+    ATTRIBUTES_SPAN_TYPE_KEY,
+    HTTP_CONNECT_TIMEOUT,
+    OTLP_MAX_INT_SIZE,
+    log_level_attributes,
+)
+from ..stack_info import STACK_INFO_KEYS
+from ..utils import logger, platform_is_emscripten, truncate_string
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
 
 _DISK_RETRYERS: list[weakref.ref[DiskRetryer]] = []
@@ -60,13 +70,31 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
             # Tell outer RetryFewerSpansSpanExporter to split in half
             raise BodyTooLargeError(len(serialized_data), self.max_body_size)
 
-        return super()._export(serialized_data, *args, **kwargs)
+        response = super()._export(serialized_data, *args, **kwargs)
+        if response.status_code == 413:
+            # The backend checks the decompressed payload, so keep this in the same
+            # pre-compression units as the local size limit above.
+            raise BodyTooLargeError(len(serialized_data), None)
+        return response
 
 
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
+    @staticmethod
+    def _configure_timeout(kwargs: dict[str, Any]) -> None:
+        timeout = kwargs.get('timeout')
+        if isinstance(timeout, (int, float)):
+            kwargs['timeout'] = (min(HTTP_CONNECT_TIMEOUT, timeout), timeout)
+
+    def request(self, method: str, url: str, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
+        self._configure_timeout(kwargs)
+        return super().request(method, url, **kwargs)
+
     def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
+        # Configure this before calling `_post` so disk retries preserve the split timeout.
+        self._configure_timeout(kwargs)
+
         start_time = time.time()
         try:
             return self._post(url, data, **kwargs)
@@ -274,21 +302,75 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         try:
             return super().export(spans)
-        except BodyTooLargeError:
+        except BodyTooLargeError as e:
+            if len(spans) == 1:
+                with handle_internal_errors:
+                    error_span = self._make_log_too_large_span(e, spans[0])
+                    super().export([error_span])
+
+                return SpanExportResult.FAILURE
+
             half = len(spans) // 2
-            # BodySizeCheckingOTLPSpanExporter should only raise BodyTooLargeError for >1 span,
-            # otherwise it should just try exporting it.
-            assert half > 0
             res1 = self.export(spans[:half])
             res2 = self.export(spans[half:])
             if res1 is not SpanExportResult.SUCCESS or res2 is not SpanExportResult.SUCCESS:
                 return SpanExportResult.FAILURE
             return SpanExportResult.SUCCESS
 
+    @staticmethod
+    def _make_log_too_large_span(e: BodyTooLargeError, span: ReadableSpan) -> ReadableSpan:
+        original_attributes = span.attributes or {}
+        new_attributes: dict[str, Any] = {'size': e.size}
+        if e.max_size is not None:
+            new_attributes['max_size'] = e.max_size
+
+        for key in STACK_INFO_KEYS:
+            with handle_internal_errors:
+                if key in original_attributes:  # pragma: no branch
+                    value = original_attributes[key]
+                    if isinstance(value, str):
+                        new_attributes[key] = truncate_string(value, max_length=300)
+                    elif key == 'code.lineno' and type(value) is int and 0 <= value <= OTLP_MAX_INT_SIZE:
+                        new_attributes[key] = value
+
+        with handle_internal_errors:
+            span_name = truncate_string(span.name, max_length=1000)
+            new_attributes.update(
+                span_name=span_name,
+                num_attributes=len(original_attributes),
+                num_events=len(span.events),
+                num_links=len(span.links),
+                num_event_attributes=sum(len(event.attributes or {}) for event in span.events),
+                num_link_attributes=sum(len(link.attributes or {}) for link in span.links),
+            )
+
+        message = f'Failed to export a span of size {e.size:,} bytes: {span_name}'
+        attributes = {
+            ATTRIBUTES_SPAN_TYPE_KEY: 'log',
+            **log_level_attributes('error'),
+            ATTRIBUTES_MESSAGE_KEY: message,
+            **new_attributes,
+        }
+
+        return ReadableSpan(
+            name='Failed to export span that was too large',
+            # The original span was rejected, so this small record replaces it in the same trace.
+            context=span.context,
+            parent=span.parent,
+            resource=Resource.get_empty(),
+            attributes=attributes,
+            start_time=span.end_time,
+            end_time=span.end_time,
+        )
+
 
 class BodyTooLargeError(Exception):
-    def __init__(self, size: int, max_size: int) -> None:
-        super().__init__(f'Request body is too large ({size} bytes), must be less than {max_size} bytes.')
+    def __init__(self, size: int, max_size: int | None) -> None:
+        if max_size is None:
+            message = f'Request body is too large ({size} bytes).'
+        else:
+            message = f'Request body is too large ({size} bytes), must be less than {max_size} bytes.'
+        super().__init__(message)
         self.size = size
         self.max_size = max_size
 

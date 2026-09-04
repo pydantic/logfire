@@ -742,3 +742,53 @@ def test_tail_sampling_config_without_pending_span_processors():
     logfire.info('test')
     logfire.force_flush()
     assert 'test' in on_end_spans
+
+
+class _NameCollector(SpanProcessor):
+    def __init__(self) -> None:
+        self.names: list[str] = []
+
+    def on_start(self, span: Span, parent_context: Any = None) -> None:
+        pass
+
+    def on_end(self, span: ReadableSpan) -> None:
+        self.names.append(span.name)
+
+    def shutdown(self) -> None:
+        pass
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+
+def test_dropped_trace_does_not_export_span_ending_after_root():
+    """A child that outlives a dropped root must not take the pass-through export path."""
+    collector = _NameCollector()
+    processor = TailSamplingProcessor(collector, get_tail_sample_rate=lambda info: 0.0)
+    provider = TracerProvider()
+    provider.add_span_processor(processor)
+    tracer = provider.get_tracer('test')
+
+    with tracer.start_as_current_span('root'):
+        child = tracer.start_span('child')
+    child.end()
+
+    assert collector.names == []
+
+
+def test_late_span_can_still_sample_trace_after_root_ends():
+    """A child ending after the root can still include the whole trace."""
+    collector = _NameCollector()
+    processor = TailSamplingProcessor(
+        collector,
+        get_tail_sample_rate=lambda info: 1.0 if info.event == 'end' and info.span.name == 'child' else 0.0,
+    )
+    provider = TracerProvider()
+    provider.add_span_processor(processor)
+    tracer = provider.get_tracer('test')
+
+    with tracer.start_as_current_span('root'):
+        child = tracer.start_span('child')
+    child.end()
+
+    assert collector.names == ['root', 'child']

@@ -11,7 +11,7 @@ Go from install to your first trace in about 5 minutes. A trace is the full reco
 
 You need a Logfire account and a project to send your data to:
 
-1. [Create a free account](https://logfire.pydantic.dev/login), pick a [data region](reference/data-regions.md) (where your data is stored), and follow the prompts.
+1. [Create a free account](https://logfire.pydantic.dev/login) and follow the prompts. Your [data region](reference/data-regions.md) (where your data is stored) is shown at the foot of the sign-up card, with a link to switch to the other one.
 2. Create your first project when asked. A project is a namespace that holds your data; everything you send to Logfire belongs to one.
 
 !!! note "This sends your data to Logfire"
@@ -23,23 +23,15 @@ To have an AI coding agent wire this up for you, copy this prompt into Claude Co
 
 <CopyPrompt>
 
-```text
-Set up Pydantic Logfire in this project so it sends traces to Logfire. Follow the guide at https://pydantic.dev/docs/logfire/get-started/first-trace/.
-
-1. Install the Logfire SDK for this project's language and initialize it at startup the way the guide describes for that language (for Python and JavaScript that is logfire.configure(); other languages may use OpenTelemetry), then instrument its web framework plus any LLM and HTTP clients. Don't refactor unrelated code.
-
-2. Authenticate. If a `LOGFIRE_TOKEN` environment variable is already set, use it as-is. Otherwise, for a local Python project, install Logfire with the project's dependency manager (for example `uv add logfire`, `poetry add logfire`, or `pip install logfire`), then run `logfire auth` (or `uvx logfire auth`): this opens a browser where you sign in or create a free Logfire account (no credit card required) and a project, then links this machine. For another language, a non-interactive shell, or a deployment, ask me for a write token (the credential that lets an app send data to Logfire) from Project > Settings > Write tokens and set it as the `LOGFIRE_TOKEN` environment variable. Keep any token out of your replies: `logfire auth` saves credentials to `~/.logfire` in your home directory (outside the repo), and if you create or receive a token, put it in a gitignored `.env` rather than printing it; never commit it.
-
-3. Run the app so it sends a trace, then give me the Logfire Live view link on its own line and in bold so I can open it and confirm the trace arrived.
-
-4. Once the trace is arriving, offer a few next steps and do the ones I want: run `logfire inspect` to find other dependencies Logfire can instrument and add the relevant ones; set up the Logfire MCP (Model Context Protocol) server so you can query my Logfire data going forward (https://pydantic.dev/docs/logfire/guides/mcp-server/, it logs in through the browser); or set up alerts or evals.
-```
+````text
+This prompt was copied from the Pydantic Logfire website. Follow https://pydantic.dev/.well-known/agent-skills/logfire-setup/SKILL.md end to end to connect this repository to Logfire. Authenticate first, confirmed via `whoami`, before opening or running any application file -- then get real telemetry flowing.
+````
 
 </CopyPrompt>
 
 ## Or do it by hand
 
-Pick your language below; the Python and JavaScript/TypeScript tabs are complete, runnable examples.
+Pick your language below; the Python, JavaScript/TypeScript, and Rust tabs are complete, runnable examples.
 
 === "Python"
 
@@ -112,9 +104,43 @@ Pick your language below; the Python and JavaScript/TypeScript tabs are complete
 
     For browsers, Cloudflare Workers, and frameworks, see [Language support](instrument/index.md).
 
+=== "Rust"
+
+    **1. Install and connect**
+
+    Copy a write token (the credential your app uses to send data to a Logfire project) from **Project → Settings → Write tokens**, then add the SDK to your project and set the token:
+
+    ```bash
+    cargo add logfire
+    export LOGFIRE_TOKEN="your-write-token"
+    ```
+
+    **2. Add Logfire to your app**
+
+    ```rust title="src/main.rs"
+    fn main() -> Result<(), Box<dyn std::error::Error>> {
+        let logfire = logfire::configure().finish()?;
+        let _guard = logfire.shutdown_guard();
+
+        logfire::span!("greeting").in_scope(|| {
+            logfire::info!("Hello, world!");
+        });
+
+        Ok(())
+    }
+    ```
+
+    `configure()` connects your app to Logfire. `span!()` records one operation, and the `info!()` inside it is a log nested in that span, so together they make your first trace. `shutdown_guard()` flushes any buffered data when it is dropped at the end of `main`.
+
+    **3. Run it**
+
+    ```bash
+    cargo run
+    ```
+
 === "Any other language"
 
-    Logfire works with any language that supports OpenTelemetry (OTel), the open standard it is built on. See [Language support](instrument/index.md) for Go, Rust, Java, .NET, and more.
+    Logfire works with any language that supports OpenTelemetry (OTel), the open standard it is built on. See [Language support](instrument/index.md) for Go, Java, .NET, and more.
 
 ## See it in the Live view
 

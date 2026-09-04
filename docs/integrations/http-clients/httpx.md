@@ -1,19 +1,19 @@
 ---
-title: "Instrument HTTPX and HTTPX2: see every outgoing request your app makes"
-description: "Add a few lines to your HTTPX or HTTPX2 code and see every outgoing HTTP request in Logfire: the URL, status, how long it took, and any errors."
+title: "Instrument HTTPX: see every outgoing request your app makes"
+description: "Add a few lines to your HTTPX code and see every outgoing HTTP request in Logfire: the URL, status, how long it took, and any errors."
 integration: otel
 ---
-# HTTPX and HTTPX2
+# HTTPX
 
-See every HTTP request your app makes with [HTTPX][httpx] or [HTTPX2][httpx2]: the URL, the response
-status, how long it took, and any errors, as a **span** (one unit of work with a name, a start, and a
-duration) in Logfire. Related spans link together into a **trace** (the full journey of one request),
-so a slow outgoing call shows up right next to the code that triggered it.
+See every HTTP request your app makes with [HTTPX][httpx]: the URL, the response status, how long it
+took, and any errors, as a **span** (one unit of work with a name, a start, and a duration) in
+Logfire. Related spans link together into a **trace** (the full journey of one request), so a slow
+outgoing call shows up right next to the code that triggered it.
 
-This works with the synchronous `Client` and asynchronous `AsyncClient` from either library. If both
-libraries are installed, one call to `logfire.instrument_httpx()` instruments both when
-`opentelemetry-instrumentation-httpx` is version 0.65b0 or newer. With an earlier version, Logfire
-instruments HTTPX and warns that it skipped HTTPX2.
+This works with both the synchronous `Client` and the asynchronous `AsyncClient`. If you use
+[HTTPX2](httpx2.md) instead, or alongside HTTPX, the same `logfire.instrument_httpx()` call covers
+both when `opentelemetry-instrumentation-httpx` is version 0.65b0 or newer. With an earlier version,
+Logfire instruments HTTPX and warns that it skipped HTTPX2.
 
 ## What you'll capture
 
@@ -30,20 +30,16 @@ Install `logfire` with the `httpx` extra:
 {{ install_logfire(extras=['httpx']) }}
 
 The extra installs the OpenTelemetry integration that collects request data. It does not install
-`httpx` or `httpx2`; keep the client library you use as an application dependency.
-
-HTTPX2 support requires `opentelemetry-instrumentation-httpx` 0.65b0 or newer. A fresh installation
-normally selects a compatible version. If an existing environment keeps an older version, use the
-upgrade command in [Troubleshooting](#troubleshooting).
+`httpx`; keep the client library you use as an application dependency.
 
 ## Usage
 
 Add two lines to your app: `logfire.configure()` to connect to your project, and
 [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] to record every request. With no
-client argument, Logfire instruments both libraries when they are installed. Pass a client instance
-to instrument only that client.
+client argument, Logfire instruments every installed client library. Pass a client instance to
+instrument only that client.
 
-=== "Instrument all installed clients"
+=== "Instrument all clients"
 
     ```py title="main.py" hl_lines="8" skip-run="true" skip-reason="external-connection"
     import asyncio
@@ -69,12 +65,12 @@ to instrument only that client.
     asyncio.run(main())
     ```
 
-=== "Instrument one HTTPX2 client"
+=== "Instrument one client"
 
     ```py title="main.py" hl_lines="12 18" skip-run="true" skip-reason="external-connection"
     import asyncio
 
-    import httpx2
+    import httpx
 
     import logfire
 
@@ -82,13 +78,13 @@ to instrument only that client.
 
     url = 'https://httpbin.org/get'
 
-    with httpx2.Client() as client:
+    with httpx.Client() as client:
         logfire.instrument_httpx(client)
         client.get(url)
 
 
     async def main():
-        async with httpx2.AsyncClient() as client:
+        async with httpx.AsyncClient() as client:
             logfire.instrument_httpx(client)
             await client.get(url)
 
@@ -97,8 +93,6 @@ to instrument only that client.
     ```
 
 Run it with `python main.py`.
-
-You can also pass one `httpx.Client` or `httpx.AsyncClient`; the Logfire call stays the same.
 
 ## Verify it worked
 
@@ -113,14 +107,8 @@ Not seeing your requests in Logfire? Check these first:
 
 - **`logfire.configure()` runs before `logfire.instrument_httpx()`.** Configure the connection first,
   then instrument.
-- **You instrument the client you actually call.** `instrument_httpx()` with no argument covers both
-  installed libraries; if you pass a specific client, make sure it's the one making the request.
-- **HTTPX2 reports that it needs newer OpenTelemetry instrumentation.** Upgrade Logfire and the HTTPX
-  integration together so their OpenTelemetry dependencies remain compatible:
-
-  ```bash
-  pip install -U 'logfire[httpx]' 'opentelemetry-instrumentation-httpx>=0.65b0'
-  ```
+- **You instrument the client you actually call.** `instrument_httpx()` with no argument covers every
+  installed client library; if you pass a specific client, make sure it's the one making the request.
 - **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually made a request.** Spans appear only after a request completes.
@@ -128,8 +116,7 @@ Not seeing your requests in Logfire? Check these first:
 ## Advanced
 
 The [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] method accepts several parameters
-to control what's captured. The same capture settings and hooks apply to HTTPX and HTTPX2. The
-examples below use HTTPX.
+to control what's captured. The same capture settings and hooks apply to HTTPX and HTTPX2.
 
 ### Capture everything
 
@@ -245,7 +232,7 @@ client.post('https://httpbin.org/post', data='Hello, World!')
 
 - API reference: [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]
 - Underlying OpenTelemetry package: [HTTPX instrumentation][opentelemetry-httpx]
+- The same call for the successor library: [HTTPX2](httpx2.md)
 
 [httpx]: https://www.python-httpx.org/
-[httpx2]: https://github.com/pydantic/httpx2
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html

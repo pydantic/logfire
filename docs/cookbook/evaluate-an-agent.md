@@ -20,7 +20,7 @@ A few terms, defined once:
 - A **span** is one unit of work: a single operation, with a name, a start, and a duration.
 - A **trace** is the full journey of one request or agent run, made of nested spans (the agent run, its model call, each tool call).
 - A **token** is the unit language models read and bill by: a few characters of text.
-- A **scorer** (also called an **evaluator**) is the thing that judges an output. Each scorer produces a **score**: one saved quality rating for an output.
+- A **scorer** (also called an **evaluator**) is the thing that judges an output. Each scorer produces evaluator results, such as pass/fail assertions or numeric scores.
 
 ## Prerequisites
 
@@ -29,15 +29,15 @@ A few terms, defined once:
 - **A Google Gemini API key**, from [Google AI Studio](https://aistudio.google.com/apikey), set as the `GEMINI_API_KEY` environment variable. The agent below uses `google:gemini-flash-lite-latest`; any [model Pydantic AI supports](https://pydantic.dev/docs/ai/models/) works the same way: swap the model string and set that provider's key instead.
 
 !!! note "Consequence: this sends data, and some of it costs money"
-    Running the agent and the eval sends traces, inputs, outputs, and scores to your Logfire project, where they're stored and visible to your team. Every model call (the agent's own answers *and* the LLM-as-a-judge scorer you'll add in step 3) is a real, billed API call to your provider. A dozen cases with one judge is a few dozen calls; keep that in mind before you point this at a 500-case dataset.
+    Running the agent and the eval sends traces, inputs, outputs, and evaluator results to your Logfire project, where they're stored and visible to your team. Every model call (the agent's own answers *and* the LLM-as-a-judge scorer you'll add in step 3) is a real, billed API call to your provider. A dozen cases with one judge is a few dozen calls; keep that in mind before you point this at a 500-case dataset.
 
 Install the packages you need:
 
 ```bash
-pip install "logfire[pydantic-ai]" pydantic-evals "pydantic-ai-slim[google]"
+pip install logfire pydantic-evals "pydantic-ai-slim[google]"
 ```
 
-`logfire[pydantic-ai]` pulls in Logfire and Pydantic AI together; `pydantic-evals` is the evaluation library; the `[google]` extra adds the Gemini client. (Using `uv`? `uv add "logfire[pydantic-ai]" pydantic-evals "pydantic-ai-slim[google]"`.)
+Logfire needs no extra to instrument Pydantic AI; `pydantic-ai-slim` is Pydantic AI itself and its `[google]` extra adds the Gemini client; `pydantic-evals` is the evaluation library. (Using `uv`? `uv add logfire pydantic-evals "pydantic-ai-slim[google]"`.)
 
 ## Step 1: Build the agent
 
@@ -256,7 +256,7 @@ Run `python eval.py` again. Now that the agent can't call `order_status`, it ans
 
 Look at the order rows: `✗✔`. `MentionsFact` failed, but the `LLMJudge` still **passed**. "I don't have access to your order information" reads polite and helpful, so the judge waves it through; only the deterministic scorer catches that the answer is useless. That's the judge-fooling failure mode from step 3, caught live.
 
-**What you'll see in Logfire:** open the [Evals: Datasets & Experiments](../evaluate/datasets-and-experiments.md) page, select both experiments (`support-agent-baseline` and `support-agent-no-tools`) with the checkboxes, and click **Compare**. Logfire lines the two runs up case by case and highlights the differences. You'll see the pass rate fall and can click straight into a failing case's trace to confirm the agent never called the tool.
+**What you'll see in Logfire:** open the [Evals: Datasets & Experiments](../evaluate/datasets-and-experiments.md) page and open `support-agent-no-tools` as the candidate. Select **Compare runs**, then choose `support-agent-baseline` as the baseline. Logfire lines up the two runs case by case and highlights the differences. You'll see the pass rate fall and can click straight into a failing case's trace to confirm the agent never called the tool.
 
 That comparison is the whole reason evals exist: "it feels worse" becomes "the pass rate went from 100% to 66.7% on these cases, and here's the trace showing why." Wire this eval into your continuous integration (the automated checks that run on every change), asserting on the pass rate the report gives you, so a regression like this fails the build before it reaches a user.
 
@@ -264,33 +264,16 @@ Now change the prompt back so you're on the good version again.
 
 ## Step 5: Send the uncertain cases to a human
 
-Some answers can't be settled by code or by a model: *was this reply actually the right call?* When the judge is unsure, or a real user reacts, route that answer to a person. Their judgment lands as the **same kind of score** as your automated ones, so it sits next to the code and LLM scores on the same output and rolls up into the same numbers.
+Some answers can't be settled by code or by a model: *was this reply actually the right call?* When the judge is unsure, route that agent run to a person. A run annotation records an editable human verdict and supporting evidence. It remains separate from the automated evaluator results in the experiment.
 
-The most direct path in your own product: capture a signal (a thumbs-up/down on the answer) and attach it to the span with `record_feedback`. Save the span's **traceparent** (a short string that identifies the span) when you answer, then reference it when the user reacts:
+To review one of the support-agent runs:
 
-```python skip-run="true" skip-reason="external-connection"
-import logfire
-from logfire.experimental.annotations import get_traceparent, record_feedback
+1. Open **Annotations** under **AI Evaluations** in Logfire.
+2. Select the support agent, then select **Proceed to annotate**.
+3. Find the uncertain run and select **Add annotation**.
+4. Choose **Pass**, **Neutral**, or **Fail**, explain the evidence in **Comment**, and select **Save**.
 
-logfire.configure()
-
-with logfire.span('answer support question') as span:
-    traceparent = get_traceparent(span)  # save this alongside the reply you return
-    ...  # run the agent, return the answer
-
-# later, when the user clicks thumbs-up in your product:
-record_feedback(
-    traceparent,
-    'helpful',  # the feedback's name
-    True,  # bool = pass/fail, number = score, string = label
-    comment='User clicked thumbs up',
-)
-```
-
-The interactions a human flags as bad are exactly the cases you want to fold back into your dataset, so every future eval re-tests them. See [Human review](../evaluate/human-review.md) for annotating traces by hand, working an annotation queue, and the full `record_feedback` API.
-
-!!! note "Experimental API"
-    `record_feedback` and `get_traceparent` live in `logfire.experimental.annotations`; the interface may change in a future release.
+If your team participates in the Design Partner early-access program, an annotation queue provides a systematic batch of runs to review instead of making reviewers find each run manually. The interactions a reviewer flags as bad are strong candidates for your dataset, so future evals can test them again. See [Human review](../evaluate/human-review.md) to compare the two review modes and check availability.
 
 ## What you've got now
 
@@ -299,9 +282,9 @@ Starting from a handful of lines of agent code, you now have:
 - **Every agent run traced**: model calls, tokens, cost, and tool calls, readable as a transcript, so a wrong answer is something you can *see* rather than guess at.
 - **A repeatable quality measure**: a dataset and two scorers that turn "seems fine" into a pass rate you can defend.
 - **A regression caught on purpose**: proof that comparing experiments tells you which direction a change moved quality, before a user finds out.
-- **A path to human judgment**: user feedback and hand review landing as the same scores as your automated ones.
+- **A path to human judgment**: editable run annotations that reviewers can use to identify new regression cases.
 
-The insight the journey produces: observability and evaluation aren't separate tools. The trace tells you *what happened*; the eval tells you *whether it was good*; the human tells you *when the machine wasn't sure*. All three attach to the same run, so you can move from a bad score straight to the trace that explains it.
+The insight the journey produces: observability and evaluation aren't separate tools. The trace tells you *what happened*; the eval measures selected behavior; the human records context that automated checks missed. Together they help you turn a production failure into a repeatable regression case.
 
 ## Troubleshooting
 
@@ -311,7 +294,7 @@ The insight the journey produces: observability and evaluation aren't separate t
 ## What's next
 
 - [AI observability](../ai-observability.md): the full picture of what Logfire captures from your agent, and why seeing the whole stack (not just the model) matters.
-- [Evaluate your AI](../evaluate/overview.md): the concepts behind datasets, scorers, scores, and experiments, plus best practices for LLM judges.
+- [Evaluate your AI](../evaluate/overview.md): the concepts behind datasets, evaluators, results, and experiments, plus best practices for LLM judges.
 - [Run an evaluation](../evaluate/evals-in-code.md): the offline eval path in full, including hosted datasets shared with your team.
-- [Human review](../evaluate/human-review.md): annotate traces, work an annotation queue, and capture user feedback as scores.
+- [Human review](../evaluate/human-review.md): annotate agent runs directly or work through an annotation queue.
 - [Live Evaluations](../evaluate/live-evals.md): score real production traffic automatically, then send the uncertain cases here to human review.

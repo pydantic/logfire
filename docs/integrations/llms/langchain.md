@@ -21,6 +21,9 @@ environment variables, and Logfire receives the data.
 - Model calls, with the conversation and the number of tokens used
 - Nested steps of a chain or agent, shown as child spans in one trace
 
+!!! note "For the Agents page, instrument with OpenInference"
+    This LangSmith export shows your chains and agents in the [Live view](../../guides/web-ui/live.md), but it does not mark an agent root span, so your agents do not appear on the [Agents page](../../guides/web-ui/agents.md). To list them there, instrument with OpenInference instead: see [Show your agents on the Agents page](#show-your-agents-on-the-agents-page) below.
+
 !!! note "Prompts and responses are sent to Logfire"
     Your prompts, the model's responses, and any tool inputs are recorded as span attributes and
     stored in Logfire, so they can include personal or proprietary data. Use
@@ -43,7 +46,7 @@ Set three environment variables to turn on LangSmith's OpenTelemetry tracing, ca
 `logfire.configure()` to connect to your project, and Logfire receives the data. The variables must be
 set **before** you import `langchain` or `langgraph`.
 
-```
+```bash
 LANGSMITH_OTEL_ENABLED=true
 LANGSMITH_OTEL_ONLY=true
 LANGSMITH_TRACING=true
@@ -91,6 +94,35 @@ Run your program, then open your project in the
 [Logfire web app](https://logfire.pydantic.dev/) and go to the **Live** view. Within a few seconds you
 should see a trace for the agent run, with a span for each step. Click into it to see the model calls
 and tool calls.
+
+## Show your agents on the Agents page
+
+The LangSmith export above lands your traces in the [Live view](../../guides/web-ui/live.md), but it does not mark an agent root span, so your agents do not appear on the [Agents page](../../guides/web-ui/agents.md). If you want them there, instrument with [OpenInference](https://github.com/Arize-ai/openinference) instead of the LangSmith export:
+
+```bash
+pip install openinference-instrumentation-langchain
+```
+
+```python skip-run="true" skip-reason="external-connection"
+from openinference.instrumentation.langchain import LangChainInstrumentor
+
+import logfire
+
+logfire.configure()
+LangChainInstrumentor().instrument()
+```
+
+### Deep agents
+
+A [deep agent](https://github.com/langchain-ai/deepagents) built with `create_deep_agent` runs as a LangGraph graph. OpenInference marks the graph's root span as the agent only when the agent has a name, so pass `name=`:
+
+```python skip="true" skip-reason="incomplete"
+from deepagents import create_deep_agent
+
+agent = create_deep_agent(tools=[...], system_prompt='...', name='research_agent')
+```
+
+The deep agent then appears on the Agents page as `research_agent`. Without a name, its root span is a generic graph span, so it does not appear as its own row. Sub-agents run as nested graphs, so only the top-level deep agent appears; the sub-agent's own model and tool calls are still visible inside that agent's runs.
 
 ## Troubleshooting
 

@@ -17,8 +17,17 @@ Each link says why it's here.
 
 3. **Tie changes back to usage**: every managed-variable resolution is recorded in your traces. That means you can correlate a flag or prompt change directly with what happened next (the basis for A/B tests and online experiments) using the same data your app already sends. See [Explore](../guides/web-ui/explore.md) to query that data in SQL and [Dashboards](../guides/web-ui/dashboards.md) to watch it over time.
 
-!!! note "Product analytics, session replay, and real-user monitoring"
-    Deeper product analytics, real-user monitoring (RUM, seeing performance and behavior from the actual browser) and session replay are on the roadmap and currently available to design partners. If that's what you need, [get in touch](../help.md).
+!!! note "Frontend observability and session replay"
+    [Frontend monitoring](../guides/web-ui/frontend.md) and [session replay](../guides/web-ui/session-replays.md) are available as experimental features. Enable **Frontend observability** from **Settings → Early access** to try them.
+
+## No code required
+
+You don't have to write code to get value from Logfire's AI features — these run entirely in the UI:
+
+- **[Manage prompts in the UI](../reference/advanced/prompt-management/ui.md)**: edit, version, and manage prompts from Logfire's UI without a redeploy.
+- **[Prompt Playground](../guides/web-ui/prompt-playground.md)**: try a prompt against real models and compare outputs side by side, no SDK needed.
+- **[Review experiment results](../evaluate/review-experiments.md)**: read and compare evaluation runs to see whether a change actually improved quality.
+- **[Human review](../evaluate/human-review.md)**: score and annotate agent runs by hand to build a labeled set your team agrees on.
 
 ## Try the full journey
 

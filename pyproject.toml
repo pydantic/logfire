@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.39.0"
+version = "4.41.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -51,7 +51,7 @@ dependencies = [
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
-    "typing-extensions >= 4.1.0",
+    "typing-extensions >= 4.13.0",
     "tomli >= 2.0.1; python_version < '3.11'",
     "executing >= 2.0.1",
 ]
@@ -109,6 +109,7 @@ dev = [
     "aiohttp >= 3.10.9",
     "redis >= 5.1.1",
     "pymongo >= 4.10.1",
+    "elasticsearch >= 8.15",
     "fastapi != 0.124.3, != 0.124.4",
     "Flask >= 3.0.3",
     "django >= 4.2.16",
@@ -204,8 +205,10 @@ dev = [
     "opentelemetry-instrumentation-google-genai >= 1.0b0",
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
-    "litellm != 1.92.0; python_version >= '3.14'",
-    "litellm >= 1.92.0; python_version < '3.14'",
+    "litellm >= 1.98.0; python_version >= '3.11'",
+    # LiteLLM 1.97 leaves its Message Pydantic model unresolved on Python 3.10, while
+    # 1.98 imports typing.NotRequired, which is unavailable on Python 3.10.
+    "litellm >= 1.96.2, != 1.97.0, != 1.98.0; python_version < '3.11'",
     "openinference-instrumentation-dspy >= 0",
     "dspy >= 3.1.0",
     "pip >= 0",
@@ -351,6 +354,12 @@ filterwarnings = [
     # deprecation warning during decoration of py-key-value-aio's pydantic adapter.
     "ignore::beartype.roar.BeartypeClawDecorWarning",
     "ignore::beartype.roar.BeartypeDecorHintPep585DeprecationWarning",
+    # langsmith uses asyncio.iscoroutinefunction, deprecated on Python 3.14
+    "ignore:'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning:langsmith.*",
+    # mcp's FastMCP Settings class has an unresolved forward reference in its `lifespan` field,
+    # which pydantic-settings >= 2.15 warns about (IncompleteFieldDefinitionWarning).
+    # No category here: naming the warning class would fail to import on jobs with older pydantic-settings.
+    "ignore:Field 'lifespan' has an incomplete definition.*",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

@@ -2440,7 +2440,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'start_time': 7000000000,
-                'end_time': 8000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'gen_ai.request.model': 'gpt-4o',
                     'response_id': 'resp_0f4c5a783ebc79bc00699336f0df488194bddca1fa9a623a2e',
@@ -2513,16 +2513,16 @@ async def test_voice_pipeline(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Task: Voice Agent',
+                'name': 'Task: Agent workflow',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 4000000000,
                 'end_time': 12000000000,
                 'attributes': {
-                    'logfire.msg_template': 'Task: Voice Agent',
+                    'logfire.msg_template': 'Task: Agent workflow',
                     'logfire.span_type': 'span',
                     'type': 'custom',
-                    'name': 'Voice Agent',
+                    'name': 'Agent workflow',
                     'sdk_span_type': 'task',
                     'usage': {
                         'input_tokens': 10,
@@ -2533,7 +2533,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                         'total_tokens': 51,
                     },
                     'gen_ai.system': 'openai',
-                    'logfire.msg': 'Task: Voice Agent',
+                    'logfire.msg': 'Task: Agent workflow',
                 },
             },
             {
@@ -2563,7 +2563,7 @@ async def test_voice_pipeline(exporter: TestExporter):
                 'name': 'Text → Speech group',
                 'context': {'trace_id': 1, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 9000000000,
+                'start_time': 8000000000,
                 'end_time': 15000000000,
                 'attributes': {
                     'logfire.msg_template': 'Text → Speech group',

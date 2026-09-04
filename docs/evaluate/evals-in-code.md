@@ -9,8 +9,8 @@ Run an evaluation from Python and you get a score table you can read at a glance
 
 Your test cases can live in either of two places, and the evaluation step is identical once you have a `Dataset` in hand:
 
-- **Local datasets** are defined in code (or loaded from a YAML file) as a [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. No server round-trip. This is the simplest way to start and is all many projects need.
-- **Hosted datasets** are stored on Logfire, editable in the [web UI](datasets-and-experiments.md), and fetched back as a typed `Dataset`. Useful when you curate cases from production traces or collaborate with teammates.
+- **Code-defined datasets** are defined in code (or loaded from YAML, a human-readable configuration format) as a [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. No server round-trip. This is the simplest way to start and is all many projects need.
+- **Hosted datasets** are stored on Logfire, editable in the [web UI](manage-datasets.md), and fetched back as a typed `Dataset`. Useful when you curate cases from production traces or collaborate with teammates.
 
 ## A worked example
 
@@ -70,7 +70,7 @@ Running it prints a table. Each cell in the **Assertions** column is one mark pe
 └───────────────────┴──────────────────────────┴──────────┴────────────┴──────────┘
 ```
 
-The `subtle_negative` case is the one that matters: the classifier returned `neutral` where `negative` was expected, so `ExactMatch` failed (`✗`) while `IsInstance` still passed (`✔`), and the aggregate lands at 87.5%. That single number is what you compare when you change a prompt or swap a model. To send this run to the **Evals: Datasets & Experiments** page for comparison over time, add `logfire.configure()` before you evaluate.
+The `subtle_negative` case is the one that matters: the classifier returned `neutral` where `negative` was expected, so `ExactMatch` failed (`✗`) while `IsInstance` still passed (`✔`), and the aggregate lands at 87.5%. That single number is what you compare when you change a prompt or swap a model. To send this run to the **Experiments** tab in Logfire for comparison over time, add `logfire.configure()` before you evaluate.
 
 ## Evaluating against your real AI task
 
@@ -83,7 +83,7 @@ from pydantic_evals import Case, Dataset
 
 import logfire
 
-# Configure Logfire so the run appears on the Evals: Datasets & Experiments page.
+# Configure Logfire so the run appears on the Experiments tab in Logfire.
 # Without this, the evaluation still runs but its results stay local.
 logfire.configure()
 logfire.instrument_pydantic_ai()  # optional: traces the AI task under test
@@ -129,7 +129,7 @@ async def run_evaluation():
 
 ## Evaluating a hosted dataset
 
-To manage cases on the server (so teammates can edit them in the UI, or you can seed them from production traces), fetch a hosted dataset and use it exactly like a local one. Hosted datasets are typically created in the [web UI](datasets-and-experiments.md) or published from code, see the [Datasets SDK](datasets-sdk.md).
+To manage cases on the server (so teammates can edit them in the UI, or you can seed them from production traces), fetch a hosted dataset and use it exactly like a code-defined one. Hosted datasets are typically created in the [web UI](manage-datasets.md) or published from code, see the [Datasets SDK](datasets-sdk.md).
 
 ```python skip-run="true" skip-reason="external-connection"
 from dataclasses import dataclass
@@ -173,4 +173,4 @@ async def run_evaluation():
 
 ## The loop
 
-With Logfire tracing on, every run appears on the [Evals: Datasets & Experiments](datasets-and-experiments.md) page, which turns evals into a continuous loop: **observe** production in the live view, **curate** interesting traces into a dataset, **evaluate** with pydantic-evals, **analyze** and compare experiments, then **improve** and repeat.
+With Logfire tracing on, every run appears on the [Experiments](review-experiments.md) page, which turns evals into a continuous loop: **observe** production in the live view, **curate** interesting traces into a dataset, **evaluate** with pydantic-evals, **analyze** and compare experiments, then **improve** and repeat.

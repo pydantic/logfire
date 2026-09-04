@@ -5,7 +5,7 @@ description: "See every AI agent in your project, drill into individual runs end
 
 # Agents
 
-The **Agents view** is the entry point for finding and inspecting the AI agents running in your application. Logfire discovers an agent automatically from your traces: any span that follows the [OpenTelemetry semantic conventions for generative AI (GenAI) agents](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md), specifically an `invoke_agent` operation (`gen_ai.operation.name = 'invoke_agent'`), becomes an agent run. [Pydantic AI](https://ai.pydantic.dev) emits these spans natively, and any other SDK that follows the conventions appears here too.
+The **Agents view** is the entry point for finding and inspecting the AI agents running in your application. Logfire discovers an agent automatically from your traces: any span that follows the [OpenTelemetry semantic conventions for generative AI (GenAI) agents](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md), specifically an `invoke_agent` operation (`gen_ai.operation.name = 'invoke_agent'`), becomes an agent run. [Pydantic AI](https://ai.pydantic.dev) emits these spans natively, and any other SDK that follows the conventions appears here too. Logfire also detects agents instrumented with [OpenInference](https://github.com/Arize-ai/openinference), which covers many popular frameworks; see [Supported frameworks](#supported-frameworks).
 
 You'll find Agents in the project sidebar. The time picker is shared with the rest of the observability surfaces.
 
@@ -16,6 +16,18 @@ Each agent detected in the selected time window appears as one row, with its run
 ![The Agents list, one card per detected agent](../../images/agents/agents-list.png)
 
 If you don't see an agent you expect, widen the time range: the list only reflects agent activity in the current window.
+
+## Supported frameworks
+
+Logfire detects an agent from either of two span conventions, so most agent frameworks appear on this page with no extra work:
+
+- **OpenTelemetry GenAI** (`gen_ai.operation.name = 'invoke_agent'`): [Pydantic AI](https://ai.pydantic.dev) emits these natively, as does any SDK that follows the [GenAI agent conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md).
+- **OpenInference** (`openinference.span.kind = 'AGENT'`): frameworks instrumented with [OpenInference](https://github.com/Arize-ai/openinference), including LangGraph, CrewAI, smolagents, Agno, AutoGen, and the OpenAI Agents SDK.
+
+!!! note "Cost for OpenInference-detected agents"
+    OpenInference spans don't report a per-call cost, so these agents show no cost in the Agents list and the **Metrics** tab. An individual run's **Summary** still shows an estimated cost, derived from its model and token counts.
+
+See the integration guide for your framework to set up the instrumentation that produces these spans.
 
 ## Agent detail
 
@@ -56,7 +68,7 @@ If a run failed, a banner at the top of the Summary tab surfaces the exception t
 
 ## Annotating a run
 
-From a run's detail panel you can record a human judgment of its quality: a verdict, category, tags, and a comment. See [Annotate an agent run](../../evaluate/annotate-agent-runs.md) for the full workflow. Those ratings are the same [scores](../../evaluate/human-review.md) that power your [evaluations](../../evaluate/overview.md). Run-level annotations are in Beta (the `run_annotations` feature flag).
+From a run's detail panel you can record a human judgment of its quality: a verdict, category, tags, and a comment. See [Annotate an agent run](../../evaluate/annotate-agent-runs.md) for the full workflow. These editable [run annotations](../../evaluate/human-review.md) remain separate from automated [evaluation results](../../evaluate/overview.md). Run annotations are in Beta.
 
 ## Next steps
 

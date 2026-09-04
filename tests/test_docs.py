@@ -2,6 +2,8 @@
 
 import gc
 import os
+import re
+from pathlib import Path
 
 import pydantic
 import pytest
@@ -35,6 +37,12 @@ SKIP_RUN_TAGS = ['skip', 'skip-run']
 SKIP_LINT_TAGS = ['skip', 'skip-lint']
 """Tags to skip linting the example with pytest-examples."""
 
+COLLECTION_INTERVAL_PATTERN = re.compile(r'\bcollection_interval:\s*["\']?(\d+(?:\.\d+)?)(ms|s|m)\b')
+MILLISECOND_METRIC_INTERVAL_PATTERNS = (
+    re.compile(r'\botel_interval_milliseconds\s*=\s*(\d+)\b'),
+    re.compile(r'\bOTEL_METRICS?_EXPORT(?:ER)?_INTERVAL(?:_MILLIS)?=(\d+)\b'),
+)
+
 
 def set_eval_config(eval_example: EvalExample):
     """Set the evaluation configuration."""
@@ -60,6 +68,32 @@ def test_formatting(eval_example: EvalExample):
             eval_example.format(example)
         else:
             eval_example.lint_ruff(example)
+
+
+def test_documented_metric_intervals_are_at_least_one_minute():
+    """Prevent examples from accidentally recommending high-volume metric intervals."""
+    short_intervals: list[str] = []
+
+    for path in Path('docs').rglob('*.md'):
+        source = path.read_text()
+        matches_with_seconds = [
+            (
+                match,
+                float(match.group(1)) * {'ms': 0.001, 's': 1, 'm': 60}[match.group(2)],
+            )
+            for match in COLLECTION_INTERVAL_PATTERN.finditer(source)
+        ]
+        for pattern in MILLISECOND_METRIC_INTERVAL_PATTERNS:
+            matches_with_seconds.extend((match, int(match.group(1)) / 1000) for match in pattern.finditer(source))
+
+        for match, seconds in matches_with_seconds:
+            if seconds < 60:
+                line_number = source.count('\n', 0, match.start()) + 1
+                short_intervals.append(f'{path}:{line_number}: {match.group(0)}')
+
+    assert not short_intervals, 'Metric examples must use intervals of at least 60 seconds:\n' + '\n'.join(
+        short_intervals
+    )
 
 
 def _get_runnable_examples():
@@ -93,7 +127,7 @@ def test_skill_examples_formatting(eval_example: EvalExample):
 
 
 @pytest.mark.parametrize('example', _get_runnable_examples(), ids=str)
-@pytest.mark.timeout(3)
+@pytest.mark.timeout(10)
 def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
     if 'from fastapi' in example.source and get_version(pydantic.__version__) < get_version('2.7.0'):

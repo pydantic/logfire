@@ -21,6 +21,8 @@ What sets Logfire apart:
 
 See the [documentation](https://pydantic.dev/docs/logfire/) for more information.
 
+Evaluating observability tools? See what Logfire does for [LLM apps and agents](https://pydantic.dev/logfire/llm-observability?utm_source=github&utm_medium=readme&utm_campaign=logfire), [evals in production](https://pydantic.dev/logfire/evals?utm_source=github&utm_medium=readme&utm_campaign=logfire), and [how it compares to alternatives](https://pydantic.dev/logfire/alternatives?utm_source=github&utm_medium=readme&utm_campaign=logfire).
+
 **Feel free to report issues and ask any questions about Logfire in this repository!**
 
 This repo contains the Python SDK for `logfire` and documentation; the server application for recording and displaying data is closed source.
@@ -63,7 +65,7 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/add-manual-tracing/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/)
 
 ### Integration
 

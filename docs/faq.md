@@ -72,7 +72,7 @@ Logfire sees everything. When your agent fails, you see the complete story in on
 
 Some tools focus only on LLM observability. Logfire takes a different approach: you can't do AI observability well without seeing the full picture. For debugging AI applications in production, you need the full context.
 
-[Comparisons](comparisons/index.md)
+[Compare Logfire with other tools](https://pydantic.dev/logfire/alternatives)
 
 ### Q: Does Logfire support evaluations (evals)?
 
@@ -121,7 +121,7 @@ Yes. We provide a full JavaScript/TypeScript SDK.
 
 The JS SDK provides the same core features as Python: spans, structured logging, error tracking, and distributed tracing (stitching spans from several services into one trace).
 
-[JavaScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/)
+[JavaScript/TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/)
 
 ### Q: What frameworks and libraries does Logfire support?
 
@@ -231,7 +231,7 @@ When you're iterating on AI applications with a coding agent, the agent needs to
 - **Simple pricing:** Per-span, not per-host
 - **SQL queries:** Use familiar PostgreSQL syntax, not vendor-specific languages
 
-[//]: # ([Datadog comparison]&#40;comparisons/datadog.md&#41;)
+[//]: # ([Datadog comparison]&#40;https://pydantic.dev/logfire/vs-datadog&#41;)
 
 ### Q: Can I use Logfire alongside other observability tools?
 
@@ -268,11 +268,11 @@ logfire.instrument_pydantic_ai()  # Or your framework of choice
 
 That's it. Three lines of code for basic instrumentation.
 
-[Getting Started](index.md) | [Onboarding Checklist](guides/onboarding-checklist/index.md)
+[Getting Started](index.md) | [Python setup](guides/onboarding-checklist/index.md)
 
 ### Q: Where can I get help?
 
 - [Documentation](index.md) - Comprehensive guides and reference
-- [Slack Community](join-slack/index.html) - Ask questions, share feedback
+- [Slack Community](https://pydantic.dev/docs/logfire/join-slack/) - Ask questions, share feedback
 - [GitHub Issues](https://github.com/pydantic/logfire/issues) - Report bugs, request features
 - [Enterprise Support](enterprise.md) - Dedicated support for enterprise customers
