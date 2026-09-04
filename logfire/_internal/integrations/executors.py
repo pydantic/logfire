@@ -74,6 +74,9 @@ def serialize_config() -> dict[str, Any] | None:
         # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
         # which is what we want here!
         config_dict = asdict(GLOBAL_CONFIG)
+        # Profiling is deliberately not inherited: every worker would start its own profiler
+        # subprocess, multiplying the overhead that was opted into once in the parent.
+        config_dict.pop('profiling', None)
         # Verify that the config can be pickled before ProcessPoolExecutor tries to pickle it.
         pickle.dumps(config_dict)
         return config_dict

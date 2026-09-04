@@ -86,6 +86,9 @@ litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
+# Experimental. The OTLP profiles schema was renumbered in proto v1.10.0, first
+# packaged in opentelemetry-proto 1.43.0; older bindings are wire-incompatible.
+profiling = ["opentelemetry-proto >= 1.43.0"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"
