@@ -1,0 +1,21 @@
+logfire/_internal/integrations/httpx.py
+  s_cd1c3d52b47123::t_141dbdf269e7e8 134
+tests/otel_integrations/test_httpx.py
+  s_cd1c3d52b47123::t_141dbdf269e7e8 505,509,511,514,516
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "37836261afbbe80154fb95fcf1d556f44776cf87",
+  "prompts": {},
+  "sessions": {
+    "s_cd1c3d52b47123": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c1c-af69-7863-86f4-603350773345",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
