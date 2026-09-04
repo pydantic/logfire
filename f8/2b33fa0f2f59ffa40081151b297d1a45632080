@@ -1,0 +1,31 @@
+logfire/_internal/integrations/llm_providers/semconv.py
+  s_d9a0084cc1541d::t_71d87c99bec058 14-16,19,22-24,34,38,40
+tests/otel_integrations/test_anthropic.py
+  s_d9a0084cc1541d::t_eb09713d152642 1327-1328,1335,1342-1343,1350
+logfire/_internal/integrations/llm_providers/anthropic.py
+  s_d9a0084cc1541d::t_71d87c99bec058 33,79-81,91-93,114,269,303,348
+  s_d9a0084cc1541d::t_71263131477c3e 96
+  s_d9a0084cc1541d::t_fef5587a8b2025 352,372
+tests/otel_integrations/test_openai.py
+  s_d9a0084cc1541d::t_eb09713d152642 771-774,777,4308-4309,4316,4335-4336,4343,4349-4350,4357,4518-4519,4525,4536-4537,4543,4576-4577,4993,5010
+logfire/_internal/integrations/llm_providers/openai.py
+  s_d9a0084cc1541d::t_71d87c99bec058 45,104-106,116-118,150,171,475,493,506,523,537,567,618
+  s_d9a0084cc1541d::t_71263131477c3e 121
+  s_d9a0084cc1541d::t_a7a83bbb38cd62 622,644,662,686
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f82b33fa0f2f59ffa40081151b297d1a45632080",
+  "prompts": {},
+  "sessions": {
+    "s_d9a0084cc1541d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a067f8-449f-7b32-bd6a-403a660809e3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
