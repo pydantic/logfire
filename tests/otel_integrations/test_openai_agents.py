@@ -492,7 +492,7 @@ def simplify_spans(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @pytest.mark.vcr()
 @pytest.mark.anyio
-async def test_responses(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+async def test_responses(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
     @function_tool
