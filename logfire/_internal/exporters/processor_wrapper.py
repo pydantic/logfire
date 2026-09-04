@@ -556,26 +556,16 @@ def _transform_google_genai_span(span: ReadableSpanDict):
     ):
         return
 
-    # 1.0b0 stores messages directly on the model request span following the newer OpenTelemetry GenAI
-    # semantic conventions. Mark the JSON-encoded message/tool attributes as arrays and set the operation
-    # name to 'chat' so they render the same way as the Anthropic and Pydantic AI integrations. This runs
-    # regardless of the content-capture mode, so no-content spans are still recognised as chat spans (the
-    # tool-call span keeps its own 'execute_tool' operation name and is left untouched).
-    array_properties: dict[str, Any] = {
-        key: {'type': 'array'}
-        for key in (
-            'gen_ai.input.messages',
-            'gen_ai.output.messages',
-            'gen_ai.system_instructions',
-            'gen_ai.tool.definitions',
-        )
-        if key in attributes
-    }
     span['attributes'] = {
         **attributes,
         'gen_ai.operation.name': 'chat',
-        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties(array_properties)),
     }
+    span['instrumentation_scope'] = InstrumentationScope(
+        name='opentelemetry.instrumentation.google_genai',
+        version=scope.version,
+        schema_url=scope.schema_url,
+        attributes=scope.attributes,
+    )
 
 
 def _transform_litellm_span(span: ReadableSpanDict):

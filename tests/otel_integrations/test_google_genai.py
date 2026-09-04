@@ -11,7 +11,7 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.utils import get_version
-from logfire.testing import TestExporter
+from logfire.testing import CaptureLogfire, TestExporter
 
 # Use the legacy value to verify that Logfire preserves compatibility with instrumentation < 1.0b0.
 os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
@@ -45,7 +45,7 @@ You can install this with:
 
 
 @pytest.mark.vcr()
-def test_instrument_google_genai(exporter: TestExporter) -> None:
+def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
     from google.genai import Client, types
 
     logfire.instrument_google_genai()
@@ -78,7 +78,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
         )
 
     assert response.text == snapshot('It is rainy in Boston, MA.\n')
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert capfire.exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'execute_tool get_current_weather',
@@ -97,7 +97,6 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                         'code.function.parameters.location.value': 'Boston, MA',
                     },
                     'gen_ai.tool.call.result': '"rainy"',
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -145,17 +144,45 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.tool.definitions': {'type': 'array'},
-                        },
-                    },
                 },
             },
+        ]
+    )
+    assert capfire.log_exporter.exported_logs_as_dicts() == snapshot(
+        [
+            {
+                'body': None,
+                'severity_number': None,
+                'severity_text': None,
+                'attributes': {
+                    'gen_ai.operation.name': 'generate_content',
+                    'gen_ai.request.model': 'gemini-2.0-flash-001',
+                    'gen_ai.provider.name': 'gemini',
+                    'gen_ai.response.finish_reasons': ('stop',),
+                    'gen_ai.response.model': 'gemini-2.0-flash-001',
+                    'gen_ai.response.id': '-QtkaLDGCIuT7dcPsNuzuAk',
+                    'gen_ai.usage.input_tokens': 58,
+                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.tool.definitions': (
+                        {
+                            'name': 'get_current_weather',
+                            'description': """\
+Returns the current weather.
+
+Args:
+  location: The city and state, e.g. San Francisco, CA\
+""",
+                            'parameters': None,
+                            'type': 'function',
+                        },
+                    ),
+                },
+                'timestamp': 4000000000,
+                'observed_timestamp': 5000000000,
+                'trace_id': 1,
+                'span_id': 1,
+                'trace_flags': 1,
+            }
         ]
     )
 
@@ -233,10 +260,6 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'gen_ai.tool.definitions': {'type': 'array'}},
-                    },
                 },
             },
         ]
@@ -295,13 +318,6 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.5-flash',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.output.messages': {'type': 'array'},
-                        },
-                    },
                 },
             }
         ]
