@@ -4,6 +4,7 @@ import gc
 import json
 import logging
 from collections.abc import AsyncIterator, Iterator
+from inspect import signature
 from typing import Any, cast
 
 import anthropic
@@ -36,6 +37,22 @@ pytestmark = [
 
 
 ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
+
+
+def test_semconv_version_defaults() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    assert signature(logfire.instrument_anthropic).parameters['version'].default == 2
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-haiku-4-5', 'messages': [{'role': 'user', 'content': 'Hello'}]}
+
+    config = get_endpoint_config(MockOptions())  # type: ignore
+    assert config.span_data['request_data'] == {'model': 'claude-haiku-4-5'}
+    assert config.span_data['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    ]
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:

@@ -115,7 +115,7 @@ def _versioned_stream_cls(
 def get_endpoint_config(
     options: FinalRequestOptions,
     *,
-    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 1,
+    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
 ) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
@@ -472,7 +472,7 @@ def content_from_completions(chunk: Completion | None) -> str | None:
 
 
 class OpenaiCompletionStreamState(StreamState):
-    _versions: frozenset[NormalizedSemconvVersion] = frozenset({1})
+    _versions: frozenset[NormalizedSemconvVersion] = frozenset({2})
 
     def __init__(self):
         self._content: list[str] = []
@@ -503,7 +503,7 @@ class OpenaiCompletionStreamState(StreamState):
 
 
 class OpenaiResponsesStreamState(StreamState):
-    _versions: frozenset[NormalizedSemconvVersion] = frozenset({1})
+    _versions: frozenset[NormalizedSemconvVersion] = frozenset({2})
 
     def __init__(self):
         self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
@@ -534,7 +534,7 @@ try:
     from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 
     class OpenaiChatCompletionStreamState(StreamState):
-        _versions: frozenset[NormalizedSemconvVersion] = frozenset({1})
+        _versions: frozenset[NormalizedSemconvVersion] = frozenset({2})
 
         def __init__(self):
             self._stream_state = ChatCompletionStreamState()
@@ -615,7 +615,7 @@ def on_response(
     response: ResponseT,
     span: LogfireSpan,
     *,
-    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 1,
+    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
     base_url: str | None = None,
 ) -> ResponseT:
     """Updates the span based on the type of response."""

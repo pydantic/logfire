@@ -90,7 +90,7 @@ def _versioned_stream_cls(
 def get_endpoint_config(
     options: FinalRequestOptions,
     *,
-    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 1,
+    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
 ) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
     versions: frozenset[NormalizedSemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
@@ -266,7 +266,7 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
 
 
 class AnthropicMessageStreamState(StreamState):
-    _versions: frozenset[NormalizedSemconvVersion] = frozenset({1})
+    _versions: frozenset[NormalizedSemconvVersion] = frozenset({2})
 
     def __init__(self):
         self._message: Any = None
@@ -345,7 +345,7 @@ def on_response(
     response: ResponseT,
     span: LogfireSpan,
     *,
-    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 1,
+    version: NormalizedSemconvVersion | frozenset[NormalizedSemconvVersion] = 2,
     base_url: str | None = None,
 ) -> ResponseT:
     """Updates the span based on the type of response."""
