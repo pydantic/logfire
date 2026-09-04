@@ -33,6 +33,24 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def uninstrument_google_genai():
+    """Give every test a fresh instrumentor so its content-capture mode reflects that test's env.
+
+    `opentelemetry-instrumentation-google-genai` is a global singleton whose `TelemetryHandler` caches the
+    content-capture mode at instrument time, and re-instrumenting is a no-op. Without uninstrumenting
+    between tests, whichever test instruments first would lock the mode for the rest of the (xdist worker's)
+    session, making the suite order-dependent. Reach the existing singleton via `_instance` rather than
+    constructing a new one, which would reset its internal snapshot and break `uninstrument()`.
+    """
+    yield
+    from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
+
+    instrumentor = GoogleGenAiSdkInstrumentor._instance  # pyright: ignore[reportPrivateUsage]
+    if instrumentor is not None and instrumentor.is_instrumented_by_opentelemetry:
+        instrumentor.uninstrument()
+
+
 def test_missing_opentelemetry_dependency() -> None:
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.google_genai': None}):
         with pytest.raises(RuntimeError) as exc_info:
@@ -271,6 +289,8 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 71,
                     'gen_ai.usage.reasoning.output_tokens': 58,
+                    'gen_ai.response.finish_reasons': ('stop',),
+                    'logfire.metrics': IsPartialDict(),
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'content': 'Hi', 'type': 'text'}]}],
                     'gen_ai.output.messages': [
                         {
@@ -279,8 +299,6 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                             'finish_reason': 'stop',
                         }
                     ],
-                    'gen_ai.response.finish_reasons': ('stop',),
-                    'logfire.metrics': IsPartialDict(),
                     'gen_ai.response.model': 'gemini-2.5-flash',
                 },
             }
