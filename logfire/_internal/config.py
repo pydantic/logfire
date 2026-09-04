@@ -19,7 +19,7 @@ from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -65,7 +65,7 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
-from typing_extensions import Self, Unpack, assert_type
+from typing_extensions import Self, assert_type
 
 from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
@@ -495,11 +495,6 @@ class LocalVariablesOptions:
     """
 
 
-class DeprecatedKwargs(TypedDict):
-    # Empty so that passing any additional kwargs makes static type checkers complain.
-    pass
-
-
 def configure(
     *,
     local: bool = False,
@@ -524,7 +519,6 @@ def configure(
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
-    **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
     """Configure the logfire SDK.
 
@@ -610,111 +604,6 @@ def configure(
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
-
-    processors = deprecated_kwargs.pop('processors', None)
-    if processors is not None:  # pragma: no cover
-        raise ValueError(
-            'The `processors` argument has been replaced by `additional_span_processors`. '
-            'Set `send_to_logfire=False` to disable the default processor.'
-        )
-
-    metric_readers = deprecated_kwargs.pop('metric_readers', None)
-    if metric_readers is not None:  # pragma: no cover
-        raise ValueError(
-            'The `metric_readers` argument has been replaced by '
-            '`metrics=logfire.MetricsOptions(additional_readers=[...])`. '
-            'Set `send_to_logfire=False` to disable the default metric reader.'
-        )
-
-    collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)
-    if collect_system_metrics is False:
-        raise ValueError(
-            'The `collect_system_metrics` argument has been removed. System metrics are no longer collected by default.'
-        )
-
-    if collect_system_metrics is not None:
-        raise ValueError(
-            'The `collect_system_metrics` argument has been removed. Use `logfire.instrument_system_metrics()` instead.'
-        )
-
-    scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)
-    scrubbing_patterns = deprecated_kwargs.pop('scrubbing_patterns', None)
-    if scrubbing_callback or scrubbing_patterns:
-        if scrubbing is not None:
-            raise ValueError(
-                'Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time. '
-                'Use only `scrubbing`.'
-            )
-        warnings.warn(
-            'The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated. '
-            'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
-        )
-        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # pyright: ignore[reportArgumentType]
-
-    project_name = deprecated_kwargs.pop('project_name', None)
-    if project_name is not None:
-        warnings.warn(
-            'The `project_name` argument is deprecated and not needed.',
-        )
-
-    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # pyright: ignore[reportAssignmentType]
-    if trace_sample_rate is not None:
-        if sampling:
-            raise ValueError(
-                'Cannot specify both `trace_sample_rate` and `sampling`. '
-                'Use `sampling.head` instead of `trace_sample_rate`.'
-            )
-        else:
-            sampling = SamplingOptions(head=trace_sample_rate)
-            warnings.warn(
-                'The `trace_sample_rate` argument is deprecated. '
-                'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
-            )
-
-    show_summary = deprecated_kwargs.pop('show_summary', None)
-    if show_summary is not None:  # pragma: no cover
-        warnings.warn(
-            'The `show_summary` argument is deprecated. '
-            'Use `console=False` or `console=logfire.ConsoleOptions(show_project_link=False)` instead.',
-        )
-
-    for key in ('base_url', 'id_generator', 'ns_timestamp_generator'):
-        value: Any = deprecated_kwargs.pop(key, None)
-        if value is None:
-            continue
-        if advanced is not None:
-            raise ValueError(f'Cannot specify `{key}` and `advanced`. Use only `advanced`.')
-        # (this means that specifying two deprecated advanced kwargs at the same time will raise an error)
-        advanced = AdvancedOptions(**{key: value})
-        warnings.warn(
-            f'The `{key}` argument is deprecated. Use `advanced=logfire.AdvancedOptions({key}=...)` instead.',
-            stacklevel=2,
-        )
-
-    additional_metric_readers: Any = deprecated_kwargs.pop('additional_metric_readers', None)
-    if additional_metric_readers:
-        if metrics is not None:
-            raise ValueError(
-                'Cannot specify both `additional_metric_readers` and `metrics`. '
-                'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-            )
-        warnings.warn(
-            'The `additional_metric_readers` argument is deprecated. '
-            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.',
-        )
-        metrics = MetricsOptions(additional_readers=additional_metric_readers)
-
-    pydantic_plugin: Any = deprecated_kwargs.pop('pydantic_plugin', None)
-    if pydantic_plugin is not None:
-        warnings.warn(
-            'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.',
-        )
-        from logfire.integrations.pydantic import set_pydantic_plugin_config
-
-        set_pydantic_plugin_config(pydantic_plugin)
-
-    if deprecated_kwargs:
-        raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
     if local:
         config = LogfireConfig()
