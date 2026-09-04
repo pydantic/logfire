@@ -13,6 +13,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeVar
 
 import pydantic
+from pydantic_core import ArgsKwargs
 from typing_extensions import ParamSpec
 
 import logfire
@@ -156,11 +157,14 @@ class _ValidateWrapper:
                     result = validator(input_data, *args, **kwargs)
                 except ValidationError as error:
                     self._count_validation(success=False)
-                    self._on_error_log(error)
+                    # Technically a validator could mutate input_data and this would log the mutated version.
+                    # We accept this edge case because copying the data beforehand would significantly
+                    # slow down validation, and would especially be wasteful in the happy path.
+                    self._on_error_log(error, input_data)
                     raise
                 except Exception as exception:
                     self._count_validation(success=False)
-                    self._on_exception_log(exception)
+                    self._on_exception_log(exception, input_data)
                     raise
                 else:
                     self._count_validation(success=True)
@@ -190,7 +194,7 @@ class _ValidateWrapper:
             'Pydantic {schema_name} {validation_method}',
             schema_name=self.schema_name,
             validation_method=self.validation_method,
-            input_data=input_data,
+            input_data=_serialize_input_data(input_data),
             _level='info',
             _span_name=f'pydantic.{self.validation_method}',
         ).__enter__()
@@ -204,7 +208,7 @@ class _ValidateWrapper:
         )
         span.__exit__(None, None, None)
 
-    def _on_error_log(self, error: ValidationError):
+    def _on_error_log(self, error: ValidationError, input_data: Any):
         self._logfire.log(
             level='warn',
             msg_template='Validation on {schema_name} failed',
@@ -212,6 +216,7 @@ class _ValidateWrapper:
                 'schema_name': self.schema_name,
                 'error_count': error.error_count(),
                 'errors': error.errors(include_url=False),
+                'input_data': _serialize_input_data(input_data),
             },
         )
 
@@ -226,13 +231,14 @@ class _ValidateWrapper:
         span.set_level('warn')
         span.__exit__(None, None, None)
 
-    def _on_exception_log(self, exception: Exception):
+    def _on_exception_log(self, exception: Exception, input_data: Any):
         self._logfire.log(
             level='error',
             msg_template='Validation on {schema_name} raised {exception_type}',
             attributes={
                 'schema_name': self.schema_name,
                 'exception_type': type(exception).__name__,
+                'input_data': _serialize_input_data(input_data),
             },
             exc_info=exception,
         )
@@ -254,6 +260,12 @@ class _ValidateWrapper:
         validation_counter.add(
             1, {'success': success, 'schema_name': self.schema_name, 'validation_method': self.validation_method}
         )
+
+
+def _serialize_input_data(input_data: Any) -> Any:
+    if isinstance(input_data, ArgsKwargs):
+        return {'args': input_data.args, 'kwargs': input_data.kwargs}
+    return input_data
 
 
 def get_schema_name(schema: CoreSchema) -> str:
