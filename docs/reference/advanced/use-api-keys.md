@@ -25,7 +25,7 @@ Use a **Logfire API key** to access the public APIs or send data from your appli
 
     - **Audit logs**: List and retrieve audit log entries for your organization
     - **Billing usage**: View billing usage data for current and previous periods
-    - **SCIM provisioning**: Manage users and groups via the SCIM protocol for identity provider integration
+    - **[SCIM provisioning](../../scim-provisioning.md)**: Discover existing users and synchronize access through mapped identity-provider groups, using the System for Cross-domain Identity Management (SCIM) standard
     - **Organization management** _(self-hosted only)_: Create, list, update, and delete organizations
 
 ## API Documentation
