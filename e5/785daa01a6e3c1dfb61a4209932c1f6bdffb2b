@@ -1,0 +1,45 @@
+docs/integrations/llms/openai.md
+  s_d9a0084cc1541d::t_e5da51174d056a 96-100,104-106
+  s_d9a0084cc1541d::t_c85e5e9ec55ed4 101-103
+tests/otel_integrations/test_openai.py
+  s_d9a0084cc1541d::t_e5da51174d056a 5,785-798
+  s_d9a0084cc1541d::t_836833e341105f 799-800
+docs/integrations/llms/anthropic.md
+  s_d9a0084cc1541d::t_e5da51174d056a 100-104,108-110
+  s_d9a0084cc1541d::t_c85e5e9ec55ed4 105-107
+tests/otel_integrations/test_anthropic.py
+  s_d9a0084cc1541d::t_e5da51174d056a 7,42-55
+  s_f49bd8b241d556::t_0c77a89312374a 56-57
+logfire/_internal/integrations/llm_providers/openai.py
+  s_d9a0084cc1541d::t_150e1510e7b0f6 118,475,506,537,618
+logfire/_internal/integrations/llm_providers/anthropic.py
+  s_d9a0084cc1541d::t_150e1510e7b0f6 93,269,348
+logfire/_internal/main.py
+  s_d9a0084cc1541d::t_150e1510e7b0f6 1261,1313-1314,1317-1321,1372,1419-1420,1423-1427
+logfire-api/logfire_api/_internal/main.pyi
+  s_d9a0084cc1541d::t_150e1510e7b0f6 531,582-583,586-590,602,648-649,652-656
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e5785daa01a6e3c1dfb61a4209932c1f6bdffb2b",
+  "prompts": {},
+  "sessions": {
+    "s_d9a0084cc1541d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a067f8-449f-7b32-bd6a-403a660809e3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_f49bd8b241d556": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06beb-1480-7a83-ab49-32370811e369",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
