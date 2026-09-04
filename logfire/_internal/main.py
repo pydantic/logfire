@@ -100,7 +100,6 @@ if TYPE_CHECKING:
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
-    from ..experimental.forwarding import ForwardExportRequestResponse
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
         ResponseHook as AiohttpClientResponseHook,
@@ -128,6 +127,7 @@ if TYPE_CHECKING:
         VariablesConfig,
     )
     from .config import TemplateMismatchPolicy
+    from .forwarding import ForwardExportRequestResponse
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.llm_providers.semconv import SemconvVersion
@@ -3057,7 +3057,7 @@ class Logfire:
         Returns:
             A `ForwardExportRequestResponse` containing the response status code, body, and headers.
         """
-        from ..experimental.forwarding import forward_export_request
+        from .forwarding import forward_export_request
 
         return forward_export_request(
             path=path,
@@ -3093,7 +3093,7 @@ class Logfire:
         Returns:
             A Starlette/FastAPI `Response` object.
         """
-        from ..experimental.forwarding import logfire_proxy
+        from .forwarding import logfire_proxy
 
         return await logfire_proxy(
             request=request,
