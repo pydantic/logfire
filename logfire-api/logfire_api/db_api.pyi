@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from logfire.query_client import ColumnDetails as ColumnDetails, LogfireQueryClient as LogfireQueryClient
+from logfire.experimental.query_client import ColumnDetails as ColumnDetails, LogfireQueryClient as LogfireQueryClient
 from typing import Any, overload
 
 apilevel: str
