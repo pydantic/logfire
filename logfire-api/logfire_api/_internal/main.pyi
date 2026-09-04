@@ -478,8 +478,10 @@ class Logfire:
                 - `off`: Disable instrumentation.
             include:
                 By default, third party modules are not instrumented. This option allows you to include specific modules.
+                Each entry is a regular expression matched against `module::ModelName` and anchored at the end,
+                so use e.g. `openai.*` rather than `openai`, which would only match a model named `openai`.
             exclude:
-                Exclude specific modules from instrumentation.
+                Exclude specific modules from instrumentation. Matched the same way as `include`.
         """
     @overload
     def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
@@ -664,7 +666,7 @@ class Logfire:
 
         !!! note
             To capture message contents (i.e. prompts and completions), set the environment variable
-            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY`.
 
         Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
         [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
