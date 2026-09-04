@@ -1,0 +1,24 @@
+tests/otel_integrations/test_httpx.py
+  s_d9a0084cc1541d::t_dbe74048f02b9f 434-443,465-470,472-473,475,477-482,502-503,505-506,508-510,598,609
+  s_d9a0084cc1541d::t_afdae8ecefd69d 504
+  s_d9a0084cc1541d::t_c8be0d7eb69f45 507,511
+  s_d9a0084cc1541d::t_e146b22b13aa3a 512-513
+logfire/_internal/integrations/httpx.py
+  s_d9a0084cc1541d::t_dbe74048f02b9f 137-139,143-144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4b7d22d3d5b3ec4a8db234369dd80921dfc598b8",
+  "prompts": {},
+  "sessions": {
+    "s_d9a0084cc1541d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a067f8-449f-7b32-bd6a-403a660809e3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
