@@ -156,6 +156,9 @@ class _ValidateWrapper:
                     result = validator(input_data, *args, **kwargs)
                 except ValidationError as error:
                     self._count_validation(success=False)
+                    # Technically a validator could mutate input_data and this would log the mutated version.
+                    # We accept this edge case because copying the data beforehand would significantly
+                    # slow down validation, and would especially be wasteful in the happy path.
                     self._on_error_log(error, input_data)
                     raise
                 except Exception as exception:
