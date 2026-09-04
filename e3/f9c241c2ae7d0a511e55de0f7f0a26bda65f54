@@ -1,0 +1,21 @@
+docs/integrations/llms/anthropic.md
+  s_4b05af1161faea::t_1f98caa4df6d98 105
+docs/integrations/llms/openai.md
+  s_4b05af1161faea::t_1f98caa4df6d98 101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e3f9c241c2ae7d0a511e55de0f7f0a26bda65f54",
+  "prompts": {},
+  "sessions": {
+    "s_4b05af1161faea": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c2e-8a95-7273-9640-0719adafb4f1",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
