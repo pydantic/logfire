@@ -5,6 +5,7 @@ import importlib
 import sys
 import warnings
 from collections.abc import Callable
+from importlib.metadata import version as package_version
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock
@@ -295,7 +296,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_claude_agent_sdk')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
-    if get_version(pydantic_version) >= get_version('2.7.0'):
+    if get_version(pydantic_version) >= get_version('2.12.5') and get_version(
+        package_version('opentelemetry-sdk')
+    ) >= get_version('1.43.0'):
         logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
