@@ -55,20 +55,23 @@ Authorization: Bearer YOUR_SCIM_API_KEY
 | `GET /Users/{user_email}` | Gets an existing user by email. |
 | `GET /Groups?filter=displayName eq "group"` | Finds a configured group mapping by its exact group name or ID. |
 | `GET /Groups/{group_id}` | Gets a configured group mapping. |
-| `PATCH /Groups/{group_id}` | Applies `Add` or `Remove` operations to the mapping's members and returns `204 No Content`. |
+| `PATCH /Groups/{group_id}` | Applies `add` or `remove` operations to the mapping's members and returns `204 No Content`. |
 
 The collection endpoints support only the filters shown in the table, including the exact attribute name, spacing, and double quotes. Compound filters are not supported. They return at most one resource. Group responses describe the mapped group but do not list its current members.
 
 The API does not support `POST`, `PUT`, or `DELETE` operations for users or groups. It also does not expose `/ServiceProviderConfig`, `/ResourceTypes`, or `/Schemas`. Groups and users must already exist, so do not enable identity-provider actions that create or manage their lifecycle.
 
+!!! note "Self-hosted deployments"
+    This page describes the current group patch contract: case-insensitive operation and path names, filtered single-member removal paths, and rejection of an unsupported patch with `400`. An Enterprise Self-Hosted deployment runs the [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart) version you installed, so an older installation can still apply the earlier behavior, which accepted only `Add` and `Remove` with an exact `members` path and returned `204` for an operation it did not apply. If your deployment behaves that way, upgrade the chart or contact [Logfire support](mailto:support@pydantic.dev) to confirm the version you need. Enterprise Cloud always runs the current behavior.
+
 ## Choose a compatible identity-provider setup
 
-The current interface is designed for existing-user discovery and group-membership changes, not a provider's default end-to-end SCIM lifecycle flow.
+The current interface is designed for existing-user discovery and group-membership changes, not a provider's default end-to-end SCIM lifecycle flow. Compatibility depends on two separate things: whether the provider's group-membership requests match this API, and whether the provider can finish connecting to an application that implements only this subset. A provider whose membership requests fit can still get stuck earlier, while it sets up the connection.
 
-- **Microsoft Entra ID:** The request shape of [Entra's group-member add and remove requests](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#update-group-add-members) matches the documented `PATCH /Groups/{group_id}` format. Entra fills each `members[].value` with the SCIM `id` it recorded for the user when it provisioned or matched that user, which by default is the identifier your application returned rather than an email address. Logfire requires an email address there and silently skips any other value, so membership changes only apply when Entra's stored `id` for each user is that user's Logfire email address. Verify this on a single test user before enabling provisioning for everyone, and contact [Logfire support](mailto:support@pydantic.dev) if the values Entra sends are object IDs. Configure provisioning to use only existing Logfire users and existing group mappings. User and group creation, updates, and deactivation are not supported.
-- **Okta:** [Okta Group Push](https://developer.okta.com/docs/api/openapi/okta-scim/guides/scim-20/#update-specific-group-membership) is not currently compatible with this endpoint. Okta sends lowercase operation names and filtered member-removal paths, while Logfire currently accepts only the exact operations documented below. Custom Okta app integrations can also replace group membership with `PUT`, which Logfire does not support. Use [SSO group mappings](how-to-guides/sso-setup.md) to apply access when users sign in, or contact [Logfire support](mailto:support@pydantic.dev).
+- **Microsoft Entra ID:** The request shape of [Entra's group-member add and remove requests](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#update-group-add-members) matches the documented `PATCH /Groups/{group_id}` format. Entra fills each `members[].value` with the SCIM `id` it recorded for the user when it provisioned or matched that user, which by default is the identifier your application returned rather than an email address. Logfire requires an email address there and silently skips any other value, so membership changes only apply when Entra's stored `id` for each user is that user's Logfire email address. Note that Logfire does not meet several of [Entra's stated SCIM requirements](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#scim-protocol-requirements), including user creation and the `/Schemas` endpoint that Entra requests when you save a provisioning configuration. Entra treats schema discovery as a way to add target attributes rather than a prerequisite, so a custom non-gallery application can still save, but verify that the provisioning job saves and runs in your tenant before relying on it. Configure provisioning to use only existing Logfire users and existing group mappings, and contact [Logfire support](mailto:support@pydantic.dev) if setup does not complete or the values Entra sends are object IDs.
+- **Okta:** [Okta Group Push](https://developer.okta.com/docs/api/openapi/okta-scim/guides/scim-20/#update-specific-group-membership) may not complete setup against this endpoint, and only part of its membership flow is compatible. Okta sends lowercase operation names and filtered member-removal paths such as `members[value eq "alice@example.com"]`, both of which Logfire accepts. Several things do not fit. Group Push creates the pushed group with `POST /Groups`, which Logfire rejects because it does not support `POST`. Enabling provisioning also sends unfiltered paginated requests such as `GET /Users?startIndex=1&count=2` and `GET /Groups?startIndex=1&count=100`; Logfire supports only the exact filters in [Supported operations](#supported-operations), so these return an empty `ListResponse` rather than an error, and Okta imports nothing. Okta can also push a group's full membership with a single `"op": "replace"` on the `members` path, which Logfire rejects with `400` because it applies only `add` and `remove`, leaving that group's access unchanged. Okta additionally fills each member `value` with the identifier it recorded for the user and puts the email address in `display`, so as with Entra, membership applies only when the recorded identifier is the user's Logfire email address. Confirm this against your own deployment before relying on Group Push. Use [SSO group mappings](how-to-guides/sso-setup.md) to apply access when users sign in, or contact [Logfire support](mailto:support@pydantic.dev).
 
-For another identity provider, compare its group-membership request format with [Supported operations](#supported-operations) before enabling provisioning. A provider can report success for an operation that the current Logfire endpoint does not apply, so verify the resulting roles in Logfire during setup.
+For another identity provider, check both things before enabling provisioning: that its group-membership request format matches [Supported operations](#supported-operations), and that it can connect without the endpoints listed above as unsupported. A provider can also report success for a member value that is not the email address of an existing Logfire account, because Logfire skips unknown addresses by design, so verify the resulting roles in Logfire during setup.
 
 ## Test user discovery
 
@@ -97,7 +100,7 @@ curl --request PATCH "$SCIM_BASE_URL/Groups/engineering" \
     "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
     "Operations": [
       {
-        "op": "Add",
+        "op": "add",
         "path": "members",
         "value": [{"value": "alice@example.com"}]
       }
@@ -105,9 +108,11 @@ curl --request PATCH "$SCIM_BASE_URL/Groups/engineering" \
   }'
 ```
 
-Use `"op": "Remove"` with the same `members` path and value shape to remove mapped access. Operation names are case-sensitive and must be exactly `Add` or `Remove`. The path must be exactly `members`; filtered removal paths such as `members[value eq "alice@example.com"]` are not supported. Each member `value` must be an email address for an existing Logfire account. Logfire skips unknown email addresses and continues processing the other members.
+Use `"op": "remove"` with the same `members` path and value shape to remove mapped access. Operation and path names are case-insensitive, so `add`, `Add`, `members`, and `Members` are all accepted. To remove a single member, you can also send a filtered path such as `"path": "members[value eq \"alice@example.com\"]"`, the form Okta Group Push uses. Each member `value` must be an email address for an existing Logfire account. Logfire skips unknown email addresses and continues processing the other members.
 
-After a `204 No Content` response, open **Organization settings → Members** and the relevant project member pages to verify the user's assigned roles. This verification is required during setup because an unsupported patch operation can return `204` without changing access.
+Logfire validates the whole patch before applying any of it. An unsupported `op`, an unsupported or missing `path`, or a `value` that is not a list returns `400 Bad Request` with a message naming the offending operation, and no part of the patch is applied.
+
+After a `204 No Content` response, open **Organization settings → Members** and the relevant project member pages to verify the user's assigned roles. Confirming the roles during setup shows that the member values your provider sends resolve to the Logfire accounts you expect.
 
 ## Troubleshooting
 
@@ -123,12 +128,21 @@ Check that `{provider_name}` exactly matches the provider name in **Organization
 
 Use the exact filter syntax from [Supported operations](#supported-operations). User lookup matches an email address. Group lookup matches a configured group name or ID. In an Enterprise Cloud deployment, a discovered user must already belong to the API key's organization.
 
+### The identity provider cannot save or test the connection
+
+A provider that runs its own connection test or import step can stop before it sends any membership patch, because Logfire implements only the subset in [Supported operations](#supported-operations). This shows up in two ways. A request Logfire does not support at all, such as `POST /Groups` to create a group or a read of `/ServiceProviderConfig`, `/ResourceTypes`, or `/Schemas`, is rejected outright. A collection request that does not use one of the exact documented filters, such as an unfiltered or paginated `GET /Users` or `GET /Groups` probe, instead returns an empty `ListResponse`, so the provider sees no error but imports nothing. See [Choose a compatible identity-provider setup](#choose-a-compatible-identity-provider-setup) for the providers this affects, and use [SSO group mappings](how-to-guides/sso-setup.md) or contact [Logfire support](mailto:support@pydantic.dev) if your provider cannot connect.
+
+### A group patch returns `400`
+
+Logfire rejects a patch that contains an operation it does not support, and the response message names the offending operation. Check that each operation's `op` is `add` or `remove`, that it has a `path` of `members` or a filtered `members[value eq "..."]` path, and that any `value` is a list of member objects. Because Logfire validates the whole patch first, one bad operation prevents the others from applying, so fix the named operation and send the patch again.
+
+A common cause is a provider that pushes a group's full membership as a single `"op": "replace"` on the `members` path, which Logfire does not apply. Configure the provider to send incremental `add` and `remove` operations instead, or use [SSO group mappings](how-to-guides/sso-setup.md) if it cannot.
+
 ### A group patch succeeds but a member's access does not change
 
 Check all of the following:
 
 - The group has a mapping in Logfire or the self-hosted deployment configuration.
-- The operation is exactly `Add` or `Remove`, its path is exactly `members`, and its `value` is a list of member objects.
-- The identity provider is not sending a filtered removal path or replacing membership with `PUT`.
-- The member value is the email address of an existing Logfire account, not an identity-provider object ID or another identifier.
+- The member value is the email address of an existing Logfire account, not an identity-provider object ID or another identifier. Unknown addresses are skipped without failing the request.
+- The identity provider is not replacing membership with `PUT`, which Logfire does not support.
 - The user's current organization role can be changed safely. Logfire preserves required ownership and administrator access.
