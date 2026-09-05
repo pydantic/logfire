@@ -1,7 +1,13 @@
 import re
 from pathlib import Path
 
-from scripts.build_offline_skill_prompt import MANDATORY_REFERENCES, SKILLS_ROOT, build
+from scripts.build_offline_skill_prompt import (
+    MANDATORY_REFERENCES,
+    PUBLIC_SKILLS_ROOT,
+    SKILL_ORDER,
+    SKILLS_ROOT,
+    build,
+)
 
 REPO_ROOT = Path(__file__).parent.parent
 CHECKED_IN_BUNDLE = SKILLS_ROOT / 'logfire-setup-offline.md'
@@ -73,6 +79,26 @@ def test_full_build_has_no_dead_reference_links() -> None:
             continue
         resolved = normalized.removeprefix('../')
         assert resolved in headings, f'{link_path!r} -> {resolved!r} not in appendix (have: {sorted(headings)})'
+
+
+def test_build_rewrites_public_links_only_for_inlined_skills() -> None:
+    compact = build(include_references=False)
+
+    for skill in SKILL_ORDER:
+        assert f'{PUBLIC_SKILLS_ROOT}/{skill}/' not in compact
+    for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+        assert f'](#skill-{skill})' in compact
+    assert f'{PUBLIC_SKILLS_ROOT}/logfire-query/SKILL.md' in compact
+    assert f'{PUBLIC_SKILLS_ROOT}/logfire-ui/SKILL.md' in compact
+
+
+def test_inlined_skill_links_resolve_in_generated_and_checked_in_bundles() -> None:
+    """Every synthetic skill fragment has the heading that creates its anchor."""
+    checked_in = CHECKED_IN_BUNDLE.read_text(encoding='utf-8')
+    for bundle in (build(include_references=False), checked_in):
+        for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+            assert f'](#skill-{skill})' in bundle
+            assert f'# Skill: {skill}\n' in bundle
 
 
 def test_checked_in_bundle_matches_a_fresh_build() -> None:
