@@ -19,22 +19,19 @@ watched. App instrumentation alone never produces this data.
 
 ## Send Collector data to Logfire
 
-Point the Collector's OTLP exporter at your Logfire region with a write token.
-The token authenticates the same way as any OTLP client:
+Point the Collector's OTLP exporter at the exact Logfire origin selected during
+authentication. The token authenticates the same way as any OTLP client:
 
 ```yaml
 exporters:
   otlphttp/logfire:
-    endpoint: 'https://logfire-us.pydantic.dev'   # EU: https://logfire-eu.pydantic.dev
+    endpoint: '<selected-logfire-origin>'
     headers:
       Authorization: 'Bearer ${env:LOGFIRE_TOKEN}'
 ```
 
-Create a write token in the Logfire UI (Project Settings → Write tokens) and set it as
-the `LOGFIRE_TOKEN` environment variable wherever the Collector runs -- `${env:NAME}` is
-the Collector's own config-substitution syntax, resolved at startup, never hardcoded into
-the file. Add the exporter to your
-metrics (and/or logs/traces) pipelines.
+Use the project-scoped write token created by the authentication flow's `projects use`
+command. Follow its [credential handoff instructions](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session) to place only the token value into a gitignored env file, Kubernetes Secret, or the deployment's existing secret manager without printing it. Set that credential as `LOGFIRE_TOKEN` wherever the Collector runs -- `${env:NAME}` is the Collector's own config-substitution syntax, resolved at startup, never hardcoded into the Collector config. Add the exporter to your metrics (and/or logs/traces) pipelines.
 
 Full setup, topologies, and processors:
 https://pydantic.dev/docs/logfire/guides/otel-collector/otel-collector-overview/

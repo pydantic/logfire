@@ -23,12 +23,15 @@ into a build step without this script knowing which.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_ROOT = REPO_ROOT / 'logfire' / '.agents' / 'skills'
 PUBLIC_SKILLS_ROOT = 'https://pydantic.dev/.well-known/agent-skills'
+AUTH_REFERENCE_PATH = 'logfire-instrumentation/references/auth.md'
+AUTH_REFERENCE_ANCHOR = '#authenticate-and-select-the-exact-project'
 
 # Hub first, then the three it routes to, in the order a reader would want
 # to meet them: detect/install first, the two optional add-ons after.
@@ -82,6 +85,18 @@ def _reference_files(skill_dir: Path) -> list[Path]:
 
 def _rewrite_public_links_for_offline_bundle(text: str) -> str:
     """Point links to bundled skills back at their inlined offline sections."""
+    auth_sources = (
+        f'{PUBLIC_SKILLS_ROOT}/{AUTH_REFERENCE_PATH}',
+        f'../{AUTH_REFERENCE_PATH}',
+        AUTH_REFERENCE_PATH,
+        './references/auth.md',
+    )
+    for source in auth_sources:
+        text = re.sub(
+            rf'{re.escape(source)}(#[^)\s]+)?',
+            lambda match: match.group(1) or AUTH_REFERENCE_ANCHOR,
+            text,
+        )
     for name in SKILL_ORDER:
         text = text.replace(f'{PUBLIC_SKILLS_ROOT}/{name}/SKILL.md', f'#skill-{name}')
         text = text.replace(f'{PUBLIC_SKILLS_ROOT}/{name}/', f'../{name}/')
@@ -122,17 +137,15 @@ def _preamble(*, include_references: bool) -> str:
     # unrewritten one), this note tells the reader the resolution rule directly: strip the
     # relative prefix, keep the skill-qualified remainder, and match it against an
     # appendix heading below -- never follow either link shape as a literal path.
-    references_note = (
-        ' A pointer to a file under `./references/...` (same skill) or '
+    references_note = ' Authentication links jump directly to the inlined authentication appendix.'
+    references_note += (
+        ' A pointer to any other file under `./references/...` (same skill) or '
         '`../<skill-name>/references/...` (a different skill) means the matching entry in '
         'the **Reference Files** appendix at the end, headed with that skill-qualified '
         "path -- never follow either as a literal path from this file's own location."
         if include_references
-        else ' This build omits the `./references/...` deep-dive files (language-specific '
-        "edge cases) to stay shorter, EXCEPT the authenticate reference every skill's "
-        'Step 1 depends on -- that one is always included below, not just linked to -- so '
-        'if a pointer to any other `./references/...` or `../<skill-name>/references/...` '
-        'file turns out to matter, fetch it directly from the repo instead.'
+        else ' This build omits the other `./references/...` deep-dive files (language-specific '
+        'edge cases) to stay shorter; if one turns out to matter, fetch it directly from the repo.'
     )
     return (
         '# Pydantic Logfire — Offline Setup Prompt\n\n'
