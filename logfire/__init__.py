@@ -66,6 +66,7 @@ instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
+instrument_snowflake = DEFAULT_LOGFIRE_INSTANCE.instrument_snowflake
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
 instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
 instrument_claude_agent_sdk = DEFAULT_LOGFIRE_INSTANCE.instrument_claude_agent_sdk
@@ -177,6 +178,7 @@ __all__ = (
     'instrument_pymongo',
     'instrument_mysql',
     'instrument_surrealdb',
+    'instrument_snowflake',
     'instrument_system_metrics',
     'instrument_mcp',
     'instrument_claude_agent_sdk',
