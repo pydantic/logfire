@@ -13,7 +13,7 @@ Keep the user informed with short updates, but proceed through ordinary, reversi
 
 Auth comes first because everything after it depends on having a valid, confirmed connection to the exact right Logfire project: instrumenting or inspecting the repo before that is either wasted if the connection turns out wrong, or worse, ends up silently wired to the wrong project. Do not open, read, or run any project file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's in the repo yet.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md).
+Use [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
 
 ## Step 2: Understand the Repo
 
