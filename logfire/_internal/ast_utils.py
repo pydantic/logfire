@@ -169,14 +169,10 @@ class CallNodeFinder(ABC):
         # This shouldn't happen in most cases, but it's best not to rely on it always working.
 
         if not self.source.text:
-            # This is a very likely cause.
-            # There's nothing we could possibly do to make magic work here,
-            # and it's a clear case where the user should turn the magic off.
-            self.warn_inspect_arguments(
-                'No source code available. '
-                'This happens when running in an interactive shell, '
-                'using exec(), or running .pyc files without the source .py files.',
-            )
+            # Nothing we can inspect: exec(), a REPL, or a .pyc without sources.
+            # The formatter already falls back to the provided template and kwargs,
+            # which is correct for a literal message. Warning on every span made
+            # that expected fallback look like a defect (#2223).
             return None
 
         msg = '`executing` failed to find a node.'

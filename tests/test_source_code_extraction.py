@@ -9,7 +9,7 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal import ast_utils
-from logfire._internal.ast_utils import InspectArgumentsFailedWarning
+from logfire._internal.ast_utils import InspectArgumentsFailedWarning  # noqa: F401
 from logfire.testing import TestExporter
 
 
@@ -101,49 +101,25 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
 
 
 def test_source_code_extraction_module(exporter: TestExporter) -> None:
-    with pytest.warns(InspectArgumentsFailedWarning, match='No source code available'):
-        exec(
-            """import logfire
+    # exec() has no source for `executing` to read. A literal template with
+    # explicit kwargs does not need inspection, so this must not warn (#2223).
+    exec(
+        """import logfire
 with logfire.span('from module'):
     pass
     """
-        )
+    )
 
     assert normalize_filepaths(
         exporter.exported_spans_as_dict(strip_filepaths=False, _strip_function_qualname=False)
     ) == snapshot(
         [
             {
-                'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
-""",
+                'name': 'from module',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 13,
-                    'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
-""",
-                    'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Falling back to normal message formatting which may result in loss of information if using an f-string. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-No source code available. This happens when running in an interactive shell, using exec(), or running .pyc files without the source .py files.\
-""",
-                    'code.filepath': 'tests/test_source_code_extraction.py',
-                    'code.function': 'test_source_code_extraction_module',
-                    'code.lineno': 123,
-                },
-            },
-            {
-                'name': 'from module',
-                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
-                'parent': None,
-                'start_time': 2000000000,
-                'end_time': 3000000000,
+                'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
                     'code.function': 'test_source_code_extraction_module',
