@@ -83,6 +83,7 @@ def _reference_files(skill_dir: Path) -> list[Path]:
 def _rewrite_public_links_for_offline_bundle(text: str) -> str:
     """Point links to bundled skills back at their inlined offline sections."""
     for name in SKILL_ORDER:
+        text = text.replace(f'{PUBLIC_SKILLS_ROOT}/{name}/SKILL.md', f'#skill-{name}')
         text = text.replace(f'{PUBLIC_SKILLS_ROOT}/{name}/', f'../{name}/')
     return text
 

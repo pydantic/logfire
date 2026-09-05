@@ -34,9 +34,9 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 | Surface | Covers | Skill |
 |---------|--------|-------|
-| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](../logfire-instrumentation/SKILL.md) |
-| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](../logfire-infrastructure/SKILL.md) |
-| Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | [`logfire-evals`](../logfire-evals/SKILL.md) |
+| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](#skill-logfire-instrumentation) |
+| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](#skill-logfire-infrastructure) |
+| Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | [`logfire-evals`](#skill-logfire-evals) |
 | Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | [`logfire-query`](https://pydantic.dev/.well-known/agent-skills/logfire-query/SKILL.md) |
 | Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | [`logfire-ui`](https://pydantic.dev/.well-known/agent-skills/logfire-ui/SKILL.md) |
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
