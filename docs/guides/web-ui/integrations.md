@@ -1,11 +1,11 @@
 ---
 title: "Install dashboards and alerts for your infrastructure"
-description: "Use the Logfire integrations catalog to install ready-made dashboards and alerts for Redis, PostgreSQL, Kafka, NGINX, and other services you already run."
+description: "Use the Logfire integrations catalog to install ready-made dashboards and alerts for databases, messaging systems, web infrastructure, and GPU hardware."
 ---
 
 # Integrations
 
-An **integration** is a ready-made observability bundle for a piece of infrastructure you run: a standard dashboard, a set of health alerts, and the configuration needed to collect the data. The catalog covers common databases, caches, queues, streaming systems, web servers, and proxies.
+An **integration** is a ready-made observability bundle for a piece of infrastructure you run: a standard dashboard, a set of health alerts, and the configuration needed to collect the data. The catalog covers common databases, caches, queues, streaming and compute systems, web infrastructure, tools that collect metrics, and GPU hardware.
 
 !!! note "Integrations are in Beta"
 
@@ -63,7 +63,7 @@ The catalog groups the integrations visible to your project by service type. Eac
 - **Detected**: the service's metrics are arriving and it is ready to install.
 - **Installed**: its dashboards are enabled and its alerts exist.
 
-Narrow the list with the search box, the status dropdown (**All statuses**, **Available**, **Installed**), and the tag chips: `Database`, `Cache`, `SQL`, `NoSQL`, `Search`, `Queue`, `Streaming`, `Web Server`, and `Proxy`. The **Available** filter includes detected integrations that you have not installed. Selecting several tags matches any of them.
+Narrow the list with the search box, the status dropdown (**All statuses**, **Available**, **Installed**), and tag chips such as `Database`, `Cache`, `Queue`, `Streaming`, `Web Server`, `Compute`, `Metrics`, and `GPU`. The **Available** filter includes detected integrations that you have not installed. Selecting several tags matches any of them.
 
 !!! note "Detection runs on demand"
 
@@ -75,17 +75,29 @@ The catalog is also reachable through the [Logfire MCP server](../../how-to-guid
 
 ## Available integrations
 
-| Integration | Tags |
-|---|---|
-| Redis | Database, Cache |
-| Memcached | Cache |
-| PostgreSQL | Database, SQL |
-| MySQL | Database, SQL |
-| MongoDB | Database, NoSQL |
-| Elasticsearch | Database, Search |
-| RabbitMQ | Queue |
-| Apache Kafka | Queue, Streaming |
-| NGINX | Proxy, Web Server |
-| Apache HTTP Server | Web Server |
+Integrations marked **Early access** are still being validated against the technology they monitor. Their dashboards and alerts work, but their metric names and thresholds may change. [Contact Pydantic](https://pydantic.dev/contact) if you want to try them.
+
+| Integration | Tags | Availability |
+|---|---|---|
+| Redis | Database, Cache | Beta |
+| Memcached | Cache | Beta |
+| PostgreSQL | Database, SQL | Beta |
+| MySQL | Database, SQL | Beta |
+| MongoDB | Database, NoSQL | Beta |
+| Elasticsearch | Database, Search | Beta |
+| RabbitMQ | Queue | Beta |
+| Apache Kafka | Queue, Streaming | Beta |
+| NGINX | Proxy, Web Server | Beta |
+| Apache HTTP Server | Web Server | Beta |
+| ActiveMQ | Queue, Messaging, Java | Early access |
+| Apache Cassandra | Database, NoSQL | Early access |
+| Apache Flink | Compute, Streaming, Big Data | Early access |
+| HAProxy | Proxy, Load Balancer | Early access |
+| NVIDIA GPUs | GPU, CUDA, Kubernetes, Hardware | Early access |
+| Prometheus | Metrics, Collector, Monitoring | Early access |
+| Apache Spark | Compute, Big Data | Early access |
+| Telegraf | Metrics, Collector, Agent | Early access |
+| Apache Tomcat | Web Server, Java | Early access |
+| ZooKeeper | Coordination, Distributed Systems | Early access |
 
 Integrations are added over time. Each is a data-only definition, so the catalog grows without new per-service code.
