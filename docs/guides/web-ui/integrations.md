@@ -1,6 +1,6 @@
 ---
 title: "Install dashboards and alerts for your infrastructure"
-description: "Use the Logfire integrations catalog to install ready-made dashboards and alerts for databases, messaging systems, web infrastructure, and GPU hardware."
+description: "Use the Logfire integrations catalog to install ready-made dashboards and alerts for databases, messaging and compute systems, web infrastructure, metric collectors, and GPU hardware."
 ---
 
 # Integrations
@@ -59,11 +59,11 @@ Logfire maintains installed integrations for you. We may revise dashboards and a
 
 The catalog groups the integrations visible to your project by service type. Each row shows the service, its tags, its contents as a count of dashboards and alerts, and its **status** for your project:
 
-- **Available**: no telemetry from this service has been seen.
+- **Available**: Logfire has not detected telemetry from this service.
 - **Detected**: the service's metrics are arriving and it is ready to install.
 - **Installed**: its dashboards are enabled and its alerts exist.
 
-Narrow the list with the search box, the status dropdown (**All statuses**, **Available**, **Installed**), and tag chips such as `Database`, `Cache`, `Queue`, `Streaming`, `Web Server`, `Compute`, `Metrics`, and `GPU`. The **Available** filter includes detected integrations that you have not installed. Selecting several tags matches any of them.
+Narrow the list with the search box, the status dropdown (**All statuses**, **Available**, **Installed**), and tag chips such as `Database`, `Cache`, `Queue`, `Streaming`, `Web Server`, `Compute`, `Metrics`, and `GPU`. In the dropdown, **Available** means not installed, so it shows rows with either an **Available** or **Detected** status. Selecting several tags matches any of them.
 
 !!! note "Detection runs on demand"
 
@@ -75,7 +75,7 @@ The catalog is also reachable through the [Logfire MCP server](../../how-to-guid
 
 ## Available integrations
 
-Integrations marked **Early access** are still being validated against the technology they monitor. Their dashboards and alerts work, but their metric names and thresholds may change. [Contact Pydantic](https://pydantic.dev/contact) if you want to try them.
+Integrations marked **Beta** are available as part of the integrations beta. Integrations marked **Early access** are newer and still being validated against the technology they monitor. Their dashboards and alerts work, but their metric names and thresholds may change. [Contact Pydantic](https://pydantic.dev/contact) if you want to try them.
 
 | Integration | Tags | Availability |
 |---|---|---|
