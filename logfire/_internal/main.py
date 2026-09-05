@@ -1175,6 +1175,18 @@ class Logfire:
             **kwargs,
         )
 
+    def instrument_monty(self) -> None:
+        """Instrument Pydantic Monty.
+
+        Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
+        It records Monty sessions, executed code, inputs, outputs, external calls,
+        exceptions, printed text, and pool metrics. Recorded values may contain sensitive data.
+        """
+        from .integrations.monty import instrument_monty
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_monty(self)
+
     def instrument_fastapi(
         self,
         app: FastAPI,
