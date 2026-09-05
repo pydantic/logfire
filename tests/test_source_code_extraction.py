@@ -9,7 +9,7 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal import ast_utils
-from logfire._internal.ast_utils import InspectArgumentsFailedWarning  # noqa: F401
+from logfire._internal.ast_utils import InspectArgumentsFailedWarning
 from logfire.testing import TestExporter
 
 
@@ -100,22 +100,23 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
     )
 
 
-def test_source_code_extraction_module(exporter: TestExporter) -> None:
+def test_source_code_extraction_module(exporter: TestExporter, recwarn: pytest.WarningsRecorder) -> None:
     # exec() has no source for `executing` to read. A literal template with
     # explicit kwargs does not need inspection, so this must not warn (#2223).
     exec(
         """import logfire
-with logfire.span('from module'):
+with logfire.span('from {name}', name='module'):
     pass
     """
     )
+    assert [w for w in recwarn if w.category is InspectArgumentsFailedWarning] == []
 
     assert normalize_filepaths(
         exporter.exported_spans_as_dict(strip_filepaths=False, _strip_function_qualname=False)
     ) == snapshot(
         [
             {
-                'name': 'from module',
+                'name': 'from {name}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -124,8 +125,10 @@ with logfire.span('from module'):
                     'code.filepath': 'tests/test_source_code_extraction.py',
                     'code.function': 'test_source_code_extraction_module',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'from module',
+                    'name': 'module',
+                    'logfire.msg_template': 'from {name}',
                     'logfire.msg': 'from module',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{}}}',
                     'logfire.span_type': 'span',
                 },
             },
