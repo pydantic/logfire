@@ -135,11 +135,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
                     'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [IsPartialDict()],
-                    },
+                    'logfire.mcp.tools.count': 1,
                 },
             },
             {
@@ -162,11 +158,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP request: tools/list',
                     'logfire.msg': 'MCP request: tools/list',
                     'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [IsPartialDict()],
-                    },
+                    'logfire.mcp.tools.count': 1,
                 },
             },
             {
@@ -389,11 +381,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
                     'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [IsPartialDict()],
-                    },
+                    'logfire.mcp.tools.count': 1,
                 },
             },
             {
@@ -413,28 +401,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP request: tools/list',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'MCP request: tools/list',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'icons': None,
-                                'annotations': None,
-                                'meta': None,
-                                'execution': None,
-                            }
-                        ],
-                    },
+                    'logfire.mcp.tools.count': 1,
                 },
             },
             {
