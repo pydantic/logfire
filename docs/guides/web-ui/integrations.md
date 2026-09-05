@@ -9,7 +9,7 @@ An **integration** is a ready-made observability bundle for a piece of infrastru
 
 !!! note "Integrations are in Beta"
 
-    Integrations are available in every project, but their dashboards, alerts, and setup instructions may change while the feature is in Beta.
+    The integrations catalog is in Beta. Its standard integrations are available in every project, but their dashboards, alerts, and setup instructions may change.
 
 They are built on the metrics the [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md) already scrapes from those services. The Collector is a separate program that gathers telemetry and forwards it to Logfire. Point it at Redis, open the catalog, and install: you get the dashboard and alerts without working out which attributes the receiver emits, writing the SQL behind each panel, or repeating that work for the next service.
 
@@ -75,7 +75,7 @@ The catalog is also reachable through the [Logfire MCP server](../../how-to-guid
 
 ## Available integrations
 
-Integrations marked **Beta** are available as part of the integrations beta. Integrations marked **Early access** are newer and still being validated against the technology they monitor. Their dashboards and alerts work, but their metric names and thresholds may change. [Contact Pydantic](https://pydantic.dev/contact) if you want to try them.
+Integrations marked **Beta** are the standard set available in every project. Integrations marked **Early access** are newer and still being validated against the technology they monitor. Their dashboards and alerts work, but their metric names and thresholds may change. [Contact Pydantic](https://pydantic.dev/contact) if you want to try them.
 
 | Integration | Tags | Availability |
 |---|---|---|
