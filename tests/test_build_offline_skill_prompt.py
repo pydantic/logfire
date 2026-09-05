@@ -92,6 +92,15 @@ def test_build_rewrites_public_links_only_for_inlined_skills() -> None:
     assert f'{PUBLIC_SKILLS_ROOT}/logfire-ui/SKILL.md' in compact
 
 
+def test_inlined_skill_links_resolve_in_generated_and_checked_in_bundles() -> None:
+    """Every synthetic skill fragment has the heading that creates its anchor."""
+    checked_in = CHECKED_IN_BUNDLE.read_text(encoding='utf-8')
+    for bundle in (build(include_references=False), checked_in):
+        for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+            assert f'](#skill-{skill})' in bundle
+            assert f'# Skill: {skill}\n' in bundle
+
+
 def test_checked_in_bundle_matches_a_fresh_build() -> None:
     """The committed logfire-setup-offline.md is `--no-references` output, regenerated.
 
