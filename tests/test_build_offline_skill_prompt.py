@@ -6,6 +6,7 @@ from scripts.build_offline_skill_prompt import (
     PUBLIC_SKILLS_ROOT,
     SKILL_ORDER,
     SKILLS_ROOT,
+    _rewrite_public_links_for_offline_bundle,  # pyright: ignore[reportPrivateUsage]
     build,
 )
 
@@ -61,6 +62,7 @@ def test_full_build_has_no_dead_reference_links() -> None:
     full = build(include_references=True)
     headings = _appendix_headings(full)
     assert headings, 'full build produced no Reference Files appendix at all'
+    assert '[credential handoff instructions](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session)' in full
 
     for link_path in REFERENCE_LINK.findall(full):
         # Normalize `./references/x.md` and `../logfire-instrumentation/references/x.md`
@@ -90,6 +92,12 @@ def test_build_rewrites_public_links_only_for_inlined_skills() -> None:
         assert f'](#skill-{skill})' in compact
     assert f'{PUBLIC_SKILLS_ROOT}/logfire-query/SKILL.md' in compact
     assert f'{PUBLIC_SKILLS_ROOT}/logfire-ui/SKILL.md' in compact
+
+
+def test_auth_link_rewrite_preserves_the_complete_fragment() -> None:
+    source = f'[Auth]({PUBLIC_SKILLS_ROOT}/logfire-instrumentation/references/auth.md#write_token.v1)'
+
+    assert _rewrite_public_links_for_offline_bundle(source) == '[Auth](#write_token.v1)'
 
 
 def test_inlined_skill_links_resolve_in_generated_and_checked_in_bundles() -> None:

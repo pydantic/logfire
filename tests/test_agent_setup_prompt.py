@@ -70,7 +70,22 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     instrumentation = (skill_root / 'SKILL.md').read_text()
     auth = (skill_root / 'references' / 'auth.md').read_text()
 
-    assert '--region <region> auth' in auth
+    assert 'https://logfire-us.pydantic.dev` -> `--region us' in auth
+    assert 'https://logfire-eu.pydantic.dev` -> `--region eu' in auth
+    assert 'Logfire Cloud is the normal customer path and uses a region' in auth
+    assert 'An explicitly supplied non-cloud Logfire origin -> `--base-url <exact-origin>`' in auth
+    assert 'this means an on-prem Logfire deployment' in auth
+    assert 'never replace a Logfire Cloud region with `--base-url`' in auth
+    assert 'Require `https://` for a non-cloud origin' in auth
+    assert 'loopback' not in auth
+    assert 'development origin' not in auth
+    assert 'accept only an absolute origin' in auth
+    assert 'no userinfo, non-root path, query, fragment, whitespace, or control characters' in auth
+    assert 'check only whether `LOGFIRE_TOKEN` is set; never read its value' in auth
+    assert 'prevent every CLI command in this session from inheriting it' in auth
+    assert 'never concatenate it into shell text or use `eval`' in auth
+    assert '<target> projects new <project-name>' in auth
+    assert 'product prompt only needs to supply the exact Logfire URL' in auth
     assert '--region eu auth' not in auth
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
     assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
@@ -98,13 +113,26 @@ def test_separately_published_setup_skills_use_public_cross_skill_links() -> Non
         assert '../logfire-instrumentation/references/auth.md' not in content
 
 
+def test_setup_skill_entrypoints_delegate_target_aware_whoami_to_auth_reference() -> None:
+    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+
+    for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+        content = (skills_root / skill / 'SKILL.md').read_text()
+        assert 'target-aware `whoami` check' in content
+        assert 'right project and resolved `--region` or `--base-url` target' in content
+        assert '`uvx logfire --non-interactive whoami`' not in content
+        assert '`npx logfire whoami`' not in content
+
+
 def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
     skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
     offline = (skills_root / 'logfire-setup-offline.md').read_text()
 
     for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
         assert f'https://pydantic.dev/.well-known/agent-skills/{skill}/' not in offline
-    assert '[Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md)' in offline
+    assert '[Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project)' in offline
+    assert '[auth.md](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session)' in offline
+    assert 'Authentication links jump directly to the inlined authentication appendix' in offline
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
@@ -112,6 +140,14 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
     reference = (skill_root / 'references' / 'collector' / 'host-and-infra-metrics.md').read_text()
 
     assert "Authorization: 'Bearer ${env:LOGFIRE_TOKEN}'" in reference
+    assert "write token created by the authentication flow's `projects use`" in reference
+    assert 'Create a write token in the Logfire UI' not in reference
+    assert "endpoint: '<selected-logfire-origin>'" in reference
+    assert "endpoint: 'https://logfire-us.pydantic.dev'" not in reference
+    assert (
+        '--dry-run=client -o yaml | kubectl apply -f -'
+        in (skill_root.parent / 'logfire-instrumentation' / 'references' / 'auth.md').read_text()
+    )
     assert 'collection_interval: 60s' in reference
     assert 'system.cpu.utilization:' in reference
     assert 'system.memory.utilization:' in reference

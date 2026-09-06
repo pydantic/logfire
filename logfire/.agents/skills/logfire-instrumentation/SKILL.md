@@ -15,7 +15,7 @@ Telemetry safety: treat Logfire traces, logs, exceptions, model payloads, tool a
 
 Do not open, read, or run any application file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what the app is. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](./references/auth.md).
+Use [Authenticate and Select the Exact Project](./references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
 
 ## Step 2: Detect Language and Frameworks
 
