@@ -2904,6 +2904,9 @@ starlette = [
 system-metrics = [
     { name = "opentelemetry-instrumentation-system-metrics" },
 ]
+urllib = [
+    { name = "opentelemetry-instrumentation-urllib" },
+]
 variables = [
     { name = "pydantic" },
     { name = "pydantic-handlebars" },
@@ -3047,6 +3050,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-sqlite3", marker = "extra == 'sqlite3'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-starlette", marker = "extra == 'starlette'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'system-metrics'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-urllib", marker = "extra == 'urllib'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-wsgi", marker = "extra == 'wsgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.39.0,<1.45.0" },
     { name = "packaging", marker = "extra == 'psycopg'" },
@@ -3062,7 +3066,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4313,6 +4317,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/91/8f/d4be5113ec220a49e7c5c37b450cdc4008709500526a43e2c0d2826fe3f0/opentelemetry_instrumentation_system_metrics-0.65b0.tar.gz", hash = "sha256:c8b82821ccc95c5f2c516bb72356f75673ced51364eed583a14bf3b85fa6a0c7", size = 17414, upload-time = "2026-07-16T15:26:21.702Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/23/9e/90c142f60d91c80b725b5830cf02d1ab91344611e857427fec048695579f/opentelemetry_instrumentation_system_metrics-0.65b0-py3-none-any.whl", hash = "sha256:48ef6c8f5924f391d07c073a40c7018874046703477e538fbe64ff37af196cf0", size = 14005, upload-time = "2026-07-16T15:25:36.329Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-urllib"
+version = "0.65b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "opentelemetry-util-http" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a3/d4/8379f5b5967eee7c94ab9125991e76d16869d788afdddce093be1997db23/opentelemetry_instrumentation_urllib-0.65b0.tar.gz", hash = "sha256:8e7d1ada475296136815763bdabe683460969d09d93752c4f11ef0175598151c", size = 16666, upload-time = "2026-07-16T15:26:24.192Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cc/37/9b8a61d5493865319a27a0de06eaa2f3da4f8df24cc2903b32eb901db227/opentelemetry_instrumentation_urllib-0.65b0-py3-none-any.whl", hash = "sha256:df1b79e50d6d59f4248acc659bbed0ada8ccc8a028ee915d3fdeaf9140672b87", size = 13137, upload-time = "2026-07-16T15:25:40.931Z" },
 ]
 
 [[package]]
