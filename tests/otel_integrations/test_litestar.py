@@ -547,7 +547,10 @@ def test_record_send_receive_enabled(exporter: TestExporter) -> None:
 
 def test_capture_headers(exporter: TestExporter) -> None:
     with TestClient(make_app(capture_headers=True)) as client:
-        assert client.get('/health', headers={'x-test-header': 'value'}).status_code == 200
+        assert (
+            client.get('/health', headers={'x-test-header': 'value', 'accept-encoding': 'gzip, deflate'}).status_code
+            == 200
+        )
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -583,7 +586,7 @@ def test_capture_headers(exporter: TestExporter) -> None:
                     'http.route': '/health',
                     'http.request.header.host': ('testserver',),
                     'http.request.header.accept': ('*/*',),
-                    'http.request.header.accept_encoding': ('gzip, deflate, zstd',),
+                    'http.request.header.accept_encoding': ('gzip, deflate',),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user_agent': ('testclient',),
                     'http.request.header.x_test_header': ('value',),
