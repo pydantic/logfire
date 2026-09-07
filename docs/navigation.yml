@@ -445,6 +445,9 @@ navigation:
       - page: "AWS Lambda"
         path: "integrations/aws-lambda.md"
         slug: "integrations/aws-lambda"
+      - page: "Codex"
+        path: "integrations/codex.md"
+        slug: "integrations/codex"
   - section: "AI Engineering"
     slug: ""
     contents:
