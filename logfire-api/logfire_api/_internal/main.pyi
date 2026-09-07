@@ -42,6 +42,7 @@ from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
+from litestar import Litestar
 from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
@@ -799,6 +800,29 @@ class Logfire:
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
+        """
+    def instrument_litestar(self, app: Litestar, *, capture_headers: bool = False, record_send_receive: bool = False, **kwargs: Unpack[ASGIInstrumentKwargs]) -> ASGIApp:
+        """Instrument a Litestar app to record requests with canonical route templates.
+
+        Uses `instrument_asgi()` with a Litestar route extractor, so requests to
+        `/users/1` and `/users/2` share the route `/users/{user_id}`.
+
+        Warning:
+            This method returns an ASGI wrapper instead of modifying the app in place.
+            Pass the returned app to your server. Access Litestar-specific attributes
+            through the original app.
+
+        Args:
+            app: The Litestar app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to record low-level ASGI send and receive spans.
+                These are disabled by default to reduce noise.
+            **kwargs: Additional options for the OpenTelemetry ASGI middleware, including
+                `server_request_hook`, `client_request_hook`, `client_response_hook`,
+                `excluded_urls`, and `default_span_details`.
+
+        Returns:
+            The instrumented ASGI application.
         """
     def instrument_starlette(self, app: Starlette, *, capture_headers: bool = False, record_send_receive: bool = False, server_request_hook: ServerRequestHook | None = None, client_request_hook: ClientRequestHook | None = None, client_response_hook: ClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.

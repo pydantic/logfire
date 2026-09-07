@@ -86,6 +86,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
+    from litestar import Litestar
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
@@ -1845,6 +1846,47 @@ class Logfire:
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
             },
+        )
+
+    def instrument_litestar(
+        self,
+        app: Litestar,
+        *,
+        capture_headers: bool = False,
+        record_send_receive: bool = False,
+        **kwargs: Unpack[ASGIInstrumentKwargs],
+    ) -> ASGIApp:
+        """Instrument a Litestar app to record requests with canonical route templates.
+
+        Uses `instrument_asgi()` with a Litestar route extractor, so requests to
+        `/users/1` and `/users/2` share the route `/users/{user_id}`.
+
+        Warning:
+            This method returns an ASGI wrapper instead of modifying the app in place.
+            Pass the returned app to your server. Access Litestar-specific attributes
+            through the original app.
+
+        Args:
+            app: The Litestar app to instrument.
+            capture_headers: Set to `True` to capture all request and response headers.
+            record_send_receive: Set to `True` to record low-level ASGI send and receive spans.
+                These are disabled by default to reduce noise.
+            **kwargs: Additional options for the OpenTelemetry ASGI middleware, including
+                `server_request_hook`, `client_request_hook`, `client_response_hook`,
+                `excluded_urls`, and `default_span_details`.
+
+        Returns:
+            The instrumented ASGI application.
+        """
+        from .integrations.litestar import instrument_litestar
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_litestar(
+            self,
+            app,
+            capture_headers=capture_headers,
+            record_send_receive=record_send_receive,
+            **kwargs,
         )
 
     def instrument_starlette(
