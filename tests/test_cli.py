@@ -386,7 +386,6 @@ def test_inspect(
 
 ╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
 │                                                                                                                                                    │
-│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
 │  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
 │  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
 │  ☐ urllib [*] (need to install opentelemetry-instrumentation-urllib)                                                                               │
@@ -396,8 +395,7 @@ def test_inspect(
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
-│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
-│  opentelemetry-instrumentation-urllib                                                                                                              │
+│  uv add opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql opentelemetry-instrumentation-urllib                            │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │

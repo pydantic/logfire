@@ -15,6 +15,7 @@ description: "Introduction to basic Logfire configuration, trace configuration a
         exclude:
         filters:
             - "!instrument_redis"
+            - "!instrument_botocore"
             - "!instrument_pymongo"
             - "!instrument_psycopg"
             - "!^with_trace_sample_rate$"
