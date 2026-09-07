@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import gzip
 import importlib
+import importlib.metadata
 import io
 import json
 import os
@@ -396,8 +397,7 @@ def test_inspect(
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
-│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
-│  opentelemetry-instrumentation-urllib                                                                                                              │
+│  uv add 'logfire[urllib]' opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql        │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │
@@ -406,6 +406,49 @@ def test_inspect(
 ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 """)
+
+
+@pytest.mark.parametrize('has_uv', [True, False])
+@pytest.mark.parametrize(
+    ('installed', 'requirements'),
+    [
+        (['requests'], ["'logfire[requests]'"]),
+        (['pymysql'], ['opentelemetry-instrumentation-pymysql']),
+        (['requests', 'pymysql'], ["'logfire[requests]'", 'opentelemetry-instrumentation-pymysql']),
+        (['psycopg', 'psycopg2'], ["'logfire[psycopg,psycopg2]'"]),
+        (['psycopg', 'psycopg2', 'opentelemetry-instrumentation-psycopg'], ["'logfire[psycopg2]'"]),
+    ],
+)
+def test_inspect_install_commands(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    has_uv: bool,
+    installed: list[str],
+    requirements: list[str],
+) -> None:
+    for name in installed:
+        metadata_dir = tmp_path / f'{name}-1.0.dist-info'
+        metadata_dir.mkdir()
+        (metadata_dir / 'METADATA').write_text(f'Name: {name}\nVersion: 1.0\n')
+    monkeypatch.setattr(
+        importlib.metadata, 'distributions', lambda: importlib.metadata.Distribution.discover(path=[str(tmp_path)])
+    )
+
+    def find_uv(name: str) -> str | None:
+        return '/bin/uv' if has_uv else None
+
+    monkeypatch.setattr(shutil, 'which', find_uv)
+    monkeypatch.setenv('COLUMNS', '150')
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['inspect', '--ignore', 'sqlite3,urllib'])
+
+    assert exc_info.value.code == 1
+    output = capsys.readouterr().err
+    commands = [line.strip('│ ') for line in output.splitlines() if 'uv add ' in line or 'pip install ' in line]
+    installer = 'uv add' if has_uv else 'pip install'
+    assert commands == [f'{installer} {" ".join(requirements)}']
 
 
 @pytest.mark.parametrize(
@@ -3805,7 +3848,7 @@ def test_get_recommendation_texts_httpx2_upgrade(monkeypatch: pytest.MonkeyPatch
     recommended, install = get_recommendation_texts(recs)
 
     assert 'httpx2 (need to upgrade opentelemetry-instrumentation-httpx>=0.65b0)' in recommended
-    assert "uv add 'opentelemetry-instrumentation-httpx>=0.65b0'" in install
+    assert "uv add 'logfire[httpx]' 'opentelemetry-instrumentation-httpx>=0.65b0'" in install
 
     monkeypatch.setattr(logfire._internal.cli.run, 'is_uv_installed', lambda: False)
     _, install = get_recommendation_texts(recs)

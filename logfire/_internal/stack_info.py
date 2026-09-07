@@ -118,7 +118,8 @@ def is_non_user_path(path: str | Path) -> bool:
     Specifically the standard library, site-packages (wherever opentelemetry is installed),
     the logfire package, and anything registered with `add_non_user_code_prefix`.
     """
-    return str(Path(path).absolute()).startswith(NON_USER_CODE_PREFIXES)
+    path = Path(path).absolute()
+    return any(path.is_relative_to(prefix) for prefix in NON_USER_CODE_PREFIXES)
 
 
 @lru_cache(maxsize=8192)
