@@ -36,6 +36,8 @@ API_KEY: Incomplete
 SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
 ENVIRONMENT: Incomplete
+RESOURCE_ATTRIBUTES: Incomplete
+RESOURCE_DETECTORS: Incomplete
 CREDENTIALS_DIR: Incomplete
 CONSOLE: Incomplete
 CONSOLE_COLORS: Incomplete

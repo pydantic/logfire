@@ -7,7 +7,7 @@ integration: logfire
 
 See every call your app makes through [LiteLLM](https://docs.litellm.ai/): the full conversation,
 how many **tokens** (the units a model reads and bills by, a few characters of text each) it used,
-how long it took, and any errors, as a **trace** (the full journey of one request, made of nested
+how long it took, and any errors, as a **trace** (the full journey of one request or agent run, made of nested
 **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire.
 LiteLLM gives you one interface to many model providers, and this integration records every call
 regardless of which provider handles it.

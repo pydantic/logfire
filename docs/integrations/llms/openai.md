@@ -6,7 +6,7 @@ integration: logfire
 # OpenAI
 
 See every call your app makes to OpenAI: the full conversation, each tool call, how many tokens it
-used, how long it took, and any errors, as a **trace** (the full journey of one request, made of
+used, how long it took, and any errors, as a **trace** (the full journey of one request or agent run, made of
 nested **spans**, where each span is one unit of work with a name, a start, and a duration) in
 Logfire.
 
@@ -93,6 +93,18 @@ Not seeing your model calls in Logfire? Check these first:
 
 ## Advanced
 
+### Keep legacy attributes during migration
+
+Logfire uses semantic convention version 2 by default. If your queries or dashboards still depend
+on the legacy `request_data` and `response_data` attributes, emit both formats while you migrate:
+
+```python
+import logfire
+
+logfire.configure()
+logfire.instrument_openai(version=[1, 2])
+```
+
 ### Methods covered
 
 The following OpenAI methods are covered:
@@ -108,6 +120,9 @@ All methods are covered with both `openai.Client` and `openai.AsyncClient`.
 For example, here's instrumentation of an image generation call:
 
 ```python skip-run="true" skip-reason="external-connection"
+import base64
+from pathlib import Path
+
 import openai
 
 import logfire
@@ -119,13 +134,12 @@ async def main():
     logfire.instrument_openai(client)
 
     response = await client.images.generate(
-        prompt='Image of R2D2 running through a desert in the style of cyberpunk.',
-        model='dall-e-3',
+        prompt='A watercolor painting of a friendly robot reading a book in a sunlit library.',
+        model='gpt-image-1',
     )
-    url = response.data[0].url
-    import webbrowser
-
-    webbrowser.open(url)
+    # gpt-image-1 returns the image as base64-encoded data
+    image_bytes = base64.b64decode(response.data[0].b64_json)
+    Path('robot.png').write_bytes(image_bytes)
 
 
 if __name__ == '__main__':
@@ -198,7 +212,8 @@ Shows up like this in Logfire:
 
 Logfire also instruments the [OpenAI "agents"](https://github.com/openai/openai-agents-python)
 framework, so you can see each step an agent takes and every tool it calls as nested spans in one
-trace.
+trace. OpenAI Agents runs also appear in the specialized **Agents** view; the
+[support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 ```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 from agents import Agent, Runner

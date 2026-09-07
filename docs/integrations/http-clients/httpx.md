@@ -10,7 +10,10 @@ took, and any errors, as a **span** (one unit of work with a name, a start, and 
 Logfire. Related spans link together into a **trace** (the full journey of one request), so a slow
 outgoing call shows up right next to the code that triggered it.
 
-This works with both the synchronous `httpx.Client` and the asynchronous `httpx.AsyncClient`.
+This works with both the synchronous `Client` and the asynchronous `AsyncClient`. If you use
+[HTTPX2](httpx2.md) instead, or alongside HTTPX, the same `logfire.instrument_httpx()` call covers
+both when `opentelemetry-instrumentation-httpx` is version 0.65b0 or newer. With an earlier version,
+Logfire instruments HTTPX and warns that it skipped HTTPX2.
 
 ## What you'll capture
 
@@ -26,12 +29,17 @@ Install `logfire` with the `httpx` extra:
 
 {{ install_logfire(extras=['httpx']) }}
 
+The extra installs the OpenTelemetry integration that collects request data. It does not install
+`httpx`; keep the client library you use as an application dependency.
+
 ## Usage
 
 Add two lines to your app: `logfire.configure()` to connect to your project, and
-[`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] to record every request.
+[`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] to record every request. With no
+client argument, Logfire instruments every installed client library. Pass a client instance to
+instrument only that client.
 
-=== "Instrument every client"
+=== "Instrument all clients"
 
     ```py title="main.py" hl_lines="8" skip-run="true" skip-reason="external-connection"
     import asyncio
@@ -57,7 +65,7 @@ Add two lines to your app: `logfire.configure()` to connect to your project, and
     asyncio.run(main())
     ```
 
-=== "Instrument a single client"
+=== "Instrument one client"
 
     ```py title="main.py" hl_lines="12 18" skip-run="true" skip-reason="external-connection"
     import asyncio
@@ -99,8 +107,8 @@ Not seeing your requests in Logfire? Check these first:
 
 - **`logfire.configure()` runs before `logfire.instrument_httpx()`.** Configure the connection first,
   then instrument.
-- **You instrument the client you actually call.** `instrument_httpx()` with no argument covers all
-  clients; if you pass a specific client, make sure it's the one making the request.
+- **You instrument the client you actually call.** `instrument_httpx()` with no argument covers every
+  installed client library; if you pass a specific client, make sure it's the one making the request.
 - **Your write token is set.** In local development, run `logfire projects use <your-project>`; in
   production, set the `LOGFIRE_TOKEN` environment variable. See [Getting Started](../../index.md).
 - **You actually made a request.** Spans appear only after a request completes.
@@ -108,7 +116,7 @@ Not seeing your requests in Logfire? Check these first:
 ## Advanced
 
 The [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx] method accepts several parameters
-to control what's captured.
+to control what's captured. The same capture settings and hooks apply to HTTPX and HTTPX2.
 
 ### Capture everything
 
@@ -224,6 +232,7 @@ client.post('https://httpbin.org/post', data='Hello, World!')
 
 - API reference: [`logfire.instrument_httpx()`][logfire.Logfire.instrument_httpx]
 - Underlying OpenTelemetry package: [HTTPX instrumentation][opentelemetry-httpx]
+- The same call for the successor library: [HTTPX2](httpx2.md)
 
 [httpx]: https://www.python-httpx.org/
 [opentelemetry-httpx]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html

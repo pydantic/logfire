@@ -88,6 +88,8 @@ for duration in [10, 20, 30, 40, 50]:
 
 You can read more about the Histogram metric in the [OpenTelemetry documentation][histogram-metric].
 
+A histogram is also what to reach for if you are used to Prometheus summaries. Logfire does not store OTLP `Summary` metrics, which report quantiles the sender has already computed: see [Summary metrics are not supported](../../reference/limits.md#summary-metrics-are-not-supported). Record the raw values in a histogram and compute percentiles at query time instead.
+
 ### Up-Down Counter
 
 The "Up-Down Counter" is a type of counter metric that allows both incrementing (up) and decrementing (down) operations.
@@ -147,6 +149,101 @@ def set_temperature(value: float):
 ```
 
 You can read more about the Gauge metric in the [OpenTelemetry documentation][gauge-metric].
+
+#### Poll an async source
+
+OpenTelemetry observable callbacks must return synchronously when the metrics SDK collects them. They run on an SDK
+thread, where awaiting a coroutine would block collection and an unawaited coroutine would not produce an observation.
+If a metric value comes from an async API, let your application's lifecycle own a polling task and update a normal
+[`logfire.metric_gauge`][logfire.Logfire.metric_gauge].
+
+This runnable example starts a polling task and runs until you press Ctrl+C. `queue_depth.set(...)` updates the current
+measurement. The metrics SDK exports it on its regular collection schedule, and `logfire.force_flush()` requests a
+final export during shutdown.
+
+```py hl_lines="23-32 35-42" skip-run="true" skip-reason="long-running"
+import asyncio
+from contextlib import suppress
+
+import logfire
+
+POLL_INTERVAL_SECONDS = 30
+
+logfire.configure()
+
+queue_depth = logfire.metric_gauge(
+    'jobs.queue_depth',
+    unit='1',
+    description='Number of jobs waiting to run',
+)
+
+
+async def read_queue_depth() -> int:
+    """Replace this with a call to your async client."""
+    await asyncio.sleep(0.01)
+    return 7
+
+
+async def poll_queue_depth() -> None:
+    """Update the gauge until the application stops this task."""
+    while True:
+        try:
+            value = await read_queue_depth()
+        except Exception:  # Replace with the exception your client raises.
+            logfire.exception('Failed to read queue depth')
+        else:
+            queue_depth.set(value)
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+
+async def main() -> None:
+    poller = asyncio.create_task(poll_queue_depth(), name='queue-depth-poller')
+    try:
+        await asyncio.Event().wait()  # Keep this standalone example running.
+    finally:
+        poller.cancel()
+        with suppress(asyncio.CancelledError):
+            await poller
+
+
+try:
+    asyncio.run(main())
+except KeyboardInterrupt:
+    pass
+finally:
+    logfire.force_flush()
+```
+
+Run the script to update `jobs.queue_depth` immediately, then wait 30 seconds after each read before reading again. Open
+[**Metrics** in the project sidebar](../web-ui/metrics-explorer.md) to find it under the `jobs` namespace. A line becomes
+visible after Logfire collects multiple points. Press Ctrl+C to stop the script and export its final value.
+
+Replace `read_queue_depth()` with your async client call. In a real application, create the `poll_queue_depth()` task in
+the application's startup hook instead of `main()`. Keep the same ownership shown above: the code that starts the task
+must retain it, cancel it during shutdown, and await the cancelled task so its cleanup can finish.
+
+Long-running pollers usually use **fixed-delay polling**: each delay starts after the previous read finishes. Slow reads
+therefore move later polls, but one task never overlaps two reads. **Fixed-rate polling** instead calculates each start
+time from a clock so that polls target a regular schedule. If a read takes longer than one interval, skip a missed run
+or continue late. Do not start concurrent reads unless the source, gauge labels, timeout, and shutdown behavior are
+designed for overlap.
+
+Decide how failures should affect the metric before deploying a poller:
+
+- Catch expected source exceptions inside the loop so that one failure does not silently end the task. Add a timeout,
+  exponential backoff, and limited retry logging when the source can remain unavailable.
+- A failed poll records no new point. A query over a wider time range can still include the previous successful point,
+  so it may be mistaken for a current value. Record a separate last-success timestamp or poll-success metric if
+  consumers need to detect staleness.
+- Do not catch `BaseException`. `asyncio.CancelledError` then stops the loop. If you catch cancellation to run
+  poller-specific cleanup, always re-raise it.
+- Each worker process creates its own task and metric series. Add a worker-identifying attribute when you need separate
+  values, or aggregate the per-worker series in your query. Do not interpret one worker's gauge as a process-wide or
+  cluster-wide value.
+
+Use an [observable callback][gauge-callback-metric] only when reading the value is synchronous, quick, and safe for the
+metrics SDK to invoke. Lifecycle-owned polling keeps async I/O on the application's event loop and does not require a
+new async callback API.
 
 ### Callback Metrics
 
@@ -259,6 +356,17 @@ logfire.metric_up_down_counter_callback(
 ```
 
 You can read more about the Up-Down Counter metric in the [OpenTelemetry documentation][up-down-counter-callback-metric].
+
+## You're done
+
+You've integrated Logfire, added manual and automatic tracing, and started recording metrics. Your Python app is now
+sending the data you need to monitor performance, find bugs, and understand behavior.
+
+From here:
+
+- **Watch it live**: open the [Live view](../web-ui/live.md) and use your app.
+- **Instrument the libraries you use**: [Integrations](../../integrations/index.md) add rich tracing to your web framework, database, and HTTP clients with one line each.
+- **Build dashboards and alerts**: turn the questions you check often into [Dashboards](../web-ui/dashboards.md), and get told about problems with [Alerts](../web-ui/alerts.md).
 
 [counter-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#counter
 [histogram-metric]: https://opentelemetry.io/docs/specs/otel/metrics/api/#histogram

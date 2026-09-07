@@ -107,3 +107,7 @@ Renaming/aliasing either the function or module won't work.
 Neither will calling this indirectly via another function.
 
 This decorator simply returns the argument unchanged, so there is zero runtime overhead.
+
+## Next step
+
+**[Add metrics](add-metrics.md)**: record counts, sizes, and gauges to measure your app's behavior over time.

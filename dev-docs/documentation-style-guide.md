@@ -296,11 +296,14 @@ append-only shared infrastructure.
   software that has no single right answer.
 - **offline eval**: running evals against a fixed dataset, like a test suite.
 - **online / live eval**: scoring real production traffic as it happens, like monitoring.
-- **scorer / evaluator**: the thing that judges an output and produces a score (code, or an LLM).
-- **score**: one saved quality rating for an output, from a human or an automated scorer.
+- **scorer / evaluator**: the thing that judges an output and produces one or more evaluator results (code, or an LLM).
+- **evaluator result**: an automated judgment about an output, represented as an assertion, numeric score, or categorical label.
+- **assertion**: a pass/fail evaluator result.
+- **score**: a numeric evaluator result whose scale and direction come from the evaluator.
+- **label**: a categorical evaluator result, such as `safe`, `unsafe`, or `needs_review`.
 - **LLM-as-a-judge**: using a language model to score another model's output.
 - **dataset**: a collection of test cases (inputs and expected outputs) you evaluate against.
-- **experiment**: one run of your AI over a dataset, producing scores you can compare across versions.
+- **experiment**: one run of your AI over a dataset, producing evaluator results you can compare across versions.
 - **session**: a group of related interactions (e.g. one multi-turn conversation).
 - **token** (LLM): the unit models read and bill by; a few characters of text. *(Disambiguate from
   "write token" when both appear.)*

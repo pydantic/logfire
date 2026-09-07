@@ -4,10 +4,7 @@ description: "Browse every Docker container, image and Compose project shipping 
 ---
 # Docker
 
-!!! note "Beta: feedback welcome"
-    The Docker view is in beta and shipping fixes and improvements quickly. Tell us what's missing or broken in the [Logfire Slack community](https://pydantic.dev/docs/logfire/join-slack/) or email [support@pydantic.dev](mailto:support@pydantic.dev).
-
-The **Docker view** shows every Docker container reporting stats to your project (CPU, memory, network and block I/O) alongside the application traces those containers produced. The same stats are folded three ways: by **container**, by **image**, and by **Compose project**.
+The <OpenInLogfire path="docker" variant="inline" label="Docker view" /> shows every Docker container reporting stats to your project (CPU, memory, network and block I/O) alongside the application traces those containers produced. The same stats are folded three ways: by **container**, by **image**, and by **Compose project**.
 
 You'll find Docker in the project sidebar under **Infrastructure**, after **Kubernetes**.
 
@@ -43,7 +40,7 @@ Containers populate from the standard OpenTelemetry [`docker_stats` receiver](ht
 ```yaml
 receivers:
   docker_stats:
-    collection_interval: 30s
+    collection_interval: 60s
     container_labels_to_metric_labels:   # so the Compose projects tab can group containers
       com.docker.compose.project: compose.project
       com.docker.compose.service: compose.service
@@ -69,6 +66,12 @@ service:
 The receiver reads the local Docker socket (`unix:///var/run/docker.sock` by default) and negotiates the API version automatically; the collector's user just needs permission to read that socket: the `docker` group, or root. The `resourcedetection` processor's `docker` detector reads the host name from that same daemon, so the containers group under their host and link across to the [Hosts view](hosts.md). CPU, memory, network and block-I/O land within a minute or two. For production hardening (memory limiter, batching) see the [OpenTelemetry Collector Overview](../../how-to-guides/otel-collector/otel-collector-overview.md).
 
 The `container_labels_to_metric_labels` mapping is what powers the **Compose projects** tab: `docker_stats` doesn't export container labels on its own, so it lifts Compose's `com.docker.compose.project`/`service` labels into the `compose.project`/`compose.service` attributes the view groups on.
+
+### Control metric volume
+
+Keep `collection_interval: 60s` unless you have a specific need for finer resolution. The receiver defaults to 10 seconds, so setting 60 seconds sends one-sixth as many datapoints while still giving the Docker view a useful operational resolution.
+
+Metric volume scales with the number of containers. Network metrics also split by interface, and block I/O metrics split by device and operation. Leave optional metrics off unless you use them, especially `container.cpu.usage.percpu`, which adds a separate value for every CPU core reported for every container on control groups version 1 (cgroups v1). Use [`excluded_images`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/dockerstatsreceiver#configuration) to omit short-lived or irrelevant containers by image, and only promote container labels that you actually group or filter by.
 
 ### Optional extras
 

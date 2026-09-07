@@ -11,14 +11,17 @@ from typing import Any, Literal, TypeAlias
 
 from typing_extensions import NotRequired, TypedDict
 
-# Version type for controlling span attribute format
-SemconvVersion = Literal[1, 'latest']
+# Version types for controlling span attribute format
+SemconvVersion = Literal[1, 2, 'latest']
+NormalizedSemconvVersion = Literal[1, 2]
 
 
-ALLOWED_VERSIONS: frozenset[SemconvVersion] = frozenset((1, 'latest'))
+ALLOWED_VERSIONS: frozenset[SemconvVersion] = frozenset((1, 2, 'latest'))
 
 
-def normalize_versions(version: SemconvVersion | Sequence[SemconvVersion]) -> frozenset[SemconvVersion]:
+def normalize_versions(
+    version: SemconvVersion | Sequence[SemconvVersion],
+) -> frozenset[NormalizedSemconvVersion]:
     """Normalize a version parameter to a validated frozenset of version values."""
     if isinstance(version, (int, str)):
         versions: frozenset[Any] = frozenset({version})
@@ -28,13 +31,13 @@ def normalize_versions(version: SemconvVersion | Sequence[SemconvVersion]) -> fr
     invalid = versions - ALLOWED_VERSIONS
     if invalid:
         raise ValueError(
-            f"Invalid semconv version(s): {sorted(invalid, key=repr)!r}. Supported versions are: 1, 'latest'."
+            f"Invalid semconv version(s): {sorted(invalid, key=repr)!r}. Supported versions are: 1, 2, 'latest'."
         )
 
     if not versions:
-        raise ValueError("At least one semconv version must be specified. Supported versions are: 1, 'latest'.")
+        raise ValueError("At least one semconv version must be specified. Supported versions are: 1, 2, 'latest'.")
 
-    return versions
+    return frozenset(2 if item == 'latest' else item for item in versions)
 
 
 # Provider, system, and operation

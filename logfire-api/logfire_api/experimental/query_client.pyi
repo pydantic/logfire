@@ -18,6 +18,8 @@ class QueryRequestError(RuntimeError):
     """Raised when the query request is invalid."""
 class InfoRequestError(RuntimeError):
     """Raised when the request for read token info fails because of unavailable information."""
+class UnexpectedResponseError(RuntimeError):
+    """Raised when the API responds with an unexpected status code, such as a `5xx` server error."""
 
 class ReadTokenInfo(TypedDict, total=False):
     """Information about the read token."""

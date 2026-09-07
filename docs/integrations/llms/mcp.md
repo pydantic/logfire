@@ -5,7 +5,7 @@ integration: logfire
 ---
 # Model Context Protocol (MCP)
 
-See the calls flowing between your Model Context Protocol (MCP) client and server (the tool a client asked for, the arguments it sent, and the result the server returned) joined into one **trace** (the full journey of one request, made of nested **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire, even though the client and server run in separate processes.
+See the calls flowing between your Model Context Protocol (MCP) client and server (the tool a client asked for, the arguments it sent, and the result the server returned) joined into one **trace** (the full journey of one request or agent run, made of nested **spans**, where each span is one unit of work with a name, a start, and a duration) in Logfire, even though the client and server run in separate processes.
 
 The Model Context Protocol is a standard way for an AI application to call tools and fetch data from a separate server. Instrumenting both sides lets Logfire stitch their spans into a single distributed trace: one trace that spans more than one process.
 

@@ -119,7 +119,7 @@ Successfully applied changes.
 | `variables` | List of specific variables to push. If not provided, all registered variables are pushed. |
 | `dry_run` | If `True`, shows what would change without actually applying changes. |
 | `yes` | If `True`, skips the confirmation prompt. |
-| `strict` | If `True`, fails if any existing label values in Logfire are incompatible with your new schema. |
+| `strict` | Rejects incompatible label values, missing references, and template-field issues by default. Set to `False` to publish with warnings; reference cycles are always rejected. |
 
 **Pushing specific variables:**
 
@@ -138,7 +138,7 @@ logfire.variables_push(yes=True)
 ```
 
 !!! note "Schema Updates"
-    When you push a variable that already exists in Logfire, `logfire.variables_push()` will update the JSON schema if it has changed but will preserve existing versions, labels, and rollout configurations. If existing label values are incompatible with the new schema, you'll see a warning (or an error if using `strict=True`).
+    When you push a variable that already exists in Logfire, `logfire.variables_push()` will update the JSON schema if it has changed but will preserve existing versions, labels, and rollout configurations. By default, the push is rejected if existing label values are incompatible with the new schema. Pass `strict=False` to publish anyway and show a warning.
 
 !!! note "Write scope required"
     `logfire.variables_push()` and `logfire.variables_push_types()` require an API key with the `project:write_variables` scope.
@@ -200,7 +200,7 @@ logfire.variables_push_types([
 | `types` | List of types to push. Items can be a type (uses `__name__`) or a tuple of `(type, name)` for explicit naming. |
 | `dry_run` | If `True`, shows what would change without actually applying changes. |
 | `yes` | If `True`, skips the confirmation prompt. |
-| `strict` | If `True`, fails if any existing variable label values are incompatible with the new type schema. |
+| `strict` | Rejects existing variable label values that are incompatible with the new type schema by default. Set to `False` to publish with warnings. |
 
 **Example output:**
 

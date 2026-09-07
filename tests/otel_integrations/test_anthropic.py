@@ -1,15 +1,17 @@
 from __future__ import annotations as _annotations
 
+import gc
 import json
+import logging
 from collections.abc import AsyncIterator, Iterator
+from inspect import signature
 from typing import Any, cast
 
 import anthropic
-import httpx
+import httpx2 as httpx
 import pydantic
 import pytest
 from anthropic.types import (
-    Completion,
     Message,
     MessageDeltaUsage,
     MessageStartEvent,
@@ -19,7 +21,7 @@ from anthropic.types import (
     Usage,
 )
 from dirty_equals import IsInt, IsPartialDict, IsStr
-from httpx._transports.mock import MockTransport
+from httpx2 import MockTransport
 from inline_snapshot import snapshot
 
 import logfire
@@ -37,6 +39,22 @@ pytestmark = [
 ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
 
 
+def test_semconv_version_defaults() -> None:
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    assert signature(logfire.instrument_anthropic).parameters['version'].default == 2
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-haiku-4-5', 'messages': [{'role': 'user', 'content': 'Hello'}]}
+
+    config = get_endpoint_config(MockOptions())  # type: ignore
+    assert config.span_data['request_data'] == {'model': 'claude-haiku-4-5'}
+    assert config.span_data['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    ]
+
+
 def request_handler(request: httpx.Request) -> httpx.Response:
     """Used to mock httpx requests
 
@@ -47,9 +65,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     if request.url == 'https://api.anthropic.com/v1/complete':
         return httpx.Response(
             200,
-            json=Completion(id='test_id', completion='completion', model='claude-2.1', type='completion').model_dump(
-                mode='json'
-            ),
+            json={'id': 'test_id', 'completion': 'completion', 'model': 'claude-2.1', 'type': 'completion'},
         )
     assert request.url in ['https://api.anthropic.com/v1/messages'], f'Unexpected URL: {request.url}'
     json_body = json.loads(request.content)
@@ -618,6 +634,43 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
     )
 
 
+def test_sync_messages_stream_close_early(
+    instrumented_client: anthropic.Anthropic, exporter: TestExporter, caplog: pytest.LogCaptureFixture
+) -> None:
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    chunks_seen = 0
+    chunk = None
+
+    with caplog.at_level(logging.ERROR, logger='opentelemetry.context'):
+        with response as stream:
+            for chunk in stream:
+                if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta):  # type: ignore
+                    chunks_seen += 1
+                    break
+        del chunk
+        del stream
+        del response
+        gc.collect()
+
+    assert chunks_seen == 1
+    assert not [
+        record
+        for record in caplog.records
+        if record.name == 'opentelemetry.context' and 'Failed to detach context' in record.getMessage()
+    ]
+    span_names = [span['name'] for span in exporter.exported_spans_as_dict(parse_json_attributes=True)]
+    assert span_names == [
+        'Message with {request_data[model]!r}',
+        'streaming response from {request_data[model]!r} took {duration:.2f}s',
+    ]
+
+
 def test_messages_stream_text_block_none() -> None:
     from logfire._internal.integrations.llm_providers.anthropic import (
         AnthropicMessageStreamState,
@@ -995,8 +1048,15 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
 
 
 def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
-    response = instrumented_client.completions.create(max_tokens_to_sample=1000, model='claude-2.1', prompt='prompt')
-    assert response.completion == 'completion'
+    response = cast(
+        dict[str, Any],
+        instrumented_client.post(
+            '/v1/complete',
+            body={'max_tokens_to_sample': 1000, 'model': 'claude-2.1', 'prompt': 'prompt'},
+            cast_to=object,
+        ),
+    )
+    assert response['completion'] == 'completion'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1050,16 +1110,20 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
             },
         }
     ]
-    response = instrumented_client.messages.create(
-        max_tokens=1000,
-        model='claude-3-haiku-20240307',
-        system='You are a helpful assistant.',
-        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-        temperature=0.7,
-        top_p=0.9,
-        top_k=40,
-        stop_sequences=['END', 'STOP'],
-        tools=cast(Any, tools),
+    response = instrumented_client.post(
+        '/v1/messages',
+        body={
+            'max_tokens': 1000,
+            'model': 'claude-3-haiku-20240307',
+            'system': 'You are a helpful assistant.',
+            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+            'temperature': 0.7,
+            'top_p': 0.9,
+            'top_k': 40,
+            'stop_sequences': ['END', 'STOP'],
+            'tools': tools,
+        },
+        cast_to=Message,
     )
     assert isinstance(response.content[0], TextBlock)
     assert response.content[0].text == 'Nine'
@@ -1277,30 +1341,30 @@ def test_on_response_unknown_block_type() -> None:
     )
 
 
-def test_get_endpoint_config_latest_no_messages_no_system() -> None:
-    """Test get_endpoint_config with 'latest' version and empty messages + no system."""
+def test_get_endpoint_config_v2_no_messages_no_system() -> None:
+    """Test get_endpoint_config with version 2 and empty messages plus no system."""
     from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
 
     class MockOptions:
         url = '/v1/messages'
         json_data: dict[str, Any] = {'model': 'claude-3-haiku', 'messages': [], 'max_tokens': 100}
 
-    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
 
     assert config.message_template == 'Message with {request_data[model]!r}'
     assert 'gen_ai.input.messages' not in config.span_data
     assert 'gen_ai.system_instructions' not in config.span_data
 
 
-def test_get_endpoint_config_latest_messages_no_system() -> None:
-    """Test get_endpoint_config with messages but no system."""
+def test_get_endpoint_config_v2_messages_no_system() -> None:
+    """Test get_endpoint_config with version 2 messages but no system."""
     from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
 
     class MockOptions:
         url = '/v1/messages'
         json_data = {'model': 'claude-3-haiku', 'messages': [{'role': 'user', 'content': 'Hi'}], 'max_tokens': 100}
 
-    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
 
     assert 'gen_ai.input.messages' in config.span_data
     assert 'gen_ai.system_instructions' not in config.span_data
@@ -1979,6 +2043,7 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
                             'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
                             'cache_creation_input_tokens': 0,
                             'cache_read_input_tokens': 0,
+                            'fallback_credit': None,
                             'inference_geo': 'not_available',
                             'input_tokens': 19,
                             'iterations': None,

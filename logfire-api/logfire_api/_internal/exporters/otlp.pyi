@@ -1,14 +1,17 @@
 import atexit
 import requests
-from ..utils import logger as logger, platform_is_emscripten as platform_is_emscripten
+from ..constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, HTTP_CONNECT_TIMEOUT as HTTP_CONNECT_TIMEOUT, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
+from ..stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
+from ..utils import logger as logger, platform_is_emscripten as platform_is_emscripten, truncate_string as truncate_string
 from .wrapper import WrapperLogExporter as WrapperLogExporter, WrapperSpanExporter as WrapperSpanExporter
 from _typeshed import Incomplete
 from collections import deque
 from collections.abc import Mapping, Sequence
 from functools import cached_property
+from logfire._internal.utils import handle_internal_errors as handle_internal_errors
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs import ReadableLogRecord as ReadableLogRecord
-from opentelemetry.sdk.trace import ReadableSpan as ReadableSpan
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from pathlib import Path
 from requests import Session
@@ -25,6 +28,7 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
+    def request(self, method: str, url: str, **kwargs: Any): ...
     def post(self, url: str, data: bytes, **kwargs: Any): ...
     @cached_property
     def retryer(self) -> DiskRetryer: ...
@@ -59,7 +63,9 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
 class BodyTooLargeError(Exception):
     size: Incomplete
     max_size: Incomplete
-    def __init__(self, size: int, max_size: int) -> None: ...
+    def __init__(self, size: int, max_size: int | None) -> None: ...
+
+class SuppressedConnectionError(Exception): ...
 
 class QuietSpanExporter(WrapperSpanExporter):
     """A SpanExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""

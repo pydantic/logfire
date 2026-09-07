@@ -16,8 +16,8 @@ from logfire.cli import main
         (['requests'], ["'logfire[requests]'"]),
         (['pymysql'], ['opentelemetry-instrumentation-pymysql']),
         (['requests', 'pymysql'], ["'logfire[requests]'", 'opentelemetry-instrumentation-pymysql']),
-        (['psycopg'], ["'logfire[psycopg,psycopg2]'"]),
-        (['psycopg', 'opentelemetry-instrumentation-psycopg'], ["'logfire[psycopg2]'"]),
+        (['psycopg', 'psycopg2'], ["'logfire[psycopg,psycopg2]'"]),
+        (['psycopg', 'psycopg2', 'opentelemetry-instrumentation-psycopg'], ["'logfire[psycopg2]'"]),
     ],
 )
 def test_inspect_install_commands(
@@ -49,4 +49,4 @@ def test_inspect_install_commands(
     output = capsys.readouterr().err
     commands = [line.strip('│ ') for line in output.splitlines() if 'uv add ' in line or 'pip install ' in line]
     installer = 'uv add' if has_uv else 'pip install'
-    assert commands == [f'{installer} {requirement}' for requirement in requirements]
+    assert commands == [f'{installer} {" ".join(requirements)}']

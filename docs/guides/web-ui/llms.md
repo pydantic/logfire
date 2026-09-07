@@ -1,10 +1,10 @@
 ---
-title: "Logfire LLMs view: per-model inventory and agent run analytics"
+title: "Logfire LLMs and Providers view: per-model inventory and agent run analytics"
 description: "Browse every model and provider your application calls. See cost, latency, error rate, tokens, truncation rate and tool-call rate per model. Drill into an LLM for a detail page that links straight to traces, and see avg + p90 distributions for tool calls and turns on every agent run."
 ---
-# LLMs
+# LLMs and Providers
 
-The **LLMs** page is the per-model inventory of every LLM your application is calling. Each row shows calls, latency, tokens and cost for one (provider, model) pair, and the LLM detail page links into the trace for each individual call.
+The <OpenInLogfire path="llms" variant="inline" label="LLMs" /> page is the per-model inventory of every LLM your application is calling. Each row shows calls, latency, tokens and cost for one (provider, model) pair, and the LLM detail page links into the trace for each individual call.
 
 For inspecting an individual LLM call inside a trace, the [LLM Panels](llm-panels.md) guide covers the in-trace view; this page covers the per-model and per-agent analytics surfaces.
 
@@ -38,6 +38,26 @@ You'll see five headline metric cards (Calls, Errors, Avg latency, Cost, Speed),
 
 - **Agents using this model**: which agents (by Pydantic AI agent name or `gen_ai.system` + `gen_ai.request.model` pair) are calling this model and how much. Direct LLM calls with no enclosing agent run don't appear here.
 - **Recent calls**: the most recent invocations, each linking straight to the trace in the [Live View](live.md) via a **View in live** button in the header.
+
+## Time to first token
+
+Time to first token measures how long a streaming model call waits before surfacing its first chunk to your application. Unlike total latency, it shows how quickly a user starts seeing the response.
+
+!!! note "Early access"
+    In **Settings → Early access**, enable **Time-to-first-token metrics** to show these panels.
+
+Open <OpenInLogfire path="dashboards" variant="inline" label="Dashboards" /> and enable either built-in **LLM Tokens and Costs** dashboard. Expand **Time to first token (streaming)** to see:
+
+- 95th percentile (p95) time to first token for each model
+- median (p50) and p95 time to first token across all streaming calls
+- the median time to first token for the selected period
+
+The **from records** dashboard reads the `gen_ai.client.operation.time_to_first_chunk` span attribute. It falls back to `gen_ai.server.time_to_first_token` when a model host records the server-side measurement instead. The **from metrics** dashboard reads the `gen_ai.client.operation.time_to_first_chunk` histogram metric.
+
+[Pydantic AI](../../integrations/llms/pydanticai.md) 2.6.0 and later records both the span attribute and histogram metric for streaming requests. Non-streaming requests do not record time to first token.
+
+!!! warning "Experimental OpenTelemetry convention"
+    These panels use the OpenTelemetry generative AI convention [`gen_ai.client.operation.time_to_first_chunk`](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/#metric-gen_aiclientoperationtime_to_first_chunk), which has **Development** stability. Its name or shape may change before stabilization, and the panels may change with it.
 
 ## Agent run distributions
 
@@ -113,7 +133,7 @@ If you build with another framework that emits the same conventions (directly or
 The smallest path from an empty project to a populated LLMs row, using the OpenAI instrumentation:
 
 ```bash
-pip install 'logfire[openai]'
+pip install logfire openai
 export LOGFIRE_TOKEN=<your write token from project Settings → Write tokens>
 ```
 
@@ -134,7 +154,7 @@ Refresh the LLMs page. A row for `gpt-4o-mini` (provider `openai`) should appear
 
 ## Slicing by environment, agent or user
 
-The inventory groups rows by `(provider, model)`. Beyond the text search at the top, there are no dropdowns for filtering by environment, agent or user *on this page yet*. For per-environment, per-agent, per-user, per-feature or per-tenant breakdowns, query the `records` table directly in the [SQL Explorer](explore.md). Every GenAI span carries the `gen_ai.*` attributes alongside `deployment.environment.name` and any custom resource attributes you've set, so you can slice cost, latency or token usage by whatever dimension matters.
+The inventory groups rows by `(provider, model)`. Beyond the text search at the top, there are no dropdowns for filtering by environment, agent or user *on this page yet*. For per-environment, per-agent, per-user, per-feature or per-tenant breakdowns, query the `records` table directly in [SQL Workbench](explore.md). Every GenAI span carries the `gen_ai.*` attributes alongside `deployment.environment.name` and any custom resource attributes you've set, so you can slice cost, latency or token usage by whatever dimension matters.
 
 ## Troubleshooting
 
@@ -145,4 +165,6 @@ The inventory groups rows by `(provider, model)`. Beyond the text search at the 
 | Tokens or Cost columns are 0 | Streaming is closing the span on the first chunk, so the final `gen_ai.usage.{input,output}_tokens` attributes never land on the span. See [Streaming gotchas](#streaming-gotchas). |
 | Truncated rate is 0% even though responses are being cut off | Missing `gen_ai.response.finish_reasons` array on the span (or the legacy singular `gen_ai.response.finish_reason` is being emitted; the LLMs page reads the plural form). |
 | Tool-call rate is 0% on a model you know calls tools | Instrumentation isn't recording tool-call attributes on the LLM span. The [supported instrumentations](#supported-instrumentations) all do this; custom ones may not. |
+| Time to first token section is missing from the LLM dashboards | Enable **Time-to-first-token metrics** in **Settings → Early access**. |
+| Time to first token panels are empty | Only streaming calls populate these panels. With Pydantic AI, use version 2.6.0 or later. With another instrumentation, verify that it emits `gen_ai.client.operation.time_to_first_chunk`. Widen the dashboard time range to include recent streaming calls. |
 | Average per-model latency dropped after enabling the Collector | The Collector is tail-sampling out non-error spans, so the page is averaging only the errored calls. Either disable tail sampling or sample independently of the `gen_ai.*` pipeline. |
