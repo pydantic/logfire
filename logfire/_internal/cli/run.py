@@ -195,36 +195,6 @@ def is_uv_installed() -> bool:
     return shutil.which('uv') is not None
 
 
-def _full_install_command(recommendations: list[InstrumentationRecommendation]) -> str:
-    """Generate an installation command using Logfire extras where available."""
-    if not recommendations:
-        return ''  # pragma: no cover - callers only request commands for nonempty recommendations
-
-    extras: set[str] = set()
-    package_specs: list[str] = []
-    for recommendation in recommendations:
-        extra = INSTRUMENTATION_TO_EXTRA.get(recommendation.package_name)
-        if extra:
-            extras.add(extra)
-        if not extra or recommendation.minimum_version:
-            package_specs.append(recommendation.package_spec)
-
-    if extras:
-        package_specs.insert(0, f'logfire[{",".join(sorted(extras))}]')
-
-    if is_uv_installed():
-        installer = 'uv add'
-    elif any(
-        recommendation.package_name == 'opentelemetry-instrumentation-httpx' and recommendation.minimum_version
-        for recommendation in recommendations
-    ):
-        installer = 'pip install -U'
-    else:
-        installer = 'pip install'
-
-    return f'{installer} {shlex.join(package_specs)}'
-
-
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:
     """Call every `logfire.instrument_x()` we can based on what's installed.
 
@@ -463,6 +433,36 @@ def installed_packages() -> set[str]:
             import pkg_resources  # pyright: ignore[reportMissingImports]
 
             return {pkg.key for pkg in pkg_resources.working_set}  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+
+
+def _full_install_command(recommendations: list[InstrumentationRecommendation]) -> str:
+    """Generate an installation command using Logfire extras where available."""
+    if not recommendations:
+        return ''  # pragma: no cover - callers only request commands for nonempty recommendations
+
+    extras: set[str] = set()
+    package_specs: list[str] = []
+    for recommendation in recommendations:
+        extra = INSTRUMENTATION_TO_EXTRA.get(recommendation.package_name)
+        if extra:
+            extras.add(extra)
+        if not extra or recommendation.minimum_version:
+            package_specs.append(recommendation.package_spec)
+
+    if extras:
+        package_specs.insert(0, f'logfire[{",".join(sorted(extras))}]')
+
+    if is_uv_installed():
+        installer = 'uv add'
+    elif any(
+        recommendation.package_name == 'opentelemetry-instrumentation-httpx' and recommendation.minimum_version
+        for recommendation in recommendations
+    ):
+        installer = 'pip install -U'
+    else:
+        installer = 'pip install'
+
+    return f'{installer} {shlex.join(package_specs)}'
 
 
 def _instrumentation_targets(otel_pkg: str, import_name: str) -> tuple[str, ...]:
