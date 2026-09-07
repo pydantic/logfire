@@ -23,6 +23,12 @@ Use cases for the OpenTelemetry Collector include:
 As Logfire is a fully compliant OpenTelemetry SDK and backend it does not require any special configuration to be used with the OpenTelemetry Collector.
 For more information on the Collector itself please see the [official documentation](https://opentelemetry.io/docs/collector/).
 
+## Metric collection intervals
+
+When a metric receiver or deployment preset collects more often than once a minute, set it to a 60-second interval unless you have a specific need for finer resolution. Moving from 10 seconds to 60 seconds sends one-sixth as many datapoints and is usually enough resolution for infrastructure trends. Do not shorten receivers that default to longer intervals unless you need the additional data.
+
+Interval is only one part of metric volume. Enable only the metrics and attributes you use, and pay particular attention to dimensions that multiply series per process, container, pod, CPU core, disk, filesystem, or network interface. The [host monitoring guide](host-monitoring.md#cardinality-and-cost) explains why the singular `hostmetrics.process` scraper should normally stay disabled, and the [Kubernetes monitoring guide](kubernetes-monitoring.md#control-kubernetes-metric-volume) covers the highest-volume Kubernetes settings.
+
 ## Guides
 
 This section is task-oriented: pick the scenario you're working on.

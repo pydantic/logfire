@@ -4,7 +4,7 @@ description: "Prompt Playground: Experiment with agent prompts"
 ---
 # Prompt Playground
 
-The prompt playground gives you the ability to experiment with an agent run and its different parts. It is mostly useful when you want to iterate
+The <OpenInLogfire path="playground" variant="inline" label="Prompt Playground" /> gives you the ability to experiment with an agent run and its different parts. It is mostly useful when you want to iterate
 on the system prompt, and see if you can get better results by tweaking it. Taking the following agent run as an example:
 
 /// public-trace | https://logfire-eu.pydantic.dev/public-trace/bae009a7-e2cf-4c50-b623-bf255ebabe7c?spanId=26d6114284366b18

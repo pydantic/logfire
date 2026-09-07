@@ -72,7 +72,7 @@ You can use Pydantic AI with a [large variety of models][pydantic_ai.models.Know
 
 ## Verify it worked
 
-Run your program, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see a trace for the agent run. Click it to read the conversation, expand the `roulette_wheel` tool call, and see the token count and duration.
+Run your program, then open the [Live view](../../guides/web-ui/live.md). Within a few seconds you'll see a trace for the agent run. Click it to read the conversation, expand the `roulette_wheel` tool call, and see the token count and duration. Pydantic AI runs also appear in the specialized **Agents** view; the [support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 The example above displays like this in Logfire:
 

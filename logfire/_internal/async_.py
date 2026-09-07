@@ -39,7 +39,10 @@ def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> AbstractContex
             try:
                 duration /= ONE_SECOND_IN_NANOSECONDS
                 callback: Any = self._callback
-                logfire.warn(
+                # Emit inside the callback's own context (`self._context`), where its task span is
+                # still active, so the warning parents to it instead of being an orphan root here.
+                self._context.run(
+                    logfire.warn,
                     'Async {name} blocked for {duration:.3f} seconds',
                     duration=duration,
                     **_callback_attributes(callback),

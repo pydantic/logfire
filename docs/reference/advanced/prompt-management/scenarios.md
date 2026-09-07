@@ -138,7 +138,7 @@ Use this when you want to evaluate the same prompt setup across many representat
 !!! warning "Cost"
     A batch run calls the gateway once per case. Before running a large batch against a paid model, double-check the scenario, dataset mapping, and model settings. Each case spends real gateway budget.
 
-For dataset authoring and management, see the [datasets docs](../../../evaluate/datasets/index.md).
+For dataset authoring and management, see the [datasets docs](../../../evaluate/datasets-and-experiments.md).
 
 ## Runs
 

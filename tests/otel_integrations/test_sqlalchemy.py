@@ -22,6 +22,26 @@ import logfire
 import logfire._internal.integrations.sqlalchemy
 from logfire.testing import TestExporter
 
+# The tests in this module share on-disk sqlite files in the working directory, so they must not
+# run concurrently in different xdist workers (`--dist=loadgroup` schedules a group sequentially
+# on one worker).
+pytestmark = pytest.mark.xdist_group('sqlalchemy')
+
+
+@pytest.fixture(autouse=True)
+def uninstrument_after_test() -> Generator[None]:
+    """Clean up global instrumentation even when a test fails partway through.
+
+    A test that fails before reaching its uninstrument calls would otherwise leave sqlalchemy
+    and sqlite3 globally instrumented, sending phantom spans into every later test in the same
+    process through the proxy tracer provider.
+    """
+    yield
+    if SQLAlchemyInstrumentor().is_instrumented_by_opentelemetry:
+        SQLAlchemyInstrumentor().uninstrument()
+    if SQLite3Instrumentor().is_instrumented_by_opentelemetry:
+        SQLite3Instrumentor().uninstrument()
+
 
 class Base(DeclarativeBase):
     pass
@@ -44,7 +64,7 @@ def sqlite_engine(path: Path) -> Generator[Engine]:
         yield engine
     finally:
         engine.dispose()
-        path.unlink()
+        path.unlink(missing_ok=True)
 
 
 def test_sqlalchemy_instrumentation(exporter: TestExporter):
@@ -216,8 +236,6 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
         ]
     )
 
-    SQLAlchemyInstrumentor().uninstrument()
-
 
 @pytest.mark.parametrize('parameter', ['engine', 'engines'])
 def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExporter):
@@ -379,9 +397,6 @@ CREATE TABLE auth_records (
             },
         ]
     )
-
-    SQLAlchemyInstrumentor().uninstrument()
-    SQLite3Instrumentor().uninstrument()
 
 
 @contextmanager
@@ -572,8 +587,6 @@ SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_n
             },
         ]
     )
-
-    SQLAlchemyInstrumentor().uninstrument()
 
 
 def test_missing_opentelemetry_dependency() -> None:

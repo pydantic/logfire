@@ -1,3 +1,5 @@
+from inline_snapshot import snapshot
+
 from logfire._internal.db_statement_summary import message_from_db_statement
 
 
@@ -152,4 +154,18 @@ def test_insert():
     assert (
         message_from_db_statement(attrs(q), None, 'INSERT')
         == 'INSERT INTO table (apple, bana…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    )
+
+
+def test_insert_long_table():
+    q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple, banana, carrot, durian, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    assert message_from_db_statement(attrs(q), None, 'INSERT') == snapshot(
+        'INSERT INTO "analyti…testing" (apple, bana…n, egg, fig) VALUES (1, 2, 3, 4, 5, 6)'
+    )
+
+
+def test_insert_long_table_short_values():
+    q = 'INSERT INTO "analytics"."very_long_events_table_name_for_testing" (apple) VALUES (12345678901234567890)'
+    assert message_from_db_statement(attrs(q), None, 'INSERT') == snapshot(
+        'INSERT INTO "analytics"."ve…me_for_testing" (apple) VALUES (12345678901234567890)'
     )

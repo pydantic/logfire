@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from typing import Any
+from unittest import mock
 
 import pytest
 from inline_snapshot import snapshot
@@ -1251,6 +1252,41 @@ def test_push_variables_no_variables() -> None:
     assert result is False
 
 
+def test_variables_push_is_strict_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The public API rejects incompatible label values unless strict mode is explicitly disabled."""
+    provider = LocalVariableProvider(
+        VariablesConfig(
+            variables={
+                'strict_default': VariableConfig(
+                    name='strict_default',
+                    labels={'production': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'string'},
+                )
+            }
+        )
+    )
+    monkeypatch.setattr(logfire.DEFAULT_LOGFIRE_INSTANCE.config, '_variable_provider', provider)
+    variable = logfire.var(name='strict_default', default=0, type=int)
+
+    assert logfire.variables_push([variable], yes=True) is False
+    assert provider.get_all_variables_config().variables['strict_default'].json_schema == {'type': 'string'}
+
+
+def test_variables_push_types_is_strict_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The public type-push API passes the new strict default to its provider."""
+    provider = mock.Mock()
+    provider.push_variable_types.return_value = False
+    monkeypatch.setattr(logfire.DEFAULT_LOGFIRE_INSTANCE.config, '_variable_provider', provider)
+
+    class FeatureConfig(BaseModel):
+        enabled: bool
+
+    assert logfire.variables_push_types([FeatureConfig]) is False
+    provider.push_variable_types.assert_called_once_with([FeatureConfig], dry_run=False, yes=False, strict=True)
+
+
 def test_var_registers_variable() -> None:
     """Test that var() registers variables with the logfire instance."""
     from logfire._internal.main import Logfire
@@ -1281,6 +1317,39 @@ def test_get_variables_returns_all_registered() -> None:
     assert var1 in variables
     assert var2 in variables
     assert var3 in variables
+
+
+def test_with_settings_shares_registered_variables() -> None:
+    """Variables registered on with_settings() siblings share one config registry."""
+    lf2 = logfire.with_settings(tags=['other'])
+
+    var1 = logfire.var(name='feature_a', default=False, type=bool)
+    var2 = lf2.var(name='feature_b', default='hello', type=str)
+
+    assert logfire.variables_get() == [var1, var2]
+    assert lf2.variables_get() == [var1, var2]
+
+
+def test_with_settings_duplicate_variable_names_conflict() -> None:
+    """Duplicate variable names are rejected across with_settings() siblings."""
+    lf2 = logfire.with_settings(tags=['other'])
+
+    logfire.var(name='feature_enabled', default=False, type=bool)
+    with pytest.raises(ValueError, match="A variable with name 'feature_enabled' has already been registered"):
+        lf2.var(name='feature_enabled', default=True, type=bool)
+
+
+def test_variables_clear_clears_with_settings_siblings() -> None:
+    """variables_clear() clears the shared config registry."""
+    lf2 = logfire.with_settings(tags=['other'])
+
+    logfire.var(name='feature_a', default=False, type=bool)
+    lf2.var(name='feature_b', default='hello', type=str)
+
+    logfire.DEFAULT_LOGFIRE_INSTANCE.variables_clear()
+
+    assert logfire.variables_get() == []
+    assert lf2.variables_get() == []
 
 
 # --- Validation tests ---

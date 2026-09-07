@@ -54,9 +54,9 @@ table (see the [SQL reference](../reference/sql.md)).
 
 ## Verify it worked
 
-Run your program and leave it running for a few seconds, then open the
+Run your program and leave it running for at least a minute, then open the
 [Metrics explorer](../guides/web-ui/metrics-explorer.md) or the [Hosts](../guides/web-ui/hosts.md)
-view. Within a few seconds you'll see your machine appear with CPU and memory charts.
+view. After the next export you'll see your machine appear with CPU and memory charts.
 
 ## Troubleshooting
 
@@ -75,6 +75,8 @@ and query resource attributes.
 
 ### Choosing which metrics to collect
 
+By default, Logfire uses OpenTelemetry's 60-second metrics export interval. Keep that interval unless you have a specific need for finer resolution. Exporting every 10 seconds sends six times as many datapoints from every instrumented process, while host trends are usually clear at one-minute resolution.
+
 By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics (Logfire)' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
 
 ```py skip="true" skip-reason="incomplete"
@@ -83,6 +85,8 @@ logfire.instrument_system_metrics({
     'system.cpu.simple_utilization': None,  # (2)!
     'system.memory.utilization': ['available'],  # (3)!
     'system.swap.utilization': ['used'],  # (4)!
+    'system.cpu.load_average.1m': None,  # (5)!
+    'system.process.count': None,  # (6)!
 })
 ```
 
@@ -90,6 +94,10 @@ logfire.instrument_system_metrics({
 2. The `None` value means that there are no fields to configure for this metric. The value of this metric is [`psutil.cpu_percent()`](https://psutil.readthedocs.io/en/latest/#psutil.cpu_percent)`/100`, i.e. the fraction of CPU time used by the whole system, where 1 means using 100% of all CPU cores.
 3. The value here is a list of 'modes' of memory. The full list can be seen in the [`psutil` documentation](https://psutil.readthedocs.io/en/latest/#psutil.virtual_memory). `available` is "the memory that can be given instantly to processes without the system going into swap. This is calculated by summing different memory metrics that vary depending on the platform. It is supposed to be used to monitor actual memory usage in a cross platform fashion." The value of the metric is a number between 0 and 1, and subtracting the value from 1 gives the fraction of memory used.
 4. This is the fraction of available swap used. The value is a number between 0 and 1.
+5. The average number of processes waiting to run over the last minute, from [`psutil.getloadavg()`](https://psutil.readthedocs.io/en/latest/#psutil.getloadavg). On Windows this is emulated: the first reading is 0 and later readings update every few seconds.
+6. The total number of processes on the system, from the length of [`psutil.pids()`](https://psutil.readthedocs.io/en/latest/#psutil.pids).
+
+`system.cpu.load_average.1m` and `system.process.count` fill the **1-minute load** and **Running process count** columns of the [Hosts](../guides/web-ui/hosts.md) page. Each is a single number per collection, so they are included by default.
 
 To collect lots of detailed data about all available metrics, use `logfire.instrument_system_metrics(base='full')`.
 
@@ -100,6 +108,8 @@ To collect lots of detailed data about all available metrics, use `logfire.instr
     The most expensive metrics are `system.cpu.utilization/time` which collect data for each core and each mode,
     and `system.disk.*` which collect data for each disk device. The exact number depends on the machine hardware,
     but this can result in hundreds of data points per minute from each instrumented host.
+
+    The `process.*` metrics in this integration describe only the instrumented Python process. They do not scan every process ID on the host. The Collector's singular `hostmetrics.process` scraper does scan every process and has a much higher volume risk; see [Cardinality and cost](../how-to-guides/otel-collector/host-monitoring.md#cardinality-and-cost).
 
 `logfire.instrument_system_metrics(base='full')` is equivalent to:
 
@@ -120,6 +130,8 @@ logfire.instrument_system_metrics({
     'system.network.errors': ['transmit', 'receive'],
     'system.network.io': ['transmit', 'receive'],
     'system.thread_count': None,
+    'system.cpu.load_average.1m': None,
+    'system.process.count': None,
     'process.context_switches': ['involuntary', 'voluntary'],
     'process.runtime.gc_count': None,
     'process.open_file_descriptor.count': None,

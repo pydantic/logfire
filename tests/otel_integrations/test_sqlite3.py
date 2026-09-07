@@ -11,6 +11,19 @@ import logfire._internal.integrations.sqlite3
 from logfire.testing import TestExporter
 
 
+@pytest.fixture(autouse=True)
+def uninstrument_after_test():
+    """Clean up global instrumentation even when a test fails partway through.
+
+    A test that fails before reaching its uninstrument call would otherwise leave sqlite3
+    globally instrumented, sending phantom spans into every later test in the same process
+    through the proxy tracer provider.
+    """
+    yield
+    if SQLite3Instrumentor().is_instrumented_by_opentelemetry:
+        SQLite3Instrumentor().uninstrument()
+
+
 def test_sqlite3_instrumentation(exporter: TestExporter):
     logfire.instrument_sqlite3()
 
@@ -80,7 +93,6 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
         )
 
     conn.close()
-    SQLite3Instrumentor().uninstrument()
 
 
 def test_instrument_sqlite3_connection(exporter: TestExporter):

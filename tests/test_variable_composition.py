@@ -755,6 +755,21 @@ class TestCompositionIntegration:
         assert result.composed_from[0].name == 'greeting'
         assert result.composed_from[0].value == 'Hello'
 
+    def test_code_default_reference_across_with_settings_siblings(self, config_kwargs: dict[str, Any]):
+        """Code-default composition sees variables registered on with_settings() siblings."""
+        lf = logfire.configure(**config_kwargs)
+        lf2 = lf.with_settings(tags=['other'])
+
+        lf.var(name='greeting', default='Hello', type=str)
+        main = lf2.var(name='main', default='@{greeting}@ World', type=str)
+
+        result = main.get()
+
+        assert result.value == 'Hello World'
+        assert len(result.composed_from) == 1
+        assert result.composed_from[0].name == 'greeting'
+        assert result.composed_from[0].value == 'Hello'
+
     def test_override_participates_in_composition(self, config_kwargs: dict[str, Any]):
         """An override value containing @{ref}@ is expanded against the live config.
 

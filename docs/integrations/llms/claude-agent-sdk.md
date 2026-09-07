@@ -102,6 +102,11 @@ The example above looks like this in Logfire:
 
 ![Logfire Claude Agent SDK Trace](../../images/logfire-screenshot-claude-agent-sdk.png)
 
+!!! note "Live and LLMs views, not the Agents view"
+    These runs populate the **Live** and **LLMs** views with full model, token, and cost data. They do
+    not appear on the specialized **Agents** view: the SDK doesn't attach an agent name
+    (`gen_ai.agent.name`) to a run, which is what that view keys on.
+
 ## Troubleshooting
 
 Not seeing data? Check that `logfire.configure()` ran before `instrument_claude_agent_sdk()`, that your write token is set, and that you called the instrument function exactly once. Missing tool-call spans? Make sure the `ClaudeSDKClient` is created *after* the instrument call (see the warning above).

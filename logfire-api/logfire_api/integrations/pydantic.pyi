@@ -1,4 +1,5 @@
 from .._internal.config import GLOBAL_CONFIG as GLOBAL_CONFIG, PydanticPlugin as PydanticPlugin
+from .._internal.stack_info import is_non_user_path as is_non_user_path
 from .._internal.utils import get_version as get_version
 from _typeshed import Incomplete
 from dataclasses import dataclass

@@ -5,9 +5,11 @@ from unittest.mock import patch
 
 import inline_snapshot.extra
 import pytest
+import requests
+import requests_mock
 from inline_snapshot import snapshot
 
-from logfire._internal.auth import UserToken, UserTokenCollection
+from logfire._internal.auth import UserToken, UserTokenCollection, request_device_code
 from logfire.exceptions import LogfireConfigError
 
 
@@ -38,6 +40,11 @@ from logfire.exceptions import LogfireConfigError
             'https://logfire-eu.pydantic.dev',
             'pylf_v2_eu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
             'EU (https://logfire-eu.pydantic.dev) - pylf_v2_eu_9f9ba85a-b759-4181-9527-d812e03f9f7f_0kYhc****',
+        ),
+        (
+            'https://logfire-eu.pydantic.dev',
+            'pylf_v3_eu_new-token-format',
+            'EU (https://logfire-eu.pydantic.dev) - new-t****',
         ),
     ],
 )
@@ -172,3 +179,21 @@ def test_logout_all_multiple_regions(multiple_credentials: Path) -> None:
     removed = token_collection.logout()
     assert removed == ['https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev']
     assert multiple_credentials.read_text() == ''
+
+
+def test_request_device_code_sends_a_timeout() -> None:
+    """The device code request must carry a timeout, otherwise `logfire auth` hangs on an unresponsive server."""
+    with requests_mock.Mocker() as m:
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            json={
+                'device_code': 'device-code',
+                'frontend_auth_url': 'https://logfire-us.pydantic.dev/auth/device-code',
+            },
+        )
+        result = request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
+
+        assert result == ('device-code', 'https://logfire-us.pydantic.dev/auth/device-code')
+        assert m.last_request is not None
+        # Both halves of the device flow share this timeout.
+        assert m.last_request.timeout == 15

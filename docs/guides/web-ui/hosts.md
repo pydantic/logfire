@@ -4,7 +4,7 @@ description: "Browse every host shipping system metrics to your Logfire project.
 ---
 # Hosts
 
-The **Hosts view** shows every host shipping system metrics to your project. It shows CPU, memory, load, disk and network alongside the application traces those hosts produced. Kubernetes nodes show up here too, tagged so you can tell them apart from bare VMs.
+The <OpenInLogfire path="hosts" variant="inline" label="Hosts view" /> shows every host shipping system metrics to your project. It shows CPU, memory, load, disk and network alongside the application traces those hosts produced. Kubernetes nodes show up here too, tagged so you can tell them apart from bare VMs.
 
 You'll find Hosts in the project sidebar, between **Services** and **Kubernetes**.
 
@@ -14,7 +14,7 @@ You'll find Hosts in the project sidebar, between **Services** and **Kubernetes*
 
 Each row is a host, with at-a-glance columns:
 
-- **Status**: `live` if the host emitted a sample in the last minute, `stale` between 1 and 5 minutes, `down` once it's been over 5 minutes since the last sample.
+- **Status**: `live` if the host emitted a sample in the last 2 minutes, `stale` between 2 and 5 minutes, `down` once it's been over 5 minutes since the last sample.
 - **OS** and architecture.
 - **CPU** with an inline sparkline.
 - **Memory** (percent or bytes depending on what the collector reports).
@@ -48,7 +48,7 @@ A working setup for a single host (Linux VM, container host, or laptop), exporti
 ```yaml
 receivers:
   hostmetrics:
-    collection_interval: 30s
+    collection_interval: 60s
     # Set root_path: /hostfs when running the collector inside a container
     # with the host filesystem bind-mounted at /hostfs (Linux only).
     scrapers:
@@ -56,7 +56,10 @@ receivers:
       memory: {}
       load:
         cpu_average: true         # normalise load across CPUs
-      disk: {}
+      disk:
+        exclude:
+          devices: ['^(loop|ram)[0-9]+$']
+          match_type: regexp
       filesystem:
         include_virtual_filesystems: false
       network:
@@ -89,6 +92,8 @@ service:
       processors: [memory_limiter, resourcedetection, batch]
       exporters: [otlphttp/logfire]
 ```
+
+Keep the collection interval at 60 seconds unless you have a specific need for finer resolution. Some Collector deployment presets use 10 seconds, which sends six times as many datapoints. The `processes` scraper above is inexpensive because it reports aggregate counts. Do not confuse it with the singular `process` scraper, which reports CPU, memory, and disk metrics for every process ID. Leave `process` off, or filter it to a small set of stable process names. See [Cardinality and cost](../../how-to-guides/otel-collector/host-monitoring.md#cardinality-and-cost) for details.
 
 The pipeline shape (`memory_limiter` first, `batch` last, enrichment in the middle) is the same for any other receivers you add. See [OpenTelemetry Collector Overview](../../how-to-guides/otel-collector/otel-collector-overview.md) for the broader patterns and authentication options. If you haven't set anything up, the empty state on the Hosts page also deep-links to the **Everything else** tab of the add-data wizard.
 

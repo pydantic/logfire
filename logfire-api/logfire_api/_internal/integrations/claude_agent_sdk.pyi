@@ -4,6 +4,7 @@ from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 from contextlib import AbstractContextManager
 from logfire._internal.integrations.llm_providers.semconv import CONVERSATION_ID as CONVERSATION_ID, ChatMessage as ChatMessage, ERROR_TYPE as ERROR_TYPE, INPUT_MESSAGES as INPUT_MESSAGES, MessagePart as MessagePart, OPERATION_NAME as OPERATION_NAME, OUTPUT_MESSAGES as OUTPUT_MESSAGES, OutputMessage as OutputMessage, PROVIDER_NAME as PROVIDER_NAME, REQUEST_MODEL as REQUEST_MODEL, RESPONSE_MODEL as RESPONSE_MODEL, ReasoningPart as ReasoningPart, SYSTEM as SYSTEM, SYSTEM_INSTRUCTIONS as SYSTEM_INSTRUCTIONS, TOOL_CALL_ARGUMENTS as TOOL_CALL_ARGUMENTS, TOOL_CALL_ID as TOOL_CALL_ID, TOOL_CALL_RESULT as TOOL_CALL_RESULT, TOOL_NAME as TOOL_NAME, TextPart as TextPart, ToolCallPart as ToolCallPart, ToolCallResponsePart as ToolCallResponsePart
 from logfire._internal.main import Logfire as Logfire, LogfireSpan as LogfireSpan
+from logfire._internal.stack_info import get_user_stack_info as get_user_stack_info
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
 from typing import Any
 
@@ -35,7 +36,19 @@ class _ConversationState:
     root_span: Incomplete
     active_tool_spans: dict[str, LogfireSpan]
     model: str | None
+    announced_tool_ids: set[str]
+    tool_announcement_timeout: float
+    code_attrs: Incomplete
     def __init__(self, *, logfire: Logfire, root_span: LogfireSpan, input_messages: list[ChatMessage], system_instructions: list[TextPart] | None = None) -> None: ...
+    async def wait_for_tool_announcement(self, tool_use_id: str) -> None:
+        """Wait until the assistant message announcing `tool_use_id` has been handled.
+
+        The CLI sends the assistant message (containing the `tool_use` block) before it
+        invokes the PreToolUse hook, but hooks run in separate anyio tasks, so the hook
+        can be scheduled before the main task has applied that message to this state.
+        Closing the chat span at that point would lose its output and model attributes.
+        The timeout is a safety valve for tool calls that are never announced.
+        """
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: Any) -> None:
         """Record a tool result to include in the next chat span's input messages."""
     def open_chat_span(self) -> None:

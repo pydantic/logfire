@@ -314,3 +314,7 @@ import logfire
 
 logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
 ```
+
+## Next step
+
+**[Add auto-tracing](add-auto-tracing.md)**: instrument whole modules automatically, without adding a span to every function by hand.

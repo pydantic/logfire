@@ -59,8 +59,14 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
             # There are two spans:
             # 1. Trigger the task with `send_task`.
             # 2. Run the task.
+            # The `run` span ends in the worker thread, so it can be exported late:
+            # a previous iteration's `run` span may land after `exporter.clear()`, and
+            # its position relative to the `apply_async` span is not deterministic.
+            # Select spans by name rather than by position.
             spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-            assert spans[0] == snapshot(
+            assert {span['name'] for span in spans} <= {'apply_async/tasks.say_hello', 'run/tasks.say_hello'}
+            [apply_async_span] = [span for span in spans if span['name'] == 'apply_async/tasks.say_hello']
+            assert apply_async_span == snapshot(
                 {
                     'name': 'apply_async/tasks.say_hello',
                     'context': {'trace_id': 1, 'span_id': IsInt(), 'is_remote': False},
@@ -78,11 +84,9 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
                     },
                 }
             )
-            # The second span is a bit flaky.
-            # TODO: Actually solve the problem.
-            assert len(spans) in (1, 2)
-            if len(spans) == 2:  # pragma: no branch
-                assert spans[1] == snapshot(
+            run_spans = [span for span in spans if span['name'] == 'run/tasks.say_hello']
+            if run_spans:  # pragma: no branch
+                assert run_spans[-1] == snapshot(
                     {
                         'name': 'run/tasks.say_hello',
                         'context': {'trace_id': 1, 'span_id': IsInt(), 'is_remote': False},

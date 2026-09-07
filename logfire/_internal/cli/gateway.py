@@ -23,6 +23,7 @@ from rich.prompt import Prompt
 
 from logfire.exceptions import LogfireConfigError
 
+from ..interactive import require_answer
 from .ai_tools import (
     LOCAL_TOKEN_PLACEHOLDER,
     AiToolIntegration,
@@ -446,6 +447,11 @@ def _interactive_integration() -> str:
     if not installed:
         console.print('[red]No supported integration binaries were found on PATH.[/]')
         raise SystemExit(127)
+    require_answer(
+        'No integration was named. '
+        + (f'{installed[0]} is installed.' if len(installed) == 1 else f'Installed: {", ".join(installed)}.'),
+        *(f'logfire gateway {name}' for name in installed),
+    )
     return Prompt.ask('Launch which integration?', choices=installed, default=installed[0])
 
 
@@ -612,7 +618,7 @@ def parse_gateway(args: argparse.Namespace) -> None:
     context = GatewayCommandContext(
         raw_args=list(args.gateway_args or []),
         region=args.region,
-        logfire_url=args.logfire_url,
+        logfire_url=args.logfire_url or os.getenv('LOGFIRE_BASE_URL'),
     )
     command = parse_gateway_command(context)
     code = execute_gateway_command(command, context)
