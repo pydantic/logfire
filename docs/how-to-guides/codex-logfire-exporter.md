@@ -16,6 +16,8 @@ and querying existing telemetry.
 
 The two plugins solve different problems and can be installed together.
 
+For Codex's built-in session events, metrics, and native traces, see [Send Codex logs and metrics to Logfire](../integrations/codex.md). That setup uses Codex's own configuration and does not require either plugin.
+
 ## Install
 
 Add the Pydantic marketplace and enable the exporter plugin:
