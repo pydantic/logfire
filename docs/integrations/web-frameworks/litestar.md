@@ -19,7 +19,7 @@ Logfire records the matched route, response status, timing, and errors.
 
 ## Installation
 
-Install Logfire with the `litestar` extra:
+Install Logfire with the `litestar` extra. This integration supports Litestar 2.11 and later:
 
 {{ install_logfire(extras=['litestar']) }}
 
@@ -79,6 +79,22 @@ view in the [Logfire web app](https://logfire.pydantic.dev/). You should see a
 ## Advanced configuration
 
 Pass Litestar OpenTelemetry configuration options directly to `instrument_litestar()`.
+Some options require a newer Litestar version:
+
+| Options | Minimum Litestar version |
+| --- | --- |
+| `exclude_spans` | 2.20 |
+| `after_exception_hook_handler` | 2.21 |
+| `tracer`, `http_capture_headers_server_request`, `http_capture_headers_server_response`, `http_capture_headers_sanitize_fields` | 2.22 |
+
+If your installed version does not support an option, Logfire raises an error with an upgrade
+command before enabling header capture. Upgrade with:
+
+```bash
+pip install --upgrade 'logfire[litestar]'
+```
+
+The `capture_headers` and `record_send_receive` options work on all supported Litestar versions.
 
 !!! warning "Captured headers are sent to Logfire"
     `capture_headers=True` captures every request and response header. Logfire

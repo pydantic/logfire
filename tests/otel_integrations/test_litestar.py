@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import subprocess
+import sys
 from collections.abc import Callable
+from dataclasses import fields
 from typing import Annotated, Any, Protocol, cast
 from unittest import mock
 
@@ -15,7 +18,7 @@ pytest.importorskip(
 )
 
 from inline_snapshot import snapshot
-from litestar import Litestar, Request, WebSocket, asgi, get, post, websocket
+from litestar import Litestar, Request, Router, WebSocket, asgi, get, post, websocket
 from litestar.params import Parameter
 from litestar.testing import TestClient
 from opentelemetry.metrics import MeterProvider
@@ -59,7 +62,8 @@ async def error() -> None:
 
 @asgi(['/mounted', '/other'], is_mount=True, copy_scope=True)
 async def mounted(scope: Any, receive: Any, send: Any) -> None:
-    pass
+    await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+    await send({'type': 'http.response.body', 'body': b'ok'})
 
 
 @websocket('/chat')
@@ -337,6 +341,7 @@ def test_public_types_module() -> None:
 
 def test_legacy_plugin_namespace() -> None:
     plugin_module = mock.MagicMock()
+    plugin_module.OpenTelemetryConfig = type(cast(OpenTelemetryPlugin, logfire.instrument_litestar()).config)
 
     def find_spec(name: str) -> object | None:
         return None if name == 'litestar.plugins' else object()
@@ -650,3 +655,182 @@ def test_unrelated_plugin_import_error_is_not_hidden() -> None:
             logfire.instrument_litestar()
 
     assert exc_info.value is unrelated
+
+
+def test_nested_mounts_use_resolved_paths(exporter: TestExporter) -> None:
+    app = Litestar(
+        route_handlers=[Router(path='/api', route_handlers=[health, mounted])],
+        plugins=[logfire.instrument_litestar()],
+    )
+    with TestClient(app, root_path='/proxy') as client:
+        assert client.get('/proxy/api/mounted/one').status_code == 200
+        assert client.get('/proxy/api/mounted/two').status_code == 200
+        assert client.get('/proxy/api/other/three').status_code == 200
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'GET /proxy/api/mounted',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /proxy/api/mounted/one',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver.local',
+                    'server.address': 'testserver.local',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/proxy/api/mounted/one',
+                    'url.path': '/proxy/api/mounted/one',
+                    'http.url': 'http://testserver.local/proxy/api/mounted/one',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver.local',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/proxy/api/mounted',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+            },
+            {
+                'name': 'GET /proxy/api/mounted',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /proxy/api/mounted/two',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver.local',
+                    'server.address': 'testserver.local',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/proxy/api/mounted/two',
+                    'url.path': '/proxy/api/mounted/two',
+                    'http.url': 'http://testserver.local/proxy/api/mounted/two',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver.local',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/proxy/api/mounted',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+            },
+            {
+                'name': 'GET /proxy/api/other',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /proxy/api/other/three',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver.local',
+                    'server.address': 'testserver.local',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/proxy/api/other/three',
+                    'url.path': '/proxy/api/other/three',
+                    'http.url': 'http://testserver.local/proxy/api/other/three',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver.local',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/proxy/api/other',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+            },
+        ]
+    )
+
+
+def test_missing_asgi_dependency_in_fresh_process() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-c',
+            """
+import os
+import sys
+
+sys.modules['opentelemetry.instrumentation.asgi'] = None
+
+import logfire
+
+logfire.configure(send_to_logfire=False, console=False)
+try:
+    logfire.instrument_litestar(capture_headers=True)
+except RuntimeError as exc:
+    assert "pip install 'logfire[litestar]'" in str(exc)
+else:
+    raise AssertionError('Expected installation guidance')
+assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST' not in os.environ
+assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE' not in os.environ
+""",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_unsupported_options_do_not_enable_header_capture() -> None:
+    options: dict[str, Any] = {'unknown_option': True, 'another_option': True}
+    with pytest.raises(RuntimeError, match='another_option, unknown_option') as exc_info:
+        logfire.instrument_litestar(capture_headers=True, **options)
+    assert "pip install --upgrade 'logfire[litestar]'" in str(exc_info.value)
+    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST' not in os.environ
+    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE' not in os.environ
+
+
+@pytest.mark.parametrize(
+    'option',
+    [
+        'tracer',
+        'after_exception_hook_handler',
+        'exclude_spans',
+        'http_capture_headers_server_request',
+        'http_capture_headers_server_response',
+        'http_capture_headers_sanitize_fields',
+    ],
+)
+def test_version_specific_options(option: str) -> None:
+    config = cast(OpenTelemetryPlugin, logfire.instrument_litestar()).config
+    options: dict[str, Any] = {option: None}
+    if option in {field.name for field in fields(cast(Any, config))}:
+        plugin = cast(OpenTelemetryPlugin, logfire.instrument_litestar(**options))
+        assert vars(plugin.config)[option] is None
+    else:
+        with pytest.raises(RuntimeError, match=f'does not support these OpenTelemetry options: {option}'):
+            logfire.instrument_litestar(**options)

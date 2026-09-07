@@ -125,6 +125,14 @@ jobs:
       - run: uv run --no-sync coverage run -m pytest -n logical --dist=loadgroup --junitxml=coverage/test-results.xml
         env:
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}-pydantic-${{ matrix.pydantic-version }}-otel-${{ matrix.otel-version }}
+      - name: Test Litestar 2.11 compatibility
+        if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
+        run: >-
+          uv run --no-sync --with 'litestar==2.11.0' coverage run -m pytest
+          tests/otel_integrations/test_litestar.py --record-mode=none
+          -W 'ignore:Unclosed <MemoryObject:ResourceWarning'
+        env:
+          COVERAGE_FILE: coverage/.coverage.litestar-2.11
       - name: store coverage files
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:

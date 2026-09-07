@@ -19,7 +19,12 @@ ScopeSpanDetailsExtractor = Callable[[dict[str, Any]], tuple[str, dict[str, Any]
 
 
 class LitestarInstrumentKwargs(TypedDict, total=False):
-    """Additional options accepted by Litestar's OpenTelemetry configuration."""
+    """Additional options accepted by Litestar's OpenTelemetry configuration.
+
+    `exclude_spans` requires Litestar 2.20+, `after_exception_hook_handler` requires 2.21+,
+    and `tracer` and the `http_capture_headers_*` options require 2.22+.
+    Unsupported options raise `RuntimeError` with installation guidance.
+    """
 
     after_exception_hook_handler: AfterExceptionHook | None
     scope_span_details_extractor: ScopeSpanDetailsExtractor
