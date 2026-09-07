@@ -73,7 +73,7 @@ Use the matching regional host. The same `OTEL_EXPORTER_OTLP_HEADERS` variable a
 
 ## Verify
 
-Start a new Codex session, complete a turn, then exit normally so Codex flushes pending data. In the [Live view](../guides/web-ui/live.md), look for events with `event.name` such as `codex.conversation_starts`, `codex.user_prompt`, or `codex.tool_result`. Inspect `conversation.id` to identify events from the same session. User prompt text should appear as `[REDACTED]`.
+Start a new Codex session, complete a turn, then exit normally so Codex flushes pending data. In the [Live view](../guides/web-ui/live.md), look for events such as `codex.conversation_starts`, `codex.user_prompt`, or `codex.tool_result`. Inspect `conversation.id` to identify events from the same session. User prompt text should appear as `[REDACTED]`.
 
 In [SQL Workbench](../guides/web-ui/explore.md), run:
 
