@@ -103,7 +103,6 @@ if TYPE_CHECKING:
 
     from logfire.integrations.litestar import LitestarInstrumentKwargs
 
-    from ..experimental.forwarding import ForwardExportRequestResponse
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
         ResponseHook as AiohttpClientResponseHook,
@@ -131,6 +130,7 @@ if TYPE_CHECKING:
         VariablesConfig,
     )
     from .config import TemplateMismatchPolicy
+    from .forwarding import ForwardExportRequestResponse
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.llm_providers.semconv import SemconvVersion
@@ -913,13 +913,13 @@ class Logfire:
         )
 
     def force_flush(self, timeout_millis: int = 3_000) -> bool:  # pragma: no cover
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
         return self._config.force_flush(timeout_millis)
 
@@ -965,7 +965,7 @@ class Logfire:
     ) -> None:
         """Install automatic tracing.
 
-        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/add-auto-tracing/)
+        See the [Auto-Tracing guide](https://pydantic.dev/docs/logfire/instrument/python/add-auto-tracing/)
         for more info.
 
         This will trace all non-generator function calls in the modules specified by the modules argument.
@@ -1068,8 +1068,10 @@ class Logfire:
                 - `off`: Disable instrumentation.
             include:
                 By default, third party modules are not instrumented. This option allows you to include specific modules.
+                Each entry is a regular expression matched against `module::ModelName` and anchored at the end,
+                so use e.g. `openai.*` rather than `openai`, which would only match a model named `openai`.
             exclude:
-                Exclude specific modules from instrumentation.
+                Exclude specific modules from instrumentation. Matched the same way as `include`.
         """
         # Note that unlike most instrument_* methods, we intentionally don't call
         # _warn_if_not_initialized_for_instrumentation, because this method needs to be called early.
@@ -1259,7 +1261,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
-        version: SemconvVersion | Sequence[SemconvVersion] = 1,
+        version: SemconvVersion | Sequence[SemconvVersion] = 2,
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -1311,14 +1313,15 @@ class Logfire:
 
             version: The version(s) of the span attribute format to use:
 
-                - `1` (the default): Uses `request_data` and `response_data` attributes.
-                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                - `1`: Uses the legacy `request_data` and `response_data` attributes.
+                - `2` (the default): Uses OpenTelemetry Gen AI semantic convention attributes
                   (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
                   `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
-                  still recorded for message template compatibility. This format may change between
-                  releases.
-                - `[1, 'latest']`: Emits both the full legacy attributes and the semantic convention
-                  attributes simultaneously, useful for migration and testing.
+                  still recorded for message template compatibility.
+                - `'latest'`: Uses the latest format, which is currently identical to version 2.
+                  Unlike a numbered version, this format may change between releases.
+                - `[1, 2]` or `[1, 'latest']`: Emits both the full legacy attributes and the semantic
+                  convention attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -1369,7 +1372,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
-        version: SemconvVersion | Sequence[SemconvVersion] = 1,
+        version: SemconvVersion | Sequence[SemconvVersion] = 2,
     ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
@@ -1416,14 +1419,15 @@ class Logfire:
 
             version: The version(s) of the span attribute format to use:
 
-                - `1` (the default): Uses `request_data` and `response_data` attributes.
-                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                - `1`: Uses the legacy `request_data` and `response_data` attributes.
+                - `2` (the default): Uses OpenTelemetry Gen AI semantic convention attributes
                   (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
                   `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
-                  still recorded for message template compatibility. This format may change between
-                  releases.
-                - `[1, 'latest']`: Emits both the full legacy attributes and the semantic convention
-                  attributes simultaneously, useful for migration and testing.
+                  still recorded for message template compatibility.
+                - `'latest'`: Uses the latest format, which is currently identical to version 2.
+                  Unlike a numbered version, this format may change between releases.
+                - `[1, 2]` or `[1, 'latest']`: Emits both the full legacy attributes and the semantic
+                  convention attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -1459,7 +1463,7 @@ class Logfire:
 
         !!! note
             To capture message contents (i.e. prompts and completions), set the environment variable
-            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY`.
 
         Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
         [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
@@ -2812,7 +2816,7 @@ class Logfire:
         *,
         dry_run: bool = False,
         yes: bool = False,
-        strict: bool = False,
+        strict: bool = True,
     ) -> bool:
         """Push variable definitions (metadata only) to the configured variable provider.
 
@@ -2830,8 +2834,8 @@ class Logfire:
                 variables registered on `with_settings()` siblings.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas
-                or any reference errors are found.
+            strict: If True, fail on incompatible label values, missing references, or template-field issues.
+                Set to False to publish despite those issues. Reference cycles always block the push.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -2863,7 +2867,7 @@ class Logfire:
         *,
         dry_run: bool = False,
         yes: bool = False,
-        strict: bool = False,
+        strict: bool = True,
     ) -> bool:
         """Push variable type definitions to the configured variable provider.
 
@@ -2886,7 +2890,7 @@ class Logfire:
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
             strict: If True, abort when existing label values are incompatible with
-                the new type schema.
+                the new type schema. Set to False to publish despite these issues.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -3080,7 +3084,7 @@ class Logfire:
 
         This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
         exposed in the frontend code.
-        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
         for more details.
 
         We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
@@ -3095,7 +3099,7 @@ class Logfire:
         Returns:
             A `ForwardExportRequestResponse` containing the response status code, body, and headers.
         """
-        from ..experimental.forwarding import forward_export_request
+        from .forwarding import forward_export_request
 
         return forward_export_request(
             path=path,
@@ -3118,7 +3122,7 @@ class Logfire:
 
         This is for proxying telemetry from a browser to Logfire so that the write token doesn't need to be
         exposed in the frontend code.
-        See https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/#python-backend-proxy
+        See https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#python-backend-proxy
         for more details.
 
         We recommend protecting the endpoint that uses this method with authentication, rate limiting, and CORS.
@@ -3131,7 +3135,7 @@ class Logfire:
         Returns:
             A Starlette/FastAPI `Response` object.
         """
-        from ..experimental.forwarding import logfire_proxy
+        from .forwarding import logfire_proxy
 
         return await logfire_proxy(
             request=request,

@@ -124,7 +124,8 @@ except ImportError:
             def with_settings(self, *args, **kwargs) -> Logfire:
                 return self
 
-            def force_flush(self, *args, **kwargs) -> None: ...
+            def force_flush(self, *args, **kwargs) -> bool:
+                return True
 
             def log_slow_async_callbacks(self, *args, **kwargs) -> None:  # pragma: no cover
                 return nullcontext()

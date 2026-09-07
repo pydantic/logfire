@@ -110,4 +110,4 @@ The endpoint does not provide Braintrust-hosted datasets, prompts, functions, re
 
 - [Run a native evaluation](../evaluate/evals-in-code.md) when you are ready to replace the compatibility layer.
 - [Review experiments](../evaluate/review-experiments.md) to compare the first Logfire run with its next iteration.
-- [Compare Logfire and Braintrust](braintrust.md) for the broader product differences.
+- [Compare Logfire and Braintrust](https://pydantic.dev/logfire/vs-braintrust) for the broader product differences.

@@ -93,6 +93,18 @@ Not seeing your model calls in Logfire? Check these first:
 
 ## Advanced
 
+### Keep legacy attributes during migration
+
+Logfire uses semantic convention version 2 by default. If your queries or dashboards still depend
+on the legacy `request_data` and `response_data` attributes, emit both formats while you migrate:
+
+```python
+import logfire
+
+logfire.configure()
+logfire.instrument_openai(version=[1, 2])
+```
+
 ### Methods covered
 
 The following OpenAI methods are covered:

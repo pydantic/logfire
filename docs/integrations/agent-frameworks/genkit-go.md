@@ -114,8 +114,8 @@ view populates. Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU regio
 
 !!! warning "Common pitfalls"
     - **Set the global provider before `genkit.Init`**, or early spans are dropped.
-    - **Use the HTTP exporter** (`otlptracehttp`) with the `/v1/traces` path — the gRPC exporter won't match
-      Logfire's HTTP ingest.
+    - **Match the exporter to the endpoint.** This setup uses `otlptracehttp` with the `/v1/traces` path.
+      Logfire also accepts gRPC (`otlptracegrpc`), which takes the bare base URL and no path.
     - **Flush on exit.** The `defer tp.Shutdown(ctx)` flushes the batch exporter; without it a short program may
       exit before spans are sent.
 
@@ -124,7 +124,7 @@ view populates. Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU regio
 Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Go you can consume managed variables
+[TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/) SDKs. From Go you can consume managed variables
 over the language-agnostic
 [OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md), or resolve
 the prompt in a small Python/TypeScript sidecar and pass the rendered text into `ai.WithPrompt(...)`.

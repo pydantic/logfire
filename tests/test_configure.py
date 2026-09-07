@@ -82,6 +82,7 @@ from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.forwarding import OTLPForwardingManager
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
+from logfire._internal.interactive import NonInteractiveError
 from logfire._internal.tracer import PendingSpanProcessor
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
@@ -473,20 +474,6 @@ def test_pydantic_plugin_include_exclude_strings():
     assert fresh_pydantic_plugin().exclude == {'exc'}
 
 
-def test_deprecated_configure_pydantic_plugin(config_kwargs: dict[str, Any]):
-    assert fresh_pydantic_plugin().record == 'off'
-
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(**config_kwargs, pydantic_plugin=logfire.PydanticPlugin(record='all'))  # type: ignore
-
-    assert fresh_pydantic_plugin().record == 'all'
-
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.'
-    )
-
-
 def test_read_config_from_environment_variables() -> None:
     assert fresh_pydantic_plugin().record == 'off'
 
@@ -687,6 +674,43 @@ def test_logfire_shutdown_closes_providers(monkeypatch: pytest.MonkeyPatch, flus
     tracer_provider.shutdown.assert_called_once()
     logger_provider.shutdown.assert_called_once()
     meter_provider.shutdown.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ('logger_result', 'forwarding_result', 'tracer_result', 'expected'),
+    [
+        (True, True, True, True),
+        (None, True, True, True),
+        (False, True, True, False),
+        (True, False, True, False),
+        (True, True, False, False),
+    ],
+)
+def test_force_flush_combines_provider_results(
+    monkeypatch: pytest.MonkeyPatch,
+    logger_result: bool | None,
+    forwarding_result: bool,
+    tracer_result: bool,
+    expected: bool,
+) -> None:
+    config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    meter_provider = mock.Mock()
+    logger_provider = mock.Mock()
+    logger_provider.force_flush.return_value = logger_result
+    otlp_forwarding = mock.Mock()
+    otlp_forwarding.force_flush.return_value = forwarding_result
+    tracer_provider = mock.Mock()
+    tracer_provider.force_flush.return_value = tracer_result
+    monkeypatch.setattr(config, '_meter_provider', meter_provider)
+    monkeypatch.setattr(config, '_logger_provider', logger_provider)
+    monkeypatch.setattr(config, '_otlp_forwarding', otlp_forwarding)
+    monkeypatch.setattr(config, '_tracer_provider', tracer_provider)
+
+    assert config.force_flush(123) is expected
+    meter_provider.force_flush.assert_called_once_with(123)
+    logger_provider.force_flush.assert_called_once_with(123)
+    otlp_forwarding.force_flush.assert_called_once_with(123)
+    tracer_provider.force_flush.assert_called_once_with(123)
 
 
 def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
@@ -1988,6 +2012,291 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         ]
 
 
+@pytest.mark.xdist_group(name='sequential')
+def test_create_new_project_selects_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """The organization-selection prompt already has `default=user_default_organization_name
+
+    or organizations[0]` -- the same outcome a person pressing Enter would get -- so an
+    exhausted stdin picks that organization instead of raising an `EOFError` traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        prompt_mock = stack.enter_context(
+            mock.patch('rich.prompt.Prompt.ask', side_effect=[EOFError, 'mytestproject1', ''])
+        )
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/account/me',
+            json={'default_organization': {'organization_name': 'fake_org1'}},
+        )
+
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        # The default (`fake_org1`, from `account/me` above) is where the project must
+        # land -- if the EOF fallback picked the WRONG organization, this mock would 404
+        # instead of the create call succeeding.
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org1/projects',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert prompt_mock.mock_calls == [
+            call(
+                '\nTo create and use a new project, please provide the following information:\nSelect the organization to create the project in',
+                choices=['fake_org', 'fake_org1'],
+                default='fake_org1',
+            ),
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_initialize_project_completes_with_no_tty_at_the_final_prompt(tmp_dir_cwd: Path, tmp_path: Path):
+    """`configure()` finishes even when stdin runs out at the very last prompt.
+
+    That final "Press Enter to continue" discards its answer either way -- it exists to
+    give a person a beat before moving on -- so an `EOFError` there must not turn an
+    already-completed setup into a crash. This is the exact shape of a real failure: an
+    agent piping just enough answers to satisfy the prompts it can see ahead of time
+    (`printf 'y\\n1\\n' | python -c 'import logfire; logfire.configure()'`) and hitting an
+    unhandled traceback on the one prompt it had no way to anticipate.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
+        # Only two real answers, same as `printf 'y\n1\n'` -- the third prompt (the final
+        # "Press Enter to continue") has nothing left to read.
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert confirm_mock.mock_calls == [call('Do you want to use one of your existing projects? ', default=True)]
+        assert prompt_mock.mock_calls == [
+            call(
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
+                choices=['1'],
+                default='1',
+            ),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_initialize_project_uses_existing_projects_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """ "Do you want to use one of your existing projects?" already has `default=True` --
+
+    the same outcome a person pressing Enter would get -- so an exhausted stdin reaches
+    that same outcome (and then continues into `use_existing_project`) instead of an
+    `EOFError` traceback on the very first prompt of the whole flow.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=EOFError))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/writable-projects/',
+            json=[{'organization_name': 'fake_org', 'project_name': 'fake_project'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
+            [create_project_response],
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        # The `use_existing_project` prompt was still reached, proving the first Confirm
+        # defaulted to True rather than skipping straight to project creation.
+        assert prompt_mock.mock_calls[0] == call(
+            "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
+            choices=['1'],
+            default='1',
+        )
+        assert confirm_mock.mock_calls == [call('Do you want to use one of your existing projects? ', default=True)]
+
+
+def test_create_new_project_confirms_the_organization_with_no_tty(tmp_dir_cwd: Path, tmp_path: Path):
+    """The organization-creation "Continue?" confirm already has `default=True` -- the
+
+    exact prompt a real user copying `logfire auth && python -c '...configure()'` out of
+    the docs would hit with no terminal attached. An exhausted stdin reaches the same
+    outcome pressing Enter would (create it) instead of an `EOFError` traceback.
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        # Only the first Confirm ("use one of your existing projects?") has a real
+        # answer; there are no existing projects, so it is never asked. The "Continue?"
+        # confirm that matters here has nothing to read.
+        confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=EOFError))
+        prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['myproject', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        create_project_response = {
+            'json': {
+                'project_name': 'myproject',
+                'token': 'fake_token',
+                'project_url': 'fake_project_url',
+            }
+        }
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
+
+        logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        assert confirm_mock.mock_calls == [
+            call('The project will be created in the organization "fake_org". Continue?', default=True),
+        ]
+        assert prompt_mock.mock_calls == [
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
+            call(
+                'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
+            ),
+        ]
+        assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
+            **create_project_response['json'],
+            'logfire_api_url': 'https://logfire-api.pydantic.dev',
+        }
+
+
+def test_project_name_prompt_with_no_safe_default_and_no_tty_fails_with_guidance(tmp_dir_cwd: Path, tmp_path: Path):
+    """A rejected project name has NO safe default left to fall back on ("Ellipsis" is a
+
+    sentinel meaning "an answer is required", not a suggestion -- see the comment beside
+    `project_name_default = ...`). So once the first name is rejected, an exhausted stdin
+    must raise the same guidance `--non-interactive` would rather than silently retrying
+    with a project literally named "Ellipsis".
+    """
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
+    )
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True]))
+        stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['existingprojectname', EOFError]))
+
+        request_mocker = requests_mock.Mocker()
+        stack.enter_context(request_mocker)
+        request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
+        request_mocker.get(
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
+            [{'status_code': 409}],
+        )
+
+        with pytest.raises(NonInteractiveError) as exc_info:
+            logfire.configure(send_to_logfire=True)
+        wait_for_check_token_thread()
+
+        message = str(exc_info.value)
+        assert "A project with the name 'existingprojectname' already exists" in message
+        assert 'Cannot prompt because there is nothing left to read from stdin.' in message
+        assert 'logfire projects new PROJECT_NAME --org fake_org' in message
+
+        # No retry with the rejected name's sentinel default -- only the one doomed POST.
+        create_requests = [r for r in request_mocker.request_history if r.method == 'POST']
+        assert len(create_requests) == 1
+        assert not (tmp_dir_cwd / '.logfire/logfire_credentials.json').exists()
+
+
 def test_send_to_logfire_true(tmp_path: Path) -> None:
     """
     Test that with send_to_logfire=True, the logic is triggered to ask about creating a project.
@@ -2069,6 +2378,29 @@ def wait_for_check_token_thread():
             thread.join()
 
 
+def test_token_check_is_skipped_on_aws_lambda(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Lambda freezes the environment after the init phase; a background token check frozen
+    # mid-request would warn once thawed, and a synchronous check would slow every cold start.
+    # Inside Lambda the check is skipped. The mocked /v1/info response is held back until
+    # `release` is set, so a (wrongly) started background thread would still be alive and
+    # visible when the assertions run.
+    monkeypatch.setenv('AWS_LAMBDA_FUNCTION_NAME', 'my-function')
+    release = threading.Event()
+
+    def held_back_info(_request: Any, _context: Any) -> dict[str, str]:
+        release.wait(timeout=5)
+        return {'project_name': 'myproject', 'project_url': 'fake_project_url'}
+
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', json=held_back_info)
+        try:
+            configure(token='foobar', send_to_logfire='if-token-present', console=False)
+            assert not any(thread.name == 'check_logfire_token' for thread in threading.enumerate())
+            assert request_mocker.request_history == []
+        finally:
+            release.set()
+
+
 def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixture[str]) -> None:
     os.environ['LOGFIRE_TOKEN'] = 'foobar'
     try:
@@ -2125,7 +2457,7 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
         assert len(request_mocker.request_history) == 1
 
 
-def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> None:
+def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     # Should default to us:
     with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
@@ -2133,7 +2465,7 @@ def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> N
             json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
         )
         with pytest.warns(LogfireConfigWarning) as warns:
-            configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz')
+            configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz', data_dir=tmp_path)
             # Inside the `pytest.warns` block so that any warning from the background
             # token-checking thread would be caught too: the token must warn exactly once.
             wait_for_check_token_thread()
@@ -2575,76 +2907,9 @@ def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
     assert capsys.readouterr().err == ''
 
 
-def test_collect_system_metrics_false():
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: The `collect_system_metrics` argument has been removed. '
-            'System metrics are no longer collected by default.'
-        )
-    ):
-        logfire.configure(collect_system_metrics=False)  # type: ignore
-
-
-def test_collect_system_metrics_true():
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: The `collect_system_metrics` argument has been removed. '
-            'Use `logfire.instrument_system_metrics()` instead.'
-        )
-    ):
-        logfire.configure(collect_system_metrics=True)  # type: ignore
-
-
 def test_unknown_kwargs():
-    with inline_snapshot.extra.raises(snapshot('TypeError: configure() got unexpected keyword arguments: foo, bar')):
-        logfire.configure(foo=1, bar=2)  # type: ignore
-
-
-def test_project_name_deprecated():
-    with inline_snapshot.extra.raises(
-        snapshot('UserWarning: The `project_name` argument is deprecated and not needed.')
-    ):
-        logfire.configure(project_name='foo')  # type: ignore
-
-
-def test_base_url_deprecated():
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(base_url='foo')  # type: ignore
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `base_url` argument is deprecated. Use `advanced=logfire.AdvancedOptions(base_url=...)` instead.'
-    )
-    assert GLOBAL_CONFIG.advanced.base_url == 'foo'
-
-
-def test_combine_deprecated_and_new_advanced():
-    with inline_snapshot.extra.raises(
-        snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
-    ):
-        logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
-
-
-def test_additional_metric_readers_deprecated():
-    readers = [InMemoryMetricReader()]
-    with pytest.warns(UserWarning) as warnings:
-        logfire.configure(additional_metric_readers=readers)  # type: ignore
-    assert len(warnings) == 1
-    assert str(warnings[0].message) == snapshot(
-        'The `additional_metric_readers` argument is deprecated. '
-        'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-    )
-    assert GLOBAL_CONFIG.metrics.additional_readers is readers  # type: ignore
-
-
-def test_additional_metric_readers_combined_with_metrics():
-    readers = [InMemoryMetricReader()]
-    with inline_snapshot.extra.raises(
-        snapshot(
-            'ValueError: Cannot specify both `additional_metric_readers` and `metrics`. '
-            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-        )
-    ):
-        logfire.configure(additional_metric_readers=readers, metrics=False)  # type: ignore
+    with inline_snapshot.extra.raises(snapshot("TypeError: configure() got an unexpected keyword argument 'foo'")):
+        logfire.configure(foo=1)  # type: ignore
 
 
 def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -3141,24 +3406,18 @@ def test_staging_token_regions():
 def test_known_token_regions_do_not_warn():
     with warnings.catch_warnings():
         warnings.simplefilter('error')
-        assert (
-            get_base_url_from_token('pylf_v1_us_123456', warn_unknown_region=True) == 'https://logfire-us.pydantic.dev'
-        )
-        assert (
-            get_base_url_from_token('pylf_v1_eu_123456', warn_unknown_region=True) == 'https://logfire-eu.pydantic.dev'
-        )
+        assert get_base_url_from_token('pylf_v1_us_123456') == 'https://logfire-us.pydantic.dev'
+        assert get_base_url_from_token('pylf_v1_eu_123456') == 'https://logfire-eu.pydantic.dev'
         # Tokens predating regions have no region segment and must keep working silently.
-        assert (
-            get_base_url_from_token('legacy_token_no_region', warn_unknown_region=True)
-            == 'https://logfire-us.pydantic.dev'
-        )
+        assert get_base_url_from_token('legacy_token_no_region') == 'https://logfire-us.pydantic.dev'
 
 
-def test_unknown_token_region_does_not_warn_by_default():
-    # Runtime helpers (query/API clients, CLI) must never raise under warnings-as-errors.
-    with warnings.catch_warnings():
-        warnings.simplefilter('error')
-        assert get_base_url_from_token('pylf_v1_unknownregion_123456') == 'https://logfire-us.pydantic.dev'
+def test_unknown_token_region_warns_by_default():
+    with pytest.warns(LogfireConfigWarning) as warns:
+        assert get_base_url_from_token('pylf_v1_unknownregion_123456') == snapshot('https://logfire-us.pydantic.dev')
+    assert str(warns[0].message) == snapshot(
+        "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
+    )
 
 
 def test_generate_base_url_warns_about_unknown_region_by_default():
@@ -3182,14 +3441,13 @@ def test_generate_base_url_with_explicit_base_url_does_not_warn():
         assert advanced.generate_base_url('pylf_v1_unknownregion_123456') == 'https://my-proxy.example.com'
 
 
-def test_unknown_token_region_warns_when_opted_in():
-    with pytest.warns(LogfireConfigWarning) as warns:
-        assert get_base_url_from_token('pylf_v1_unknownregion_123456', warn_unknown_region=True) == snapshot(
-            'https://logfire-us.pydantic.dev'
+def test_unknown_token_region_warning_can_be_disabled():
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert (
+            get_base_url_from_token('pylf_v1_unknownregion_123456', warn_unknown_region=False)
+            == 'https://logfire-us.pydantic.dev'
         )
-    assert str(warns[0].message) == snapshot(
-        "Unknown region 'unknownregion' in Logfire token, falling back to the US region. Known regions: eu, us."
-    )
 
 
 def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:

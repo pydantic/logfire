@@ -76,7 +76,7 @@ agent-run span the Agents view recognizes (they emit an LLM or chain span, or a 
 | [LangChain (JS)](langchain-js.md) | ● | ○ | Traced via LangSmith's own convention. |
 | [Instructor](../llms/instructor.md) | ● | ○ | LLM-only; not an agent framework. |
 | [Eino (Go)](eino.md) | ● | ○ | No agent-run convention we detect today. |
-| [Letta](../llms/letta.md) | ● | ○ | Server traces flow via an OpenTelemetry Collector; no agent-run span is detected. |
+| [Letta](../llms/letta.md) | ● | ○ | Server traces export directly over OTLP/gRPC, with a collector optional; no agent-run span is detected. |
 | [OpenAI Agents SDK (TS)](openai-agents-js.md) | ◐ | ○ | No OpenTelemetry exporter yet; instrument the underlying model client for LLM spans only. |
 | [Claude Agent SDK](../llms/claude-agent-sdk.md) | ● | ○ | Emits native gen_ai `invoke_agent`/`chat`/`execute_tool` spans (LLMs view, tokens, and cost populate), but sets no `gen_ai.agent.name`, so the Agents view does not detect the run. |
 

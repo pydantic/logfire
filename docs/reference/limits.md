@@ -1,0 +1,54 @@
+---
+title: "Ingest limits"
+description: "The limits Logfire applies to the data you send, what happens when data exceeds them, and how to tell."
+---
+
+# Ingest limits
+
+Logfire applies a few limits to the data you send. Going past one either **drops** the data or **shortens** a value, and this page covers which, and what to do about it.
+
+| Limit | Value | What happens past it |
+| --- | --- | --- |
+| Request size | 100 MB | The request is rejected and none of it is stored |
+| Timestamp range | 24 hours in the past to 1 hour in the future | Records outside the window are dropped; the rest of the request is stored |
+| Size of one span, log, or metric point | 10 MB | Oversized values are shortened; the record is stored |
+| Long text fields | 512 bytes for span names, service names, and the message shown in the UI; 32,000 bytes for exception messages and stack traces | The value is shortened; the record is stored |
+
+The limits above are the same in the [US and EU regions](data-regions.md), the same whether you send over HTTP or gRPC, and are not configurable per project. Only the error code differs by protocol: an oversized request is refused with `413 Payload Too Large` on HTTP and `OUT_OF_RANGE` on gRPC. Separately, [Summary metrics](#summary-metrics-are-not-supported) are not stored at all.
+
+## Timestamps
+
+Logfire accepts timestamps from **24 hours in the past** to **1 hour in the future**, measured against Logfire's clock when the request arrives, not the clock of the machine that sent it. This covers a span's start and end, each span event, a log's timestamp, and each metric point's own timestamp. A metric point's *start* timestamp is checked only against the future bound, because for a cumulative metric it is often when the process booted and legitimately old.
+
+This limit can look like data silently going missing, because a request only partly outside the window still succeeds: Logfire drops the records outside it, stores the rest, answers with a partial success, and writes an explanation into your project as a span named `logfire ingest error`. Search for that if data you expected never arrived. When every record in a request falls outside the window, as in a backfill, the request fails outright.
+
+The usual causes are a wrong clock on the sending host, data buffered offline and exported much later, and attempts to load historical data. Backfilling records older than 24 hours is not supported.
+
+## Truncation
+
+Attributes and long text fields are never rejected for being too big, only shortened. A record over 10 MB has its largest values cut down until it fits, so keeping records under 10 MB avoids that.
+
+Values cut to fit that limit are listed in the record's `logfire.truncated` attribute, and the record's detail panel in the [Live view](../guides/web-ui/live.md) shows a **Truncation** section naming them. The fixed-length fields in the table above are a different case: they are capped whatever the record's size, and shortened silently, so a span name cut at 512 bytes is not flagged anywhere.
+
+## Summary metrics are not supported
+
+Logfire does not store OpenTelemetry Protocol (OTLP) `Summary` metrics, a type the OpenTelemetry spec itself marks [legacy](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#summary-legacy) and does not recommend for new applications. A `Summary` reports quantiles the sender has already computed, and those cannot be re-aggregated: averaging two p95 values from two hosts does not give the p95 across both.
+
+A `Summary` is dropped on arrival. When a request carries `Summary` metrics alongside supported ones, Logfire stores the supported metrics, drops the summaries, and answers with a partial success; when every metric in the request is a `Summary`, the request fails outright. They usually come from a Prometheus scrape forwarded through an OpenTelemetry Collector, whose `prometheus` receiver turns every Prometheus summary into an OTLP `Summary`. Send a histogram instead and compute percentiles at query time.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The exporter reports `413` or `OUT_OF_RANGE` and a batch never arrives | The request was over 100 MB | Lower the batch size for that signal (`OTEL_BSP_MAX_EXPORT_BATCH_SIZE` for spans, `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` for logs), and shrink individual records: a smaller batch does not help when one record is itself oversized |
+| Data from one host never appears, and the project has `logfire ingest error` records | That host's clock has drifted outside the window | Run a time sync daemon on the host |
+| A backfill or replay produces no data | The records are older than 24 hours | Backfilling historical data is not supported |
+| A value displays with `...` in the middle | The record was over 10 MB | Check the **Truncation** section on the record to see everything that was cut |
+| A message is cut short and the rest is nowhere | The message field stores 512 bytes and the original is not kept | Also write the full text to an attribute of your own |
+| One metric never appears while others from the same source do | It is an OTLP `Summary` | Send a histogram instead |
+
+## Next steps
+
+- [Alternative clients](../how-to-guides/alternative-clients.md): send data with any OpenTelemetry SDK.
+- [Scrubbing](../how-to-guides/scrubbing.md): stop sensitive values leaving your machine, which also keeps large payload fields out of your telemetry.
+- [Sampling](../how-to-guides/sampling.md): keep a representative subset of traces to control volume and cost.

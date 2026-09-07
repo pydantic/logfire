@@ -117,9 +117,10 @@ Agents-view features, so use Live or Explore to inspect the complete trace. Sema
 the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns each view populates.
 
 !!! warning "Common pitfalls"
-    - **Default OTLP protocol is gRPC.** **Logfire** ingests OTLP/HTTP, so you must set
-      `OtlpExportProtocol.HttpProtobuf`, and with per-signal `AddOtlpExporter` supply the **full** path
-      (`/v1/traces`, `/v1/metrics`) yourself — it isn't appended automatically.
+    - **Default OTLP protocol is gRPC.** **Logfire** accepts both, but the endpoint has to match: gRPC takes
+      the bare base URL, while this setup uses `OtlpExportProtocol.HttpProtobuf`. With per-signal
+      `AddOtlpExporter` on HTTP, supply the **full** path (`/v1/traces`, `/v1/metrics`) yourself: it isn't
+      appended automatically.
     - **No diagnostics, no spans.** Without `EnableOTelDiagnostics` (metadata) or
       `EnableOTelDiagnosticsSensitive` (also prompts/completions), SK's AI connectors emit nothing. Set the
       switch (or env var `SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS[_SENSITIVE]=true`) before
@@ -140,7 +141,7 @@ the specialized **Agents** view; the [support matrix](support-matrix.md) shows w
 Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers currently ship in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From .NET you can consume managed
+[TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/) SDKs. From .NET you can consume managed
 variables over the language-agnostic
 [OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md),
 or resolve the prompt in a small Python/TypeScript sidecar and pass the rendered text into your kernel prompt.

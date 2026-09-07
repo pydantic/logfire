@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Annotated, Any
 from unittest.mock import patch
 
 import cloudpickle
-import pydantic
 import pytest
 import sqlmodel
 from dirty_equals import IsInt
@@ -126,6 +125,13 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
         ({'.*test_module.*::MyModel'}, set(), 'my_test_module1', 'MyModel', True),
         ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel1', True),
         ({'.*test_module.*::MyModel[1,2]'}, set(), 'my_test_module1', 'MyModel3', False),
+        # patterns are anchored at the end of `module::ModelName`, so a bare package name matches
+        # nothing at all: the string ends in the model's name, not the module's.
+        ({'openai'}, set(), 'openai.types.chat', 'ChatCompletion', False),
+        ({'openai.*'}, set(), 'openai.types.chat', 'ChatCompletion', True),
+        # an unanchored pattern can also match part-way through an unrelated module
+        ({r'apps\..*'}, set(), 'django.apps.config', 'AppConfig', True),
+        ({r'^apps\..*'}, set(), 'django.apps.config', 'AppConfig', False),
         # exclude
         (set(), {'MyModel'}, '', 'MyModel', False),
         (set(), {'MyModel'}, '', 'MyModel1', True),
@@ -136,11 +142,28 @@ def test_pydantic_plugin_settings_record_override_pydantic_plugin_record(exporte
         ({'MyModel'}, {'MyModel1'}, '', 'MyModel', True),
         ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel2', True),
         ({'.*test_module.*::MyModel[1,2,3]'}, {'.*test_module.*::MyModel[1,3]'}, 'my_test_module', 'MyModel1', False),
+        # neither include nor exclude: instrument user code, but not third party modules,
+        # where 'third party' means the module was imported from a file in the standard library,
+        # an installed package, or logfire itself.
+        (set(), set(), __name__, 'MyModel', True),  # this test file isn't installed anywhere
+        (set(), set(), 'not_a_real_module', 'MyModel', True),  # unimported modules are assumed to be user code
+        (set(), set(), 'builtins', 'MyModel', True),  # C modules have no file to check, but also no models
+        (set(), set(), 'os', 'MyModel', False),  # standard library
+        (set(), set(), 'pydantic.main', 'MyModel', False),  # installed in site-packages
+        (set(), set(), 'logfire.integrations.pydantic', 'MyModel', False),  # logfire itself
+        # include overrides the default of not instrumenting third party modules
+        ({'pydantic.main::MyModel'}, set(), 'pydantic.main', 'MyModel', True),
     ),
 )
 def test_logfire_plugin_include_exclude_models(
     include: set[str], exclude: set[str], module: str, name: str, expected_to_include: bool
 ) -> None:
+    """`include` and `exclude` decide which models are instrumented, defaulting to only user code.
+
+    Without `include`, third party models are skipped so that libraries which use validation errors as
+    control flow don't flood the user with noise, as documented and as reported in
+    https://github.com/pydantic/logfire/issues/2053.
+    """
     logfire.configure(
         send_to_logfire=False,
         metrics=logfire.MetricsOptions(additional_readers=[InMemoryMetricReader()]),
@@ -198,7 +221,8 @@ def test_pydantic_plugin_python_record_failure(exporter: TestExporter, metrics_r
                     'schema_name': 'MyModel',
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'input_data': '{"x":"a"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object"}}}',
                 },
             }
         ]
@@ -391,7 +415,8 @@ def test_pydantic_plugin_python_error_record_failure(
                     'schema_name': 'MyModel',
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'input_data': '{"x":"a"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object"}}}',
                 },
             },
             {
@@ -411,7 +436,8 @@ def test_pydantic_plugin_python_error_record_failure(
                     'schema_name': 'MyModel',
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'input_data': '{"x":"a"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object"}}}',
                 },
             },
         ]
@@ -649,7 +675,8 @@ def test_pydantic_plugin_with_dataclass(exporter: TestExporter) -> None:
                     'schema_name': 'MyDataclass',
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"a"}]',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                    'input_data': '{"args":[],"kwargs":{"x":"a"}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object","properties":{"args":{"type":"array","x-python-datatype":"tuple"}}}}}',
                 },
             }
         ]
@@ -925,7 +952,8 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
                     'code.function': 'test_pydantic_plugin_python_exception_record_failure',
                     'code.lineno': 123,
                     'schema_name': 'MyModel',
-                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"exception_type":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"exception_type":{},"input_data":{"type":"object"}}}',
+                    'input_data': '{"x":1}',
                     'exception_type': 'TypeError',
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
@@ -1206,7 +1234,8 @@ def test_record_failure_env_var(exporter: TestExporter) -> None:
                         'errors': '[{"type":"int_parsing","loc":["x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"b"}]',
                         'logfire.span_type': 'log',
                         'logfire.msg': 'Validation on MyModel failed',
-                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
+                        'input_data': '{"x":"b"}',
+                        'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"error_count":{},"errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}},"input_data":{"type":"object"}}}',
                     },
                 }
             ]
@@ -1292,9 +1321,7 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
                     'logfire.level_num': 9,
                     'logfire.span_type': 'span',
                     'success': True,
-                    'result': '{"id":1}'
-                    if get_version(pydantic.__version__) >= get_version('2.7.0')
-                    else '"Hero(id=1)"',
+                    'result': '{"id":1}',
                     'logfire.msg': 'Pydantic Hero validate_python succeeded',
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"Hero","x-python-datatype":"PydanticModel"}}}',
                 },
