@@ -6,7 +6,7 @@ description: "Use Logfire's Metrics Explorer to search OpenTelemetry metrics, pr
 
 Find and compare the metrics your project receives without writing SQL. A **metric** is a number tracked over time, like requests per second or CPU load. Use the **Metrics Explorer** to search metric names, preview recent activity, and compare values across attributes such as `service.name` or `k8s.node.name`.
 
-Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer" /> by clicking **Metrics** in the project sidebar. The selected time range controls the metrics, previews, and attributes the page shows.
+Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer" /> by clicking **Metrics** in the project sidebar. The catalog includes every metric the project has received. **Recently active** and the catalog previews use the last hour. After you open a metric, the time picker controls its chart and attribute comparisons.
 
 ![Metrics Explorer search, recently active metrics, and namespace cards](../../images/metrics/metrics-overview.jpg)
 
@@ -14,19 +14,19 @@ Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer"
 
 ### Search or browse by namespace
 
-The search box matches both metric names and namespaces. Use **Recently active** to open one of the latest metrics directly, or browse the namespace cards below it.
+The search box matches both metric names and namespaces. Use **Recently active** to open a metric reported within the last hour, or browse the namespace cards below it. Metrics without a recent sample remain searchable.
 
 A **namespace** is the prefix before the first dot in a metric name. `http.server.duration` lives under `http`, `system.cpu.utilization` lives under `system`, and `k8s.pod.cpu.usage` lives under `k8s`. A metric without a dot, such as `requests_total`, appears under **Everything else**. This grouping comes from the metric name and requires no separate configuration.
 
 ### Choose a metric from a namespace
 
-Opening a namespace shows each metric's type, unit, and a small activity preview. Search within the namespace when the list is long. Large namespaces may be divided by the next part of the metric name, such as `k8s.container` and `k8s.node`, so related metrics stay together.
+Opening a namespace shows each metric's type, unit, and a small preview of its last hour. A metric without a recent sample shows **No activity in the last hour** instead. Search within the namespace when the list is long. Large namespaces may be divided by the next part of the metric name, such as `k8s.container` and `k8s.node`, so related metrics stay together.
 
 ![Metrics grouped within the k8s namespace](../../images/metrics/metric-catalog.jpg)
 
 ## Compare a metric across attributes
 
-Opening a metric shows its type, aggregation, chart interval, and overall values. The interval is chosen automatically from the time range. Change the aggregation to switch between calculations such as average, sum, minimum, maximum, or count.
+Opening a metric shows the time picker, type, aggregation, chart interval, and overall values. The interval is chosen automatically from the selected time range. Change the aggregation to switch between calculations such as average, sum, minimum, maximum, or count.
 
 An **attribute** is a piece of context attached to a metric, such as a service, endpoint, or Kubernetes node. The **Break down by an attribute** section previews how the metric differs across each attribute's values. Each card shows a small chart and the number of values found in the selected time range. Attributes that have only one value are listed separately because they do not produce a useful comparison.
 
