@@ -6,7 +6,7 @@ description: "Use Logfire's Metrics Explorer to search OpenTelemetry metrics, pr
 
 Find and compare the metrics your project receives without writing SQL. A **metric** is a number tracked over time, like requests per second or CPU load. Use the **Metrics Explorer** to search metric names, preview recent activity, and compare values across attributes such as `service.name` or `k8s.node.name`.
 
-Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer" /> by clicking **Metrics** in the project sidebar. The catalog includes every metric the project has received. **Recently active** and the catalog previews use the last hour. After you open a metric, the time picker controls its chart and attribute comparisons.
+Open the <OpenInLogfire path="metrics" variant="inline" label="Metrics Explorer" /> by clicking **Metrics** in the project sidebar. The catalog includes every supported metric the project has received. **Recently active** and the catalog previews use the last hour. After you open a metric, the time picker controls its chart and attribute comparisons.
 
 ![Metrics Explorer search, recently active metrics, and namespace cards](../../images/metrics/metrics-overview.jpg)
 
