@@ -261,7 +261,8 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_litestar')
     if module_name == 'logfire_api.':
-        assert logfire_api.instrument_litestar() is None
+        app = MagicMock()
+        assert logfire_api.instrument_litestar(app) is app
     logfire__all__.remove('instrument_litestar')
 
     assert hasattr(logfire_api, 'instrument_fastapi')

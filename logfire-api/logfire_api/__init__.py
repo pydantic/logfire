@@ -167,8 +167,8 @@ except ImportError:
 
             def instrument_starlette(self, *args, **kwargs) -> None: ...
 
-            def instrument_litestar(self, *args, **kwargs):
-                return None
+            def instrument_litestar(self, app, *args, **kwargs):
+                return app
 
             def instrument_django(self, *args, **kwargs) -> None: ...
 

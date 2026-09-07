@@ -86,7 +86,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
-    from litestar.plugins import InitPluginProtocol
+    from litestar import Litestar
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pydantic_evals.reporting import EvaluationReport
@@ -100,8 +100,6 @@ if TYPE_CHECKING:
     from surrealdb.connections.async_template import AsyncTemplate
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
-
-    from logfire.integrations.litestar import LitestarInstrumentKwargs
 
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
@@ -1852,38 +1850,42 @@ class Logfire:
 
     def instrument_litestar(
         self,
+        app: Litestar,
         *,
         capture_headers: bool = False,
         record_send_receive: bool = False,
-        server_request_hook: ServerRequestHook | None = None,
-        client_request_hook: ClientRequestHook | None = None,
-        client_response_hook: ClientResponseHook | None = None,
-        **kwargs: Unpack[LitestarInstrumentKwargs],
-    ) -> InitPluginProtocol:
-        """Return a Litestar OpenTelemetry plugin that records requests with Logfire.
+        **kwargs: Unpack[ASGIInstrumentKwargs],
+    ) -> ASGIApp:
+        """Instrument a Litestar app to record requests with canonical route templates.
 
-        Add the returned plugin to the `plugins` argument when constructing your
-        Litestar application. Additional keyword arguments configure Litestar's
-        `OpenTelemetryConfig`.
+        Uses `instrument_asgi()` with a Litestar route extractor, so requests to
+        `/users/1` and `/users/2` share the route `/users/{user_id}`.
+
+        Warning:
+            This method returns an ASGI wrapper instead of modifying the app in place.
+            Pass the returned app to your server. Access Litestar-specific attributes
+            through the original app.
 
         Args:
+            app: The Litestar app to instrument.
             capture_headers: Set to `True` to capture all request and response headers.
             record_send_receive: Set to `True` to record low-level ASGI send and receive spans.
-            server_request_hook: Called after the server span is created.
-            client_request_hook: Called for each ASGI receive event.
-            client_response_hook: Called for each ASGI send event.
-            **kwargs: Additional options for Litestar's OpenTelemetry configuration.
+                These are disabled by default to reduce noise.
+            **kwargs: Additional options for the OpenTelemetry ASGI middleware, including
+                `server_request_hook`, `client_request_hook`, `client_response_hook`,
+                `excluded_urls`, and `default_span_details`.
+
+        Returns:
+            The instrumented ASGI application.
         """
         from .integrations.litestar import instrument_litestar
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_litestar(
             self,
+            app,
             capture_headers=capture_headers,
             record_send_receive=record_send_receive,
-            server_request_hook=server_request_hook,
-            client_request_hook=client_request_hook,
-            client_response_hook=client_response_hook,
             **kwargs,
         )
 

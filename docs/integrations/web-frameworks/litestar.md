@@ -25,10 +25,10 @@ Install Logfire with the `litestar` extra. This integration supports Litestar 2.
 
 ## Start recording requests
 
-Pass the plugin returned by [`logfire.instrument_litestar()`][logfire.Logfire.instrument_litestar]
-to Litestar when you construct your app:
+Wrap your app with [`logfire.instrument_litestar()`][logfire.Logfire.instrument_litestar]
+and pass the returned app to your server:
 
-```py title="main.py" hl_lines="8 18" skip-run="true" skip-reason="server-start"
+```py title="main.py" hl_lines="8 17" skip-run="true" skip-reason="server-start"
 from typing import Annotated
 
 from litestar import Litestar, get
@@ -44,10 +44,8 @@ async def hello(name: Annotated[str, Parameter()]) -> dict[str, str]:
     return {'message': f'Hello, {name}!'}
 
 
-app = Litestar(
-    route_handlers=[hello],
-    plugins=[logfire.instrument_litestar()],
-)
+app = Litestar(route_handlers=[hello])
+app = logfire.instrument_litestar(app)
 
 if __name__ == '__main__':
     import uvicorn
@@ -71,30 +69,24 @@ view in the [Logfire web app](https://logfire.pydantic.dev/). You should see a
 ## Troubleshooting
 
 - **No request spans appear:** call `logfire.configure()` before `logfire.instrument_litestar()`.
-- **The app starts but remains uninstrumented:** put the returned plugin in Litestar's `plugins`
-  list; `instrument_litestar()` does not modify an existing app.
+- **The app starts but remains uninstrumented:** use the returned app, as in
+  `app = logfire.instrument_litestar(app)`. The original app is not modified.
 - **Low-level send and receive spans are missing:** these noisy spans are disabled by default. Pass
   `record_send_receive=True` when you need them for debugging.
 
 ## Advanced configuration
 
-Pass Litestar OpenTelemetry configuration options directly to `instrument_litestar()`.
-Some options require a newer Litestar version:
+The returned app wraps your Litestar app to record requests. Keep a reference to the original
+Litestar app if you need its attributes or methods.
 
-| Options | Minimum Litestar version |
-| --- | --- |
-| `exclude_spans` | 2.20 |
-| `after_exception_hook_handler` | 2.21 |
-| `tracer`, `http_capture_headers_server_request`, `http_capture_headers_server_response`, `http_capture_headers_sanitize_fields` | 2.22 |
+Pass `capture_headers=True` to capture request and response headers, or
+`record_send_receive=True` to record low-level server events. These events are disabled by
+default because each request can generate several spans that are rarely useful.
 
-If your installed version does not support an option, Logfire raises an error with an upgrade
-command before enabling header capture. Upgrade with:
-
-```bash
-pip install --upgrade 'logfire[litestar]'
-```
-
-The `capture_headers` and `record_send_receive` options work on all supported Litestar versions.
+You can pass additional keyword arguments to customize request spans. Use
+`excluded_urls` to skip requests, or `server_request_hook`, `client_request_hook`, and
+`client_response_hook` to customize spans. These use the same options as
+[`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi].
 
 !!! warning "Captured headers are sent to Logfire"
     `capture_headers=True` captures every request and response header. Logfire
