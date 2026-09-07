@@ -438,7 +438,7 @@ def installed_packages() -> set[str]:
 def _full_install_command(recommendations: list[InstrumentationRecommendation]) -> str:
     """Generate a command to install all recommended packages at once."""
     if not recommendations:
-        return ''  # pragma: no cover - callers only request commands for nonempty recommendations
+        return ''  # pragma: no cover
 
     extras: set[str] = set()
     package_specs: list[str] = []
