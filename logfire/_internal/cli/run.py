@@ -5,6 +5,7 @@ import importlib
 import importlib.metadata
 import os
 import runpy
+import shlex
 import shutil
 import sys
 import warnings
@@ -70,25 +71,24 @@ OTEL_INSTRUMENTATION_MAP = {
     'openai-agents': 'openai_agents',
 }
 
-# Mapping from target package names to Logfire optional dependency names.
-TARGET_TO_DEP_GROUP: dict[str, str] = {
-    'aiohttp_client': 'aiohttp',
-    'aiohttp_server': 'aiohttp-server',
-    'celery': 'celery',
-    'django': 'django',
-    'fastapi': 'fastapi',
-    'flask': 'flask',
-    'httpx': 'httpx',
-    'mysql': 'mysql',
-    'psycopg': 'psycopg',
-    'psycopg2': 'psycopg2',
-    'pymongo': 'pymongo',
-    'redis': 'redis',
-    'requests': 'requests',
-    'sqlalchemy': 'sqlalchemy',
-    'sqlite3': 'sqlite3',
-    'starlette': 'starlette',
-    'urllib': 'urllib',
+INSTRUMENTATION_TO_EXTRA: dict[str, str] = {
+    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
+    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp-server',
+    'opentelemetry-instrumentation-celery': 'celery',
+    'opentelemetry-instrumentation-django': 'django',
+    'opentelemetry-instrumentation-fastapi': 'fastapi',
+    'opentelemetry-instrumentation-flask': 'flask',
+    'opentelemetry-instrumentation-httpx': 'httpx',
+    'opentelemetry-instrumentation-mysql': 'mysql',
+    'opentelemetry-instrumentation-psycopg': 'psycopg',
+    'opentelemetry-instrumentation-psycopg2': 'psycopg2',
+    'opentelemetry-instrumentation-pymongo': 'pymongo',
+    'opentelemetry-instrumentation-redis': 'redis',
+    'opentelemetry-instrumentation-requests': 'requests',
+    'opentelemetry-instrumentation-sqlalchemy': 'sqlalchemy',
+    'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+    'opentelemetry-instrumentation-starlette': 'starlette',
+    'opentelemetry-instrumentation-urllib': 'urllib',
 }
 
 
@@ -167,42 +167,29 @@ def is_uv_installed() -> bool:
     return shutil.which('uv') is not None
 
 
-def _format_dep_group_install_command(dep_groups: list[str]) -> str:
-    """Format a uv add command with dependency groups."""
-    if not dep_groups:
-        return ''  # pragma: no cover
-    return f'uv add logfire[{",".join(dep_groups)}]'
-
-
 def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
-    """Generate a command to install all recommended packages at once.
-
-    Uses dependency groups when available (e.g., `logfire[requests,sqlite3,urllib]`),
-    falls back to individual package names for packages without a dependency group.
-    """
+    """Generate installation commands using Logfire extras where available."""
     if not recommendations:
-        return ''  # pragma: no cover
+        return ''  # pragma: no cover - callers only request commands for nonempty recommendations
 
-    # Map to dependency groups where available
-    dep_groups: list[str] = []
+    extras: set[str] = set()
     fallback_packages: list[str] = []
-    for otel_pkg, target_pkg in recommendations:
-        dep_group = TARGET_TO_DEP_GROUP.get(target_pkg)
-        if dep_group:
-            dep_groups.append(dep_group)
+    for otel_pkg, _ in recommendations:
+        extra = INSTRUMENTATION_TO_EXTRA.get(otel_pkg)
+        if extra:
+            extras.add(extra)
         else:
             fallback_packages.append(otel_pkg)
 
-    parts: list[str] = []
-    if dep_groups:
-        parts.append(_format_dep_group_install_command(sorted(dep_groups)))
+    installer = 'uv add' if is_uv_installed() else 'pip install'
+    commands: list[str] = []
+    if extras:
+        requirement = f'logfire[{",".join(sorted(extras))}]'
+        commands.append(f'{installer} {shlex.quote(requirement)}')
     if fallback_packages:
-        if is_uv_installed():
-            parts.append(f'uv add {" ".join(sorted(fallback_packages))}')
-        else:
-            parts.append(f'pip install {" ".join(sorted(fallback_packages))}')  # pragma: no cover
+        commands.append(f'{installer} {shlex.join(sorted(fallback_packages))}')
 
-    return '\n'.join(parts)
+    return '\n'.join(commands)
 
 
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:
