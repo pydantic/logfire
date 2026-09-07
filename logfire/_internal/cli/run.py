@@ -436,7 +436,7 @@ def installed_packages() -> set[str]:
 
 
 def _full_install_command(recommendations: list[InstrumentationRecommendation]) -> str:
-    """Generate an installation command using Logfire extras where available."""
+    """Generate a command to install all recommended packages at once."""
     if not recommendations:
         return ''  # pragma: no cover - callers only request commands for nonempty recommendations
 
