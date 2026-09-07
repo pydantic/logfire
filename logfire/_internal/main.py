@@ -1862,9 +1862,9 @@ class Logfire:
     ) -> InitPluginProtocol:
         """Return a Litestar OpenTelemetry plugin that records requests with Logfire.
 
-        Add the returned plugin to the ``plugins`` argument when constructing your
+        Add the returned plugin to the `plugins` argument when constructing your
         Litestar application. Additional keyword arguments configure Litestar's
-        ``OpenTelemetryConfig``.
+        `OpenTelemetryConfig`.
 
         Args:
             capture_headers: Set to `True` to capture all request and response headers.
