@@ -1,46 +1,30 @@
 from __future__ import annotations
 
-import importlib
-import importlib.util
 from dataclasses import fields
-from types import ModuleType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
+try:
+    from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
+
+    try:
+        from litestar.plugins.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
+    except ImportError:
+        from litestar.contrib.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
+except ImportError as exc:
+    raise RuntimeError(
+        '`logfire.instrument_litestar()` requires Litestar and its OpenTelemetry dependencies.\n'
+        'You can install them with:\n'
+        "    pip install 'logfire[litestar]'"
+    ) from exc
+
+from logfire._internal.integrations.asgi import tweak_asgi_spans_tracer_provider
 from logfire._internal.utils import maybe_capture_server_headers
 
 if TYPE_CHECKING:
-    from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from typing_extensions import Unpack
 
     from logfire import Logfire
     from logfire.integrations.litestar import LitestarInstrumentKwargs
-
-
-def _missing_dependency_error() -> RuntimeError:
-    return RuntimeError(
-        '`logfire.instrument_litestar()` requires Litestar and its OpenTelemetry dependencies.\n'
-        'You can install them with:\n'
-        "    pip install 'logfire[litestar]'"
-    )
-
-
-def _opentelemetry_module() -> ModuleType:
-    """Load Litestar's OpenTelemetry plugin from either supported namespace."""
-    if importlib.util.find_spec('litestar') is None:
-        raise _missing_dependency_error()
-    try:
-        if (
-            importlib.util.find_spec('litestar.plugins') is not None
-            and importlib.util.find_spec('litestar.plugins.opentelemetry') is not None
-        ):
-            return importlib.import_module('litestar.plugins.opentelemetry')
-        return importlib.import_module('litestar.contrib.opentelemetry')
-    except ModuleNotFoundError as exc:
-        if exc.name == 'opentelemetry.instrumentation.asgi' or (
-            exc.name and exc.name.startswith('opentelemetry.instrumentation.asgi.')
-        ):
-            raise _missing_dependency_error() from exc
-        raise
 
 
 def _route_details(scope: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -90,8 +74,7 @@ def instrument_litestar(
     **kwargs: Unpack[LitestarInstrumentKwargs],
 ) -> Any:
     """Return Litestar's OpenTelemetry plugin configured for Logfire."""
-    otel = _opentelemetry_module()
-    unsupported_options = kwargs.keys() - {field.name for field in fields(otel.OpenTelemetryConfig)}
+    unsupported_options = kwargs.keys() - {field.name for field in fields(OpenTelemetryConfig)}
     if unsupported_options:
         raise RuntimeError(
             'The installed Litestar version does not support these OpenTelemetry options: '
@@ -100,8 +83,6 @@ def instrument_litestar(
             "    pip install --upgrade 'logfire[litestar]'"
         )
 
-    from logfire._internal.integrations.asgi import tweak_asgi_spans_tracer_provider
-
     maybe_capture_server_headers(capture_headers)
     kwargs.setdefault('tracer_provider', tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive))
     kwargs.setdefault('meter_provider', logfire_instance.config.get_meter_provider())
@@ -109,5 +90,5 @@ def instrument_litestar(
     kwargs.setdefault('server_request_hook_handler', server_request_hook)
     kwargs.setdefault('client_request_hook_handler', client_request_hook)
     kwargs.setdefault('client_response_hook_handler', client_response_hook)
-    config = otel.OpenTelemetryConfig(**kwargs)
-    return otel.OpenTelemetryPlugin(config=config)
+    config = OpenTelemetryConfig(**cast(dict[str, Any], kwargs))
+    return OpenTelemetryPlugin(config=config)

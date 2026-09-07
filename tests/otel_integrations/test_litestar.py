@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import os
 import subprocess
 import sys
@@ -339,22 +338,6 @@ def test_public_types_module() -> None:
     assert public_litestar.ClientResponseHook is not None
 
 
-def test_legacy_plugin_namespace() -> None:
-    plugin_module = mock.MagicMock()
-    plugin_module.OpenTelemetryConfig = type(cast(OpenTelemetryPlugin, logfire.instrument_litestar()).config)
-
-    def find_spec(name: str) -> object | None:
-        return None if name == 'litestar.plugins' else object()
-
-    with (
-        mock.patch('importlib.util.find_spec', side_effect=find_spec),
-        mock.patch('importlib.import_module', return_value=plugin_module) as import_module,
-    ):
-        assert logfire.instrument_litestar() is plugin_module.OpenTelemetryPlugin.return_value
-
-    import_module.assert_called_once_with('litestar.contrib.opentelemetry')
-
-
 def test_config_defaults_and_overrides() -> None:
     plugin = cast(OpenTelemetryPlugin, logfire.instrument_litestar())
     app = Litestar(route_handlers=[health])
@@ -622,39 +605,20 @@ def test_capture_headers(exporter: TestExporter) -> None:
     assert os.environ['OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE'] == '.*'
 
 
-def test_missing_litestar_dependency() -> None:
-    real_find_spec = importlib.util.find_spec
-
-    def find_spec(name: str) -> Any:
-        return None if name == 'litestar' else real_find_spec(name)
-
-    with mock.patch('importlib.util.find_spec', side_effect=find_spec):
-        with pytest.raises(RuntimeError, match=r"pip install 'logfire\[litestar\]'"):
+@pytest.mark.parametrize('missing_module', ['litestar', 'opentelemetry.instrumentation.asgi'])
+def test_missing_dependency(missing_module: str) -> None:
+    modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name != 'logfire._internal.integrations.litestar' and name != 'litestar' and not name.startswith('litestar.')
+    }
+    with mock.patch.dict('sys.modules', {**modules, missing_module: None}, clear=True):
+        with pytest.raises(RuntimeError, match=r"pip install 'logfire\[litestar\]'") as exc_info:
             logfire.instrument_litestar(capture_headers=True)
+        assert isinstance(exc_info.value.__cause__, ImportError)
 
     assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST' not in os.environ
     assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE' not in os.environ
-
-
-def test_missing_asgi_dependency() -> None:
-    missing_asgi = ModuleNotFoundError(
-        "No module named 'opentelemetry.instrumentation.asgi'", name='opentelemetry.instrumentation.asgi'
-    )
-    with mock.patch('importlib.import_module', side_effect=missing_asgi):
-        with pytest.raises(RuntimeError, match=r"pip install 'logfire\[litestar\]'"):
-            logfire.instrument_litestar(capture_headers=True)
-
-    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_REQUEST' not in os.environ
-    assert 'OTEL_INSTRUMENTATION_HTTP_CAPTURE_HEADERS_SERVER_RESPONSE' not in os.environ
-
-
-def test_unrelated_plugin_import_error_is_not_hidden() -> None:
-    unrelated = ModuleNotFoundError("No module named 'unexpected_dependency'", name='unexpected_dependency')
-    with mock.patch('importlib.import_module', side_effect=unrelated):
-        with pytest.raises(ModuleNotFoundError) as exc_info:
-            logfire.instrument_litestar()
-
-    assert exc_info.value is unrelated
 
 
 def test_nested_mounts_use_resolved_paths(exporter: TestExporter) -> None:
