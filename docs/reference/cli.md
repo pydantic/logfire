@@ -1,6 +1,6 @@
 ---
 title: "Logfire SDK CLI: SDK Command Line Interface Guide"
-description: "Use the Logfire CLI to simplify project management. Use commands to authenticate (`logfire auth`), create new projects, and manage read/write tokens."
+description: "Use the Logfire CLI to simplify project management. Use commands to authenticate, create new projects, and manage read/write tokens."
 ---
 # SDK Command Line Interface
 
