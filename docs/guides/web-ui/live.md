@@ -37,7 +37,7 @@ If you're not sure where to start, scroll down to the `Start here` for beginner-
 
 ![Search box start here](../../images/guide/live-view-start-here.png)
 
-### Ask in Language -> Get SQL
+### Ask in Language, Get SQL
 
 Write your question in your native language, and the model will convert that question to a SQL query.
 
