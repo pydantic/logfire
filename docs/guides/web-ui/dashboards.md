@@ -160,7 +160,6 @@ To add variables to a custom dashboard:
 3. Click **+ Add variable**.
 4. Define and configure your variables.
 
-<!-- TODO screenshot: dashboard toolbar with variable selectors, ideally one multiple-value dropdown with All selected -->
 
 Each variable has a **Name** (how you reference it in queries), plus an optional **Display Label** and **Description** shown on its selector. There are two variable types:
 
@@ -175,7 +174,6 @@ The **Source** setting controls where a list variable's options come from:
 * **Logfire Query List Variable**: options are loaded from a SQL query against your data. The query must return exactly one column, and each distinct non-null value becomes an option.
 * **Time Bucket Variable**: time intervals derived from the dashboard's time range. This source powers the built-in [`$resolution`](#resolution-variable) variable, and you'll rarely need to create one yourself.
 
-<!-- TODO screenshot: variable editor form with the Source dropdown open, showing all three sources -->
 
 A query source keeps the dropdown in sync with your data automatically. For example, if your metrics record a `tenant_id` attribute, this query fills the dropdown with every tenant ID captured on the `api.requests` metric:
 
