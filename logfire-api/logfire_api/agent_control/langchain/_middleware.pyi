@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from langchain.agents.middleware import AgentMiddleware, AgentState, ModelRequest, ModelResponse, ToolCallRequest
 from langchain.agents.middleware.types import PrivateStateAttr as PrivateStateAttr
 from langchain_core.messages import ToolMessage
-from langchain_core.runnables import RunnableConfig as RunnableConfig
+from langchain_core.runnables import RunnableConfig
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 from logfire import Logfire as Logfire
@@ -60,10 +60,12 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
     other middleware has finished assembling and the only one whose changes nothing downstream can
     overwrite.
 
-    The agent's `name` is the config's key. It is read from `create_agent(name=...)`, which is also
-    what Logfire shows the agent as in traces, so the config lines up with the agent you are already
-    looking at. An agent built without one has no name to key on -- `create_agent` calls it
-    `'LangGraph'` -- and that is an error rather than a guess.
+    The agent's `name` is the config's key. It is read off each run, where `create_agent` puts the
+    `name` it was given and where the LangChain instrumentation reads the name it puts on the agent's
+    spans -- so the config lines up with the agent you are already looking at, including when a run's
+    own `metadata` renames it, which renames it in both places for that run and no other. An agent
+    built without a name has none to key on -- `create_agent` calls it `'LangGraph'` -- and that is
+    an error rather than a guess. Pass `name=` here for a key no run can move.
     """
     state_schema = AgentControlState
     tools: Incomplete
@@ -72,8 +74,8 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
 
         Args:
             name: The agent's name, which its config is keyed on as the Logfire variable
-                `agent__<name>`. Defaults to the `name` the agent was created with, which is the one
-                that already identifies it in Logfire.
+                `agent__<name>`. Defaults to the `name` the run says the agent has, which is the one
+                that already identifies it in Logfire; pass it here for a key no run can move.
             instructions: The agent's prompt, block by block, instead of `create_agent`'s
                 `system_prompt`. Each key is the block's id and each value is its text, or a callable
                 taking the `ModelRequest` for a block this request works out for itself. Declaring
@@ -154,9 +156,9 @@ def agent_control(*, name: str | None = None, instructions: Mapping[str, Instruc
 
     Args:
         name: The agent\'s name, which its config is keyed on as the Logfire variable
-            `agent__<name>`. Defaults to the `name` the agent was created with, which is what
+            `agent__<name>`. Defaults to the `name` the run says the agent has, which is what
             already identifies it in Logfire; an agent created without one has no name to key on,
-            and that is an error rather than a guess.
+            and that is an error rather than a guess. Pass it here for a key no run can move.
         instructions: The agent\'s prompt, block by block, instead of `create_agent`\'s
             `system_prompt`. Each key is the block\'s id and each value is its text, or a callable
             taking the `ModelRequest` for a block this request works out for itself. Declaring the

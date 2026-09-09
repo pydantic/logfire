@@ -57,6 +57,35 @@ def test_an_unnamed_agent_can_be_named_on_the_middleware(project: LocalVariableP
     assert system_message(model).text == 'You are TERSE.'
 
 
+def test_a_run_that_renames_the_agent_renames_it_for_that_run_only(project: LocalVariableProvider) -> None:
+    # LangChain merges a run's own `metadata` over the one `create_agent` bound, so a caller can
+    # rename the agent per run -- in Logfire's traces as well, since the LangChain instrumentation
+    # names the agent's spans from the same value. The config follows the agent the trace shows, and
+    # follows it back: a rename that outlived its run would point every later run at that config.
+    publish(project, {'instructions': 'You are TERSE.'}, name='agent__other')
+    publish(project, {'instructions': 'You are BRIEF.'})
+    model = RecordingModel(replies=[AIMessage('ok'), AIMessage('ok')])
+    agent = build_agent(model, agent_control(label='production'), tools=[])
+
+    agent.invoke({'messages': [{'role': 'user', 'content': 'hi'}]}, {'metadata': {'lc_agent_name': 'other'}})
+    run(agent)
+
+    assert [system_message(model, index).content for index in (0, 1)] == snapshot(
+        ['You are TERSE.\n\nYou are a helpful assistant.', 'You are BRIEF.\n\nYou are a helpful assistant.']
+    )
+
+
+def test_an_explicit_name_is_one_no_run_can_move(project: LocalVariableProvider) -> None:
+    publish(project, {'instructions': 'You are TERSE.'}, name='agent__other')
+    publish(project, {'instructions': 'You are BRIEF.'})
+    model = RecordingModel(replies=[AIMessage('ok')])
+    agent = build_agent(model, agent_control(name='checkout', label='production'), tools=[])
+
+    agent.invoke({'messages': [{'role': 'user', 'content': 'hi'}]}, {'metadata': {'lc_agent_name': 'other'}})
+
+    assert system_message(model).content == snapshot('You are BRIEF.\n\nYou are a helpful assistant.')
+
+
 def test_nothing_published_runs_the_agent_exactly_as_written(project: LocalVariableProvider) -> None:
     model = RecordingModel(temperature=0.1, replies=[AIMessage('ok')])
     agent = build_agent(model, agent_control(label='production'))

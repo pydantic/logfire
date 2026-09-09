@@ -9,7 +9,9 @@ For LangChain's [`create_agent`](https://docs.langchain.com/oss/python/langchain
     pip install 'logfire[agent-control-langchain]'
     ```
 
-    It pulls in the framework-neutral core, `pydantic`, and LangChain itself. You still need a Logfire project: a `logfire.configure()` with a token that can read variables, and one that can write them if you want the baseline published from your code rather than created by hand in the UI.
+    It pulls in the framework-neutral core, `pydantic`, and LangChain itself — but not a model integration, which in LangChain is always a package of its own: the quick start below also needs `pip install langchain-anthropic`, and a published `model` naming a provider whose integration is not installed is reported rather than applied.
+
+    You still need a Logfire project: a `logfire.configure()` with a token that can read variables, and one that can write them if you want the baseline published from your code rather than created by hand in the UI.
 
 ## Quick start
 
@@ -59,6 +61,8 @@ Three things in that snippet are load-bearing.
 **Last in `middleware=[...]`.** LangChain composes `wrap_model_call` first-in-list as the *outermost* layer, so being last makes this the innermost one: the only position that sees the request every other middleware has finished assembling, and the only one whose changes nothing downstream can overwrite.
 
 **`name=` on `create_agent` is the config's key.** The agent's config lives in the Logfire variable `agent__checkout_assistant`, and `name` is also what Logfire shows the agent as in traces, so the two line up. An agent created without a `name` is called `LangGraph`, which is nobody's agent, so the middleware raises rather than guess. If the agent must stay unnamed, name the middleware instead: `agent_control(name='checkout_assistant')`.
+
+The name is read off each run, because LangChain merges a run's own `metadata` over the one `create_agent` bound. So `agent.invoke(..., {'metadata': {'lc_agent_name': 'other'}})` renames the agent for that run — in Logfire's traces as well, since the instrumentation names the agent's spans from the same value — and the config follows it, for that run and no other. Pass `agent_control(name=...)` when the config's key must not be something a caller can move; do that in particular if your `metadata` is assembled from anything a request supplied.
 
 **The prompt is declared on the middleware**, not on `create_agent`. That is the one-line diff from a plain string:
 
@@ -195,6 +199,7 @@ That is also what makes a thread outlive a change: resume a conversation after t
 - **A prompt this middleware cannot attribute to your code is not editable.** Declare it with `instructions=`, or give the block an `id`; there is no way to tell an undeclared string from one computed for this request.
 - **`instructions=` is the whole prompt.** It is assembled onto a request that carries none, and an agent that also has a `system_prompt` (or a middleware that writes one) raises rather than have this middleware choose between two prompts.
 - **A model chosen dynamically on every request** hides the code's model from this middleware, so a published `model` may be reported as not applied. Publish the model in Logfire *or* choose it in a middleware, not both.
+- **An inferred name is only as trustworthy as your `metadata`.** A run can rename the agent, and the config follows. Pass `agent_control(name=...)` when that matters.
 - **A setting can be right for the integration and wrong for the model.** See the warning under [Model settings](#model-settings).
 - **No toolsets.** LangChain has no notion of one, so the baseline reports no `toolset` for any tool and an override that sets `toolset` matches nothing (and says so).
 - **`create_agent` only.** A hand-written LangGraph graph has no per-request hook to apply a config in, and `langgraph.prebuilt.create_react_agent` is deprecated: its hooks never see the bound model.

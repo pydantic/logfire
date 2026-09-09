@@ -92,10 +92,12 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
     other middleware has finished assembling and the only one whose changes nothing downstream can
     overwrite.
 
-    The agent's `name` is the config's key. It is read from `create_agent(name=...)`, which is also
-    what Logfire shows the agent as in traces, so the config lines up with the agent you are already
-    looking at. An agent built without one has no name to key on -- `create_agent` calls it
-    `'LangGraph'` -- and that is an error rather than a guess.
+    The agent's `name` is the config's key. It is read off each run, where `create_agent` puts the
+    `name` it was given and where the LangChain instrumentation reads the name it puts on the agent's
+    spans -- so the config lines up with the agent you are already looking at, including when a run's
+    own `metadata` renames it, which renames it in both places for that run and no other. An agent
+    built without a name has none to key on -- `create_agent` calls it `'LangGraph'` -- and that is
+    an error rather than a guess. Pass `name=` here for a key no run can move.
     """
 
     state_schema = AgentControlState
@@ -115,8 +117,8 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
 
         Args:
             name: The agent's name, which its config is keyed on as the Logfire variable
-                `agent__<name>`. Defaults to the `name` the agent was created with, which is the one
-                that already identifies it in Logfire.
+                `agent__<name>`. Defaults to the `name` the run says the agent has, which is the one
+                that already identifies it in Logfire; pass it here for a key no run can move.
             instructions: The agent's prompt, block by block, instead of `create_agent`'s
                 `system_prompt`. Each key is the block's id and each value is its text, or a callable
                 taking the `ModelRequest` for a block this request works out for itself. Declaring
@@ -144,7 +146,12 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         self._on_unmatched: OnUnmatched = on_unmatched
         self._publish_baseline = publish_baseline
         self._control = self._build_control(name) if name is not None else None
-        self._published = False
+        # One control per agent name this middleware has been run as, since a name read off the run
+        # is not a property of the middleware; see `_control_for`. `self._control` is the one an
+        # explicit `name=` fixed, or else the last one a run established, which is what a request
+        # that never went through `before_agent` has to fall back on.
+        self._controls: dict[str, AgentControl] = {}
+        self._published: set[str] = set()
         # The model the agent itself brings to a request, learned from the first request that has
         # one and never changed after: it is what says whether a *later* request arrived with a
         # model something else chose for it, which a published `model` must not overwrite. Written
@@ -166,8 +173,33 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
             publish_baseline=self._publish_baseline,
         )
 
+    def _control_for(self, config: RunnableConfig | None) -> AgentControl:
+        """The control for the agent this run is of: the one `name=` fixed, or the run's own.
+
+        Read from the run every time rather than remembered from the first one, because the run's
+        metadata is the caller's: `agent.invoke(..., {'metadata': {'lc_agent_name': ...}})` overrides
+        what `create_agent` bound, and it renames the agent in Logfire's traces too. The config
+        keying on the same value is the point -- it lines up with the agent you are already looking
+        at -- so a run that renames the agent moves both, and only for itself. Remembering the first
+        name would let one run's rename outlive it and point every later run at that config.
+
+        Pass `agent_control(name=...)` to key the config on a name no run can move.
+        """
+        if self._name is not None:
+            return self._require_control()
+        metadata: dict[str, Any] = (config or {}).get('metadata') or {}
+        name = metadata.get('lc_agent_name')
+        if isinstance(name, str) and name and name != DEFAULT_AGENT_NAME:
+            # Assigned rather than memoized under a lock: two concurrent runs of one agent build the
+            # same control for the same variable, and either is the one to keep.
+            control = self._controls.get(name)
+            if control is None:
+                control = self._controls[name] = self._build_control(name)
+            self._control = control
+        return self._require_control()
+
     def _require_control(self) -> AgentControl:
-        """The control for the agent being run, or the reason there cannot be one."""
+        """The control for the agent last run, or the reason there cannot be one."""
         if self._control is None:
             raise ValueError(
                 'Agent Control needs the name of the agent it manages, and this agent has none: '
@@ -197,14 +229,7 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         middleware, and `langgraph.config.get_config()` is unavailable to a sync hook running under
         an async invocation on Python 3.10.
         """
-        if self._control is None:
-            metadata: dict[str, Any] = (config or {}).get('metadata') or {}
-            name = metadata.get('lc_agent_name')
-            if isinstance(name, str) and name and name != DEFAULT_AGENT_NAME:
-                # Assigned rather than memoized under a lock: two concurrent first runs of one agent
-                # build the same control for the same variable, and either is the one to keep.
-                self._control = self._build_control(name)
-        control = self._require_control()
+        control = self._control_for(config)
         # Entered and left here rather than held: the resolution's telemetry context is what puts
         # the label and version on spans, and a graph node cannot hold a context open across the
         # nodes that come after it. `Resolution.reported` puts it back around each request instead.
@@ -361,10 +386,10 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         the editor that the model and settings here are the ones *that* request carried, and the
         blocks whose text this adapter cannot attribute to the code go up as seams with no text.
         """
-        if self._published:
-            return
         control = self._require_control()
-        self._published = True
+        if control.variable_name in self._published:
+            return
+        self._published.add(control.variable_name)
         control.publish_baseline(
             build_baseline(
                 instructions=prompt.blocks,
@@ -419,9 +444,9 @@ def agent_control(
 
     Args:
         name: The agent's name, which its config is keyed on as the Logfire variable
-            `agent__<name>`. Defaults to the `name` the agent was created with, which is what
+            `agent__<name>`. Defaults to the `name` the run says the agent has, which is what
             already identifies it in Logfire; an agent created without one has no name to key on,
-            and that is an error rather than a guess.
+            and that is an error rather than a guess. Pass it here for a key no run can move.
         instructions: The agent's prompt, block by block, instead of `create_agent`'s
             `system_prompt`. Each key is the block's id and each value is its text, or a callable
             taking the `ModelRequest` for a block this request works out for itself. Declaring the
