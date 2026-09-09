@@ -16,6 +16,8 @@ BaselineSource: TypeAlias
 def reset_baseline_publish_guard() -> None:
     """Clear the once-per-process baseline publishing state. Intended for tests only."""
 
+BASELINE_PUBLISH_THREAD_PREFIX: str
+
 @dataclass(frozen=True)
 class Resolution:
     """One reading of an agent's managed config, and which published version it came from.

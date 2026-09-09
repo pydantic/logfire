@@ -702,9 +702,14 @@ navigation:
           - page: "Access and Prerequisites"
             path: "reference/advanced/prompt-management/plan-requirements.md"
             slug: "prompt-management/plan-requirements"
-      - page: "Agent Control"
-        path: "reference/advanced/agent-control.md"
-        slug: "agent-control"
+      - section: "Agent Control"
+        contents:
+          - page: "Overview"
+            path: "reference/advanced/agent-control/index.md"
+            slug: "agent-control"
+          - page: "Google ADK"
+            path: "reference/advanced/agent-control/google-adk.md"
+            slug: "agent-control/google-adk"
       - section: "AI Gateway"
         contents:
           - page: "Overview"

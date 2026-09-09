@@ -1,0 +1,123 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is the weather in Cologne?"}],
+      "role": "user"}], "systemInstruction": {"parts": [{"text": "Use your tools to
+      answer. Give the answer in one short sentence.\n\nYou are an agent. Your internal
+      name is \"checkout\"."}], "role": "user"}, "tools": [{"functionDeclarations":
+      [{"description": "Get the current weather for a city.", "name": "get_weather",
+      "parameters_json_schema": {"properties": {"city": {"title": "City", "type":
+      "string", "description": "The city, always spelled in French."}}, "required":
+      ["city"], "title": "get_weatherParams", "type": "object"}}]}], "generationConfig":
+      {}}'
+    headers:
+      Content-Type:
+      - application/json
+      user-agent:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+      x-goog-api-client:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+    method: post
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent
+  response:
+    body:
+      string: "{\n  \"candidates\": [\n    {\n      \"content\": {\n        \"parts\":
+        [\n          {\n            \"functionCall\": {\n              \"name\": \"get_weather\",\n
+        \             \"args\": {\n                \"city\": \"Cologne\"\n              }\n
+        \           }\n          }\n        ],\n        \"role\": \"model\"\n      },\n
+        \     \"finishReason\": \"STOP\",\n      \"index\": 0,\n      \"finishMessage\":
+        \"Model generated function call(s).\"\n    }\n  ],\n  \"usageMetadata\": {\n
+        \   \"promptTokenCount\": 83,\n    \"candidatesTokenCount\": 16,\n    \"totalTokenCount\":
+        99,\n    \"promptTokensDetails\": [\n      {\n        \"modality\": \"TEXT\",\n
+        \       \"tokenCount\": 83\n      }\n    ],\n    \"serviceTier\": \"standard\"\n
+        \ },\n  \"modelVersion\": \"gemini-2.5-flash-lite\",\n  \"responseId\": \"Peuhaq-LG8ywqtsP9Yv3uQ0\"\n}\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Wed, 09 Sep 2026 23:26:53 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=426
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Gemini-Service-Tier:
+      - standard
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is the weather in Cologne?"}],
+      "role": "user"}, {"parts": [{"functionCall": {"args": {"city": "Cologne"}, "name":
+      "get_weather"}}], "role": "model"}, {"parts": [{"functionResponse": {"name":
+      "get_weather", "response": {"result": "It is 17 degrees and raining in Cologne."}}}],
+      "role": "user"}], "systemInstruction": {"parts": [{"text": "Use your tools to
+      answer. Give the answer in one short sentence.\n\nYou are an agent. Your internal
+      name is \"checkout\"."}], "role": "user"}, "tools": [{"functionDeclarations":
+      [{"description": "Get the current weather for a city.", "name": "get_weather",
+      "parameters_json_schema": {"properties": {"city": {"title": "City", "type":
+      "string", "description": "The city, always spelled in French."}}, "required":
+      ["city"], "title": "get_weatherParams", "type": "object"}}]}], "generationConfig":
+      {}}'
+    headers:
+      Content-Type:
+      - application/json
+      user-agent:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+      x-goog-api-client:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+    method: post
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent
+  response:
+    body:
+      string: "{\n  \"candidates\": [\n    {\n      \"content\": {\n        \"role\":
+        \"model\"\n      },\n      \"finishReason\": \"STOP\",\n      \"index\": 0\n
+        \   }\n  ],\n  \"usageMetadata\": {\n    \"promptTokenCount\": 124,\n    \"totalTokenCount\":
+        124,\n    \"promptTokensDetails\": [\n      {\n        \"modality\": \"TEXT\",\n
+        \       \"tokenCount\": 124\n      }\n    ],\n    \"serviceTier\": \"standard\"\n
+        \ },\n  \"modelVersion\": \"gemini-2.5-flash-lite\",\n  \"responseId\": \"Peuhaq3sLaSd6dkP8MX82AE\"\n}\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Wed, 09 Sep 2026 23:26:53 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=210
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Gemini-Service-Tier:
+      - standard
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1
