@@ -109,8 +109,8 @@ func main() {
 
 Set `GEMINI_API_KEY` (or your provider's key) and run `go run .`. The example verifies that Genkit executes its
 native `lookup_incident` tool. You'll see the generation, model, and tool spans in **Logfire**. Genkit runs are
-detected in the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns each
-view populates. Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU region.
+detected in the specialized **Agents** view; the [framework coverage guide](support-matrix.md) shows which details
+each view adds. Use `https://logfire-eu.pydantic.dev/v1/traces` for the EU region.
 
 !!! warning "Common pitfalls"
     - **Set the global provider before `genkit.Init`**, or early spans are dropped.
