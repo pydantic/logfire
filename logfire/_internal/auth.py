@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import platform
 import re
 import sys
@@ -16,6 +17,7 @@ from rich.prompt import IntPrompt
 from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
+from logfire.version import VERSION
 
 from .utils import UnexpectedResponse, read_toml_file
 
@@ -31,6 +33,9 @@ The `wait` endpoint blocks server-side for ~10 seconds while it waits for the us
 authenticate, so this is a snug bound around that rather than a general-purpose HTTP timeout.
 Both halves of the flow use it so they can't drift apart.
 """
+_CLIENT_NAME: str = 'logfire-python'
+_AUTH_SOURCE_ENV_VAR: str = 'LOGFIRE_AUTH_SOURCE'
+_MAX_AUTH_SOURCE_LENGTH: int = 100
 
 
 LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
@@ -257,8 +262,19 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
     """
     machine_name = platform.uname()[1]
     device_auth_endpoint = urljoin(base_api_url, '/v1/device-auth/new/')
+    params: dict[str, str] = {
+        'machine_name': machine_name,
+        'client': _CLIENT_NAME,
+        'client_version': VERSION,
+    }
+    source = os.environ.get(_AUTH_SOURCE_ENV_VAR, '').strip()[:_MAX_AUTH_SOURCE_LENGTH]
+    if source:
+        params['source'] = source
+
+    # The platform uses these details to attribute CLI signups to the SDK and the upstream tool.
+    # Older platforms ignore unknown query parameters, which preserves compatibility in both directions.
     try:
-        res = session.post(device_auth_endpoint, params={'machine_name': machine_name}, timeout=_DEVICE_FLOW_TIMEOUT)
+        res = session.post(device_auth_endpoint, params=params, timeout=_DEVICE_FLOW_TIMEOUT)
         UnexpectedResponse.raise_for_status(res)
     except requests.RequestException as e:  # pragma: no cover
         raise LogfireConfigError('Failed to request a device code.') from e

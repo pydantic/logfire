@@ -43,6 +43,11 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 ![Terminal screenshot with successful authentication](../images/cli/terminal-screenshot-auth-2.png)
 
+Set the optional `LOGFIRE_AUTH_SOURCE` environment variable to tell Logfire where a signup came from,
+such as a setup skill, installer script, or docs page, instead of attributing it only to the CLI. The
+value can contain letters, digits, dots, underscores, and hyphens (`[A-Za-z0-9._-]+`); the SDK trims
+it and caps it at 100 characters. This value never affects authentication or CLI behavior.
+
 ### Log out (`auth logout`)
 
 To log out and remove the locally stored credentials, run:

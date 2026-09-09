@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import platform
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 import inline_snapshot.extra
 import pytest
@@ -11,6 +13,7 @@ from inline_snapshot import snapshot
 
 from logfire._internal.auth import UserToken, UserTokenCollection, request_device_code
 from logfire.exceptions import LogfireConfigError
+from logfire.version import VERSION
 
 
 @pytest.mark.parametrize(
@@ -197,3 +200,80 @@ def test_request_device_code_sends_a_timeout() -> None:
         assert m.last_request is not None
         # Both halves of the device flow share this timeout.
         assert m.last_request.timeout == 15
+
+
+def test_request_device_code_sends_client_details_without_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The device code request always identifies the SDK but omits an unset attribution source."""
+    monkeypatch.delenv('LOGFIRE_AUTH_SOURCE', raising=False)
+    with requests_mock.Mocker() as m:
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            json={
+                'device_code': 'device-code',
+                'frontend_auth_url': 'https://logfire-us.pydantic.dev/auth/device-code',
+            },
+        )
+        request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
+
+        assert m.last_request is not None
+        query = parse_qs(urlparse(str(m.last_request.url)).query)
+        assert query == {
+            'machine_name': [platform.uname()[1]],
+            'client': ['logfire-python'],
+            'client_version': [VERSION],
+        }
+
+
+def test_request_device_code_strips_auth_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The device code request strips surrounding whitespace from the attribution source."""
+    monkeypatch.setenv('LOGFIRE_AUTH_SOURCE', '  pydantic-ai-skill  ')
+    with requests_mock.Mocker() as m:
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            json={
+                'device_code': 'device-code',
+                'frontend_auth_url': 'https://logfire-us.pydantic.dev/auth/device-code',
+            },
+        )
+        request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
+
+        assert m.last_request is not None
+        query = parse_qs(urlparse(str(m.last_request.url)).query)
+        assert query['source'] == ['pydantic-ai-skill']
+
+
+def test_request_device_code_truncates_auth_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The device code request caps the attribution source at 100 characters."""
+    monkeypatch.setenv('LOGFIRE_AUTH_SOURCE', 'x' * 150)
+    with requests_mock.Mocker() as m:
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            json={
+                'device_code': 'device-code',
+                'frontend_auth_url': 'https://logfire-us.pydantic.dev/auth/device-code',
+            },
+        )
+        request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
+
+        assert m.last_request is not None
+        query = parse_qs(urlparse(str(m.last_request.url)).query)
+        assert query['source'] == ['x' * 100]
+
+
+@pytest.mark.parametrize('source', ['', '   '])
+def test_request_device_code_omits_blank_auth_source(monkeypatch: pytest.MonkeyPatch, source: str) -> None:
+    """The device code request omits an empty or whitespace-only attribution source."""
+    monkeypatch.setenv('LOGFIRE_AUTH_SOURCE', source)
+    with requests_mock.Mocker() as m:
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            json={
+                'device_code': 'device-code',
+                'frontend_auth_url': 'https://logfire-us.pydantic.dev/auth/device-code',
+            },
+        )
+        request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
+
+        assert m.last_request is not None
+        query = parse_qs(urlparse(str(m.last_request.url)).query)
+        assert 'source' not in query
