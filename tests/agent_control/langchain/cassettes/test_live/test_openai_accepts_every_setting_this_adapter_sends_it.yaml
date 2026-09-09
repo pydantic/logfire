@@ -1,0 +1,201 @@
+interactions:
+- request:
+    body: '{"messages":[{"content":[{"type":"text","text":"You are a weather assistant.
+      Always use your tools to answer."}],"role":"system"},{"content":"Say OK.","role":"user"}],"model":"gpt-5.4-nano","frequency_penalty":0.2,"max_completion_tokens":256,"parallel_tool_calls":false,"presence_penalty":0.1,"seed":7,"stream":false,"temperature":0.4,"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+      the current weather for a city.","parameters":{"properties":{"city":{"description":"The
+      city to look up.","type":"string"}},"required":["city"],"type":"object"}}}],"top_p":0.9}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '591'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 2.54.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-raw-response:
+      - 'true'
+      x-stainless-read-timeout:
+      - '30.0'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/41T32+bMBB+569Afg5VoEtS8rYt3aStqyrlcamQax/gxdjUNt2yKP97bZOA02bS
+        eEBw333347u7fRTHiFG0jBGpsSFNy5PbH3eq3F5/Wz1//Lql99+re75l8+xzB5l6QRPHkE+/gJgT
+        64pIywPDpOhhogAbcFHTxc1Nns/yReqBRlLgjla1JpldfUgEFjLJptk8mV4n6eJIryUjoK3fT/sb
+        x3v/doUKCn+seTo5WRrQGldgbScna1SSOwvCWjNtsDBoMoJECgPC1S46zgPASMkLgjkfE/fPPvge
+        1bKORfOJwHqWyqf1Q/Wwus3Xqsm+/F09B/n60LvWF1R2ggwqBfhgX75JZjGBG8+twBS/raw1qDd0
+        64RV1TW2K1c62m8QYWa3QcsNupOCSrFBB3RGOUSXvh8DNRSUncb8vUxYCGmwq9br9HhEDsNISiaY
+        rgu7Atp3FAobnRL6VKg7mx1qld0jUxi5BR88nWV9VDQuWIAujqCx9fDAPs8nF+IVFAxmfrjDPhFM
+        aqAjddwr3FEmAyAKenxfzaXYff9MVP8TfgQIgdaeTtEqoIycdzy6KXD39y+3QWVfMNKgXuw9FYbZ
+        1bHzoFDijvdHgfROG2gKO7QKVKvYcBnRIXoF0cM4Ch0EAAA=
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:19:31 GMT
+      openai-processing-ms:
+      - '366'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-openai-proxy-wasm:
+      - v0.1
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '179999979'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages":[{"content":[{"type":"text","text":"You are a weather assistant.
+      Always use your tools to answer."}],"role":"system"},{"content":"Say OK.","role":"user"},{"content":null,"name":"checkout","role":"assistant","tool_calls":[{"type":"function","id":"call_mBceS51obSPgPDE9Srm2FzDq","function":{"name":"get_weather","arguments":"{\"city\":
+      \"London\"}"}}]},{"content":"sunny in London","role":"tool","tool_call_id":"call_mBceS51obSPgPDE9Srm2FzDq"}],"model":"gpt-5.4-nano","frequency_penalty":0.2,"max_completion_tokens":256,"parallel_tool_calls":false,"presence_penalty":0.1,"seed":7,"stream":false,"temperature":0.4,"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+      the current weather for a city.","parameters":{"properties":{"city":{"description":"The
+      city to look up.","type":"string"}},"required":["city"],"type":"object"}}}],"top_p":0.9}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '879'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 2.54.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-raw-response:
+      - 'true'
+      x-stainless-read-timeout:
+      - '30.0'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/41S0UrDMBR931eUPLdjrW5dfXPDF3X6ICgio2TJbRtNk5Kkooz9u0m6rR1O8CWQ
+        e+45nHPv3Y6CADGKrgJEKmxI3fDoZnWvyuuUrhbPy+XTi9zIh9dbSGSRMb1AoWPIzTsQc2CNibQ8
+        MEyKDiYKsAGnGqfzeZZNszTxQC0pcEcrGxNNx5eRwEJGySSZRZOLKE739EoyAtr2vdlvEGz964wK
+        Cl+2PAkPlRq0xiXY2qHJFpXkroKw1kwbLAwKe5BIYUB474934yGioGg1dvZEy/kAwEJIg10872m9
+        R3ZHFwUTTFe5Ta3tCKyyNrJBHt3Zd+1TtSdGUaPs0Exu5Ad42Xg+6/RQP80ene4xY43wASmLwzNy
+        OQWDGdeDsSCCSQW0p/YzxC1lcgCMBuF+mzmn3QVnovyPfA8QAo09k7xRQBk5Ddy3KXC39lfbccje
+        MNKgPu3t5IaBcougUOCWdweA9Lc2UOd2WyWoRjF/BW7Xo93oB/AMJC0JAwAA
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:19:32 GMT
+      openai-processing-ms:
+      - '351'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-openai-proxy-wasm:
+      - v0.1
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '179999973'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+version: 1

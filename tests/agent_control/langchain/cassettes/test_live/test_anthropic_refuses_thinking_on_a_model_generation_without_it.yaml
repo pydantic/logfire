@@ -1,0 +1,84 @@
+interactions:
+- request:
+    body: '{"max_tokens":2048,"messages":[{"role":"user","content":"Say OK."}],"model":"claude-haiku-4-5-20251001","output_config":{"effort":"low"},"system":[{"type":"text","text":"You
+      are a weather assistant. Always use your tools to answer."}],"tools":[{"name":"get_weather","input_schema":{"properties":{"city":{"description":"The
+      city to look up.","type":"string"}},"required":["city"],"type":"object"},"description":"Get
+      the current weather for a city."}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '450'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - langchain-anthropic/1.7.1
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 1.2.0
+      x-stainless-raw-response:
+      - raw
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: '{"type":"error","error":{"type":"invalid_request_error","message":"This
+        model does not support the effort parameter."},"request_id":"req_011CetipMUUw1kyPQYhTfNwd"}'
+    headers:
+      anthropic-organization-id:
+      - 44ae676c-958f-4d68-9108-eae9de7b366b
+      anthropic-workspace-id:
+      - wrkspc_01L52HbY7uCkD17LL3R3voXT
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-security-policy:
+      - default-src 'none'; frame-ancestors 'none'
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:19:38 GMT
+      request-id:
+      - req_011CetipMUUw1kyPQYhTfNwd
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      traceresponse:
+      - 00-9a4c7ae0b7d9e9e3af5eced118fc5a04-5a834e411a7f5e32-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-robots-tag:
+      - none
+      x-should-retry:
+      - 'false'
+    status:
+      code: 400
+      message: Bad Request
+version: 1
