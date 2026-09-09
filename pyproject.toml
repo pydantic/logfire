@@ -379,6 +379,9 @@ filterwarnings = [
     # Unscoped, unlike the line above: `pytest.warns` re-emits the warnings it did not match, from
     # its own module, so a filter naming `livekit.*` would not match the re-emission.
     "ignore:'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning",
+    # `google.api_core` warns at import time on Python 3.10 that Google will stop supporting it,
+    # and importing the LiveKit google plugin is how its settings table gets tested.
+    "ignore:You are using a Python version:FutureWarning",
     # mcp's FastMCP Settings class has an unresolved forward reference in its `lifespan` field,
     # which pydantic-settings >= 2.15 warns about (IncompleteFieldDefinitionWarning).
     # No category here: naming the warning class would fail to import on jobs with older pydantic-settings.
