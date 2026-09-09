@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import threading
 import time
 import unittest.mock
 import warnings
@@ -15,6 +16,7 @@ from typing import Any
 import pytest
 import requests_mock as requests_mock_module
 from inline_snapshot import snapshot
+from opentelemetry.sdk.trace.sampling import Decision, Sampler, SamplingResult
 from pydantic import BaseModel, ValidationError, field_validator
 from requests import Session
 
@@ -2263,9 +2265,11 @@ class TestVariable:
     ):
         """Test that var.get() creates a span when instrument=True."""
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
-        lf = logfire.configure(**config_kwargs)
+        logfire.configure(**config_kwargs)
 
-        var = lf.var(name='string_var', default='default_value', type=str)
+        var = logfire.var(
+            name='string_var', default='default_value', type=str, description='Controls the greeting shown to users.'
+        )
         exporter.clear()  # Clear any spans from configure
 
         details = var.get()
@@ -2285,6 +2289,389 @@ class TestVariable:
         # Value is JSON serialized for OTel-safe span attributes
         assert attrs.get('value') == '"hello"'
         assert attrs.get('label') == 'default'
+        assert 'logfire.variable.declaration' not in attrs
+
+        declaration_spans = [
+            s
+            for s in spans
+            if s.name == 'Declare variable string_var'
+            and (s.attributes or {}).get('logfire.span_type') != 'pending_span'
+        ]
+        assert len({s.context.span_id for s in declaration_spans if s.context}) == 1
+        declaration_attrs = dict(declaration_spans[0].attributes or {})
+        assert declaration_attrs.get('logfire.variable.declaration') is True
+        assert declaration_attrs.get('logfire.variable.declaration_version') == 1
+        assert declaration_attrs.get('logfire.variable.name') == 'string_var'
+        assert declaration_attrs.get('logfire.variable.description') == 'Controls the greeting shown to users.'
+        assert declaration_attrs.get('logfire.variable.schema') == '{"type":"string"}'
+        assert declaration_attrs.get('logfire.variable.schema_size_bytes') == 17
+        assert declaration_attrs.get('logfire.variable.code_default') == '"default_value"'
+        assert declaration_attrs.get('logfire.variable.code_default_size_bytes') == 15
+
+        var.get()
+        repeated_declarations = [
+            s
+            for s in exporter.exported_spans
+            if s.name == 'Declare variable string_var'
+            and (s.attributes or {}).get('logfire.span_type') != 'pending_span'
+        ]
+        assert len({s.context.span_id for s in repeated_declarations if s.context}) == 1
+
+    def test_declaration_retries_after_unsampled_resolution(
+        self,
+        config_kwargs: dict[str, Any],
+        variables_config: VariablesConfig,
+        exporter: TestExporter,
+    ):
+        config_kwargs.update(
+            variables=LocalVariablesOptions(config=variables_config, instrument=True),
+            sampling=logfire.SamplingOptions(head=0),
+        )
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='string_var', default='default_value', type=str)
+
+        var.get()
+
+        assert exporter.exported_spans == []
+        assert var._declaration_span_pid is None
+
+        config_kwargs.pop('sampling')
+        logfire.configure(**config_kwargs)
+        var.get()
+
+        assert var._declaration_span_pid == os.getpid()
+        declarations = [
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable string_var'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        ]
+        assert len({span.context.span_id for span in declarations if span.context}) == 1
+
+    def test_declaration_retries_when_only_child_span_is_unsampled(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
+    ):
+        class DropDeclarationsSampler(Sampler):
+            def should_sample(
+                self,
+                parent_context: Any,
+                trace_id: int,
+                name: str,
+                kind: Any = None,
+                attributes: Any = None,
+                links: Any = None,
+                trace_state: Any = None,
+            ) -> SamplingResult:
+                decision = Decision.DROP if name.startswith('Declare variable ') else Decision.RECORD_AND_SAMPLE
+                return SamplingResult(decision)
+
+            def get_description(self) -> str:
+                return 'DropDeclarationsSampler'
+
+        config_kwargs.update(
+            variables=LocalVariablesOptions(config=variables_config, instrument=True),
+            sampling=logfire.SamplingOptions(head=DropDeclarationsSampler()),
+        )
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='string_var', default='default_value', type=str)
+
+        var.get()
+
+        assert var._declaration_span_pid is None
+        assert not any(span.name == 'Declare variable string_var' for span in exporter.exported_spans)
+
+        config_kwargs.pop('sampling')
+        logfire.configure(**config_kwargs)
+        var.get()
+
+        declarations = [
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable string_var'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        ]
+        assert len({span.context.span_id for span in declarations if span.context}) == 1
+
+    def test_declaration_is_thread_safe(
+        self,
+        config_kwargs: dict[str, Any],
+        variables_config: VariablesConfig,
+        exporter: TestExporter,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='string_var', default='default_value', type=str)
+        barrier = threading.Barrier(2, timeout=10)
+        declaration_attributes = unittest.mock.Mock(wraps=var._declaration_attributes)
+        monkeypatch.setattr(var, '_declaration_attributes', declaration_attributes)
+
+        class RecordingSpan:
+            def is_recording(self) -> bool:
+                barrier.wait()
+                return True
+
+        threads = [threading.Thread(target=var._emit_declaration_once, args=(RecordingSpan(),)) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        declaration_attributes.assert_called_once_with()
+
+    def test_declaration_schema_generation_can_resolve_the_same_variable(
+        self,
+        config_kwargs: dict[str, Any],
+        variables_config: VariablesConfig,
+        exporter: TestExporter,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='string_var', default='default_value', type=str)
+        original_json_schema = var.type_adapter.json_schema
+
+        def reentrant_json_schema() -> dict[str, Any]:
+            assert var.get().value == 'hello'
+            return original_json_schema()
+
+        monkeypatch.setattr(var.type_adapter, 'json_schema', reentrant_json_schema)
+
+        assert var.get().value == 'hello'
+
+        declarations = [
+            span
+            for span in exporter.exported_spans
+            if (span.attributes or {}).get('logfire.variable.declaration') is True
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        ]
+        assert len({span.context.span_id for span in declarations if span.context}) == 1
+
+    def test_declaration_metadata_failure_does_not_break_or_repeat(
+        self,
+        config_kwargs: dict[str, Any],
+        variables_config: VariablesConfig,
+        exporter: TestExporter,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='string_var', default='default_value', type=str)
+        declaration_attributes = unittest.mock.Mock(side_effect=RuntimeError('broken metadata'))
+        monkeypatch.setattr(var, '_declaration_attributes', declaration_attributes)
+        exporter.clear()
+
+        assert var.get().value == 'hello'
+        assert var.get().value == 'hello'
+
+        declaration_attributes.assert_called_once_with()
+        assert not any((span.attributes or {}).get('logfire.variable.declaration') for span in exporter.exported_spans)
+
+    def test_declaration_is_emitted_again_after_fork(
+        self,
+        config_kwargs: dict[str, Any],
+        variables_config: VariablesConfig,
+        exporter: TestExporter,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='string_var', default='default_value', type=str)
+
+        var.get()
+        parent_pid = var._declaration_span_pid
+        monkeypatch.setattr('logfire.variables.variable.os.getpid', lambda: parent_pid + 1)  # type: ignore[operator]
+        var.get()
+
+        declarations = [
+            span
+            for span in exporter.exported_spans
+            if (span.attributes or {}).get('logfire.variable.declaration') is True
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        ]
+        assert len({span.context.span_id for span in declarations if span.context}) == 2
+
+    def test_declaration_handles_dynamic_and_bounded_metadata(
+        self,
+        config_kwargs: dict[str, Any],
+        exporter: TestExporter,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+
+        def dynamic_default(_targeting_key: str | None, _attributes: Mapping[str, Any] | None) -> str:
+            return 'computed'
+
+        dynamic = logfire.var(name='dynamic_var', type=str, default=dynamic_default)
+        dynamic.get()
+        dynamic_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable dynamic_var'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        assert (dynamic_span.attributes or {}).get('logfire.variable.code_default_status') == 'dynamic'
+        assert 'logfire.variable.code_default' not in (dynamic_span.attributes or {})
+
+        large = logfire.var(name='large_var', type=str, default='x' * (64 * 1024), description='d' * 600)
+        monkeypatch.setattr(large.type_adapter, 'json_schema', lambda: {'description': 's' * (64 * 1024)})
+        large.get()
+        large_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable large_var'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        large_attrs = dict(large_span.attributes or {})
+        assert large_attrs['logfire.variable.description'] == 'd' * 500
+        assert large_attrs['logfire.variable.schema_status'] == 'too_large'
+        schema_size = large_attrs['logfire.variable.schema_size_bytes']
+        assert isinstance(schema_size, int) and schema_size > 64 * 1024
+        assert large_attrs['logfire.variable.code_default_status'] == 'too_large'
+        default_size = large_attrs['logfire.variable.code_default_size_bytes']
+        assert isinstance(default_size, int) and default_size > 64 * 1024
+        assert 'logfire.variable.schema' not in large_attrs
+        assert 'logfire.variable.code_default' not in large_attrs
+
+    def test_declaration_handles_unavailable_schema_and_default(
+        self,
+        config_kwargs: dict[str, Any],
+        exporter: TestExporter,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='unavailable_var', type=object, default=object())
+        monkeypatch.setattr(var.type_adapter, 'json_schema', unittest.mock.Mock(side_effect=ValueError('no schema')))
+        monkeypatch.setattr(var, '_get_serialized_default', unittest.mock.Mock(side_effect=KeyError('no default')))
+
+        var.get()
+
+        declaration_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable unavailable_var'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        attrs = dict(declaration_span.attributes or {})
+        assert attrs['logfire.variable.schema_status'] == 'unavailable'
+        assert attrs['logfire.variable.code_default_status'] == 'unavailable'
+
+    def test_template_declaration_failure_does_not_break_resolution(
+        self, config_kwargs: dict[str, Any], exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
+    ):
+        class GreetingInputs(BaseModel):
+            user_name: str
+
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+        greeting = logfire.template_var(
+            name='greeting', type=str, default='Hello {{user_name}}', inputs_type=GreetingInputs
+        )
+        monkeypatch.setattr(
+            'logfire.variables.variable.get_template_inputs_schema',
+            unittest.mock.Mock(side_effect=ValueError('bad schema')),
+        )
+
+        assert greeting.get(GreetingInputs(user_name='Alice')).value == 'Hello Alice'
+
+        declaration_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable greeting'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        attrs = dict(declaration_span.attributes or {})
+        assert attrs['logfire.variable.template_inputs_schema_status'] == 'unavailable'
+
+    def test_declaration_code_default_is_scrubbed(self, config_kwargs: dict[str, Any], exporter: TestExporter):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+        nested_secret = logfire.var(name='credentials', default={'password': 'not-for-telemetry'})
+        opaque_secret = logfire.var(name='api_key', default='opaque-value-123')
+        safe_key_secret = logfire.var(name='agent_session_id', default='opaque-session-456')
+
+        nested_secret.get()
+        opaque_secret.get()
+        safe_key_secret.get()
+
+        declaration_spans = [
+            span
+            for span in exporter.exported_spans
+            if (span.attributes or {}).get('logfire.variable.declaration') is True
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        ]
+        assert 'not-for-telemetry' not in str(declaration_spans)
+        assert 'opaque-value-123' not in str(declaration_spans)
+        assert 'opaque-session-456' not in str(declaration_spans)
+        nested_attrs = dict(
+            next(span.attributes or {} for span in declaration_spans if span.name == 'Declare variable credentials')
+        )
+        opaque_attrs = dict(
+            next(span.attributes or {} for span in declaration_spans if span.name == 'Declare variable api_key')
+        )
+        safe_key_attrs = dict(
+            next(
+                span.attributes or {} for span in declaration_spans if span.name == 'Declare variable agent_session_id'
+            )
+        )
+        assert nested_attrs['logfire.variable.code_default_status'] == 'scrubbed'
+        assert opaque_attrs['logfire.variable.code_default_status'] == 'scrubbed'
+        assert safe_key_attrs['logfire.variable.code_default_status'] == 'scrubbed'
+        assert 'logfire.variable.code_default' not in nested_attrs
+        assert 'logfire.variable.code_default' not in opaque_attrs
+        assert 'logfire.variable.code_default' not in safe_key_attrs
+
+    def test_declaration_handles_unexpected_scrubber_output(
+        self, config_kwargs: dict[str, Any], exporter: TestExporter, monkeypatch: pytest.MonkeyPatch
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+        var = logfire.var(name='string_var', default='default_value', type=str)
+
+        def unexpected_scrubber_output(_path: Any, value: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+            return {next(iter(value)): 123}, []
+
+        monkeypatch.setattr(
+            var.logfire_instance.config.scrubber,
+            'scrub_value',
+            unexpected_scrubber_output,
+        )
+
+        var.get()
+
+        declaration_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable string_var'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        assert (declaration_span.attributes or {})['logfire.variable.code_default_status'] == 'unavailable'
+
+    def test_template_declaration_includes_inputs_schema(self, config_kwargs: dict[str, Any], exporter: TestExporter):
+        class GreetingInputs(BaseModel):
+            user_name: str
+
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+        logfire.configure(**config_kwargs)
+        greeting = logfire.template_var(
+            name='greeting', type=str, default='Hello {{user_name}}', inputs_type=GreetingInputs
+        )
+
+        assert greeting.get(GreetingInputs(user_name='Alice')).value == 'Hello Alice'
+
+        declaration_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable greeting'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        attrs = dict(declaration_span.attributes or {})
+        assert attrs['logfire.variable.template_inputs_schema'] == (
+            '{"properties":{"user_name":{"title":"User Name","type":"string"}},'
+            '"required":["user_name"],"title":"GreetingInputs","type":"object"}'
+        )
 
     def test_get_records_exception_on_span_when_validation_error(
         self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
