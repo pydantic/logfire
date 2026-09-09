@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import threading
-from collections.abc import Iterator
 from typing import Any, cast
 
 import anyio
@@ -39,26 +38,27 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _join_baseline_publishes(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
-    """Wait for the baseline publishers a test started before the next test begins.
+def _finish_baseline_publishes(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """Let a baseline publish finish inside the call that started it, rather than after the test.
 
     `agent_control()` publishes the baseline on a daemon thread and hands the caller options rather
-    than the thread, which is the right shape for an agent and the wrong one for a test suite: the
-    thread builds pydantic models, and the suite asserts between tests that no pydantic plugin load
-    is in flight.
+    than the thread, which is the right shape for an agent and the wrong one for a test: a thread
+    still running when the test ends does its work against whatever process-wide state the *next*
+    fixture teardown or test has left behind. It warns into a suite whose `filterwarnings = error`
+    turns that into an unhandled thread exception nobody can catch, and it builds pydantic models
+    while the suite is asserting that no pydantic plugin load is in flight.
+
+    The thread is still spawned and still returned, so nothing about the API under test changes; it
+    is only waited for immediately, which puts everything it does inside the test that asked for it.
     """
-    spawned: list[threading.Thread] = []
     spawn = _control._spawn_baseline_publish
 
-    def record(*args: Any, **kwargs: Any) -> threading.Thread:
+    def spawn_and_wait(*args: Any, **kwargs: Any) -> threading.Thread:
         thread = spawn(*args, **kwargs)
-        spawned.append(thread)
+        thread.join(timeout=10)
         return thread
 
-    monkeypatch.setattr(_control, '_spawn_baseline_publish', record)
-    yield
-    for thread in spawned:
-        thread.join(timeout=10)
+    monkeypatch.setattr(_control, '_spawn_baseline_publish', spawn_and_wait)
 
 
 def publish(provider: LocalVariableProvider, name: str, value: Any, *, label: str = 'production') -> VariableConfig:
