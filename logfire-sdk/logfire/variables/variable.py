@@ -1,6 +1,9 @@
 from __future__ import annotations as _annotations
 
 import inspect
+import json
+import os
+import threading
 import warnings
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
@@ -71,6 +74,12 @@ _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_O
 # re-raises without re-invoking the callable. Set up by `Variable._resolve`
 # at the top of the call and reset when it returns.
 _DEFAULT_CACHE: ContextVar[dict[int, tuple[bool, Any]] | None] = ContextVar('_DEFAULT_CACHE', default=None)
+
+_MAX_DECLARATION_ATTRIBUTE_BYTES = 64 * 1024
+"""Maximum serialized size for a schema or code default attached to a declaration span."""
+
+_MAX_DECLARATION_PREVIEW_BYTES = 1024
+"""Maximum serialized preview size when a declaration attribute is too large to attach in full."""
 
 
 @dataclass
@@ -239,6 +248,9 @@ class Variable(Generic[T_co]):
         self._variable_registry = logfire_instance._variables  # pyright: ignore[reportPrivateUsage]
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
+        self._declaration_span_pid: int | None = None
+        self._declaration_lock_pid = os.getpid()
+        self._declaration_lock = threading.Lock()
 
     def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError | TypeError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
@@ -883,6 +895,118 @@ class Variable(Generic[T_co]):
             example=example,
         )
 
+    def _emit_declaration_once(self, resolution_span: logfire.LogfireSpan) -> None:
+        """Emit one code-first definition span per variable and process.
+
+        The declaration is telemetry, not remote configuration: it lets Logfire offer an
+        unrecognized code-defined variable for confirmation without allowing application
+        processes to create or activate remote variables. A process created with ``fork``
+        gets its own declaration opportunity because its telemetry pipeline may be distinct.
+        """
+        pid = os.getpid()
+        if self._declaration_span_pid == pid or not resolution_span.is_recording():
+            return
+
+        # A lock can be inherited while held when a multi-threaded process forks. Replace it
+        # in the child before acquiring it rather than risking a permanent deadlock.
+        if self._declaration_lock_pid != pid:
+            self._declaration_lock = threading.Lock()
+            self._declaration_lock_pid = pid
+
+        with self._declaration_lock:
+            if self._declaration_span_pid == pid:
+                return
+            # Claim before generating metadata. Pydantic schema hooks are user code and may
+            # resolve this variable recursively; the nested call must see the claim rather
+            # than block on this non-reentrant lock. Telemetry is best-effort, so a failure
+            # remains claimed instead of disrupting every future resolution attempt.
+            self._declaration_span_pid = pid
+
+        # Build metadata after releasing the lock. JSON Schema hooks are user code and may be
+        # slow as well as reentrant; declaration telemetry must not serialize concurrent reads.
+        try:
+            attributes = self._declaration_attributes()
+            # Keep the concrete name rather than f-string magic's source template so the
+            # span is immediately useful when viewed outside the discovery UI.
+            declaration_span_name = f'Declare variable {self.name}'
+            with self.logfire_instance.span(declaration_span_name, **attributes) as declaration_span:
+                if not declaration_span.is_recording():
+                    with self._declaration_lock:
+                        self._declaration_span_pid = None
+        except Exception:
+            return
+
+    def _declaration_attributes(self) -> dict[str, Any]:
+        attributes: dict[str, Any] = {
+            'logfire.variable.declaration': True,
+            'logfire.variable.declaration_version': 1,
+            'logfire.variable.name': self.name,
+        }
+        if self.description:
+            # The remote API accepts at most 500 characters, so sending more cannot improve
+            # the confirmation flow and needlessly increases telemetry volume.
+            attributes['logfire.variable.description'] = self.description[:500]
+
+        try:
+            schema = json.dumps(
+                self.type_adapter.json_schema(), ensure_ascii=False, separators=(',', ':'), sort_keys=True
+            )
+        except Exception:  # Some arbitrary user-defined types cannot produce JSON Schema.
+            attributes['logfire.variable.schema_status'] = 'unavailable'
+        else:
+            self._attach_bounded_attribute(attributes, 'logfire.variable.schema', schema)
+
+        if is_resolve_function(self.default):
+            # Do not invoke user code merely to populate discovery metadata. The callable may
+            # be expensive, context-dependent, or have side effects.
+            attributes['logfire.variable.code_default_status'] = 'dynamic'
+        else:
+            try:
+                serialized_default = self._get_serialized_default()
+            except Exception:
+                serialized_default = None
+            if serialized_default is None:
+                attributes['logfire.variable.code_default_status'] = 'unavailable'
+            else:
+                # The exported attribute has a generic name, so normal span scrubbing cannot
+                # infer that an opaque value belongs to a variable named ``api_key`` or
+                # ``password``. Scrub it under the user-provided variable name first.
+                scrub_key = f'logfire.variable.code_default.{self.name}'
+                scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(
+                    ('attributes',), {scrub_key: serialized_default}
+                )
+                if scrubbed_notes:
+                    attributes['logfire.variable.code_default_status'] = 'scrubbed'
+                else:
+                    scrubbed_default = scrubbed[scrub_key]
+                    if isinstance(scrubbed_default, str):
+                        self._attach_bounded_attribute(attributes, 'logfire.variable.code_default', scrubbed_default)
+                    else:
+                        attributes['logfire.variable.code_default_status'] = 'unavailable'
+
+        try:
+            inputs_schema = get_template_inputs_schema(self)
+            if inputs_schema is not None:
+                serialized_inputs_schema = json.dumps(
+                    inputs_schema, ensure_ascii=False, separators=(',', ':'), sort_keys=True
+                )
+                self._attach_bounded_attribute(
+                    attributes, 'logfire.variable.template_inputs_schema', serialized_inputs_schema
+                )
+        except Exception:
+            attributes['logfire.variable.template_inputs_schema_status'] = 'unavailable'
+        return attributes
+
+    @staticmethod
+    def _attach_bounded_attribute(attributes: dict[str, Any], name: str, value: str) -> None:
+        size = len(value.encode())
+        attributes[f'{name}_size_bytes'] = size
+        if size <= _MAX_DECLARATION_ATTRIBUTE_BYTES:
+            attributes[name] = value
+        else:
+            attributes[f'{name}_status'] = 'too_large'
+            attributes[f'{name}_preview'] = value.encode()[:_MAX_DECLARATION_PREVIEW_BYTES].decode(errors='ignore')
+
     def _get_result_and_record_span(
         self,
         targeting_key: str | None,
@@ -916,6 +1040,9 @@ class Variable(Generic[T_co]):
                         attributes=merged_attributes,
                     )
                 )
+                # Emit discovery metadata before the first access. Keep it on its own child span
+                # so declaration attribute limits cannot displace resolution telemetry.
+                self._emit_declaration_once(span)
             result = self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
