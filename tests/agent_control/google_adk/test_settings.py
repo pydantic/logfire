@@ -317,6 +317,23 @@ async def test_a_setting_the_published_model_does_not_read_is_reported(
     assert applied(llm)['temperature'] == snapshot(0.4)
 
 
+@pytest.mark.parametrize(
+    ('budget', 'described'),
+    [
+        (-1, {'thinking': True}),
+        (0, {'thinking': False}),
+        # A fixed budget is neither. Calling it `True` would publish a baseline saying "let the model
+        # decide", and saving that baseline back would apply `-1` and delete the limit the code set.
+        (128, {}),
+    ],
+)
+def test_only_a_thinking_budget_the_contract_has_a_word_for_reaches_the_baseline(
+    budget: int, described: dict[str, Any]
+) -> None:
+    config = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_budget=budget))
+    assert _settings.describe(config, _settings._GEMINI) == described
+
+
 def test_the_baseline_leaves_out_what_the_agents_own_model_ignores() -> None:
     """A value the agent sets and its backend drops is not part of what the agent does."""
     config = types.GenerateContentConfig(

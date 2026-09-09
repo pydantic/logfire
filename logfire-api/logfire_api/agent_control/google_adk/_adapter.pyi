@@ -9,19 +9,19 @@ from logfire import Logfire
 __all__ = ['agent_control']
 
 def agent_control(agent: LlmAgent, *, name: str | None = None, label: str | None = None, on_unmatched: OnUnmatched = 'warn', publish_baseline: bool = True, logfire_instance: Logfire | None = None) -> LlmAgent:
-    """Make an ADK agent's instructions, model, settings, and tool definitions editable from Logfire.
+    '''Make an ADK agent\'s instructions, model, settings, and tool definitions editable from Logfire.
 
     The agent is wired up in place and returned -- the same object, not a copy -- so it can be
     wrapped where it is built:
 
-    ```python
+    ```python skip-run="true" skip-reason="illustrative-fragment"
     agent = agent_control(
         LlmAgent(
-            name='checkout_assistant',
-            model='gemini-2.5-flash',
-            instruction='You are a concise checkout assistant.',
+            name=\'checkout_assistant\',
+            model=\'gemini-2.5-flash\',
+            instruction=\'You are a concise checkout assistant.\',
         ),
-        label='production',
+        label=\'production\',
     )
     ```
 
@@ -31,16 +31,16 @@ def agent_control(agent: LlmAgent, *, name: str | None = None, label: str | None
 
     Args:
         agent: The agent to manage, wired up in place. Its `name` is what the config is keyed on, so
-            ADK's requirement that every agent have one is also this adapter's. Two things on it are
+            ADK\'s requirement that every agent have one is also this adapter\'s. Two things on it are
             replaced: `before_model_callback` and `after_model_callback` gain the managed hooks, and
-            `model` is wrapped (see the documentation's *Known limits*).
+            `model` is wrapped (see the documentation\'s *Known limits*).
         name: The name to key the config on, when it should differ from `agent.name`.
-        label: The label to resolve, such as `'production'`. When `None`, the variable's own
+        label: The label to resolve, such as `\'production\'`. When `None`, the variable\'s own
             targeting rules and rollout choose which label this process gets.
         on_unmatched: What to do with a published value that reaches nothing in this deployment --
             an instruction id this agent does not assemble, an override naming a tool it does not
-            advertise, a setting ADK or the model serving the request has no knob for. `'warn'` (the
-            default) says so once per process; `'error'` fails the request; `'ignore'` says nothing.
+            advertise, a setting ADK or the model serving the request has no knob for. `\'warn\'` (the
+            default) says so once per process; `\'error\'` fails the request; `\'ignore\'` says nothing.
         publish_baseline: Whether to publish the agent as this adapter observes it to Logfire, which
             is what the editor diffs published values against. Disable it when the variables token is
             intentionally read-only.
@@ -49,7 +49,7 @@ def agent_control(agent: LlmAgent, *, name: str | None = None, label: str | None
 
     Returns:
         The same `LlmAgent`, with the managed hooks installed.
-    """
+    '''
 
 @dataclass(frozen=True)
 class _Request:

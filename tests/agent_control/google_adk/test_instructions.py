@@ -196,6 +196,11 @@ def test_a_static_instruction_this_adapter_cannot_read_is_unlocatable() -> None:
     assert _instructions._content_text([types.Part(text='one'), 'two']) == ''
     assert _instructions._content_text(types.File(name='f')) == ''
     assert _instructions._content_text([types.Part(text='one'), types.Part(text='two')]) == 'one\n\ntwo'
+    # An empty text part contributes nothing to ADK's own join and is not a reason to give up on the
+    # block: ADK appends `if part.text`, exactly as this does.
+    assert _instructions._content_text([types.Part(text='one'), types.Part(text=''), types.Part(text='two')]) == (
+        'one\n\ntwo'
+    )
 
 
 def test_a_source_the_prompt_does_not_contain_is_left_out() -> None:

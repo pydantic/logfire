@@ -27,10 +27,16 @@ from .. import ToolDef
 def declarations(llm_request: LlmRequest) -> Iterator[types.FunctionDeclaration]:
     """Every function declaration this request advertises, in the order the model is shown them.
 
-    A request also carries provider-side tools -- Google Search, code execution, an MCP server -- as
-    members of the same list that hold no declaration. Those are not tools the contract describes:
-    the model is not shown a name and a description this adapter could patch, and nothing dispatches
-    them back into the agent's code.
+    A request also carries provider-side tools -- Google Search, code execution, URL context, a
+    provider-hosted MCP server -- as members of the same list that hold no declaration. Those are not
+    tools the contract describes: the model is not shown a name and a description this adapter could
+    patch, and nothing dispatches them back into the agent's code. ADK's own `MCPToolset` is not one
+    of them; it resolves to ordinary function declarations, and is managed like any other tool.
+
+    Only `types.Tool` members are read, which is what ADK itself does everywhere it walks this list
+    (`_find_tool_with_function_declarations`, and the live-API scan in `base_llm_flow`). Everything
+    ADK appends here it appends as a `types.Tool`, and a `GenerateContentConfig` coerces a mapping
+    into one on the way in.
     """
     for tool in llm_request.config.tools or []:
         if isinstance(tool, types.Tool):

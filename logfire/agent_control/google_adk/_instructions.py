@@ -62,8 +62,11 @@ def _content_text(content: types.ContentUnion) -> str:
         parts = [item for item in items if isinstance(item, types.Part)]
     else:
         return ''
-    texts = [part.text for part in parts if part.text]
-    return '\n\n'.join(texts) if len(texts) == len(parts) else ''
+    # A part with no text at all is what makes the whole thing unaddressable; one whose text is
+    # empty is still a text part, and ADK joins the rest of them exactly like this.
+    if any(part.text is None for part in parts):
+        return ''
+    return '\n\n'.join(part.text for part in parts if part.text)
 
 
 def identity_text(agent: LlmAgent) -> str:

@@ -205,6 +205,9 @@ per-generation choice the way `thinking=False` does.
 _NO_THINKING_BUDGET = 0
 """`thinking=False` on a model that counts thinking in tokens, which is Gemini before 3 and Claude."""
 
+_BUDGET_MEANINGS: dict[int, bool] = {_AUTOMATIC_THINKING_BUDGET: True, _NO_THINKING_BUDGET: False}
+"""The budgets the contract can describe, for reading an agent's own config back into a baseline."""
+
 
 def _thinking_config(thinking: bool | str, backend: Backend) -> types.ThinkingConfig | None:
     """The `ThinkingConfig` for a canonical `thinking` value, or `None` when `backend` cannot express it."""
@@ -300,5 +303,9 @@ def describe(config: types.GenerateContentConfig | None, backend: Backend) -> di
         if thinking_config.thinking_level is not None:
             settings['thinking'] = _LEVEL_NAMES.get(thinking_config.thinking_level) if backend.thinking_levels else None
         elif thinking_config.thinking_budget is not None:
-            settings['thinking'] = thinking_config.thinking_budget != _NO_THINKING_BUDGET
+            # Only the two budgets the contract has a word for. A fixed budget -- `128` -- is
+            # neither: describing it as `True` would publish a baseline saying "let the model
+            # decide", and saving that baseline back would apply an automatic budget and delete the
+            # limit the code set. Left out for the same reason a fractional `top_k` is.
+            settings['thinking'] = _BUDGET_MEANINGS.get(thinking_config.thinking_budget)
     return {name: value for name, value in settings.items() if value is not None}
