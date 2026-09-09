@@ -11,7 +11,7 @@ from livekit.agents import Agent, AgentSession, RunContext, llm
 from logfire.variables.local import LocalVariableProvider
 
 from ..conftest import publish
-from .agents import CONTEXTS, convert_currency, get_weather, lookup_order, managed, names, run
+from .agents import CONTEXTS, convert_currency, convert_currency_sync, get_weather, lookup_order, managed, names, run
 from .conftest import clear
 from .stubs import StubLLM, StubRealtimeModel
 
@@ -73,6 +73,25 @@ async def test_a_patched_parameter_is_still_executable(project: LocalVariablePro
         llm.ToolContext(installed),
     )
     assert result.fnc_call_out is not None and result.fnc_call_out.output == '12.0 EUR'
+
+
+async def test_a_patched_parameter_on_a_sync_tool_is_still_executable(project: LocalVariableProvider) -> None:
+    """`@function_tool` takes a sync function too, and the bridge has to run one without awaiting it."""
+    publish(
+        project,
+        'agent__doorbell',
+        {'tool_definitions': [{'name': 'convert_currency_sync', 'parameters': {'to': {'description': 'ISO code.'}}}]},
+    )
+    model = StubRealtimeModel()
+    await enter(doorbell(tools=[convert_currency_sync])(), model)
+
+    installed = model.updates.tools[-1]
+    assert isinstance(installed[0], llm.RawFunctionTool)
+    result = await llm.utils.execute_function_call(
+        llm.FunctionToolCall(name='convert_currency_sync', arguments='{"amount": 12, "to": "EUR"}', call_id='call-1'),
+        llm.ToolContext(installed),
+    )
+    assert result.fnc_call_out is not None and result.fnc_call_out.output == 'sync 12.0 EUR'
 
 
 async def test_a_patched_parameter_still_validates_and_injects_the_context(

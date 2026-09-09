@@ -111,7 +111,7 @@ class CheckoutAgent(Agent):
         )
 ```
 
-Each key is a block someone can rewrite or remove in Logfire on its own, and the blocks are joined the way LiveKit joins prompt parts, so the agent sends exactly the prompt it would have sent as one string. The result is an `Instructions`, so `audio=` and `text=` are LiveKit's own modality variants and keep working as they do.
+Each key is a block someone can rewrite or remove in Logfire on its own, and the blocks are joined the way LiveKit joins prompt parts, so the agent sends exactly the prompt it would have sent as one string. The result is an `Instructions`, so `audio=` and `text=` are LiveKit's own modality variants and keep working as they do — they are addressed as `agent:audio` and `agent:text`, and a block may not claim either of those ids for itself.
 
 ## What becomes editable
 

@@ -1,6 +1,6 @@
 from .. import AgentConfig as AgentConfig, AppliedTools as AppliedTools, OnUnmatched as OnUnmatched, ToolDef as ToolDef, ToolKey as ToolKey, apply_tool_definitions as apply_tool_definitions
 from _typeshed import Incomplete
-from collections.abc import Awaitable as Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
 from livekit.agents import llm
 from livekit.agents.types import NotGivenOr
 from typing import Any

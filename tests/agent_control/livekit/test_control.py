@@ -43,6 +43,14 @@ def test_assembling_no_blocks_is_refused() -> None:
         instruction_blocks({})
 
 
+def test_a_block_may_not_claim_a_modality_id() -> None:
+    """`agent:audio` addresses the `audio=` variant, so a block sharing it would be edited with it."""
+    with pytest.raises(ValueError, match="'agent:audio' is reserved for the `audio=` and `text=` variants"):
+        instruction_blocks({'agent': 'A', 'agent:audio': 'B'}, audio='C')
+    with pytest.raises(ValueError, match="'agent:audio', 'agent:text' are reserved"):
+        instruction_blocks({'agent:audio': 'A', 'agent:text': 'B'})
+
+
 def test_binding_keeps_the_class_it_was_given() -> None:
     @agent_control(name='checkout')
     class CheckoutAgent(Agent):

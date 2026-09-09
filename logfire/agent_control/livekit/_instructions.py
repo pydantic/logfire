@@ -22,6 +22,9 @@ from .. import Block
 AGENT_BLOCK_ID = 'agent'
 """The id for the agent's own prompt -- the one id the contract reserves."""
 
+MODALITY_BLOCK_IDS = frozenset({f'{AGENT_BLOCK_ID}:audio', f'{AGENT_BLOCK_ID}:text'})
+"""The ids the modality variants are addressed under, which a declared block may not claim."""
+
 SEPARATOR = '\n\n'
 """What LiveKit joins prompt parts with (`Instructions.render`), and so what a managed prompt does."""
 
@@ -84,12 +87,21 @@ def instruction_blocks(blocks: Mapping[str, str], *, audio: str | None = None, t
     Raises:
         ValueError: When `blocks` is empty. There is nothing to assemble, and a prompt passed
             straight to `Agent(instructions=...)` is already managed as one block keyed `agent`.
+        ValueError: When a block claims `agent:audio` or `agent:text`. Those two ids belong to the
+            variants below, and a block sharing one would be rewritten by every value published for
+            the variant -- one override silently changing two parts of the prompt.
     """
     if not blocks:
         raise ValueError(
             '`instruction_blocks` needs at least one block to assemble, as '
             "`instruction_blocks({'agent': '...'})`; pass your prompt straight to "
             '`Agent(instructions=...)` to manage it as one block.'
+        )
+    if taken := MODALITY_BLOCK_IDS.intersection(blocks):
+        raise ValueError(
+            f'{", ".join(repr(id) for id in sorted(taken))} '
+            f'{"is" if len(taken) == 1 else "are"} reserved for the `audio=` and `text=` variants; '
+            'pass that text as `audio=` or `text=`, or give the block an id of its own.'
         )
     return _BlockInstructions(blocks, audio=audio, text=text)
 

@@ -39,6 +39,20 @@ async def convert_currency(amount: float, to: str) -> str:
     return f'{amount} {to}'
 
 
+# `function_tool`'s type variable is bound to `Awaitable`, but its wrapper awaits the result only
+# when it is a coroutine (`llm/tool_context.py`), so a sync tool is a real thing to write and the
+# annotation is what is behind. This is the shape the bridge has to keep working.
+@llm.function_tool  # type: ignore[type-var]
+def convert_currency_sync(amount: float, to: str) -> str:
+    """Convert an amount to another currency, without awaiting anything.
+
+    Args:
+        amount: The amount to convert.
+        to: The currency to convert to.
+    """
+    return f'sync {amount} {to}'
+
+
 @llm.function_tool(
     raw_schema={
         'name': 'lookup_order',

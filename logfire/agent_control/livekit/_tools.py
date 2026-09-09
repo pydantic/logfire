@@ -119,7 +119,11 @@ def bridge(tool: llm.FunctionTool[..., Any], name: str) -> Callable[..., Awaitab
 
     async def call(raw_arguments: dict[str, Any], ctx: RunContext[Any] = NO_RUN_CONTEXT) -> Any:
         args, kwargs = prepare_function_arguments(fnc=tool, json_arguments=raw_arguments, call_ctx=ctx)
-        return await tool(*args, **kwargs)
+        result = tool(*args, **kwargs)
+        # `@function_tool` takes a sync function as readily as an async one, and LiveKit's own
+        # dispatcher awaits only what is awaitable. A bridge that always awaited would turn a
+        # patched parameter description into a `TypeError` for every synchronous tool.
+        return await result if isinstance(result, Awaitable) else result
 
     # `RawFunctionTool` copies these onto itself, and they are what a log line or a traceback names.
     call.__name__ = call.__qualname__ = name

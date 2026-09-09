@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from livekit.agents.llm.chat_context import Instructions
 
 AGENT_BLOCK_ID: str
+MODALITY_BLOCK_IDS: Incomplete
 SEPARATOR: str
 Modality: Incomplete
 
@@ -57,6 +58,9 @@ def instruction_blocks(blocks: Mapping[str, str], *, audio: str | None = None, t
     Raises:
         ValueError: When `blocks` is empty. There is nothing to assemble, and a prompt passed
             straight to `Agent(instructions=...)` is already managed as one block keyed `agent`.
+        ValueError: When a block claims `agent:audio` or `agent:text`. Those two ids belong to the
+            variants below, and a block sharing one would be rewritten by every value published for
+            the variant -- one override silently changing two parts of the prompt.
     """
 def render(instructions: str | Instructions, modality: Modality) -> str:
     """The single string LiveKit sends for `instructions` on a turn of this modality."""
