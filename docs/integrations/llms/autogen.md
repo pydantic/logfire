@@ -72,12 +72,12 @@ asyncio.run(main())
 
 You'll see the native AutoGen agent run in **Live** and **Agents**, with the `lookup_incident` tool call and
 instrumented OpenAI model requests nested beneath it. AutoGen runs also appear in the specialized **Agents**
-view; the [support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
+view; the [framework coverage guide](../agent-frameworks/support-matrix.md) shows which details each view adds.
 
 !!! warning
     Don't also enable `openinference-instrumentation-autogen-agentchat`. It wraps the same agent and tool methods
     that current AutoGen versions trace natively, which can produce duplicate spans. For the AG2 fork, use AG2's
-    own OpenTelemetry support (`pip install "ag2[openai,tracing]"`) instead. The support matrix describes the
+    own OpenTelemetry support (`pip install "ag2[openai,tracing]"`) instead. The framework coverage guide describes the
     native AutoGen setup on this page, not the third-party OpenInference instrumentor.
 
 ## Managed prompts

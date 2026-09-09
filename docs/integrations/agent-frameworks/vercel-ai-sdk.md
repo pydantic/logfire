@@ -69,7 +69,7 @@ main();
 Set your `OPENAI_API_KEY` and `LOGFIRE_TOKEN`, then run with `npx tsx agent.ts`. The example fails unless the
 native `ToolLoopAgent` executes `weather`. You'll see spans for the agent, prompt, response, token counts, and
 tool call in **Logfire**. Vercel AI SDK runs also appear in the specialized **Agents** view; the
-[support matrix](support-matrix.md) shows which columns each view populates.
+[framework coverage guide](support-matrix.md) shows which details each view adds.
 
 The current Agents reader detects the run but does not associate model calls through the SDK's intermediate
 `agent_step` span. Use the **LLMs** page for model and token totals. Aggregate model, token, and cost fields on the

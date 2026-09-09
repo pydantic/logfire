@@ -121,7 +121,7 @@ native Rig agent executes `lookup_incident`. Logfire receives Rig's agent, compl
 `record_content_telemetry(true)` is enabled, the completion spans also contain
 `gen_ai.input.messages` and `gen_ai.output.messages`, and tool spans contain the arguments and results. The
 Logfire SDK does not add a synthetic agent wrapper. Rig runs also appear in the specialized **Agents** view; the
-[support matrix](support-matrix.md) shows which columns each view populates.
+[framework coverage guide](support-matrix.md) shows which details each view adds.
 
 Rig currently records the agent run and its completion on separate trace IDs. The **LLMs** page shows the model
 call and its token counts, and the **Agents** page shows the agent run, but Logfire cannot safely associate those

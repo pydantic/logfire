@@ -26,7 +26,7 @@ Logfire detects agent runs from several telemetry conventions:
 - **OpenLLMetry** (`traceloop.span.kind = 'agent'`): agents wrapped with Traceloop's `@agent` decorator.
 - **Framework-specific attributes**: Logfire recognizes the root spans emitted by Genkit and VoltAgent.
 
-Detection only determines whether a run appears on the Agents page. Model, token, cost, tool, and message fields depend on the attributes and trace relationships emitted by the framework. See the [agent framework support matrix](../../integrations/agent-frameworks/support-matrix.md) for the current behavior of each integration.
+Detection only determines whether a run appears in this curated Agents view. It does not determine whether Logfire supports or can ingest the framework's OpenTelemetry: that data remains available in Live and Explore. Model, token, cost, tool, and message fields depend on the attributes and trace relationships emitted by the framework. See [agent framework coverage in Logfire](../../integrations/agent-frameworks/support-matrix.md) for the current experience with each integration.
 
 !!! note "Cost for OpenInference-detected agents"
     The current reader does not populate aggregate agent cost from OpenInference model spans, so these agents show no cost in the Agents list and the **Metrics** tab. An individual run's **Summary** can still estimate cost from a recognized model and token counts.

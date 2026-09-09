@@ -114,7 +114,7 @@ The example fails unless `ChatCompletionAgent` invokes its native `lookup_incide
 the model and function spans with model and token data and, because the sensitive switch is on, the prompt and
 completion in **Logfire**. Semantic Kernel does not currently emit every attribute required for all specialized
 Agents-view features, so use Live or Explore to inspect the complete trace. Semantic Kernel runs also appear in
-the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns each view populates.
+the specialized **Agents** view; the [framework coverage guide](support-matrix.md) shows which details each view adds.
 
 !!! warning "Common pitfalls"
     - **Default OTLP protocol is gRPC.** **Logfire** accepts both, but the endpoint has to match: gRPC takes
