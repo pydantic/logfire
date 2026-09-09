@@ -21,12 +21,12 @@ try:
     import agents  # noqa: F401  # pyright: ignore[reportUnusedImport]
 except BaseException:  # pragma: no cover
     # The OpenAI Agents SDK adapter's tests import `agents` at module level, and `agents` cannot be
-    # imported at all on some of the pydantic versions this directory *is* collected on -- 0.19+ uses
-    # `Field(exclude_if=...)`, which pydantic <2.12 reports as a deprecation `filterwarnings=error`
-    # promotes to an exception. Skipping the directory (rather than each module) also skips its
-    # conftest, which is where that import is. Deliberately broad: what comes out is a warning
-    # promoted to an exception rather than an `ImportError`, and which exception class that is
-    # depends on the pydantic doing the reporting.
+    # imported at all on some of the pydantic versions this directory *is* collected on: openai-agents
+    # 0.19+ uses `Field(exclude_if=...)`, which pydantic <2.12 reports as a deprecation that
+    # `filterwarnings=error` promotes to an exception. Skipping the directory (rather than each
+    # module) also skips its conftest, which is where that import is. The `except` is deliberately
+    # broad: what comes out is a warning promoted to an exception rather than an `ImportError`, and
+    # which exception class that is depends on the pydantic doing the reporting.
     collect_ignore = ['openai_agents']
 
 
