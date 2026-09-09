@@ -297,6 +297,23 @@ def test_publishing_happens_once_per_process_per_variable(project: LocalVariable
     assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
 
 
+def test_a_per_request_logfire_instance_is_still_one_destination(project: LocalVariableProvider) -> None:
+    # `with_settings` returns a new `Logfire` over the same configuration, so a framework that tags
+    # per request and rebuilds its agent with it would schedule a publish per request -- and hold
+    # every wrapper for the life of the process -- if the guard were keyed on the wrapper.
+    scheduled = [
+        AgentControl(
+            'checkout', logfire_instance=logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(tags=[f'request-{index}'])
+        ).publish_baseline(BASELINE)
+        for index in range(3)
+    ]
+    for thread in scheduled:
+        if thread is not None:  # pragma: no branch
+            thread.join()
+    assert [thread is not None for thread in scheduled] == [True, False, False]
+    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
+
+
 def test_publishing_can_be_turned_off_for_a_read_only_token(project: LocalVariableProvider) -> None:
     assert AgentControl('checkout', publish_baseline=False).publish_baseline(BASELINE) is None
     assert project.get_variable_config('agent__checkout') is None

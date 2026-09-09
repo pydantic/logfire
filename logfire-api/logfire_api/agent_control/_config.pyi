@@ -1,9 +1,12 @@
 from ._reporting import warn_dropped as warn_dropped
 from ._schema import MAX_MODEL_FACING_TEXT_LENGTH as MAX_MODEL_FACING_TEXT_LENGTH
 from _typeshed import Incomplete
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from pydantic import BaseModel, TypeAdapter
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, TypeVar
+
+KeyT = TypeVar('KeyT', bound=Hashable)
+EntryT = TypeVar('EntryT')
 
 class AgentConfigSettings(BaseModel):
     """Canonical model settings managed as one section of an `AgentConfig`.
@@ -87,7 +90,7 @@ class ToolDefinitionOverride(BaseModel):
     parameters: dict[str, ParameterOverride] | None
     toolset: str | None
 
-def first_by_key(entries: list[tuple[_KeyT, _EntryT]], describe: Callable[[_KeyT], str]) -> dict[_KeyT, _EntryT]:
+def first_by_key(entries: list[tuple[KeyT, EntryT]], describe: Callable[[KeyT], str]) -> dict[KeyT, EntryT]:
     """Index entries by key, keeping the first of any duplicates with a warning.
 
     Both list sections address things by key, so both can be written with the same key twice -- by a

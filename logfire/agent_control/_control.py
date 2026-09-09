@@ -42,7 +42,17 @@ a description of the code from a description of one request that happened first.
 # Destinations handed to a baseline publisher in this process. Marking before the thread starts
 # prevents concurrent first requests from scheduling duplicate work, and means a failure is not
 # retried by every later request.
-_baseline_publish_attempted: set[tuple[Logfire, str]] = set()
+#
+# Keyed on the variable *provider* rather than on the `Logfire` object, because the provider is the
+# destination and the wrapper is not: `logfire.with_settings(...)` returns a new `Logfire` over the
+# same configuration, so a framework that builds its agent -- and a tagged instance -- per request
+# would otherwise get a fresh key, and with it a publish per request and a mapping that grows for
+# the life of the process.
+#
+# Keyed on the provider's `id` rather than the provider, because a provider is a dataclass and so
+# unhashable, and identity is what is being asked about anyway. The provider is kept in the value to
+# make that safe: an `id` cannot be reused while the object it belongs to is still referenced.
+_baseline_publish_attempted: dict[int, tuple[VariableProvider, set[str]]] = {}
 _baseline_publish_lock = threading.Lock()
 
 
@@ -481,11 +491,12 @@ class AgentControl:
         if not self._publish_baseline:
             return None
         example = json.dumps(baseline.model_dump(exclude_none=True), indent=2)
-        key = (self._logfire_instance, self.variable_name)
+        provider = self._logfire_instance.config.get_variable_provider()
         with _baseline_publish_lock:
-            if key in _baseline_publish_attempted:
+            _, published = _baseline_publish_attempted.setdefault(id(provider), (provider, set()))
+            if self.variable_name in published:
                 return None
-            _baseline_publish_attempted.add(key)
+            published.add(self.variable_name)
         self._publish_thread = _spawn_baseline_publish(self._variable, example, source)
         return self._publish_thread
 

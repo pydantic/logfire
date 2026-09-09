@@ -20,8 +20,8 @@ from pydantic import (
 from ._reporting import warn_dropped
 from ._schema import MAX_MODEL_FACING_TEXT_LENGTH
 
-_KeyT = TypeVar('_KeyT', bound=Hashable)
-_EntryT = TypeVar('_EntryT')
+KeyT = TypeVar('KeyT', bound=Hashable)
+EntryT = TypeVar('EntryT')
 
 
 class AgentConfigSettings(BaseModel):
@@ -303,7 +303,7 @@ def _entry_errors(error: ValidationError, *, whole: str) -> str:
     )
 
 
-def first_by_key(entries: list[tuple[_KeyT, _EntryT]], describe: Callable[[_KeyT], str]) -> dict[_KeyT, _EntryT]:
+def first_by_key(entries: list[tuple[KeyT, EntryT]], describe: Callable[[KeyT], str]) -> dict[KeyT, EntryT]:
     """Index entries by key, keeping the first of any duplicates with a warning.
 
     Both list sections address things by key, so both can be written with the same key twice -- by a
@@ -312,7 +312,7 @@ def first_by_key(entries: list[tuple[_KeyT, _EntryT]], describe: Callable[[_KeyT
     the last writer silently winning depending on how the JSON happened to be ordered. `describe`
     renders a key for that warning, since a tool's key is a pair and reads badly as a bare tuple.
     """
-    indexed: dict[_KeyT, _EntryT] = {}
+    indexed: dict[KeyT, EntryT] = {}
     for key, entry in entries:
         if key in indexed:
             warn_dropped(
