@@ -131,7 +131,7 @@ export REDIRECT_URI='https://your-app.example.com/oauth/logfire/callback'
 
 === "Python"
 
-    ```python
+    ```python skip-run="true" skip-reason="requires-environment"
     import base64
     import hashlib
     import json
@@ -140,36 +140,36 @@ export REDIRECT_URI='https://your-app.example.com/oauth/logfire/callback'
     import sys
     from urllib.parse import urlencode
 
-    base_url = os.environ["LOGFIRE_BASE_URL"]
-    client_id = os.environ["CLIENT_ID"]
-    redirect_uri = os.environ["REDIRECT_URI"]
+    base_url = os.environ['LOGFIRE_BASE_URL']
+    client_id = os.environ['CLIENT_ID']
+    redirect_uri = os.environ['REDIRECT_URI']
     code_verifier = secrets.token_urlsafe(32)
     state = secrets.token_urlsafe(32)
     code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("ascii")).digest()).rstrip(b"=").decode("ascii")
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode('ascii')).digest()).rstrip(b'=').decode('ascii')
     )
 
     query = urlencode(
         {
-            "response_type": "code",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "scope": "project:read",
-            "state": state,
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
+            'response_type': 'code',
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'scope': 'project:read',
+            'state': state,
+            'code_challenge': code_challenge,
+            'code_challenge_method': 'S256',
         }
     )
     sys.stdout.write(
         json.dumps(
             {
-                "authorization_url": f"{base_url}/api/oauth/authorize?{query}",
-                "code_verifier": code_verifier,
-                "state": state,
+                'authorization_url': f'{base_url}/api/oauth/authorize?{query}',
+                'code_verifier': code_verifier,
+                'state': state,
             },
             indent=2,
         )
-        + "\n"
+        + '\n'
     )
     ```
 
@@ -252,7 +252,7 @@ export AUTHORIZATION_CODE='CODE_FROM_YOUR_VALIDATED_CALLBACK'
 
 === "Python"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     import asyncio
     import json
     import os
@@ -260,28 +260,28 @@ export AUTHORIZATION_CODE='CODE_FROM_YOUR_VALIDATED_CALLBACK'
 
     import httpx2
 
-    base_url = os.environ["LOGFIRE_BASE_URL"]
-    client_id = os.environ["CLIENT_ID"]
-    client_secret = os.environ["CLIENT_SECRET"]
-    redirect_uri = os.environ["REDIRECT_URI"]
-    code = os.environ["AUTHORIZATION_CODE"]
-    code_verifier = os.environ["CODE_VERIFIER"]
+    base_url = os.environ['LOGFIRE_BASE_URL']
+    client_id = os.environ['CLIENT_ID']
+    client_secret = os.environ['CLIENT_SECRET']
+    redirect_uri = os.environ['REDIRECT_URI']
+    code = os.environ['AUTHORIZATION_CODE']
+    code_verifier = os.environ['CODE_VERIFIER']
 
 
     async def main() -> None:
         async with httpx2.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                f"{base_url}/api/oauth/token",
+                f'{base_url}/api/oauth/token',
                 auth=(client_id, client_secret),
                 data={
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": redirect_uri,
-                    "code_verifier": code_verifier,
+                    'grant_type': 'authorization_code',
+                    'code': code,
+                    'redirect_uri': redirect_uri,
+                    'code_verifier': code_verifier,
                 },
             )
             response.raise_for_status()
-            sys.stdout.write(json.dumps(response.json(), indent=2) + "\n")
+            sys.stdout.write(json.dumps(response.json(), indent=2) + '\n')
 
 
     asyncio.run(main())
@@ -367,7 +367,7 @@ export ACCESS_TOKEN='ACCESS_TOKEN_FROM_THE_TOKEN_RESPONSE'
 
 === "Python"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     import asyncio
     import json
     import os
@@ -375,18 +375,18 @@ export ACCESS_TOKEN='ACCESS_TOKEN_FROM_THE_TOKEN_RESPONSE'
 
     import httpx2
 
-    api_base_url = os.environ["LOGFIRE_API_BASE_URL"]
-    access_token = os.environ["ACCESS_TOKEN"]
+    api_base_url = os.environ['LOGFIRE_API_BASE_URL']
+    access_token = os.environ['ACCESS_TOKEN']
 
 
     async def main() -> None:
         async with httpx2.AsyncClient(timeout=30.0) as client:
             response = await client.get(
-                f"{api_base_url}/projects/",
-                headers={"Authorization": f"Bearer {access_token}"},
+                f'{api_base_url}/projects/',
+                headers={'Authorization': f'Bearer {access_token}'},
             )
             response.raise_for_status()
-            sys.stdout.write(json.dumps(response.json(), indent=2) + "\n")
+            sys.stdout.write(json.dumps(response.json(), indent=2) + '\n')
 
 
     asyncio.run(main())
@@ -438,7 +438,7 @@ export REFRESH_TOKEN='LATEST_REFRESH_TOKEN_FOR_THIS_CUSTOMER'
 
 === "Python"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     import asyncio
     import json
     import os
@@ -446,24 +446,24 @@ export REFRESH_TOKEN='LATEST_REFRESH_TOKEN_FOR_THIS_CUSTOMER'
 
     import httpx2
 
-    base_url = os.environ["LOGFIRE_BASE_URL"]
-    client_id = os.environ["CLIENT_ID"]
-    client_secret = os.environ["CLIENT_SECRET"]
-    refresh_token = os.environ["REFRESH_TOKEN"]
+    base_url = os.environ['LOGFIRE_BASE_URL']
+    client_id = os.environ['CLIENT_ID']
+    client_secret = os.environ['CLIENT_SECRET']
+    refresh_token = os.environ['REFRESH_TOKEN']
 
 
     async def main() -> None:
         async with httpx2.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                f"{base_url}/api/oauth/token",
+                f'{base_url}/api/oauth/token',
                 auth=(client_id, client_secret),
                 data={
-                    "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
+                    'grant_type': 'refresh_token',
+                    'refresh_token': refresh_token,
                 },
             )
             response.raise_for_status()
-            sys.stdout.write(json.dumps(response.json(), indent=2) + "\n")
+            sys.stdout.write(json.dumps(response.json(), indent=2) + '\n')
 
 
     asyncio.run(main())
