@@ -5,6 +5,9 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 
 Use a **Logfire API key** to access the public APIs or send data from your application. The permissions you select determine what the key can do.
 
+If you are building a partner integration that customers connect to their own Logfire resources,
+use an [OAuth app](../../how-to-guides/oauth-apps.md) to request consent without asking customers to copy an API key.
+
 !!! info "Sending data"
     A key scoped to a specific project can send logs, traces, and metrics when it has the **Send telemetry** capability (`project:write_otlp`).
     An API key without that permission cannot send data. Organization-wide keys must be scoped to a project before this capability is available.
