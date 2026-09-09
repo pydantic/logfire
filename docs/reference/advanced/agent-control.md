@@ -17,7 +17,7 @@ Agent Control is built on [managed variables](managed-variables/index.md), and i
 
 `logfire.agent_control` is the **framework-neutral core**. It assumes nothing about how you built your agent: it owns the config contract, the Logfire variable each agent's config lives in, and the pure functions that say what a published value *does* to a request.
 
-Most people never call it directly. You install the adapter for the agent framework you already use (see [Framework adapters](#framework-adapters)), and it calls this core for you. Read on if you are writing an adapter for a framework we don't cover yet, if you want to know exactly what a published value can and cannot do to your agent, or if your agent is hand-rolled.
+Eventually most people will never call it directly: you will install the adapter for the agent framework you already use, and it will call this core for you. None of those [adapters](#framework-adapters) has shipped yet, so for now driving Agent Control means writing the per-request hook yourself, which [Writing an adapter](#writing-an-adapter) walks through. Read on for that, for exactly what a published value can and cannot do to your agent, or if your agent is hand-rolled.
 
 ## Quick start
 
@@ -166,7 +166,11 @@ def agent_control(agent, name, *, label=None):
         tools = [ToolDef(t.name, t.description, t.parameters_json_schema) for t in request.tools]
         control.publish_baseline(
             build_baseline(
-                instructions=blocks,
+                # The baseline is published where every project member can read it, and this
+                # framework hands the adapter a *rendered* prompt rather than the code that produced
+                # it -- so the block goes in as dynamic, which says that it exists without saying
+                # what this one request made it say. `build_baseline` drops the text for it.
+                instructions=[Block(request.prompt, id='agent', dynamic=True)],
                 model=agent.model,
                 settings=canonical_settings(agent.settings),
                 tools=tools,
@@ -180,14 +184,19 @@ def agent_control(agent, name, *, label=None):
         if config is None:
             return request  # Nothing published: the agent runs exactly as written.
 
-        applied_blocks = apply_instructions(blocks, config).blocks
+        # Every helper takes the policy the control was built with, so `on_unmatched='error'` really
+        # does fail and `'ignore'` really is silent, wherever the mismatch turns up.
+        policy = control.on_unmatched
+        applied_blocks = apply_instructions(blocks, config, on_unmatched=policy).blocks
         request.prompt = '\n\n'.join(block.text for block in applied_blocks)
-        applied = apply_tool_definitions(tools, config, reserved=request.provider_tool_names)
+        applied = apply_tool_definitions(tools, config, on_unmatched=policy, reserved=request.provider_tool_names)
         by_name = {tool.name: tool for tool in request.tools}
         request.tools = [by_name[applied.routes[t.name]].with_definition(t) for t in applied.tools]
         request.routes = applied.routes  # The dispatcher maps a name the model called back with this.
+        # `supported` names the canonical keys this framework has a knob for; the rest are reported.
+        patch = apply_settings(config, supported=agent.supported_settings, on_unmatched=policy)
         # Published settings beat the agent's own; the ones this call passed explicitly beat both.
-        merged = merge_settings(agent.settings, apply_settings(config), request.explicit_settings)
+        merged = merge_settings(agent.settings, patch, request.explicit_settings)
         request.settings = merged.settings
         if config.model is not None:
             request.model = config.model
@@ -278,6 +287,9 @@ Values are read **strictly** with respect to JSON types: `1` is a valid `tempera
 ## Framework adapters
 
 You normally use Agent Control through an adapter for the framework you already build with. Each is this core plus that framework's own per-request hook, typically under fifty lines.
+
+!!! note "The adapters are not released yet"
+    None of the adapters below ships today. Each lands as its own change on top of this core, and this section will link to each one as it becomes available. Until then, the way to drive Agent Control is to write the per-request hook yourself, as [Writing an adapter](#writing-an-adapter) describes.
 
 | Framework | Language |
 |---|---|

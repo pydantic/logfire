@@ -32,7 +32,11 @@ BASELINE_EXAMPLE = json.dumps(BASELINE.model_dump(exclude_none=True), indent=2)
 
 @contextmanager
 def collected_warnings() -> Generator[list[warnings.WarningMessage]]:
-    """Collect warnings from this thread and the publish thread, without the suite's error filter."""
+    """Collect warnings from this thread and the publish thread, without the suite's error filter.
+
+    Enter this *before* whatever starts the publish thread: the filter is process-wide, so a thread
+    that warns before the block is entered warns into the suite's `error` filter instead.
+    """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter('always')
         yield caught
@@ -299,9 +303,10 @@ def test_publishing_can_be_turned_off_for_a_read_only_token(project: LocalVariab
 
 
 def test_publishing_with_no_provider_configured_is_not_a_failure() -> None:
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
     with collected_warnings() as caught:
+        # Entered before the publish, because that is what starts the thread that warns.
+        thread = AgentControl('checkout').publish_baseline(BASELINE)
+        assert thread is not None
         thread.join()
     assert caught == []
 
@@ -313,9 +318,10 @@ def test_a_variable_created_by_someone_else_first_is_not_a_failure(
         raise VariableAlreadyExistsError("Variable 'agent__checkout' already exists")
 
     monkeypatch.setattr(project, 'create_variable', already_exists)
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
     with collected_warnings() as caught:
+        # Entered before the publish, because that is what starts the thread that warns.
+        thread = AgentControl('checkout').publish_baseline(BASELINE)
+        assert thread is not None
         thread.join()
     assert caught == []
 
@@ -325,9 +331,10 @@ def test_a_failed_publish_is_reported_and_never_raised(
 ) -> None:
     publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
     monkeypatch.setattr(project, 'update_variable', _refuse('update_variable'))
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
     with collected_warnings() as caught:
+        # Entered before the publish, because that is what starts the thread that warns.
+        thread = AgentControl('checkout').publish_baseline(BASELINE)
+        assert thread is not None
         thread.join()
     assert [str(warning.message) for warning in caught] == [
         "Failed to publish the code baseline for Logfire managed variable 'agent__checkout': "
@@ -484,9 +491,10 @@ def test_a_variable_deleted_between_the_two_reads_is_not_re_created(
 
     monkeypatch.setattr(project, 'get_variable_config', get_variable_config)
     monkeypatch.setattr(project, 'update_variable', _refuse('update_variable'))
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
     with collected_warnings() as caught:
+        # Entered before the publish, because that is what starts the thread that warns.
+        thread = AgentControl('checkout').publish_baseline(BASELINE)
+        assert thread is not None
         thread.join()
     assert caught == []
 
