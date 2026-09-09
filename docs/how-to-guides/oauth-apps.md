@@ -62,6 +62,19 @@ Configure your OAuth library with your registered client ID, callback URL, and t
 | Public client authentication | `none` |
 | Scopes | Space-separated permissions selected when registering your app |
 
+## Run the examples
+
+Choose a language tab below. Each example runs from your server or a local terminal.
+The TypeScript examples target Node.js, not browser code: confidential-client credentials must stay on your server.
+
+- **curl**: install `curl`, OpenSSL, and `jq`.
+- **Python**: save a Python example as `example.py` and run `uv run --with httpx2 example.py`.
+- **TypeScript**: save a TypeScript example as `example.mts` and run `node example.mts` with Node.js 24 or later. No packages are required.
+
+Set the environment variables shown before each tab group, replacing placeholder values with your own.
+The examples print their results for manual verification. In your application, store tokens securely instead of logging them.
+They demonstrate the HTTP requests; your application still needs the callback handler and session storage described below.
+
 ## Request customer consent
 
 When the customer selects **Connect to Logfire** in your application:
@@ -86,31 +99,119 @@ When the customer selects **Connect to Logfire** in your application:
 The verifier must contain 43 to 128 characters from `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, and `~`.
 Keep it private until the token exchange. Use your OAuth library's PKCE and state handling when available.
 
-For a manual integration check, this Bash example generates fresh values and prints an authorization URL.
-It requires OpenSSL and `jq`. Replace the client ID and callback URL with your registered values.
-Keep this shell open so you can use `CODE_VERIFIER` in the token exchange.
+For a manual integration check, these examples generate fresh values and an authorization URL.
+Replace the client ID and callback URL with your registered values.
 
 ```bash
 export LOGFIRE_BASE_URL='https://logfire-us.pydantic.dev'
 export CLIENT_ID='YOUR_CLIENT_ID'
 export REDIRECT_URI='https://your-app.example.com/oauth/logfire/callback'
-export CODE_VERIFIER="$(openssl rand -hex 32)"
-export STATE="$(openssl rand -hex 32)"
-CODE_CHALLENGE="$(printf '%s' "$CODE_VERIFIER" \
-  | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
-
-jq -nr \
-  --arg base "$LOGFIRE_BASE_URL" \
-  --arg client "$CLIENT_ID" \
-  --arg redirect "$REDIRECT_URI" \
-  --arg state "$STATE" \
-  --arg challenge "$CODE_CHALLENGE" \
-  '$base + "/api/oauth/authorize?" + ({
-    response_type: "code", client_id: $client, redirect_uri: $redirect,
-    scope: "project:read", state: $state,
-    code_challenge: $challenge, code_challenge_method: "S256"
-  } | to_entries | map(.key + "=" + (.value | @uri)) | join("&"))'
 ```
+
+=== "curl"
+
+    ```bash
+    export CODE_VERIFIER="$(openssl rand -hex 32)"
+    export STATE="$(openssl rand -hex 32)"
+    CODE_CHALLENGE="$(printf '%s' "$CODE_VERIFIER" \
+      | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+
+    jq -nr \
+      --arg base "$LOGFIRE_BASE_URL" \
+      --arg client "$CLIENT_ID" \
+      --arg redirect "$REDIRECT_URI" \
+      --arg state "$STATE" \
+      --arg challenge "$CODE_CHALLENGE" \
+      '$base + "/api/oauth/authorize?" + ({
+        response_type: "code", client_id: $client, redirect_uri: $redirect,
+        scope: "project:read", state: $state,
+        code_challenge: $challenge, code_challenge_method: "S256"
+      } | to_entries | map(.key + "=" + (.value | @uri)) | join("&"))'
+    ```
+
+=== "Python"
+
+    ```python
+    import base64
+    import hashlib
+    import json
+    import os
+    import secrets
+    import sys
+    from urllib.parse import urlencode
+
+    base_url = os.environ["LOGFIRE_BASE_URL"]
+    client_id = os.environ["CLIENT_ID"]
+    redirect_uri = os.environ["REDIRECT_URI"]
+    code_verifier = secrets.token_urlsafe(32)
+    state = secrets.token_urlsafe(32)
+    code_challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("ascii")).digest()).rstrip(b"=").decode("ascii")
+    )
+
+    query = urlencode(
+        {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": "project:read",
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+    )
+    sys.stdout.write(
+        json.dumps(
+            {
+                "authorization_url": f"{base_url}/api/oauth/authorize?{query}",
+                "code_verifier": code_verifier,
+                "state": state,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    import { createHash, randomBytes } from "node:crypto";
+
+    const { LOGFIRE_BASE_URL, CLIENT_ID, REDIRECT_URI } = process.env;
+    if (!LOGFIRE_BASE_URL || !CLIENT_ID || !REDIRECT_URI) {
+      throw new Error("Set LOGFIRE_BASE_URL, CLIENT_ID, and REDIRECT_URI.");
+    }
+
+    const codeVerifier = randomBytes(32).toString("base64url");
+    const state = randomBytes(32).toString("base64url");
+    const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
+    const authorizationUrl = new URL("/api/oauth/authorize", LOGFIRE_BASE_URL);
+    authorizationUrl.search = new URLSearchParams({
+      response_type: "code",
+      client_id: CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      scope: "project:read",
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+    }).toString();
+
+    console.log(
+      JSON.stringify(
+        {
+          authorization_url: authorizationUrl.toString(),
+          code_verifier: codeVerifier,
+          state,
+        },
+        null,
+        2,
+      ),
+    );
+    ```
+
+The curl tab keeps `CODE_VERIFIER` and `STATE` in the current shell. The Python and TypeScript tabs return them as `code_verifier` and `state` in JSON.
+Save both values for this connection attempt. For a manual check with Python or TypeScript, set `CODE_VERIFIER` to the returned verifier before running the token-exchange example.
 
 Open the resulting URL in a browser. Your callback handler must perform the state check described above;
 generating an authorization URL does not implement that check for you.
@@ -125,7 +226,8 @@ Selecting a scope during app registration does not grant access to customer data
 ## Exchange the authorization code
 
 For a confidential app, send a form-encoded request from your server.
-This `curl` example uses HTTP Basic authentication for the client credentials:
+These examples use HTTP Basic authentication for the client credentials.
+Set `AUTHORIZATION_CODE` only after your callback handler has validated the returned `state`:
 
 ```bash
 export LOGFIRE_BASE_URL='https://logfire-us.pydantic.dev'
@@ -134,21 +236,104 @@ export CLIENT_SECRET='YOUR_CLIENT_SECRET'
 export REDIRECT_URI='https://your-app.example.com/oauth/logfire/callback'
 export AUTHORIZATION_CODE='CODE_FROM_YOUR_VALIDATED_CALLBACK'
 : "${CODE_VERIFIER:?Set the verifier saved for this authorization attempt}"
-
-curl --fail-with-body --silent --show-error \
-  --user "$CLIENT_ID:$CLIENT_SECRET" \
-  --data-urlencode 'grant_type=authorization_code' \
-  --data-urlencode "code=$AUTHORIZATION_CODE" \
-  --data-urlencode "redirect_uri=$REDIRECT_URI" \
-  --data-urlencode "code_verifier=$CODE_VERIFIER" \
-  "$LOGFIRE_BASE_URL/api/oauth/token"
 ```
+
+=== "curl"
+
+    ```bash
+    curl --fail-with-body --silent --show-error \
+      --user "$CLIENT_ID:$CLIENT_SECRET" \
+      --data-urlencode 'grant_type=authorization_code' \
+      --data-urlencode "code=$AUTHORIZATION_CODE" \
+      --data-urlencode "redirect_uri=$REDIRECT_URI" \
+      --data-urlencode "code_verifier=$CODE_VERIFIER" \
+      "$LOGFIRE_BASE_URL/api/oauth/token"
+    ```
+
+=== "Python"
+
+    ```python
+    import asyncio
+    import json
+    import os
+    import sys
+
+    import httpx2
+
+    base_url = os.environ["LOGFIRE_BASE_URL"]
+    client_id = os.environ["CLIENT_ID"]
+    client_secret = os.environ["CLIENT_SECRET"]
+    redirect_uri = os.environ["REDIRECT_URI"]
+    code = os.environ["AUTHORIZATION_CODE"]
+    code_verifier = os.environ["CODE_VERIFIER"]
+
+
+    async def main() -> None:
+        async with httpx2.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{base_url}/api/oauth/token",
+                auth=(client_id, client_secret),
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "code_verifier": code_verifier,
+                },
+            )
+            response.raise_for_status()
+            sys.stdout.write(json.dumps(response.json(), indent=2) + "\n")
+
+
+    asyncio.run(main())
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    const {
+      LOGFIRE_BASE_URL,
+      CLIENT_ID,
+      CLIENT_SECRET,
+      REDIRECT_URI,
+      AUTHORIZATION_CODE,
+      CODE_VERIFIER,
+    } = process.env;
+    if (
+      !LOGFIRE_BASE_URL ||
+      !CLIENT_ID ||
+      !CLIENT_SECRET ||
+      !REDIRECT_URI ||
+      !AUTHORIZATION_CODE ||
+      !CODE_VERIFIER
+    ) {
+      throw new Error("Set the token-exchange environment variables shown above.");
+    }
+
+    const credentials = Buffer.from(CLIENT_ID + ":" + CLIENT_SECRET).toString("base64");
+    const response = await fetch(new URL("/api/oauth/token", LOGFIRE_BASE_URL), {
+      method: "POST",
+      headers: { Authorization: "Basic " + credentials },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: AUTHORIZATION_CODE,
+        redirect_uri: REDIRECT_URI,
+        code_verifier: CODE_VERIFIER,
+      }),
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) {
+      throw new Error("Token exchange failed (HTTP " + response.status + ").");
+    }
+    console.log(JSON.stringify(await response.json(), null, 2));
+    ```
 
 Replace the values with your registered credentials and the values from this authorization attempt.
 Use the same `redirect_uri` as in the authorization request. An authorization code can be exchanged only once.
 
-For a public app, omit `--user` and send `--data-urlencode "client_id=$CLIENT_ID"` instead.
-Do not send a client secret. PKCE is still required.
+For a public app, remove client-secret configuration and the client-authentication argument or header.
+Send `client_id` in the form body instead: `--data-urlencode "client_id=$CLIENT_ID"` in curl, `"client_id": client_id` in Python, or `client_id: CLIENT_ID` in TypeScript.
+In the TypeScript example, also remove `CLIENT_SECRET` from the required-variable check. PKCE is still required.
 Do not combine HTTP Basic authentication with client credentials in the form body.
 
 The successful JSON response includes:
@@ -170,11 +355,61 @@ With `project:read` granted, list the projects visible to this token:
 ```bash
 export LOGFIRE_API_BASE_URL='https://api-us.pydantic.dev/api/v1'
 export ACCESS_TOKEN='ACCESS_TOKEN_FROM_THE_TOKEN_RESPONSE'
-
-curl --fail-with-body --silent --show-error \
-  --header "Authorization: Bearer $ACCESS_TOKEN" \
-  "$LOGFIRE_API_BASE_URL/projects/"
 ```
+
+=== "curl"
+
+    ```bash
+    curl --fail-with-body --silent --show-error \
+      --header "Authorization: Bearer $ACCESS_TOKEN" \
+      "$LOGFIRE_API_BASE_URL/projects/"
+    ```
+
+=== "Python"
+
+    ```python
+    import asyncio
+    import json
+    import os
+    import sys
+
+    import httpx2
+
+    api_base_url = os.environ["LOGFIRE_API_BASE_URL"]
+    access_token = os.environ["ACCESS_TOKEN"]
+
+
+    async def main() -> None:
+        async with httpx2.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{api_base_url}/projects/",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            response.raise_for_status()
+            sys.stdout.write(json.dumps(response.json(), indent=2) + "\n")
+
+
+    asyncio.run(main())
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    const { LOGFIRE_API_BASE_URL, ACCESS_TOKEN } = process.env;
+    if (!LOGFIRE_API_BASE_URL || !ACCESS_TOKEN) {
+      throw new Error("Set LOGFIRE_API_BASE_URL and ACCESS_TOKEN.");
+    }
+
+    const response = await fetch(LOGFIRE_API_BASE_URL + "/projects/", {
+      headers: { Authorization: "Bearer " + ACCESS_TOKEN },
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) {
+      throw new Error("Listing projects failed (HTTP " + response.status + ").");
+    }
+    console.log(JSON.stringify(await response.json(), null, 2));
+    ```
 
 For an EU connection, use `https://api-eu.pydantic.dev/api/v1`.
 A successful request returns HTTP 200 and a JSON list of projects within the token's permitted organization and project restrictions.
@@ -189,15 +424,77 @@ export LOGFIRE_BASE_URL='https://logfire-us.pydantic.dev'
 export CLIENT_ID='YOUR_CLIENT_ID'
 export CLIENT_SECRET='YOUR_CLIENT_SECRET'
 export REFRESH_TOKEN='LATEST_REFRESH_TOKEN_FOR_THIS_CUSTOMER'
-
-curl --fail-with-body --silent --show-error \
-  --user "$CLIENT_ID:$CLIENT_SECRET" \
-  --data-urlencode 'grant_type=refresh_token' \
-  --data-urlencode "refresh_token=$REFRESH_TOKEN" \
-  "$LOGFIRE_BASE_URL/api/oauth/token"
 ```
 
-For a public app, replace `--user` with `--data-urlencode "client_id=$CLIENT_ID"`.
+=== "curl"
+
+    ```bash
+    curl --fail-with-body --silent --show-error \
+      --user "$CLIENT_ID:$CLIENT_SECRET" \
+      --data-urlencode 'grant_type=refresh_token' \
+      --data-urlencode "refresh_token=$REFRESH_TOKEN" \
+      "$LOGFIRE_BASE_URL/api/oauth/token"
+    ```
+
+=== "Python"
+
+    ```python
+    import asyncio
+    import json
+    import os
+    import sys
+
+    import httpx2
+
+    base_url = os.environ["LOGFIRE_BASE_URL"]
+    client_id = os.environ["CLIENT_ID"]
+    client_secret = os.environ["CLIENT_SECRET"]
+    refresh_token = os.environ["REFRESH_TOKEN"]
+
+
+    async def main() -> None:
+        async with httpx2.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{base_url}/api/oauth/token",
+                auth=(client_id, client_secret),
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                },
+            )
+            response.raise_for_status()
+            sys.stdout.write(json.dumps(response.json(), indent=2) + "\n")
+
+
+    asyncio.run(main())
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    const { LOGFIRE_BASE_URL, CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN } = process.env;
+    if (!LOGFIRE_BASE_URL || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+      throw new Error("Set LOGFIRE_BASE_URL, CLIENT_ID, CLIENT_SECRET, and REFRESH_TOKEN.");
+    }
+
+    const credentials = Buffer.from(CLIENT_ID + ":" + CLIENT_SECRET).toString("base64");
+    const response = await fetch(new URL("/api/oauth/token", LOGFIRE_BASE_URL), {
+      method: "POST",
+      headers: { Authorization: "Basic " + credentials },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: REFRESH_TOKEN,
+      }),
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) {
+      throw new Error("Token refresh failed (HTTP " + response.status + ").");
+    }
+    console.log(JSON.stringify(await response.json(), null, 2));
+    ```
+
+For a public app, use the same form-body `client_id` and omit client-secret configuration and authentication, as described for the code exchange.
 
 Refresh tokens rotate: save the replacement `refresh_token` together with the new access token.
 Coordinate refreshes for each connection so workers do not independently keep using an older refresh token.
