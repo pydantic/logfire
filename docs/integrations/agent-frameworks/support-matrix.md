@@ -70,10 +70,15 @@ These integrations send useful traces, but their current agent root is not recog
 | [LlamaIndex (TS)](llamaindex-ts.md) | ● | ● | ○ | Emits an LLM chat span, but no agent span. |
 | [LangChain (JS)](langchain-js.md) | ● | ○ | ○ | Uses LangSmith's trace convention, which the specialized views do not currently interpret. |
 | [Instructor](../llms/instructor.md) | ● | ● | ○ | Emits an LLM span and is not an agent framework. |
-| [Eino (Go)](eino.md) | ○ | ○ | ○ | Has no maintained instrumentation for its agent and tool lifecycle. Surrounding application or model-client spans can still reach Logfire. |
 | [Letta](../llms/letta.md) | ● | ○ | ○ | Sends server traces over OTLP, but no recognized agent span. |
 | [OpenAI Agents SDK (TS)](openai-agents-js.md) | ◐ | ◐ | ○ | Has no complete OpenTelemetry exporter; an instrumented model client can provide LLM spans only. |
 | [Claude Agent SDK](../llms/claude-agent-sdk.md) | ● | ● | ○ | Emits native `gen_ai` conversation, model, and tool spans, but no `gen_ai.agent.name`. |
+
+## No maintained agent telemetry
+
+| Framework | Live & Explore | LLMs | Agents | Notes |
+| --- | :---: | :---: | :---: | --- |
+| [Eino (Go)](eino.md) | ○ | ○ | ○ | Has no maintained instrumentation for its agent and tool lifecycle. Surrounding application or model-client spans can still reach Logfire. |
 
 [^nested-native]: The agent run and model call are visible, but an intermediate framework span currently prevents Logfire from assigning the model call to aggregate agent metrics.
 
