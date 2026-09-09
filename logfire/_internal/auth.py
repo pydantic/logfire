@@ -36,6 +36,7 @@ Both halves of the flow use it so they can't drift apart.
 _CLIENT_NAME: str = 'logfire-python'
 _AUTH_SOURCE_ENV_VAR: str = 'LOGFIRE_AUTH_SOURCE'
 _MAX_AUTH_SOURCE_LENGTH: int = 100
+_AUTH_SOURCE_PATTERN = re.compile(r'[A-Za-z0-9._-]+')
 
 
 LOGFIRE_TOKEN_REGION_PATTERN = re.compile(r'^pylf_v[0-9]+_(?P<region>[a-z]+)_')
@@ -267,8 +268,9 @@ def request_device_code(session: requests.Session, base_api_url: str) -> tuple[s
         'client': _CLIENT_NAME,
         'client_version': VERSION,
     }
+    # The source is trimmed, capped, and dropped if it does not match the shape accepted by the platform.
     source = os.environ.get(_AUTH_SOURCE_ENV_VAR, '').strip()[:_MAX_AUTH_SOURCE_LENGTH]
-    if source:
+    if _AUTH_SOURCE_PATTERN.fullmatch(source):
         params['source'] = source
 
     # The platform uses these details to attribute CLI signups to the SDK and the upstream tool.

@@ -216,7 +216,7 @@ def test_request_device_code_sends_client_details_without_source(monkeypatch: py
         request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
 
         assert m.last_request is not None
-        query = parse_qs(urlparse(str(m.last_request.url)).query)
+        query = parse_qs(urlparse(str(m.last_request.url)).query, keep_blank_values=True)
         assert query == {
             'machine_name': [platform.uname()[1]],
             'client': ['logfire-python'],
@@ -238,8 +238,13 @@ def test_request_device_code_strips_auth_source(monkeypatch: pytest.MonkeyPatch)
         request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
 
         assert m.last_request is not None
-        query = parse_qs(urlparse(str(m.last_request.url)).query)
-        assert query['source'] == ['pydantic-ai-skill']
+        query = parse_qs(urlparse(str(m.last_request.url)).query, keep_blank_values=True)
+        assert query == {
+            'machine_name': [platform.uname()[1]],
+            'client': ['logfire-python'],
+            'client_version': [VERSION],
+            'source': ['pydantic-ai-skill'],
+        }
 
 
 def test_request_device_code_truncates_auth_source(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -256,7 +261,7 @@ def test_request_device_code_truncates_auth_source(monkeypatch: pytest.MonkeyPat
         request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
 
         assert m.last_request is not None
-        query = parse_qs(urlparse(str(m.last_request.url)).query)
+        query = parse_qs(urlparse(str(m.last_request.url)).query, keep_blank_values=True)
         assert query['source'] == ['x' * 100]
 
 
@@ -275,5 +280,28 @@ def test_request_device_code_omits_blank_auth_source(monkeypatch: pytest.MonkeyP
         request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
 
         assert m.last_request is not None
-        query = parse_qs(urlparse(str(m.last_request.url)).query)
+        query = parse_qs(urlparse(str(m.last_request.url)).query, keep_blank_values=True)
         assert 'source' not in query
+
+
+@pytest.mark.parametrize('source', ['setup skill', 'setup/skill', 'setup@skill'])
+def test_request_device_code_omits_invalid_auth_source(monkeypatch: pytest.MonkeyPatch, source: str) -> None:
+    """The device code request omits an attribution source with an invalid shape."""
+    monkeypatch.setenv('LOGFIRE_AUTH_SOURCE', source)
+    with requests_mock.Mocker() as m:
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            json={
+                'device_code': 'device-code',
+                'frontend_auth_url': 'https://logfire-us.pydantic.dev/auth/device-code',
+            },
+        )
+        request_device_code(requests.Session(), 'https://logfire-us.pydantic.dev')
+
+        assert m.last_request is not None
+        query = parse_qs(urlparse(str(m.last_request.url)).query, keep_blank_values=True)
+        assert query == {
+            'machine_name': [platform.uname()[1]],
+            'client': ['logfire-python'],
+            'client_version': [VERSION],
+        }
