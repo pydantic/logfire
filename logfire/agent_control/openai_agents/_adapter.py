@@ -29,6 +29,7 @@ from .. import (
     merge_settings,
     use_resolution,
 )
+from .._reporting import warn_dropped
 from ._instructions import (
     AGENT_BLOCK_ID,
     InstructionSource,
@@ -163,6 +164,7 @@ def agent_control(
         code_settings=agent.model_settings,
         code_instructions=baseline_blocks(sources),
         provider=MultiProvider() if provider is None else provider,
+        publish_baseline=publish_baseline,
     )
     changes: dict[str, Any] = {
         'model': model,
@@ -312,12 +314,21 @@ class _ControlledModel(Model):
         code_settings: ModelSettings,
         code_instructions: Sequence[Block],
         provider: ModelProvider,
+        publish_baseline: bool,
     ) -> None:
         self._control = control
         self._code_model = code_model
         self._code_settings = code_settings
         self._code_instructions = code_instructions
         self._provider = provider
+        self._publish = publish_baseline
+        """Whether to describe the agent at all, which the core is told separately.
+
+        Kept here as well because the core's flag decides whether a baseline is *written*, and this
+        one decides whether it is built -- which is work on the first request's own thread, including
+        resolving the agent's own model. A deployment that turned publishing off is asking for
+        neither.
+        """
         self._published = False
         self._resolved: dict[str | None, Model] = {}
         """Every model this wrapper has asked a provider for, under the name it asked for.
@@ -480,8 +491,9 @@ class _ControlledModel(Model):
         The first request rather than construction, because that is the first moment the agent's
         tools are knowable: `Agent.get_all_tools` is what the runner hands a model, and it is where a
         tool gated on `is_enabled` is admitted and a tool an MCP server contributed arrives. The core
-        is what makes the publish itself happen once per process; this flag only keeps a baseline from
-        being *built*, and the code model from being resolved, on every request after the first.
+        is what makes the publish itself happen once per process; the two flags here keep a baseline
+        from being *built*, and the code model from being resolved -- on every request after the
+        first, and at all for a deployment that turned publishing off.
 
         Everything in it is read off the agent -- its declared blocks, its own settings, the
         definitions of the tools it declares -- so it is published as the code baseline it is. A block
@@ -494,14 +506,30 @@ class _ControlledModel(Model):
         to show the editor, and a baseline whose settings and whose overrides disagreed about which
         ones exist would be the discrepancy this section is meant to remove.
         """
-        if self._published:
+        if self._published or not self._publish:
             return
         self._published = True
+        try:
+            supported = supported_settings(code_model())
+        except Exception as exc:
+            # Which settings the editor can be offered depends on which model class the code runs on,
+            # and a provider that cannot build the agent's own model cannot answer that. Publishing
+            # nothing is then the honest outcome -- and only the baseline is lost, because a request
+            # this far in is being served by a published model that *did* resolve. Never raised: a
+            # baseline is Agent Control describing the code, and describing it is not worth failing a
+            # request over. Not reported under `on_unmatched` either, since nothing was published
+            # that this could be said to have not applied.
+            warn_dropped(
+                f'Agent Control could not describe agent {self._control.name!r} to Logfire: its own model '
+                f'{self._code_model!r} is one this process cannot resolve ({exc}). The agent runs, and the '
+                'Logfire editor has no code baseline to diff published values against until it can.'
+            )
+            return
         self._control.publish_baseline(
             build_baseline(
                 instructions=self._code_instructions,
                 model=_baseline_model_name(self._code_model),
-                settings=baseline_settings(self._code_settings, supported_settings(code_model())),
+                settings=baseline_settings(self._code_settings, supported),
                 tools=tools,
             ),
             source='code',

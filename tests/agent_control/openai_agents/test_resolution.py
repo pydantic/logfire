@@ -193,9 +193,11 @@ async def test_a_run_cleans_up_after_its_own_model_and_no_one_elses(
     await asyncio.gather(Runner.run(agent, 'first'), Runner.run(agent, 'second'))
 
     assert sorted(cleaned) == snapshot(['first', 'second'])
-    # Every instance the wrapper resolved is closed with it, not only the one that answered last.
+    # Every instance the wrapper resolved is closed with it, not only the one that answered last --
+    # and the agent's own model is not among them, because every request here was served by a
+    # published one and nothing ever asked the provider to build the model named in code.
     await controlled(agent).close()
-    assert sorted(closed) == snapshot(['code', 'first', 'second'])
+    assert sorted(closed) == snapshot(['first', 'second'])
 
 
 async def test_retry_advice_comes_from_the_model_this_run_used(

@@ -18,13 +18,18 @@ def tool_definitions(tools: Iterable[Tool]) -> list[ToolDef]:
     the editor to offer and listing them would only imply there is.
     """
 def reserved_names(tools: Iterable[Tool], handoffs: Iterable[Handoff]) -> set[str]:
-    """The names this request advertises that no rename may take, because nothing here can move them.
+    '''The names this request advertises that no rename may take, because nothing here can move them.
 
     A handoff is a tool to the model, and so is a hosted tool -- web search, the computer tool, hosted
     MCP -- and neither is in the editable list this adapter builds. The core cannot see them, so a
     rename onto one of their names would advertise two tools under one name and make a call to it
     unroutable; passed as `reserved`, that rename is refused and reported like any other collision.
-    """
+
+    `auto`, `required` and `none` are reserved for the same reason one step further out. They are the
+    three `tool_choice` values the SDK reads as modes rather than names, so renaming a tool onto one
+    of them would turn a `tool_choice` that forced that tool into "let the model choose" -- a
+    code-defined decision lost to a rename that only meant to reword what the model is shown.
+    '''
 def advertised_names(applied: AppliedTools) -> dict[str, str]:
     """Code-side tool name -> the name it is advertised under, for everything on the way out.
 

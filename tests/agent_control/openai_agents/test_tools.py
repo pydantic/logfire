@@ -167,6 +167,40 @@ async def test_a_tool_choice_mode_is_never_read_as_a_name(project: LocalVariable
     assert inner.calls[0].model_settings.tool_choice == mode
 
 
+@pytest.mark.parametrize('mode', ['auto', 'required', 'none'])
+async def test_a_rename_onto_a_tool_choice_mode_is_refused(project: LocalVariableProvider, mode: str) -> None:
+    """The three names a `tool_choice` is read as a mode under are as reserved as a handoff's.
+
+    Renaming a tool to `auto` would carry a forced `tool_choice` onto it -- and then be read on the
+    other side as "let the model choose", turning a code-defined "this call must use this tool" into
+    its opposite, with nothing in the published value asking for that.
+    """
+    publish(
+        project,
+        f'agent__forced_{mode}',
+        {'tool_definitions': [{'name': 'get_weather', 'new_name': mode, 'description': 'Managed.'}]},
+    )
+    inner = FakeModel()
+    agent = agent_control(
+        Agent(
+            name=f'forced_{mode}',
+            instructions='Hi.',
+            tools=[get_weather],
+            model='m',
+            model_settings=ModelSettings(tool_choice='get_weather'),
+        ),
+        provider=FakeProvider({'m': inner}),
+        on_unmatched='ignore',
+    )
+    await Runner.run(agent, 'hello')
+
+    # The rename is dropped, so the tool keeps its name and the forced choice still forces it.
+    assert inner.calls[0].tool_names == ['get_weather']
+    assert inner.calls[0].model_settings.tool_choice == 'get_weather'
+    # The rest of that override still applies, which is what refusing only the rename means.
+    assert inner.calls[0].tool('get_weather').description == 'Managed.'
+
+
 async def test_a_rename_onto_a_handoff_is_refused(project: LocalVariableProvider) -> None:
     """A handoff is a tool to the model but not one this adapter can rename, so its name is reserved."""
     specialist = Agent(name='specialist', instructions='I specialise.')

@@ -85,10 +85,17 @@ def reserved_names(tools: Iterable[Tool], handoffs: Iterable[Handoff]) -> set[st
     MCP -- and neither is in the editable list this adapter builds. The core cannot see them, so a
     rename onto one of their names would advertise two tools under one name and make a call to it
     unroutable; passed as `reserved`, that rename is refused and reported like any other collision.
+
+    `auto`, `required` and `none` are reserved for the same reason one step further out. They are the
+    three `tool_choice` values the SDK reads as modes rather than names, so renaming a tool onto one
+    of them would turn a `tool_choice` that forced that tool into "let the model choose" -- a
+    code-defined decision lost to a rename that only meant to reword what the model is shown.
     """
-    return {tool.name for tool in tools if not isinstance(tool, FunctionTool)} | {
-        handoff.tool_name for handoff in handoffs
-    }
+    return (
+        {tool.name for tool in tools if not isinstance(tool, FunctionTool)}
+        | {handoff.tool_name for handoff in handoffs}
+        | set(TOOL_CHOICE_MODES)
+    )
 
 
 def advertised_names(applied: AppliedTools) -> dict[str, str]:

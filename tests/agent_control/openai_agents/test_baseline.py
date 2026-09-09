@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import warnings
 from datetime import date
 from typing import Any
 
 import pytest
 from agents import Agent, ModelSettings, RunContextWrapper, Runner, WebSearchTool
+from agents.models.interface import Model
 from agents.tool import FunctionTool, ToolOrigin, ToolOriginType
 from inline_snapshot import snapshot
 from openai.types.shared.reasoning import Reasoning
@@ -20,6 +22,7 @@ from .conftest import (
     FakeResponsesModel,
     controlled,
     get_weather,
+    publish,
     published_example,
     wait_for_baseline,
 )
@@ -190,6 +193,63 @@ async def test_publishing_can_be_turned_off(project: LocalVariableProvider, enab
     )
     await run_once(agent)
     assert (project.get_variable_config('agent__quiet') is not None) is enabled
+
+
+class RefusesTheCodeModel(FakeProvider):
+    """A provider that can build the published model and not the one the agent was written with.
+
+    The shape of a gateway extra that is not installed, or a provider id nobody registered in this
+    process: the config moved the agent onto something this deployment *can* reach, and what it was
+    written with is what it cannot.
+    """
+
+    def get_model(self, model_name: str | None) -> Model:
+        if model_name == 'unbuildable':
+            raise RuntimeError('cannot build the code model here')
+        return super().get_model(model_name)
+
+
+@pytest.mark.parametrize('publish_baseline', [False, True])
+async def test_a_code_model_this_process_cannot_build_costs_only_the_baseline(
+    project: LocalVariableProvider, publish_baseline: bool
+) -> None:
+    """Describing the agent is not worth failing a request over, whether or not it is even asked for.
+
+    Which settings the baseline can offer depends on the class of the model the code runs on, so
+    building one resolves that model -- on the first request, even one a published model is serving.
+    A provider that cannot build it must not take down a request the published model can answer.
+    """
+    publish(project, 'agent__undescribable', {'model': 'openai:published'})
+    inner = FakeModel('published')
+    agent = agent_control(
+        Agent(name='undescribable', instructions='Hi.', model='unbuildable'),
+        label='production',
+        provider=RefusesTheCodeModel({'published': inner}),
+        publish_baseline=publish_baseline,
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        result = await Runner.run(agent, 'hello')
+    wait_for_baseline(agent)
+
+    assert result.final_output == 'done by published'
+    # The variable is the published config's own; what is missing is the baseline beside it.
+    config = project.get_variable_config('agent__undescribable')
+    assert config is not None and config.example is None
+    said = [str(warning.message) for warning in caught]
+    # Turning publishing off asks for no baseline, so a baseline that could not be built is not news.
+    if publish_baseline:
+        assert said == snapshot(
+            [
+                "Agent Control could not describe agent 'undescribable' to Logfire: its own model "
+                "'unbuildable' is one this process cannot resolve (cannot build the code model here). "
+                'The agent runs, and the Logfire editor has no code baseline to diff published values '
+                'against until it can.'
+            ]
+        )
+    else:
+        assert said == snapshot([])
 
 
 async def test_the_baseline_describes_only_the_settings_the_code_model_would_send(

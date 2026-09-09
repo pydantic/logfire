@@ -1,4 +1,5 @@
 from .. import AgentConfig as AgentConfig, AgentControl as AgentControl, Block as Block, OnUnmatched as OnUnmatched, ToolDef as ToolDef, apply_settings as apply_settings, apply_tool_definitions as apply_tool_definitions, build_baseline as build_baseline, merge_settings as merge_settings, use_resolution as use_resolution
+from .._reporting import warn_dropped as warn_dropped
 from ._instructions import AGENT_BLOCK_ID as AGENT_BLOCK_ID, InstructionSource as InstructionSource, Sources as Sources, baseline_blocks as baseline_blocks, instructions_renderer as instructions_renderer, order_sources as order_sources
 from ._models import to_canonical_model_name as to_canonical_model_name, to_sdk_model_name as to_sdk_model_name
 from ._run import Run as Run, begin_run as begin_run, current_run as current_run, resolve as resolve
@@ -99,7 +100,7 @@ class _ControlledModel(Model):
     agent; see `_run`. It is entered again around each call, so the provider's own generation span --
     the one Logfire records the request from -- carries the label and version that produced it.
     """
-    def __init__(self, control: AgentControl, *, code_model: str | Model | None, code_settings: ModelSettings, code_instructions: Sequence[Block], provider: ModelProvider) -> None: ...
+    def __init__(self, control: AgentControl, *, code_model: str | Model | None, code_settings: ModelSettings, code_instructions: Sequence[Block], provider: ModelProvider, publish_baseline: bool) -> None: ...
     def begin_run(self, run_context: RunContextWrapper[Any]) -> Run:
         """Resolve this agent's config for the run `run_context` identifies, once; see `_run`."""
     async def get_response(self, system_instructions: str | None, input: str | list[TResponseInputItem], model_settings: ModelSettings, tools: list[Tool], output_schema: AgentOutputSchemaBase | None, handoffs: list[Handoff], tracing: ModelTracing, *, previous_response_id: str | None, conversation_id: str | None, prompt: ResponsePromptParam | None) -> ModelResponse: ...

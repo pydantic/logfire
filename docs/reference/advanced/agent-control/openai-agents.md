@@ -71,7 +71,7 @@ It **returns a copy** of the agent you passed, and never modifies that one: it k
 | `name` | The name the config is keyed on, as `agent__<name>`. Defaults to `agent.name`, which the SDK already requires and already puts on this agent's spans, so the config and those spans agree by construction. |
 | `label` | The label to resolve, such as `'production'`. `None` lets the variable's own targeting rules and rollout choose. |
 | `on_unmatched` | What to do about a published entry that reaches nothing here. `'warn'` (the default) says so once per process, `'error'` fails the request, `'ignore'` says nothing. |
-| `publish_baseline` | Whether to publish the code baseline the editor diffs against, on the first model request. Turn it off when the variables token is intentionally read-only. |
+| `publish_baseline` | Whether to publish the code baseline the editor diffs against, on the first model request. Turn it off when the variables token is intentionally read-only; nothing is then built or resolved for it either. |
 | `logfire_instance` | The Logfire instance to resolve and publish through. Defaults to the global one. |
 | `instructions` | The prompt as named blocks; see below. |
 | `provider` | The `ModelProvider` that resolves model names, defaulting to `MultiProvider()` — the SDK's own default. |
@@ -123,7 +123,7 @@ Each key is a block someone can rewrite or remove in Logfire on its own. Fixed b
 | `seed` | — | No | As `top_k`. Reported. |
 | `stop_sequences` | — | No | As `top_k`. Reported. |
 | `timeout` | — | No | `ModelSettings` carried no such field before `openai-agents` 0.22, and where it does, the runner reads it off the settings *before* a model wrapper is handed them — so a value applied here would be shown as applied and never be. Reported. |
-| A function tool's name, description, and parameter descriptions | the tool's own name, grouped by toolset | Yes | Parameter names, types, requiredness, and the implementation stay code-defined. A rename onto a name another tool, a handoff, or a hosted tool already answers to is refused and reported, while that override's other patches still apply. |
+| A function tool's name, description, and parameter descriptions | the tool's own name, grouped by toolset | Yes | Parameter names, types, requiredness, and the implementation stay code-defined. A rename onto a name another tool, a handoff, or a hosted tool already answers to — or onto `auto`, `required` or `none`, which a `tool_choice` is read as modes under rather than as names — is refused and reported, while that override's other patches still apply. |
 | Hosted tools — web search, file search, hosted MCP, computer use, code interpreter | — | No | The SDK sends them as configuration and shows the model no description or schema of its own, so there is nothing to patch. They are not listed in the baseline, and an override naming one is reported as matching no tool. |
 
 Tools an MCP server contributed are editable like any other and are grouped in the editor under `mcp:<server name>`; an agent exposed with `Agent.as_tool` is grouped under `agent:<agent name>`, and everything else under `<agent>`.
