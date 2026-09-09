@@ -1,0 +1,213 @@
+interactions:
+- request:
+    body: '{"include":[],"input":[{"content":"What is the weather in Paris?","role":"user"}],"instructions":"Use
+      your tools to answer. Answer in one short sentence.","model":"gpt-5.4-nano","reasoning":{"effort":"none"},"text":{"verbosity":"low"},"tools":[{"name":"lookup_weather","parameters":{"properties":{"city":{"description":"The
+      city to look up, for example ''Paris''.","title":"City","type":"string"}},"required":["city"],"title":"get_weather_args","type":"object","additionalProperties":false},"strict":true,"type":"function","description":"Look
+      up the current weather in a city."}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '578'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.20.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '1'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/61WO5PbNhDu71dw2Lg5aSidHqS7TCZxihQeT+wiOQ9nRS4lRCBA43E65Ub/PQuA
+        pEieLnHhRhL3wy728X1LvdxFUczK+H0UK9RNnmyXqxIetlW1rBbrMk2SDcACsxUsV9Uq3ZaL3SZd
+        IhSbTbUpy3T3EN+7EHL3NxamCyOFxmAvFILBMgeHLbZpmmXrbLHymDZgrHY+hawbjnQuOO2gOO6V
+        tMLlVQHXGMyMcyb2ZHuhRzI0cEbl/Et8Qi4beiDgEi7uQt68GpWSzlNYzr2hUvjNoijOeYMCuDkT
+        mMwTjzHRBctLNMC4HnoyoY2yhWFUtMvls8boLK2KjJRc02cEQp9QzaOf/HfERCQFRvoglYk0CkPX
+        4jxUXsNzLq1prMmNPKIY3eRAFzQvgI9zqGWJ3F2+b8xsPV/NBAg5WybLzSx5mC22cX9KgUt06Buu
+        I8tfvqmhtT0pquI/KLFN14mjRLrN0iTLimqZprheh9H7IObcoA9jhe+QT/0Kv8UAD4La25ra4/GX
+        x7hg5vwYv3+MP4Ji+jG+XI+6qHlI2P98yD7syz8/nX45yg+fT+LX3/758u3Lp1N29RBQ+8S4lEfb
+        5Cdi6SHQhwhEn199bxpQFA75uO007kDIhrjuhneDMwQ9MWl13skhpNd3vVFUsKGQxQHzI57fxBQ1
+        RbQzi5erQxglqUpLMRJDIYlJz16ChVWKnHJjlWhLjrGqiG8OFcS+zuoo4Ww0CFGC6rofa1vXoLqs
+        elFpqNCcqRSXUsVwJCGN6olRMwzrRFmB5SZutS4VDntnsG4cG603L9q2tRW0JVHGNVyfB3zy58Kw
+        2oyfUO2kZn4INNXTdROE2R0k5eYwsEbGV8Bq2OP1SlbTY75HMbyViZEgk/tbwGA3dI59vNeuba0D
+        pAUuffDpHkhuIz/8XiMN8OmBrs0n3OUaQRWHYYOErXO/QLUZuIwmoF9vmOlyuKqzRF0o1nS0/51E
+        GtkmIolGLbejVrFum0LkVsP8f8U97Z8mfdUwoHD7UlHkblBNOkqqJMISucd2p7zAuqHtdQ1/uNzp
+        oHsh8FDPfUQEj/AZ3OqL3vm19u5aRtclZriv5md3zRRsW0ivILcMBuCl/30ZzN4NiSks+2EMS+gN
+        X4ds6a7fo+k6mdNq1vHwUJtG+y9ggEBZMtcC4B+H/fMv9VfMc1X4PxFuS0xWsZFNzuWeprDrCe2N
+        jd+6WRoMirjUveLikmnY8e5fxVTpY1Gn6f3d92g6Dmv5pJi5pa8Al2/JZ6rpRXoLuHVtv/HfCj2R
+        7SLZ9Pqzerypid5QgnHUf7ncXf4F69gyEgQKAAA=
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:18:34 GMT
+      openai-processing-ms:
+      - '613'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '180000000'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"include":[],"input":[{"content":"What is the weather in Paris?","role":"user"},{"arguments":"{\"city\":\"Paris\"}","call_id":"call_39GgdZRwEkoGUwnFHzVqVRw9","name":"lookup_weather","type":"function_call","id":"fc_0724da37ff2f15d8006aa1e94a785087d18798099cf288e55e","status":"completed"},{"call_id":"call_39GgdZRwEkoGUwnFHzVqVRw9","output":"sunny
+      in Paris","type":"function_call_output"}],"instructions":"Use your tools to
+      answer. Answer in one short sentence.","model":"gpt-5.4-nano","reasoning":{"effort":"none"},"text":{"verbosity":"low"},"tools":[{"name":"lookup_weather","parameters":{"properties":{"city":{"description":"The
+      city to look up, for example ''Paris''.","title":"City","type":"string"}},"required":["city"],"title":"get_weather_args","type":"object","additionalProperties":false},"strict":true,"type":"function","description":"Look
+      up the current weather in a city."}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '886'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.20.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/61WTW/jOAy991cIvsylCWwnaZK9Lfa6hznsngYDg7HpRBtb8uqjaVDkvy8l2Y7s
+        JsAcFijamk8kRfLx2Z8vjCW8Sn5jiULdFek2X1ew2tZ1XmebapembwAZ7teA2Wq321YZvEFWrnIo
+        16vD27paJa8uhDz8g6UZwkihMdhLhWCwKsBh2Xa32+83+2ztMW3AWO18Stl2DdK54HSA8nxU0gp3
+        rxoajcHMm4aLI9k+6ZEMHVxROf8K37GRHT0QcAuJh5Cz1BuPolLSeQrbNN5QK/zXoiivRYcCGnMl
+        MF2mHuNiCFZUaIA3OvbkQhtlS8OpaHeXvzWyq7SKGSkbTb8ZCH1BtWS/+7+MCyYFMn2SyjCNwlBa
+        XIbKW/gopDWdNYWRZxSTTA50QYsSmukdWllh45IfO7PYLNcLAUIu8jR/W6SrRbZNxlMK3EVj35CO
+        LD98U0NrR1K0+vicE4dVnntO7FZ1ua+xrjZlXdV17fP5KObaoY+DWsMR78Cz4XuwlK4r90vFF5uE
+        HXqFH2b09gdACGlgGMqPnxOwkcdOycMDxAeiuH+dkF2Iuacwr++guGb0o60Q12Uyutz6/8YoSXcC
+        7a9Wc+JREWZ/r0zJxqOgNacWUI0vQxwfgzitaLrYTCdNDAs70NF6Ob48oClB71xaXQwbWPgRjoOm
+        ktvOUMjyhMUZr08xha75gSZJvj4F9tAiaykm++fHFBpWWqXIqTBWib7aBOuaKO5QQYQfrI6Fzuaq
+        r0ANU0+0bVtQw63GPdZQo7lSKe5KNcfJ1mpU75yaYfigAzXYJlCBEkiFce8Mtp1bAOvNWd+2voK+
+        JLpxC/fniGr+XBhWf+N3VAepuR8CcepyF58wu5Oku/lhWyOTO2D9JowpeUuPxRFFnJWLiQakr4+A
+        SI7u29HH++ra1xohPXAbg8+lJ32M/O95De1qMz8wtPmCh0IjqPIUN0jYtvCarU3kMpmA/ipqwzBr
+        K7xi3xezQl0q3g20/1PKM7MdIwVgPbdjQQBW0tyXd3cBLQYayLPtiv5oMu+fpv1qIaJw/x5T5G5Q
+        zTpKW0mEJXJP7W7zAuti29canIi5g+4d1IR6XhkRnOEHOMll37yufVtOpNN1iZugUn+4NHOwbyG9
+        9ZwYRODtLovR7N2QuMJqIuZDCaPhZ8yWIf0RzdDJAtRRJ/Gh4Q0QPjwiBKqKuxZA8z3un/+O+MI8
+        V4X/bnEqMZNiI7sielWko7HzqrvfBYMiLg1v1aTiGg7N8CEz3/TpUmd59vryK0udBF2+KG4eLViA
+        q2f7M1/qLHsEPEo7Sv6z0LO9zVb5uIBWT6Wa+A0VGMf9z9vL7T/K2NqBeAoAAA==
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:18:35 GMT
+      openai-processing-ms:
+      - '581'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '180000000'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+version: 1

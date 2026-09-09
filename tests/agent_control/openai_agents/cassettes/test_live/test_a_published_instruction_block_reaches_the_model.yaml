@@ -1,0 +1,102 @@
+interactions:
+- request:
+    body: '{"include":[],"input":[{"content":"What is the capital of France?","role":"user"}],"instructions":"Reply
+      with exactly the word BANANA.\n\nNever add punctuation.","model":"gpt-5.4-nano","reasoning":{"effort":"none"},"text":{"verbosity":"low"},"tools":[]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '253'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.20.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/61VTXPiOBC951e4fA4pG0iw5zbzA+aw18mWq5HboI0safURQqX479uSbGOzZGoP
+        CxfUT/35XovPhyzLeZt/y3KDVjdFscV2UyMruw4LqIriBaDEervb0qfatWW1XrOy3q+rlsywrfPH
+        EELt/0LmxjBKWkx2ZhActg0ErNxVVV0/12UZMevAeRt8mOq1QLqXnPbA3g5GeRnq6kBYTGYuBJcH
+        sn3SkQwazmiCf4vvKJSmAwGXlHgMeTc1GqOCp/RCRENn8G+Pkp0bjRKEOxNYPBUR43IM1rTogAs7
+        9+TSOuOZ49R0qOUP1OKcnbg7ZvgBzNHBHTE7KdNmP77/pO/Tq3yVP6lkk0HbZtpL5jyEAE+p/x4+
+        GuWd9q5x6g3lIl8AnVKiYSCWlfSqRRFKOGi3en7ariRItVoX65dVsVmVu3y6ZWK2uW9KR5ZfcbRp
+        wJM0env4jTIYK6qgDCjqalevO2y3G4RiE/PFKO6sMcZBa+GAV+ArCUSQKelQXouaF7YIO84KP9zk
+        HS+AlMrBSM2vPxegUAdt1P4OEgNR3ERXPkGX4dd0O9dHsLGEjpNqGpD2RCKcYKNERMFaTq1SLw9j
+        nBiDFGyIRRRLRklPSfGalolEiXdESdA7V9424741kaqJUGqt145CsiM2b3j+EjMYhpzkkK+3x6QS
+        Wlur5GLbIh1pMMwbQ06N80YO3ebYdcpEVCo5UhzVFmyh+xbMyG5ufd+DGauattZCh+5MrYSSOo6L
+        HbVo3jkNw/Fx6zvwIlFOCZTB+ewc9joI3UdzOYxt6GBoiSru4XqeSSreS2QNFdO67pXlkQTSzun6
+        1CTujopqi2R7p/Ir4KPip5S8p2NzQDnPyuVi14vHe8Ds8bluwRDv365DrzNkAC5T8NsnpriP/O95
+        He2kuL0wjvmE+8YiGHacD0j6vokvtHUzlwUD1z2mo25m211MRh0XqK6SwdDDOz6Eecst7MX4D3RL
+        2pKfdf348F/oydOGnQx390aV4ParSdzS83LPfi/rtLtfRb4hYPM8DdLb5cr1FL0FByH85eHyD+z4
+        r4cuCAAA
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:18:33 GMT
+      openai-processing-ms:
+      - '2120'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '180000000'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+version: 1
