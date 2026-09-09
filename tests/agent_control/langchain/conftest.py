@@ -54,6 +54,9 @@ def _join_baseline_publishes(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     yield
     for thread in threads:
         thread.join(timeout=10)
+        # A timed-out join returns as if it had succeeded, so the race this fixture exists to close
+        # would come back as an unexplained failure in whichever test ran next. Fail here instead.
+        assert not thread.is_alive(), 'a baseline publish was still running when the test ended'
 
 
 def publish(provider: LocalVariableProvider, value: Any, *, name: str = AGENT_VARIABLE, label: str = 'production'):
@@ -233,3 +236,4 @@ def wait_for_publish(middleware: AgentControlMiddleware) -> None:
     thread = control._publish_thread  # pyright: ignore[reportPrivateUsage]
     if thread is not None:
         thread.join(timeout=10)
+        assert not thread.is_alive(), 'the baseline publish did not finish'

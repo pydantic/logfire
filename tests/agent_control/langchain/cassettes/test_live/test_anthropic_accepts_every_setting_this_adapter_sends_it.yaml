@@ -3,7 +3,7 @@ interactions:
     body: '{"max_tokens":256,"messages":[{"role":"user","content":"Say OK."}],"model":"claude-haiku-4-5-20251001","stop_sequences":["NEVERMIND"],"system":[{"type":"text","text":"You
       are a weather assistant. Always use your tools to answer."}],"tool_choice":{"type":"auto","disable_parallel_tool_use":true},"tools":[{"name":"get_weather","input_schema":{"properties":{"city":{"description":"The
       city to look up.","type":"string"}},"required":["city"],"type":"object"},"description":"Get
-      the current weather for a city."}],"temperature":0.4,"top_k":5}'
+      the current weather for a city."}],"top_k":5,"temperature":0.4}'
     headers:
       accept:
       - application/json
@@ -48,41 +48,37 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/3WRYUvDMBCG/8t9bqWplkE/ujEEEX+ASIjNbY1Lk5pcxqT0v3uZFp3ip4T3eZLL
-        XSYYvEYLLXRWJY1lr8whlTdlU9ZV3YiqElCA0SwMcS8rIdZIxp/86/ZBiLvN7nZbrzcbduh9xGxh
-        jGqPHARvc6BiNJGUI4467wh51z5Ni094yuS8tPB4fwXz86eojMMArUvWFhDJjzKgit6xhk5LSsHB
-        F4j4ltB1eGFr5CtsXLJ0flY7gXFjIkn+gI7h9WrF5VTXo+z4fu7NyUujWjhj/R9bzuYCOPY4YFBW
-        NsNf/5uK/jedC/CJfkYNN4PhaDqUZPI4IM9Sq6Dzt7gdhty33KNn5DxJdeSm1QuPfp4/AGrk1o/d
+        H4sIAAAAAAAA/3WR3UrEMBBG3yXXrbS7lmJvvRQUFv9AJMRkbOOmk5pMFmXpuztZLbqKVwnfOclk
+        JnsxegNOdEI7lQyUg7LbVJ6WTbmqVk1dVbUohDUsjLGXVV2fA403ly8bf2c2t3SvrtszvWaH3ifI
+        FsSoeuAgeJcDFaONpJA40h4JeNc97Bef4C2Tw9KJq4sTMT9+isoiBNFhcq4QkfwkA6jokTVAIykF
+        FF8gwmsC1HBkG+ArXFyydHhWtxcWp0SS/BaQ4bptuZzSA0jN95P1KI+NauGMzX9sOZsLwDTACEE5
+        2Yx//W9aD7/pXAif6GfUcDMQdlaDJJvHIfIsjQomfws+Q8h9yx48I/Qk1Y6bVk88+nn+AAPCObfd
         AQAA
     headers:
-      anthropic-organization-id:
-      - 44ae676c-958f-4d68-9108-eae9de7b366b
       anthropic-ratelimit-input-tokens-limit:
       - '10000000'
       anthropic-ratelimit-input-tokens-remaining:
       - '10000000'
       anthropic-ratelimit-input-tokens-reset:
-      - '2026-09-09T23:19:32Z'
+      - '2026-09-09T23:54:27Z'
       anthropic-ratelimit-output-tokens-limit:
       - '2000000'
       anthropic-ratelimit-output-tokens-remaining:
       - '2000000'
       anthropic-ratelimit-output-tokens-reset:
-      - '2026-09-09T23:19:32Z'
+      - '2026-09-09T23:54:27Z'
       anthropic-ratelimit-requests-limit:
       - '20000'
       anthropic-ratelimit-requests-remaining:
       - '19999'
       anthropic-ratelimit-requests-reset:
-      - '2026-09-09T23:19:32Z'
+      - '2026-09-09T23:54:27Z'
       anthropic-ratelimit-tokens-limit:
       - '12000000'
       anthropic-ratelimit-tokens-remaining:
       - '12000000'
       anthropic-ratelimit-tokens-reset:
-      - '2026-09-09T23:19:32Z'
-      anthropic-workspace-id:
-      - wrkspc_01L52HbY7uCkD17LL3R3voXT
+      - '2026-09-09T23:54:27Z'
       cf-cache-status:
       - DYNAMIC
       connection:
@@ -94,15 +90,15 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:33 GMT
+      - Wed, 09 Sep 2026 23:54:27 GMT
       request-id:
-      - req_011CetioxKhNHwXMTfZRkS73
+      - req_011CetmUNBC21F1GUV8EhePa
       server:
       - cloudflare
       strict-transport-security:
       - max-age=31536000; includeSubDomains; preload
       traceresponse:
-      - 00-236d1b4291e240fedd5af9ceded684eb-a01a0958af51c01f-01
+      - 00-6d5e3b1a5affee5ff12a7549e539c7bc-8d35c8d100f107f0-01
       transfer-encoding:
       - chunked
       vary:

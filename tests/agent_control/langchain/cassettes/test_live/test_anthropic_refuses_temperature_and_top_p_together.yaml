@@ -46,12 +46,8 @@ interactions:
   response:
     body:
       string: '{"type":"error","error":{"type":"invalid_request_error","message":"`temperature`
-        and `top_p` cannot both be specified for this model. Please use only one."},"request_id":"req_011CetipNYURvQfBMHcGjs41"}'
+        and `top_p` cannot both be specified for this model. Please use only one."},"request_id":"req_011CetmUrM6cAtioiTNseSSq"}'
     headers:
-      anthropic-organization-id:
-      - 44ae676c-958f-4d68-9108-eae9de7b366b
-      anthropic-workspace-id:
-      - wrkspc_01L52HbY7uCkD17LL3R3voXT
       cf-cache-status:
       - DYNAMIC
       connection:
@@ -61,15 +57,15 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:38 GMT
+      - Wed, 09 Sep 2026 23:54:33 GMT
       request-id:
-      - req_011CetipNYURvQfBMHcGjs41
+      - req_011CetmUrM6cAtioiTNseSSq
       server:
       - cloudflare
       strict-transport-security:
       - max-age=31536000; includeSubDomains; preload
       traceresponse:
-      - 00-11dd7809cc43305b30207b6f03d8d9c2-adbe69e611d75eca-01
+      - 00-ef2e1f85631247ef32e271c569dc5e79-88c1046f042debba-01
       transfer-encoding:
       - chunked
       vary:

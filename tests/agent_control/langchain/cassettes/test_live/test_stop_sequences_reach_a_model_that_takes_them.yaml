@@ -42,14 +42,14 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/6rmUlBQykxRslJQSs5ILEnOLcjRdfX1KcpwDAQAAAD//41S0W7CIBR99ysMz62x
-        Wlv7BybL4sPetpgG6W2Lo8CAbprFfx9QlW5zyV5IuOeeyzmHOz/2pxaeNsvD86Pavh26XMjNB4oc
-        Q+wPQMyVNSPC8sBQwQeYKMAG3NQkX6+LYlXkSw90ogLmaI00cTpLYo65iBfzxSqep3GSXuitoAS0
-        7Xux1+n0059OKK/gaMvz6FrpQGvcgK1dm2xRCeYqCGtNtcHcoCiARHAD3GvfPszGiIK619jJ4z1j
-        IwBzLgx29rym3QU531Qw0Ugl9voHFdWUU92WNg1to7EvaiMk8ujZnjvvtv9mANlBnTSlEa/gn8vW
-        wzgUQg7g8oIZq4+Fcp5Ed4aVFRhMmR6FhQgmLVSBGZLFfUXFCJiMLP/Wcm/2YJvy5j/jA0AISLs8
-        pVRQUfLdb2hT4Dbwr7ZbxF4w0qDe7UaVhoJy31BBjXs2rAXSJ22gK+1fNaCkosNu1LIk+7rIsowU
-        KZqcJ1+DBInJKgMAAA==
+        H4sIAAAAAAAA/6rmUlBQykxRslJQSs5ILEnOLcjRdfX1DQgtrgAAAAD//41Sy27DIBC85ysiznHk
+        RI5jH6NW6qGHqKceqggRvLZJMCDATasq/17Adu30IfWCxMzOMjvs6VzHT+fkfneBi3jYk7vNbp88
+        o4VXyOMJqB1USyqdDiyToqOpBmLBd11tsyzPszjNAtHIAriXVcpGyXIVCSJktI7XmyhOolXSy2vJ
+        KBhX9+Ku8/lHOL1RUcCbg+PFgDRgDKnAYUORA7XkHkHEGGYsERYtRpJKYUEE7/vHKaGhbA3x7kTL
+        +YQgQkhL/HTB0qFnrl8muKyUlkfzTYpKJpipsQvDuGTcg8ZKhQJ7dechDNve+EeuUaMstvIM4bku
+        uOB7yHgk1z1nnT8+wts+n9tmuABLGDeTrBAltIZiVI7BkrZgckLMJiP/9PJb725sJqr/tB8JSkG5
+        3cFKQ8Ho7bxjmQa/gH+VfUUcDCMD+tUtFLYMtP+GAkrS8m4rkHk3Fhrs/qoCrTTrVqNUmB7LPE1T
+        midodp19Al8I7IIpAwAA
     headers:
       access-control-expose-headers:
       - X-Request-ID
@@ -66,9 +66,9 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:33 GMT
+      - Wed, 09 Sep 2026 23:54:28 GMT
       openai-processing-ms:
-      - '416'
+      - '504'
       openai-version:
       - '2020-10-01'
       server:

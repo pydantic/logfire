@@ -44,15 +44,15 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/41T32+bMBB+569Afg5VoEtS8rYt3aStqyrlcamQax/gxdjUNt2yKP97bZOA02bS
-        eEBw333347u7fRTHiFG0jBGpsSFNy5PbH3eq3F5/Wz1//Lql99+re75l8+xzB5l6QRPHkE+/gJgT
-        64pIywPDpOhhogAbcFHTxc1Nns/yReqBRlLgjla1JpldfUgEFjLJptk8mV4n6eJIryUjoK3fT/sb
-        x3v/doUKCn+seTo5WRrQGldgbScna1SSOwvCWjNtsDBoMoJECgPC1S46zgPASMkLgjkfE/fPPvge
-        1bKORfOJwHqWyqf1Q/Wwus3Xqsm+/F09B/n60LvWF1R2ggwqBfhgX75JZjGBG8+twBS/raw1qDd0
-        64RV1TW2K1c62m8QYWa3QcsNupOCSrFBB3RGOUSXvh8DNRSUncb8vUxYCGmwq9br9HhEDsNISiaY
-        rgu7Atp3FAobnRL6VKg7mx1qld0jUxi5BR88nWV9VDQuWIAujqCx9fDAPs8nF+IVFAxmfrjDPhFM
-        aqAjddwr3FEmAyAKenxfzaXYff9MVP8TfgQIgdaeTtEqoIycdzy6KXD39y+3QWVfMNKgXuw9FYbZ
-        1bHzoFDijvdHgfROG2gKO7QKVKvYcBnRIXoF0cM4Ch0EAAA=
+        H4sIAAAAAAAA/41TTY/aMBC951dEPpMVSYEA11W7YrXbIvXWsoqMPSTeOnZkO90C4r/XdiAxu1Rq
+        DlEyb958vJk5RnGMGEXLGJEKG1I3PPn8/Lz+flh9+boXrL7PniaT7SqtG7F+nbcUjRxDbl+BmAvr
+        jkjLA8Ok6GCiABtwUdN8Pl8s5uPZzAO1pMAdrWxMMr2bJAILmWTjbJaMPyVpfqZXkhHQ1u+n/Y3j
+        o3+7QgWFP9Y8Hl0sNWiNS7C2i5M1KsmdBWGtmTZYGDQaQCKFAeFqFy3nAWCk5AXBnA+Ju+cYfA9q
+        WcfiYbrNH6fb1bcfD2ujDvKQZ+nj5C0L8nWh940vaNcK0qsU4L19+S6ZxQSuPbcEU7xZWStQ7+jW
+        CauyrW1XrnR03CDCzH6Dlhv0JAWVYoNO6Ipyim59vwRqKNi1GvOPMmEhpMGuWq/Tyxk59SPZMcF0
+        VdgV0L6jUNjoktCnQu3V7FCj7B6Zwshf4IOn06yLioYFC9D8DBpbDw/ss8XoRryCgsHMD7ffJ4JJ
+        BXSgDnuFW8pkAERBjx+ruRW765+J8n/CDwAh0NjTKRoFlJHrjgc3Be7+/uXWq+wLRhrUb3tPhWF2
+        dew8KOxwy7ujQHqvDdSFHVoJqlGsv4zoFP0FBSHtER0EAAA=
     headers:
       access-control-expose-headers:
       - X-Request-ID
@@ -69,9 +69,9 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:31 GMT
+      - Wed, 09 Sep 2026 23:54:26 GMT
       openai-processing-ms:
-      - '366'
+      - '445'
       openai-version:
       - '2020-10-01'
       server:
@@ -101,8 +101,8 @@ interactions:
       message: OK
 - request:
     body: '{"messages":[{"content":[{"type":"text","text":"You are a weather assistant.
-      Always use your tools to answer."}],"role":"system"},{"content":"Say OK.","role":"user"},{"content":null,"name":"checkout","role":"assistant","tool_calls":[{"type":"function","id":"call_mBceS51obSPgPDE9Srm2FzDq","function":{"name":"get_weather","arguments":"{\"city\":
-      \"London\"}"}}]},{"content":"sunny in London","role":"tool","tool_call_id":"call_mBceS51obSPgPDE9Srm2FzDq"}],"model":"gpt-5.4-nano","frequency_penalty":0.2,"max_completion_tokens":256,"parallel_tool_calls":false,"presence_penalty":0.1,"seed":7,"stream":false,"temperature":0.4,"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
+      Always use your tools to answer."}],"role":"system"},{"content":"Say OK.","role":"user"},{"content":null,"name":"checkout","role":"assistant","tool_calls":[{"type":"function","id":"call_G5b7J5bIOZGPtrzoz721J4w2","function":{"name":"get_weather","arguments":"{\"city\":
+      \"London\"}"}}]},{"content":"sunny in London","role":"tool","tool_call_id":"call_G5b7J5bIOZGPtrzoz721J4w2"}],"model":"gpt-5.4-nano","frequency_penalty":0.2,"max_completion_tokens":256,"parallel_tool_calls":false,"presence_penalty":0.1,"seed":7,"stream":false,"temperature":0.4,"tools":[{"type":"function","function":{"name":"get_weather","description":"Get
       the current weather for a city.","parameters":{"properties":{"city":{"description":"The
       city to look up.","type":"string"}},"required":["city"],"type":"object"}}}],"top_p":0.9}'
     headers:
@@ -145,13 +145,13 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/41S0UrDMBR931eUPLdjrW5dfXPDF3X6ICgio2TJbRtNk5Kkooz9u0m6rR1O8CWQ
-        e+45nHPv3Y6CADGKrgJEKmxI3fDoZnWvyuuUrhbPy+XTi9zIh9dbSGSRMb1AoWPIzTsQc2CNibQ8
-        MEyKDiYKsAGnGqfzeZZNszTxQC0pcEcrGxNNx5eRwEJGySSZRZOLKE739EoyAtr2vdlvEGz964wK
-        Cl+2PAkPlRq0xiXY2qHJFpXkroKw1kwbLAwKe5BIYUB474934yGioGg1dvZEy/kAwEJIg10872m9
-        R3ZHFwUTTFe5Ta3tCKyyNrJBHt3Zd+1TtSdGUaPs0Exu5Ad42Xg+6/RQP80ene4xY43wASmLwzNy
-        OQWDGdeDsSCCSQW0p/YzxC1lcgCMBuF+mzmn3QVnovyPfA8QAo09k7xRQBk5Ddy3KXC39lfbccje
-        MNKgPu3t5IaBcougUOCWdweA9Lc2UOd2WyWoRjF/BW7Xo93oB/AMJC0JAwAA
+        H4sIAAAAAAAA/41SXUvDMBR9768oeW5HO13X+S6iYzgQfFBGieldG5cmIUmlc+y/m2Qf7XCCL4Hc
+        c8/hnHvvLghDREt0FyJSY0MayeL7xWL58po9EbJJHrPvpXzotm9ZQ7sundcocgzx8QnEnFgjIiwP
+        DBX8ABMF2IBTTad5PpvlSZZ5oBElMEerpIkno9uYYy7icTLO4uQmTqdHei0oAW373u03DHf+dUZ5
+        CZ0tJ9Gp0oDWuAJbOzXZohLMVRDWmmqDuUFRDxLBDXDv/Xk+GiIK1q3Gzh5vGRsAmHNhsIvnPa2O
+        yP7sYk051XVhU2s7AqusjZDIo3v7rnyq9sIoksoOzRRGbMDLpnl20EP9NHt0csSMNcIGpFkaXZEr
+        SjCYMj0YCyKY1FD21H6GuC2pGADBINxvM9e0D8Epr/4j3wOEgLRnUkgFJSWXgfs2Be7W/mo7D9kb
+        RhrUl72dwlBQbhElrHHLDgeA9FYbaAq7rQqUVNRfgdt1sA9+ABC/FlUJAwAA
     headers:
       access-control-expose-headers:
       - X-Request-ID
@@ -168,9 +168,9 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:32 GMT
+      - Wed, 09 Sep 2026 23:54:27 GMT
       openai-processing-ms:
-      - '351'
+      - '502'
       openai-version:
       - '2020-10-01'
       server:

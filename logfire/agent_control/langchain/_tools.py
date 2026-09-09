@@ -163,14 +163,25 @@ def _rename_call(call: dict[str, Any], names: Mapping[str, str]) -> dict[str, An
     return {**call, 'name': names[name]} if isinstance(name, str) and name in names else call
 
 
+def _rename_calls(calls: Sequence[Any], names: Mapping[str, str]) -> list[dict[str, Any]] | None:
+    """The calls with the renamed ones renamed, or `None` when none of them was."""
+    renamed = [_rename_call(cast('dict[str, Any]', call), names) for call in calls]
+    return renamed if any(new is not old for new, old in zip(renamed, calls)) else None
+
+
 def _rename_message(message: MessageT, names: Mapping[str, str]) -> MessageT:
     """One message, with every call it makes to a renamed tool saying the other name."""
     if not isinstance(message, AIMessage):
         return message
     updates: dict[str, Any] = {}
-    tool_calls = [_rename_call(cast('dict[str, Any]', call), names) for call in message.tool_calls]
-    if any(new is not old for new, old in zip(tool_calls, message.tool_calls)):
+    if (tool_calls := _rename_calls(message.tool_calls, names)) is not None:
         updates['tool_calls'] = tool_calls
+    # A call whose arguments the model malformed is kept beside the good ones rather than among
+    # them, and every integration replays it to the provider in the same array as the rest, so it
+    # is the same rename in both directions: back before the reply becomes state, forward again
+    # with the history. Left alone it would be the one call in a thread naming the other side.
+    if (invalid := _rename_calls(message.invalid_tool_calls, names)) is not None:
+        updates['invalid_tool_calls'] = invalid
     if isinstance(message.content, list):
         # Anthropic prefers `tool_calls` when a content block shares its id, but the blocks are what
         # a provider is replayed when it does not, so the name is translated in both places.

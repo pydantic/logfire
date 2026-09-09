@@ -43,15 +43,15 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/41TTW+jMBC98yuQz6FK2iYkufXzsNpWVVVtD5sKuWYAN8ZmbdMtG+W/72AScNqs
-        tBwQzJv35nsThCHhKVmGhBXUsrIS0c3dd83Wrw/P45v8Pn5nWTmVzUyf06sm/0NGLUO9vgGze9YJ
-        U8gDy5XsYKaBWmhVJ/F8vlhMF7O5A0qVgmhpeWWj6cl5JKlU0en4dBaNz6JJvKMXijMw6PcTf8Nw
-        495tojKFDzSPR3tLCcbQHNC2d0KjVqK1EGoMN5ZKS0YDyJS0INvcZS2EB1ilRMKoEEPg7tl430O3
-        0DG5u7iO72/V2Y+nOrt8TC+/WSWePy5+efE66aZyCWW1ZH2XPLy3Lz8FQ0zS0nGFUuu6Sn5jZwvQ
-        nxTQj+q8LrGwNnuyWRHGbbMiyxV5oJqbFdmSA8Y2OPb94vVDQ1YbKr42ikqpLG3zdZ162SHbfigZ
-        l9wUCS6BcTX5rQ32AV0oUh9Mj1QaN8kmVq3BiU9mk06VDCvmofEOtJiP8O3z0RG9JAVLuRtvv1GM
-        sgLSgTpsFq1Trjwg8Gr8ms0x7a5+LvP/kR8AxqDC40kqDSlnhxUPbhraC/yXW99llzAxoN/xohLL
-        cXNwHilktBbdWRDTGAtlgkPLQVea97cRbIO/xo28WB8EAAA=
+        H4sIAAAAAAAA/41TXW/aMBR9z6+I/EyqQFugvE0aQh3rhvqySaOyXOeSmDp26g8oQ/z3Og4kpmXS
+        8hAl99xz7vc+imPEMjSJES2IoWXFk+nDw+Kn+vG6md7oze/14+Dv/fYZbtVbOje/UK9myOc1UHNi
+        XVHpeGCYFA1MFRADtWp/NB7f3Y3T4cADpcyA17S8Msnt1U0iiJDJIB0Mk/Q66Y+O9EIyCtr5/XG/
+        cbz37zpRkcGbM6e9k6UErUkOznZyckYleW1BRGumDREG9TqQSmFA1LkLy3kAGCk5poTzLnDz7IPv
+        rlvOEd/PFnamv6xnX42dbzfT+ev3x2/D620Qr5HeVT6hlRW07VKAt/bJh2AOE6T0XC7li63w1nW2
+        APVBwfkRldvSFVZnj/ZLRJnZLdFkiRZEMb1EB3TGOESXvp+CfihYWU3450YRIaQhdb6+U09H5NAO
+        ZcUE0wV2S6B9TWFro1NAHwrZs+mhSrlNMtjIF/Di/WG/UUXdigXo6Agalw8P7ePeBT2cgSHMj7fd
+        KEpoAVlH7TaL2IzJAIiCGj9nc0m7qZ+J/H/kO4BSqNzx4EpBxuh5xZ2bgvoC/+XWdtknjDSojbso
+        bJjbHDePDFbE8uYskN5pAyV2Q8tBVYq1txEdoncIXK/3HwQAAA==
     headers:
       access-control-expose-headers:
       - X-Request-ID
@@ -68,9 +68,9 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:28 GMT
+      - Wed, 09 Sep 2026 23:54:23 GMT
       openai-processing-ms:
-      - '382'
+      - '436'
       openai-version:
       - '2020-10-01'
       server:
@@ -101,8 +101,8 @@ interactions:
 - request:
     body: '{"messages":[{"content":[{"type":"text","text":"You are a weather assistant.
       Always use your tools to answer."}],"role":"system"},{"content":"What''s the
-      weather in Paris?","role":"user"},{"content":null,"name":"checkout","role":"assistant","tool_calls":[{"type":"function","id":"call_MAD7NFo3VTufBRdBJtolWxAq","function":{"name":"lookup_weather","arguments":"{\"city\":
-      \"Paris\"}"}}]},{"content":"sunny in Paris","role":"tool","tool_call_id":"call_MAD7NFo3VTufBRdBJtolWxAq"}],"model":"gpt-5.4-nano","max_completion_tokens":2048,"stream":false,"tools":[{"type":"function","function":{"name":"lookup_weather","description":"Look
+      weather in Paris?","role":"user"},{"content":null,"name":"checkout","role":"assistant","tool_calls":[{"type":"function","id":"call_IGPuGsAjGDtuKwvEKqLRJ63w","function":{"name":"lookup_weather","arguments":"{\"city\":
+      \"Paris\"}"}}]},{"content":"sunny in Paris","role":"tool","tool_call_id":"call_IGPuGsAjGDtuKwvEKqLRJ63w"}],"model":"gpt-5.4-nano","max_completion_tokens":2048,"stream":false,"tools":[{"type":"function","function":{"name":"lookup_weather","description":"Look
       up the current weather in a city.","parameters":{"properties":{"city":{"description":"The
       city to look up, such as ''Paris''.","type":"string"}},"required":["city"],"type":"object"}}}]}'
     headers:
@@ -143,14 +143,14 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/41SQW7bMBC8+xUEj4JlWG7tRDkaza1FWyNIDkUgMORaYiORBHfVxAgM9Bv9Xl5S
-        krYjBUmBXghoZmc1O7tPE8a4VvyCcdkIkp1r88svn73auM31+mr5aQ03XbHeuTtn/ePX6+98GhX2
-        7idIOqlm0gYdkLbmQEsPgiB2Lc7Oz8tyWa7KRHRWQRtltaN8OfuYG2FsvpgvVvn8Q16cHeWN1RIw
-        1P0In4w9pTcaNQoeAzyfnpAOEEUNATsVBdDbNiJcIGokYYhPB1JaQ2CS942uG2LGPjBtWJZ9E15j
-        ljFNz7//YACwN2aXZbOx3MO2RxFnMH3bjghhjCURM0jGb4/M/sXqVhuNTRWiwZBT+D2SdTyx+/De
-        ptH7V9Nw50OyVJG9h9S2KJeHfnyIfMSujiQFJ+2AL4pi+k6/SgEJ3eIoPC6FbEAN0iFp0SttR8Rk
-        NN1bN+/1PkyuTf0/7QdCSnDhmCrnQWn5euKhzEO8yH+VvaScDHME/ytcWEUafNyEgq3o28OZcNwh
-        QVeFddXgndfpVuKyJ/vJX5c45ngvAwAA
+        H4sIAAAAAAAA/41STWsbMRC9+1csOi5es7bjr9xa3EMOAZNQKJSwKNLYViNLi2Y2xARD/0b/Xn9J
+        R7KdXdMEchHse/Nm37yZ116WCaPFdSbUVpLa1bb4dnu7Wk3L8LK8mizHP5bje/18N/uy/PrdP92I
+        flT4x1+g6KwaKM86IOPdkVYBJEHsOpzN54vFvJyOE7HzGmyUbWoqJoOrwknni1E5mhbluBjOTvKt
+        NwqQ637yZ5a9pjcadRpeGC77Z2QHiHIDjJ2LGAzeRkRIRIMkHYl+SyrvCFzyfuOyPF/JYDDP+5mh
+        v7//YKaaEJi3e+awcW6f54OuPsC6QRmHcI21HUI650nGEJLzhxNzePO6Ns7gtuJskIPi/yP5WiT2
+        wO9Dmr25GEfUgaOlivwTpLbDxeTYT7SZd9gzSezEtvhoeErssl+lgaSx2ElPKKm2oFtpG7VstPEd
+        oteZ7n837/U+Tm7c5jPtW0IpqPmaqjqANupy4rYsQDzJj8reUk6GBUJ45hOryECIm9Cwlo093onA
+        PRLsKl7XBkIdTDqWuOzeofcPh9M9PTADAAA=
     headers:
       access-control-expose-headers:
       - X-Request-ID
@@ -167,9 +167,9 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:29 GMT
+      - Wed, 09 Sep 2026 23:54:23 GMT
       openai-processing-ms:
-      - '409'
+      - '373'
       openai-version:
       - '2020-10-01'
       server:
@@ -189,7 +189,7 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '179999970'
+      - '179999967'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:

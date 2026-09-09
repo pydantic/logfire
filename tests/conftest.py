@@ -227,6 +227,10 @@ SENSITIVE_HEADERS = [
     'x-api-key',
     'x-request-id',
     'cf-ray',
+    # Not credentials, but the account and workspace a recording was made from, which a cassette
+    # committed to a public repository has no reason to carry.
+    'anthropic-organization-id',
+    'anthropic-workspace-id',
 ]
 
 

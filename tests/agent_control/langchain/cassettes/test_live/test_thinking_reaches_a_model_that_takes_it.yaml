@@ -46,41 +46,36 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/3WRTU/DMAyG/4vPHVrRdukVwYEh0QsXEIqyxmujpU5JHL6q/necQTU2xCnR+zyO
-        E2eE3ht0UEHjdDK42Omtw8V6UUIB1kjex1Yty/IK2Q6r6zrVG/N283l79/BYD+Lwx4DZwhh1ixIE
-        73KgY7SRNbFEjSdG2VVP4+wzvmdyWCq431zA9PwtaksYoKLkXAGR/aAC6uhJNCSjOAWCHxDxJSE1
-        eGIblCNcnLN0uFY1gqUhsWK/RxK4Wl5KO910qBo5n60ndWosZy7Y/Mfm2twAhw57DNqpdf/XP9Ky
-        O6dTAT7x72h9lhxfJRPsLO0ttSf1EcOrbVCxzcODPHmjg8mfSDsMeUqqRS+odX6rHUzTF7ZzZy/7
-        AQAA
+        H4sIAAAAAAAA/3WRT0vEMBDFv8ucu9CKPdibeNyDXgRBJKTNbBs3nXSTiSil393Jalm64inh/d78
+        ycsMozfooIHO6WRwd9Ctw129q6AAa0QfY6/KqnpAHp9f6vf7u2FP2j61J0qDePhrwuzCGHWPIgTv
+        sqBjtJE1sUidJ0a5Na/z6mf8zOR8NPC4h+Xtx6ctYYCGknMFRPaTCqijJ3EhGcUpEPyCiKeE1OHG
+        bVBauLhq6bxVM4OlKbFif0QSeFveyDjdDag66c/Wk9o6ypULNv+xtTYPwGnAEYN2qh7/+i+0Gq7p
+        UoBPvFnvSrm8SgIcLB0t9Zv6iOHDdqjY5vAgB290MPkP6YAhp6R69IJ651vtYFm+AaqW2Lv6AQAA
     headers:
-      anthropic-organization-id:
-      - 44ae676c-958f-4d68-9108-eae9de7b366b
       anthropic-ratelimit-input-tokens-limit:
       - '4000000'
       anthropic-ratelimit-input-tokens-remaining:
       - '4000000'
       anthropic-ratelimit-input-tokens-reset:
-      - '2026-09-09T23:19:36Z'
+      - '2026-09-09T23:54:31Z'
       anthropic-ratelimit-output-tokens-limit:
       - '800000'
       anthropic-ratelimit-output-tokens-remaining:
       - '800000'
       anthropic-ratelimit-output-tokens-reset:
-      - '2026-09-09T23:19:37Z'
+      - '2026-09-09T23:54:32Z'
       anthropic-ratelimit-requests-limit:
       - '20000'
       anthropic-ratelimit-requests-remaining:
       - '19999'
       anthropic-ratelimit-requests-reset:
-      - '2026-09-09T23:19:33Z'
+      - '2026-09-09T23:54:29Z'
       anthropic-ratelimit-tokens-limit:
       - '4800000'
       anthropic-ratelimit-tokens-remaining:
       - '4800000'
       anthropic-ratelimit-tokens-reset:
-      - '2026-09-09T23:19:36Z'
-      anthropic-workspace-id:
-      - wrkspc_01L52HbY7uCkD17LL3R3voXT
+      - '2026-09-09T23:54:31Z'
       cf-cache-status:
       - DYNAMIC
       connection:
@@ -92,15 +87,15 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:37 GMT
+      - Wed, 09 Sep 2026 23:54:32 GMT
       request-id:
-      - req_011Cetip3WjeE23V6768wBWn
+      - req_011CetmUVfPuPvGtBmWhMrx4
       server:
       - cloudflare
       strict-transport-security:
       - max-age=31536000; includeSubDomains; preload
       traceresponse:
-      - 00-52a2c16227b801fa98f3e9a6690f238b-9acf86b266e90bda-01
+      - 00-e84386224716fec48a52bbb3228808f4-c9b119a43f36e51d-01
       transfer-encoding:
       - chunked
       vary:

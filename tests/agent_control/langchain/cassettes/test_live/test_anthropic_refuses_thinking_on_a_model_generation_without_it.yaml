@@ -46,12 +46,8 @@ interactions:
   response:
     body:
       string: '{"type":"error","error":{"type":"invalid_request_error","message":"This
-        model does not support the effort parameter."},"request_id":"req_011CetipMUUw1kyPQYhTfNwd"}'
+        model does not support the effort parameter."},"request_id":"req_011CetmUpC7tdsPNKq3FHFK1"}'
     headers:
-      anthropic-organization-id:
-      - 44ae676c-958f-4d68-9108-eae9de7b366b
-      anthropic-workspace-id:
-      - wrkspc_01L52HbY7uCkD17LL3R3voXT
       cf-cache-status:
       - DYNAMIC
       connection:
@@ -61,15 +57,15 @@ interactions:
       content-type:
       - application/json
       date:
-      - Wed, 09 Sep 2026 23:19:38 GMT
+      - Wed, 09 Sep 2026 23:54:33 GMT
       request-id:
-      - req_011CetipMUUw1kyPQYhTfNwd
+      - req_011CetmUpC7tdsPNKq3FHFK1
       server:
       - cloudflare
       strict-transport-security:
       - max-age=31536000; includeSubDomains; preload
       traceresponse:
-      - 00-9a4c7ae0b7d9e9e3af5eced118fc5a04-5a834e411a7f5e32-01
+      - 00-41a2cb6e11c96c01d1fe6138a59705f4-41f70d4322cba1e1-01
       transfer-encoding:
       - chunked
       vary:

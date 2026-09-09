@@ -219,6 +219,23 @@ def test_a_call_in_provider_content_blocks_is_translated_too() -> None:
     assert tool_call_names(renamed) == ['lookup_weather']
 
 
+def test_a_call_the_model_malformed_is_translated_like_any_other() -> None:
+    # A call whose arguments the model did not close is parsed into `invalid_tool_calls` rather than
+    # `tool_calls`, and every integration replays it to the provider in the same array as the rest.
+    # Left alone it would be the one call in a stored thread naming the side it is not read by.
+    reply = AIMessage(
+        content='',
+        tool_calls=[{'name': 'get_time', 'args': {'city': 'Paris'}, 'id': 'call-1'}],
+        invalid_tool_calls=[
+            {'type': 'invalid_tool_call', 'name': 'get_weather', 'args': '{"city": ', 'id': 'call-2', 'error': None}
+        ],
+    )
+    renamed = rename_tool_calls([reply], {'get_weather': 'lookup_weather'})
+
+    assert [call['name'] for call in renamed[0].invalid_tool_calls] == snapshot(['lookup_weather'])
+    assert tool_call_names(renamed) == ['get_time']
+
+
 def test_content_that_calls_nothing_renamed_is_the_message_that_came_in() -> None:
     # A reply that carries provider content blocks but calls nothing this config renamed is not
     # rewritten, so a run with a published rename in it still sends on the objects it was given.
