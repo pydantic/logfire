@@ -22,7 +22,7 @@ If you don't see an agent you expect, widen the time range: the list only reflec
 Logfire detects agent runs from several telemetry conventions:
 
 - **OpenTelemetry GenAI** (`gen_ai.operation.name = 'invoke_agent'`): [Pydantic AI](https://ai.pydantic.dev) emits these natively, as does any SDK that follows the [GenAI agent conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md).
-- **OpenInference** (`openinference.span.kind = 'AGENT'`): frameworks instrumented with [OpenInference](https://github.com/Arize-ai/openinference), including LangGraph, CrewAI, smolagents, Agno, and the OpenAI Agents SDK.
+- **OpenInference** (`openinference.span.kind = 'AGENT'`): frameworks instrumented with [OpenInference](https://github.com/Arize-ai/openinference), including LangGraph, CrewAI, smolagents, Agno, and the OpenAI Agents SDK for Python.
 - **OpenLLMetry** (`traceloop.span.kind = 'agent'`): agents wrapped with Traceloop's `@agent` decorator.
 - **Framework-specific attributes**: Logfire recognizes the root spans emitted by Genkit and VoltAgent.
 
