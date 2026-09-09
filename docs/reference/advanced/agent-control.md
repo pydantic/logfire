@@ -80,6 +80,10 @@ Reading the `instructions` entries in order:
 
 A bare `"instructions": "text"` is also valid and means one added block, so a hand-written value gets the short form.
 
+One kind of block is deliberately out of reach: a **dynamic** block, one the agent recomputes on every request from whatever that run carries — today's date, the signed-in user, a retrieved document. Replacing it would pin one request's rendering forever and removing it would delete the computation, and either way the block stops doing what it was written to do, with nothing in the published value to say so. Addressing one is refused rather than applied, and reported as `dynamic-id` under [`on_unmatched`](#writing-an-adapter). Adding blocks and editing the static ones around it still works.
+
+Ordering follows from the same concern. A replaced block keeps its position and its static/dynamic side, and an added block lands at the end of the leading run of static blocks — after the last static block the agent assembles, before the first dynamic one. That is where a published addition is last in the prompt as written and still inside the prefix a provider can cache, so managing an agent's instructions does not cost you the prompt cache on every request.
+
 `settings` names the eleven canonical keys every framework has a knob for: `max_tokens`, `temperature`, `top_p`, `top_k`, `seed`, `presence_penalty`, `frequency_penalty`, `parallel_tool_calls`, `timeout`, `stop_sequences`, and `thinking`. Provider-specific settings and things like `extra_headers` stay in code. They are not part of the contract, and the config is stored where everyone in the project can read it.
 
 `tool_definitions` changes only what the model is *told* about a tool: its name and description, and its parameters' descriptions. Parameter names, types, requiredness, validation, and the implementation stay code-defined.
