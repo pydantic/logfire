@@ -211,7 +211,11 @@ def agent_control(agent, name, *, label=None):
     return agent
 ```
 
-Two things every adapter has to decide for its framework, because frameworks genuinely differ: whether a renamed tool reaches your implementation under its old name or its new one (`routes` gives you the mapping either way, and history the model already saw may need remapping too), and how the canonical `provider:model` string maps to its own model convention.
+Two things every adapter has to decide for its framework, because frameworks genuinely differ.
+
+The first is what a rename means on the way back in: whether a renamed tool reaches your implementation under its old name or its new one, and whether history the model already saw needs remapping too. `routes` is the mapping for that, and it is flat — advertised name to code name — so it is exact only under the default `collision_scope='global'`, where an advertised name identifies a tool by itself. An adapter that passes `collision_scope='toolset'` has said that two toolsets may advertise the same name, so it dispatches through `reverse`, keyed on `(toolset, advertised name)`, and rewrites outgoing names through `forward`. Reaching for `routes` there would send a call to whichever of the two got there first.
+
+The second is how the canonical `provider:model` string maps to the framework's own model convention. Pass a string with no `:` through untouched, so a framework-native id keeps working.
 
 ## Contract
 
