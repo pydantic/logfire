@@ -71,6 +71,10 @@ native `ToolLoopAgent` executes `weather`. You'll see spans for the agent, promp
 tool call in **Logfire**. Vercel AI SDK runs also appear in the specialized **Agents** view; the
 [support matrix](support-matrix.md) shows which columns each view populates.
 
+The current Agents reader detects the run but does not associate model calls through the SDK's intermediate
+`agent_step` span. Use the **LLMs** page for model and token totals. Aggregate model, token, and cost fields on the
+Agents list and Metrics tab remain empty.
+
 !!! warning "Common pitfalls"
     - **Register both pieces before running the agent.** Configure Logfire's global tracer provider and attach
       `new OpenTelemetry()` in the agent's `telemetry.integrations`.

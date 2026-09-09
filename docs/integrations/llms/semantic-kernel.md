@@ -69,8 +69,9 @@ if __name__ == '__main__':
 ```
 
 You'll see an `invoke_agent` span in **Live** and **Agents**, with child `chat.completions` and function-invocation
-spans. With the `SENSITIVE` flag enabled, the conversation is also available in the agent-run detail. Semantic
-Kernel runs also appear in the specialized **Agents** view; the
+spans. With the `SENSITIVE` flag enabled, the model span records the conversation for inspection in Live and
+Explore. The current specialized readers do not recognize Semantic Kernel's `chat.completions` operation for the
+LLMs page or aggregate agent model, token, and cost fields. Semantic Kernel runs still appear in the **Agents** view; the
 [support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
 !!! warning "Common pitfalls"

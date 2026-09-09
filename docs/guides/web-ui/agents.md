@@ -19,13 +19,20 @@ If you don't see an agent you expect, widen the time range: the list only reflec
 
 ## Supported frameworks
 
-Logfire detects an agent from either of two span conventions, so most agent frameworks appear on this page with no extra work:
+Logfire detects agent runs from several telemetry conventions:
 
 - **OpenTelemetry GenAI** (`gen_ai.operation.name = 'invoke_agent'`): [Pydantic AI](https://ai.pydantic.dev) emits these natively, as does any SDK that follows the [GenAI agent conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md).
-- **OpenInference** (`openinference.span.kind = 'AGENT'`): frameworks instrumented with [OpenInference](https://github.com/Arize-ai/openinference), including LangGraph, CrewAI, smolagents, Agno, AutoGen, and the OpenAI Agents SDK.
+- **OpenInference** (`openinference.span.kind = 'AGENT'`): frameworks instrumented with [OpenInference](https://github.com/Arize-ai/openinference), including LangGraph, CrewAI, smolagents, Agno, and the OpenAI Agents SDK.
+- **OpenLLMetry** (`traceloop.span.kind = 'agent'`): agents wrapped with Traceloop's `@agent` decorator.
+- **Framework-specific attributes**: Logfire recognizes the root spans emitted by Genkit and VoltAgent.
+
+Detection only determines whether a run appears on the Agents page. Model, token, cost, tool, and message fields depend on the attributes and trace relationships emitted by the framework. See the [agent framework support matrix](../../integrations/agent-frameworks/support-matrix.md) for the current behavior of each integration.
 
 !!! note "Cost for OpenInference-detected agents"
-    OpenInference spans don't report a per-call cost, so these agents show no cost in the Agents list and the **Metrics** tab. An individual run's **Summary** still shows an estimated cost, derived from its model and token counts.
+    The current reader does not populate aggregate agent cost from OpenInference model spans, so these agents show no cost in the Agents list and the **Metrics** tab. An individual run's **Summary** can still estimate cost from a recognized model and token counts.
+
+!!! note "OpenInference prompts and tools"
+    The **Info** tab can show a system prompt reconstructed from OpenInference input messages. The **Tools** tab can show definitions when the instrumentor records `llm.tools.*.tool.json_schema`. The full **Messages** tab does not yet read OpenInference message attributes.
 
 See the integration guide for your framework to set up the instrumentation that produces these spans.
 

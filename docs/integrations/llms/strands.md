@@ -57,6 +57,10 @@ as a nested timeline. The model and agent spans contain standard `gen_ai.input.m
 `gen_ai.output.messages` attributes for the conversation. Strands runs also appear in the specialized **Agents**
 view; the [support matrix](../agent-frameworks/support-matrix.md) shows which columns each view populates.
 
+The current Agents reader detects the run but does not associate the nested model call through Strands'
+intermediate event-loop span. Use the **LLMs** page for model and token totals. Aggregate model, token, and cost
+fields on the Agents list and Metrics tab remain empty.
+
 !!! warning "Message content is sensitive"
     By default, Strands records message and system-prompt content, which can include personally identifiable
     information (PII) and is sent to **Logfire**. Use [scrubbing](../../how-to-guides/scrubbing.md) to redact
