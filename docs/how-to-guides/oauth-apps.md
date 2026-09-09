@@ -18,7 +18,7 @@ You need permission to manage your organization's settings.
 Register the app in your own organization. Each customer separately approves access to their organization and, when applicable, a project.
 An administrator of the customer's organization must approve an app registered through organization settings.
 
-1. Open your organization settings and select **OAuth apps**.
+1. Open [OAuth apps in your default organization](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/developer/oauth-apps).
 2. Select **New OAuth app**.
 3. Enter an **Application Name** that customers will recognize on the consent screen.
 4. Choose an **Application Type**:
@@ -33,8 +33,6 @@ An administrator of the customer's organization must approve an app registered t
     Logfire shows a new client secret only once. Store it in your secret manager.
     Never embed it in browser code, mobile binaries, source control, or an authorization URL.
 
-The direct settings path is `/<organization>/-/settings/developer/oauth-apps` on your regional Logfire host.
-Keep the `/-/` segment: `/<organization>/settings/developer/oauth-apps` is not the organization settings route.
 If **OAuth apps** is missing, check your organization permissions and [contact us](../help.md) about app registration access.
 
 ## Configure your OAuth client
@@ -221,7 +219,7 @@ Your integration must handle a revoked grant by asking the customer to reconnect
 
 | Symptom | Check |
 | --- | --- |
-| The OAuth Apps URL returns 404 | Use `/<organization>/-/settings/developer/oauth-apps`, including `/-/`. |
+| You cannot find OAuth Apps | Open [OAuth apps in your default organization](https://logfire.pydantic.dev/-/redirect/default-org/-/settings/developer/oauth-apps) and check your organization permissions. |
 | `invalid_client` | Check the region, client ID, and active client secret. Public apps send a client ID without a secret. |
 | Authorization fails or returns `access_denied` | The customer must be an administrator of the selected organization. Check for declined consent and a callback URL that does not match registration. |
 | `invalid_grant` during exchange or refresh | Check the original PKCE verifier and callback URL. An expired or already-used code, or an invalid refresh token, requires a new authorization attempt. |
