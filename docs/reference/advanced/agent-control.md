@@ -166,21 +166,29 @@ def agent_control(agent, name, *, label=None):
                 published.reset(token)
 
     def before_request(request):
-        blocks = [Block(request.prompt, id='agent')]
+        # This framework's agent declares a prompt template and interpolates it per request, so the
+        # adapter can address the two halves separately: the template is the block someone edits
+        # from Logfire, and what this request interpolated into it is not.
+        blocks = [
+            Block(agent.prompt_template, id='agent'),
+            Block(request.interpolated, id='agent:context', dynamic=True),
+        ]
         tools = [ToolDef(t.name, t.description, t.parameters_json_schema) for t in request.tools]
         control.publish_baseline(
+            # The dynamic block goes in carrying its id and no text: the baseline is published where
+            # every project member can read it, and its text is one request's. `build_baseline` drops
+            # the text for it. Publishing the *static* block is what lets the editor offer the prompt
+            # for editing at all -- so an adapter whose framework hands it only a finished string,
+            # with no seam between the two, marks the whole thing dynamic and offers no prompt
+            # editing rather than publishing one request's rendering as if it were the code.
             build_baseline(
-                # The baseline is published where every project member can read it, and this
-                # framework hands the adapter a *rendered* prompt rather than the code that produced
-                # it -- so the block goes in as dynamic, which says that it exists without saying
-                # what this one request made it say. `build_baseline` drops the text for it.
-                instructions=[Block(request.prompt, id='agent', dynamic=True)],
+                instructions=blocks,
                 model=agent.model,
                 settings=canonical_settings(agent.settings),
                 tools=tools,
             ),
-            # This framework's prompt and tool list are only knowable once a request is assembled,
-            # so what is published describes *this* request rather than the code.
+            # This framework's tool list is only knowable once a request is assembled, so what is
+            # published describes *this* request rather than the code.
             source='observed',
         )
 
@@ -192,6 +200,7 @@ def agent_control(agent, name, *, label=None):
         # does fail and `'ignore'` really is silent, wherever the mismatch turns up.
         policy = control.on_unmatched
         applied_blocks = apply_instructions(blocks, config, on_unmatched=policy).blocks
+        # The same blocks the baseline described, so what the editor offered is what gets applied.
         request.prompt = '\n\n'.join(block.text for block in applied_blocks)
         applied = apply_tool_definitions(tools, config, on_unmatched=policy, reserved=request.provider_tool_names)
         by_name = {tool.name: tool for tool in request.tools}
@@ -288,7 +297,7 @@ Values are read **strictly** with respect to JSON types: `1` is a valid `tempera
 
 **Only what the model is told about a tool is editable.** A rename that collides with another advertised name, or with a name the adapter reserved for a handoff or a provider tool, is dropped under `on_unmatched` while that override's other patches still apply, so every tool keeps a name the model can call.
 
-**Publishing the baseline can lose a concurrent UI publish.** A missing variable is *created* rather than overwritten, an existing one is re-read immediately before the write, the write is skipped when that fresh read already carries this `example`, and the whole thing runs at most once per process per variable. What is left is one HTTP round trip: a value saved in the Logfire UI between that read returning and the write landing is overwritten by the older state. A deployment that can't tolerate that window passes `publish_baseline=False` and creates the variable in the UI.
+**Publishing the baseline can lose a concurrent UI publish.** The project's variables are fetched before anything is read, so "this variable does not exist yet" means missing in the project rather than merely absent from a cache nothing has filled — a process that publishes before it has ever resolved anything would otherwise try to create a variable that exists, be refused, and never sync again. A missing variable is then *created* rather than overwritten, an existing one is re-read immediately before the write, the write is skipped when that fresh read already carries this `example`, and the whole thing runs at most once per process per variable. What is left is one HTTP round trip: a value saved in the Logfire UI between that read returning and the write landing is overwritten by the older state. A deployment that can't tolerate that window passes `publish_baseline=False` and creates the variable in the UI.
 
 **The stored JSON schema is a contract, not a derived artifact.** `AGENT_CONFIG_JSON_SCHEMA` is maintained by hand and pinned by `SCHEMA_SHA256`, which the TypeScript SDK and the Logfire UI pin identically: whichever side creates a variable first is the one whose schema is persisted, and the Logfire backend validates every write against it.
 

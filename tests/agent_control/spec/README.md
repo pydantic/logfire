@@ -71,6 +71,6 @@ what has to match is which decision was taken.
 | `setting-value-invalid` | A setting carried a value of the wrong JSON type |
 | `tool-definitions-invalid-container` | `tool_definitions` was not an array |
 | `tool-definition-invalid` | One override failed validation |
-| `duplicate-key` | The same instruction `id`, or the same `(toolset, name)`, was written twice |
+| `duplicate-key` | The same instruction `id`, or the same `(toolset, name)`, was written twice (raised when a value is *applied*, not when it is parsed, so no vector here carries it) |
 | `baseline-value-not-describable` | A code-side setting value the contract cannot hold, left out of the baseline |
 | `baseline-timeout-not-representable` | A code-side `timeout` outside the representable range |

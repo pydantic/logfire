@@ -167,3 +167,13 @@ def test_a_number_is_not_a_boolean() -> None:
     with pytest.warns(UserWarning, match="setting 'parallel_tool_calls' has invalid value 1"):
         config = AgentConfig.model_validate({'settings': {'parallel_tool_calls': 1}})
     assert config.settings is not None and config.settings.parallel_tool_calls is None
+
+
+def test_an_empty_instruction_id_is_never_a_value() -> None:
+    # The stored JSON schema requires a non-empty id, so accepting one here would build baselines the
+    # Logfire backend rejects on write, and keep published entries that address nothing.
+    with pytest.warns(UserWarning, match="is invalid -- id=''"):
+        config = AgentConfig.model_validate(
+            {'instructions': [{'id': '', 'instructions': 'x'}, {'id': 'agent', 'instructions': 'y'}]}
+        )
+    assert [entry.id for entry in (config.instructions or []) if isinstance(entry, InstructionBlock)] == ['agent']

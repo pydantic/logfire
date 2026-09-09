@@ -9,8 +9,9 @@ def is_representable_timeout(seconds: float) -> bool:
     A timeout is representable when it is a finite, non-negative number of seconds no larger than
     [`MAX_TIMEOUT_SECONDS`][logfire.agent_control.MAX_TIMEOUT_SECONDS]. Everything else -- a negative
     budget, a `nan` that compares false against every deadline, an `inf` or an oversized value that
-    wraps a 32-bit timer -- is refused rather than clamped, because each of them would make a request
-    behave in a way nobody published: silently unlimited, or cancelled before it was sent.
+    wraps a 32-bit timer, an integer too large to be a float at all -- is refused rather than clamped,
+    because each of them would make a request behave in a way nobody published: silently unlimited, or
+    cancelled before it was sent.
 
     `0` is representable and means exactly what it says: a budget of no time at all.
     """

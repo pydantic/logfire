@@ -57,3 +57,9 @@ def test_an_unrepresentable_published_timeout_is_reported_and_left_out_of_the_pa
 def test_a_representable_timeout_is_applied_like_any_other_setting() -> None:
     published = AgentConfig.model_validate({'settings': {'timeout': 30}})
     assert apply_settings(published) == {'timeout': 30.0}
+
+
+def test_an_integer_too_large_to_be_a_float_is_refused_rather_than_raised() -> None:
+    # The bound has to be tested before `math.isfinite`, which raises `OverflowError` on exactly the
+    # oversized value this is here to refuse -- so refusing it must not be the thing that crashes.
+    assert not is_representable_timeout(10**400)

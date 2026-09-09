@@ -30,12 +30,17 @@ def is_representable_timeout(seconds: float) -> bool:
     A timeout is representable when it is a finite, non-negative number of seconds no larger than
     [`MAX_TIMEOUT_SECONDS`][logfire.agent_control.MAX_TIMEOUT_SECONDS]. Everything else -- a negative
     budget, a `nan` that compares false against every deadline, an `inf` or an oversized value that
-    wraps a 32-bit timer -- is refused rather than clamped, because each of them would make a request
-    behave in a way nobody published: silently unlimited, or cancelled before it was sent.
+    wraps a 32-bit timer, an integer too large to be a float at all -- is refused rather than clamped,
+    because each of them would make a request behave in a way nobody published: silently unlimited, or
+    cancelled before it was sent.
 
     `0` is representable and means exactly what it says: a budget of no time at all.
     """
-    return math.isfinite(seconds) and 0 <= seconds <= MAX_TIMEOUT_SECONDS
+    # Range first, and it is the whole test: `nan` compares false against both bounds and `inf`
+    # exceeds the upper one, so nothing infinite survives it. Calling `math.isfinite` first instead
+    # would raise `OverflowError` on an int too large to turn into a float -- which is exactly the
+    # oversized value this is here to refuse, so refusing it must not be the thing that crashes.
+    return 0 <= seconds <= MAX_TIMEOUT_SECONDS
 
 
 def to_milliseconds(seconds: float) -> int:

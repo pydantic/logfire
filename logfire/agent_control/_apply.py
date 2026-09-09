@@ -547,20 +547,25 @@ def canonical_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
         adapter = SETTING_ADAPTERS.get(name)
         if value is None or adapter is None:
             continue
-        if name == 'timeout' and isinstance(value, (int, float)) and not is_representable_timeout(value):
+        try:
+            canonical_value = adapter.validate_python(value)
+        except ValidationError:
+            warn_dropped(
+                f'The agent runs with {name}={value!r}, which the Agent Control contract cannot describe; '
+                'leaving it out of the published baseline.'
+            )
+            continue
+        # Judged after coercion, on the number that would actually be published: a framework holding
+        # its timeout as `'-1'` validates to `-1.0`, and checking the raw value would let a budget the
+        # contract refuses through on the grounds that it was not a number yet.
+        if name == 'timeout' and not is_representable_timeout(canonical_value):
             warn_dropped(
                 f'The agent runs with a request timeout of {value!r} seconds, which the Agent Control contract '
                 f'cannot describe -- it has to be finite, not negative, and no larger than {MAX_TIMEOUT_SECONDS} '
                 'seconds; leaving it out of the published baseline.'
             )
             continue
-        try:
-            canonical[name] = adapter.validate_python(value)
-        except ValidationError:
-            warn_dropped(
-                f'The agent runs with {name}={value!r}, which the Agent Control contract cannot describe; '
-                'leaving it out of the published baseline.'
-            )
+        canonical[name] = canonical_value
     return canonical
 
 
@@ -623,8 +628,19 @@ def build_baseline(
             if block.id is not None:
                 entries.append(InstructionBlock(id=block.id, dynamic=True))
             continue
-        if block.text.strip():
-            entries.append(InstructionBlock(id=block.id, instructions=block.text, dynamic=False))
+        if not block.text.strip():
+            continue
+        if _oversized(block.text):
+            # Every other code-side value the contract cannot hold is left out and reported; an
+            # oversized prompt must not be the one that raises, because `build_baseline` is called
+            # on the request path and a baseline is documentation that no request depends on.
+            warn_dropped(
+                f'The agent runs with an instruction block of {len(block.text)} characters, exceeding the '
+                f'{MAX_MODEL_FACING_TEXT_LENGTH}-character limit the Agent Control contract can describe; '
+                'leaving it out of the published baseline.'
+            )
+            continue
+        entries.append(InstructionBlock(id=block.id, instructions=block.text, dynamic=False))
     tool_definitions = [
         ToolDefinitionOverride(
             name=tool.name,

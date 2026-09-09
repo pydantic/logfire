@@ -214,8 +214,12 @@ class InstructionBlock(BaseModel):
     same `id` keep the first, with a warning.
     """
 
-    id: str | None = None
+    id: str | None = Field(default=None, min_length=1)
     """The id of the instruction block to address, or `None` to add a block.
+
+    `''` is not one: it is the same half-filled field `instructions=''` is, and the stored JSON schema
+    already refuses it, so accepting it here would let a baseline be built that the Logfire backend
+    rejects on write and let a published entry address a block no adapter can name.
 
     The contract keeps `id` free-form and reserves only `'agent'` as the cross-framework name for the
     prompt as written; the rest of the namespace belongs to each adapter, which documents its own and

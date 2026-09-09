@@ -7,6 +7,7 @@ from _typeshed import Incomplete
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from logfire import Logfire as Logfire
+from logfire._internal.config import LogfireConfig as LogfireConfig
 from logfire.variables import ResolutionReason as ResolutionReason, ResolvedVariable as ResolvedVariable, Variable as Variable, VariableAlreadyExistsError as VariableAlreadyExistsError
 from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
 from typing import TypeAlias

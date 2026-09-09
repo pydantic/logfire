@@ -7,7 +7,7 @@ import json
 import pytest
 from inline_snapshot import snapshot
 
-from logfire.agent_control import AgentConfig, Block, ToolDef, build_baseline
+from logfire.agent_control import AgentConfig, Block, InstructionBlock, ToolDef, build_baseline
 
 
 def published(baseline: AgentConfig) -> str:
@@ -203,3 +203,21 @@ def test_code_side_settings_are_read_leniently_because_they_are_not_json() -> No
 
 def test_an_agent_with_nothing_to_describe_publishes_an_empty_config() -> None:
     assert published(build_baseline()) == snapshot('{}')
+
+
+def test_a_code_side_timeout_is_judged_after_coercion_not_before() -> None:
+    # A framework holding its timeout as a string validates to a number, and it is that number the
+    # baseline would publish, so it is that number the contract has to judge.
+    with pytest.warns(UserWarning, match="request timeout of '-1' seconds"):
+        assert build_baseline(settings={'timeout': '-1'}) == AgentConfig()
+    baseline = build_baseline(settings={'timeout': '5'})
+    assert baseline.settings is not None and baseline.settings.timeout == 5.0
+
+
+def test_an_oversized_code_side_block_is_left_out_rather_than_raised() -> None:
+    # `build_baseline` runs on the request path in an observing adapter, and every other code-side
+    # value the contract cannot hold is reported and skipped; this one must not be the exception.
+    with pytest.warns(UserWarning, match='instruction block of 70000 characters'):
+        baseline = build_baseline(instructions=[Block('a' * 70000, id='agent'), Block('Be concise.', id='agent:style')])
+    assert baseline.instructions is not None
+    assert [entry.id for entry in baseline.instructions if isinstance(entry, InstructionBlock)] == ['agent:style']

@@ -22,6 +22,7 @@ from ._schema import AGENT_CONFIG_JSON_SCHEMA
 
 if TYPE_CHECKING:
     from logfire import Logfire
+    from logfire._internal.config import LogfireConfig
 
 BaselineSource: TypeAlias = Literal['code', 'observed']
 """Where a published baseline came from, which an adapter has to say because it changes what it means.
@@ -43,16 +44,19 @@ a description of the code from a description of one request that happened first.
 # prevents concurrent first requests from scheduling duplicate work, and means a failure is not
 # retried by every later request.
 #
-# Keyed on the variable *provider* rather than on the `Logfire` object, because the provider is the
-# destination and the wrapper is not: `logfire.with_settings(...)` returns a new `Logfire` over the
-# same configuration, so a framework that builds its agent -- and a tagged instance -- per request
-# would otherwise get a fresh key, and with it a publish per request and a mapping that grows for
-# the life of the process.
+# Keyed on the *configuration* rather than on the `Logfire` object, because the configuration decides
+# the destination and the wrapper does not: `logfire.with_settings(...)` returns a new `Logfire` over
+# the same configuration, so a framework that builds its agent -- and a tagged instance -- per request
+# would otherwise get a fresh key, and with it a publish per request and a mapping that grows for the
+# life of the process.
 #
-# Keyed on the provider's `id` rather than the provider, because a provider is a dataclass and so
-# unhashable, and identity is what is being asked about anyway. The provider is kept in the value to
-# make that safe: an `id` cannot be reused while the object it belongs to is still referenced.
-_baseline_publish_attempted: dict[int, tuple[VariableProvider, set[str]]] = {}
+# Keyed on the configuration's `id`, because `LogfireConfig` is a non-frozen dataclass and therefore
+# unhashable, and identity is what is being asked about anyway. The configuration is kept in the value
+# to make that safe: an `id` cannot be reused while the object it belongs to is still referenced.
+# Deliberately *not* keyed on the variable provider, which is the destination proper: reading it can
+# lazily construct a remote provider and start its polling and SSE threads, and this runs on the
+# caller's request thread.
+_baseline_publish_attempted: dict[int, tuple[LogfireConfig, set[str]]] = {}
 _baseline_publish_lock = threading.Lock()
 
 
@@ -95,6 +99,8 @@ def _publish_baseline(variable: Variable[AgentConfig], example: str, source: Bas
     `If-Match` input. Everything a client can do to narrow that window is done here, and it is worth
     being exact about what is and is not left:
 
+    - The provider is fetched before anything is read, so "missing" means missing in the project
+      rather than merely absent from a cache nothing has filled yet; see `_fetch`.
     - The variable is only ever *created* when the read says it is missing, so the common case for a
       new agent involves no overwrite at all.
     - An existing variable is re-read immediately before the write, and the object written is that
@@ -120,6 +126,7 @@ def _publish_baseline(variable: Variable[AgentConfig], example: str, source: Bas
     logfire_instance = variable.logfire_instance
     provider = logfire_instance.config.get_variable_provider()
     try:
+        _fetch(provider)
         if provider.get_variable_config(variable.name) is None:
             if isinstance(provider, NoOpVariableProvider):
                 # No provider is configured, so there is nowhere to create anything. That is the
@@ -152,6 +159,28 @@ def _publish_baseline(variable: Variable[AgentConfig], example: str, source: Bas
             _exc_info=True,
         )
         warnings.warn(f'Failed to publish the code baseline for Logfire managed variable {variable.name!r}: {exc}')
+
+
+def _fetch(provider: VariableProvider) -> None:
+    """Fill the provider's cache before anything reads it, and never fail the publish for it.
+
+    `get_variable_config` answers from the provider's cache, and the remote provider's cache is empty
+    until something fetches: it returns `None` for *every* name when it has never synced. Publishing
+    is the one caller that reaches it in that state, because an adapter may publish when it wraps the
+    agent, before the agent has resolved anything. Without this, a variable that exists in the project
+    reads as missing, the create path runs, the server rejects it as a conflict -- and because the
+    publish-once guard is marked *before* the work, nothing retries, so the baseline never syncs again
+    for the life of that process. `variables_push` fetches first for the same reason.
+
+    A provider with nothing to fetch implements this as a no-op, so it costs those nothing. A fetch
+    that fails leaves the cache exactly as it was, which is no worse than not having called this, so
+    it is swallowed: the whole path's contract is that publishing warns rather than raising, and a
+    baseline is documentation for the editor rather than anything a request depends on.
+    """
+    try:
+        provider.refresh(force=True)
+    except Exception:
+        pass
 
 
 def _update_example(provider: VariableProvider, name: str, example: str) -> None:
@@ -491,9 +520,9 @@ class AgentControl:
         if not self._publish_baseline:
             return None
         example = json.dumps(baseline.model_dump(exclude_none=True), indent=2)
-        provider = self._logfire_instance.config.get_variable_provider()
+        config = self._logfire_instance.config
         with _baseline_publish_lock:
-            _, published = _baseline_publish_attempted.setdefault(id(provider), (provider, set()))
+            _, published = _baseline_publish_attempted.setdefault(id(config), (config, set()))
             if self.variable_name in published:
                 return None
             published.add(self.variable_name)

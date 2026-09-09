@@ -96,7 +96,7 @@ def test_the_config_parsing_vectors(config_parsing_vectors: list[dict[str, Any]]
             assert list(config.settings.unrecognized) == vector['unrecognized_settings'], vector['name']
 
 
-CANONICAL_SPEC_SHA256 = 'fead1f19b277c65362d0efee53b35e3c8d658ae1e657959ce8a849db58e8593e'
+CANONICAL_SPEC_SHA256 = 'f9fa69ee77a56d0eed2d7448cf42b4f0052645ec8d1ad38508d9a0bf5384d155'
 
 SPEC_LOCKSTEP = (
     'The vectors in tests/agent_control/spec/ are one half of a contract with every other Agent '

@@ -83,8 +83,11 @@ def test_the_spec_vectors_are_what_this_core_does(agent_name_vectors: list[dict[
                 assert (control.name, control.variable_name) == (vector['display_name'], vector['variable_name']), (
                     vector['name']
                 )
-        warned = ['prefix-added-automatically'] if caught else []
+        # Matched on the message, not merely on something having been warned: a vector that expects
+        # the prefix warning has to be satisfied by *that* warning and not by any other one.
+        warned = ['prefix-added-automatically' for warning in caught if 'prefix is added' in str(warning.message)]
         assert warned == ([vector['warning']] if vector.get('warning') else []), vector['name']
+        assert len(caught) == len(warned), vector['name']
 
 
 def test_the_prefix_is_added_for_you() -> None:
@@ -311,6 +314,51 @@ def test_a_per_request_logfire_instance_is_still_one_destination(project: LocalV
         if thread is not None:  # pragma: no branch
             thread.join()
     assert [thread is not None for thread in scheduled] == [True, False, False]
+    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
+
+
+def test_publishing_fetches_before_deciding_whether_to_create(
+    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A remote provider answers `get_variable_config` from a cache that is empty until something
+    # fetches, and an adapter may publish when it wraps the agent, before anything has resolved. Read
+    # unfetched, a variable that exists reads as missing, the create path runs, the server rejects it
+    # as a conflict -- and the publish-once guard, marked before the work, means nothing ever retries.
+    publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
+    real_get = project.get_variable_config
+    fetched = False
+
+    def refresh(force: bool = False) -> None:
+        nonlocal fetched
+        fetched = True
+
+    def get_variable_config(name: str) -> VariableConfig | None:
+        return real_get(name) if fetched else None
+
+    created: list[VariableConfig] = []
+    monkeypatch.setattr(project, 'refresh', refresh)
+    monkeypatch.setattr(project, 'get_variable_config', get_variable_config)
+    monkeypatch.setattr(project, 'create_variable', created.append)
+
+    thread = AgentControl('checkout').publish_baseline(BASELINE)
+    assert thread is not None
+    thread.join()
+
+    assert created == []
+    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
+
+
+def test_a_fetch_that_fails_does_not_fail_the_publish(
+    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The cache is left exactly as it was, which is no worse than not having fetched, and publishing
+    # warns rather than raising.
+    monkeypatch.setattr(project, 'refresh', _refuse('refresh'))
+    with collected_warnings() as caught:
+        thread = AgentControl('checkout').publish_baseline(BASELINE)
+        assert thread is not None
+        thread.join()
+    assert caught == []
     assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
 
 
