@@ -221,3 +221,20 @@ def test_an_oversized_code_side_block_is_left_out_rather_than_raised() -> None:
         baseline = build_baseline(instructions=[Block('a' * 70000, id='agent'), Block('Be concise.', id='agent:style')])
     assert baseline.instructions is not None
     assert [entry.id for entry in baseline.instructions if isinstance(entry, InstructionBlock)] == ['agent:style']
+
+
+def test_an_adapter_block_with_an_empty_id_is_reported_rather_than_raised() -> None:
+    # `Block` is the adapter's own dataclass and constrains nothing, while the contract's `id` is a
+    # non-empty string. `build_baseline` runs on the request path, so this cannot be the one thing
+    # that raises out of it.
+    with pytest.warns(UserWarning, match='id is the empty string'):
+        baseline = build_baseline(instructions=[Block('You are a checkout assistant.', id='')])
+    assert baseline.instructions is not None
+    [entry] = baseline.instructions
+    assert isinstance(entry, InstructionBlock) and entry.id is None
+
+
+def test_a_dynamic_adapter_block_with_an_empty_id_is_left_out_like_one_with_none() -> None:
+    # Nothing to key it on, so the editor could neither show it nor address it.
+    with pytest.warns(UserWarning, match='id is the empty string'):
+        assert build_baseline(instructions=[Block('rendered', id='', dynamic=True)]) == AgentConfig()

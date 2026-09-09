@@ -22,7 +22,7 @@ from ._schema import AGENT_CONFIG_JSON_SCHEMA
 
 if TYPE_CHECKING:
     from logfire import Logfire
-    from logfire._internal.config import LogfireConfig
+    from logfire._internal.config import LogfireConfig as _LogfireConfig
 
 BaselineSource: TypeAlias = Literal['code', 'observed']
 """Where a published baseline came from, which an adapter has to say because it changes what it means.
@@ -56,7 +56,7 @@ a description of the code from a description of one request that happened first.
 # Deliberately *not* keyed on the variable provider, which is the destination proper: reading it can
 # lazily construct a remote provider and start its polling and SSE threads, and this runs on the
 # caller's request thread.
-_baseline_publish_attempted: dict[int, tuple[LogfireConfig, set[str]]] = {}
+_baseline_publish_attempted: dict[int, tuple[_LogfireConfig, set[str]]] = {}
 _baseline_publish_lock = threading.Lock()
 
 

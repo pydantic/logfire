@@ -624,9 +624,21 @@ def build_baseline(
     """
     entries: list[InstructionText | InstructionBlock] = []
     for block in instructions:
+        # `Block` is the adapter's own dataclass and constrains nothing, while the contract's `id` is
+        # a non-empty string. An empty one is an adapter bug rather than a value to carry, and it is
+        # reported and treated as no id at all -- never raised, because this runs on the request path
+        # and a baseline is documentation that no request depends on.
+        block_id = block.id
+        if block_id == '':
+            warn_dropped(
+                'The agent has an instruction block whose id is the empty string, which cannot address '
+                'anything; publishing that block without an id, so the Logfire editor cannot offer an '
+                'override for it.'
+            )
+            block_id = None
         if block.dynamic:
-            if block.id is not None:
-                entries.append(InstructionBlock(id=block.id, dynamic=True))
+            if block_id is not None:
+                entries.append(InstructionBlock(id=block_id, dynamic=True))
             continue
         if not block.text.strip():
             continue
@@ -640,7 +652,7 @@ def build_baseline(
                 'leaving it out of the published baseline.'
             )
             continue
-        entries.append(InstructionBlock(id=block.id, instructions=block.text, dynamic=False))
+        entries.append(InstructionBlock(id=block_id, instructions=block.text, dynamic=False))
     tool_definitions = [
         ToolDefinitionOverride(
             name=tool.name,
