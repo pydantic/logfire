@@ -227,7 +227,7 @@ def test_an_adapter_block_with_an_empty_id_is_reported_rather_than_raised() -> N
     # `Block` is the adapter's own dataclass and constrains nothing, while the contract's `id` is a
     # non-empty string. `build_baseline` runs on the request path, so this cannot be the one thing
     # that raises out of it.
-    with pytest.warns(UserWarning, match='id is the empty string'):
+    with pytest.warns(UserWarning, match='publishing that block without an id'):
         baseline = build_baseline(instructions=[Block('You are a checkout assistant.', id='')])
     assert baseline.instructions is not None
     [entry] = baseline.instructions
@@ -235,6 +235,16 @@ def test_an_adapter_block_with_an_empty_id_is_reported_rather_than_raised() -> N
 
 
 def test_a_dynamic_adapter_block_with_an_empty_id_is_left_out_like_one_with_none() -> None:
-    # Nothing to key it on, so the editor could neither show it nor address it.
-    with pytest.warns(UserWarning, match='id is the empty string'):
+    # Nothing to key it on, so the editor could neither show it nor address it -- and the warning
+    # says that, rather than the static branch's "publishing that block without an id".
+    with pytest.warns(UserWarning, match='leaving it out of the published baseline entirely'):
         assert build_baseline(instructions=[Block('rendered', id='', dynamic=True)]) == AgentConfig()
+
+
+def test_an_adapter_tool_with_an_empty_name_is_reported_rather_than_raised() -> None:
+    # No managed override could address it, and the model could not call it; the request path must
+    # not be where that adapter bug surfaces.
+    with pytest.warns(UserWarning, match='tool whose name is the empty string'):
+        baseline = build_baseline(tools=[ToolDef(''), ToolDef('get_weather', 'Get the weather.')])
+    assert baseline.tool_definitions is not None
+    assert [override.name for override in baseline.tool_definitions] == ['get_weather']

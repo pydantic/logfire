@@ -630,10 +630,17 @@ def build_baseline(
         # and a baseline is documentation that no request depends on.
         block_id = block.id
         if block_id == '':
+            # Said per branch, because the two outcomes differ: a static block is still published,
+            # just not addressable, while a dynamic one has nothing left to key it on at all.
             warn_dropped(
                 'The agent has an instruction block whose id is the empty string, which cannot address '
-                'anything; publishing that block without an id, so the Logfire editor cannot offer an '
-                'override for it.'
+                'anything; '
+                + (
+                    'leaving it out of the published baseline entirely, since a dynamic block with no id '
+                    'is one the Logfire editor could neither show nor address.'
+                    if block.dynamic
+                    else 'publishing that block without an id, so the Logfire editor cannot offer an override for it.'
+                )
             )
             block_id = None
         if block.dynamic:
@@ -653,15 +660,25 @@ def build_baseline(
             )
             continue
         entries.append(InstructionBlock(id=block_id, instructions=block.text, dynamic=False))
-    tool_definitions = [
-        ToolDefinitionOverride(
-            name=tool.name,
-            description=tool.description or None,
-            parameters=_baseline_parameters(tool) or None,
-            toolset=tool.toolset,
+    tool_definitions: list[ToolDefinitionOverride] = []
+    for tool in tools:
+        # `ToolDef` is the adapter's own dataclass too, and a tool with no name is one the contract
+        # cannot address and the model cannot call. Reported and left out, for the same reason the
+        # instruction blocks above are: nothing about describing the agent may raise into a request.
+        if not tool.name:
+            warn_dropped(
+                'The agent advertises a tool whose name is the empty string, which no managed override '
+                'could address; leaving it out of the published baseline.'
+            )
+            continue
+        tool_definitions.append(
+            ToolDefinitionOverride(
+                name=tool.name,
+                description=tool.description or None,
+                parameters=_baseline_parameters(tool) or None,
+                toolset=tool.toolset,
+            )
         )
-        for tool in tools
-    ]
     canonical = canonical_settings(settings) if settings else {}
     return AgentConfig(
         instructions=entries or None,
