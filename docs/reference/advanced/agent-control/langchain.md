@@ -122,7 +122,7 @@ Support is per row: **yes** means it works as written, **conditional** means the
 | A `system_prompt='...'` string | `system` | no | Published as a seam with no text, and an override addressing it is reported under `on_unmatched` and not applied: nothing here can tell it from a prompt a `@dynamic_prompt` middleware computed for this one request. Move it into `instructions=`, or give its blocks `id`s, to make it editable. |
 | A content block with no `id` of its own | `system:<index>` | no | Same seam, and its positional id would move the day you insert a paragraph above it. |
 | Non-text content (an image, a provider block) | — | no | Carried through untouched and offered to nobody. |
-| An added block (an entry with no `id`) | — | yes | Lands after the last block your code declared and before the first seam or callable, which is where the contract keeps managed text: inside the prefix a provider can cache. |
+| An added block (an entry with no `id`) | — | yes | Lands at the end of the *leading run* of blocks your code declared — after the last one before the first seam or callable, not after the last one overall. Declare `a`, a seam, and `b`, and the addition goes between `a` and the seam. That is where the contract keeps managed text: inside the prefix a provider can cache. |
 | An agent with no system prompt at all | — | yes | An added block becomes the whole system message. |
 
 ### Model

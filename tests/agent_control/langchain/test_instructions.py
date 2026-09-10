@@ -86,6 +86,33 @@ def test_an_addition_follows_the_blocks_the_code_declared(project: LocalVariable
     )
 
 
+def test_an_addition_stops_at_the_first_seam_rather_than_at_the_last_block(
+    project: LocalVariableProvider,
+) -> None:
+    # "After the blocks your code declared" means the *leading run* of them, not the last one
+    # overall: managed text belongs inside the prefix a provider can cache, and everything from the
+    # first seam onwards is a rendering this request worked out for itself.
+    publish(project, {'instructions': 'Escalate anything over $500 to a human.'})
+    prompt = SystemMessage(
+        content=[
+            {'type': 'text', 'text': 'You are a checkout assistant.', 'id': 'role'},
+            {'type': 'text', 'text': 'The customer is jane@example.com.'},
+            {'type': 'text', 'text': 'Always confirm the order total.', 'id': 'refunds'},
+        ]
+    )
+    model = RecordingModel(replies=[AIMessage('ok')])
+    run(build_agent(model, agent_control(label='production'), tools=[], system_prompt=prompt))
+
+    assert sent(model) == snapshot(
+        [
+            {'type': 'text', 'text': 'You are a checkout assistant.'},
+            {'type': 'text', 'text': 'Escalate anything over $500 to a human.'},
+            {'type': 'text', 'text': 'The customer is jane@example.com.'},
+            {'type': 'text', 'text': 'Always confirm the order total.'},
+        ]
+    )
+
+
 def test_dropping_the_only_block_leaves_no_system_message(project: LocalVariableProvider) -> None:
     publish(project, {'instructions': [{'id': 'system:role'}]})
     model = RecordingModel(replies=[AIMessage('ok')])

@@ -21,7 +21,7 @@ NAME_KEY: str
 DEFAULT_AGENT_NAME: str
 
 class AgentControlState(AgentState[Any]):
-    """The agent state, plus the resolution this run started from.
+    """The agent state, plus the agent this run is of and the resolution it started from.
 
     The config lives in state rather than on the middleware because a middleware instance is shared
     by every concurrent run of its agent, and the whole point of resolving in `before_agent` is that

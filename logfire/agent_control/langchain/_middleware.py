@@ -51,7 +51,7 @@ _UNNAMED_AGENT = (
 
 
 class AgentControlState(AgentState[Any]):
-    """The agent state, plus the resolution this run started from.
+    """The agent state, plus the agent this run is of and the resolution it started from.
 
     The config lives in state rather than on the middleware because a middleware instance is shared
     by every concurrent run of its agent, and the whole point of resolving in `before_agent` is that
@@ -272,14 +272,16 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         for an agent whose middleware wraps tool calls, which is what lets a request advertise a tool
         under a name `ToolNode` does not hold.
         """
-        with self._run(request.state)[1].reported():
+        _, resolution = self._run(request.state)
+        with resolution.reported():
             return handler(request)
 
     async def awrap_tool_call(
         self, request: ToolCallRequest, handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]]
     ) -> ToolMessage | Command[Any]:
         """Run a tool call inside the version of the config that asked for it."""
-        with self._run(request.state)[1].reported():
+        _, resolution = self._run(request.state)
+        with resolution.reported():
             return await handler(request)
 
     def _run(self, state: Any) -> tuple[AgentControl, Resolution]:
