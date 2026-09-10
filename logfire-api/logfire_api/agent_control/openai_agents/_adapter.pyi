@@ -21,6 +21,7 @@ from typing import Any, TypeVar
 TContext = TypeVar('TContext')
 TDerived = TypeVar('TDerived')
 MANAGED_FIELDS: Incomplete
+RUN_AWARE_SETTINGS: str
 
 def agent_control(agent: Agent[TContext], *, name: str | None = None, label: str | None = None, on_unmatched: OnUnmatched = 'warn', publish_baseline: bool = True, logfire_instance: Logfire | None = None, instructions: Mapping[str, InstructionSource] | None = None, provider: ModelProvider | None = None) -> Agent[TContext]:
     '''Make an agent\'s instructions, model, model settings, and tool descriptions editable from Logfire.
@@ -103,6 +104,8 @@ class _ControlledModel(Model):
     def __init__(self, control: AgentControl, *, code_model: str | Model | None, code_settings: ModelSettings, code_instructions: Sequence[Block], provider: ModelProvider, publish_baseline: bool) -> None: ...
     def begin_run(self, run_context: RunContextWrapper[Any]) -> Run:
         """Resolve this agent's config for the run `run_context` identifies, once; see `_run`."""
+    def run_aware_settings(self, settings: ModelSettings) -> ModelSettings:
+        """`settings`, recording which of its fields a per-run override sets for this agent's runs."""
     async def get_response(self, system_instructions: str | None, input: str | list[TResponseInputItem], model_settings: ModelSettings, tools: list[Tool], output_schema: AgentOutputSchemaBase | None, handoffs: list[Handoff], tracing: ModelTracing, *, previous_response_id: str | None, conversation_id: str | None, prompt: ResponsePromptParam | None) -> ModelResponse: ...
     async def stream_response(self, system_instructions: str | None, input: str | list[TResponseInputItem], model_settings: ModelSettings, tools: list[Tool], output_schema: AgentOutputSchemaBase | None, handoffs: list[Handoff], tracing: ModelTracing, *, previous_response_id: str | None, conversation_id: str | None, prompt: ResponsePromptParam | None) -> AsyncIterator[TResponseStreamEvent]: ...
     def get_retry_advice(self, request: ModelRetryAdviceRequest) -> ModelRetryAdvice | None:

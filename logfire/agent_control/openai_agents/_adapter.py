@@ -64,6 +64,13 @@ TDerived = TypeVar('TDerived')
 MANAGED_FIELDS = frozenset(SETTING_FIELDS.values())
 """The `ModelSettings` fields a published config can reach, and the only ones merged by provenance."""
 
+RUN_AWARE_SETTINGS = '_agent_control_run_aware'
+"""Marks a `ModelSettings` whose `resolve` records the keys a per-run override named; see below.
+
+An attribute rather than an `isinstance` check because the class is derived per object, from whatever
+class the caller's own settings had. What matters is only whether this object already has the seam.
+"""
+
 
 def agent_control(
     agent: Agent[TContext],
@@ -218,6 +225,13 @@ def _install_run_seam(agent: Agent[TContext]) -> None:
         model = self.model
         if isinstance(model, _ControlledModel):
             model.begin_run(run_context)
+            if not getattr(self.model_settings, RUN_AWARE_SETTINGS, False):
+                # `clone(model_settings=...)` hands back a plain `ModelSettings`, and with it the
+                # SDK's own merge, which keeps no record of which keys a `RunConfig(model_settings=)`
+                # named -- so a run repeating a value the code already had would look like a run that
+                # asked for nothing, and lose the key to the published config. This hook is the one
+                # seam a clone keeps, so the settings seam is put back through it, once.
+                self.model_settings = model.run_aware_settings(self.model_settings)
         return await base.get_all_tools(self, run_context)
 
     _derive(agent, {'get_all_tools': get_all_tools})
@@ -241,7 +255,7 @@ def _run_aware_settings(control: AgentControl, settings: ModelSettings) -> Model
             run.explicit_settings = _explicit_fields(override)
         return base.resolve(self, override)
 
-    return _derive(copy.copy(settings), {'resolve': resolve_settings})
+    return _derive(copy.copy(settings), {'resolve': resolve_settings, RUN_AWARE_SETTINGS: True})
 
 
 def _explicit_fields(override: ModelSettings | dict[str, Any] | None) -> frozenset[str]:
@@ -345,6 +359,10 @@ class _ControlledModel(Model):
     def begin_run(self, run_context: RunContextWrapper[Any]) -> Run:
         """Resolve this agent's config for the run `run_context` identifies, once; see `_run`."""
         return begin_run(self._control, run_context)
+
+    def run_aware_settings(self, settings: ModelSettings) -> ModelSettings:
+        """`settings`, recording which of its fields a per-run override sets for this agent's runs."""
+        return _run_aware_settings(self._control, settings)
 
     async def get_response(
         self,
@@ -572,9 +590,18 @@ class _ControlledModel(Model):
         # contract's precedence. The run's keys are the ones captured where the SDK merged them in
         # rather than the ones that happen to differ from the code: a run passing the value the code
         # already had is asking for that value, not inheriting it.
+        #
+        # Both layers are read off the settings *this request* carries, which is the agent's own with
+        # the run's override merged in -- so a key the run did not name still holds the agent's value,
+        # and the two layers are exactly the request split by who set what. Reading the code layer off
+        # the settings captured at wrapping time would say the same thing for the agent that was
+        # wrapped and the wrong thing for a `clone(model_settings=...)` of it, whose settings would be
+        # silently replaced by the ones its original was written with.
         explicit = run.explicit_settings if run is not None else frozenset[str]()
         merged = merge_settings(
-            settings_layer(self._code_settings), published, settings_layer(model_settings, only=explicit)
+            settings_layer(model_settings, only=MANAGED_FIELDS - explicit),
+            published,
+            settings_layer(model_settings, only=explicit),
         )
         return _Request(
             model=model,

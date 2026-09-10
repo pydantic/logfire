@@ -19,7 +19,7 @@ from logfire.variables.local import LocalVariableProvider
 
 try:
     import agents  # noqa: F401  # pyright: ignore[reportUnusedImport]
-except BaseException:  # pragma: no cover
+except Exception:  # pragma: no cover
     # The OpenAI Agents SDK adapter's tests import `agents` at module level, and `agents` cannot be
     # imported at all on some of the pydantic versions this directory *is* collected on: openai-agents
     # 0.19+ uses `Field(exclude_if=...)`, which pydantic <2.12 reports as a deprecation that

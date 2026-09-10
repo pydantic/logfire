@@ -34,7 +34,25 @@ from openai.types.responses.response_prompt_param import ResponsePromptParam
 from logfire.agent_control.openai_agents._adapter import _ControlledModel  # pyright: ignore[reportPrivateUsage]
 from logfire.variables.local import LocalVariableProvider
 
+from ...conftest import SENSITIVE_HEADERS, scrub_headers
 from ..conftest import publish as publish
+
+
+@pytest.fixture(scope='module')
+def vcr_config() -> dict[str, Any]:
+    """The repository's cassette settings, plus the request body in what an interaction is matched on.
+
+    The live tests here assert on the body OpenAI was sent, and `Cassette.requests` on playback is
+    what the cassette *recorded* rather than what this process just produced. Without the body in
+    `match_on`, a request whose body had drifted would still be answered by the recorded interaction,
+    and those assertions would keep passing against the old bytes. With it, drift is a failure to
+    match -- which is the point of recording the wire at all.
+    """
+    return {
+        'filter_headers': SENSITIVE_HEADERS,
+        'before_record_response': scrub_headers,
+        'match_on': ['method', 'scheme', 'host', 'port', 'path', 'query', 'body'],
+    }
 
 
 @pytest.fixture(autouse=True)

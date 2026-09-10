@@ -130,3 +130,34 @@ async def test_a_run_that_sets_nothing_leaves_the_published_settings_in_place(
 
     settings = inner.calls[0].model_settings
     assert (settings.temperature, settings.top_p, settings.max_tokens) == (0.2, 0.3, 100)
+
+
+async def test_a_clone_given_new_settings_keeps_them(project: LocalVariableProvider) -> None:
+    """`Agent.clone(model_settings=...)` is a different agent's settings, and the code layer is its.
+
+    The wrapper is handed one merged `ModelSettings` per request and the keys the run named, which is
+    all it needs: what the run did not name is whichever agent asked for the request. Reading the code
+    layer off the settings captured at wrapping time instead would answer with the *original* agent's
+    -- so a clone's would be silently replaced by the ones it was cloned from.
+    """
+    agent, inner = controlled(project, model_settings=ModelSettings(temperature=0.9))
+    await Runner.run(agent.clone(model_settings=ModelSettings(temperature=0.7, top_p=0.1)), 'hello')
+
+    settings = inner.calls[0].model_settings
+    # `temperature` is published, so the published value still wins; `top_p` is not, so it is the
+    # clone's, and `max_tokens` is published and in neither agent's code.
+    assert (settings.temperature, settings.top_p, settings.max_tokens) == snapshot((0.2, 0.1, 100))
+
+
+async def test_a_clone_still_lets_a_run_beat_the_published_settings(project: LocalVariableProvider) -> None:
+    """The seam that records which keys a run named survives a clone that replaced the settings.
+
+    A clone given fresh `ModelSettings` gets a plain object, whose `resolve` is the SDK's own and
+    keeps no record of the override -- and a run repeating a value the agent already had is invisible
+    in the merged result, which is the whole case this record exists for.
+    """
+    agent, inner = controlled(project, model_settings=ModelSettings(temperature=0.9))
+    cloned = agent.clone(model_settings=ModelSettings(temperature=0.7))
+    await Runner.run(cloned, 'hello', run_config=RunConfig(model_settings=ModelSettings(temperature=0.7)))
+
+    assert inner.calls[0].model_settings.temperature == snapshot(0.7)
