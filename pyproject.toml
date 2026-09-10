@@ -221,10 +221,28 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
+    "hypothesis>=6.0",
+    "mutmut>=3.0",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
+
+[tool.mutmut]
+source_paths = ["logfire/"]
+only_mutate = [
+    "logfire/variables/config.py",
+    "logfire/variables/variable.py",
+]
+pytest_add_cli_args_test_selection = [
+    "tests/test_feature_flags.py",
+    "tests/test_variables.py",
+    "-k",
+    "FeatureFlag or feature_flag or requires_targeting_key or VarDuplicateName or VarInvalidName",
+]
+pytest_add_cli_args = ["-p", "no:logfire", "-p", "no:pytest_logfire"]
+mutate_only_covered_lines = true
+max_stack_depth = 12
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
@@ -315,6 +333,8 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true
+# Preserve pytest's default exclusions and ignore mutmut's generated copy of the repository.
+norecursedirs = ["*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "mutants"]
 # The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
 filterwarnings = [

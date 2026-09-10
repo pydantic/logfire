@@ -480,19 +480,24 @@ def test_override_init_pyi() -> None:  # pragma: no cover
     lines[all_index] = f'__all__ = {all_names!r}'
     feature_context_index = next((i for i, line in enumerate(lines) if line.startswith('def feature_context(')), None)
     if feature_context_index is not None:
-        del lines[feature_context_index : feature_context_index + 2]
-    lines = [
-        line
-        for line in lines
-        if line
-        not in {
-            'feature_flag = DEFAULT_LOGFIRE_INSTANCE.feature_flag',
-            'from collections.abc import Mapping',
-            'from contextlib import AbstractContextManager',
-        }
-    ]
+        feature_context_end = feature_context_index + 1
+        while feature_context_end < len(lines) and (
+            not lines[feature_context_end] or lines[feature_context_end][0].isspace()
+        ):
+            feature_context_end += 1
+        del lines[feature_context_index:feature_context_end]
+    feature_flag_assignment = 'feature_flag = DEFAULT_LOGFIRE_INSTANCE.feature_flag'
+    if feature_flag_assignment in lines:
+        lines.remove(feature_flag_assignment)
+    for imported_name, import_line in (
+        ('Mapping', 'from collections.abc import Mapping'),
+        ('AbstractContextManager', 'from contextlib import AbstractContextManager'),
+    ):
+        if import_line in lines and not any(imported_name in line for line in lines if line != import_line):
+            lines.remove(import_line)
 
     new_init_pyi = '\n'.join(lines) + '\n'
+    ast.parse(new_init_pyi)
     if new_init_pyi == init_pyi:
         pytest.skip('No changes were made to the __init__.pyi file.')
     (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').write_text(new_init_pyi)

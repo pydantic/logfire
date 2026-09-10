@@ -70,6 +70,11 @@ def main() -> None:
         lambda: logfire.feature_flag('minimal_install_flag', default=False),
         'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
     )
+    assert_import_error(
+        'feature context usage',
+        lambda: logfire.feature_context('minimal_install_subject'),
+        'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
+    )
 
     for package in optional_packages:
         assert_not_available(package)

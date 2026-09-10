@@ -381,7 +381,8 @@ class VariableConfig(BaseModel):
 
     def _select_rollout(self, attributes: Mapping[str, Any] | None) -> Rollout:
         """Return the first rollout whose targeting conditions apply."""
-        attributes = attributes or {}
+        if attributes is None:
+            attributes = {}
         for override in self.overrides:
             if _matches_all_conditions(override.conditions, attributes):
                 return override.rollout

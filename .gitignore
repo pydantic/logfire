@@ -13,6 +13,7 @@ venv
 
 # stubgen
 out
+mutants
 
 # Node/Cloudflare
 node_modules

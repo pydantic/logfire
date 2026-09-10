@@ -35,6 +35,7 @@ class _TargetingContextData:
 @dataclass
 class _FeatureContextData:
     """Request-local context used by feature flag evaluations."""
+    targeting_key: str
     attributes: dict[str, Any]
 
 class ResolveFunction(Protocol[T_co]):

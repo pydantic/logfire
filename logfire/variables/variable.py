@@ -98,6 +98,7 @@ _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARG
 class _FeatureContextData:
     """Request-local context used by feature flag evaluations."""
 
+    targeting_key: str
     attributes: dict[str, Any]
 
 
@@ -1032,7 +1033,11 @@ class Variable(Generic[T_co]):
         if targeting_key is None:
             targeting_key = _get_contextvar_targeting_key(self.name)
 
-        if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
+        if (
+            targeting_key is None
+            and self._uses_trace_id_as_targeting_key()
+            and (current_trace_id := get_current_span().get_span_context().trace_id)
+        ):
             # If there is no active trace, the current_trace_id will be zero
             targeting_key = f'trace_id:{current_trace_id:032x}'
 
@@ -1098,6 +1103,10 @@ class Variable(Generic[T_co]):
         """Return evaluation context attributes included on the resolution span."""
         return {'targeting_key': targeting_key, 'attributes': attributes}
 
+    def _uses_trace_id_as_targeting_key(self) -> bool:
+        """Return whether an active trace may provide a fallback targeting key."""
+        return True
+
     def get(
         self,
         targeting_key: str | None = None,
@@ -1127,6 +1136,10 @@ class FeatureFlag(Variable[bool]):
     """A boolean feature flag backed by Logfire managed variables."""
 
     kind = 'feature_flag'
+
+    def _uses_trace_id_as_targeting_key(self) -> bool:
+        # Inbound trace IDs can be controlled by callers and must not influence feature assignment.
+        return False
 
     def __init__(
         self,
@@ -1158,6 +1171,13 @@ class FeatureFlag(Variable[bool]):
             if attributes:
                 merged_attributes.update(attributes)
             attributes = merged_attributes
+            if targeting_key is None:
+                targeting_context_data = _TARGETING_CONTEXT.get()
+                targeting_key = (
+                    targeting_context_data.by_variable.get(self.name, context.targeting_key)
+                    if targeting_context_data is not None
+                    else context.targeting_key
+                )
 
         has_stable_targeting_key = targeting_key is not None or _get_contextvar_targeting_key(self.name) is not None
 
@@ -1172,7 +1192,6 @@ class FeatureFlag(Variable[bool]):
                 _emit_resolution_warning(
                     f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "
                     'Pass targeting_key=... or use logfire.feature_context(...) to keep each subject on one variant.',
-                    stacklevel=3,
                 )
         return result
 
@@ -1541,12 +1560,11 @@ def feature_context(
     merged_attributes = dict(current.attributes) if current is not None else {}
     if attributes:
         merged_attributes.update(attributes)
-    token = _FEATURE_CONTEXT.set(_FeatureContextData(merged_attributes))
-    with targeting_context(targeting_key):
-        try:
-            yield
-        finally:
-            _FEATURE_CONTEXT.reset(token)
+    token = _FEATURE_CONTEXT.set(_FeatureContextData(targeting_key, merged_attributes))
+    try:
+        yield
+    finally:
+        _FEATURE_CONTEXT.reset(token)
 
 
 def _get_contextvar_targeting_key(variable_name: str) -> str | None:
