@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -12,23 +13,16 @@ from langchain_core.tools import BaseTool, tool
 from logfire.agent_control.langchain import agent_control
 from logfire.variables.local import LocalVariableProvider
 
-from .conftest import (
-    AGENT_VARIABLE,
-    RecordingModel,
-    build_agent,
-    declared_prompt,
-    published_baseline,
-    run,
-    variable,
-    wait_for_publish,
-)
+from .conftest import AGENT_VARIABLE, RecordingModel, build_agent, declared_prompt, published_baseline, run, variable
 
 
-def test_the_baseline_describes_what_the_agent_sends(project: LocalVariableProvider) -> None:
+def test_the_baseline_describes_what_the_agent_sends(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     model = RecordingModel(provider='anthropic', model='claude-fable-5-1', temperature=0.1, replies=[AIMessage('ok')])
     middleware = agent_control(label='production')
     run(build_agent(model, middleware, system_prompt=declared_prompt('You are a concise checkout assistant.')))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     assert published_baseline(project) == snapshot(
         {
@@ -53,13 +47,15 @@ def test_the_baseline_describes_what_the_agent_sends(project: LocalVariableProvi
     )
 
 
-def test_the_baseline_says_it_was_read_off_a_request(project: LocalVariableProvider) -> None:
+def test_the_baseline_says_it_was_read_off_a_request(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     # `create_agent` keeps the prompt, the model and the tool list in a closure, so the earliest
     # anything here can be read is a request -- and the model, the settings and the tools in this
     # baseline are the ones *that* request carried, which the variable says rather than implies.
     middleware = agent_control(label='production')
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[]))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     description = variable(project).description
     assert description is not None and 'snapshotted from one request' in description
@@ -67,6 +63,7 @@ def test_the_baseline_says_it_was_read_off_a_request(project: LocalVariableProvi
 
 def test_text_the_adapter_cannot_attribute_to_the_code_is_published_as_a_seam(
     project: LocalVariableProvider,
+    wait_for_publish: Callable[[], None],
 ) -> None:
     # The blocker this rule exists for: a prompt computed per request carries this tenant's name,
     # this user's id, this run's retrieved documents. It reaches the middleware as an ordinary
@@ -74,21 +71,25 @@ def test_text_the_adapter_cannot_attribute_to_the_code_is_published_as_a_seam(
     middleware = agent_control(label='production')
     prompt = 'You are the assistant for ACME Corp. The customer is jane@example.com.'
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[], system_prompt=prompt))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     assert published_baseline(project)['instructions'] == snapshot([{'id': 'system', 'dynamic': True}])
 
 
-def test_the_variable_is_created_with_the_shared_schema(project: LocalVariableProvider) -> None:
+def test_the_variable_is_created_with_the_shared_schema(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     middleware = agent_control(label='production')
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     json_schema = variable(project).json_schema
     assert json_schema is not None and 'instructions' in json_schema['properties']
 
 
-def test_each_block_of_a_structured_prompt_is_its_own_baseline_entry(project: LocalVariableProvider) -> None:
+def test_each_block_of_a_structured_prompt_is_its_own_baseline_entry(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     prompt = SystemMessage(
         content=[
             {'type': 'text', 'text': 'You are a checkout assistant.', 'id': 'role'},
@@ -97,7 +98,7 @@ def test_each_block_of_a_structured_prompt_is_its_own_baseline_entry(project: Lo
     )
     middleware = agent_control(label='production')
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[], system_prompt=prompt))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     # The declared block is published with its text; its unlabelled neighbour is a seam, because
     # nothing here can tell a block the code wrote from one a middleware ahead of it produced.
@@ -109,15 +110,19 @@ def test_each_block_of_a_structured_prompt_is_its_own_baseline_entry(project: Lo
     )
 
 
-def test_an_agent_with_no_prompt_and_no_tools_publishes_neither(project: LocalVariableProvider) -> None:
+def test_an_agent_with_no_prompt_and_no_tools_publishes_neither(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     middleware = agent_control(label='production')
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[], system_prompt=None))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     assert published_baseline(project) == snapshot({'model': 'openai:fake-1'})
 
 
-def test_a_model_that_reports_no_identifier_costs_the_baseline_only_its_model(project: LocalVariableProvider) -> None:
+def test_a_model_that_reports_no_identifier_costs_the_baseline_only_its_model(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     class UnidentifiedModel(RecordingModel):
         def _get_ls_params(self, stop: list[str] | None = None, **kwargs: Any) -> Any:
             return {'ls_provider': 'openai', 'ls_model_type': 'chat'}
@@ -126,7 +131,7 @@ def test_a_model_that_reports_no_identifier_costs_the_baseline_only_its_model(pr
     run(
         build_agent(UnidentifiedModel(replies=[AIMessage('ok')]), middleware, tools=[], system_prompt=declared_prompt())
     )
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     assert published_baseline(project) == snapshot(
         {'instructions': [{'id': 'system:role', 'instructions': 'You are a helpful assistant.', 'dynamic': False}]}
@@ -135,6 +140,7 @@ def test_a_model_that_reports_no_identifier_costs_the_baseline_only_its_model(pr
 
 def test_a_code_setting_the_contract_cannot_hold_is_left_out_and_said_out_loud(
     project: LocalVariableProvider,
+    wait_for_publish: Callable[[], None],
 ) -> None:
     # Anthropic's `reasoning_effort` accepts `'max'`, which the contract's effort levels do not, and
     # the baseline is not the place to teach every reader of the project a value it will drop.
@@ -144,34 +150,38 @@ def test_a_code_setting_the_contract_cannot_hold_is_left_out_and_said_out_loud(
 
     with pytest.warns(UserWarning, match="runs with thinking='max', which the Agent Control contract cannot"):
         run(agent)
-    wait_for_publish(middleware)
+    wait_for_publish()
     assert published_baseline(project)['settings'] == snapshot({'temperature': 0.2})
 
 
-def test_the_baseline_is_published_from_the_first_request_only(project: LocalVariableProvider) -> None:
+def test_the_baseline_is_published_from_the_first_request_only(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     middleware = agent_control(label='production')
     agent = build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[])
     run(agent)
-    wait_for_publish(middleware)
+    wait_for_publish()
     published = published_baseline(project)
 
     # A second run happens against the variable the first one created, and writes nothing more.
     project.update_variable(AGENT_VARIABLE, variable(project).model_copy(update={'example': 'edited in the UI'}))
     run(agent)
-    wait_for_publish(middleware)
+    wait_for_publish()
     assert variable(project).example == 'edited in the UI'
     assert published['model'] == 'openai:fake-1'
 
 
-def test_publishing_can_be_turned_off(project: LocalVariableProvider) -> None:
+def test_publishing_can_be_turned_off(project: LocalVariableProvider, wait_for_publish: Callable[[], None]) -> None:
     middleware = agent_control(label='production', publish_baseline=False)
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[]))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     assert project.get_variable_config(AGENT_VARIABLE) is None
 
 
-def test_a_tool_without_documented_parameters_publishes_empty_entries(project: LocalVariableProvider) -> None:
+def test_a_tool_without_documented_parameters_publishes_empty_entries(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     @tool
     def ping(host: str) -> str:
         """Ping a host."""
@@ -179,7 +189,7 @@ def test_a_tool_without_documented_parameters_publishes_empty_entries(project: L
 
     middleware = agent_control(label='production')
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[cast_tool(ping)]))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     assert cast_tool(ping).invoke({'host': 'example.com'}) == 'pong'
     # An undocumented parameter is listed with an empty entry, so the editor can give it its first
@@ -194,7 +204,9 @@ def cast_tool(value: Any) -> BaseTool:
     return value
 
 
-def test_a_declared_prompt_is_published_block_by_block(project: LocalVariableProvider) -> None:
+def test_a_declared_prompt_is_published_block_by_block(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
     middleware = agent_control(
         label='production',
         instructions={
@@ -203,7 +215,7 @@ def test_a_declared_prompt_is_published_block_by_block(project: LocalVariablePro
         },
     )
     run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[], system_prompt=None))
-    wait_for_publish(middleware)
+    wait_for_publish()
 
     # Declared text is the agent as written, so it is published; a block the code computes per
     # request is published as the seam it is, and one run's rendering of it stays in that run.

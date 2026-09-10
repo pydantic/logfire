@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 import pytest
 from inline_snapshot import snapshot
@@ -13,17 +14,28 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 import logfire
 from logfire.agent_control import AgentControl
-from logfire.agent_control.langchain import AgentControlMiddleware, agent_control
+from logfire.agent_control.langchain import AgentControlMiddleware, AgentControlState, agent_control
 from logfire.agent_control.langchain._middleware import STATE_KEY
 from logfire.agent_control.langchain._models import build_model, read_model_id, to_langchain_model_id
 from logfire.variables.local import LocalVariableProvider
 
-from .conftest import RecordingModel, build_agent, declared_prompt, publish, run, settings, system_message
+from .conftest import (
+    RecordingModel,
+    build_agent,
+    declared_prompt,
+    publish,
+    published_baseline,
+    run,
+    settings,
+    system_message,
+    variable,
+)
 
 
 def capture(middleware: AgentControlMiddleware, model: RecordingModel, **kwargs: Any) -> ModelRequest[Any]:
     """Run the middleware over one model request and return the request it would have sent."""
-    request = ModelRequest(model=model, messages=[], system_message=None, tools=[], **kwargs)
+    kwargs.setdefault('system_message', None)
+    request = ModelRequest(model=model, messages=[], tools=[], **kwargs)
     captured: list[ModelRequest[Any]] = []
 
     def handler(request: ModelRequest[Any]) -> ModelResponse[Any]:
@@ -32,6 +44,32 @@ def capture(middleware: AgentControlMiddleware, model: RecordingModel, **kwargs:
 
     middleware.wrap_model_call(request, handler)
     return captured[0]
+
+
+def test_two_overlapping_runs_of_two_names_stay_out_of_each_others_variable(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
+    # `before_agent` and `wrap_model_call` are different graph nodes, so a second run can start
+    # between one run's two halves. Everything the second half needs about the agent has to come
+    # from the run's own state: a name kept on the middleware would be whichever run wrote it last,
+    # and this run's prompt, model and tools would be published under the other one's variable.
+    publish(project, {'instructions': [{'id': 'system:role', 'instructions': 'You are TERSE.'}]})
+    publish(project, {'instructions': [{'id': 'system:role', 'instructions': 'You are BRIEF.'}]}, name='agent__other')
+    middleware = agent_control(label='production')
+    # The two arguments a graph node is handed and this hook does not read; the run's `config`,
+    # which carries the name, is the third.
+    state, runtime = AgentControlState(messages=[]), cast(Any, None)
+
+    checkout = middleware.before_agent(state, runtime, {'metadata': {'lc_agent_name': 'checkout'}})
+    middleware.before_agent(state, runtime, {'metadata': {'lc_agent_name': 'other'}})
+    request = capture(middleware, RecordingModel(), state=checkout, system_message=declared_prompt())
+    wait_for_publish()
+
+    assert request.system_message is not None and request.system_message.text == 'You are TERSE.'
+    assert published_baseline(project)['instructions'] == snapshot(
+        [{'id': 'system:role', 'instructions': 'You are a helpful assistant.', 'dynamic': False}]
+    )
+    assert variable(project, 'agent__other').example is None
 
 
 def test_it_reports_the_agent_it_manages() -> None:

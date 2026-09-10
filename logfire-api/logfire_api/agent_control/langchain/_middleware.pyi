@@ -17,6 +17,7 @@ from typing import Annotated, Any
 from typing_extensions import NotRequired
 
 STATE_KEY: str
+NAME_KEY: str
 DEFAULT_AGENT_NAME: str
 
 class AgentControlState(AgentState[Any]):
@@ -26,10 +27,16 @@ class AgentControlState(AgentState[Any]):
     by every concurrent run of its agent, and the whole point of resolving in `before_agent` is that
     one run applies one version of the config from its first model request to its last -- so every
     span of the run agrees on the version that produced it, and a publish mid-run takes effect on
-    the next run rather than halfway through this one. Marked private so it stays out of the agent's
-    input and output schemas: it is not something a caller passes in or reads back.
+    the next run rather than halfway through this one. Both are marked private so they stay out of
+    the agent's input and output schemas: neither is something a caller passes in or reads back.
+
+    The agent's *name* rides along for the same reason. It is read off the run, so two concurrent
+    runs of one middleware can be of two differently named agents, and a name kept on the middleware
+    would be whichever run wrote it last by the time a later node reads it -- which is how a request
+    would come to publish one run's baseline under another run's variable.
     """
     logfire_agent_control: NotRequired[Annotated[Resolution, PrivateStateAttr]]
+    logfire_agent_control_name: NotRequired[Annotated[str, PrivateStateAttr]]
 
 @dataclass(frozen=True)
 class _AppliedRequest:

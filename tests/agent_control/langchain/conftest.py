@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import threading
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any, cast
 
 import pytest
@@ -34,13 +34,14 @@ AGENT_VARIABLE = 'agent__checkout'
 
 
 @pytest.fixture(autouse=True)
-def _join_baseline_publishes(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
-    """Join every baseline publish before the next test starts.
+def wait_for_publish(monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[], None]]:
+    """Join every baseline publish: when a test asks, and again before the next test starts.
 
-    The adapter publishes from the first model request, off the request's thread, and most tests
-    here have no reason to wait for it. One still running into the next test is not merely noise: it
-    validates pydantic models, and `tests/conftest.py` clears pydantic's plugin cache between tests,
-    so the two race over `pydantic.plugin._loader._loading_plugins`.
+    The adapter publishes from the first model request, off the request's thread, so a test that
+    asserts on the project has to wait for it. Waiting is not only for those, though: a publish
+    still running into the next test is not merely noise, since it validates pydantic models and
+    `tests/conftest.py` clears pydantic's plugin cache between tests, so the two race over
+    `pydantic.plugin._loader._loading_plugins`.
     """
     threads: list[threading.Thread] = []
     spawn = _control._spawn_baseline_publish  # pyright: ignore[reportPrivateUsage]
@@ -50,13 +51,29 @@ def _join_baseline_publishes(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         threads.append(thread)
         return thread
 
+    def join() -> None:
+        for thread in threads:
+            thread.join(timeout=10)
+            # A timed-out join returns as if it had succeeded, so the race this closes would come
+            # back as an unexplained failure in whichever test ran next. Fail here instead.
+            assert not thread.is_alive(), 'a baseline publish was still running'
+
     monkeypatch.setattr(_control, '_spawn_baseline_publish', spawn_and_remember)
-    yield
-    for thread in threads:
-        thread.join(timeout=10)
-        # A timed-out join returns as if it had succeeded, so the race this fixture exists to close
-        # would come back as an unexplained failure in whichever test ran next. Fail here instead.
-        assert not thread.is_alive(), 'a baseline publish was still running when the test ended'
+    yield join
+    join()
+
+
+@pytest.fixture
+def project(project: LocalVariableProvider, wait_for_publish: Callable[[], None]) -> Iterator[LocalVariableProvider]:
+    """The Logfire project from `tests/agent_control/conftest.py`, joined out cleanly.
+
+    Wrapping it is what fixes the order: this teardown runs before the one that puts the previous
+    Logfire configuration back, so a publish still in flight finishes while the project it is
+    writing to is still the configured one. Left to the autouse fixture's own teardown, which runs
+    last, the thread would be logging into a Logfire nobody has configured.
+    """
+    yield project
+    wait_for_publish()
 
 
 def publish(provider: LocalVariableProvider, value: Any, *, name: str = AGENT_VARIABLE, label: str = 'production'):
@@ -227,13 +244,3 @@ def build_agent(
 
 def run(agent: Any, prompt: str = 'weather in Paris?') -> dict[str, Any]:
     return cast('dict[str, Any]', agent.invoke({'messages': [{'role': 'user', 'content': prompt}]}))
-
-
-def wait_for_publish(middleware: AgentControlMiddleware) -> None:
-    """Join the background thread the baseline publish runs on, so the project can be asserted on."""
-    control = middleware._control  # pyright: ignore[reportPrivateUsage]
-    assert control is not None
-    thread = control._publish_thread  # pyright: ignore[reportPrivateUsage]
-    if thread is not None:
-        thread.join(timeout=10)
-        assert not thread.is_alive(), 'the baseline publish did not finish'

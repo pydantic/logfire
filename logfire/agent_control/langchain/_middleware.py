@@ -34,8 +34,20 @@ from ._tools import apply_tools, read_tools, rename_tool_calls, rename_tool_choi
 STATE_KEY = 'logfire_agent_control'
 """The state key the run's resolution is carried in; see `AgentControlState`."""
 
+NAME_KEY = 'logfire_agent_control_name'
+"""The state key the run's agent name is carried in; see `AgentControlState`."""
+
 DEFAULT_AGENT_NAME = 'LangGraph'
 """What `create_agent` calls an agent that was not given a `name`, from `graph.compile()`."""
+
+_UNNAMED_AGENT = (
+    'Agent Control needs the name of the agent it manages, and this agent has none: '
+    f'`create_agent()` was called without `name=`, so LangChain calls it {DEFAULT_AGENT_NAME!r}. '
+    'Pass `name=` to `create_agent()` -- it is what Logfire shows the agent as in traces, so '
+    'the config lines up with the agent you already see there -- or, if the agent must stay '
+    'unnamed, pass `agent_control(name=...)`.'
+)
+"""Why an agent nobody named cannot have a managed config, and the two ways to give it one."""
 
 
 class AgentControlState(AgentState[Any]):
@@ -45,11 +57,17 @@ class AgentControlState(AgentState[Any]):
     by every concurrent run of its agent, and the whole point of resolving in `before_agent` is that
     one run applies one version of the config from its first model request to its last -- so every
     span of the run agrees on the version that produced it, and a publish mid-run takes effect on
-    the next run rather than halfway through this one. Marked private so it stays out of the agent's
-    input and output schemas: it is not something a caller passes in or reads back.
+    the next run rather than halfway through this one. Both are marked private so they stay out of
+    the agent's input and output schemas: neither is something a caller passes in or reads back.
+
+    The agent's *name* rides along for the same reason. It is read off the run, so two concurrent
+    runs of one middleware can be of two differently named agents, and a name kept on the middleware
+    would be whichever run wrote it last by the time a later node reads it -- which is how a request
+    would come to publish one run's baseline under another run's variable.
     """
 
     logfire_agent_control: NotRequired[Annotated[Resolution, PrivateStateAttr]]
+    logfire_agent_control_name: NotRequired[Annotated[str, PrivateStateAttr]]
 
 
 @dataclass(frozen=True)
@@ -145,12 +163,9 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         self._logfire_instance = logfire_instance
         self._on_unmatched: OnUnmatched = on_unmatched
         self._publish_baseline = publish_baseline
+        # Set only by an explicit `name=`, which fixes the agent's identity for the life of the
+        # middleware. An inferred name belongs to the run that reported it and is never kept here.
         self._control = self._build_control(name) if name is not None else None
-        # One control per agent name this middleware has been run as, since a name read off the run
-        # is not a property of the middleware; see `_control_for`. `self._control` is the one an
-        # explicit `name=` fixed, or else the last one a run established, which is what a request
-        # that never went through `before_agent` has to fall back on.
-        self._controls: dict[str, AgentControl] = {}
         self._published: set[str] = set()
         # The model the agent itself brings to a request, learned from the first request that has
         # one and never changed after: it is what says whether a *later* request arrived with a
@@ -161,7 +176,7 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         self._code_model_id: str | None = None
 
     def __repr__(self) -> str:
-        name = self._control.name if self._control is not None else self._name
+        name = self._control.name if self._control is not None else None
         return f'{type(self).__name__}(name={name!r}, label={self._label!r})'
 
     def _build_control(self, name: str) -> AgentControl:
@@ -173,42 +188,33 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
             publish_baseline=self._publish_baseline,
         )
 
-    def _control_for(self, config: RunnableConfig | None) -> AgentControl:
-        """The control for the agent this run is of: the one `name=` fixed, or the run's own.
+    def _control_for(self, name: str | None) -> AgentControl:
+        """The control for an agent by that name: the one `name=` fixed, or one built for this run.
 
-        Read from the run every time rather than remembered from the first one, because the run's
-        metadata is the caller's: `agent.invoke(..., {'metadata': {'lc_agent_name': ...}})` overrides
-        what `create_agent` bound, and it renames the agent in Logfire's traces too. The config
-        keying on the same value is the point -- it lines up with the agent you are already looking
-        at -- so a run that renames the agent moves both, and only for itself. Remembering the first
-        name would let one run's rename outlive it and point every later run at that config.
+        An inferred name is read off the run every time rather than remembered from the first one,
+        because the run's metadata is the caller's: `agent.invoke(..., {'metadata': {'lc_agent_name':
+        ...}})` overrides what `create_agent` bound, and it renames the agent in Logfire's traces
+        too. The config keying on the same value is the point -- it lines up with the agent you are
+        already looking at -- so a run that renames the agent moves both, and only for itself.
+
+        Built per run rather than cached, because a cache keyed on a name the caller supplies is a
+        cache the caller decides the size of, and because an `AgentControl` is a name, a label and a
+        `Variable` object: no client, no connection, nothing worth keeping.
 
         Pass `agent_control(name=...)` to key the config on a name no run can move.
         """
-        if self._name is not None:
-            return self._require_control()
+        if self._control is not None:
+            return self._control
+        if name is None:
+            raise ValueError(_UNNAMED_AGENT)
+        return self._build_control(name)
+
+    @staticmethod
+    def _run_name(config: RunnableConfig | None) -> str | None:
+        """What this run says the agent is called, or `None` if it says nothing usable."""
         metadata: dict[str, Any] = (config or {}).get('metadata') or {}
         name = metadata.get('lc_agent_name')
-        if isinstance(name, str) and name and name != DEFAULT_AGENT_NAME:
-            # Assigned rather than memoized under a lock: two concurrent runs of one agent build the
-            # same control for the same variable, and either is the one to keep.
-            control = self._controls.get(name)
-            if control is None:
-                control = self._controls[name] = self._build_control(name)
-            self._control = control
-        return self._require_control()
-
-    def _require_control(self) -> AgentControl:
-        """The control for the agent last run, or the reason there cannot be one."""
-        if self._control is None:
-            raise ValueError(
-                'Agent Control needs the name of the agent it manages, and this agent has none: '
-                f'`create_agent()` was called without `name=`, so LangChain calls it {DEFAULT_AGENT_NAME!r}. '
-                'Pass `name=` to `create_agent()` -- it is what Logfire shows the agent as in traces, so '
-                'the config lines up with the agent you already see there -- or, if the agent must stay '
-                'unnamed, pass `agent_control(name=...)`.'
-            )
-        return self._control
+        return name if isinstance(name, str) and name and name != DEFAULT_AGENT_NAME else None
 
     def before_agent(
         self,
@@ -229,29 +235,30 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         middleware, and `langgraph.config.get_config()` is unavailable to a sync hook running under
         an async invocation on Python 3.10.
         """
-        control = self._control_for(config)
+        name = self._run_name(config)
+        control = self._control_for(name)
         # Entered and left here rather than held: the resolution's telemetry context is what puts
         # the label and version on spans, and a graph node cannot hold a context open across the
         # nodes that come after it. `Resolution.reported` puts it back around each request instead.
         with control.resolution() as resolution:
-            return {STATE_KEY: resolution}
+            return {STATE_KEY: resolution, NAME_KEY: control.name}
 
     def wrap_model_call(
         self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
     ) -> ModelResponse[Any]:
         """Apply the run's config to the request the model is about to be sent."""
-        resolution = self._resolution(request.state)
+        control, resolution = self._run(request.state)
         with resolution.reported():
-            applied = self._apply(request, resolution)
+            applied = self._apply(request, control, resolution)
             return applied.in_code_names(handler(applied.request))
 
     async def awrap_model_call(
         self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], Awaitable[ModelResponse[Any]]]
     ) -> ModelResponse[Any]:
         """Apply the run's config to the request the model is about to be sent."""
-        resolution = self._resolution(request.state)
+        control, resolution = self._run(request.state)
         with resolution.reported():
-            applied = self._apply(request, resolution)
+            applied = self._apply(request, control, resolution)
             return applied.in_code_names(await handler(applied.request))
 
     def wrap_tool_call(
@@ -265,31 +272,38 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         for an agent whose middleware wraps tool calls, which is what lets a request advertise a tool
         under a name `ToolNode` does not hold.
         """
-        with self._resolution(request.state).reported():
+        with self._run(request.state)[1].reported():
             return handler(request)
 
     async def awrap_tool_call(
         self, request: ToolCallRequest, handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]]
     ) -> ToolMessage | Command[Any]:
         """Run a tool call inside the version of the config that asked for it."""
-        with self._resolution(request.state).reported():
+        with self._run(request.state)[1].reported():
             return await handler(request)
 
-    def _resolution(self, state: Any) -> Resolution:
-        """The resolution this run started from, or one read now if the run never went through `before_agent`."""
+    def _run(self, state: Any) -> tuple[AgentControl, Resolution]:
+        """The agent this run is of and the config it started from, both taken from the run itself.
+
+        `before_agent` put them there, so a request reads its own run's rather than whatever a
+        concurrent run of the same middleware last wrote. A request that never went through that
+        hook -- a graph that does not run it, a direct call to this middleware -- resolves for
+        itself, and can only do so for an agent named on the middleware.
+        """
         carried = cast('dict[str, Any]', state)
         if STATE_KEY in carried:
-            return cast(Resolution, carried[STATE_KEY])
-        with self._require_control().resolution() as resolution:
-            return resolution
+            return self._control_for(cast('str | None', carried.get(NAME_KEY))), cast(Resolution, carried[STATE_KEY])
+        control = self._control_for(None)
+        with control.resolution() as resolution:
+            return control, resolution
 
-    def _apply(self, request: ModelRequest[Any], resolution: Resolution) -> _AppliedRequest:
+    def _apply(self, request: ModelRequest[Any], control: AgentControl, resolution: Resolution) -> _AppliedRequest:
         """The request to send, and what to translate in the reply it comes back with."""
         prompt = self._prompt(request)
         model_id = read_model_id(request.model)
         if self._code_model_id is None:
             self._code_model_id = model_id
-        self._publish(request, prompt, model_id)
+        self._publish(request, control, prompt, model_id)
 
         config = resolution.config
         if config is None:
@@ -317,7 +331,7 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
             if tool_choice is not request.tool_choice:
                 overrides['tool_choice'] = tool_choice
 
-        model = self._model(model_id, config)
+        model = self._model(model_id, control, config)
         code_settings: dict[str, Any] = {}
         if model is not None:
             overrides['model'] = model
@@ -355,7 +369,7 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
             )
         return assemble_system_prompt(self._instructions, request)
 
-    def _model(self, requested: str | None, config: AgentConfig) -> BaseChatModel | None:
+    def _model(self, requested: str | None, control: AgentControl, config: AgentConfig) -> BaseChatModel | None:
         """The model a published `model` names, or `None` to send the request to the one it carries.
 
         A published `model` replaces the model the agent was *built* with, and nothing else. A
@@ -368,16 +382,18 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         if config.model is None:
             return None
         if requested is not None and requested != self._code_model_id:
-            self._require_control().report_unmatched(
+            control.report_unmatched(
                 f'Managed agent config sets model {config.model!r}, but this request already carries '
                 f'{requested!r} rather than the {self._code_model_id!r} the agent was built with, which means '
                 'something chose it for this request; that section is not applied and the request keeps the '
                 'model it arrived with.'
             )
             return None
-        return build_model(config.model, self._require_control())
+        return build_model(config.model, control)
 
-    def _publish(self, request: ModelRequest[Any], prompt: SystemPrompt, model_id: str | None) -> None:
+    def _publish(
+        self, request: ModelRequest[Any], control: AgentControl, prompt: SystemPrompt, model_id: str | None
+    ) -> None:
         """Publish what the agent sends, from the first request that shows what that is.
 
         The first request rather than construction, because `create_agent` keeps the prompt, the
@@ -386,7 +402,6 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         the editor that the model and settings here are the ones *that* request carried, and the
         blocks whose text this adapter cannot attribute to the code go up as seams with no text.
         """
-        control = self._require_control()
         if control.variable_name in self._published:
             return
         self._published.add(control.variable_name)

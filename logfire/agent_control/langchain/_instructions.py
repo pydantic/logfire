@@ -86,6 +86,16 @@ class SystemPrompt:
     which is not something managing an agent's instructions should quietly do to it.
     """
 
+    message: SystemMessage | None = None
+    """The message the blocks were read out of, for everything about it that is not its content.
+
+    A `SystemMessage` is more than the text it carries: it has a `name`, an `id`, and the
+    `additional_kwargs` an integration reads message-level provider directives out of. Rendering
+    replaces the content of the message that came in rather than building a new one, because a
+    prompt whose blocks carry `id`s is re-rendered on *every* request -- to strip those ids -- so a
+    fresh message would drop all of that on a request nobody published anything for.
+    """
+
     assembled: bool = False
     """Whether this prompt is the middleware's own assembly rather than the request's own message.
 
@@ -131,7 +141,7 @@ class SystemPrompt:
         """
         if self.plain:
             texts = [block.text for block in blocks]
-            return SystemMessage(content='\n\n'.join(texts)) if texts else None
+            return self._message('\n\n'.join(texts)) if texts else None
         entries: list[str | dict[str, Any]] = []
         position = 0
         for block in blocks:
@@ -147,7 +157,13 @@ class SystemPrompt:
             entries.append(_with_text(slot.entry, block.text))
             position += 1
         entries.extend(slot.entry for slot in self.slots[position:] if slot.block is None)
-        return SystemMessage(content=entries) if entries else None
+        return self._message(entries) if entries else None
+
+    def _message(self, content: str | list[str | dict[str, Any]]) -> SystemMessage:
+        """The message to send: the one that came in, saying something else, or a new one."""
+        if self.message is None:
+            return SystemMessage(content=content)
+        return self.message.model_copy(update={'content': content})
 
 
 def read_system_prompt(message: SystemMessage | None) -> SystemPrompt:
@@ -169,7 +185,9 @@ def read_system_prompt(message: SystemMessage | None) -> SystemPrompt:
         return SystemPrompt(slots=(), plain=True)
     content = message.content
     if isinstance(content, str):
-        return SystemPrompt(slots=(_Slot(content, Block(text=content, id=SYSTEM_BLOCK_ID, dynamic=True)),), plain=True)
+        return SystemPrompt(
+            slots=(_Slot(content, Block(text=content, id=SYSTEM_BLOCK_ID, dynamic=True)),), plain=True, message=message
+        )
     slots: list[_Slot] = []
     for index, entry in enumerate(content):
         if isinstance(entry, str):
@@ -183,7 +201,7 @@ def read_system_prompt(message: SystemMessage | None) -> SystemPrompt:
         declared = isinstance(key, str) and bool(key)
         block_id = f'{SYSTEM_BLOCK_ID}:{key if declared else index}'
         slots.append(_Slot(entry, Block(text=text, id=block_id, dynamic=not declared)))
-    return SystemPrompt(slots=tuple(slots), plain=False)
+    return SystemPrompt(slots=tuple(slots), plain=False, message=message)
 
 
 def assemble_system_prompt(instructions: Mapping[str, Instruction], request: ModelRequest[Any]) -> SystemPrompt:

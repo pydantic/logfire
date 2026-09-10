@@ -25,6 +25,7 @@ class SystemPrompt:
     '''
     slots: tuple[_Slot, ...]
     plain: bool
+    message: SystemMessage | None = ...
     assembled: bool = ...
     @property
     def blocks(self) -> list[Block]:

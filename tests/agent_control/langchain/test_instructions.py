@@ -26,6 +26,28 @@ def test_a_declared_block_is_the_one_the_config_can_replace(project: LocalVariab
     assert sent(model) == snapshot([{'type': 'text', 'text': 'You are TERSE.'}])
 
 
+def test_the_message_keeps_everything_about_itself_but_its_text(project: LocalVariableProvider) -> None:
+    # A `SystemMessage` is more than its content: it has a `name`, an `id`, and the
+    # `additional_kwargs` an integration reads message-level provider directives out of. A prompt
+    # whose blocks carry `id`s is re-rendered on every request to strip those ids, so building a
+    # fresh message would drop all of it even on a request nobody published anything for.
+    publish(project, {'instructions': [{'id': 'system:role', 'instructions': 'You are TERSE.'}]})
+    prompt = SystemMessage(
+        content=[{'type': 'text', 'text': 'You are a helpful assistant.', 'id': 'role'}],
+        name='house-prompt',
+        id='sys-1',
+        additional_kwargs={'cache_control': {'type': 'ephemeral'}},
+    )
+    model = RecordingModel(replies=[AIMessage('ok')])
+    run(build_agent(model, agent_control(label='production'), tools=[], system_prompt=prompt))
+
+    sent_message = system_message(model)
+    assert (sent_message.name, sent_message.id, sent_message.additional_kwargs) == snapshot(
+        ('house-prompt', 'sys-1', {'cache_control': {'type': 'ephemeral'}})
+    )
+    assert sent(model) == snapshot([{'type': 'text', 'text': 'You are TERSE.'}])
+
+
 def test_a_block_nobody_declared_is_a_seam_the_config_may_not_pin(project: LocalVariableProvider) -> None:
     # A plain `system_prompt=` string reaches this middleware exactly the way a prompt another
     # middleware computed for this one request does, so it is treated as the second: the text is the
