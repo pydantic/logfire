@@ -1,6 +1,6 @@
 from .. import AgentConfig as AgentConfig, AppliedTools as AppliedTools, OnUnmatched as OnUnmatched, ToolDef as ToolDef, ToolKey as ToolKey, apply_tool_definitions as apply_tool_definitions
 from _typeshed import Incomplete
-from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from livekit.agents import llm
 from livekit.agents.types import NotGivenOr
 from typing import Any
@@ -16,6 +16,17 @@ def toolset_ids(tools: Iterable[llm.Tool | llm.Toolset]) -> dict[object, str]:
     """
 def managed_tools(tools: Sequence[llm.Tool]) -> Iterator[tuple[int, Any]]:
     """The tools Agent Control can edit, with their position in the list the model is shown."""
+def flatten(tools: Iterable[llm.Tool | llm.Toolset]) -> list[llm.Tool]:
+    """The tools in `tools`, with each toolset's own tools spliced in where it stood."""
+def toolset_names(tools: Iterable[llm.Tool | llm.Toolset]) -> set[str]:
+    """Every name a toolset in `tools` already advertises, which a rename must not take.
+
+    The realtime path's counterpart to `reserved_names`. A realtime session's tool list is replaced
+    whole and a `Toolset` in it is carried across exactly as it is, so a rename onto a name one of
+    its tools already answers to would hand `update_tools` two tools under one name -- and it keeps
+    one of them, silently. On the stateless path the flat list the hook receives already contains
+    those tools, and `reserved_names` sees them there.
+    """
 def reserved_names(tools: Sequence[llm.Tool]) -> set[str]:
     """The advertised names a rename must not take: the tools this package cannot edit.
 
@@ -53,12 +64,16 @@ def clone(tool: Any, definition: ToolDef, *, schema_patched: bool) -> llm.Tool:
     keeps its execution identical. That drops the strict-mode schema the OpenAI and Anthropic plugins
     would otherwise send for it -- see the README's known limits.
     """
-def advertise(tools: Sequence[llm.Tool], config: AgentConfig, toolsets: Mapping[object, str], *, on_unmatched: OnUnmatched) -> tuple[list[llm.Tool], AppliedTools]:
+def advertise(tools: Sequence[llm.Tool], config: AgentConfig, toolsets: Mapping[object, str], *, on_unmatched: OnUnmatched, reserved: Collection[str] = ()) -> tuple[list[llm.Tool], AppliedTools]:
     """The tools to send this turn, and the routing the core worked out for them.
 
     The list the hook was handed is left alone. LiveKit syncs edits to it back into the turn's
     `ToolContext`, which is what dispatches a call, so renaming in place would rename the tool the
     implementation answers to as well; advertising a separate list keeps the rename on the wire only.
+
+    `reserved` is for names a caller knows about that are not in `tools` -- what a `Toolset` the
+    realtime path carries across untouched already advertises -- and is added to the ones read off
+    the list itself.
     """
 def forward_names(applied: AppliedTools) -> dict[str, str]:
     """Code-side name -> the name that tool is advertised under, for the tools a config renamed.

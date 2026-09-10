@@ -2,7 +2,7 @@ from .. import AgentConfig as AgentConfig, AgentControl as AgentControl, apply_i
 from ._instructions import Modality as Modality, baseline_blocks as baseline_blocks, blocks_for as blocks_for, join as join, render as render
 from ._models import build as build, canonical_id as canonical_id
 from ._settings import Lowered as Lowered, UNKNOWN as UNKNOWN, carry_settings as carry_settings, code_settings as code_settings, lower as lower, plugin_for as plugin_for
-from ._tools import advertise as advertise, forward_names as forward_names, managed_tools as managed_tools, rename_calls as rename_calls, rename_tool_choice as rename_tool_choice, renamed as renamed, tool_def as tool_def, toolset_ids as toolset_ids
+from ._tools import advertise as advertise, forward_names as forward_names, managed_tools as managed_tools, rename_calls as rename_calls, rename_tool_choice as rename_tool_choice, renamed as renamed, tool_def as tool_def, toolset_ids as toolset_ids, toolset_names as toolset_names
 from _typeshed import Incomplete
 from collections.abc import AsyncGenerator, Mapping
 from dataclasses import dataclass, field

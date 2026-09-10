@@ -44,6 +44,7 @@ from ._tools import (
     renamed,
     tool_def,
     toolset_ids,
+    toolset_names,
 )
 
 if TYPE_CHECKING:
@@ -313,9 +314,10 @@ class ManagedAgent(Agent):
     """The last prompt this package pushed to a realtime session, for the same distinction."""
     _agent_control_pushed_tools: list[llm.Tool | llm.Toolset] | None = None
     """The last tool list this package pushed to a realtime session, for the same distinction."""
-    _agent_control_built_model: tuple[str, llm.LLM | None] | None = None
-    """The last model built for a published `model`, so an unchanged config rebuilds nothing -- and a
-    model that could not be built is not attempted again on every turn."""
+    _agent_control_built_model: tuple[str, llm.LLM | llm.RealtimeModel | None, llm.LLM | None] | None = None
+    """The last model built for a published `model`, and what it was built from, so an unchanged
+    config rebuilds nothing -- and a model that could not be built is not attempted again on every
+    turn."""
     _agent_control_boundary: ManagedLLM | None = None
     """The request boundary in front of the current model, reused across turns so the events it
     forwards are subscribed once rather than once per request."""
@@ -465,21 +467,27 @@ class ManagedAgent(Agent):
         self._agent_control_installed_llm = model
 
     def _agent_control_build(self, model_id: str | None) -> llm.LLM | None:
-        """The model a published `model` names, or `None` when it names none or cannot be built here."""
+        """The model a published `model` names, or `None` when it names none or cannot be built here.
+
+        Cached on the code model as well as on the id, because the code model is half of what was
+        built: a swap through `update_options(llm=...)` can change the base URL, the credentials and
+        the HTTP client the published model reuses without changing the id that named it.
+        """
         if model_id is None:
             return None
+        code_model = self._agent_control_code_llm
         built = self._agent_control_built_model
-        if built is None or built[0] != model_id:
+        if built is None or built[0] != model_id or built[1] is not code_model:
             try:
-                model = build(model_id, self._agent_control_code_llm)
+                model = build(model_id, code_model)
             except Exception as exc:
                 self._agent_control.report_unmatched(
                     f'Managed agent config selects model {model_id!r}, which could not be built for this '
                     f'agent ({exc}); the model in code is used instead.'
                 )
                 model = None
-            built = self._agent_control_built_model = (model_id, model)
-        return built[1]
+            built = self._agent_control_built_model = (model_id, code_model, model)
+        return built[2]
 
     def _agent_control_prompt(self, config: AgentConfig) -> str | None:
         """The managed prompt for this turn, or `None` when the config leaves instructions to code.
@@ -595,7 +603,9 @@ class ManagedAgent(Agent):
         quietly done.
         """
         control = self._agent_control
-        advertised, applied = advertise(editable, config, {}, on_unmatched=control.on_unmatched)
+        advertised, applied = advertise(
+            editable, config, {}, on_unmatched=control.on_unmatched, reserved=toolset_names(code_tools)
+        )
         for (_, name), advertised_name in renamed(applied):
             control.report_unmatched(
                 f'Managed agent config renames tool {name!r} to {advertised_name!r}. A realtime session '

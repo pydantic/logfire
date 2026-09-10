@@ -183,6 +183,38 @@ async def test_an_unchanged_published_model_is_built_once(
     assert builds == ['openai:gpt-5.2']
 
 
+async def test_swapping_the_code_model_rebuilds_the_published_one(
+    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The published model is built *from* the code one, so a swap has to rebuild it.
+
+    `update_options(llm=...)` is how a base URL, a set of credentials or an HTTP client changes
+    mid-session, and the published model reuses all three -- so keeping the first build because the
+    id has not changed would leave the agent talking to the endpoint it was moved off.
+    """
+    publish(project, 'agent__checkout', {'model': 'openai:gpt-5.2'})
+    built: list[object] = []
+
+    def record(model_id: str, code_model: object) -> StubOpenAILLM:
+        built.append(code_model)
+        return StubOpenAILLM(model='gpt-5.2')
+
+    monkeypatch.setattr('logfire.agent_control.livekit._agent.build', record)
+
+    first = StubOpenAILLM(model='gpt-4.1')
+    second = StubOpenAILLM(model='gpt-4.1', base_url='https://example.test/v1')
+    agent = managed()()
+    session = AgentSession(llm=first)
+    await session.start(agent)
+    try:
+        await session.run(user_input='hi')
+        agent.update_options(llm=second)
+        await session.run(user_input='hi again')
+    finally:
+        await session.aclose()
+    assert built == [first, second]
+
+
 async def test_a_model_that_cannot_be_built_leaves_the_code_one_running(project: LocalVariableProvider) -> None:
     publish(project, 'agent__checkout', {'model': 'acme:model-1'})
     stub = StubOpenAILLM(model='gpt-4.1')

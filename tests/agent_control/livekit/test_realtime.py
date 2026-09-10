@@ -171,6 +171,26 @@ async def test_an_override_for_a_toolset_tool_reaches_nothing(project: LocalVari
         await enter(agent, StubRealtimeModel())
 
 
+async def test_a_rename_onto_a_toolset_tool_is_refused(project: LocalVariableProvider) -> None:
+    """A realtime `Toolset` is carried across untouched, so its names are not a rename's to take.
+
+    `update_tools` keeps one of two tools sharing a name, silently, which would leave the session
+    with a tool it can no longer call.
+    """
+    publish(
+        project,
+        'agent__doorbell',
+        {'tool_definitions': [{'name': 'get_weather', 'new_name': 'lookup_order', 'description': 'Reworded.'}]},
+    )
+    model = StubRealtimeModel()
+    agent = doorbell(tools=[get_weather, llm.Toolset(id='orders', tools=[lookup_order])])()
+    with pytest.warns(UserWarning, match="renames 'get_weather' to 'lookup_order', which is already advertised"):
+        await enter(agent, model)
+
+    # The rename is dropped and the rest of the override still applies, so both tools survive.
+    assert names(model.updates.tools[-1]) == ['get_weather', 'lookup_order']
+
+
 async def test_re_entry_after_a_withdrawal_puts_the_code_side_back(project: LocalVariableProvider) -> None:
     """Publish, re-enter, withdraw, re-enter: the agent has to end up exactly where it started."""
     publish(
