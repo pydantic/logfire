@@ -86,6 +86,22 @@ def test_an_agent_created_without_a_name_says_so(project: LocalVariableProvider)
         run(agent)
 
 
+def test_an_agent_somebody_named_langgraph_is_an_agent_with_a_name(project: LocalVariableProvider) -> None:
+    # An agent created without a `name` carries no `lc_agent_name` on the run at all, so the absent
+    # key is the signal. `'LangGraph'` reaching this middleware means somebody named it that.
+    publish(
+        project, {'instructions': [{'id': 'system:role', 'instructions': 'You are TERSE.'}]}, name='agent__langgraph'
+    )
+    model = RecordingModel(replies=[AIMessage('ok')])
+    run(
+        build_agent(
+            model, agent_control(label='production'), tools=[], name='LangGraph', system_prompt=declared_prompt()
+        )
+    )
+
+    assert system_message(model).text == 'You are TERSE.'
+
+
 def test_an_unnamed_agent_can_be_named_on_the_middleware(project: LocalVariableProvider) -> None:
     publish(project, {'instructions': [{'id': 'system:role', 'instructions': 'You are TERSE.'}]})
     model = RecordingModel(replies=[AIMessage('ok')])

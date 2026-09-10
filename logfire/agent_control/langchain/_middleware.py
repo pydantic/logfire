@@ -38,7 +38,11 @@ NAME_KEY = 'logfire_agent_control_name'
 """The state key the run's agent name is carried in; see `AgentControlState`."""
 
 DEFAULT_AGENT_NAME = 'LangGraph'
-"""What `create_agent` calls an agent that was not given a `name`, from `graph.compile()`."""
+"""What `create_agent` calls an agent that was not given a `name`, from `graph.compile()`.
+
+It is the compiled graph's `name` and what a person sees; the run carries no `lc_agent_name` for
+such an agent at all, which is what `_run_name` reads. Named here only to say so in the error.
+"""
 
 _UNNAMED_AGENT = (
     'Agent Control needs the name of the agent it manages, and this agent has none: '
@@ -211,10 +215,15 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
 
     @staticmethod
     def _run_name(config: RunnableConfig | None) -> str | None:
-        """What this run says the agent is called, or `None` if it says nothing usable."""
+        """What this run says the agent is called, or `None` if it says nothing usable.
+
+        An agent created without a `name` carries no `lc_agent_name` at all -- the absent key is the
+        signal, not a placeholder value -- so a name that *is* `'LangGraph'` is an agent somebody
+        named that, and is taken at its word like any other.
+        """
         metadata: dict[str, Any] = (config or {}).get('metadata') or {}
         name = metadata.get('lc_agent_name')
-        return name if isinstance(name, str) and name and name != DEFAULT_AGENT_NAME else None
+        return name if isinstance(name, str) and name else None
 
     def before_agent(
         self,
