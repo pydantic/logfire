@@ -146,7 +146,7 @@ def rebuild_servers(
         return None
 
     servers: dict[str, McpServerConfig] = dict(options.mcp_servers)  # type: ignore[arg-type]
-    for server, (_, registered) in _servers(options).items():
+    for server, (config, registered) in _servers(options).items():
         per_tool = patches.get(server)
         if per_tool is None:
             continue
@@ -167,7 +167,11 @@ def rebuild_servers(
                     annotations=tool.annotations,
                 )
             )
-        servers[server] = sdk_mcp_server(server, registered.version, rebuilt)
+        # The server's own name, not the key it is filed under: the two are usually the same, and
+        # when they are not it is the key that the model-facing `mcp__<server>__<tool>` names carry,
+        # while the name is what the CLI is told the server is called. A rebuild rewrites tool
+        # definitions and must leave the server it rebuilt identifying as the same server.
+        servers[server] = sdk_mcp_server(config['name'], registered.version, rebuilt)
     return servers
 
 

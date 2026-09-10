@@ -157,6 +157,16 @@ def test_a_rebuilt_server_keeps_its_place_and_its_version(project: LocalVariable
     assert options.mcp_servers['shop']['instance'].version == '2.0.0'  # type: ignore[index]
 
 
+def test_a_rebuilt_server_keeps_the_name_the_cli_knows_it_by(project: LocalVariableProvider) -> None:
+    # A server filed under a different key than it was built with keeps both: the key is what the
+    # model-facing names carry, the name is what the CLI is told, and a rebuild changes neither.
+    options = managed(project, [RENAME], mcp_servers={'shop': sdk_mcp_server('store', tools=[refund_order])})
+    mcp_config = cli_arg(options, '--mcp-config')
+    assert mcp_config is not None
+    assert json.loads(mcp_config) == {'mcpServers': {'shop': {'type': 'sdk', 'name': 'store'}}}
+    assert [tool['name'] for tool in wire_tools(options, 'shop')] == ['issue_refund']
+
+
 def test_the_adapters_bookkeeping_never_reaches_the_command_line(project: LocalVariableProvider) -> None:
     # Everything but `instance` is JSON-encoded into `--mcp-config`, so remembering a server's tools
     # on the config dict would either leak them onto the command line or fail to serialize.

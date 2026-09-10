@@ -13,7 +13,7 @@ This page is the adapter for that SDK. Everything it applies comes from [Agent C
     pip install 'logfire[agent-control-claude-agent-sdk]'
     ```
 
-    It brings in Agent Control and `claude-agent-sdk>=0.2`.
+    It brings in Agent Control and the Claude Agent SDK.
 
 You also need a Logfire project with variables enabled, and `logfire.configure()` called before the first session starts. The Logfire token comes from your project settings, the same one the rest of the SDK uses.
 
