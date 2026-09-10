@@ -1,3 +1,4 @@
+from _typeshed import Incomplete
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from langchain.agents.middleware import ModelRequest
@@ -6,6 +7,7 @@ from logfire.agent_control import Block as Block
 from typing import Any, TypeAlias
 
 Instruction: TypeAlias = str | Callable[[ModelRequest[Any]], str]
+GENERATED_BLOCK_ID: Incomplete
 SYSTEM_BLOCK_ID: str
 
 @dataclass(frozen=True)

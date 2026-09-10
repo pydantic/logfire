@@ -8,9 +8,10 @@ the one the message itself offers -- a `content` list of text blocks, each of wh
 An `id` is also the only *provenance* there is. A middleware runs before this one and can replace the
 whole system message -- that is what `@dynamic_prompt` is for -- and by the time a `ModelRequest`
 arrives here, text the agent was written with and text a middleware computed from this run's tenant,
-user, or retrieved documents are the same string with nothing to tell them apart. So an `id` is read
-as the code author's declaration that the block is theirs and stays put: those blocks are static,
-published with their text, and addressable. Everything else is a dynamic seam -- published as an id
+user, or retrieved documents are the same string with nothing to tell them apart. So an `id` the code author
+wrote is read as their declaration that the block is theirs and stays put: those blocks are static,
+published with their text, and addressable. An `id` *LangChain* generated is not that declaration --
+see `GENERATED_BLOCK_ID` -- and is read as a seam like anything else. Everything else is a dynamic seam -- published as an id
 and a `dynamic` flag with no text, and refused as an override target -- because publishing one
 request's rendering puts one run's data in a variable the whole Logfire project can read, and an
 override on it would pin that rendering forever.
@@ -23,6 +24,7 @@ recomputed per request and is therefore a seam.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, TypeAlias
@@ -38,6 +40,20 @@ Instruction: TypeAlias = str | Callable[[ModelRequest[Any]], str]
 A callable is handed the `ModelRequest` -- and through it the run's state and runtime context -- and
 is called on every request, which is what makes it a seam rather than something a published value may
 replace. A string is the block as written, and is both published and editable.
+"""
+
+GENERATED_BLOCK_ID = re.compile(r'lc_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\Z')
+"""LangChain's own block id: `lc_` and a UUID4, which `create_text_block()` and friends generate.
+
+Read as *not* a declaration, which is the whole point of the rule this file is built on. A middleware
+that assembles this request's system prompt with LangChain's own helpers gets one of these per block
+per request, and taking it for the code author saying "this block is mine" would do both of the
+things the contract forbids: publish that request's text -- this tenant, this user, this run's
+retrieved documents -- into a variable every member of the project can read, and offer it for
+override under an id no later request will ever carry again.
+
+Matched exactly rather than by prefix, so a block someone deliberately called `lc_role` is still
+theirs.
 """
 
 SYSTEM_BLOCK_ID = 'system'
@@ -198,7 +214,7 @@ def read_system_prompt(message: SystemMessage | None) -> SystemPrompt:
             slots.append(_Slot(entry))
             continue
         key = entry.get('id')
-        declared = isinstance(key, str) and bool(key)
+        declared = isinstance(key, str) and bool(key) and not GENERATED_BLOCK_ID.fullmatch(key)
         block_id = f'{SYSTEM_BLOCK_ID}:{key if declared else index}'
         slots.append(_Slot(entry, Block(text=text, id=block_id, dynamic=not declared)))
     return SystemPrompt(slots=tuple(slots), plain=False, message=message)

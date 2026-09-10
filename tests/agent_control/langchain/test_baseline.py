@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from inline_snapshot import snapshot
 from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages.content import create_text_block
 from langchain_core.tools import BaseTool, tool
 
 from logfire.agent_control.langchain import agent_control
@@ -85,6 +86,36 @@ def test_the_variable_is_created_with_the_shared_schema(
 
     json_schema = variable(project).json_schema
     assert json_schema is not None and 'instructions' in json_schema['properties']
+
+
+def test_a_block_id_langchain_generated_is_not_a_declaration(
+    project: LocalVariableProvider, wait_for_publish: Callable[[], None]
+) -> None:
+    # The blocker: `create_text_block()` puts an `lc_<uuid4>` on every block it makes, so a
+    # middleware that assembles this request's prompt with LangChain's own helpers hands over text
+    # carrying an id. Reading that as the code author's declaration would publish this request's
+    # data -- this tenant, this user -- into a variable the whole project can read, and address it
+    # by an id no later request will ever carry again.
+    # Cast because `create_text_block` returns a `TypedDict` and `SystemMessage.content` is typed
+    # as taking plain `dict`s, which a `TypedDict` is not assignable to.
+    content = cast(
+        'list[str | dict[Any, Any]]',
+        [
+            create_text_block('You are a checkout assistant.', id='role'),
+            create_text_block('The customer is jane@example.com.'),
+        ],
+    )
+    prompt = SystemMessage(content=content)
+    middleware = agent_control(label='production')
+    run(build_agent(RecordingModel(replies=[AIMessage('ok')]), middleware, tools=[], system_prompt=prompt))
+    wait_for_publish()
+
+    assert published_baseline(project)['instructions'] == snapshot(
+        [
+            {'id': 'system:role', 'instructions': 'You are a checkout assistant.', 'dynamic': False},
+            {'id': 'system:1', 'dynamic': True},
+        ]
+    )
 
 
 def test_each_block_of_a_structured_prompt_is_its_own_baseline_entry(

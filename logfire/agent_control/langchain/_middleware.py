@@ -355,7 +355,7 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         published = lower_settings(model or request.model, config, has_tools=has_tools, on_unmatched=self._on_unmatched)
         # The contract's order, and `model_settings` is the run: it is where another middleware puts
         # a per-call choice for this one request, and where Anthropic prompt-cache directives arrive.
-        run_settings = align_run_settings(model or request.model, request.model_settings, published)
+        run_settings = align_run_settings(model or request.model, request.model_settings, code_settings, published)
         merged = merge_settings(code_settings, published, run_settings)
         for kwarg in published:
             # A per-request value outranking a published one is the contract, not a fault -- but it

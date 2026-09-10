@@ -118,7 +118,8 @@ Support is per row: **yes** means it works as written, **conditional** means the
 |---|---|---|---|
 | A string in `agent_control(instructions={...})` | `system:<key>` | yes | Replaceable and removable on its own. Code-side by construction: the middleware assembled the prompt out of what your code passed it. |
 | A callable in `agent_control(instructions={...})` | `system:<key>` | no | Called with the `ModelRequest` on every request, so it is a seam: published with no text, and an override addressing it is reported under `on_unmatched` and not applied. Sent after the fixed blocks. |
-| A `SystemMessage` content block with an `id` | `system:<id>` | yes | Replaceable and removable on its own. Your `id` is what declares the block code-side; the id is stripped before the request goes out, since OpenAI forwards content blocks verbatim. |
+| A `SystemMessage` content block with an `id` you wrote | `system:<id>` | yes | Replaceable and removable on its own. Your `id` is what declares the block code-side; the id is stripped before the request goes out, since OpenAI forwards content blocks verbatim. |
+| A content block with an `id` LangChain generated | `system:<index>` | no | `create_text_block()` puts an `lc_<uuid4>` on every block it makes, so a prompt assembled with LangChain's own helpers carries one per block per request. That is not your declaration and it is not stable — a fresh id each request — so it is read as a seam. |
 | A `system_prompt='...'` string | `system` | no | Published as a seam with no text, and an override addressing it is reported under `on_unmatched` and not applied: nothing here can tell it from a prompt a `@dynamic_prompt` middleware computed for this one request. Move it into `instructions=`, or give its blocks `id`s, to make it editable. |
 | A content block with no `id` of its own | `system:<index>` | no | Same seam, and its positional id would move the day you insert a paragraph above it. |
 | Non-text content (an image, a provider block) | — | no | Carried through untouched and offered to nobody. |
@@ -196,7 +197,7 @@ That is also what makes a thread outlive a change: resume a conversation after t
 ## Known limits
 
 - **Put the middleware last.** Anything after it can overwrite what it applied, and it will not see what that middleware contributed.
-- **A prompt this middleware cannot attribute to your code is not editable.** Declare it with `instructions=`, or give the block an `id`; there is no way to tell an undeclared string from one computed for this request.
+- **A prompt this middleware cannot attribute to your code is not editable.** Declare it with `instructions=`, or give the block an `id` of your own; there is no way to tell an undeclared string from one computed for this request, and an `lc_<uuid4>` LangChain generated is not a declaration.
 - **`instructions=` is the whole prompt.** It is assembled onto a request that carries none, and an agent that also has a `system_prompt` (or a middleware that writes one) raises rather than have this middleware choose between two prompts.
 - **A model chosen dynamically on every request** hides the code's model from this middleware, so a published `model` may be reported as not applied. Publish the model in Logfire *or* choose it in a middleware, not both.
 - **An inferred name is only as trustworthy as your `metadata`.** A run can rename the agent, and the config follows. Pass `agent_control(name=...)` when that matters.

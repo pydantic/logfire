@@ -20,6 +20,7 @@ from logfire.agent_control.langchain._models import build_model, read_model_id, 
 from logfire.variables.local import LocalVariableProvider
 
 from .conftest import (
+    AliasedStopModel,
     RecordingModel,
     build_agent,
     declared_prompt,
@@ -230,6 +231,29 @@ def test_a_published_model_replaces_the_code_model_and_takes_its_settings_with_i
     assert request.model.model == 'claude-sonnet-4-5'
     # `max_tokens` is the code model's, carried across; `temperature` is the published override.
     assert request.model_settings == snapshot({'max_tokens': 99, 'temperature': 0.4})
+
+
+def test_a_published_model_carries_code_settings_under_a_spelling_the_run_can_override(
+    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The code model's settings ride across to a published model under the *new* model's spelling,
+    # which is a layer the run is meant to be able to override -- and can only override if it is
+    # aligned too. Left alone both spellings survive, and OpenAI would send both.
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'test')
+    publish(project, {'model': 'anthropic:claude-sonnet-4-5'})
+    middleware = agent_control(name='checkout', label='production')
+
+    # Constructed through the alias, which is the only spelling this model's own `__init__` takes.
+    request = capture(
+        middleware,
+        AliasedStopModel(stop_sequences=['FROM CODE']),
+        model_settings={'stop_sequences': ['FROM THE RUN']},
+    )
+
+    assert isinstance(request.model, ChatAnthropic)
+    # One key, carrying the run's value: `stop` is what `ChatAnthropic` takes this setting as, and
+    # the run wrote its other name. Unaligned, both survive and the run overrides nothing.
+    assert request.model_settings == snapshot({'stop': ['FROM THE RUN']})
 
 
 def test_a_model_another_middleware_chose_for_this_request_outranks_the_published_one(

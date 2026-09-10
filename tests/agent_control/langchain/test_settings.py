@@ -13,7 +13,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-from pydantic import Field, SecretStr
+from pydantic import SecretStr
 
 from logfire.agent_control import AgentConfig, merge_settings
 from logfire.agent_control.langchain import agent_control
@@ -26,7 +26,7 @@ from logfire.agent_control.langchain._settings import (
 )
 from logfire.variables.local import LocalVariableProvider
 
-from .conftest import RecordingModel, build_agent, publish, run, settings
+from .conftest import AliasedStopModel, RecordingModel, build_agent, publish, run, settings
 
 
 class FreezeTemperature(AgentMiddleware[Any, Any, Any]):
@@ -45,12 +45,6 @@ class FreezeStopSequences(AgentMiddleware[Any, Any, Any]):
         self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
     ) -> ModelResponse[Any]:
         return handler(request.override(model_settings={**request.model_settings, 'stop_sequences': ['FROM THE RUN']}))
-
-
-class AliasedStopModel(RecordingModel):
-    """A model declaring `stop` under an alias, the way both major integrations declare this one."""
-
-    stop: list[str] | None = Field(default=None, alias='stop_sequences')
 
 
 class ChangingTemperature(AgentMiddleware[Any, Any, Any]):
@@ -346,13 +340,28 @@ def test_a_run_spelling_a_published_setting_the_other_way_still_overrides_it(
     assert {name: value for name, value in payload.items() if 'stop' in name} == {sent: ['FROM THE RUN']}
 
 
-def test_a_run_setting_nothing_published_touches_is_left_spelled_as_it_was() -> None:
-    # Aligning only ever moves a key the published section also sets, so a request with nothing
-    # published for that setting still carries exactly what the middleware ahead of this one wrote.
+def test_a_run_setting_nothing_this_adapter_spelled_is_left_as_it_was() -> None:
+    # Aligning only ever moves a key one of this adapter's own layers set, so a request with nothing
+    # under it for that setting still carries exactly what the middleware ahead of this one wrote.
     built = openai()
     assert align_run_settings(built, {'stop_sequences': ['A'], 'temperature': 0.5}, {'temperature': 0.1}) == snapshot(
         {'stop_sequences': ['A'], 'temperature': 0.5}
     )
+
+
+def test_the_settings_a_published_model_carried_across_are_a_layer_the_run_can_override() -> None:
+    # `carry_settings` spells the code model's settings the same way `lower_settings` spells the
+    # published ones, so they collide with the run's other spelling in exactly the same way -- and
+    # a published `model` with nothing published under `settings` is the case that has no published
+    # layer to align against at all.
+    code = ChatAnthropic(model_name='claude-sonnet-4-5', api_key=SecretStr('test'), timeout=None, stop=['FROM CODE'])
+    built = openai()
+    carried = carry_settings(code, built)
+    aligned = align_run_settings(built, {'stop_sequences': ['FROM THE RUN']}, carried, {})
+    merged = merge_settings(carried, {}, aligned)
+
+    assert merged.settings['stop'] == snapshot(['FROM THE RUN'])
+    assert 'stop_sequences' not in merged.settings
 
 
 def test_a_run_that_spells_a_published_setting_the_other_way_reaches_the_model_once(

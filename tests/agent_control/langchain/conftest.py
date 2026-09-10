@@ -166,6 +166,17 @@ class RecordingModel(BaseChatModel):
         return 'recording'
 
 
+class AliasedStopModel(RecordingModel):
+    """A model declaring `stop` under an alias, the way both major integrations declare this one.
+
+    `ChatOpenAI` declares `stop` and accepts `stop_sequences`; `ChatAnthropic` the other way round.
+    Either way an adapter can only advertise one of the two names, and a middleware is free to write
+    the other into `model_settings`.
+    """
+
+    stop: list[str] | None = Field(default=None, alias='stop_sequences')
+
+
 def system_message(model: RecordingModel, index: int = 0) -> BaseMessage:
     """The system message the model was sent on its `index`th request."""
     return model.requests[index]['messages'][0]

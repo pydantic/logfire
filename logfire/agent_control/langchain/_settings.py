@@ -132,24 +132,27 @@ def lower_settings(
     return {kwargs.get(setting, setting): value for setting, value in values.items()}
 
 
-def align_run_settings(model: BaseChatModel, run: Mapping[str, Any], published: Mapping[str, Any]) -> dict[str, Any]:
-    """The run's settings, with any second spelling of a published key rewritten to the first.
+def align_run_settings(model: BaseChatModel, run: Mapping[str, Any], *layers: Mapping[str, Any]) -> dict[str, Any]:
+    """The run's settings, with any second spelling of a key in `layers` rewritten to the first.
 
     An integration declares a setting under one name and takes another as its alias -- `stop` and
     `stop_sequences` are each other's, in opposite directions on OpenAI and Anthropic, and OpenAI's
-    `timeout` is really `request_timeout` -- and `lower_settings` can only advertise one of them. A
-    middleware that reached for the other spelling would otherwise not collide with the published
-    value at all: both keys survive the merge and go out together, which on OpenAI puts
+    `timeout` is really `request_timeout` -- and this module can only advertise one of them. A
+    middleware that reached for the other spelling would otherwise not collide with the layer under
+    it at all: both keys survive the merge and go out together, which on OpenAI puts
     `stop_sequences` in the request body next to `stop`, and that is not a parameter of the API.
 
-    Only a key the published section also sets is rewritten, and only onto the spelling that
-    section is already using, so a request with nothing published for that setting still carries
-    exactly what the middleware ahead of this one wrote.
+    `layers` is every layer this adapter itself spelled -- the published section, and the code
+    model's settings carried across when a published `model` replaces it -- since a key in either is
+    one the run is meant to be able to override. Only a key one of them sets is rewritten, and only
+    onto the spelling that layer is already using, so a request with nothing under it for that
+    setting still carries exactly what the middleware ahead of this one wrote.
     """
     spellings = _spellings(model)
+    ours = {key for layer in layers for key in layer}
     aligned: dict[str, Any] = {}
     for key, value in run.items():
-        aligned[next((kwarg for kwarg in published if key in spellings.get(kwarg, ())), key)] = value
+        aligned[next((kwarg for kwarg in ours if key in spellings.get(kwarg, ())), key)] = value
     return aligned
 
 
