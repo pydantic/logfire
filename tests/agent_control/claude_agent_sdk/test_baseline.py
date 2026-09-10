@@ -110,6 +110,13 @@ def test_an_unreadable_environment_setting_is_simply_not_described() -> None:
     assert baseline(options).settings is None
 
 
+@pytest.mark.parametrize('timeout_ms', ['-5', str(10**400)])
+def test_a_timeout_the_contract_cannot_hold_is_simply_not_described(timeout_ms: str) -> None:
+    # Compared before the division: a value this far out of range is also too big to turn into a
+    # float, and describing the environment the user set may not fail the call.
+    assert baseline(ClaudeAgentOptions(env={'API_TIMEOUT_MS': timeout_ms})).settings is None
+
+
 def test_a_thinking_budget_is_described_as_the_part_the_contract_can_say() -> None:
     options = ClaudeAgentOptions(thinking={'type': 'enabled', 'budget_tokens': 8000})
     settings = baseline(options).settings

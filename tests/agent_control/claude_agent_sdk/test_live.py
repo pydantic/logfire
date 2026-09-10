@@ -33,6 +33,7 @@ from getpass import getuser
 from pathlib import Path
 from typing import Annotated, Any, cast
 
+import anyio
 import pytest
 from claude_agent_sdk import (
     AgentDefinition,
@@ -82,6 +83,13 @@ def cli_path(
     if not mode & stat.S_IEXEC:  # pragma: no cover
         os.chmod(fake_claude, mode | stat.S_IEXEC)
 
+    # A cassette replays the CLI's callback requests under the ids the SDK assigned while it was
+    # recorded, and `logfire.instrument_claude_agent_sdk()` inserts hook matchers of its own ahead of
+    # this agent's, which shifts them. That patching is process-wide and outlives the test that
+    # applied it, so say what happened here rather than fail later on a hook that never ran.
+    assert not getattr(ClaudeSDKClient, '_is_instrumented_by_logfire', False), (
+        'The Claude Agent SDK is instrumented process-wide, and these cassettes were recorded without it.'
+    )
     monkeypatch.setenv('CASSETTE_PATH', str(cassette))
     monkeypatch.setenv('CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK', '1')
     if record:  # pragma: no cover
@@ -107,15 +115,17 @@ def cli_path(
         monkeypatch.delenv('REAL_CLAUDE_PATH', raising=False)
     yield fake_claude
     if record:  # pragma: no cover
-        _scrub(cassette)
+        _scrub(cassette, tmp_path)
 
 
-def _scrub(cassette: Path) -> None:  # pragma: no cover
+def _scrub(cassette: Path, config_dir: Path) -> None:  # pragma: no cover
     """Take the recording machine out of a freshly recorded cassette.
 
-    A session the CLI ran here carries where it ran: absolute paths under the recorder's home
-    directory, and the account's own rate-limit standing. None of it is what these tests assert on,
-    and all of it would be committed, so it is replaced or dropped before the file is kept.
+    A session the CLI ran here carries where it ran: the account name, the directories it read and
+    wrote, and the account's own rate-limit standing. None of it is what these tests assert on, and
+    all of it would be committed, so the paths this test controls and anything carrying the account
+    name are replaced, and the rate-limit messages dropped, before the file is kept. What is left is
+    the run's own ephemera, such as the CLI's socket path, which names nobody.
     """
     recorded = json.loads(cassette.read_text())
     kept = [entry for entry in recorded['messages'] if entry['message'].get('type') != 'rate_limit_event']
@@ -124,6 +134,7 @@ def _scrub(cassette: Path) -> None:  # pragma: no cover
     # on its own, for anything the first two did not carry away with them.
     cwd, home = str(Path.cwd()), str(Path.home())
     for value, placeholder in (
+        (str(config_dir), '/config'),
         (cwd, '/agent'),
         (home, '/home/user'),
         (cwd.replace('/', '-'), '-agent'),
@@ -133,8 +144,14 @@ def _scrub(cassette: Path) -> None:  # pragma: no cover
     cassette.write_text(text + '\n')
 
 
-async def run(options: ClaudeAgentOptions, prompt: str) -> list[Message]:
-    """One whole session: connect, ask, and collect everything the CLI said back."""
+async def run(options: ClaudeAgentOptions, prompt: str, *, until: anyio.Event | None = None) -> list[Message]:
+    """One whole session: connect, ask, and collect everything the CLI said back.
+
+    A callback the CLI asks for -- a hook, a permission check -- is dispatched by the SDK as its own
+    task, so it can still be pending when the last message arrives. `until` is waited for before the
+    client is disconnected, which is the last moment such a task can run at all: a test that asserts
+    on a callback passes the event that callback sets, rather than racing it.
+    """
     client = ClaudeSDKClient(options=options)
     messages: list[Message] = []
     try:
@@ -142,6 +159,9 @@ async def run(options: ClaudeAgentOptions, prompt: str) -> list[Message]:
         await client.query(prompt)
         async for message in client.receive_response():
             messages.append(message)
+        if until is not None:
+            with anyio.fail_after(10):
+                await until.wait()
     finally:
         await _close(client)
         await client.disconnect()
@@ -246,9 +266,11 @@ async def test_a_renamed_tool_is_called_under_its_managed_name_and_runs_your_cod
     """The model calls `mcp__shop__issue_refund`; the handler and the hook see the code's own name."""
     _REFUNDED.clear()
     seen: list[str] = []
+    fired = anyio.Event()
 
     async def hook(payload: HookInput, tool_use_id: str | None, context: HookContext) -> HookJSONOutput:
         seen.append(cast(dict[str, Any], payload)['tool_name'])
+        fired.set()
         return {}
 
     publish(
@@ -282,7 +304,7 @@ async def test_a_renamed_tool_is_called_under_its_managed_name_and_runs_your_cod
     )
     assert options.allowed_tools == ['mcp__shop__issue_refund']
 
-    messages = await run(options, 'Refund order A-1234, then reply DONE.')
+    messages = await run(options, 'Refund order A-1234, then reply DONE.', until=fired)
 
     # The model called the managed name, and the arguments arrived under the code's own parameter
     # name. Anything the CLI's own tools did on the way -- looking the tool up by name, here -- is

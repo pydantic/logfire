@@ -61,18 +61,18 @@ class ManagedAgent:
         """
     @contextmanager
     def session(self, options: ClaudeAgentOptions) -> Generator[ClaudeAgentOptions]:
-        """`options` with the published config applied, for the session run inside this block.
+        '''`options` with the published config applied, for the session run inside this block.
 
         Resolving *and running* inside one context is what puts the resolved label and version on the
         spans the block emits, so a run can be traced back to the config version that produced it.
         Run the whole session inside it:
 
-        ```python
+        ```python skip-run="true" skip-reason="illustrative-fragment"
         with managed.session(code_options) as options:
-            async for message in query(prompt='Refund my last order.', options=options):
+            async for message in query(prompt=\'Refund my last order.\', options=options):
                 ...
         ```
-        """
+        '''
     async def refresh_model(self, client: ClaudeSDKClient, options: ClaudeAgentOptions) -> str | None:
         """Re-resolve the managed model and set it on a connected client, for the turns still to come.
 
@@ -89,14 +89,14 @@ class ManagedAgent:
         """
 
 def agent_control(options: ClaudeAgentOptions | None = None, *, name: str, label: str | None = None, on_unmatched: OnUnmatched = 'warn', publish_baseline: bool = True, logfire_instance: Logfire | None = None) -> ClaudeAgentOptions:
-    """Make one agent's prompt, model, effort, and tool descriptions editable from Logfire.
+    '''Make one agent\'s prompt, model, effort, and tool descriptions editable from Logfire.
 
     Wrap the options you would pass to `query()` or `ClaudeSDKClient`, and pass what comes back
     instead:
 
-    ```python
-    options = agent_control(ClaudeAgentOptions(system_prompt='...'), name='checkout_assistant')
-    async for message in query(prompt='Refund my last order.', options=options):
+    ```python skip-run="true" skip-reason="illustrative-fragment"
+    options = agent_control(ClaudeAgentOptions(system_prompt=\'...\'), name=\'checkout_assistant\')
+    async for message in query(prompt=\'Refund my last order.\', options=options):
         ...
     ```
 
@@ -111,13 +111,13 @@ def agent_control(options: ClaudeAgentOptions | None = None, *, name: str, label
             a new `ClaudeAgentOptions`, or this same object when Logfire has nothing published.
             Omitting it manages an agent that says nothing in code, so every section comes from
             Logfire.
-        name: The agent's name, which its config is stored under as `agent__<name>`. Required and
+        name: The agent\'s name, which its config is stored under as `agent__<name>`. Required and
             explicit: `ClaudeAgentOptions` has no name of its own, and one inferred from a Python
             variable would point the agent at a different config the day someone renames it.
-        label: The label to resolve, such as `'production'`. `None` lets the variable's own targeting
+        label: The label to resolve, such as `\'production\'`. `None` lets the variable\'s own targeting
             rules and rollout choose.
-        on_unmatched: What to do about a published entry this agent cannot apply -- `'warn'` (the
-            default, once per process), `'error'`, or `'ignore'`.
+        on_unmatched: What to do about a published entry this agent cannot apply -- `\'warn\'` (the
+            default, once per process), `\'error\'`, or `\'ignore\'`.
         publish_baseline: Whether to publish the code baseline the Logfire editor diffs against.
         logfire_instance: The Logfire instance to resolve and publish through; defaults to the one
             `logfire.configure()` sets up.
@@ -131,4 +131,4 @@ def agent_control(options: ClaudeAgentOptions | None = None, *, name: str, label
     the spans of the query itself; use
     [`ManagedAgent.session`][logfire.agent_control.claude_agent_sdk.ManagedAgent.session] to put it on
     the whole run, and to pick up a newly published model on a client that is already connected.
-    """
+    '''

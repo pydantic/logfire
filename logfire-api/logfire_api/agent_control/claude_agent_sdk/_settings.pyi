@@ -1,7 +1,7 @@
 from _typeshed import Incomplete
 from claude_agent_sdk import ClaudeAgentOptions
 from claude_agent_sdk.types import EffortLevel as EffortLevel
-from logfire.agent_control import to_milliseconds as to_milliseconds
+from logfire.agent_control import MAX_TIMEOUT_MILLISECONDS as MAX_TIMEOUT_MILLISECONDS, to_milliseconds as to_milliseconds
 from typing import Any
 
 SUPPORTED_SETTINGS: Incomplete

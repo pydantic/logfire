@@ -553,7 +553,7 @@
         "product_feedback_disabled": false,
         "uuid": "0ff054b5-3f6d-43e8-bc5a-717c4c76c2b2",
         "memory_paths": {
-          "auto": "/tmp/pytest-of-user/pytest-5048/test_a_published_max_tokens_re0/projects/-agent/memory/"
+          "auto": "/config/projects/-agent/memory/"
         },
         "messaging_socket_path": "/tmp/cc-socks/1908273.sock",
         "fast_mode_state": "off",

@@ -29,6 +29,14 @@ def test_an_alias_is_a_model_like_any_other(project: LocalVariableProvider) -> N
     assert managed(project, {'model': 'anthropic:sonnet'}).model == 'sonnet'
 
 
+def test_a_provider_with_no_model_after_it_is_refused(project: LocalVariableProvider) -> None:
+    # A prefix and nothing after it would start the session with no model at all, rather than with
+    # the one the code names.
+    with pytest.warns(UserWarning, match="selects model 'anthropic:', which names a provider and no model"):
+        options = managed(project, {'model': 'anthropic:'})
+    assert options.model == 'claude-fable-5-1'
+
+
 def test_a_model_with_no_provider_is_passed_through(project: LocalVariableProvider) -> None:
     assert managed(project, {'model': 'claude-fable-5-1-20260901'}).model == 'claude-fable-5-1-20260901'
 

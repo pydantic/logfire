@@ -15,7 +15,7 @@ from typing import Any
 from claude_agent_sdk import ClaudeAgentOptions
 from claude_agent_sdk.types import EffortLevel, ThinkingConfig
 
-from logfire.agent_control import to_milliseconds
+from logfire.agent_control import MAX_TIMEOUT_MILLISECONDS, to_milliseconds
 
 SUPPORTED_SETTINGS = frozenset({'max_tokens', 'thinking', 'timeout'})
 """The canonical settings keys this framework has a knob for; `apply_settings` reports the others."""
@@ -64,6 +64,14 @@ def managed_model(model: str) -> tuple[str | None, str | None]:
     if not separator:
         return model, None
     if provider == ANTHROPIC_PROVIDER:
+        if not name:
+            # A prefix and nothing after it is the half-filled field the contract refuses everywhere
+            # else, and applying it would start the session with no model rather than with the one
+            # the code names.
+            return None, (
+                f'Managed agent config selects model {model!r}, which names a provider and no model; '
+                'that section is not applied.'
+            )
         return name, None
     return None, (
         f'Managed agent config selects model {model!r}, but the Claude Agent SDK takes an Anthropic '
@@ -115,7 +123,10 @@ def baseline_settings(options: ClaudeAgentOptions) -> dict[str, Any]:
     if max_tokens is not None:
         settings['max_tokens'] = max_tokens
     timeout_ms = _int_env(options, TIMEOUT_ENV)
-    if timeout_ms is not None:
+    # Compared as milliseconds, before the division: a value big enough to be outside the contract's
+    # range can also be too big to turn into a float at all, and describing the environment the user
+    # set is not something that may fail the call that builds the baseline.
+    if timeout_ms is not None and 0 <= timeout_ms <= MAX_TIMEOUT_MILLISECONDS:
         settings['timeout'] = timeout_ms / 1000
     return settings
 
