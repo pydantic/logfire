@@ -1,0 +1,106 @@
+interactions:
+- request:
+    body: '{"include":[],"input":[{"content":"What is the capital of France?","role":"user"}],"instructions":"Answer
+      in one word.","max_output_tokens":2048,"model":"gpt-5.4-nano","parallel_tool_calls":true,"reasoning":{"effort":"none"},"temperature":0.4,"text":{"verbosity":"low"},"tools":[{"name":"get_weather","parameters":{"properties":{"city":{"description":"City
+      to look up.","title":"City","type":"string"}},"required":["city"],"title":"get_weather_args","type":"object","additionalProperties":false},"strict":true,"type":"function","description":"Get
+      the current weather for a city."}],"top_p":0.9}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '594'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.20.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '1'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/61WTY/iOBC996+Icm5QgDSQvY3msNe5j0ZRkRTgbcfO+qMZ1OK/b9mOEwfo1R72
+        huu5yvXxXoXPlyzLWZv/keUKdV8Xu7fNDrAoqm2xLQ9NUWwBVliVTUGH/a5dHfabzaZqy0NbNlCW
+        +/zVhZCHv7AxMYwUGoO9UQgG2xocttrt91X1Vq22HtMGjNXOp5Fdz5HuBacDNO8nJa1weR2Bawxm
+        xjkTJ7J90pEMPVxROf8WP5DLng4E3MLDMeTTp1Ep6TyF5dwbjgr/tiiaa92jAG6uBBbLwmNMxGB1
+        iwYY16knE9oo2xhGRbtcvgl9QZUxkUmB2UWqdhmq6uB3La3pramNfEd/e12U+xE0UvK6AT6P38kW
+        uQt86s3ibVkuBAi5WBfr7aLYLFa7fLylwCWR+obnyPLTNyy0bRx4p0//Mu9ttW78vIt9W5W4adf7
+        5q3cb/17Poq59ujjoNZwwgn4arAebKQwKKak0sRmYWOv8LcZvf0FEEIaiA3/+WsGcnnqlTw8QXwg
+        ivsDFNP5iNyGX+PlvD+D9hkcGVGhBj/QqQAluUdBa0aVUikvMY6PQbRUNETk84ESSQKNe1IIMQ2f
+        MI2gDyatrqOIaj+pcZ5UWdcbCtmcsX7H65eYQtfjwIZ8XZ4DSUiLWoqZhPw0Ql8aqxQ51cYqMVSb
+        4/EolUcFsTlaHdmczVXfgorDzbXtOlAxq1GKGo5orlSKS+nIcCY8jeqDUTMMi1I+guVh4vSAVJj2
+        zmDXO55bby6W5WD1FQwlUcYdTOeEUf5eGNaQ8Qeqg9TMD4Goc5n2R5jdWVJuftjWyHwCrCf8+CTr
+        6FifUKSvMjGTevH6DEg2yiSCId6j61BrggzAbQx+v2GK58j//q4hSfL7C7HNFzzUGkE157RBwna1
+        X7vaJC6zCejH3RWHebTCL91JmC3qRrE+0v5PNJk5YzbwOrvQl+hMm5n4kUHW0NCXk6+Azkc9oamH
+        i/l95zQpq4OEvMNHSJGvQXXXS9IjUZVoPbc7zQW+pbbH7L/TpczIjEv5ntl+OVuBrg3MhDXkLj6A
+        Q4/oy+TUnoC3ae8lw3VTYArb2VKOmY6GXykd4vNJw2pQJ52nl+ImD38OEgTalrlKgf9I2+S/9Q/U
+        clX4/xZuDdztWiP7Oln5xWjs/X6owlkRV+LHMW+ZhgOP/zXulTwX7a58ffkvms3D2r0oZp7pJ8Dt
+        V/K41+zbM/uzV8eF/lXkO1XuqlFdVs/3MFEYWjCO3p+3l9s/3WcJmhgKAAA=
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:18:36 GMT
+      openai-processing-ms:
+      - '657'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '180000000'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+version: 1

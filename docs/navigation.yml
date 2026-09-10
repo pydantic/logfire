@@ -702,9 +702,16 @@ navigation:
           - page: "Access and Prerequisites"
             path: "reference/advanced/prompt-management/plan-requirements.md"
             slug: "prompt-management/plan-requirements"
-      - page: "Agent Control"
-        path: "reference/advanced/agent-control.md"
-        slug: "agent-control"
+      - section: "Agent Control"
+        contents:
+          - page: "Overview"
+            path: "reference/advanced/agent-control/index.md"
+            slug: "agent-control"
+            aliases:
+              - "reference/advanced/agent-control"
+          - page: "OpenAI Agents SDK"
+            path: "reference/advanced/agent-control/openai-agents.md"
+            slug: "agent-control/openai-agents"
       - section: "AI Gateway"
         contents:
           - page: "Overview"

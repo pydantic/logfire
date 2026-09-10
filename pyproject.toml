@@ -88,6 +88,10 @@ dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
 agent-control = ["logfire[variables]", "pydantic>=2.10"]
+# 0.19 is the oldest openai-agents in which every seam this adapter needs exists, checked release by
+# release: `agents.tool.get_function_tool_origin` (which a baseline groups its tools by) landed in
+# 0.15, and `Model._cleanup_on_run_end` (which the wrapper forwards to the models a run used) in 0.19.
+agent-control-openai-agents = ["logfire[agent-control]", "openai-agents>=0.19.0"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"
@@ -199,7 +203,9 @@ dev = [
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
-    "openai-agents[voice]>=0.14.0",
+    # Matched to the `agent-control-openai-agents` extra's floor, so the test lane cannot
+    # resolve below the oldest release that extra claims to support.
+    "openai-agents[voice]>=0.19.0",
     "pydantic-ai-slim[mcp]>=2",
     "pydantic-evals>=2",
     # >=1.3.9 fixes path traversal / sandbox escape in file-search middleware and loaders (GHSA-gr75-jv2w-4656).

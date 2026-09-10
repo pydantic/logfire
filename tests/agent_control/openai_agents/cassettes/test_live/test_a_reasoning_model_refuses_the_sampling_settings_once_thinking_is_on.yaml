@@ -1,0 +1,75 @@
+interactions:
+- request:
+    body: '{"include":[],"input":[{"content":"What is the capital of France?","role":"user"}],"instructions":"Answer
+      in one word.","model":"gpt-5.4-nano","reasoning":{"effort":"low"},"temperature":0.4,"text":{"verbosity":"low"},"tools":[]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '228'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.20.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '1'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: "{\n  \"error\": {\n    \"message\": \"Unsupported parameter: 'temperature'
+        is not supported with this model.\",\n    \"type\": \"invalid_request_error\",\n
+        \   \"param\": \"temperature\",\n    \"code\": null\n  }\n}"
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-length:
+      - '191'
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:18:37 GMT
+      openai-processing-ms:
+      - '150'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-content-type-options:
+      - nosniff
+    status:
+      code: 400
+      message: Bad Request
+version: 1
