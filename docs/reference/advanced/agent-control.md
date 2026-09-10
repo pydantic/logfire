@@ -17,7 +17,7 @@ Agent Control is built on [managed variables](managed-variables/index.md), and i
 
 `logfire.agent_control` is the **framework-neutral core**. It assumes nothing about how you built your agent: it owns the config contract, the Logfire variable each agent's config lives in, and the pure functions that say what a published value *does* to a request.
 
-Eventually most people will never call it directly: you will install the adapter for the agent framework you already use, and it will call this core for you. None of those [adapters](#framework-adapters) has shipped yet, so for now driving Agent Control means writing the per-request hook yourself, which [Writing an adapter](#writing-an-adapter) walks through. Read on for that, for exactly what a published value can and cannot do to your agent, or if your agent is hand-rolled.
+Eventually most people will never call it directly: you will install the adapter for the agent framework you already use, and it will call this core for you. Only the [Claude Agent SDK adapter](agent-control/claude-agent-sdk.md) has shipped so far, so for every other framework driving Agent Control means writing the per-request hook yourself, which [Writing an adapter](#writing-an-adapter) walks through. Read on for that, for exactly what a published value can and cannot do to your agent, or if your agent is hand-rolled.
 
 ## Quick start
 
@@ -305,15 +305,15 @@ Values are read **strictly** with respect to JSON types: `1` is a valid `tempera
 
 You normally use Agent Control through an adapter for the framework you already build with. Each is this core plus that framework's own per-request hook, typically under fifty lines.
 
-!!! note "The adapters are not released yet"
-    None of the adapters below ships today. Each lands as its own change on top of this core, and this section will link to each one as it becomes available. Until then, the way to drive Agent Control is to write the per-request hook yourself, as [Writing an adapter](#writing-an-adapter) describes.
+!!! note "Most of the adapters are not released yet"
+    Only the Claude Agent SDK adapter ships today. Each of the others lands as its own change on top of this core, and this section will link to it as it becomes available. Until then, the way to drive Agent Control for those frameworks is to write the per-request hook yourself, as [Writing an adapter](#writing-an-adapter) describes.
 
 | Framework | Language |
 |---|---|
+| [Claude Agent SDK](agent-control/claude-agent-sdk.md) | Python |
 | OpenAI Agents SDK | Python |
 | LangChain | Python |
 | Google ADK | Python |
-| Claude Agent SDK | Python |
 | LiveKit Agents | Python |
 | Vercel AI SDK | TypeScript |
 | Codex SDK | TypeScript |
