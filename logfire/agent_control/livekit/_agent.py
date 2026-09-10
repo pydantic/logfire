@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import AsyncGenerator, AsyncIterable, Mapping, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -173,6 +174,19 @@ class ManagedRequest:
     """
 
 
+_REQUEST: ContextVar[ManagedRequest | None] = ContextVar('logfire_agent_control_livekit_request', default=None)
+"""The overlay the request running in *this task* goes out under.
+
+Per task rather than one slot on the boundary, because LiveKit does not run one generation at a
+time. It starts a preemptive one as soon as it has a transcript it might answer -- on by default --
+and cancels it when the transcript moves on, immediately before starting the next; cancellation is
+asynchronous, so the cancelled task's cleanup runs after the new task has installed its overlay. One
+shared slot means that cleanup clears the live one, and the request that survives goes out with no
+managed prompt, no renamed tools and no published settings, looking from the outside exactly like a
+managed one.
+"""
+
+
 class ManagedLLM(llm.LLM):
     """The request boundary a managed turn goes through, in front of the model it really runs on.
 
@@ -190,8 +204,6 @@ class ManagedLLM(llm.LLM):
         super().__init__()
         self.inner = inner
         """The model the agent actually runs on."""
-        self.request: ManagedRequest | None = None
-        """The overlay for the request in flight, or `None` between requests."""
         self._label = inner.label
         inner.on('metrics_collected', self._forward_metrics)
         inner.on('error', self._forward_error)
@@ -238,7 +250,7 @@ class ManagedLLM(llm.LLM):
         request, which the contract puts above a published one. The connection options are the
         session's, forwarded verbatim by every node, so a published `timeout` narrows them.
         """
-        request = self.request
+        request = _REQUEST.get()
         if request is None:
             return self.inner.chat(
                 chat_ctx=chat_ctx,
@@ -356,7 +368,8 @@ class ManagedAgent(Agent):
                 )
             else:
                 model = cast('llm.LLM', code_model)
-            self._agent_control_install(model, request)
+            self._agent_control_install(model, managed=request is not None)
+            token = _REQUEST.set(request)
             try:
                 async for chunk in iterate(super().llm_node(chat_ctx, tools, model_settings)):
                     if request is not None and isinstance(chunk, llm.ChatChunk) and chunk.delta:
@@ -366,8 +379,7 @@ class ManagedAgent(Agent):
                             call.name = request.routes.get(call.name, call.name)
                     yield chunk
             finally:
-                if self._agent_control_boundary is not None:
-                    self._agent_control_boundary.request = None
+                _REQUEST.reset(token)
 
     # -- Keeping the code side and the applied side apart --
 
@@ -429,21 +441,24 @@ class ManagedAgent(Agent):
             tools=[tool_def(tool, toolsets.get(tool), with_schema=True) for _, tool in managed_tools(tools)],
         )
 
-    def _agent_control_install(self, model: llm.LLM, request: ManagedRequest | None) -> None:
+    def _agent_control_install(self, model: llm.LLM, *, managed: bool) -> None:
         """Put `model` under the agent, behind a request boundary when there is something to apply.
 
         Swapped through `update_options` rather than by calling `chat()` on a model of our own, so
         the activity keeps collecting metrics and errors from whatever the turn actually ran on --
         and so a custom `llm_node` reaches the managed model the same way the default one does.
+
+        The boundary is one object per model rather than one per request: it is only a pass-through
+        that reads the overlay of whichever task is calling it, and subscribing to the inner model's
+        events once is the whole reason it is kept.
         """
         target: llm.LLM = model
-        if request is not None:
+        if managed:
             boundary = self._agent_control_boundary
             if boundary is None or boundary.inner is not model:
                 if boundary is not None:
                     boundary.detach()
                 boundary = self._agent_control_boundary = ManagedLLM(model)
-            boundary.request = request
             target = boundary
         if installed_llm(self) is not target:
             self.update_options(llm=target)

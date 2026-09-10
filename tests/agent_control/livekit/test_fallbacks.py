@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from typing import Any
 
 import pytest
 from livekit.agents import Agent, AgentSession, llm
 from livekit.agents.types import NOT_GIVEN
+from livekit.agents.voice import ModelSettings
 
 from logfire.agent_control.livekit import agent_control
-from logfire.agent_control.livekit._agent import effective_llm
+from logfire.agent_control.livekit._agent import effective_llm, iterate
+from logfire.variables import LabeledValue
 from logfire.variables.local import LocalVariableProvider
 
 from ..conftest import publish
@@ -174,3 +178,63 @@ async def test_a_nodes_own_request_values_outrank_the_published_ones(project: Lo
     await run(Custom(), stub)
     assert stub.requests[0].extra_kwargs == {'temperature': 0.9}
     assert stub.requests[0].parallel_tool_calls is True
+
+
+async def test_two_requests_in_flight_keep_their_own_overlay(project: LocalVariableProvider) -> None:
+    """LiveKit does not run one generation at a time, and the two must not share an overlay.
+
+    It starts a preemptive generation as soon as it has a transcript it might answer -- on by
+    default -- and cancels it when the transcript moves on, right before starting the next. The
+    cancellation is asynchronous, so the two overlap; a single shared slot let the older one's
+    cleanup clear the live one, and that request would go out with nothing published applied.
+    """
+    publish(project, 'agent__checkout', {'instructions': [{'id': 'agent', 'instructions': 'FIRST'}]})
+    entered = asyncio.Event()
+    park = asyncio.Event()
+
+    @agent_control(name='checkout', label='production')
+    class Parked(Agent):
+        def __init__(self) -> None:
+            super().__init__(instructions='CODE')
+
+        async def llm_node(self, chat_ctx: llm.ChatContext, tools: list[llm.Tool], model_settings: Any) -> Any:
+            # Parked *inside* the managed hook, which is exactly where a cancelled preemptive
+            # generation sits while the generation that replaces it starts.
+            entered.set()
+            await park.wait()
+            async for chunk in Agent.default.llm_node(self, chat_ctx, tools, model_settings):
+                yield chunk
+
+    agent = Parked()
+    stub = StubLLM()
+    session = AgentSession(llm=stub)
+    await session.start(agent)
+    try:
+
+        async def request() -> None:
+            # Through `iterate` for the same reason the adapter uses it: `Agent.llm_node` is
+            # annotated as returning any of the shapes LiveKit normalizes, not just a generator.
+            async for _ in iterate(agent.llm_node(llm.ChatContext.empty(), [], ModelSettings())):
+                pass
+
+        first = asyncio.create_task(request())
+        await entered.wait()
+
+        # A second version lands, and a second request resolves it while the first is still parked.
+        config = project.get_variable_config('agent__checkout')
+        assert config is not None
+        config.labels['production'] = LabeledValue(
+            version=2, serialized_value=json.dumps({'instructions': [{'id': 'agent', 'instructions': 'SECOND'}]})
+        )
+        project.update_variable('agent__checkout', config)
+        entered.clear()
+        second = asyncio.create_task(request())
+        await entered.wait()
+
+        park.set()
+        await asyncio.gather(first, second)
+    finally:
+        await session.aclose()
+
+    # Each request went out under the version it resolved, and neither ran unmanaged.
+    assert sorted(request.system_text or '' for request in stub.requests) == ['FIRST', 'SECOND']

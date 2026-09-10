@@ -90,7 +90,6 @@ class ManagedLLM(llm.LLM):
     pointed at the real thing, which is why both are forwarded rather than re-derived.
     """
     inner: Incomplete
-    request: ManagedRequest | None
     def __init__(self, inner: llm.LLM) -> None: ...
     def detach(self) -> None:
         """Stop forwarding the inner model's events, for a boundary no longer in front of it."""
