@@ -176,11 +176,13 @@ Two things a rename does reach that this adapter cannot follow, both because the
 - **`refresh_model` sends only the model.** It does not re-apply instructions, settings, or tools, because the CLI has already been started with those.
 - **Hooks and the permission callback are wrapped.** The objects on the returned options are not the functions you passed. They call yours with the names above, and re-establish the resolved config's telemetry around it.
 - **The CLI's own telemetry does not carry the agent name.** The agent's identity in Logfire is the `name` you pass. Set `OTEL_RESOURCE_ATTRIBUTES` in `env` yourself if you want the CLI's spans to carry it too.
-- **Nothing published can crash a session.** An unreachable Logfire, a missing value, or one this release cannot parse all mean the same thing: the agent runs exactly as written. Beyond that, a value Agent Control cannot act on costs only the piece containing it, unless you asked for `on_unmatched='error'`, which raises instead.
+- **Nothing about reading a config can crash a session.** An unreachable Logfire, a missing value, or one this release cannot parse all mean the same thing: the agent runs exactly as written. Beyond that, a value Agent Control cannot act on costs only the piece containing it, unless you asked for `on_unmatched='error'`, which raises instead. What a published value *says* is still yours to get right: a model id no provider knows fails the session the same way writing that id in your code would, so roll a model change out to a slice of traffic first.
 
 ## Verify
 
-Start one session with `agent_control` in place. In Logfire you should now see a variable called `agent__<your agent name>` whose example is your agent's own prompt, model, and tool descriptions, block by block. Publish a change to the `system` block, run the agent again, and the next session sends the published text: the run's spans carry the label and version it came from, on the attributes `logfire.variables.agent__<name>` and `logfire.variables.agent__<name>.version`.
+Start one session with `agent_control` in place. In Logfire you should now see a variable called `agent__<your agent name>` whose example is your agent's own prompt, model, and tool descriptions, block by block. Publish a change to the `system` block, run the agent again, and the next session sends the published text.
+
+To see which version produced a run, start the session inside `ManagedAgent.session(...)` as above: every span the block emits then carries `logfire.variables.agent__<name>` and `logfire.variables.agent__<name>.version`. With `agent_control` alone those attributes reach only the spans of the hooks and permission checks the options carry, since the session itself starts after the call returns.
 
 ## Troubleshooting
 
