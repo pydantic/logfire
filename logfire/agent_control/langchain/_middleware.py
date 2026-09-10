@@ -28,7 +28,7 @@ from logfire.agent_control import (
 
 from ._instructions import Instruction, SystemPrompt, assemble_system_prompt, read_system_prompt
 from ._models import build_model, read_model_id
-from ._settings import canonical_name, carry_settings, lower_settings, read_settings
+from ._settings import align_run_settings, canonical_name, carry_settings, lower_settings, read_settings
 from ._tools import apply_tools, read_tools, rename_tool_calls, rename_tool_choice
 
 STATE_KEY = 'logfire_agent_control'
@@ -355,7 +355,8 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         published = lower_settings(model or request.model, config, has_tools=has_tools, on_unmatched=self._on_unmatched)
         # The contract's order, and `model_settings` is the run: it is where another middleware puts
         # a per-call choice for this one request, and where Anthropic prompt-cache directives arrive.
-        merged = merge_settings(code_settings, published, request.model_settings)
+        run_settings = align_run_settings(model or request.model, request.model_settings, published)
+        merged = merge_settings(code_settings, published, run_settings)
         for kwarg in published:
             # A per-request value outranking a published one is the contract, not a fault -- but it
             # is also a setting someone can see in Logfire and change to no effect, on every request,

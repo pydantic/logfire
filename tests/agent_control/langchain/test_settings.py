@@ -13,11 +13,17 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 
-from logfire.agent_control import AgentConfig
+from logfire.agent_control import AgentConfig, merge_settings
 from logfire.agent_control.langchain import agent_control
-from logfire.agent_control.langchain._settings import carry_settings, lower_settings, read_settings
+from logfire.agent_control.langchain._settings import (
+    align_run_settings,
+    canonical_name,
+    carry_settings,
+    lower_settings,
+    read_settings,
+)
 from logfire.variables.local import LocalVariableProvider
 
 from .conftest import RecordingModel, build_agent, publish, run, settings
@@ -30,6 +36,21 @@ class FreezeTemperature(AgentMiddleware[Any, Any, Any]):
         self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
     ) -> ModelResponse[Any]:
         return handler(request.override(model_settings={**request.model_settings, 'temperature': 0.0}))
+
+
+class FreezeStopSequences(AgentMiddleware[Any, Any, Any]):
+    """A middleware reaching for the *other* spelling of a setting the published section also sets."""
+
+    def wrap_model_call(
+        self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
+    ) -> ModelResponse[Any]:
+        return handler(request.override(model_settings={**request.model_settings, 'stop_sequences': ['FROM THE RUN']}))
+
+
+class AliasedStopModel(RecordingModel):
+    """A model declaring `stop` under an alias, the way both major integrations declare this one."""
+
+    stop: list[str] | None = Field(default=None, alias='stop_sequences')
 
 
 class ChangingTemperature(AgentMiddleware[Any, Any, Any]):
@@ -293,6 +314,60 @@ def test_a_bind_tools_parameter_is_reported_under_the_name_it_already_has(
         run(agent)
 
     assert settings(model) == snapshot({'parallel_tool_calls': True})
+
+
+@pytest.mark.parametrize(
+    ('model', 'sent'),
+    [
+        # OpenAI declares `stop` and takes `stop_sequences` as its alias; Anthropic the other way
+        # round. Either way the published value and the run's are one setting under two spellings.
+        (openai, 'stop'),
+        (anthropic, 'stop_sequences'),
+    ],
+    ids=['openai', 'anthropic'],
+)
+def test_a_run_spelling_a_published_setting_the_other_way_still_overrides_it(
+    # `Any`, because the assertion is on the body the integration builds, and `_get_request_payload`
+    # is each integration's own rather than something `BaseChatModel` declares.
+    model: Callable[[], Any],
+    sent: str,
+) -> None:
+    built = model()
+    published = lowered(built, {'stop_sequences': ['PUBLISHED']})
+    run_settings = align_run_settings(built, {canonical_name(built, 'stop'): ['FROM THE RUN']}, published)
+    merged = merge_settings({}, published, run_settings)
+
+    # One key, the run's value, and a collision the caller can be told about. Left unaligned both
+    # keys survive, and on OpenAI that puts `stop_sequences` in the body beside `stop`, where it is
+    # not a parameter of the API at all.
+    assert merged.settings == snapshot({'stop': ['FROM THE RUN']})
+    assert merged.source('stop') == 'run'
+    payload = cast('dict[str, Any]', built._get_request_payload([HumanMessage('hi')], **merged.settings))
+    assert {name: value for name, value in payload.items() if 'stop' in name} == {sent: ['FROM THE RUN']}
+
+
+def test_a_run_setting_nothing_published_touches_is_left_spelled_as_it_was() -> None:
+    # Aligning only ever moves a key the published section also sets, so a request with nothing
+    # published for that setting still carries exactly what the middleware ahead of this one wrote.
+    built = openai()
+    assert align_run_settings(built, {'stop_sequences': ['A'], 'temperature': 0.5}, {'temperature': 0.1}) == snapshot(
+        {'stop_sequences': ['A'], 'temperature': 0.5}
+    )
+
+
+def test_a_run_that_spells_a_published_setting_the_other_way_reaches_the_model_once(
+    project: LocalVariableProvider,
+) -> None:
+    # The end of the same story, through the agent: one key reaches the model, carrying the run's
+    # value, and the published one it displaced is reported rather than silently sent alongside.
+    publish(project, {'settings': {'stop_sequences': ['PUBLISHED']}})
+    model = AliasedStopModel(replies=[AIMessage('ok')])
+    agent = build_agent(model, agent_control(label='production'), tools=[], before=[FreezeStopSequences()])
+
+    with pytest.warns(UserWarning, match="sets 'stop_sequences', but this request already carries"):
+        run(agent)
+
+    assert settings(model) == snapshot({'stop': ['FROM THE RUN']})
 
 
 def test_a_setting_the_model_class_does_not_declare_is_not_read_back() -> None:

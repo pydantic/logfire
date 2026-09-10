@@ -1,6 +1,6 @@
 from ._instructions import Instruction as Instruction, SystemPrompt as SystemPrompt, assemble_system_prompt as assemble_system_prompt, read_system_prompt as read_system_prompt
 from ._models import build_model as build_model, read_model_id as read_model_id
-from ._settings import canonical_name as canonical_name, carry_settings as carry_settings, lower_settings as lower_settings, read_settings as read_settings
+from ._settings import align_run_settings as align_run_settings, canonical_name as canonical_name, carry_settings as carry_settings, lower_settings as lower_settings, read_settings as read_settings
 from ._tools import apply_tools as apply_tools, read_tools as read_tools, rename_tool_calls as rename_tool_calls, rename_tool_choice as rename_tool_choice
 from _typeshed import Incomplete
 from collections.abc import Awaitable as Awaitable, Callable, Mapping

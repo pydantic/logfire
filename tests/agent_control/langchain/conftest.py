@@ -134,7 +134,10 @@ class RecordingModel(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         index = len(self.requests)
-        self.requests.append({'messages': messages, 'kwargs': kwargs})
+        # `stop` arrives as its own parameter rather than in `kwargs`, because `BaseChatModel` lifts
+        # it out of the bound settings before calling this; recorded beside them so a test can see
+        # what a model whose class declares it was actually sent.
+        self.requests.append({'messages': messages, 'kwargs': {'stop': stop, **kwargs}})
         reply = self.replies[min(index, len(self.replies) - 1)]
         return ChatResult(generations=[ChatGeneration(message=reply)])
 

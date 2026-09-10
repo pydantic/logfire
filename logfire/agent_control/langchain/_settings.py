@@ -11,7 +11,7 @@ applied when the model's own class declares a field (or a field alias) for it, u
 from __future__ import annotations
 
 import inspect
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -49,15 +49,22 @@ applied only when the integration names the parameter *and* this request has too
 """
 
 
-def _declared_names(model: BaseChatModel) -> set[str]:
-    """Every name the model's class accepts for one of its own fields, field names and aliases."""
-    names: set[str] = set()
+def _spellings(model: BaseChatModel) -> dict[str, set[str]]:
+    """Every name the model's class accepts, grouped with the other names for the same field."""
+    groups: dict[str, set[str]] = {}
     for name, field in type(model).model_fields.items():
-        names.add(name)
+        names = {name}
         for alias in (field.alias, field.validation_alias):
             if isinstance(alias, str):
                 names.add(alias)
-    return names
+        for spelling in names:
+            groups[spelling] = names
+    return groups
+
+
+def _declared_names(model: BaseChatModel) -> set[str]:
+    """Every name the model's class accepts for one of its own fields, field names and aliases."""
+    return set(_spellings(model))
 
 
 def _kwarg_names(model: BaseChatModel) -> dict[str, str]:
@@ -123,6 +130,27 @@ def lower_settings(
     supported: Collection[str] = _supported(model, config, kwargs, has_tools=has_tools)
     values = apply_settings(config, supported=supported, on_unmatched=on_unmatched)
     return {kwargs.get(setting, setting): value for setting, value in values.items()}
+
+
+def align_run_settings(model: BaseChatModel, run: Mapping[str, Any], published: Mapping[str, Any]) -> dict[str, Any]:
+    """The run's settings, with any second spelling of a published key rewritten to the first.
+
+    An integration declares a setting under one name and takes another as its alias -- `stop` and
+    `stop_sequences` are each other's, in opposite directions on OpenAI and Anthropic, and OpenAI's
+    `timeout` is really `request_timeout` -- and `lower_settings` can only advertise one of them. A
+    middleware that reached for the other spelling would otherwise not collide with the published
+    value at all: both keys survive the merge and go out together, which on OpenAI puts
+    `stop_sequences` in the request body next to `stop`, and that is not a parameter of the API.
+
+    Only a key the published section also sets is rewritten, and only onto the spelling that
+    section is already using, so a request with nothing published for that setting still carries
+    exactly what the middleware ahead of this one wrote.
+    """
+    spellings = _spellings(model)
+    aligned: dict[str, Any] = {}
+    for key, value in run.items():
+        aligned[next((kwarg for kwarg in published if key in spellings.get(kwarg, ())), key)] = value
+    return aligned
 
 
 def canonical_name(model: BaseChatModel, kwarg: str) -> str:
