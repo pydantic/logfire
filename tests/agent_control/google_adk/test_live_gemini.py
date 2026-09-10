@@ -80,6 +80,11 @@ def request_models(cassette: Cassette) -> list[str]:
     return [str(request.path).rsplit('/', 1)[-1] for request in _requests(cassette)]
 
 
+def request_headers(cassette: Cassette) -> list[dict[str, str]]:
+    """The headers each request carried, which is where a timeout rides rather than in the body."""
+    return [dict(request.headers) for request in _requests(cassette)]
+
+
 async def test_a_published_instruction_block_is_what_the_model_answers_from(
     project: LocalVariableProvider, vcr: Cassette
 ) -> None:
@@ -271,6 +276,9 @@ async def test_every_setting_the_gemini_row_claims_is_accepted_by_the_api(
             'topP': 0.9,
         }
     )
+    # `timeout` is the one setting that is not part of the generation config: `google-genai` lowers
+    # `http_options.timeout` onto the request itself, in whole seconds.
+    assert request_headers(vcr)[0]['X-Server-Timeout'] == snapshot('30')
 
 
 async def test_a_gemini_2_model_asks_for_thinking_as_a_budget_and_a_gemini_3_model_as_a_level(

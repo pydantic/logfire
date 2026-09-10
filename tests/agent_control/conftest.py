@@ -9,13 +9,21 @@ from typing import Any, cast
 
 import pytest
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from pydantic import __version__ as pydantic_version
 
 import logfire
+from logfire._internal.utils import get_version
 from logfire.agent_control._control import reset_baseline_publish_guard
 from logfire.agent_control._reporting import reset_warned_messages
 from logfire.testing import CaptureLogfire
 from logfire.variables import LabeledValue, Rollout, VariableConfig, VariablesConfig
 from logfire.variables.local import LocalVariableProvider
+
+if get_version(pydantic_version) < get_version('2.12.0'):  # pragma: no cover
+    # `google-adk` requires pydantic 2.12, so the `deps_test` sweep's older-pydantic legs install a
+    # combination its metadata rules out. Skipping the directory (rather than each module) also skips
+    # its conftest, which imports ADK at module level.
+    collect_ignore = ['google_adk']
 
 
 @pytest.fixture(autouse=True)

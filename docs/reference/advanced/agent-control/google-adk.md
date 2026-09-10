@@ -4,7 +4,7 @@ Wrap a [Google ADK](https://google.github.io/adk-docs/) `LlmAgent` with `agent_c
 
 Everything you don't change in Logfire keeps doing what your code says, and removing a change there puts that piece back. There is no third state. The [Agent Control overview](index.md) covers the config shape, what a published value can and cannot do, and the guarantees all of this rests on; this page is the ADK-specific half.
 
-You need a Logfire project and a token that may read variables — and write them, unless you pass `publish_baseline=False` and create the variable in the UI yourself.
+You need a Logfire project and an [API key](../managed-variables/index.md#api-keys) with the `project:read_variables` scope, set as `LOGFIRE_API_KEY`. Publishing the baseline also needs `project:write_variables`; without it, pass `publish_baseline=False` and create the variable in the UI yourself.
 
 !!! note "Install the agent-control-google-adk extra"
     ```bash

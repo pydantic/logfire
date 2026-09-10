@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from typing import Any
 
 import pytest
@@ -14,6 +15,7 @@ from google.adk.tools.base_toolset import BaseToolset
 from google.genai import types
 from inline_snapshot import snapshot
 
+from logfire.agent_control import AgentConfig, AgentControl
 from logfire.agent_control.google_adk import agent_control
 from logfire.variables.local import LocalVariableProvider
 
@@ -217,7 +219,22 @@ async def test_the_baseline_says_it_was_taken_from_a_request(project: LocalVaria
     assert 'snapshotted from one request' in (config.description or '')
 
 
-async def test_the_baseline_is_published_once(project: LocalVariableProvider) -> None:
+async def test_the_baseline_is_published_once(project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Counted rather than inferred: two requests describing the same agent look identical.
+
+    Every request goes through the hook, and the baseline this agent produces does not vary between
+    them, so the published example cannot say how many times it was built. What the guard is for is
+    that a long-running agent describes itself once and then stops doing the work, which is what a
+    call count says and a snapshot cannot.
+    """
+    described: list[AgentConfig] = []
+    publish_baseline = AgentControl.publish_baseline
+
+    def spy(self: AgentControl, baseline: AgentConfig, **kwargs: Any) -> threading.Thread | None:
+        described.append(baseline)
+        return publish_baseline(self, baseline, **kwargs)
+
+    monkeypatch.setattr(AgentControl, 'publish_baseline', spy)
     llm = fake_llm(script=['get_weather'])
     agent = agent_control(
         LlmAgent(name='checkout', model=llm, instruction='One.', tools=[get_weather]),
@@ -225,9 +242,8 @@ async def test_the_baseline_is_published_once(project: LocalVariableProvider) ->
     )
     await run(agent)
     assert len(llm.requests) == 2
+    assert len(described) == 1
     example = await baseline(project)
     assert example is not None
     published: dict[str, Any] = json.loads(example)
-    # Both requests went through the hook, and only the first described the agent -- the tool result
-    # in the second request's prompt is not a second, different baseline.
     assert [entry['id'] for entry in published['instructions']] == ['agent', 'identity']
