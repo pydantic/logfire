@@ -2,7 +2,7 @@
 
 [Agent Control](index.md) for the [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/). Wrap an agent once, and its instructions, its model, its model settings, and the descriptions its tools show the model become editable from the Logfire UI: versioned, labelled, rolled out to a percentage of traffic, and rolled back as one unit, without a redeploy. Everything you do not change in Logfire keeps doing what your code says, and removing a change there puts that piece back.
 
-You need a Logfire project and `logfire.configure()` with a token that can read the project's variables — and write them, unless you turn baseline publishing off.
+You need a Logfire project and `logfire.configure()` with a token that can read the project's variables — and write them, unless you turn baseline publishing off. The SDK reads your OpenAI key from `OPENAI_API_KEY`, as it does without Agent Control.
 
 !!! note "Install the agent-control-openai-agents extra"
     ```bash
@@ -173,7 +173,7 @@ The exception is history the *provider* keeps: with `previous_response_id` or `c
 
 ## Known limits
 
-- **`RunConfig(model=...)` skips everything but the instructions for that run.** The runner prefers a per-run model over the agent's own, and the agent's own is what this adapter installs — so the managed tools, settings and model do not reach that run, and nothing in a `Model` can see a `RunConfig` to say so. The prompt still applies, because it is applied where the agent assembles it. Use `agent_control(agent.clone(model=...))`, or `Runner.run(agent.clone(model=...))`, instead.
+- **`RunConfig(model=...)` skips everything but the instructions for that run.** The runner prefers a per-run model over the agent's own, and the agent's own is what this adapter installs — so the managed tools, settings and model do not reach that run, and nothing in a `Model` can see a `RunConfig` to say so. The prompt still applies, because it is applied where the agent assembles it. Put the model on the agent *before* wrapping it -- `agent_control(agent.clone(model=...))`, where `agent` is the one you wrote -- so the wrapper is built around the model that run wants. Cloning the *managed* agent with a model is the same problem again: the clone's model replaces the wrapper, so it has nothing left but the prompt.
 - **`RunConfig(model_provider=...)` is not consulted for a managed agent**, which resolves models itself. Pass your provider as `agent_control(agent, provider=...)`.
 - **One config per agent, not per run.** `agent_control` is called once, where you build the agent.
 - **Publishing an edit changes the cached prefix once**, the same as a redeploy would. Blocks are never reordered, and an added block lands after your last fixed block, so it stays inside the prefix a provider can cache.

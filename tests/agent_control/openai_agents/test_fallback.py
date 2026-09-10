@@ -60,7 +60,10 @@ async def test_an_unreachable_provider_warns_once_and_runs_the_agent_on_its_code
     assert result.final_output == 'done by fake'
     assert inner.calls[0].system_instructions == 'You are a concise checkout assistant.'
     unreadable = [w for w in caught if 'Failed to read the Logfire managed config' in str(w.message)]
-    assert unreadable and 'no route to Logfire' in str(unreadable[0].message)
+    # Once, not once per read: an agent that cannot reach Logfire reads on every request, and a
+    # warning per read would bury the one thing the operator needs to see.
+    assert len(unreadable) == 1
+    assert 'no route to Logfire' in str(unreadable[0].message)
 
 
 async def test_a_stored_value_this_release_cannot_parse_costs_only_its_own_piece(

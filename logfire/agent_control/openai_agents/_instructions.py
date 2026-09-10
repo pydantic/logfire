@@ -23,14 +23,14 @@ from agents import Agent, RunContextWrapper
 from .. import AgentControl, Block, apply_instructions, use_resolution
 from ._run import current_run, resolve
 
-InstructionSource: TypeAlias = 'str | Callable[[RunContextWrapper[Any], Agent[Any]], str | Awaitable[str]]'
+InstructionSource: TypeAlias = str | Callable[[RunContextWrapper[Any], Agent[Any]], str | Awaitable[str]]
 """One instruction block as the agent declares it: fixed text, or a function of the run.
 
 The callable form is the SDK's own `Agent.instructions` signature, so a prompt already written as a
 function of the run context moves into a named block unchanged.
 """
 
-Sources: TypeAlias = 'tuple[tuple[str, InstructionSource], ...]'
+Sources: TypeAlias = tuple[tuple[str, InstructionSource], ...]
 """The agent's prompt as named blocks, in the order they are sent."""
 
 AGENT_BLOCK_ID = 'agent'

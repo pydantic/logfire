@@ -24,18 +24,22 @@ UNMATCHED: dict[str, Any] = {
 }
 
 
-def controlled(project: LocalVariableProvider, on_unmatched: OnUnmatched, value: Any = UNMATCHED) -> Agent[Any]:
+def controlled(
+    project: LocalVariableProvider, on_unmatched: OnUnmatched, value: Any = UNMATCHED
+) -> tuple[Agent[Any], FakeModel]:
     publish(project, 'agent__unmatched', value)
-    return agent_control(
+    inner = FakeModel()
+    agent = agent_control(
         Agent(name='unmatched', instructions='Hi.', tools=[get_weather], model='m'),
-        provider=FakeProvider({'m': FakeModel()}),
+        provider=FakeProvider({'m': inner}),
         on_unmatched=on_unmatched,
     )
+    return agent, inner
 
 
 async def test_every_kind_of_unmatched_entry_is_named(project: LocalVariableProvider) -> None:
     """One warning each, and each one names what was published and what it did not reach."""
-    agent = controlled(project, 'warn')
+    agent, _ = controlled(project, 'warn')
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter('always')
         await Runner.run(agent, 'hello')
@@ -57,16 +61,21 @@ async def test_every_kind_of_unmatched_entry_is_named(project: LocalVariableProv
 
 
 async def test_error_refuses_the_request(project: LocalVariableProvider) -> None:
-    agent = controlled(project, 'error')
+    agent, _ = controlled(project, 'error')
     with pytest.raises(ValueError, match="instruction block 'toolset:legacy_crm'"):
         await Runner.run(agent, 'hello')
 
 
 async def test_ignore_says_nothing_and_applies_the_rest(project: LocalVariableProvider) -> None:
-    agent = controlled(project, 'ignore', {**UNMATCHED, 'settings': {**UNMATCHED['settings'], 'temperature': 0.4}})
+    agent, inner = controlled(
+        project, 'ignore', {**UNMATCHED, 'settings': {**UNMATCHED['settings'], 'temperature': 0.4}}
+    )
     result = await Runner.run(agent, 'hello')
 
     assert result.final_output == 'done by fake'
+    # "The rest" is the point: the one setting in that config this SDK *can* send still reaches the
+    # model, alongside the three it cannot and the instruction id that matches nothing.
+    assert inner.calls[0].model_settings.temperature == 0.4
 
 
 async def test_penalties_are_reported_where_the_responses_api_would_not_send_them(

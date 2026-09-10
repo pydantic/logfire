@@ -1,11 +1,11 @@
 from .. import AgentControl as AgentControl, Block as Block, apply_instructions as apply_instructions, use_resolution as use_resolution
 from ._run import current_run as current_run, resolve as resolve
 from agents import Agent, RunContextWrapper
-from collections.abc import Awaitable as Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, TypeAlias
 
-InstructionSource: TypeAlias
-Sources: TypeAlias
+InstructionSource: TypeAlias = str | Callable[[RunContextWrapper[Any], Agent[Any]], str | Awaitable[str]]
+Sources: TypeAlias = tuple[tuple[str, InstructionSource], ...]
 AGENT_BLOCK_ID: str
 BLOCK_SEPARATOR: str
 

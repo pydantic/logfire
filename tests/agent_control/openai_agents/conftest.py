@@ -215,14 +215,17 @@ class FakeModel(Model):
             yield ResponseOutputItemAddedEvent(
                 type='response.output_item.added', item=item, output_index=index, sequence_number=index
             )
-            # An event that carries an item id rather than a name, so nothing about it is renamed.
-            yield ResponseFunctionCallArgumentsDeltaEvent(
-                type='response.function_call_arguments.delta',
-                delta='',
-                item_id='item-1',
-                output_index=index,
-                sequence_number=index,
-            )
+            if isinstance(item, ResponseFunctionToolCall):
+                # The one event a real stream puts between the two above, and only for a tool call:
+                # it carries the id of the item it belongs to rather than a name, so nothing about it
+                # is renamed. Its own id, so a test cannot pass by keying a rename on a shared one.
+                yield ResponseFunctionCallArgumentsDeltaEvent(
+                    type='response.function_call_arguments.delta',
+                    delta='',
+                    item_id=item.call_id,
+                    output_index=index,
+                    sequence_number=index,
+                )
             yield ResponseOutputItemDoneEvent(
                 type='response.output_item.done', item=item, output_index=index, sequence_number=index
             )
