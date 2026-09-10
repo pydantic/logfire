@@ -44,16 +44,19 @@ if TYPE_CHECKING:
         VariableTypeConfig,
     )
     from logfire.variables.variable import (
+        FeatureFlag,
         ResolveFunction,
         TemplateInputsMismatchError,
         TemplateVariable,
         Variable,
+        feature_context,
         targeting_context,
     )
 
 __all__ = [
     # Variable classes
     'Variable',
+    'FeatureFlag',
     'TemplateVariable',
     'ResolvedVariable',
     'ResolveFunction',
@@ -79,6 +82,7 @@ __all__ = [
     'ValueDoesNotMatchRegex',
     # Context managers and utilities
     'targeting_context',
+    'feature_context',
     # Types
     'ComposedReference',
     'ResolutionReason',
@@ -98,7 +102,7 @@ __all__ = [
 def ensure_variables_dependencies() -> None:
     """Raise a clear `ImportError` if a package required to use managed variables is missing.
 
-    Using managed variables — declaring a `var()`/`template_var()`, or touching the public
+    Using managed variables — declaring a `feature_flag()`/`var()`/`template_var()`, or touching the public
     config classes — needs the `logfire[variables]` extra. This is checked eagerly at those
     entry points (rather than lazily mid-resolution) so a missing dependency surfaces as an
     actionable error instead of, e.g., a composition value silently falling back to its code
@@ -144,10 +148,12 @@ def __getattr__(name: str):
         VariableTypeConfig,
     )
     from logfire.variables.variable import (
+        FeatureFlag,
         ResolveFunction,
         TemplateInputsMismatchError,
         TemplateVariable,
         Variable,
+        feature_context,
         targeting_context,
     )
 

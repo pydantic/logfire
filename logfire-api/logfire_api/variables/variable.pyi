@@ -10,7 +10,7 @@ from logfire.variables.config import VariableConfig
 from typing import Any, Generic, Protocol, TypeVar
 from typing_extensions import TypeIs
 
-__all__ = ['ResolveFunction', 'is_resolve_function', 'Variable', 'TemplateVariable', 'TemplateInputsMismatchError', 'targeting_context']
+__all__ = ['ResolveFunction', 'is_resolve_function', 'Variable', 'FeatureFlag', 'TemplateVariable', 'TemplateInputsMismatchError', 'feature_context', 'targeting_context']
 
 class TemplateInputsMismatchError(Exception):
     """Render-time `{{field}}` mismatch raised under the strict policy.
@@ -31,6 +31,12 @@ class _TargetingContextData:
     """Internal data structure for targeting context."""
     default: str | None = ...
     by_variable: dict[str, str] = field(default_factory=dict[str, str])
+
+@dataclass
+class _FeatureContextData:
+    """Request-local context used by feature flag evaluations."""
+    targeting_key: str
+    attributes: dict[str, Any]
 
 class ResolveFunction(Protocol[T_co]):
     """Protocol for functions that resolve variable values based on context."""
@@ -74,6 +80,7 @@ class _ResolveAttempt:
 
 class Variable(Generic[T_co]):
     """A managed variable that can be resolved dynamically based on configuration."""
+    kind: str
     name: str
     value_type: type[T_co]
     default: T_co | ResolveFunction[T_co]
@@ -158,6 +165,17 @@ class Variable(Generic[T_co]):
             A ResolvedVariable object containing the resolved value, selected label,
             version, and any errors that occurred.
         """
+
+class FeatureFlag(Variable[bool]):
+    """A boolean feature flag backed by Logfire managed variables."""
+    kind: str
+    def __init__(self, name: str, *, default: bool, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
+    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[bool]:
+        """Evaluate the flag and return its value and resolution details."""
+    def evaluate(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[bool]:
+        """Evaluate the flag and return its value and resolution details."""
+    def is_enabled(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> bool:
+        """Return whether the feature is enabled for the evaluation context."""
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
     """A managed variable with integrated template rendering.
@@ -246,3 +264,14 @@ def targeting_context(targeting_key: str, variables: Sequence[Variable[Any] | Te
                 org_value = org_variable.get()  # uses "org456" (specific wins)
                 other_value = other_variable.get()  # uses "user123" (default)
     '''
+@contextmanager
+def feature_context(targeting_key: str, *, attributes: Mapping[str, Any] | None = None) -> Generator[None]:
+    """Set the request-local identity and attributes used to evaluate feature flags.
+
+    Nested contexts inherit attributes from their parent. Attributes supplied by an inner
+    context, or directly to ``FeatureFlag.evaluate()``, take precedence.
+
+    Args:
+        targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
+        attributes: Optional targeting attributes, such as the user's plan or region.
+    """

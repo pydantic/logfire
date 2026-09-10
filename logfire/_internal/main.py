@@ -121,6 +121,7 @@ if TYPE_CHECKING:
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from ..variables import (
+        FeatureFlag,
         ResolveFunction,
         TemplateVariable,
         ValidationReport,
@@ -148,6 +149,7 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 InputsT = TypeVar('InputsT')
+VariableT = TypeVar('VariableT', bound='Variable[Any]')
 
 
 class Logfire:
@@ -2538,6 +2540,82 @@ class Logfire:
         """
         return self._config.shutdown(timeout_millis=timeout_millis, flush=flush)
 
+    @staticmethod
+    def _validate_variable_name(name: str) -> None:
+        """Validate the shared naming contract for all variable declaration APIs."""
+        import re
+
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+            raise ValueError(
+                f"Invalid variable name '{name}'. "
+                'Variable names must be valid Python identifiers (letters, digits, and underscores, '
+                'not starting with a digit).'
+            )
+
+    def _register_variable(self, variable: VariableT) -> VariableT:
+        """Register a variable declared through any public variable API."""
+        name = variable.name
+
+        # Variables are expected to be defined once at import time (single-threaded), so this
+        # check-then-insert is not locked. If you register variables concurrently from multiple
+        # threads, guard your own registration to preserve the uniqueness guarantee.
+        if name in self._variables:
+            raise ValueError(
+                f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
+            )
+        self._variables[name] = variable
+
+        from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
+
+        warn_on_template_inputs_composition_mismatch(self._variables, variable)
+        return variable
+
+    def feature_flag(
+        self,
+        name: str,
+        *,
+        default: bool,
+        description: str | None = None,
+    ) -> FeatureFlag:
+        """Define a boolean feature flag with a safe code default.
+
+        The returned flag evaluates from the same locally cached configuration as managed
+        variables, so normal evaluations do not make network requests. Use
+        [`feature_context()`][logfire.variables.feature_context] to provide a stable targeting
+        key and request-local attributes for rollouts and targeting.
+
+        ```py
+        import logfire
+
+        new_checkout = logfire.feature_flag(
+            'new_checkout',
+            default=False,
+            description='Enable the redesigned checkout.',
+        )
+
+        with logfire.feature_context('user-123', attributes={'plan': 'team'}):
+            if new_checkout.is_enabled():
+                ...
+        ```
+
+        Args:
+            name: Unique identifier for the flag. Must match the name configured in Logfire.
+            default: Value used before the flag is configured or when configuration is unavailable.
+            description: Optional human-readable description of what the flag controls.
+        """
+        from logfire.variables import ensure_variables_dependencies
+
+        ensure_variables_dependencies()
+
+        from logfire.variables.variable import FeatureFlag
+
+        if not isinstance(cast(Any, default), bool):
+            raise TypeError('Feature flag defaults must be boolean.')
+
+        self._validate_variable_name(name)
+        flag = FeatureFlag(name, default=default, description=description, logfire_instance=self)
+        return self._register_variable(flag)
+
     @overload
     def var(
         self,
@@ -2628,23 +2706,7 @@ class Logfire:
         else:
             tp = type
 
-        import re
-
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
-            raise ValueError(
-                f"Invalid variable name '{name}'. "
-                'Variable names must be valid Python identifiers (letters, digits, and underscores, '
-                'not starting with a digit).'
-            )
-
-        # Variables are expected to be defined once at import time (single-threaded), so this
-        # check-then-insert is not locked. If you register variables concurrently from multiple
-        # threads, guard your own registration to preserve the uniqueness guarantee.
-        if name in self._variables:
-            raise ValueError(
-                f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
-            )
-
+        self._validate_variable_name(name)
         variable = Variable[T](
             name,
             default=default,
@@ -2652,13 +2714,7 @@ class Logfire:
             logfire_instance=self,
             description=description,
         )
-        self._variables[name] = variable
-
-        from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
-
-        warn_on_template_inputs_composition_mismatch(self._variables, variable)
-
-        return variable
+        return self._register_variable(variable)
 
     @overload
     def template_var(
@@ -2742,8 +2798,6 @@ class Logfire:
                 (which default to `'warn'`). Pass an explicit value to override the
                 instance-level policy for this variable only — even to relax it.
         """
-        import re
-
         from logfire.variables import ensure_variables_dependencies
 
         ensure_variables_dependencies()
@@ -2765,21 +2819,7 @@ class Logfire:
         else:
             tp = type
 
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
-            raise ValueError(
-                f"Invalid variable name '{name}'. "
-                'Variable names must be valid Python identifiers (letters, digits, and underscores, '
-                'not starting with a digit).'
-            )
-
-        # Variables are expected to be defined once at import time (single-threaded), so this
-        # check-then-insert is not locked. If you register variables concurrently from multiple
-        # threads, guard your own registration to preserve the uniqueness guarantee.
-        if name in self._variables:
-            raise ValueError(
-                f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
-            )
-
+        self._validate_variable_name(name)
         variable = TemplateVariable[T, InputsT](
             name,
             type=tp,
@@ -2789,19 +2829,13 @@ class Logfire:
             logfire_instance=self,
             template_mismatch_policy=template_mismatch_policy,
         )
-        self._variables[name] = variable
-
-        from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
-
-        warn_on_template_inputs_composition_mismatch(self._variables, variable)
-
-        return variable
+        return self._register_variable(variable)
 
     def variables_clear(self) -> None:
         """Clear all variables registered with this Logfire instance's config.
 
-        This removes all variables previously registered via [`var()`][logfire.Logfire.var]
-        or [`template_var()`][logfire.Logfire.template_var] on this instance or any
+        This removes all variables previously registered via [`feature_flag()`][logfire.Logfire.feature_flag],
+        [`var()`][logfire.Logfire.var], or [`template_var()`][logfire.Logfire.template_var] on this instance or any
         [`with_settings()`][logfire.Logfire.with_settings] sibling that shares its config,
         allowing them to be re-registered. This is primarily intended for use in tests to
         ensure a clean state between test cases.

@@ -14,7 +14,7 @@ from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
 from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
 from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
 from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
-from ..variables import ResolveFunction as ResolveFunction, TemplateVariable as TemplateVariable, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
+from ..variables import FeatureFlag as FeatureFlag, ResolveFunction as ResolveFunction, TemplateVariable as TemplateVariable, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, TemplateMismatchPolicy as TemplateMismatchPolicy
@@ -67,6 +67,7 @@ from wsgiref.types import WSGIApplication
 ExcInfo = SysExcInfo | BaseException | bool | None
 T = TypeVar('T')
 InputsT = TypeVar('InputsT')
+VariableT = TypeVar('VariableT', bound='Variable[Any]')
 
 class Logfire:
     """The main logfire class."""
@@ -1240,6 +1241,33 @@ class Logfire:
         Returns:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
+    def feature_flag(self, name: str, *, default: bool, description: str | None = None) -> FeatureFlag:
+        """Define a boolean feature flag with a safe code default.
+
+        The returned flag evaluates from the same locally cached configuration as managed
+        variables, so normal evaluations do not make network requests. Use
+        [`feature_context()`][logfire.variables.feature_context] to provide a stable targeting
+        key and request-local attributes for rollouts and targeting.
+
+        ```py
+        import logfire
+
+        new_checkout = logfire.feature_flag(
+            'new_checkout',
+            default=False,
+            description='Enable the redesigned checkout.',
+        )
+
+        with logfire.feature_context('user-123', attributes={'plan': 'team'}):
+            if new_checkout.is_enabled():
+                ...
+        ```
+
+        Args:
+            name: Unique identifier for the flag. Must match the name configured in Logfire.
+            default: Value used before the flag is configured or when configuration is unavailable.
+            description: Optional human-readable description of what the flag controls.
+        """
     @overload
     def var(self, name: str, *, default: T, description: str | None = None) -> Variable[T]: ...
     @overload
@@ -1251,8 +1279,8 @@ class Logfire:
     def variables_clear(self) -> None:
         """Clear all variables registered with this Logfire instance's config.
 
-        This removes all variables previously registered via [`var()`][logfire.Logfire.var]
-        or [`template_var()`][logfire.Logfire.template_var] on this instance or any
+        This removes all variables previously registered via [`feature_flag()`][logfire.Logfire.feature_flag],
+        [`var()`][logfire.Logfire.var], or [`template_var()`][logfire.Logfire.template_var] on this instance or any
         [`with_settings()`][logfire.Logfire.with_settings] sibling that shares its config,
         allowing them to be re-registered. This is primarily intended for use in tests to
         ensure a clean state between test cases.

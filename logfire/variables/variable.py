@@ -41,8 +41,10 @@ __all__ = (
     'ResolveFunction',
     'is_resolve_function',
     'Variable',
+    'FeatureFlag',
     'TemplateVariable',
     'TemplateInputsMismatchError',
+    'feature_context',
     'targeting_context',
 )
 
@@ -90,6 +92,17 @@ class _TargetingContextData:
 
 
 _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARGETING_CONTEXT', default=None)
+
+
+@dataclass
+class _FeatureContextData:
+    """Request-local context used by feature flag evaluations."""
+
+    targeting_key: str
+    attributes: dict[str, Any]
+
+
+_FEATURE_CONTEXT: ContextVar[_FeatureContextData | None] = ContextVar('_FEATURE_CONTEXT', default=None)
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -206,6 +219,9 @@ class _ResolveAttempt:
 class Variable(Generic[T_co]):
     """A managed variable that can be resolved dynamically based on configuration."""
 
+    kind = 'variable'
+    """The product surface this variable was declared through."""
+
     name: str
     """Unique name identifying this variable."""
     value_type: type[T_co]
@@ -214,7 +230,6 @@ class Variable(Generic[T_co]):
     """Default value or function to compute the default."""
     description: str | None
     """Description of the variable."""
-
     logfire_instance: logfire.Logfire
     """The Logfire instance this variable is associated with."""
 
@@ -938,6 +953,7 @@ class Variable(Generic[T_co]):
             'logfire.variable.declaration': True,
             'logfire.variable.declaration_version': 1,
             'logfire.variable.name': self.name,
+            'logfire.variable.kind': self.kind,
         }
         if self.description:
             # The remote API accepts at most 500 characters, so sending more cannot improve
@@ -1024,16 +1040,18 @@ class Variable(Generic[T_co]):
         # Include the variable name directly here to make the span name more useful,
         # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
         # Don't inline the f-string to avoid f-string magic.
-        span_name = f'Resolve variable {self.name}'
+        span_name = (
+            f'Evaluate feature flag {self.name}' if self.kind == 'feature_flag' else f'Resolve variable {self.name}'
+        )
         with ExitStack() as stack:
             span: logfire.LogfireSpan | None = None
             if _get_variables_instrument(self.logfire_instance.config.variables):
+                span_context = self._telemetry_context(targeting_key, merged_attributes)
                 span = stack.enter_context(
                     self.logfire_instance.span(
                         span_name,
                         name=self.name,
-                        targeting_key=targeting_key,
-                        attributes=merged_attributes,
+                        **span_context,
                     )
                 )
             result = self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
@@ -1051,6 +1069,18 @@ class Variable(Generic[T_co]):
                     'version': result.version,
                     'reason': result.reason,
                 }
+                if self.kind == 'feature_flag':
+                    attrs.update(
+                        {
+                            'feature_flag.key': self.name,
+                            'feature_flag.result.value': result.value,
+                            'feature_flag.result.reason': result.reason,
+                        }
+                    )
+                    if result.label is not None:
+                        attrs['feature_flag.result.variant'] = result.label
+                    if result.version is not None:
+                        attrs['feature_flag.version'] = str(result.version)
                 if result.composed_from:
                     import json
 
@@ -1064,6 +1094,10 @@ class Variable(Generic[T_co]):
                 # displace the resolution result that users rely on for observability.
                 self._emit_declaration_once(span)
             return result
+
+    def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
+        """Return evaluation context attributes included on the resolution span."""
+        return {'targeting_key': targeting_key, 'attributes': attributes}
 
     def get(
         self,
@@ -1088,6 +1122,85 @@ class Variable(Generic[T_co]):
             version, and any errors that occurred.
         """
         return self._get_result_and_record_span(targeting_key, attributes, label)
+
+
+class FeatureFlag(Variable[bool]):
+    """A boolean feature flag backed by Logfire managed variables."""
+
+    kind = 'feature_flag'
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        default: bool,
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        super().__init__(
+            name,
+            type=bool,
+            default=default,
+            description=description,
+            logfire_instance=logfire_instance,
+        )
+
+    def get(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
+    ) -> ResolvedVariable[bool]:
+        """Evaluate the flag and return its value and resolution details."""
+        context = _FEATURE_CONTEXT.get()
+        if context is not None:
+            if targeting_key is None:
+                targeting_key = context.targeting_key
+            merged_attributes = dict(context.attributes)
+            if attributes:
+                merged_attributes.update(attributes)
+            attributes = merged_attributes
+
+        has_stable_targeting_key = targeting_key is not None or _get_contextvar_targeting_key(self.name) is not None
+
+        result = super().get(targeting_key, attributes, label=label)
+        if not has_stable_targeting_key and label is None:
+            variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
+            if variable_config is not None and variable_config.requires_targeting_key(
+                self._get_merged_attributes(attributes)
+            ):
+                warnings.warn(
+                    f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "
+                    'Pass targeting_key=... or use logfire.feature_context(...) to keep each subject on one variant.',
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        return result
+
+    def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
+        # Evaluation context can contain identifiers or customer attributes. Decisions happen
+        # locally, so the surrounding trace is sufficient for correlation and the raw context
+        # does not need to leave the process.
+        return {}
+
+    def evaluate(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
+    ) -> ResolvedVariable[bool]:
+        """Evaluate the flag and return its value and resolution details."""
+        return self.get(targeting_key, attributes, label=label)
+
+    def is_enabled(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+    ) -> bool:
+        """Return whether the feature is enabled for the evaluation context."""
+        return self.evaluate(targeting_key, attributes).value
 
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
@@ -1394,6 +1507,32 @@ def targeting_context(
         yield
     finally:
         _TARGETING_CONTEXT.reset(token)
+
+
+@contextmanager
+def feature_context(
+    targeting_key: str,
+    *,
+    attributes: Mapping[str, Any] | None = None,
+) -> Generator[None]:
+    """Set the request-local identity and attributes used to evaluate feature flags.
+
+    Nested contexts inherit attributes from their parent. Attributes supplied by an inner
+    context, or directly to ``FeatureFlag.evaluate()``, take precedence.
+
+    Args:
+        targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
+        attributes: Optional targeting attributes, such as the user's plan or region.
+    """
+    current = _FEATURE_CONTEXT.get()
+    merged_attributes = dict(current.attributes) if current is not None else {}
+    if attributes:
+        merged_attributes.update(attributes)
+    token = _FEATURE_CONTEXT.set(_FeatureContextData(targeting_key, merged_attributes))
+    try:
+        yield
+    finally:
+        _FEATURE_CONTEXT.reset(token)
 
 
 def _get_contextvar_targeting_key(variable_name: str) -> str | None:

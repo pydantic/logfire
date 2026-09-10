@@ -140,6 +140,12 @@ class VariableConfig(BaseModel):
             The name of the selected label, or None if no label is selected (empty rollout
             means 'use code default').
         """
+    def requires_targeting_key(self, attributes: Mapping[str, Any] | None = None) -> bool:
+        """Return whether the selected rollout has more than one possible outcome.
+
+        A stable targeting key is required to keep a subject on the same outcome when a
+        rollout can select multiple labels or fall back to the code default.
+        """
     def resolve_value(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> tuple[str | None, str | None, int | None]:
         """Resolve the serialized value for this variable.
 

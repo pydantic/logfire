@@ -381,6 +381,24 @@ class VariableConfig(BaseModel):
         seed = None if targeting_key is None else f'{self.name!r}:{targeting_key!r}'
         return selected_rollout.select_label(seed)
 
+    def requires_targeting_key(self, attributes: Mapping[str, Any] | None = None) -> bool:
+        """Return whether the selected rollout has more than one possible outcome.
+
+        A stable targeting key is required to keep a subject on the same outcome when a
+        rollout can select multiple labels or fall back to the code default.
+        """
+        if attributes is None:
+            attributes = {}
+        selected_rollout = self.rollout
+        for override in self.overrides:
+            if _matches_all_conditions(override.conditions, attributes):
+                selected_rollout = override.rollout
+                break
+
+        positive_labels = sum(weight > 0 for weight in selected_rollout.labels.values())
+        includes_code_default = sum(selected_rollout.labels.values()) < 1.0 - 1e-9
+        return positive_labels + includes_code_default > 1
+
     def resolve_value(
         self,
         targeting_key: str | None = None,
