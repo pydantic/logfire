@@ -360,12 +360,17 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
             # A per-request value outranking a published one is the contract, not a fault -- but it
             # is also a setting someone can see in Logfire and change to no effect, on every request,
             # with nothing to say why. That is what `on_unmatched` is for.
+            #
+            # The message names the setting and not the value it lost to: `warn_dropped` remembers
+            # every message it has emitted for the life of the process, so a value read off the
+            # request would make each request's message a new one -- warning every time instead of
+            # once, and growing that set without bound.
             if merged.source(kwarg) == 'run':
                 setting = canonical_name(model or request.model, kwarg)
                 control.report_unmatched(
                     f'Managed agent config sets {setting!r}, but this request already carries a `model_settings` '
-                    f'value for it that something chose for this one request, which outranks a published default; '
-                    f'that setting is not applied and the request keeps {request.model_settings[kwarg]!r}.'
+                    f'value for it that something chose for this one request, which outranks a published '
+                    f'default; that setting is not applied.'
                 )
         settings = merged.settings
         if settings != request.model_settings:

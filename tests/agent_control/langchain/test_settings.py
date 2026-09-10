@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from typing import Any, cast
 
@@ -29,6 +30,20 @@ class FreezeTemperature(AgentMiddleware[Any, Any, Any]):
         self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
     ) -> ModelResponse[Any]:
         return handler(request.override(model_settings={**request.model_settings, 'temperature': 0.0}))
+
+
+class ChangingTemperature(AgentMiddleware[Any, Any, Any]):
+    """A middleware whose per-call choice is different on every request, as a real one's would be."""
+
+    def __init__(self) -> None:
+        self.tools = []
+        self.calls = 0
+
+    def wrap_model_call(
+        self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
+    ) -> ModelResponse[Any]:
+        self.calls += 1
+        return handler(request.override(model_settings={**request.model_settings, 'temperature': self.calls / 10}))
 
 
 class FreezeParallelToolCalls(AgentMiddleware[Any, Any, Any]):
@@ -223,6 +238,31 @@ def test_a_per_call_setting_from_another_middleware_outranks_the_published_one(
         run(agent)
 
     assert settings(model) == snapshot({'max_tokens': 42, 'temperature': 0.0})
+
+
+def test_a_per_call_setting_is_reported_once_however_often_its_value_changes(
+    project: LocalVariableProvider,
+) -> None:
+    # The report is deduplicated on its text for the life of the process, so naming the value it
+    # lost to would warn on every request instead of once -- and keep every one of those strings.
+    publish(project, {'settings': {'temperature': 0.4}})
+    model = RecordingModel(replies=[AIMessage('ok')])
+    agent = build_agent(model, agent_control(label='production'), tools=[], before=[ChangingTemperature()])
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        run(agent)
+        run(agent)
+        run(agent)
+
+    assert [str(warning.message) for warning in caught] == snapshot(
+        [
+            "Managed agent config sets 'temperature', but this request already carries a `model_settings` value "
+            'for it that something chose for this one request, which outranks a published default; that setting '
+            'is not applied.'
+        ]
+    )
+    assert settings(model, 2) == snapshot({'temperature': 0.3})
 
 
 def test_the_integrations_own_spelling_is_reported_as_the_setting_someone_published(
