@@ -16,8 +16,8 @@ class Run:
     def used(self, model: Model) -> None:
         """Record that this run made a request through `model`."""
 
-def current_run(variable_name: str) -> Run | None:
-    """The run in progress for `variable_name` here, or `None` outside one.
+def current_run(control: AgentControl) -> Run | None:
+    """The run in progress for `control` here, or `None` outside one.
 
     `None` is not an error: it means the managed prompt or the managed model was reached outside the
     seam that opens a run -- something calling the model wrapper directly, say -- and the caller

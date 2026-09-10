@@ -29,12 +29,21 @@ from agents.models.interface import Model
 
 from .. import AgentControl, Resolution
 
-_current_runs: ContextVar[Mapping[str, Run]] = ContextVar('logfire_agent_control_openai_agents_runs', default={})
-"""The run in progress, per managed agent, for the current task.
+_current_runs: ContextVar[Mapping[AgentControl, Run]] = ContextVar(
+    'logfire_agent_control_openai_agents_runs', default={}
+)
+"""The run in progress, per wrapped agent, for the current task.
 
 A mapping rather than one value because agents nest: a handoff, or a tool that runs another managed
 agent, puts a second agent's run inside the first, and each of them has to keep answering about its
 own. Concurrent runs of one agent are in tasks of their own, each with its own copy of this.
+
+Keyed on the `AgentControl` itself rather than on the variable it reads, because one variable can
+have more than one reader: wrapping an agent again for another label is exactly what the second
+argument to `agent_control` is for, and a handoff between two such wrappers runs both of them under
+one `RunContextWrapper`. Keyed by name, the second would find the first's record and apply the first
+label's config. The two hooks that read this -- the prompt renderer and the model wrapper -- are
+handed the same `AgentControl` object, so identity is the exact key for both.
 """
 
 
@@ -70,8 +79,8 @@ class Run:
             self.models.append(model)
 
 
-def current_run(variable_name: str) -> Run | None:
-    """The run in progress for `variable_name` here, or `None` outside one.
+def current_run(control: AgentControl) -> Run | None:
+    """The run in progress for `control` here, or `None` outside one.
 
     `None` is not an error: it means the managed prompt or the managed model was reached outside the
     seam that opens a run -- something calling the model wrapper directly, say -- and the caller
@@ -81,7 +90,7 @@ def current_run(variable_name: str) -> Run | None:
     in that task replaces it, and until then a lifecycle call the runner makes after the run has ended
     still finds the run it belongs to, which is exactly what it is for.
     """
-    return _current_runs.get().get(variable_name)
+    return _current_runs.get().get(control)
 
 
 def resolve(control: AgentControl) -> Resolution:
@@ -106,9 +115,9 @@ def begin_run(control: AgentControl, context: RunContextWrapper[Any]) -> Run:
     turns of this one.
     """
     runs = _current_runs.get()
-    run = runs.get(control.variable_name)
+    run = runs.get(control)
     if run is not None and run.context() is context:
         return run
     run = Run(resolution=resolve(control), context=weakref.ref(context))
-    _current_runs.set({**runs, control.variable_name: run})
+    _current_runs.set({**runs, control: run})
     return run

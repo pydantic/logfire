@@ -14,6 +14,7 @@ from agents.retry import ModelRetryAdvice, ModelRetryAdviceRequest
 from inline_snapshot import snapshot
 
 from logfire.agent_control.openai_agents import agent_control
+from logfire.variables import LabeledValue, Rollout as LabelRollout, VariableConfig
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.local import LocalVariableProvider
 
@@ -311,3 +312,48 @@ async def test_a_handoff_applies_the_next_agents_own_config(project: LocalVariab
 
     assert [call.system_instructions for call in inner.calls] == snapshot(['FRONT DESK', 'SPECIALIST'])
     assert result.final_output == 'handled'
+
+
+async def test_two_wrappers_of_one_config_keep_their_own_labels_in_one_run(
+    project: LocalVariableProvider,
+) -> None:
+    """Wrapping an agent again for another label is what `label` is for, including within one run.
+
+    Both wrappers read the same variable, and a handoff runs both of them under one
+    `RunContextWrapper` -- so a run record keyed on the variable would hand the second wrapper the
+    first one's resolution, and the second agent would send the first label's prompt under its own
+    name. The record is keyed on the `AgentControl` instead, which is one per wrapping.
+    """
+    project.create_variable(
+        VariableConfig(
+            name='agent__two_labels',
+            labels={
+                'production': LabeledValue(
+                    version=1,
+                    serialized_value=json.dumps({'instructions': [{'id': 'agent', 'instructions': 'STABLE'}]}),
+                ),
+                'canary': LabeledValue(
+                    version=2,
+                    serialized_value=json.dumps({'instructions': [{'id': 'agent', 'instructions': 'NEW'}]}),
+                ),
+            },
+            rollout=LabelRollout(labels={'production': 1.0}),
+            overrides=[],
+        )
+    )
+    inner = FakeModel(
+        outputs=[[tool_call('transfer_to_two_labels', arguments='{}', call_id='call-handoff')], [text_output('done')]]
+    )
+    models = FakeProvider({'m': inner})
+    code = Agent(name='two_labels', instructions='As written.', model='m')
+    canary = agent_control(code, label='canary', provider=models, publish_baseline=False)
+    stable = agent_control(
+        Agent(name='two_labels', instructions='As written.', model='m', handoffs=[canary]),
+        label='production',
+        provider=models,
+        publish_baseline=False,
+    )
+
+    await Runner.run(stable, 'help')
+
+    assert [call.system_instructions for call in inner.calls] == snapshot(['STABLE', 'NEW'])

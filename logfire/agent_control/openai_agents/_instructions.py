@@ -108,7 +108,7 @@ def instructions_renderer(
     """
 
     async def instructions(run_context: RunContextWrapper[Any], agent: Agent[Any]) -> str | None:
-        run = current_run(control.variable_name)
+        run = current_run(control)
         resolution = run.resolution if run is not None else resolve(control)
         with use_resolution(resolution):
             blocks = [

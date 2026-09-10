@@ -250,7 +250,7 @@ def _run_aware_settings(control: AgentControl, settings: ModelSettings) -> Model
     base = type(settings)
 
     def resolve_settings(self: ModelSettings, override: ModelSettings | dict[str, Any] | None) -> ModelSettings:
-        run = current_run(control.variable_name)
+        run = current_run(control)
         if run is not None:
             run.explicit_settings = _explicit_fields(override)
         return base.resolve(self, override)
@@ -378,7 +378,7 @@ class _ControlledModel(Model):
         conversation_id: str | None,
         prompt: ResponsePromptParam | None,
     ) -> ModelResponse:
-        run = current_run(self._control.variable_name)
+        run = current_run(self._control)
         resolution = run.resolution if run is not None else resolve(self._control)
         with use_resolution(resolution):
             request = self._prepare(run, resolution.config, system_instructions, input, model_settings, tools, handoffs)
@@ -410,7 +410,7 @@ class _ControlledModel(Model):
         conversation_id: str | None,
         prompt: ResponsePromptParam | None,
     ) -> AsyncIterator[TResponseStreamEvent]:
-        run = current_run(self._control.variable_name)
+        run = current_run(self._control)
         resolution = run.resolution if run is not None else resolve(self._control)
         with use_resolution(resolution):
             request = self._prepare(run, resolution.config, system_instructions, input, model_settings, tools, handoffs)
@@ -437,7 +437,7 @@ class _ControlledModel(Model):
         model of whichever request went last is the wrong one to ask: two runs on two published models
         would trade each other's replay-safety and retry-after advice.
         """
-        run = current_run(self._control.variable_name)
+        run = current_run(self._control)
         if run is None or not run.models:
             return None
         return run.models[-1].get_retry_advice(request)
@@ -455,7 +455,7 @@ class _ControlledModel(Model):
         be told the run ended. Forwarded to the run's own models, and to every one of them, since a
         run whose config changed models mid-flight holds a connection on each.
         """
-        run = current_run(self._control.variable_name)
+        run = current_run(self._control)
         for model in run.models if run is not None else ():
             await model._cleanup_on_run_end(owner)
 
