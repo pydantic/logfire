@@ -172,9 +172,21 @@ the UI save a row that silently does nothing.
 """
 
 
-SCHEMA_SHA256 = hashlib.sha256(
-    json.dumps(AGENT_CONFIG_JSON_SCHEMA, sort_keys=True, separators=(',', ':')).encode()
-).hexdigest()
+def _canonical_json(schema: dict[str, Any]) -> bytes:
+    """The bytes every copy of this contract digests, and the only definition of "canonical" here.
+
+    Sorted keys and `(',', ':')` separators make the document independent of how each copy's literal
+    happens to be written. `ensure_ascii=False` makes it independent of the language: `json.dumps`
+    escapes non-ASCII by default and `JSON.stringify` does not, so without it the first non-ASCII
+    character in a description or a sample value would give two identical schemas different digests.
+
+    A function rather than an expression inside `SCHEMA_SHA256` so that the canonical form is a thing
+    that can be tested, which is what `test_schema.py` does with a deliberately non-ASCII probe.
+    """
+    return json.dumps(schema, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+
+
+SCHEMA_SHA256 = hashlib.sha256(_canonical_json(AGENT_CONFIG_JSON_SCHEMA)).hexdigest()
 """SHA-256 of the stored schema's canonical JSON, which every other copy of this contract pins.
 
 The contract has at least three copies -- this package, the TypeScript package, and the Logfire UI's
@@ -182,8 +194,14 @@ The contract has at least three copies -- this package, the TypeScript package, 
 them drift: two copies once differed in a description and in whether `id` accepted `null`, a real
 difference in what each side would let you save, settled by whichever one happened to create the
 variable first. A digest cannot drift quietly, and there is no artifact the repositories share to
-hold the schema once. The canonical form is the JSON with sorted keys and `(',', ':')` separators, so
-every language computes the same digest over the same bytes.
+hold the schema once. The canonical form is the JSON with sorted keys, `(',', ':')` separators, and
+`ensure_ascii=False`, encoded as UTF-8, so every language computes the same digest over the same
+bytes. `ensure_ascii=False` is the one of the three that is currently invisible: the schema is
+ASCII-only, so it does not move the digest today. It is stated anyway because `json.dumps` escapes
+non-ASCII by default and `JSON.stringify` does not, so the first description or sample value with a
+non-ASCII character in it would otherwise give the two copies different digests for the same
+document -- a drift in the canonical form rather than in the contract, which is the one kind this
+digest exists to catch and would be worst at explaining.
 
 When a test pinning this fails, decide which side is right *before* repinning, then change all of
 them.

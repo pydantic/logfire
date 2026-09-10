@@ -13,6 +13,7 @@ from logfire.agent_control import (
     InstructionBlock,
     ToolDefinitionOverride,
 )
+from logfire.agent_control._schema import _canonical_json  # pyright: ignore[reportPrivateUsage]
 
 LOCKSTEP = (
     'AGENT_CONFIG_JSON_SCHEMA is one half of a contract with the Logfire UI and with every other '
@@ -50,6 +51,18 @@ def subschemas(schema: dict[str, Any]) -> Iterator[dict[str, Any]]:
 
 def test_schema_matches_the_digest_every_copy_pins() -> None:
     assert SCHEMA_SHA256 == CANONICAL_SCHEMA_SHA256, LOCKSTEP
+
+
+def test_the_canonical_form_encodes_non_ascii_the_way_json_stringify_does() -> None:
+    r"""The digest must not depend on which language computed it.
+
+    `json.dumps` escapes non-ASCII to `\uXXXX` by default and `JSON.stringify` emits the character,
+    so a schema carrying one would otherwise digest differently in the Python and TypeScript copies
+    while being the same document -- drift in the canonical form rather than in the contract, which
+    is the one kind this digest would be worst at explaining. The schema is ASCII today, so nothing
+    but this test would notice if the canonical form stopped saying so.
+    """
+    assert _canonical_json({'description': 'caf\u00e9'}) == '{"description":"caf\u00e9"}'.encode()
 
 
 def test_every_model_field_is_described() -> None:
