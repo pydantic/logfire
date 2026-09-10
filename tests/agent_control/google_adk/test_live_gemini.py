@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
 from typing import Any, cast
 
 import pytest
@@ -47,17 +48,27 @@ pytestmark = [
     pytest.mark.xdist_group(name='agent_control_google_adk_live'),
 ]
 
-# `google-genai` reads `GOOGLE_API_KEY` first and `GEMINI_API_KEY` second, and warns when both are
-# set. Only fill in a placeholder when neither is there, so replaying needs no credentials and
-# re-recording picks up whichever of the two the recorder's environment carries.
-if not os.environ.get('GOOGLE_API_KEY') and not os.environ.get('GEMINI_API_KEY'):  # pragma: no branch
-    os.environ['GOOGLE_API_KEY'] = 'not-a-real-key'
-
 MODEL = 'gemini-2.5-flash-lite'
 """The cheapest current Gemini model, and the last generation to count thinking in tokens."""
 
 THINKING_LEVEL_MODEL = 'gemini-3.5-flash-lite'
 """The cheapest current Gemini model of the generation that asks for thinking as a level."""
+
+
+@pytest.fixture(autouse=True)
+def _api_key() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """A key-shaped placeholder for replaying, and the recorder's own key when there is one.
+
+    `google-genai` reads `GOOGLE_API_KEY` first and `GEMINI_API_KEY` second, and warns when both are
+    set, so the placeholder is only filled in when neither is there: replaying needs no credentials,
+    and re-recording picks up whichever of the two the recorder's environment carries. Scoped to the
+    test rather than written at import, so it cannot decide what another module's own fallback
+    resolves to when the two land on one xdist worker.
+    """
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        if not os.environ.get('GOOGLE_API_KEY') and not os.environ.get('GEMINI_API_KEY'):
+            monkeypatch.setenv('GOOGLE_API_KEY', 'not-a-real-key')
+        yield
 
 
 def get_weather(city: str) -> str:
