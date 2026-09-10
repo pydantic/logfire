@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import asyncio
 import importlib
 import sys
@@ -469,6 +470,27 @@ def test_override_init_pyi() -> None:  # pragma: no cover
                 new_end_lines.append(line)
         lines.remove('from _typeshed import Incomplete')
         lines[span_index - 1 :] = new_end_lines
+
+    # Managed variables cannot safely degrade to no-ops, so their new feature-flag convenience
+    # APIs are intentionally absent when only the lightweight `logfire-api` shim is installed.
+    # `stubgen` sees the full SDK surface; trim these two module-level declarations back out.
+    all_index = next(i for i, line in enumerate(lines) if line.startswith('__all__ = '))
+    all_names = list(ast.literal_eval(lines[all_index].removeprefix('__all__ = ')))
+    all_names = [name for name in all_names if name not in {'feature_flag', 'feature_context'}]
+    lines[all_index] = f'__all__ = {all_names!r}'
+    feature_context_index = next((i for i, line in enumerate(lines) if line.startswith('def feature_context(')), None)
+    if feature_context_index is not None:
+        del lines[feature_context_index : feature_context_index + 2]
+    lines = [
+        line
+        for line in lines
+        if line
+        not in {
+            'feature_flag = DEFAULT_LOGFIRE_INSTANCE.feature_flag',
+            'from collections.abc import Mapping',
+            'from contextlib import AbstractContextManager',
+        }
+    ]
 
     new_init_pyi = '\n'.join(lines) + '\n'
     if new_init_pyi == init_pyi:

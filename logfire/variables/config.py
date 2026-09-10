@@ -364,20 +364,7 @@ class VariableConfig(BaseModel):
             The name of the selected label, or None if no label is selected (empty rollout
             means 'use code default').
         """
-        if attributes is None:
-            attributes = {}
-
-        # Step 1: Determine the rollout and overrides to use
-        base_rollout = self.rollout
-        base_overrides = self.overrides
-
-        # Step 2: Find the first matching override, or use the base rollout
-        selected_rollout = base_rollout
-        for override in base_overrides:
-            if _matches_all_conditions(override.conditions, attributes):
-                selected_rollout = override.rollout
-                break  # First match takes precedence
-
+        selected_rollout = self._select_rollout(attributes)
         seed = None if targeting_key is None else f'{self.name!r}:{targeting_key!r}'
         return selected_rollout.select_label(seed)
 
@@ -387,17 +374,18 @@ class VariableConfig(BaseModel):
         A stable targeting key is required to keep a subject on the same outcome when a
         rollout can select multiple labels or fall back to the code default.
         """
-        if attributes is None:
-            attributes = {}
-        selected_rollout = self.rollout
+        selected_rollout = self._select_rollout(attributes)
+        positive_labels = sum(weight > 0 for weight in selected_rollout.labels.values())
+        includes_code_default = sum(selected_rollout.labels.values()) < 1.0
+        return positive_labels + includes_code_default > 1
+
+    def _select_rollout(self, attributes: Mapping[str, Any] | None) -> Rollout:
+        """Return the first rollout whose targeting conditions apply."""
+        attributes = attributes or {}
         for override in self.overrides:
             if _matches_all_conditions(override.conditions, attributes):
-                selected_rollout = override.rollout
-                break
-
-        positive_labels = sum(weight > 0 for weight in selected_rollout.labels.values())
-        includes_code_default = sum(selected_rollout.labels.values()) < 1.0 - 1e-9
-        return positive_labels + includes_code_default > 1
+                return override.rollout
+        return self.rollout
 
     def resolve_value(
         self,

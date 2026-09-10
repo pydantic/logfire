@@ -98,7 +98,6 @@ _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARG
 class _FeatureContextData:
     """Request-local context used by feature flag evaluations."""
 
-    targeting_key: str
     attributes: dict[str, Any]
 
 
@@ -1155,8 +1154,6 @@ class FeatureFlag(Variable[bool]):
         """Evaluate the flag and return its value and resolution details."""
         context = _FEATURE_CONTEXT.get()
         if context is not None:
-            if targeting_key is None:
-                targeting_key = context.targeting_key
             merged_attributes = dict(context.attributes)
             if attributes:
                 merged_attributes.update(attributes)
@@ -1165,17 +1162,33 @@ class FeatureFlag(Variable[bool]):
         has_stable_targeting_key = targeting_key is not None or _get_contextvar_targeting_key(self.name) is not None
 
         result = super().get(targeting_key, attributes, label=label)
-        if not has_stable_targeting_key and label is None:
+        if not has_stable_targeting_key:
             variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
-            if variable_config is not None and variable_config.requires_targeting_key(
-                self._get_merged_attributes(attributes)
+            if (
+                variable_config is not None
+                and (label is None or label not in variable_config.labels)
+                and variable_config.requires_targeting_key(self._get_merged_attributes(attributes))
             ):
-                warnings.warn(
+                _emit_resolution_warning(
                     f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "
                     'Pass targeting_key=... or use logfire.feature_context(...) to keep each subject on one variant.',
-                    RuntimeWarning,
-                    stacklevel=2,
+                    stacklevel=3,
                 )
+        return result
+
+    def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        # Propagated baggage can be supplied by an untrusted caller. Feature targeting only uses
+        # process-owned resource attributes and attributes supplied explicitly by application code.
+        from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+
+        result: dict[str, Any] = {}
+        variables = self.logfire_instance.config.variables
+        if not isinstance(variables, (VariablesOptions, LocalVariablesOptions)) or (
+            variables.include_resource_attributes_in_context
+        ):
+            result.update(self.logfire_instance.resource_attributes)
+        if attributes:
+            result.update(attributes)
         return result
 
     def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
@@ -1528,11 +1541,12 @@ def feature_context(
     merged_attributes = dict(current.attributes) if current is not None else {}
     if attributes:
         merged_attributes.update(attributes)
-    token = _FEATURE_CONTEXT.set(_FeatureContextData(targeting_key, merged_attributes))
-    try:
-        yield
-    finally:
-        _FEATURE_CONTEXT.reset(token)
+    token = _FEATURE_CONTEXT.set(_FeatureContextData(merged_attributes))
+    with targeting_context(targeting_key):
+        try:
+            yield
+        finally:
+            _FEATURE_CONTEXT.reset(token)
 
 
 def _get_contextvar_targeting_key(variable_name: str) -> str | None:

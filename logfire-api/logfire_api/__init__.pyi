@@ -12,13 +12,11 @@ from ._internal.utils import suppress_instrumentation as suppress_instrumentatio
 from .integrations.logging import LogfireLoggingHandler as LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION as VERSION
-from collections.abc import Mapping
-from contextlib import AbstractContextManager
 from logfire.propagate import attach_context as attach_context, get_context as get_context
 from logfire.sampling import SamplingOptions as SamplingOptions
 from typing import Any
 
-__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'AdvancedOptions', 'ConsoleOptions', 'CodeSource', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'warning', 'error', 'exception', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_asgi', 'instrument_wsgi', 'instrument_pydantic', 'instrument_pydantic_ai', 'instrument_fastapi', 'instrument_openai', 'instrument_openai_agents', 'instrument_anthropic', 'instrument_google_genai', 'instrument_litellm', 'instrument_dspy', 'instrument_print', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_litestar', 'instrument_aiohttp_client', 'instrument_aiohttp_server', 'instrument_sqlalchemy', 'instrument_sqlite3', 'instrument_aws_lambda', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'instrument_surrealdb', 'instrument_system_metrics', 'instrument_mcp', 'instrument_claude_agent_sdk', 'AutoTraceModule', 'with_tags', 'with_settings', 'suppress_scopes', 'shutdown', 'no_auto_trace', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'add_non_user_code_prefix', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'loguru_handler', 'SamplingOptions', 'MetricsOptions', 'VariablesOptions', 'LocalVariablesOptions', 'variables', 'feature_flag', 'feature_context', 'var', 'template_var', 'variables_get', 'variables_push', 'variables_push_types', 'variables_validate', 'variables_push_config', 'variables_pull_config', 'variables_build_config', 'logfire_info', 'get_baggage', 'set_baggage', 'get_context', 'attach_context', 'url_from_eval', 'forward_export_request', 'forward_export_request_starlette']
+__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'AdvancedOptions', 'ConsoleOptions', 'CodeSource', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'warning', 'error', 'exception', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_asgi', 'instrument_wsgi', 'instrument_pydantic', 'instrument_pydantic_ai', 'instrument_fastapi', 'instrument_openai', 'instrument_openai_agents', 'instrument_anthropic', 'instrument_google_genai', 'instrument_litellm', 'instrument_dspy', 'instrument_print', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_litestar', 'instrument_aiohttp_client', 'instrument_aiohttp_server', 'instrument_sqlalchemy', 'instrument_sqlite3', 'instrument_aws_lambda', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'instrument_surrealdb', 'instrument_system_metrics', 'instrument_mcp', 'instrument_claude_agent_sdk', 'AutoTraceModule', 'with_tags', 'with_settings', 'suppress_scopes', 'shutdown', 'no_auto_trace', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'add_non_user_code_prefix', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'loguru_handler', 'SamplingOptions', 'MetricsOptions', 'VariablesOptions', 'LocalVariablesOptions', 'variables', 'var', 'template_var', 'variables_get', 'variables_push', 'variables_push_types', 'variables_validate', 'variables_push_config', 'variables_pull_config', 'variables_build_config', 'logfire_info', 'get_baggage', 'set_baggage', 'get_context', 'attach_context', 'url_from_eval', 'forward_export_request', 'forward_export_request_starlette']
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
@@ -76,7 +74,6 @@ warning = DEFAULT_LOGFIRE_INSTANCE.warning
 error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 exception = DEFAULT_LOGFIRE_INSTANCE.exception
-feature_flag = DEFAULT_LOGFIRE_INSTANCE.feature_flag
 var = DEFAULT_LOGFIRE_INSTANCE.var
 template_var = DEFAULT_LOGFIRE_INSTANCE.template_var
 variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
@@ -87,8 +84,6 @@ variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
 variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
 variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
 
-def feature_context(targeting_key: str, *, attributes: Mapping[str, Any] | None = None) -> AbstractContextManager[None]:
-    """Set request-local identity and attributes for feature flag evaluations."""
 def loguru_handler() -> Any:
     """Create a **Logfire** handler for Loguru.
 

@@ -2545,25 +2545,27 @@ class Logfire:
         """Validate the shared naming contract for all variable declaration APIs."""
         import re
 
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+        if not re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', name):
             raise ValueError(
                 f"Invalid variable name '{name}'. "
                 'Variable names must be valid Python identifiers (letters, digits, and underscores, '
                 'not starting with a digit).'
             )
 
-    def _register_variable(self, variable: VariableT) -> VariableT:
-        """Register a variable declared through any public variable API."""
-        name = variable.name
-
-        # Variables are expected to be defined once at import time (single-threaded), so this
-        # check-then-insert is not locked. If you register variables concurrently from multiple
-        # threads, guard your own registration to preserve the uniqueness guarantee.
+    def _validate_variable_registration(self, name: str) -> None:
+        """Validate a variable name and ensure it is available before constructing its adapter."""
+        self._validate_variable_name(name)
         if name in self._variables:
             raise ValueError(
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
             )
-        self._variables[name] = variable
+
+    def _register_variable(self, variable: VariableT) -> VariableT:
+        """Register a variable declared through any public variable API."""
+        # Variables are expected to be defined once at import time (single-threaded), so this
+        # validation-then-insert is not locked. If you register variables concurrently from multiple
+        # threads, guard your own registration to preserve the uniqueness guarantee.
+        self._variables[variable.name] = variable
 
         from logfire.variables.variable import warn_on_template_inputs_composition_mismatch
 
@@ -2612,7 +2614,7 @@ class Logfire:
         if not isinstance(cast(Any, default), bool):
             raise TypeError('Feature flag defaults must be boolean.')
 
-        self._validate_variable_name(name)
+        self._validate_variable_registration(name)
         flag = FeatureFlag(name, default=default, description=description, logfire_instance=self)
         return self._register_variable(flag)
 
@@ -2706,7 +2708,7 @@ class Logfire:
         else:
             tp = type
 
-        self._validate_variable_name(name)
+        self._validate_variable_registration(name)
         variable = Variable[T](
             name,
             default=default,
@@ -2819,7 +2821,7 @@ class Logfire:
         else:
             tp = type
 
-        self._validate_variable_name(name)
+        self._validate_variable_registration(name)
         variable = TemplateVariable[T, InputsT](
             name,
             type=tp,
