@@ -1,0 +1,97 @@
+interactions:
+- request:
+    body: '{"messages":[{"content":"The office mascot is a banana. When asked what
+      the mascot is, answer with exactly: BANANA","role":"system"},{"content":"What
+      is the office mascot?","role":"user"}],"model":"gpt-5.4-nano","max_completion_tokens":2048,"stream":false}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '256'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 2.54.0
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 2.54.0
+      x-stainless-raw-response:
+      - 'true'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/41SXUvDMBR9768oeW7H2n37pkxQdENQEJFRYnLbRtukJqkfG/vvJum2djhBCoHe
+        c8/hnHvvxvN9xCg68xHJsSZlVYSXi8Xd8oHfx+/rz8Hs8TZej+b8GrKr+U36hALLEC+vQPSe1SPC
+        8EAzwRuYSMAarGo0mU5ns2l/HDmgFBQKS8sqHY56w5BjLsK4H4/D/iCMJjt6LhgBZfqeza/vb9xr
+        jXIKX6bcD/aVEpTCGZjavskUpShsBWGlmNKYaxS0IBFcA3feL86X5uuCEtJaYeuQ10XRATDnQmOb
+        0Nla7ZDtwUjKOFN5YoIrMwUjrrSokEO35l25YPWRV1RJMzedaPEGTnYwbuRQO88WHO0wbXwUbXkY
+        BSfEEgoas0J15oIIJjnQltkOEdeUiQ7gdaL99nJKu4nNePYf+RYgBCpzJ0klgTJynLdtk2CP7a+2
+        w4idYaRAfpjjSTQDaddAIcV10VwAUt9KQ5mYXWUgK8ncGdhNe1vvB5OYCMYKAwAA
+    headers:
+      access-control-expose-headers:
+      - X-Request-ID
+      - CF-Ray
+      - CF-Ray
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:54:21 GMT
+      openai-processing-ms:
+      - '386'
+      openai-version:
+      - '2020-10-01'
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-openai-proxy-wasm:
+      - v0.1
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '179999970'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+version: 1

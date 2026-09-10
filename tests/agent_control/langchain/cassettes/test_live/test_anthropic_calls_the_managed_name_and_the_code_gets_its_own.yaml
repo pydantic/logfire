@@ -1,0 +1,220 @@
+interactions:
+- request:
+    body: '{"max_tokens":2048,"messages":[{"role":"user","content":"What''s the weather
+      in Paris?"}],"model":"claude-haiku-4-5-20251001","system":[{"type":"text","text":"You
+      are a weather assistant. Always use your tools to answer."}],"tools":[{"name":"lookup_weather","input_schema":{"properties":{"city":{"description":"The
+      city to look up, such as ''Paris''.","type":"string"}},"required":["city"],"type":"object"},"description":"Look
+      up the current weather in a city."}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '461'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - langchain-anthropic/1.7.1
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 1.2.0
+      x-stainless-raw-response:
+      - raw
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WRYUvDMBCG/0s+r9AOq25flW2IyJSJokiIyW3NmiY1uWyM0f/upVJlit/ae5+7
+        973LkTVOgWFTJo2ICrJK6DpmZ1mZjfNxWeR5wUZMKwKasOF5UVwBNo+Xi/m6Cu3LYlXp2fOtJAYP
+        LSQKQhAboIJ3JhVECDqgsEgl6SwCfU1fjwOPzhkeAwwu6T+Sz6Sp75YruX44315v52F2U+zL+yei
+        rGhSn3Guji3fg8AKfOq2baTJRyY1HghYCq8D68hUGEPE9NtSaQ8SWde9fSUS2ibdRmNGLKBruQcR
+        nD1N1wsBPiJYCSe0AhphwlCL/f5k1yfi6GqwJJaTi5RFVsAlzUftLD8l8kEnWf2nDb3JANoKGvDC
+        8LL5y/+oRfVbpbO4iCfxzmgb8DstgaNO92Dp1ZTwqj/uGnxanG/AkWQdcrGjrcU7PXLXfQJlRpAx
+        RwIAAA==
+    headers:
+      anthropic-ratelimit-input-tokens-limit:
+      - '10000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '10000000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2026-09-09T23:54:24Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '2000000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '2000000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2026-09-09T23:54:24Z'
+      anthropic-ratelimit-requests-limit:
+      - '20000'
+      anthropic-ratelimit-requests-remaining:
+      - '19999'
+      anthropic-ratelimit-requests-reset:
+      - '2026-09-09T23:54:23Z'
+      anthropic-ratelimit-tokens-limit:
+      - '12000000'
+      anthropic-ratelimit-tokens-remaining:
+      - '12000000'
+      anthropic-ratelimit-tokens-reset:
+      - '2026-09-09T23:54:24Z'
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-security-policy:
+      - default-src 'none'; frame-ancestors 'none'
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:54:24 GMT
+      request-id:
+      - req_011CetmU7iHiSYXy8vHf5mLP
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      traceresponse:
+      - 00-19b26f088a81a9b843f1c0c8973aa467-cc7dfb992a6ef09a-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-robots-tag:
+      - none
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"max_tokens":2048,"messages":[{"role":"user","content":"What''s the weather
+      in Paris?"},{"role":"assistant","content":[{"type":"tool_use","name":"lookup_weather","input":{"city":"Paris"},"id":"toolu_019mkNPTcfR6jDjGsFJ1w5QW","caller":{"type":"direct"}}]},{"role":"user","content":[{"type":"tool_result","content":"sunny
+      in Paris","tool_use_id":"toolu_019mkNPTcfR6jDjGsFJ1w5QW","is_error":false}]}],"model":"claude-haiku-4-5-20251001","system":[{"type":"text","text":"You
+      are a weather assistant. Always use your tools to answer."}],"tools":[{"name":"lookup_weather","input_schema":{"properties":{"city":{"description":"The
+      city to look up, such as ''Paris''.","type":"string"}},"required":["city"],"type":"object"},"description":"Look
+      up the current weather in a city."}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '770'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - langchain-anthropic/1.7.1
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 1.2.0
+      x-stainless-raw-response:
+      - raw
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WR7UvDMBDG/5WYL0JZpS3bxH4dvn0b+PJFJMTmtoa1l5pcpmP0f/c6LTpFCCQ8
+        vyfPcXd72ToDjSxl1ehoIK213cR0ms7SIitmeZblciKtYUMb1irL8wVQ+7AI54vpzfLu/LFYFdeX
+        V+yhXQeDC0LQa2DBu2YQdAg2kEZiqXJIwK/yaT/6Cd4HcrhKeV+DeANNNXhhUSy1t0HwSZIQEXdJ
+        ciJu6TQILdBWIIzeicELZ7J//ozXFsHLEmPTTGQg1ykPOjjkcECjKHqUXyDAawSs4MhtgCOaMGrx
+        0Ey5lxa7SIrcBpDhfD7ncrqqQVWcT9ahOnZkI2ds/mPj36EAdDW04HWjZu1f/zfN69+0n0gX6aeU
+        X3A34Lc8I0V2mIccVmC0N8M2ccUj48bVGhwjdKT0lrvWL7yxvv8A3NBbzxQCAAA=
+    headers:
+      anthropic-ratelimit-input-tokens-limit:
+      - '10000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '10000000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2026-09-09T23:54:25Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '2000000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '2000000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2026-09-09T23:54:25Z'
+      anthropic-ratelimit-requests-limit:
+      - '20000'
+      anthropic-ratelimit-requests-remaining:
+      - '19999'
+      anthropic-ratelimit-requests-reset:
+      - '2026-09-09T23:54:25Z'
+      anthropic-ratelimit-tokens-limit:
+      - '12000000'
+      anthropic-ratelimit-tokens-remaining:
+      - '12000000'
+      anthropic-ratelimit-tokens-reset:
+      - '2026-09-09T23:54:25Z'
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-security-policy:
+      - default-src 'none'; frame-ancestors 'none'
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:54:25 GMT
+      request-id:
+      - req_011CetmUCLrBz9BX94vMek4P
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      traceresponse:
+      - 00-462aa6108ab34792357543f77e16eb9d-9bdaa9e9208495c5-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-robots-tag:
+      - none
+    status:
+      code: 200
+      message: OK
+version: 1

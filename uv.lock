@@ -2473,6 +2473,20 @@ wheels = [
 ]
 
 [[package]]
+name = "langchain-anthropic"
+version = "1.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "langchain-core" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/81/28/94fa0b41c1dc70fc177d83ea5b48917651cc24da208d236bdebbe3600b8f/langchain_anthropic-1.7.1.tar.gz", hash = "sha256:ac087159e1356ae933d5443ded2bca72912a2ed34ea171520fcfdaddfb838687", size = 750799, upload-time = "2026-09-03T15:41:42.355Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/aa/a6/1f2d0cfc0b635cbbe5832598f799121c3374e0a5f8936b46d2cd339ffe0a/langchain_anthropic-1.7.1-py3-none-any.whl", hash = "sha256:c461166def7b7d9d05de518d80afd041a6fcd0d49b07d3216d2a6b9a5069cb37", size = 60887, upload-time = "2026-09-03T15:41:40.931Z" },
+]
+
+[[package]]
 name = "langchain-core"
 version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2869,6 +2883,12 @@ agent-control = [
     { name = "pydantic" },
     { name = "pydantic-handlebars" },
 ]
+agent-control-langchain = [
+    { name = "langchain" },
+    { name = "langgraph" },
+    { name = "pydantic" },
+    { name = "pydantic-handlebars" },
+]
 aiohttp = [
     { name = "opentelemetry-instrumentation-aiohttp-client" },
 ]
@@ -2999,6 +3019,7 @@ dev = [
     { name = "httpx2" },
     { name = "inline-snapshot" },
     { name = "langchain" },
+    { name = "langchain-anthropic" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "litellm", version = "1.96.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -3079,7 +3100,10 @@ requires-dist = [
     { name = "executing", specifier = ">=2.0.1" },
     { name = "httpx", marker = "extra == 'datasets'", specifier = ">=0.27.2" },
     { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27.0" },
+    { name = "langchain", marker = "extra == 'agent-control-langchain'", specifier = ">=1.3.9,<2" },
+    { name = "langgraph", marker = "extra == 'agent-control-langchain'", specifier = ">=1.2.4,<2" },
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.11.0" },
+    { name = "logfire", extras = ["agent-control"], marker = "extra == 'agent-control-langchain'" },
     { name = "logfire", extras = ["variables"], marker = "extra == 'agent-control'" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", marker = "extra == 'litellm'", specifier = ">=0" },
@@ -3127,7 +3151,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "agent-control"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "agent-control", "agent-control-langchain"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3157,6 +3181,7 @@ dev = [
     { name = "httpx2", specifier = ">=2.0.0" },
     { name = "inline-snapshot", specifier = ">=0.32.5" },
     { name = "langchain", specifier = ">=1.3.9" },
+    { name = "langchain-anthropic", specifier = ">=1.7" },
     { name = "langchain-openai", specifier = ">=0.3.17" },
     { name = "langgraph", specifier = ">=0" },
     { name = "litellm", marker = "python_full_version < '3.11'", specifier = ">=1.96.2,!=1.97.0,!=1.98.0" },

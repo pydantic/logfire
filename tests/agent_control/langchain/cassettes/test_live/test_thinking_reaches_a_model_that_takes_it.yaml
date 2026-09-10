@@ -1,0 +1,108 @@
+interactions:
+- request:
+    body: '{"max_tokens":2048,"messages":[{"role":"user","content":"Say OK."}],"model":"claude-fable-5-1","output_config":{"effort":"low"},"system":[{"type":"text","text":"You
+      are a weather assistant. Always use your tools to answer."}],"thinking":{"type":"adaptive","display":"summarized"},"tools":[{"name":"get_weather","input_schema":{"properties":{"city":{"description":"The
+      city to look up.","type":"string"}},"required":["city"],"type":"object"},"description":"Get
+      the current weather for a city."}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '495'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - langchain-anthropic/1.7.1
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 1.2.0
+      x-stainless-raw-response:
+      - raw
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.14.3
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WRT0vEMBDFv8ucu9CKPdibeNyDXgRBJKTNbBs3nXSTiSil393Jalm64inh/d78
+        ycsMozfooIHO6WRwd9Ctw129q6AAa0QfY6/KqnpAHp9f6vf7u2FP2j61J0qDePhrwuzCGHWPIgTv
+        sqBjtJE1sUidJ0a5Na/z6mf8zOR8NPC4h+Xtx6ctYYCGknMFRPaTCqijJ3EhGcUpEPyCiKeE1OHG
+        bVBauLhq6bxVM4OlKbFif0QSeFveyDjdDag66c/Wk9o6ypULNv+xtTYPwGnAEYN2qh7/+i+0Gq7p
+        UoBPvFnvSrm8SgIcLB0t9Zv6iOHDdqjY5vAgB290MPkP6YAhp6R69IJ651vtYFm+AaqW2Lv6AQAA
+    headers:
+      anthropic-ratelimit-input-tokens-limit:
+      - '4000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '4000000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2026-09-09T23:54:31Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '800000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '800000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2026-09-09T23:54:32Z'
+      anthropic-ratelimit-requests-limit:
+      - '20000'
+      anthropic-ratelimit-requests-remaining:
+      - '19999'
+      anthropic-ratelimit-requests-reset:
+      - '2026-09-09T23:54:29Z'
+      anthropic-ratelimit-tokens-limit:
+      - '4800000'
+      anthropic-ratelimit-tokens-remaining:
+      - '4800000'
+      anthropic-ratelimit-tokens-reset:
+      - '2026-09-09T23:54:31Z'
+      cf-cache-status:
+      - DYNAMIC
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-security-policy:
+      - default-src 'none'; frame-ancestors 'none'
+      content-type:
+      - application/json
+      date:
+      - Wed, 09 Sep 2026 23:54:32 GMT
+      request-id:
+      - req_011CetmUVfPuPvGtBmWhMrx4
+      server:
+      - cloudflare
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      traceresponse:
+      - 00-e84386224716fec48a52bbb3228808f4-c9b119a43f36e51d-01
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-robots-tag:
+      - none
+    status:
+      code: 200
+      message: OK
+version: 1
