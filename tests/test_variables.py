@@ -2151,6 +2151,24 @@ class TestFeatureFlag:
             assert flag.evaluate(targeting_key='user-123').label == 'enabled'
             assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).label == 'disabled'
 
+    def test_resource_attributes_can_be_excluded_from_feature_flag_targeting(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv('OTEL_RESOURCE_ATTRIBUTES', 'plan=free')
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=feature_flags_config,
+            include_resource_attributes_in_context=False,
+        )
+        logfire.configure(**config_kwargs)
+        flag = logfire.feature_flag('new_checkout', default=False)
+
+        # The resource attribute would select the free-plan override if the opt-out were ignored.
+        assert flag.evaluate(targeting_key='user-123').label == 'enabled'
+        assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).label == 'disabled'
+
 
 class TestVariable:
     @pytest.fixture
