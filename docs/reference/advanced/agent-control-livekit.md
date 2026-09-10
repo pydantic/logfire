@@ -135,7 +135,7 @@ Two paths, because LiveKit has two. A **stateless** `llm.LLM` is configured per 
 | `Agent(llm=...)` or `AgentSession(llm=...)`, a stateless `llm.LLM` | `provider:model` | Yes | `openai:gpt-5.2`, `anthropic:claude-fable-5-1`, `google:gemini-3-flash`. Built with the plugin you already use where the provider matches — same class, same client, so the base URL, credentials and HTTP client come along and only the model name changes. Otherwise that provider's plugin, then LiveKit Inference; a string with no `:` goes to LiveKit Inference untouched (`openai/gpt-4.1`). A name this process cannot build is reported and the agent keeps its own model. |
 | A `llm.RealtimeModel` | — | No | A running realtime session cannot be moved to another model. Reported. |
 
-The provider ids are Pydantic AI's, which is the canonical form the config contract uses: `google` is the Gemini API and `google-cloud` is Vertex. `google-gla` and `google-vertex`, which Pydantic AI v1 used for the same two, are still accepted so that a config published against a v1-era agent keeps applying; nothing published from here emits them.
+The provider ids are Pydantic AI's, which is the canonical form the config contract uses: `google` is the Gemini API and `google-cloud` is Vertex. The LiveKit google plugin speaks both from one class, and which one an agent is on is read off the `genai` client it built, so a Vertex agent is published as `google-cloud:` and comes back as one. `google-gla` and `google-vertex`, which Pydantic AI v1 used for the same two, are still accepted so that a config published against a v1-era agent keeps applying; nothing published from here emits them.
 
 ### Model settings
 

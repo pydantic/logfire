@@ -73,6 +73,17 @@ INFERENCE_CANONICAL = {
 """The inverse, for reading a LiveKit Inference model string back into canonical form."""
 
 
+def on_vertex(model: llm.LLM | llm.RealtimeModel) -> bool:
+    """Whether a google plugin model is pointed at Vertex rather than at the Gemini API.
+
+    One plugin class speaks both of Google's APIs, and which one it is on is a property of the
+    `genai` client it built rather than of the class -- so this reads the client, which is where the
+    plugin reads it too (`self._client.vertexai`). Publishing the wrong one of the two would move a
+    Vertex agent onto the Gemini API the moment its own model id came back.
+    """
+    return bool(getattr(getattr(model, '_client', None), 'vertexai', False))
+
+
 def canonical_id(model: llm.LLM | llm.RealtimeModel, plugin_name: str) -> str:
     """The `provider:model` string that describes `model`, or its own name if nothing classifies it.
 
@@ -84,6 +95,8 @@ def canonical_id(model: llm.LLM | llm.RealtimeModel, plugin_name: str) -> str:
     if isinstance(model, InferenceLLM) and '/' in name:
         prefix, _, rest = name.partition('/')
         return f'{INFERENCE_CANONICAL.get(prefix, prefix)}:{rest}'
+    if plugin_name == 'google' and on_vertex(model):
+        plugin_name = 'google-cloud'
     return f'{plugin_name}:{name}' if plugin_name else name
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import anthropic as anthropic_sdk
 import pytest
+from google.genai import Client
 from livekit.agents import AgentSession, llm
 from livekit.agents.inference import LLM as InferenceLLM
 from livekit.plugins import anthropic, google, openai
@@ -74,6 +75,22 @@ def test_another_provider_gets_its_own_plugin() -> None:
     assert isinstance(built, google.LLM) and built.model == 'gemini-2.5-pro'
     # The same plugin, told which of Google's two APIs the canonical provider names.
     assert PLUGIN_MODELS['google-cloud'] == PluginModel('livekit.plugins.google', {'vertexai': True}, False)
+
+
+def test_a_vertex_model_is_named_google_cloud() -> None:
+    """One google plugin class, two providers as the contract counts them, told apart by its client.
+
+    A Vertex agent published as `google:...` would come back as a Gemini API model -- a different
+    endpoint, different credentials, and a different price -- so the two are named apart.
+    """
+    model = google.LLM(model='gemini-2.5-flash')
+    assert named(model) == 'google:gemini-2.5-flash'
+    # Vertex mode needs Google Cloud credentials the plugin's constructor resolves eagerly, so the
+    # client is replaced with a real Vertex one rather than the plugin being built in that mode.
+    model._client = Client(vertexai=True, api_key='test-vertex')
+    assert named(model) == 'google-cloud:gemini-2.5-flash'
+    # And it comes back as the Vertex model it was.
+    assert PLUGIN_MODELS['google-cloud'].kwargs == {'vertexai': True}
 
 
 def test_the_ids_pydantic_ai_v2_replaced_are_still_accepted() -> None:
