@@ -28,7 +28,7 @@ from logfire.agent_control import (
 
 from ._instructions import Instruction, SystemPrompt, assemble_system_prompt, read_system_prompt
 from ._models import build_model, read_model_id
-from ._settings import carry_settings, lower_settings, read_settings
+from ._settings import canonical_name, carry_settings, lower_settings, read_settings
 from ._tools import apply_tools, read_tools, rename_tool_calls, rename_tool_choice
 
 STATE_KEY = 'logfire_agent_control'
@@ -355,7 +355,19 @@ class AgentControlMiddleware(AgentMiddleware[AgentControlState, Any, Any]):
         published = lower_settings(model or request.model, config, has_tools=has_tools, on_unmatched=self._on_unmatched)
         # The contract's order, and `model_settings` is the run: it is where another middleware puts
         # a per-call choice for this one request, and where Anthropic prompt-cache directives arrive.
-        settings = merge_settings(code_settings, published, request.model_settings).settings
+        merged = merge_settings(code_settings, published, request.model_settings)
+        for kwarg in published:
+            # A per-request value outranking a published one is the contract, not a fault -- but it
+            # is also a setting someone can see in Logfire and change to no effect, on every request,
+            # with nothing to say why. That is what `on_unmatched` is for.
+            if merged.source(kwarg) == 'run':
+                setting = canonical_name(model or request.model, kwarg)
+                control.report_unmatched(
+                    f'Managed agent config sets {setting!r}, but this request already carries a `model_settings` '
+                    f'value for it that something chose for this one request, which outranks a published default; '
+                    f'that setting is not applied and the request keeps {request.model_settings[kwarg]!r}.'
+                )
+        settings = merged.settings
         if settings != request.model_settings:
             overrides['model_settings'] = settings
 

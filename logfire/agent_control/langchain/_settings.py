@@ -125,6 +125,21 @@ def lower_settings(
     return {kwargs.get(setting, setting): value for setting, value in values.items()}
 
 
+def canonical_name(model: BaseChatModel, kwarg: str) -> str:
+    """The contract's name for a kwarg this model takes, for saying which published setting it is.
+
+    The two are the same word for most of the eleven, and are not for the ones an integration spells
+    its own way -- `stop_sequences` as `stop`, `thinking` as `reasoning_effort` -- which are exactly
+    the ones a message naming only the kwarg would leave someone hunting for in the Logfire editor.
+    A kwarg that is not one of the mapped settings is its own canonical name: `parallel_tool_calls`
+    is a `bind_tools()` parameter rather than a model field, so it never goes through that table.
+    """
+    for setting, name in _kwarg_names(model).items():
+        if name == kwarg:
+            return setting
+    return kwarg
+
+
 def _supported(model: BaseChatModel, config: AgentConfig, kwargs: dict[str, str], *, has_tools: bool) -> set[str]:
     """The canonical keys this model, on this request, actually has a knob for."""
     supported = set(kwargs)

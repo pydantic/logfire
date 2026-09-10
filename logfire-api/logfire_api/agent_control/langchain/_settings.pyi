@@ -31,3 +31,12 @@ def lower_settings(model: BaseChatModel, config: AgentConfig, *, has_tools: bool
     point of naming them: a `top_k` published against an OpenAI agent, or a `seed` against an
     Anthropic one, is a setting someone can see in Logfire and the agent is not applying.
     """
+def canonical_name(model: BaseChatModel, kwarg: str) -> str:
+    """The contract's name for a kwarg this model takes, for saying which published setting it is.
+
+    The two are the same word for most of the eleven, and are not for the ones an integration spells
+    its own way -- `stop_sequences` as `stop`, `thinking` as `reasoning_effort` -- which are exactly
+    the ones a message naming only the kwarg would leave someone hunting for in the Logfire editor.
+    A kwarg that is not one of the mapped settings is its own canonical name: `parallel_tool_calls`
+    is a `bind_tools()` parameter rather than a model field, so it never goes through that table.
+    """

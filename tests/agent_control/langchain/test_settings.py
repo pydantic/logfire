@@ -31,6 +31,24 @@ class FreezeTemperature(AgentMiddleware[Any, Any, Any]):
         return handler(request.override(model_settings={**request.model_settings, 'temperature': 0.0}))
 
 
+class FreezeParallelToolCalls(AgentMiddleware[Any, Any, Any]):
+    """The same, for the one canonical setting that is a `bind_tools()` parameter."""
+
+    def wrap_model_call(
+        self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
+    ) -> ModelResponse[Any]:
+        return handler(request.override(model_settings={**request.model_settings, 'parallel_tool_calls': True}))
+
+
+class FreezeReasoning(AgentMiddleware[Any, Any, Any]):
+    """The same, for a setting the integration spells its own way."""
+
+    def wrap_model_call(
+        self, request: ModelRequest[Any], handler: Callable[[ModelRequest[Any]], ModelResponse[Any]]
+    ) -> ModelResponse[Any]:
+        return handler(request.override(model_settings={**request.model_settings, 'reasoning_effort': 'high'}))
+
+
 ALL_SETTINGS: dict[str, Any] = {
     'max_tokens': 42,
     'temperature': 0.4,
@@ -197,9 +215,44 @@ def test_a_per_call_setting_from_another_middleware_outranks_the_published_one(
     publish(project, {'settings': {'temperature': 0.4, 'max_tokens': 42}})
     model = RecordingModel(replies=[AIMessage('ok')])
     agent = build_agent(model, agent_control(label='production'), tools=[], before=[FreezeTemperature()])
-    run(agent)
+
+    # It outranks it, and it says so: a published value overridden on every request is one someone
+    # can change in Logfire to no effect, with nothing else to say why. `max_tokens`, which nothing
+    # chose for this request, is not reported and does apply.
+    with pytest.warns(UserWarning, match="sets 'temperature', but this request already carries a `model_settings`"):
+        run(agent)
 
     assert settings(model) == snapshot({'max_tokens': 42, 'temperature': 0.0})
+
+
+def test_the_integrations_own_spelling_is_reported_as_the_setting_someone_published(
+    project: LocalVariableProvider,
+) -> None:
+    # `thinking` reaches an integration as `reasoning_effort`, so a message naming only the kwarg
+    # would send someone hunting the Logfire editor for a setting by a name it does not have.
+    publish(project, {'settings': {'thinking': 'low'}})
+    model = RecordingModel(replies=[AIMessage('ok')])
+    agent = build_agent(model, agent_control(label='production'), tools=[], before=[FreezeReasoning()])
+
+    with pytest.warns(UserWarning, match="sets 'thinking', but this request already carries"):
+        run(agent)
+
+    assert settings(model) == snapshot({'reasoning_effort': 'high'})
+
+
+def test_a_bind_tools_parameter_is_reported_under_the_name_it_already_has(
+    project: LocalVariableProvider,
+) -> None:
+    # `parallel_tool_calls` is a `bind_tools()` parameter rather than a model field, so it never goes
+    # through the table that translates the contract's names into an integration's own.
+    publish(project, {'settings': {'parallel_tool_calls': False}})
+    model = RecordingModel(replies=[AIMessage('ok')])
+    agent = build_agent(model, agent_control(label='production'), before=[FreezeParallelToolCalls()])
+
+    with pytest.warns(UserWarning, match="sets 'parallel_tool_calls', but this request already carries"):
+        run(agent)
+
+    assert settings(model) == snapshot({'parallel_tool_calls': True})
 
 
 def test_a_setting_the_model_class_does_not_declare_is_not_read_back() -> None:
