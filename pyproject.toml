@@ -88,6 +88,7 @@ dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
 agent-control = ["logfire[variables]", "pydantic>=2.10"]
+agent-control-livekit = ["logfire[agent-control]", "livekit-agents>=1.8,<2"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"
@@ -222,6 +223,10 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
+    "livekit-agents>=1.8,<2",
+    "livekit-plugins-openai>=1.8,<2",
+    "livekit-plugins-anthropic>=1.8,<2",
+    "livekit-plugins-google>=1.8,<2",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]
@@ -313,6 +318,18 @@ reportMissingTypeStubs = false
 include = ["logfire", "tests"]
 venvPath = "."
 venv = ".venv"
+# `livekit.agents` makes `LLM`, `AgentSession`, and `RunResult` generic in a type variable that
+# nothing in its own API ever binds, so every value read out of one is `Unknown` to pyright and every
+# annotation naming one is "missing type arguments". Turning those five rules off for the LiveKit
+# adapter keeps the checks that catch real mistakes -- attribute access, call signatures, optional
+# access, unreachable code -- rather than trading them for `Any` written across every annotation.
+executionEnvironments = [
+    { root = "logfire/agent_control/livekit", reportUnknownArgumentType = false, reportUnknownMemberType = false, reportUnknownParameterType = false, reportUnknownVariableType = false, reportMissingTypeArgument = false },
+    # The tests additionally reach into the private process-wide guards the core keeps for exactly
+    # this purpose, and into the plugin internals whose collision behaviour the settings table reads.
+    { root = "tests/agent_control/livekit", reportUnknownArgumentType = false, reportUnknownMemberType = false, reportUnknownParameterType = false, reportUnknownVariableType = false, reportMissingTypeArgument = false, reportPrivateUsage = false },
+    { root = "." },
+]
 
 [tool.pytest.ini_options]
 xfail_strict = true
@@ -358,6 +375,13 @@ filterwarnings = [
     "ignore::beartype.roar.BeartypeDecorHintPep585DeprecationWarning",
     # langsmith uses asyncio.iscoroutinefunction, deprecated on Python 3.14
     "ignore:'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning:langsmith.*",
+    # livekit's own event emitter does the same, and every LiveKit agent registers a listener.
+    # Unscoped, unlike the line above: `pytest.warns` re-emits the warnings it did not match, from
+    # its own module, so a filter naming `livekit.*` would not match the re-emission.
+    "ignore:'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning",
+    # `google.api_core` warns at import time on Python 3.10 that Google will stop supporting it,
+    # and importing the LiveKit google plugin is how its settings table gets tested.
+    "ignore:You are using a Python version:FutureWarning",
     # mcp's FastMCP Settings class has an unresolved forward reference in its `lifespan` field,
     # which pydantic-settings >= 2.15 warns about (IncompleteFieldDefinitionWarning).
     # No category here: naming the warning class would fail to import on jobs with older pydantic-settings.

@@ -702,9 +702,14 @@ navigation:
           - page: "Access and Prerequisites"
             path: "reference/advanced/prompt-management/plan-requirements.md"
             slug: "prompt-management/plan-requirements"
-      - page: "Agent Control"
-        path: "reference/advanced/agent-control.md"
-        slug: "agent-control"
+      - section: "Agent Control"
+        contents:
+          - page: "Overview"
+            path: "reference/advanced/agent-control.md"
+            slug: "agent-control"
+          - page: "LiveKit Agents"
+            path: "reference/advanced/agent-control-livekit.md"
+            slug: "agent-control/livekit"
       - section: "AI Gateway"
         contents:
           - page: "Overview"
