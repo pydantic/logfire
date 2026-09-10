@@ -121,9 +121,7 @@ def begin_run(control: AgentControl, context: RunContextWrapper[Any]) -> Run:
     context is reachable for exactly as long as something can still ask about that run, since the
     `RunResult` holds it, so this frees a record no later than the run it belongs to.
     """
-    runs = {
-        wrapped: run for wrapped, run in _current_runs.get().items() if run.context() is not None or wrapped is control
-    }
+    runs = {wrapped: run for wrapped, run in _current_runs.get().items() if run.context() is not None}
     run = runs.get(control)
     if run is not None and run.context() is context:
         return run
