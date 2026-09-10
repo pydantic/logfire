@@ -1,0 +1,49 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "Say hello."}], "role": "user"}], "generationConfig":
+      {"presencePenalty": 0.1}}'
+    headers:
+      Content-Type:
+      - application/json
+      user-agent:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+      x-goog-api-client:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+    method: post
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent
+  response:
+    body:
+      string: "{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Penalty is
+        not enabled for models/gemini-2.5-flash-lite\",\n    \"status\": \"INVALID_ARGUMENT\"\n
+        \ }\n}\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Wed, 09 Sep 2026 23:26:56 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=199
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Gemini-Service-Tier:
+      - standard
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 400
+      message: Bad Request
+version: 1

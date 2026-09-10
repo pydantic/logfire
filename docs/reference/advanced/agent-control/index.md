@@ -4,7 +4,7 @@ Agent Control turns one AI agent's configuration into something you edit in Logf
 
 Everything you don't change in Logfire keeps doing exactly what your code says, and removing a change there puts that piece back. There is no third state.
 
-Agent Control is built on [managed variables](managed-variables/index.md), and inherits the whole model: versions, labels, rollouts, targeting, and a span for every resolution. What it adds is a *shape*. A managed variable can hold anything; an Agent Control variable holds one agreed structure, `AgentConfig`, that the Logfire UI knows how to render as a prompt editor rather than a JSON box, and that every Logfire SDK reads the same way.
+Agent Control is built on [managed variables](../managed-variables/index.md), and inherits the whole model: versions, labels, rollouts, targeting, and a span for every resolution. What it adds is a *shape*. A managed variable can hold anything; an Agent Control variable holds one agreed structure, `AgentConfig`, that the Logfire UI knows how to render as a prompt editor rather than a JSON box, and that every Logfire SDK reads the same way.
 
 !!! note "Install the agent-control extra"
     Agent Control requires the `logfire[agent-control]` extra, which pulls in managed variables and `pydantic`.
@@ -17,7 +17,7 @@ Agent Control is built on [managed variables](managed-variables/index.md), and i
 
 `logfire.agent_control` is the **framework-neutral core**. It assumes nothing about how you built your agent: it owns the config contract, the Logfire variable each agent's config lives in, and the pure functions that say what a published value *does* to a request.
 
-Eventually most people will never call it directly: you will install the adapter for the agent framework you already use, and it will call this core for you. None of those [adapters](#framework-adapters) has shipped yet, so for now driving Agent Control means writing the per-request hook yourself, which [Writing an adapter](#writing-an-adapter) walks through. Read on for that, for exactly what a published value can and cannot do to your agent, or if your agent is hand-rolled.
+Most people will never call it directly: you install the [adapter](#framework-adapters) for the agent framework you already use, and it calls this core for you. [Google ADK](google-adk.md) has one today; for the other frameworks, driving Agent Control still means writing the per-request hook yourself, which [Writing an adapter](#writing-an-adapter) walks through. Read on for that, for exactly what a published value can and cannot do to your agent, or if your agent is hand-rolled.
 
 ## Quick start
 
@@ -305,24 +305,25 @@ Values are read **strictly** with respect to JSON types: `1` is a valid `tempera
 
 You normally use Agent Control through an adapter for the framework you already build with. Each is this core plus that framework's own per-request hook, typically under fifty lines.
 
-!!! note "The adapters are not released yet"
-    None of the adapters below ships today. Each lands as its own change on top of this core, and this section will link to each one as it becomes available. Until then, the way to drive Agent Control is to write the per-request hook yourself, as [Writing an adapter](#writing-an-adapter) describes.
+!!! note "Most of the adapters are not released yet"
+    Only the one linked below ships today. The rest each land as their own change on top of this core, and this section will link to each one as it becomes available. Until then, the way to drive Agent Control for those frameworks is to write the per-request hook yourself, as [Writing an adapter](#writing-an-adapter) describes.
 
-| Framework | Language |
-|---|---|
-| OpenAI Agents SDK | Python |
-| LangChain | Python |
-| Google ADK | Python |
-| Claude Agent SDK | Python |
-| LiveKit Agents | Python |
-| Vercel AI SDK | TypeScript |
-| Codex SDK | TypeScript |
-| Mastra | TypeScript |
+| Framework | Language | Extra |
+|---|---|---|
+| [Google ADK](google-adk.md) | Python | `logfire[agent-control-google-adk]` |
+| OpenAI Agents SDK | Python | |
+| LangChain | Python | |
+| Claude Agent SDK | Python | |
+| LiveKit Agents | Python | |
+| Vercel AI SDK | TypeScript | |
+| Codex SDK | TypeScript | |
+| Mastra | TypeScript | |
 
 For [Pydantic AI](https://pydantic.dev/docs/ai/), Agent Control ships as a capability in [`pydantic-ai-harness`](https://github.com/pydantic/pydantic-ai-harness) rather than as a separate adapter, because Pydantic AI already has the seams this core wants.
 
 ## Next steps
 
-- [Managed Variables](managed-variables/index.md): the versions, labels, rollouts, and targeting that Agent Control is built on.
-- [Managing Variables in the Logfire UI](managed-variables/ui.md): where you edit a published value.
-- [A/B Testing](managed-variables/ab-testing.md): splitting traffic between two configs and comparing them in traces.
+- [Agent Control for Google ADK](google-adk.md): the adapter that wires all of this into an ADK `LlmAgent`.
+- [Managed Variables](../managed-variables/index.md): the versions, labels, rollouts, and targeting that Agent Control is built on.
+- [Managing Variables in the Logfire UI](../managed-variables/ui.md): where you edit a published value.
+- [A/B Testing](../managed-variables/ab-testing.md): splitting traffic between two configs and comparing them in traces.

@@ -66,9 +66,22 @@ def reset_baseline_publish_guard() -> None:
         _baseline_publish_attempted.clear()
 
 
+BASELINE_PUBLISH_THREAD_PREFIX = 'logfire-agent-control-baseline-'
+"""How a baseline publisher's thread is named, so a stack dump says which agent it belongs to.
+
+Also what lets an adapter's own test suite wait for one: `publish_baseline` hands the thread back,
+but an adapter that publishes from inside a per-request hook has nowhere to hand it, by design.
+"""
+
+
 def _spawn_baseline_publish(variable: Variable[AgentConfig], example: str, source: BaselineSource) -> threading.Thread:
     """Move the provider read and targeted write off the request's thread."""
-    thread = threading.Thread(target=_publish_baseline, args=(variable, example, source), daemon=True)
+    thread = threading.Thread(
+        target=_publish_baseline,
+        args=(variable, example, source),
+        name=f'{BASELINE_PUBLISH_THREAD_PREFIX}{variable.name}',
+        daemon=True,
+    )
     thread.start()
     return thread
 

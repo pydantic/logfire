@@ -88,6 +88,7 @@ dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
 agent-control = ["logfire[variables]", "pydantic>=2.10"]
+agent-control-google-adk = ["logfire[agent-control]", "google-adk>=2.8"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"
@@ -222,6 +223,11 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
+    "google-adk>=2.8",
+    # For the type checker rather than for the tests: `google-genai` spells `ContentUnion` and
+    # `ToolListUnion` with members from `pillow`, so without it installed its public type aliases
+    # resolve to `Unknown` and strict mode rejects every use of a field declared with one.
+    "pillow>=12.3.0",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]
@@ -233,6 +239,15 @@ logfire-api = { workspace = true }
 [tool.uv]
 default-groups = ["dev"]
 exclude-newer = "4 days"
+# `google-adk` caps OpenTelemetry at `<=1.42.1`, while the dev environment also installs
+# `opentelemetry-instrumentation-google-genai >= 1.0b0`, which floors it at `>=1.43`. Both are
+# dev-only requirements of *this* repository -- a user installing `logfire[agent-control-google-adk]`
+# resolves ADK's cap on its own and lands well inside Logfire's own supported window -- so the
+# override is confined to the window Logfire declares and tests, rather than lifting the bound.
+override-dependencies = [
+    "opentelemetry-api >= 1.39.0, < 1.45.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.45.0",
+]
 
 [tool.uv.exclude-newer-package]
 # These are our own packages, not worth defending from supply chain attacks on them.
@@ -362,6 +377,15 @@ filterwarnings = [
     # which pydantic-settings >= 2.15 warns about (IncompleteFieldDefinitionWarning).
     # No category here: naming the warning class would fail to import on jobs with older pydantic-settings.
     "ignore:Field 'lifespan' has an incomplete definition.*",
+    # google-adk 2.8 deprecates `global_instruction` in favour of `GlobalInstructionPlugin` but
+    # still assembles it, so `logfire.agent_control.google_adk` still has to manage the block it
+    # produces. The other two come out of ADK's own imports and its own request assembly, and say
+    # nothing about the code under test. All three are attributed to pydantic's model construction
+    # rather than to a `google.*` module, so the blanket `ignore::DeprecationWarning:google*` above
+    # does not reach them.
+    "ignore:global_instruction field is deprecated.*:DeprecationWarning",
+    "ignore:BaseAgentConfig is deprecated.*:DeprecationWarning",
+    "ignore:.EXPERIMENTAL. feature.*:UserWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

@@ -1,0 +1,49 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "Say hello."}], "role": "user"}], "generationConfig":
+      {"maxOutputTokens": 2048, "thinkingConfig": {"thinking_level": "LOW"}}}'
+    headers:
+      Content-Type:
+      - application/json
+      user-agent:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+      x-goog-api-client:
+      - google-genai-sdk/2.20.0 gl-python/3.14.3 google-adk/2.8.0 gl-python/3.14.3
+    method: post
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent
+  response:
+    body:
+      string: "{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Thinking
+        level is not supported for this model.\",\n    \"status\": \"INVALID_ARGUMENT\"\n
+        \ }\n}\n"
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Wed, 09 Sep 2026 23:26:55 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=79
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Gemini-Service-Tier:
+      - standard
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 400
+      message: Bad Request
+version: 1
