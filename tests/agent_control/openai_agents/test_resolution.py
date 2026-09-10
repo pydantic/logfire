@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import json
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -14,11 +15,21 @@ from agents.retry import ModelRetryAdvice, ModelRetryAdviceRequest
 from inline_snapshot import snapshot
 
 from logfire.agent_control.openai_agents import agent_control
+from logfire.agent_control.openai_agents._run import _current_runs  # pyright: ignore[reportPrivateUsage]
 from logfire.variables import LabeledValue, Rollout as LabelRollout, VariableConfig
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.local import LocalVariableProvider
 
-from .conftest import FakeModel, FakeProvider, controlled, get_weather, publish, text_output, tool_call
+from .conftest import (
+    FakeModel,
+    FakeProvider,
+    controlled,
+    get_weather,
+    publish,
+    text_output,
+    tool_call,
+    wait_for_baseline,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -357,3 +368,62 @@ async def test_two_wrappers_of_one_config_keep_their_own_labels_in_one_run(
     await Runner.run(stable, 'help')
 
     assert [call.system_instructions for call in inner.calls] == snapshot(['STABLE', 'NEW'])
+
+
+async def test_one_model_under_two_names_is_closed_once(project: LocalVariableProvider) -> None:
+    """The resolved-model cache is keyed by the name asked for, and two names can be one object.
+
+    `MultiProvider` answers a bare OpenAI name and its `openai/` spelling with the same model, so
+    closing everything in the cache would release that one object's client twice.
+    """
+    closed: list[str] = []
+
+    class Lifecycle(FakeModel):
+        async def close(self) -> None:
+            closed.append(self.label)
+
+    one = Lifecycle('one')
+    publish(project, 'agent__aliased', {'model': 'openai:alias'})
+    agent = agent_control(
+        # The baseline describes the model the *code* runs on, so this request resolves both names:
+        # `alias`, which serves it, and `m`, which the editor is told about.
+        Agent(name='aliased', instructions='Hi.', model='m'),
+        label='production',
+        provider=FakeProvider({'m': one, 'alias': one}),
+    )
+    wrapper = controlled(agent)
+    await Runner.run(agent, 'hello')
+    wait_for_baseline(agent)
+
+    assert set(wrapper._resolved) == {'alias', 'm'}  # pyright: ignore[reportPrivateUsage]
+    await wrapper.close()
+    assert closed == snapshot(['one'])
+
+
+async def test_a_run_stops_being_remembered_once_nothing_can_ask_about_it(
+    project: LocalVariableProvider,
+) -> None:
+    """A record outlives its run, but not the last thing that could still ask about that run.
+
+    Nothing else removes one, because the runner makes lifecycle calls after a run has ended and they
+    have to find it. A task that wraps a fresh agent per request -- which the docs ask you not to do
+    and nothing prevents -- would otherwise accumulate a record, and its models, for as long as it
+    lives.
+    """
+
+    async def run_a_fresh_wrapper() -> None:
+        agent = agent_control(
+            Agent(name='ephemeral', instructions='Hi.', model='m'),
+            provider=FakeProvider({'m': FakeModel()}),
+            publish_baseline=False,
+        )
+        await Runner.run(agent, 'hello')
+
+    await run_a_fresh_wrapper()
+    await run_a_fresh_wrapper()
+    gc.collect()
+    await run_a_fresh_wrapper()
+
+    # Three wrappers, three runs, one record: the two whose `RunResult` went out of scope with the
+    # call that made it are gone, and the one belonging to the run that just ended is not.
+    assert len(_current_runs.get()) == snapshot(1)

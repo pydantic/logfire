@@ -113,8 +113,17 @@ def begin_run(control: AgentControl, context: RunContextWrapper[Any]) -> Run:
     same record every time is what makes resolution once per *run*: every turn applies the version the
     run started on, and a value published mid-run takes effect on the next run rather than between two
     turns of this one.
+
+    Records whose run context has been collected are dropped on the way past. Nothing else ever
+    removes one -- a record deliberately outlives its run, because the runner makes lifecycle calls
+    after the run has ended -- so a task that wraps a fresh agent per request, which the docs ask you
+    not to do but nothing prevents, would otherwise grow this mapping for as long as it lives. A
+    context is reachable for exactly as long as something can still ask about that run, since the
+    `RunResult` holds it, so this frees a record no later than the run it belongs to.
     """
-    runs = _current_runs.get()
+    runs = {
+        wrapped: run for wrapped, run in _current_runs.get().items() if run.context() is not None or wrapped is control
+    }
     run = runs.get(control)
     if run is not None and run.context() is context:
         return run

@@ -112,8 +112,14 @@ def text_output(text: str = 'done') -> ResponseOutputMessage:
 
 
 def tool_call(name: str, arguments: str = '{"city": "Paris"}', call_id: str = 'call-1') -> ResponseFunctionToolCall:
-    """A tool call under the name the model was shown."""
-    return ResponseFunctionToolCall(type='function_call', call_id=call_id, name=name, arguments=arguments)
+    """A tool call under the name the model was shown, with the two ids a real one carries.
+
+    `id` names the output item and `call_id` names the call the tool result is matched back to; a
+    streamed argument delta quotes the first.
+    """
+    return ResponseFunctionToolCall(
+        type='function_call', id=f'item-{call_id}', call_id=call_id, name=name, arguments=arguments
+    )
 
 
 class Recorded:
@@ -222,7 +228,7 @@ class FakeModel(Model):
                 yield ResponseFunctionCallArgumentsDeltaEvent(
                     type='response.function_call_arguments.delta',
                     delta='',
-                    item_id=item.call_id,
+                    item_id=item.id or item.call_id,
                     output_index=index,
                     sequence_number=index,
                 )

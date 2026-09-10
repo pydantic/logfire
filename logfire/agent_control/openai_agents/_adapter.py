@@ -460,10 +460,16 @@ class _ControlledModel(Model):
             await model._cleanup_on_run_end(owner)
 
     def _owned(self) -> list[Model]:
-        """Every distinct model instance this wrapper is responsible for shutting down."""
-        owned = list(self._resolved.values())
-        if isinstance(self._code_model, Model) and not any(model is self._code_model for model in owned):
-            owned.append(self._code_model)
+        """Every distinct model instance this wrapper is responsible for shutting down.
+
+        Distinct by identity, because the cache is keyed by the *name* that was asked for and a
+        provider is free to answer two names with one object -- `MultiProvider` does, for a bare name
+        and its `openai/` spelling. Closing it twice would release its client twice.
+        """
+        owned: list[Model] = []
+        for model in [*self._resolved.values(), self._code_model]:
+            if isinstance(model, Model) and not any(existing is model for existing in owned):
+                owned.append(model)
         return owned
 
     def _provided_model(self, name: str | None) -> Model:
@@ -512,6 +518,11 @@ class _ControlledModel(Model):
         is what makes the publish itself happen once per process; the two flags here keep a baseline
         from being *built*, and the code model from being resolved -- on every request after the
         first, and at all for a deployment that turned publishing off.
+
+        `_published` means *attempted*, not succeeded, which is the reading the core takes of its own
+        guard and for the same reason: a request should not carry a retry of something it did not ask
+        for. So a failure here is a baseline this process does not have, not one it re-attempts on
+        every later request -- and never a request that fails.
 
         Everything in it is read off the agent -- its declared blocks, its own settings, the
         definitions of the tools it declares -- so it is published as the code baseline it is. A block
