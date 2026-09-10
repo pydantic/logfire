@@ -21,7 +21,32 @@ CONNECTION_ATTRS = ('account', 'warehouse', 'database', 'schema', 'role')
 
 
 def _connection_attributes(conn: Any) -> dict[str, Any]:
-    return {name: getattr(conn, name, None) for name in CONNECTION_ATTRS}
+    attributes: dict[str, Any] = {}
+    for name in CONNECTION_ATTRS:
+        value = getattr(conn, name, None)
+        if value is not None:
+            attributes[name] = value
+    return attributes
+
+
+def _query_span_attributes(command: str, cursor: SnowflakeCursor) -> dict[str, Any]:
+    attributes: dict[str, Any] = {
+        'command': command,
+        'db.system': 'snowflake',
+        'db.statement': command,
+    }
+    with handle_internal_errors:
+        attributes.update(_connection_attributes(cursor.connection))
+    return attributes
+
+
+def _unpatched(method: Any) -> Any:
+    while getattr(method, '_logfire_patched', False):
+        wrapped = getattr(method, '__wrapped__', None)
+        if wrapped is None:  # pragma: no cover
+            break
+        method = wrapped
+    return method
 
 
 def instrument_snowflake(
@@ -39,16 +64,13 @@ def instrument_snowflake(
 
 
 def _instrument_module(logfire_instance: Logfire, capture_parameters: bool) -> None:
-    # The connect-patch guard and the cursor-patch guard are independent: even when connect()
-    # is already patched, _patch_cursor_class still runs and makes its own idempotency check,
-    # so re-instrumenting after something else resets SnowflakeCursor.execute (Task 5) still works.
     original_connect: Any = sf_connector.connect  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
     if not getattr(original_connect, '_logfire_patched', False):
 
         @functools.wraps(original_connect)
-        def wrapped_connect(**kwargs: Any) -> SnowflakeConnection:
+        def wrapped_connect(*args: Any, **kwargs: Any) -> SnowflakeConnection:
             with logfire_instance.span('snowflake connect', _span_name='snowflake connect') as span:
-                conn = original_connect(**kwargs)
+                conn = original_connect(*args, **kwargs)
                 with handle_internal_errors:
                     for key, value in _connection_attributes(conn).items():
                         span.set_attribute(key, value)
@@ -77,20 +99,15 @@ def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection,
 
     def wrapped_cursor_factory(*args: Any, **kwargs: Any) -> SnowflakeCursor:
         cursor = original_cursor_factory(*args, **kwargs)
-        # Read the class methods fresh at cursor-creation time, not once when
-        # _instrument_connection is called: instrument_snowflake() (module-level) can patch
-        # SnowflakeCursor.execute/executemany either before or after this connection is
-        # instrumented. If the class is already patched, the cursor already gets spans via
-        # normal attribute lookup, so wrapping again here would double-wrap and produce
-        # nested duplicate spans per query.
-        execute = SnowflakeCursor.execute
-        if not getattr(execute, '_logfire_patched', False):
-            cursor.execute = types.MethodType(_wrap_execute(logfire_instance, execute, capture_parameters), cursor)
-        executemany = SnowflakeCursor.executemany
-        if not getattr(executemany, '_logfire_patched', False):
-            cursor.executemany = types.MethodType(
-                _wrap_executemany(logfire_instance, executemany, capture_parameters), cursor
-            )
+        # Always wrap this connection's cursors with this call's capture_parameters,
+        # using the unpatched methods so a later module-level patch cannot override
+        # them or double-wrap.
+        execute = _unpatched(SnowflakeCursor.execute)
+        cursor.execute = types.MethodType(_wrap_execute(logfire_instance, execute, capture_parameters), cursor)
+        executemany = _unpatched(SnowflakeCursor.executemany)
+        cursor.executemany = types.MethodType(
+            _wrap_executemany(logfire_instance, executemany, capture_parameters), cursor
+        )
         return cursor
 
     wrapped_cursor_factory._logfire_patched = True  # type: ignore[attr-defined]
@@ -100,11 +117,9 @@ def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection,
 def _wrap_execute(logfire_instance: Logfire, original: Any, capture_parameters: bool) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-        attributes: dict[str, Any] = {'command': command}
+        attributes = _query_span_attributes(command, self)
         if capture_parameters:
             attributes['params'] = params
-        with handle_internal_errors:
-            attributes.update(_connection_attributes(self.connection))
         with logfire_instance.span('snowflake execute {command}', _span_name='snowflake execute', **attributes) as span:
             result = original(self, command, params, *args, **kwargs)
             with handle_internal_errors:
@@ -119,11 +134,9 @@ def _wrap_execute(logfire_instance: Logfire, original: Any, capture_parameters: 
 def _wrap_executemany(logfire_instance: Logfire, original: Any, capture_parameters: bool) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any) -> Any:
-        attributes: dict[str, Any] = {'command': command}
+        attributes = _query_span_attributes(command, self)
         if capture_parameters:
             attributes['seqparams'] = seqparams
-        with handle_internal_errors:
-            attributes.update(_connection_attributes(self.connection))
         with logfire_instance.span(
             'snowflake executemany {command}', _span_name='snowflake executemany', **attributes
         ) as span:

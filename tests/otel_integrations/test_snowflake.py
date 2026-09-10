@@ -110,6 +110,27 @@ def test_instrument_connect(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_connect_positional_connection_name(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Matches snowflake-connector-python 4.7.3: connect(connection_name=None, connections_file_path=None, **kwargs).
+    # The autouse fixture would hide a **kwargs-only wrapper, so this test patches connect itself.
+    def connect(
+        connection_name: str | None = None, connections_file_path: str | None = None, **kwargs: Any
+    ) -> FakeConnection:
+        if connection_name is not None:
+            kwargs = {'account': connection_name, **kwargs}
+        return FakeConnection(**kwargs)
+
+    monkeypatch.setattr('snowflake.connector.connect', connect)
+    logfire.instrument_snowflake()
+
+    import snowflake.connector
+
+    conn = snowflake.connector.connect('my_named_connection')  # pyright: ignore[reportUnknownMemberType, reportCallIssue, reportUnknownVariableType]
+    assert conn.account == 'my_named_connection'  # pyright: ignore[reportUnknownMemberType]
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['snowflake connect']
+    assert exporter.exported_spans_as_dict()[0]['attributes']['account'] == 'my_named_connection'
+
+
 def test_instrument_execute(exporter: TestExporter) -> None:
     logfire.instrument_snowflake()
 
@@ -130,6 +151,8 @@ def test_instrument_execute(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_execute',
                     'code.lineno': 123,
                     'command': 'select * from my_table where id = %s',
+                    'db.system': 'snowflake',
+                    'db.statement': 'select * from my_table where id = %s',
                     'account': 'my_account',
                     'warehouse': 'my_wh',
                     'database': 'my_db',
@@ -140,7 +163,7 @@ def test_instrument_execute(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'sfqid': 'fake-sfqid-1',
                     'rowcount': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"db.system":{},"db.statement":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
                 },
             }
         ]
@@ -167,6 +190,8 @@ def test_instrument_executemany(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_executemany',
                     'code.lineno': 123,
                     'command': 'insert into my_table values (%s)',
+                    'db.system': 'snowflake',
+                    'db.statement': 'insert into my_table values (%s)',
                     'account': 'my_account',
                     'warehouse': 'my_wh',
                     'database': 'my_db',
@@ -177,7 +202,7 @@ def test_instrument_executemany(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'sfqid': 'fake-sfqid-2',
                     'rowcount': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"db.system":{},"db.statement":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
                 },
             }
         ]
@@ -210,6 +235,8 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_single_connection',
                     'code.lineno': 123,
                     'command': 'select 1',
+                    'db.system': 'snowflake',
+                    'db.statement': 'select 1',
                     'account': 'my_account',
                     'warehouse': 'my_wh',
                     'database': 'my_db',
@@ -220,7 +247,7 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'sfqid': 'fake-sfqid-1',
                     'rowcount': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"db.system":{},"db.statement":{},"account":{},"warehouse":{},"database":{},"schema":{},"role":{},"sfqid":{},"rowcount":{}}}',
                 },
             }
         ]
@@ -242,9 +269,8 @@ def test_instrument_single_connection_idempotent(exporter: TestExporter) -> None
 
 def test_instrument_module_then_connection_no_double_wrap(exporter: TestExporter) -> None:
     """Instrumenting the module first, then a connection, must not double-wrap that
-    connection's cursors: `_instrument_connection`'s cursor factory checks whether
-    `SnowflakeCursor.execute`/`executemany` are already class-patched (fresh, at
-    cursor-creation time) and skips its own per-instance wrapping when they are.
+    connection's cursors: `_instrument_connection` wraps the unpatched execute/executemany
+    methods on the instance, which shadows the class patch.
     """
     logfire.instrument_snowflake()
 
@@ -263,9 +289,7 @@ def test_instrument_module_then_connection_no_double_wrap(exporter: TestExporter
 def test_instrument_connection_then_module_no_double_wrap(exporter: TestExporter) -> None:
     """Instrumenting a connection first, then the module, must not retroactively
     double-wrap cursors created from that connection afterward: the cursor factory
-    re-reads `SnowflakeCursor.execute`/`executemany` fresh each time a cursor is
-    created, so it correctly sees the module-level class patch applied later and
-    defers to it instead of wrapping again.
+    wraps the unpatched methods on the instance, so the later class patch is unused.
     """
     conn = FakeSnowflakeConnection(account='my_account')
     logfire.instrument_snowflake(conn)
@@ -325,6 +349,22 @@ def test_instrument_snowflake_captures_parameters_when_enabled(exporter: TestExp
     assert spans[1]['attributes']['seqparams'] == '[["person@example.com"]]'
 
 
+def test_connection_capture_parameters_survives_module_instrumentation(exporter: TestExporter) -> None:
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn, capture_parameters=True)
+    logfire.instrument_snowflake()
+
+    conn.cursor().execute('select %s', ('person@example.com',))
+    conn.cursor().executemany('insert into my_table values (%s)', [('person@example.com',)])
+
+    spans = exporter.exported_spans_as_dict()
+    assert spans[0]['attributes']['params'] == '["person@example.com"]'
+    assert spans[1]['attributes']['seqparams'] == '[["person@example.com"]]'
+
+    FakeConnection().cursor().execute('select %s', ('other@example.com',))
+    assert 'params' not in exporter.exported_spans_as_dict()[-1]['attributes']
+
+
 def test_instrument_snowflake_idempotent(exporter: TestExporter) -> None:
     logfire.instrument_snowflake()
     logfire.instrument_snowflake()  # should not double-wrap
@@ -374,14 +414,12 @@ def test_instrument_execute_error(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_execute_error',
                     'code.lineno': 123,
                     'command': 'select * from does_not_exist',
+                    'db.system': 'snowflake',
+                    'db.statement': 'select * from does_not_exist',
                     'account': 'my_account',
-                    'warehouse': 'null',
-                    'database': 'null',
-                    'schema': 'null',
-                    'role': 'null',
                     'logfire.msg_template': 'snowflake execute {command}',
                     'logfire.msg': 'snowflake execute select * from does_not_exist',
-                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"account":{},"warehouse":{"type":"null"},"database":{"type":"null"},"schema":{"type":"null"},"role":{"type":"null"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"command":{},"db.system":{},"db.statement":{},"account":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',

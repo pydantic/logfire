@@ -78,7 +78,7 @@ Run it with `python main.py`.
 ### Capture query parameters
 
 Query parameters may contain sensitive data. Logfire does not capture them by default. To include
-them in spans, pass `capture_parameters=True` the first time you instrument a module or connection:
+them in spans, pass `capture_parameters=True`:
 
 ```python
 import logfire
@@ -86,9 +86,10 @@ import logfire
 logfire.instrument_snowflake(capture_parameters=True)
 ```
 
-Logfire's standard scrubbing still applies, but it may not identify every sensitive value. When you
-instrument the same target more than once, the first call determines whether parameters are
-captured.
+Logfire's standard scrubbing still applies, but it may not identify every sensitive value.
+Instrumenting the same module or connection again has no effect; the first call determines whether
+parameters are captured. A connection instrumented with `capture_parameters=True` keeps capturing
+parameters even if you later instrument the module with the default.
 
 ## Verify it worked
 
