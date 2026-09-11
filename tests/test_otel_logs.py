@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+import textwrap
 from collections.abc import Sequence
 from typing import Any
 
@@ -7,7 +10,7 @@ import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import LogRecord, NoOpLoggerProvider, SeverityNumber, get_logger, get_logger_provider
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import (
     InMemoryLogRecordExporter,
@@ -216,28 +219,41 @@ def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
     )
 
 
-def test_get_logger_during_force_flush_does_not_deadlock() -> None:
-    """A forwarded `force_flush` holds the proxy lock while the exporter runs.
+def test_otel_logging_handler_during_force_flush_does_not_deadlock() -> None:
+    code = textwrap.dedent(
+        """
+        import logging
 
-    The OTLP exporter logs a failed export through stdlib logging, which reaches
-    `LogfireLoggingHandler.emit` -> `Logfire.log` -> `get_logger` on the same thread.
-    That must re-enter the lock instead of blocking on it forever.
-    """
-    import threading
+        from opentelemetry._logs import get_logger_provider
+        from opentelemetry.sdk._logs import LoggingHandler, LogRecordProcessor
 
-    from logfire._internal.logs import ProxyLoggerProvider
+        import logfire
 
-    proxy = ProxyLoggerProvider(NoOpLoggerProvider())
 
-    class FlushLogsProvider(NoOpLoggerProvider):
-        def force_flush(self, timeout_millis: int = 30000) -> bool:
-            proxy.get_logger('exporter.reporting.a.failed.export')
-            return True
+        class ExportFailureProcessor(LogRecordProcessor):
+            def on_emit(self, log_record):
+                pass
 
-    proxy.set_provider(FlushLogsProvider())
-    results: list[bool] = []
-    thread = threading.Thread(target=lambda: results.append(proxy.force_flush()), daemon=True)
-    thread.start()
-    thread.join(timeout=5)
-    assert not thread.is_alive(), 'force_flush deadlocked on its own lock'
-    assert results == [True]
+            def shutdown(self):
+                pass
+
+            def force_flush(self, timeout_millis=30_000):
+                logging.getLogger('opentelemetry.exporter.otlp.proto.http._log_exporter').error(
+                    'Failed to export logs batch code: 404, reason: Not Found'
+                )
+                return True
+
+
+        logfire.configure(
+            send_to_logfire=False,
+            console=False,
+            advanced=logfire.AdvancedOptions(log_record_processors=[ExportFailureProcessor()]),
+        )
+        logger = logging.getLogger('opentelemetry.exporter.otlp.proto.http._log_exporter')
+        logger.addHandler(LoggingHandler(logger_provider=get_logger_provider()))
+        logger.propagate = False
+
+        assert logfire.force_flush(timeout_millis=1_000)
+        """
+    )
+    subprocess.run([sys.executable, '-c', code], check=True, capture_output=True, text=True, timeout=10)
