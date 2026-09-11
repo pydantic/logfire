@@ -114,6 +114,11 @@ class ScrubbingOptions:
     A sequence of regular expressions to detect sensitive data that should be redacted.
     For example, the default includes `'password'`, `'secret'`, and `'api[._ -]?key'`.
     The specified patterns are combined with the default patterns.
+
+    These patterns are matched while the span is created, on the calling thread, against values that
+    are often influenced by the caller of your application. A pattern that backtracks, such as one
+    with a quantifier inside a quantifier, therefore blocks your own code for a time that grows
+    exponentially with the length of the value being matched.
     """
 
 

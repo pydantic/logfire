@@ -35,6 +35,22 @@ logfire.info(
 )
 ```
 
+!!! warning "Custom patterns are matched on your own thread"
+
+    Scrubbing runs while the span is created, on the thread that called into Logfire, not on the
+    exporting thread. The time a pattern takes to match is therefore time your own code spends
+    waiting.
+
+    This matters because the values being matched are often influenced by whoever is talking to your
+    application — a request field, a header, a form value. A pattern that backtracks, such as one
+    with a quantifier inside a quantifier, takes time that grows exponentially with the length of the
+    value. With `extra_patterns=[r'(a+)+$']` and a value of 24 `a` characters followed by `!`, a
+    single `logfire.info` call blocks for around a second; a few more characters and it does not
+    finish.
+
+    The default patterns are not affected — they match in linear time. If you add your own, prefer
+    a specific pattern over a general one, avoid nesting quantifiers, and anchor where you can.
+
 Here are the default scrubbing patterns:
 
 ```python
