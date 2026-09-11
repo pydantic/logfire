@@ -35,6 +35,8 @@ def instrument_requests(monkeypatch: pytest.MonkeyPatch):
                 response._content = b''
             elif str(request.url).endswith('/large'):
                 response._content = b'x' * (1024 * 1024 + 1)
+            elif str(request.url).endswith('/deep'):
+                response._content = ('[' * 10_000 + '{"password":"secret"}' + ']' * 10_000).encode()
             else:
                 response._content = b'{"password":"secret","value":1}'
         return response
@@ -253,6 +255,14 @@ def test_json_scrubbing(exporter: TestExporter, instrument_requests: Any) -> Non
         'password': "[Scrubbed due to 'password']",
         'value': 1,
     }
+
+
+def test_deep_json_scrubbing(exporter: TestExporter, instrument_requests: Any) -> None:
+    instrument_requests(capture_all=True)
+    requests.get('https://example.org/deep', headers={'Authorization': 'secret'})
+    attributes = exporter.exported_spans_as_dict()[-1]['attributes']
+    assert attributes['http.request.header.authorization'] == ("[Scrubbed due to 'auth']",)
+    assert 'secret' not in attributes['http.response.body.text']
 
 
 def test_body_types_and_charsets(exporter: TestExporter, instrument_requests: Any) -> None:

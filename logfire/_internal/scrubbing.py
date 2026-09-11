@@ -68,6 +68,7 @@ DEFAULT_PATTERNS = [
 # position in large strings. Custom patterns are not constrained by this prefix.
 _DEFAULT_PATTERN_START_CHARS = 'pmsacljx_'
 _DEFAULT_PATTERN = rf'(?=[{_DEFAULT_PATTERN_START_CHARS}])(?:{"|".join(DEFAULT_PATTERNS)})'
+_MAX_SCRUBBING_DEPTH = 100
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
 
@@ -308,12 +309,15 @@ class SpanScrubber:
         # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
-    def scrub(self, path: JsonPath, value: Any) -> Any:
+    def scrub(self, path: JsonPath, value: Any, *, depth: int = 0) -> Any:
         """Redacts sensitive data from `value`, recursing into nested sequences and mappings.
 
         `path` is a list of keys and indices leading to `value` in the span.
         Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
         """
+        if depth > _MAX_SCRUBBING_DEPTH:
+            self.did_scrub = True
+            return '[Scrubbed due to excessive nesting]'
         if isinstance(value, str):
             if match := self._pattern.search(value):
                 if match.span() == (0, len(value)):
@@ -322,12 +326,12 @@ class SpanScrubber:
                     return value
                 try:
                     value = json.loads(value)
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, RecursionError):
                     return self._redact(ScrubMatch(path, value, match))
                 else:
-                    return json.dumps(self.scrub(path, value))
+                    return json.dumps(self.scrub(path, value, depth=depth + 1))
         elif isinstance(value, Sequence):
-            return [self.scrub(path + (i,), x) for i, x in enumerate(cast('Sequence[Any]', value))]
+            return [self.scrub(path + (i,), x, depth=depth + 1) for i, x in enumerate(cast('Sequence[Any]', value))]
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
@@ -339,7 +343,7 @@ class SpanScrubber:
                         redacted = [redacted]
                     result[k] = redacted
                 else:
-                    result[k] = self.scrub(path + (k,), v)
+                    result[k] = self.scrub(path + (k,), v, depth=depth + 1)
             return result
         return value
 
