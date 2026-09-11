@@ -71,10 +71,10 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     auth = (skill_root / 'references' / 'auth.md').read_text()
     integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
     offline = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
-    npm_prefix = (
+    npm_exec = (
         'env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
-        '--cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
-        '--prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire'
+        '--cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
+        '--prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire'
     )
 
     assert 'https://logfire-us.pydantic.dev` -> `--region us' in auth
@@ -95,29 +95,36 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'product prompt only needs to supply the exact Logfire URL' in auth
     assert '--region eu auth' not in auth
     assert 'python -I -m logfire' in auth
-    assert npm_prefix in auth
+    assert 'run_logfire_js() {' in auth
+    assert npm_exec in auth
+    assert 'logfire@0.22.8' in auth
+    assert 'logfire@0.22.5' not in auth
+    assert '$(mktemp -d)" exec' not in auth
     for document in (auth, instrumentation, offline):
-        assert not any(
-            line.lstrip().startswith(('npx ', 'npx@')) and 'logfire' in line for line in document.splitlines()
-        )
+        assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
+        assert 'logfire@0.22.5' not in document
+    for document in (auth, offline):
         npm_commands = [line.strip() for line in document.splitlines() if 'npm ' in line and '-- logfire' in line]
-        assert all(line.startswith(npm_prefix) for line in npm_commands)
+        assert npm_commands
+        assert all(npm_exec in line for line in npm_commands)
     assert 'JS CLI (POSIX shell)' in auth
     assert 'git ls-files -- .logfire' in auth
     assert 'neither\n`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink' in auth
+    assert 'use the external-prefix npm fallback' in instrumentation
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
     assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
-    assert f'{npm_prefix} projects status --json' in instrumentation
+    assert 'run_logfire_js projects status --json' in instrumentation
     assert (
         "uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive "
         '--region <region> read-tokens --project <organization>/<project> create --save' in instrumentation
     )
     assert (
-        f'{npm_prefix} --region <region> read-tokens --project <organization>/<project> create --save'
+        'run_logfire_js --region <region> read-tokens --project <organization>/<project> create --save'
         in instrumentation
     )
     assert 'cargo add logfire' in instrumentation
     assert 'logfire = "0.6"' not in instrumentation
+    assert 'shutdown_guard()' in instrumentation
     assert '`app = logfire.instrument_asgi(app)`' in integrations
     assert '`app = logfire.instrument_wsgi(app)`' in integrations
     assert '`logfire.instrument_django()` | No' in integrations
@@ -182,6 +189,8 @@ def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
     gunicorn_docs = (REPO_ROOT / 'docs' / 'integrations' / 'web-frameworks' / 'gunicorn.md').read_text()
 
     assert 'from myapp import app' not in gunicorn_docs
+    assert '[web framework integrations](index.md)' in gunicorn_docs
+    assert '(../index.md)' not in gunicorn_docs
     assert (
         'def post_fork(server, worker):\n'
         '    logfire.configure()\n\n\n'

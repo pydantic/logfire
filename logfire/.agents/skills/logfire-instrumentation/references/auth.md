@@ -24,13 +24,19 @@ Then check, before assuming anything needs to happen. With `uv`, use an isolated
 uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
 ```
 
-In a JS/TS project without `uv`, use this POSIX-shell fallback. Every invocation gets a newly created external npm prefix, so npm cannot choose a repository-local binary. The exact package version and `--ignore-scripts` keep the reviewed CLI artifact stable and prevent lifecycle scripts from running:
+In a JS/TS project without `uv`, use this POSIX-shell fallback. Define it once per shell session so npm reuses one external prefix and cache; do not create a new `mktemp` directory on every command. The exact package version and `--ignore-scripts` keep the reviewed CLI artifact stable and prevent lifecycle scripts from running:
 
 ```bash
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire <target> whoami
+npm_cache="$(mktemp -d)"
+npm_prefix="$(mktemp -d)"
+run_logfire_js() {
+  env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+}
+
+run_logfire_js <target> whoami
 ```
 
-Do not use a plain `npx logfire` command or omit the external `--prefix`, fresh `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and use the isolated Python CLI above rather than translating the POSIX command into a repository-local npm invocation.
+Do not use a plain `npx logfire` command or omit the external `--prefix`, shared `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and use the isolated Python CLI above rather than translating the POSIX command into a repository-local npm invocation.
 
 If that already reports the right project and resolved target (`--region` for Logfire Cloud or `--base-url` for an explicitly supplied on-prem origin), you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory with one of the verified prefixes above — it's a setup tool, not an app dependency. `--non-interactive` is Python-CLI-only right now: the JS CLI doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every JS invocation below; keep it on every Python one.
 
@@ -42,13 +48,13 @@ uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-i
 uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
 
 # JS CLI (POSIX shell) -- same commands and flags, but drop --non-interactive entirely:
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire <target> auth
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire <target> projects list --json
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire <target> projects use <project-name> --org <organization-name>
-env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire <target> whoami
+run_logfire_js <target> auth
+run_logfire_js <target> projects list --json
+run_logfire_js <target> projects use <project-name> --org <organization-name>
+run_logfire_js <target> whoami
 ```
 
-**On the Python CLI, always put `--non-interactive` immediately after `logfire`.** Without it, a question with nobody to answer it can block on a read that never returns. If `npx logfire <anything>` — including `--help`, or a name you made up — exits 0 with zero output, that's a stale global npm install of `logfire` from before v0.21.9 shadowing the fetch (a real, now-fixed bug: invoking the published bin through a symlink, which is exactly how npx and global installs both work, made the entrypoint check fail silently). Check with `npm ls -g logfire`; if it reports a version below 0.21.9, uninstall it (`npm uninstall -g logfire`) so `npx` fetches current instead of using the stale global one, or use the `uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire` step instead.
+**On the Python CLI, always put `--non-interactive` immediately after `logfire`.** Without it, a question with nobody to answer it can block on a read that never returns.
 
 - `<target>` is a global option: put it after `--non-interactive` on Python commands and immediately after `logfire` on JavaScript commands, before the subcommand. The product prompt only needs to supply the exact Logfire URL; this reference owns the `--region` versus `--base-url` distinction.
 - `auth` with `--non-interactive` does **not** open a browser — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently. When the command succeeds, continue immediately with `projects list`; once the project is identified, run `projects use` and `whoami` in the same setup run. Do not end the task merely after browser approval. If project selection is ambiguous, ask the user rather than guessing. Authentication alone does not connect the repository to the project, while `projects use` creates the project credential the application needs.

@@ -28,7 +28,8 @@ Install `logfire`:
 {{ install_logfire() }}
 
 If you also want to instrument the web framework you run under Gunicorn (Flask, for example), install
-its extra too. See that framework's [integration page](../index.md).
+its extra too. Choose the relevant framework from the
+[web framework integrations](index.md).
 
 ## Usage
 

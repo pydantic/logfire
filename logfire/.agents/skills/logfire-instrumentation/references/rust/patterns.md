@@ -36,8 +36,9 @@ do_work();
 use logfire;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let shutdown_handler = logfire::configure()
+    let logfire = logfire::configure()
         .finish()?;
+    let shutdown_handler = logfire.shutdown_guard();
 
     // application code...
 
@@ -46,8 +47,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-Panic capture is enabled by default. Call
-`.with_install_panic_handler(false)` before `.finish()` only to disable it.
+Panic capture is enabled by default. Keep the shutdown guard on the main stack
+so a panic still flushes. Call `.with_install_panic_handler(false)` before
+`.finish()` only to disable the hook.
 
 Set `LOGFIRE_TOKEN` in your environment or follow the
 [authentication and project-selection flow](../auth.md), including `projects use`,
@@ -94,7 +96,8 @@ Always call `shutdown()` before program exit to flush pending data:
 
 ```rust
 // In main()
-let shutdown_handler = logfire::configure().finish()?;
+let logfire = logfire::configure().finish()?;
+let shutdown_handler = logfire.shutdown_guard();
 
 // ... app runs ...
 

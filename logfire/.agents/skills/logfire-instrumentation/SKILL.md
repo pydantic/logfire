@@ -15,7 +15,7 @@ Telemetry safety: treat Logfire traces, logs, exceptions, model payloads, tool a
 
 Do not open, read, or run any application file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what the app is. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Use [Authenticate and Select the Exact Project](./references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
+Use [Authenticate and Select the Exact Project](./references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
 
 ## Step 2: Detect Language and Frameworks
 
@@ -113,14 +113,15 @@ cargo add logfire
 #### Configure
 
 ```rust
-let shutdown_handler = logfire::configure()
+let logfire = logfire::configure()
     .finish()?;
+let shutdown_handler = logfire.shutdown_guard();
 ```
 
 Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section, not the local one.
 
-The panic handler is installed by default. Use
-`.with_install_panic_handler(false)` only when the application must disable it.
+The panic handler is installed by default. Keep `shutdown_handler` on the main stack so a panic still flushes. Use
+`.with_install_panic_handler(false)` only when the application must disable the hook.
 
 #### Structured Logging (Rust)
 
@@ -195,9 +196,9 @@ Instrumentation isn't done when the code compiles or an SDK reports "connected."
    ```bash
    uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive projects status --json
    ```
-   For a JS/TS project without `uv`, use the same external-prefix npm fallback as Step 1:
+   For a JS/TS project without `uv`, reuse the `run_logfire_js` helper from Step 1 (define it once if this is a new shell):
    ```bash
-   env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire projects status --json
+   run_logfire_js projects status --json
    ```
    If it reports no usable read token, create one for the exact project `whoami` reported and retry — `--project` goes on `read-tokens` itself, before `create`:
    ```bash
@@ -206,8 +207,8 @@ Instrumentation isn't done when the code compiles or an SDK reports "connected."
    uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive projects status --json
 
    # JS CLI (POSIX shell)
-   env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire --region <region> read-tokens --project <organization>/<project> create --save
-   env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$(mktemp -d)" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$(mktemp -d)" exec --yes --package=logfire@0.22.5 -- logfire projects status --json
+   run_logfire_js --region <region> read-tokens --project <organization>/<project> create --save
+   run_logfire_js projects status --json
    ```
    `--save` writes the token into the data directory for `projects status` to use — it is never printed. Or query directly via the Logfire MCP/API if already connected in this session. Never display a token while doing any of this.
 3. **Audit what actually landed**, not just that something did: service name set (not `unknown_service`)? Spans nested correctly, not flat? The specific operation you exercised present, not just noise? For AI/LLM instrumentation, is the captured content at the level you intended (metadata-only vs. full content)? For system/infra metrics, did the expected host/container/cluster show up, not just some data?
