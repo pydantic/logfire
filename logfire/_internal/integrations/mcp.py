@@ -12,6 +12,7 @@ from mcp.types import (
     ClientRequest,
     ClientResult,
     ErrorData,
+    ListToolsResult,
     LoggingMessageNotification,
     ServerRequest,
     ServerResult,
@@ -22,7 +23,15 @@ from logfire._internal.utils import handle_internal_errors
 from logfire.propagate import attach_context, get_context
 
 if TYPE_CHECKING:
-    from logfire import LevelName, Logfire
+    from logfire import LevelName, Logfire, LogfireSpan
+
+
+def _set_response_attributes(span: LogfireSpan, response: Any) -> None:
+    root = getattr(response, 'root', response)
+    if isinstance(root, ListToolsResult):
+        span.set_attribute('logfire.mcp.tools.count', len(root.tools))
+    else:
+        span.set_attribute('response', response)
 
 
 def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
@@ -54,7 +63,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         with logfire_instance.span(span_name, **attributes) as span:
             _attach_context_to_request(root)
             result = await original_send_request(self, request, *args, **kwargs)
-            span.set_attribute('response', result)
+            _set_response_attributes(span, result)
             return result
 
     BaseSession.send_request = send_request
@@ -129,7 +138,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                     def _respond_with_logging(
                         response: SendResultT | ErrorData, *respond_args: Any, **respond_kwargs: Any
                     ) -> Any:
-                        span.set_attribute('response', response)
+                        _set_response_attributes(span, response)
                         return original_respond(response, *respond_args, **respond_kwargs)
 
                     responder.respond = _respond_with_logging
