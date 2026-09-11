@@ -387,13 +387,13 @@ Close with a final report built from what you just confirmed — org/project/reg
 
 # Skill: logfire-evals
 
-*Run offline evaluations for Python (`pydantic_evals`) or Node.js (`logfire/evals`) and review experiments in Logfire. Also redirects existing Braintrust `Eval()` suites. Use for evaluation setup, test datasets, AI scoring, agent-behavior checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Do not use for live production traffic or infrastructure monitoring.*
+*Run offline Python (`pydantic_evals`) or Node.js (`logfire/evals`) evaluations and review them in Logfire. Also redirect existing Braintrust `Eval()` suites. Use for eval setup, test datasets, AI scoring, agent checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Not for live traffic or infrastructure monitoring.*
 
 # Evaluate AI code with Logfire
 
 ## How This Works
 
-Python's `pydantic_evals` and Node.js's `logfire/evals` run the real task against cases, apply evaluators, and return a report. An active Logfire or OpenTelemetry provider may export evaluation inputs and outputs even if this skill did not configure it. Uploading intentionally needs `logfire.configure()` in Python or a configured exporter in Node.js.
+Python's `pydantic_evals` and Node.js's `logfire/evals` run a task against cases, apply evaluators, and return a report. An active Logfire or OpenTelemetry provider may export inputs and outputs even if this skill did not configure it. Intentional upload needs `logfire.configure()` in Python or a configured Node.js exporter.
 
 Span-based evaluators inspect the task's OpenTelemetry span tree. Without working Logfire instrumentation, Python reports "No span tree available"; Node.js `HasMatchingSpan` can produce no evaluator result at all. Treat either signal as a setup failure, not evidence about the agent.
 
@@ -409,9 +409,9 @@ export BRAINTRUST_API_KEY="<logfire-project-api-key>"                     # Sett
 unset BRAINTRUST_API_URL BRAINTRUST_PROXY_URL  # these override the endpoint above if set — the #1 "it still hit Braintrust" cause
 ```
 
-The API key must belong to the destination project and include `project:write_otlp` and `project:read_datasets`. The SDK writes the run, then reads experiment metadata for its comparison summary; an ingest-only write token fails that read with `403`.
+The destination project's API key needs `project:write_otlp` and `project:read_datasets`: the SDK writes the run, then reads experiment metadata for its summary. An ingest-only write token fails with `403`.
 
-This is a **compatibility preview, not full parity**: covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It does not cover Braintrust-hosted datasets/prompts/functions, BTQL, the model proxy, server-side scoring, or post-finalization feedback — and `summarize_scores=False`, a manual `flush()` without a comparison, or the Rust SDK never request the summary this endpoint needs, so nothing lands even though the run appears to succeed. Full detail and the concept-translation table (Braintrust "project" → Logfire dataset name, "scorer" → evaluator, etc.): https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/.
+This **compatibility preview** covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It excludes Braintrust-hosted resources, BTQL, the model proxy, server-side scoring, and post-finalization feedback. Rust, `summarize_scores=False`, and manual `flush()` without comparison do not request the summary needed for projection. See the [full coverage and concept mapping](https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/).
 
 Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens directly in Logfire, and nothing else here (auth, dataset definition) applies to this path.
 
@@ -419,16 +419,16 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 ## Step 2: Authenticate When the Run Needs Logfire
 
-Skip authentication and continue to Step 3 only when the user explicitly wants a local-only run using evaluators that do not need span data. Run it in a fresh process that neither preloads nor imports the application's telemetry setup; omit Python's `logfire.configure()` and any Node.js exporter bootstrap. Inspect the task's imports first: if it configures an exporter itself and the repository has no documented disable switch, stop rather than claiming the run is local-only. Uploading results, using a hosted dataset, or running a span-based evaluator requires Logfire, so authenticate before running the evaluation and target the exact project first.
+For an explicitly local-only run without span evaluators, use a fresh process that neither preloads nor imports application telemetry; omit Python's `logfire.configure()` and any Node.js exporter bootstrap. If the task configures an exporter and has no documented disable switch, stop rather than claiming local-only. Uploading, hosted datasets, and span evaluators require Logfire authentication to the exact project.
 
 For a Logfire-backed run, use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
 
 ## Step 3: Detect What to Evaluate
 
-Identify the real task and any existing dataset. Follow repository package, test, and dependency conventions. For a first evaluation, prefer 3-5 cases from existing tests, schemas, examples, or synthetic fixtures, with deterministic checks for defined behavior. Do not copy the example unless it fits, replace an evaluation framework, or refactor unrelated code. If there is no runnable task or safe expected behavior, ask one focused question instead of inventing either.
+Identify the real task and any dataset. Follow repository package, test, and dependency conventions. For a first eval, prefer 3-5 cases from tests, schemas, examples, or synthetic fixtures, with deterministic checks for defined behavior. Do not copy the example unless it fits, replace an eval framework, or refactor unrelated code. Without a runnable task or safe expected behavior, ask one focused question instead of inventing either.
 
 - **In-code dataset**: a Python module using `pydantic_evals`, or a Node.js module using `logfire/evals`. This is the default for an agent-driven workflow.
-- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[MyEvaluator]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
+- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). Hosted inputs and outputs must be JSON objects; scalar roots accepted by code-defined datasets are rejected. `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[MyEvaluator]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
 
 ## Step 4: Define the Dataset and Run It
 
@@ -467,6 +467,8 @@ report.print(include_input=True, include_output=True)
 Use `logfire[datasets]` instead only when the task specifically needs the hosted-dataset API from Step 3.
 
 ### JavaScript or TypeScript on Node.js
+
+Do not apply this section to Deno, Bun, browsers, or workers; their exporter setup is not validated by this skill.
 
 Add `logfire` and the Node exporter if missing:
 

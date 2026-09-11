@@ -170,7 +170,7 @@ def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
 def test_evals_skill_keeps_local_runs_local_and_smoke_tests_report_evaluators() -> None:
     evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
-    assert 'Skip authentication and continue to Step 3 only when the user explicitly wants a local-only run' in evals
+    assert 'For an explicitly local-only run without span evaluators' in evals
     assert 'report_evaluators=dataset.report_evaluators' in evals
 
 
@@ -180,16 +180,18 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert "uv add 'pydantic-evals[logfire]'" in evals
     assert "uv add 'logfire[datasets]'" not in evals
     assert 'Use `logfire[datasets]` instead only when' in evals
+    assert 'Hosted inputs and outputs must be JSON objects' in evals
     assert 'npm install logfire @pydantic/logfire-node' in evals
+    assert 'their exporter setup is not validated by this skill' in evals
     assert "from 'logfire/evals'" in evals
     assert 'compatibility endpoint is documented only for Logfire Cloud US and EU' in evals
     assert 'project:write_otlp` and `project:read_datasets' in evals
     assert '<logfire-project-write-token>' not in evals
     assert 'The `pydantic_evals` workflow is Python-only' not in evals
-    assert '3-5 cases from existing tests' in evals
+    assert '3-5 cases from tests' in evals
     assert 'ask one focused question instead of inventing either' in evals
-    assert 'if it configures an exporter itself' in evals
-    assert 'stop rather than claiming the run is local-only' in evals
+    assert 'If the task configures an exporter' in evals
+    assert 'stop rather than claiming local-only' in evals
     assert 'reportEvaluators: dataset.reportEvaluators' in evals
     assert 'const report = await' not in evals
     assert 'Node.js `HasMatchingSpan` can produce no evaluator result at all' in evals
