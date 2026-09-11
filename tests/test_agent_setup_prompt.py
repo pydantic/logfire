@@ -243,6 +243,45 @@ def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None
     assert 'AI SDK 5/6' in troubleshooting
 
 
+def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -> None:
+    references = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
+    skill = (references.parent / 'SKILL.md').read_text()
+    nextjs = (references / 'javascript' / 'nextjs.md').read_text()
+    react = (references / 'javascript' / 'react-browser.md').read_text()
+    installation = (references / 'javascript' / 'installation-and-env.md').read_text()
+    frameworks = (references / 'javascript' / 'frameworks.md').read_text()
+    troubleshooting = (references / 'javascript' / 'verification-troubleshooting.md').read_text()
+
+    for source in (skill, nextjs, react, installation, frameworks, troubleshooting):
+        assert 'Browser telemetry must go through an authenticated backend proxy' not in source
+        assert 'Browser traces must go through an authenticated same-origin backend proxy' not in source
+        assert 'Browser code must use a proxy URL' not in source
+
+    for source in (nextjs, react):
+        assert '<generated-regional-trace-url>' in source
+        assert "Authorization: 'Bearer <frontend-application-token>'" in source
+        assert 'autoInstrumentations: true' in source
+        assert 'rum: { webVitals: true }' in source
+        assert '@opentelemetry/auto-instrumentations-web' not in source
+
+    assert 'optional-proxy contract' in nextjs
+    assert 'Optional Backend Proxy' in react
+    assert 'restricted public token and regional trace URL generated for a frontend application' in skill
+    assert 'restricted public token' in installation
+    assert 'Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser' in installation
+    assert 'generated regional `/v1/traces` URL' in troubleshooting
+
+
+def test_browser_framework_examples_configure_once_without_strict_mode_shutdown() -> None:
+    references = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
+    for browser_doc in ('javascript/nextjs.md', 'javascript/react-browser.md'):
+        browser = (references / browser_doc).read_text()
+        assert 'useRef(false)' in browser
+        assert 'if (!configured.current)' in browser
+        assert 'void shutdown()' not in browser
+    assert 'Import this Client Component normally' in (references / 'javascript/nextjs.md').read_text()
+
+
 def test_python_logging_guidance_preserves_existing_configuration() -> None:
     logging = (
         REPO_ROOT
