@@ -162,7 +162,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
                 self.span.set_attribute(
                     'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})
                 )
-        self.span.end(end_time or self.ns_timestamp_generator())
+        self.span.end(self.ns_timestamp_generator() if end_time is None else end_time)
 
     def _open_spans_key(self):
         return _open_spans_key(self.span.get_span_context())
@@ -289,7 +289,7 @@ class _ProxyTracer(Tracer):
         record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
         exception_callback = config.advanced.exception_callback
 
-        start_time = start_time or ns_timestamp_generator()
+        start_time = ns_timestamp_generator() if start_time is None else start_time
 
         # Make a copy of the attributes since this method can be called by arbitrary external code,
         # e.g. third party instrumentation.
