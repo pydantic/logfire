@@ -7,7 +7,7 @@ import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
+from opentelemetry._logs import LogRecord, NoOpLoggerProvider, SeverityNumber, get_logger, get_logger_provider
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import (
     InMemoryLogRecordExporter,
@@ -214,3 +214,30 @@ def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
             }
         ]
     )
+
+
+def test_get_logger_during_force_flush_does_not_deadlock() -> None:
+    """A forwarded `force_flush` holds the proxy lock while the exporter runs.
+
+    The OTLP exporter logs a failed export through stdlib logging, which reaches
+    `LogfireLoggingHandler.emit` -> `Logfire.log` -> `get_logger` on the same thread.
+    That must re-enter the lock instead of blocking on it forever.
+    """
+    import threading
+
+    from logfire._internal.logs import ProxyLoggerProvider
+
+    proxy = ProxyLoggerProvider(NoOpLoggerProvider())
+
+    class FlushLogsProvider(NoOpLoggerProvider):
+        def force_flush(self, timeout_millis: int = 30000) -> bool:
+            proxy.get_logger('exporter.reporting.a.failed.export')
+            return True
+
+    proxy.set_provider(FlushLogsProvider())
+    results: list[bool] = []
+    thread = threading.Thread(target=lambda: results.append(proxy.force_flush()), daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+    assert not thread.is_alive(), 'force_flush deadlocked on its own lock'
+    assert results == [True]
