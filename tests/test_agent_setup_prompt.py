@@ -178,8 +178,6 @@ def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
     assert 'Authentication links jump directly to the inlined authentication appendix' in offline
 
 
-
-
 def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
     gunicorn_docs = (REPO_ROOT / 'docs' / 'integrations' / 'web-frameworks' / 'gunicorn.md').read_text()
 
@@ -190,7 +188,6 @@ def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
         'def post_worker_init(worker):\n'
         '    logfire.instrument_flask(worker.wsgi)' in gunicorn_docs
     )
->>>>>>> d95c1b5c (Fix Gunicorn worker instrumentation lifecycle)
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
