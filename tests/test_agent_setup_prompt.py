@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
+BASH_FENCE = re.compile(r'```(?:bash|sh)\n(.*?)```', re.DOTALL)
 
 
 def extract_agent_setup_prompt(path: Path, component: str) -> str:
@@ -69,6 +71,13 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
     instrumentation = (skill_root / 'SKILL.md').read_text()
     auth = (skill_root / 'references' / 'auth.md').read_text()
+    integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
+    offline = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
+    npm_exec = (
+        'env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
+        '--cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
+        '--prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire'
+    )
 
     assert 'https://logfire-us.pydantic.dev` -> `--region us' in auth
     assert 'https://logfire-eu.pydantic.dev` -> `--region eu' in auth
@@ -87,7 +96,51 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert '<target> projects new <project-name>' in auth
     assert 'product prompt only needs to supply the exact Logfire URL' in auth
     assert '--region eu auth' not in auth
+    assert 'python -I -m logfire' in auth
+    assert 'run_logfire_js() {' in auth
+    assert npm_exec in auth
+    assert 'logfire@0.22.8' in auth
+    assert 'logfire@0.22.5' not in auth
+    assert '$(mktemp -d)" exec' not in auth
+    assert 'run_logfire_js <target> projects list --json' not in auth
+    assert 'run_logfire_js <target> projects list\n' in auth
+    for document in (auth, instrumentation, offline):
+        assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
+        assert 'logfire@0.22.5' not in document
+        for fence in BASH_FENCE.findall(document):
+            if re.search(r'^\s*run_logfire_js\s', fence, re.MULTILINE):
+                assert 'run_logfire_js() {' in fence
+                assert npm_exec in fence
+    for document in (auth, offline):
+        npm_commands = [line.strip() for line in document.splitlines() if 'npm ' in line and '-- logfire' in line]
+        assert npm_commands
+        assert all(npm_exec in line for line in npm_commands)
+    assert 'JS CLI (POSIX shell)' in auth
+    assert 'git ls-files -- .logfire' in auth
+    assert 'neither\n`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink' in auth
+    assert 'use the external-prefix npm fallback' in instrumentation
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
+    assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
+    assert 'run_logfire_js <target> projects status --json' in instrumentation
+    assert (
+        "uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive "
+        '<target> read-tokens --project <organization>/<project> create --save' in instrumentation
+    )
+    assert 'run_logfire_js <target> read-tokens --project <organization>/<project> create --save' in instrumentation
+    assert 'cargo add logfire' in instrumentation
+    assert 'logfire = "0.6"' not in instrumentation
+    assert 'shutdown_guard()' in instrumentation
+    assert '`app = logfire.instrument_asgi(app)`' in integrations
+    assert '`app = logfire.instrument_wsgi(app)`' in integrations
+    assert '`logfire.instrument_django()` | No' in integrations
+    assert '`openai-agents` installed; imports as `agents`' in integrations
+    assert 'from myapp import app' not in integrations
+    assert (
+        'def post_fork(server, worker):\n'
+        '    logfire.configure()\n\n\n'
+        'def post_worker_init(worker):\n'
+        '    logfire.instrument_flask(worker.wsgi)' in integrations
+    )
     assert 'Agent runs + tokens + tool calls + messages (no cost yet)' in instrumentation
     assert 'LangGraph agents produce an agent root' in instrumentation
     assert 'Neither path marks an agent root span' not in instrumentation
@@ -135,6 +188,20 @@ def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
     assert '[Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project)' in offline
     assert '[auth.md](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session)' in offline
     assert 'Authentication links jump directly to the inlined authentication appendix' in offline
+
+
+def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
+    gunicorn_docs = (REPO_ROOT / 'docs' / 'integrations' / 'web-frameworks' / 'gunicorn.md').read_text()
+
+    assert 'from myapp import app' not in gunicorn_docs
+    assert '[web framework integrations](index.md)' in gunicorn_docs
+    assert '(../index.md)' not in gunicorn_docs
+    assert (
+        'def post_fork(server, worker):\n'
+        '    logfire.configure()\n\n\n'
+        'def post_worker_init(worker):\n'
+        '    logfire.instrument_flask(worker.wsgi)' in gunicorn_docs
+    )
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:

@@ -35,7 +35,8 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 For an explicitly local-only run without span evaluators, use a fresh process that neither preloads nor imports application telemetry; omit Python's `logfire.configure()` and any Node.js exporter bootstrap. If the task configures an exporter and has no documented disable switch, stop rather than claiming local-only. Uploading, hosted datasets, and span evaluators require Logfire authentication to the exact project.
 
-For a Logfire-backed run, use [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+For a Logfire-backed run, use [Authenticate and Select the Exact Project](https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+
 
 ## Step 3: Detect What to Evaluate
 

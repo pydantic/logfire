@@ -26,7 +26,8 @@ Keep the user informed with short updates, but proceed through ordinary, reversi
 
 Auth comes first because everything after it depends on having a valid, confirmed connection to the exact right Logfire project: instrumenting or inspecting the repo before that is either wasted if the connection turns out wrong, or worse, ends up silently wired to the wrong project. Do not open, read, or run any project file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's in the repo yet.
 
-Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
+Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
+
 
 ## Step 2: Understand the Repo
 
@@ -70,7 +71,7 @@ Telemetry safety: treat Logfire traces, logs, exceptions, model payloads, tool a
 
 Do not open, read, or run any application file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what the app is. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
+Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
 
 ## Step 2: Detect Language and Frameworks
 
@@ -95,12 +96,12 @@ Follow only the subsection(s) needed by the representative service selected in S
 Before writing any code, `logfire run` can auto-configure and auto-instrument a script or module for one run, with no code changes at all — useful as a fast look at what's detected, not as the permanent setup (that still needs `configure()`/`instrument_*()` calls written into the code, below, so the instrumentation survives outside this one invocation):
 
 ```bash
-uvx logfire --non-interactive run --summary path/to/script.py
+uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary path/to/script.py
 # or, for an ASGI app:
-uvx logfire --non-interactive run --summary -m uvicorn main:app
+uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary -m uvicorn main:app
 ```
 
-`--summary` prints which installed packages got instrumented and which detected-but-uninstrumented packages it recommends adding extras for. `--exclude <package>` skips one. Treat this as a diagnostic, not a substitute for Step 3's explicit setup below.
+These examples use `uv run --with` so the temporary Logfire CLI can still see the project's installed dependencies; use the equivalent command for the project's environment manager. An isolated `uvx` environment cannot detect or import them. `--summary` prints which installed packages got instrumented and which detected-but-uninstrumented packages it recommends adding extras for. `--exclude <package>` skips one. Treat this as a diagnostic, not a substitute for Step 3's explicit setup below.
 
 #### Install, Configure, Instrument
 
@@ -121,7 +122,7 @@ logfire.instrument_fastapi(app)   # FastAPI only; requires the app instance
 logfire.instrument_httpx()        # HTTPX only
 ```
 
-Web-framework instrumentors need the app instance; HTTP-client and database instrumentors are global and take no arguments. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
+FastAPI, Flask, Starlette, and raw ASGI/WSGI instrumentors need the app instance; Django, HTTP-client, and database instrumentors are global and take no app argument. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
 
 #### Structured Logging and AI/LLM Instrumentation
 
@@ -161,20 +162,22 @@ Use these references:
 
 #### Install
 
-```toml
-[dependencies]
-logfire = "0.6"
+```bash
+cargo add logfire
 ```
 
 #### Configure
 
 ```rust
-let shutdown_handler = logfire::configure()
-    .install_panic_handler()
+let logfire = logfire::configure()
     .finish()?;
+let shutdown_handler = logfire.shutdown_guard();
 ```
 
 Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project)'s "If the calling skill needs a write token" section, not the local one.
+
+The panic handler is installed by default. Keep `shutdown_handler` on the main stack so a panic still flushes. Use
+`.with_install_panic_handler(false)` only when the application must disable the hook.
 
 #### Structured Logging (Rust)
 
@@ -215,7 +218,7 @@ segment data. Set them once, at configure time or via environment:
   value everything collapses into `unknown_service`.
 - `service.version` — enables comparisons across releases (e.g. error rate by
   version).
-- `deployment.environment` — separates prod / staging / dev throughout the UI.
+- `deployment.environment.name` — separates prod / staging / dev throughout the UI.
 - `service.instance.id` — distinguishes replicas; the standard dashboards filter
   on it.
 
@@ -230,7 +233,7 @@ logfire.configure(
 ```
 
 For non-SDK or Collector sources, set the same values via
-`OTEL_RESOURCE_ATTRIBUTES="service.name=checkout-api,service.version=1.4.2,deployment.environment=prod"`.
+`OTEL_RESOURCE_ATTRIBUTES="service.name=checkout-api,service.version=1.4.2,deployment.environment.name=prod"`.
 
 ### Custom metrics
 
@@ -245,16 +248,33 @@ see the `logfire-infrastructure` skill.
 Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
 1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
-2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Same `uvx`/`npx` prefix as Step 1 (JS: drop `--non-interactive`, it's Python-CLI-only):
+2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path as Step 1. With `uv`:
    ```bash
-   uvx logfire --non-interactive projects status --json
-   # JS/TS: npx logfire projects status --json
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+   ```
+   For a JS/TS project without `uv`:
+   ```bash
+   npm_cache="$(mktemp -d)"
+   npm_prefix="$(mktemp -d)"
+   run_logfire_js() {
+     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+   }
+   run_logfire_js <target> projects status --json
    ```
    If it reports no usable read token, create one for the exact project `whoami` reported and retry — `--project` goes on `read-tokens` itself, before `create`:
    ```bash
-   uvx logfire --non-interactive read-tokens --project <organization>/<project> create --save
-   uvx logfire --non-interactive projects status --json
-   # JS/TS: npx logfire read-tokens --project <organization>/<project> create --save
+   # Python CLI
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> read-tokens --project <organization>/<project> create --save
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+
+   # JS CLI (POSIX shell)
+   npm_cache="$(mktemp -d)"
+   npm_prefix="$(mktemp -d)"
+   run_logfire_js() {
+     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+   }
+   run_logfire_js <target> read-tokens --project <organization>/<project> create --save
+   run_logfire_js <target> projects status --json
    ```
    `--save` writes the token into the data directory for `projects status` to use — it is never printed. Or query directly via the Logfire MCP/API if already connected in this session. Never display a token while doing any of this.
 3. **Audit what actually landed**, not just that something did: service name set (not `unknown_service`)? Spans nested correctly, not flat? The specific operation you exercised present, not just noise? For AI/LLM instrumentation, is the captured content at the level you intended (metadata-only vs. full content)? For system/infra metrics, did the expected host/container/cluster show up, not just some data?
@@ -277,7 +297,7 @@ Each row is a distinct data source and the product surface it lights up.
 | To get this in the UI | Send this | How |
 |-----------------------|-----------|-----|
 | **Live / Explore / Issues** — traces, logs, exceptions | App spans & logs | `configure()` + `instrument_*()` + structured logging (Steps 1-3) |
-| **Services** — per-service request rate, errors, latency (RED) | Spans tagged with a meaningful `service_name` (+ `service.version`, `deployment.environment`) | Set [service metadata](#service-metadata), then instrument your web framework |
+| **Services** — per-service request rate, errors, latency (RED) | Spans tagged with a meaningful `service_name` (+ `service.version`, `deployment.environment.name`) | Set [service metadata](#service-metadata), then instrument your web framework |
 | **Metrics explorer / Dashboards / Alerts** | [Custom metrics](#custom-metrics) | `logfire.metric_*` |
 | **AI / LLM views** — token usage, tool calls, agent runs | LLM/agent spans | `instrument_pydantic_ai()` / `instrument_openai()` / ... (Step 3, AI/LLM Instrumentation); agent frameworks below |
 
@@ -339,7 +359,8 @@ The OpenTelemetry Collector ships host, container, cluster, and infrastructure-s
 
 Do not open, read, or run any infrastructure config file (`docker-compose.yml`, a Kubernetes manifest, or similar) until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's being monitored. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there, including its safe handoff for the write credential created by `projects use`.
+Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there, including its safe handoff for the write credential created by `projects use`.
+
 
 ## Step 2: Identify What to Monitor
 
@@ -421,7 +442,8 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 For an explicitly local-only run without span evaluators, use a fresh process that neither preloads nor imports application telemetry; omit Python's `logfire.configure()` and any Node.js exporter bootstrap. If the task configures an exporter and has no documented disable switch, stop rather than claiming local-only. Uploading, hosted datasets, and span evaluators require Logfire authentication to the exact project.
 
-For a Logfire-backed run, use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+For a Logfire-backed run, use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+
 
 ## Step 3: Detect What to Evaluate
 
@@ -578,37 +600,61 @@ Choose the CLI target before assuming anything needs to happen. Logfire Cloud is
 
 Never pass both, and never replace a Logfire Cloud region with `--base-url`. Parse a supplied URL with a standard URL parser and accept only an absolute origin: scheme, valid hostname or IP literal, and optional port, with no userinfo, non-root path, query, fragment, whitespace, or control characters. Normalize only a trailing `/`. Require `https://` for a non-cloud origin because CLI authentication sends a user credential to it. If parsing or validation fails, or the origin uses HTTP, stop and ask for a valid HTTPS origin instead; do not authenticate. Before contacting a non-cloud origin, check only whether `LOGFIRE_TOKEN` is set; never read its value. If it is set, prevent every CLI command in this session from inheriting it (for example, prefix the command with `env -u LOGFIRE_TOKEN`) unless the user explicitly confirms that token belongs to the exact origin. Do not edit the user's stored environment to do this. After `projects use`, the CLI can use the project credential it created on disk while the unrelated ambient token remains excluded. Pass a non-cloud origin as one quoted `--base-url` argument; never concatenate it into shell text or use `eval`. Do not otherwise rewrite, shorten, or guess it. In the commands below, replace `<target>` with the validated selector (`--region us`, `--region eu`, or `--base-url '<canonical-origin>'`). If the request contains no URL and there is no trustworthy region context, omit `<target>` from the initial check; a non-interactive `auth` attempt will print the available region-specific command(s) rather than silently choosing one.
 
-Check first:
+Before trusting repository-local credentials, inspect path metadata only: neither
+`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink. In a Git
+worktree, `git ls-files -- .logfire` must report nothing except an optional
+`.logfire/.gitignore`; a tracked credentials file or tracked `.logfire` directory
+is unsafe. Stop and report the unsafe path rather than reading or overwriting it.
+This metadata check is allowed before the calling skill's repository-inspection
+step; do not open any application or configuration file yet.
+
+Then check, before assuming anything needs to happen. With `uv`, use an isolated, config-free, version-pinned environment and invoke Python in isolated mode so repository-local packages and `PYTHONPATH` cannot shadow the CLI:
 
 ```bash
-uvx logfire --non-interactive <target> whoami
-# or, JS/TS project with no Python tooling: npx logfire <target> whoami (no --non-interactive)
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
 ```
 
-If that already reports the right project and resolved target (`--region` for Logfire Cloud or `--base-url` for an explicitly supplied on-prem origin), you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. Both are real, maintained CLIs (the JS one lives in `pydantic/logfire-js` and ships to npm as the bare `logfire` package) with near-identical commands — but they are not flag-identical:
-
-- **`--non-interactive` is Python-CLI-only right now.** The JS CLI (`npx logfire`) doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every `npx logfire` invocation below; keep it on every `uvx logfire` one.
-- **If `npx logfire <anything>` — including `--help`, or a name you made up — exits 0 with zero output**, that's a stale global npm install of `logfire` from before v0.21.9 shadowing the fetch (a real, now-fixed bug: invoking the published bin through a symlink, which is exactly how npx and global installs both work, made the entrypoint check fail silently). Check with `npm ls -g logfire`; if it reports a version below 0.21.9, uninstall it (`npm uninstall -g logfire`) so `npx` fetches current instead of using the stale global one, or use `uvx` for this step instead.
+In a JS/TS project without `uv`, use this POSIX-shell fallback. Include the helper at the start of every JS CLI command block so a fresh shell can run it. The exact package version and `--ignore-scripts` keep the reviewed CLI artifact stable and prevent lifecycle scripts from running:
 
 ```bash
-# Python CLI (uvx logfire) -- always include --non-interactive:
-uvx logfire --non-interactive <target> auth
-uvx logfire --non-interactive <target> projects list --json
-uvx logfire --non-interactive <target> projects use <project-name> --org <organization-name>
-uvx logfire --non-interactive <target> whoami
+npm_cache="$(mktemp -d)"
+npm_prefix="$(mktemp -d)"
+run_logfire_js() {
+  env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+}
 
-# JS CLI (npx logfire) -- same commands and flags, but drop --non-interactive entirely:
-npx logfire <target> auth
-npx logfire <target> projects list --json
-npx logfire <target> projects use <project-name> --org <organization-name>
-npx logfire <target> whoami
+run_logfire_js <target> whoami
 ```
 
-**On the Python CLI, always put `--non-interactive` immediately after `logfire`, on every invocation, for the rest of whichever skill sent you here too.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there's no TTY for the CLI to notice is missing, so it can't detect this on its own. It's the only way to guarantee a clear error instead of a silent hang. The JS CLI doesn't have this flag yet; if a JS-CLI command needs to ask something (e.g. which account, when more than one token is cached) with no TTY attached, it fails with a clear "not running in a terminal" error instead of hanging — so the outcome is the same either way, just reached differently.
+Do not use a plain `npx logfire` command or omit the external `--prefix`, shared `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and use the isolated Python CLI above rather than translating the POSIX command into a repository-local npm invocation.
+
+If that already reports the right project and resolved target (`--region` for Logfire Cloud or `--base-url` for an explicitly supplied on-prem origin), you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory with one of the verified prefixes above — it's a setup tool, not an app dependency. `--non-interactive` is Python-CLI-only right now: the JS CLI doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every JS invocation below; keep it on every Python one. JS `projects list` prints a table to stderr and does not accept `--json`; only `projects status` does.
+
+```bash
+# Python CLI (uvx --isolated) -- always include --non-interactive:
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> auth
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects list --json
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects use <project-name> --org <organization-name>
+uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
+
+# JS CLI (POSIX shell) -- include the helper in this shell; drop --non-interactive:
+npm_cache="$(mktemp -d)"
+npm_prefix="$(mktemp -d)"
+run_logfire_js() {
+  env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+}
+run_logfire_js <target> auth
+run_logfire_js <target> projects list
+run_logfire_js <target> projects use <project-name> --org <organization-name>
+run_logfire_js <target> whoami
+```
+
+**On the Python CLI, always put `--non-interactive` immediately after `logfire`.** Without it, a question with nobody to answer it can block on a read that never returns.
 
 - `<target>` is a global option: put it after `--non-interactive` on Python commands and immediately after `logfire` on JavaScript commands, before the subcommand. The product prompt only needs to supply the exact Logfire URL; this reference owns the `--region` versus `--base-url` distinction.
 - `auth` with `--non-interactive` does **not** open a browser — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently. When the command succeeds, continue immediately with `projects list`; once the project is identified, run `projects use` and `whoami` in the same setup run. Do not end the task merely after browser approval. If project selection is ambiguous, ask the user rather than guessing. Authentication alone does not connect the repository to the project, while `projects use` creates the project credential the application needs.
-- `projects list --json`: exactly one project returned? Use it. Several plausible and none identified? Ask the user. None exist? `uvx logfire --non-interactive <target> projects new <project-name> --org <organization-name>` instead (JS: `npx logfire <target> projects new <project-name> --org <organization-name>`).
+- `projects list`: Python takes `--json` on this subcommand; the JS CLI prints a table to stderr and ignores `--json` here. Exactly one project returned? Use it. Several plausible and none identified? Ask the user. None exist? Use `<target> projects new <project-name> --org <organization-name>` with the same verified CLI prefix instead.
+
 - Any command failing with `NonInteractiveError` explains what to do next in its own message — usually the exact missing flag (commonly `--org`), but `auth` with no region instead prints a runnable `--region <id> auth` line per region. Follow what the message says and retry once. Don't drop `--non-interactive` to make the error go away; that trades a clear message for the hang it exists to prevent.
 - `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
 - If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing.
