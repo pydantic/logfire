@@ -23,7 +23,7 @@ class ProxyLoggerProvider(LoggerProvider):
     provider: LoggerProvider
 
     loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet['ProxyLogger'])
-    # Provider callbacks may emit logs through this provider.
+    # Re-entrancy prevents provider callbacks that emit logs from deadlocking.
     lock: RLock = dataclasses.field(default_factory=RLock)
     suppressed_scopes: set[str] = dataclasses.field(default_factory=set[str])
     min_level: int = 0

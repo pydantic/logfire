@@ -220,9 +220,11 @@ def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
 
 @pytest.mark.timeout(5)
 def test_otel_logging_handler_during_force_flush_does_not_deadlock(config_kwargs: dict[str, Any]) -> None:
+    emitted: list[ReadWriteLogRecord] = []
+
     class ExportFailureProcessor(LogRecordProcessor):
         def on_emit(self, log_record: ReadWriteLogRecord) -> None:
-            pass
+            emitted.append(log_record)
 
         def shutdown(self) -> None:
             pass
@@ -241,9 +243,14 @@ def test_otel_logging_handler_during_force_flush_does_not_deadlock(config_kwargs
         handler = LoggingHandler(logger_provider=get_logger_provider())
 
     logger = logging.getLogger('opentelemetry.exporter.otlp.proto.http._log_exporter')
+    propagate = logger.propagate
     logger.addHandler(handler)
     logger.propagate = False
     try:
         logfire.force_flush(timeout_millis=1_000)
+        assert [record.log_record.body for record in emitted] == [
+            'Failed to export logs batch code: 404, reason: Not Found'
+        ]
     finally:
         logger.removeHandler(handler)
+        logger.propagate = propagate
