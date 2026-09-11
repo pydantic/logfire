@@ -204,11 +204,44 @@ def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
     )
 
 
+def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None:
+    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
+    ai_sdk = (skill_root / 'references' / 'javascript' / 'ai-sdk.md').read_text()
+    troubleshooting = (skill_root / 'references' / 'javascript' / 'verification-troubleshooting.md').read_text()
+
+    assert 'for `ai@7.0.N`, install `@ai-sdk/otel@1.0.N`' in ai_sdk
+    assert 'resolves one `ai` version rather than nesting a newer copy' in ai_sdk
+    for marker in ('@ai-sdk/otel', 'registerTelemetry(new OpenTelemetry())', 'telemetry:', 'experimental_telemetry:'):
+        assert marker in ai_sdk
+    assert 'Do not upgrade the AI SDK as part of instrumentation.' in ai_sdk
+    assert 'AI SDK 7' in troubleshooting
+    assert 'AI SDK 5/6' in troubleshooting
+
+
+def test_python_logging_guidance_preserves_existing_configuration() -> None:
+    logging = (
+        REPO_ROOT
+        / 'logfire'
+        / '.agents'
+        / 'skills'
+        / 'logfire-instrumentation'
+        / 'references'
+        / 'python'
+        / 'logging-patterns.md'
+    ).read_text()
+
+    assert 'getLogger().addHandler(logfire.LogfireLoggingHandler())' in logging
+    assert "'disable_existing_loggers': False" in logging
+    assert "'root': {'level': 'INFO', 'handlers': ['logfire']}" in logging
+    assert 'The `root.handlers` list replaces existing root handlers' in logging
+
+
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
     skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-infrastructure'
     reference = (skill_root / 'references' / 'collector' / 'host-and-infra-metrics.md').read_text()
 
-    assert "Authorization: 'Bearer ${env:LOGFIRE_TOKEN}'" in reference
+    assert "Authorization: '${env:LOGFIRE_TOKEN}'" in reference
+    assert 'Bearer ${env:LOGFIRE_TOKEN}' not in reference
     assert "write token created by the authentication flow's `projects use`" in reference
     assert 'Create a write token in the Logfire UI' not in reference
     assert "endpoint: '<selected-logfire-origin>'" in reference

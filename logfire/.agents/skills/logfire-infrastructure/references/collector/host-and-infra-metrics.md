@@ -27,7 +27,7 @@ exporters:
   otlphttp/logfire:
     endpoint: '<selected-logfire-origin>'
     headers:
-      Authorization: 'Bearer ${env:LOGFIRE_TOKEN}'
+      Authorization: '${env:LOGFIRE_TOKEN}'
 ```
 
 Use the project-scoped write token created by the authentication flow's `projects use`

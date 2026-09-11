@@ -53,7 +53,7 @@ Deno:
 - `LOGFIRE_TOKEN` is absent and local `.logfire` credentials are not configured.
 - Browser code is trying to send directly to Logfire instead of a same-origin proxy.
 - Next.js has `instrumentation.ts` in the wrong directory for the app structure.
-- Vercel AI SDK calls are missing `experimental_telemetry: { isEnabled: true }`.
+- Vercel AI SDK 7 has no registered `@ai-sdk/otel` integration, or an AI SDK 5/6 call is missing `experimental_telemetry: { isEnabled: true }`.
 - Existing OpenTelemetry configuration exports to a different backend or creates a competing tracer provider.
 
 ## What To Report Back

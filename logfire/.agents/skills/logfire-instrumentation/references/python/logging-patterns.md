@@ -46,15 +46,17 @@ async def handle_order(order_id: int):
 For projects that already use Python's `logging` module, route existing log calls through Logfire rather than rewriting them all:
 
 ```python
-from logging import basicConfig
+from logging import getLogger
 
 import logfire
 
 logfire.configure()
-basicConfig(handlers=[logfire.LogfireLoggingHandler()])
+getLogger().addHandler(logfire.LogfireLoggingHandler())
 ```
 
-Or with `dictConfig`:
+This explicitly adds the Logfire handler even when the application configured other root handlers first. Keep those handlers unless the user asks to replace them.
+
+If the application already owns its complete `dictConfig`, add Logfire to that configuration. The `root.handlers` list replaces existing root handlers, so include every intended console, file, and Logfire handler there. This minimal example intentionally makes Logfire the only root handler:
 
 ```python
 from logging.config import dictConfig
@@ -64,10 +66,11 @@ import logfire
 logfire.configure()
 dictConfig({
     'version': 1,
+    'disable_existing_loggers': False,
     'handlers': {
         'logfire': {'class': 'logfire.LogfireLoggingHandler'},
     },
-    'root': {'handlers': ['logfire']},
+    'root': {'level': 'INFO', 'handlers': ['logfire']},
 })
 ```
 

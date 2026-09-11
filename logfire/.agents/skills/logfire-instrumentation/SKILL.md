@@ -88,7 +88,7 @@ Use these references:
 - [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, optional browser proxy, client-only provider, and server component/manual API patterns.
 - [React/browser](./references/javascript/react-browser.md): browser package setup, proxy requirement, React provider, and client error reporting.
 - [Cloudflare and Deno](./references/javascript/cloudflare-and-deno.md): Workers `instrument()` setup, Wrangler secrets, Tail Workers, and Deno OTLP export.
-- [Vercel AI SDK](./references/javascript/ai-sdk.md): enabling `experimental_telemetry` for model calls, tools, streaming, and metadata.
+- [Vercel AI SDK](./references/javascript/ai-sdk.md): version-specific telemetry setup for model calls, tools, streaming, and metadata.
 - [patterns](./references/javascript/patterns.md): current manual API for logs, spans, function instrumentation, errors, tags, baggage, sampling, and scrubbing.
 - [verification](./references/javascript/verification-troubleshooting.md): build checks, smoke tests, local console output, browser network checks, and common missing-trace causes.
 
