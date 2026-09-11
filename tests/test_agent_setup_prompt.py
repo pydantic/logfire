@@ -163,15 +163,51 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
 def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
     evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
-    assert 'custom_evaluator_types=[ExactMatch]' in evals
+    assert 'custom_evaluator_types=[MyEvaluator]' in evals
     assert 'custom_report_evaluator_types=[...]' in evals
 
 
 def test_evals_skill_keeps_local_runs_local_and_smoke_tests_report_evaluators() -> None:
     evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
-    assert 'Skip authentication and continue to Step 3 only when the user explicitly wants a local-only' in evals
+    assert 'For an explicitly local-only run without span evaluators' in evals
     assert 'report_evaluators=dataset.report_evaluators' in evals
+
+
+def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
+    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+
+    assert "uv add 'pydantic-evals[logfire]'" in evals
+    assert "uv add 'logfire[datasets]'" not in evals
+    assert 'Use `logfire[datasets]` instead only when' in evals
+    assert 'Hosted inputs and outputs must be JSON objects' in evals
+    assert 'npm install logfire @pydantic/logfire-node' in evals
+    assert 'their exporter setup is not validated by this skill' in evals
+    assert "from 'logfire/evals'" in evals
+    assert 'compatibility endpoint is documented only for Logfire Cloud US and EU' in evals
+    assert 'project:write_otlp` and `project:read_datasets' in evals
+    assert '<logfire-project-write-token>' not in evals
+    assert 'The `pydantic_evals` workflow is Python-only' not in evals
+    assert '3-5 cases from tests' in evals
+    assert 'ask one focused question instead of inventing either' in evals
+    assert 'If the task configures an exporter' in evals
+    assert 'stop rather than claiming local-only' in evals
+    assert 'reportEvaluators: dataset.reportEvaluators' in evals
+    assert 'const report = await' not in evals
+    assert 'Node.js `HasMatchingSpan` can produce no evaluator result at all' in evals
+    assert 'a plain class raises at run time' not in evals
+    assert 'use `@dataclass` for configurable fields and portable serialization' in evals
+
+
+def test_braintrust_skill_and_guide_require_the_working_api_key_scopes() -> None:
+    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    guide = (REPO_ROOT / 'docs' / 'comparisons' / 'migrate-from-braintrust.md').read_text()
+
+    for content in (evals, guide):
+        assert 'project:write_otlp' in content
+        assert 'project:read_datasets' in content
+        assert 'ingest-only write token' in content
+    assert '<your-logfire-write-token>' not in guide
 
 
 def _wrap(component: str, prompt_lines: list[str]) -> str:
