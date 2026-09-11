@@ -107,6 +107,8 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'run_logfire_js <target> projects list\n' in auth
     assert auth.count('whoami --data-dir "$credential_probe_dir"') == 2
     assert auth.count('credential_probe_dir="$(mktemp -d)"') == 2
+    assert auth.count('trap \'rm -rf -- "$credential_probe_dir"\' EXIT') == 2
+    assert 'these commands use the user credential bound to the selected origin' in auth
     assert 'Do not pass the temporary data directory to `projects use` or the final check' in auth
     for document in (auth, instrumentation, offline):
         assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
@@ -223,6 +225,9 @@ def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None
     for marker in ('@ai-sdk/otel', 'registerTelemetry(new OpenTelemetry())', 'telemetry:', 'experimental_telemetry:'):
         assert marker in ai_sdk
     assert 'Do not upgrade the AI SDK as part of instrumentation.' in ai_sdk
+    assert 'input/output recording defaults to enabled' in ai_sdk
+    assert ai_sdk.count('recordInputs: false') >= 2
+    assert ai_sdk.count('recordOutputs: false') >= 2
     assert 'AI SDK 7' in troubleshooting
     assert 'AI SDK 5/6' in troubleshooting
 
