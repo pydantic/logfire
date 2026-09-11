@@ -1,5 +1,31 @@
 # Release Notes
 
+## [v5.1.0] (2026-09-11)
+
+### Integrations
+
+* Add `logfire.instrument_litestar()` with support for Litestar 2.11 and later by @dmontagu in [#2249](https://github.com/pydantic/logfire/pull/2249)
+* Recommend Logfire extras when `logfire run` detects missing instrumentation packages by @krishna3554 in [#2082](https://github.com/pydantic/logfire/pull/2082)
+
+### Agent setup
+
+* Use canonical URLs between published Logfire skills by @strawgate in [#2373](https://github.com/pydantic/logfire/pull/2373)
+* Preserve the selected Logfire region or custom base URL throughout setup by @strawgate in [#2377](https://github.com/pydantic/logfire/pull/2377)
+* Continue project selection and verification after browser authentication by @strawgate in [#2384](https://github.com/pydantic/logfire/pull/2384)
+* Make eval setup executable for Python and Node.js by @strawgate in [#2400](https://github.com/pydantic/logfire/pull/2400) and [#2402](https://github.com/pydantic/logfire/pull/2402)
+* Correct setup guidance for Python, Node.js, Rust, and Gunicorn by @adtyavrdhn in [#2365](https://github.com/pydantic/logfire/pull/2365)
+
+### Fixes
+
+* Prevent OpenTelemetry logging from deadlocking during `force_flush()` by @L4XB in [#2404](https://github.com/pydantic/logfire/pull/2404)
+* Require directory boundaries when identifying non-user code paths by @yhz5613813 in [#2375](https://github.com/pydantic/logfire/pull/2375)
+
+## New Contributors
+
+* @yhz5613813 made their first contribution in [#2375](https://github.com/pydantic/logfire/pull/2375)
+* @krishna3554 made their first contribution in [#2082](https://github.com/pydantic/logfire/pull/2082)
+* @L4XB made their first contribution in [#2404](https://github.com/pydantic/logfire/pull/2404)
+
 ## [v5.0.0] (2026-09-04)
 
 ### Major changes
@@ -1275,3 +1301,4 @@ First release from new repo!
 [v4.40.0]: https://github.com/pydantic/logfire/compare/v4.39.0...v4.40.0
 [v4.41.0]: https://github.com/pydantic/logfire/compare/v4.40.0...v4.41.0
 [v5.0.0]: https://github.com/pydantic/logfire/compare/v4.41.0...v5.0.0
+[v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0

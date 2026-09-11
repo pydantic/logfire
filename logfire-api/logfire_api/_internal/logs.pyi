@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from logfire._internal.constants import LEVEL_NUMBERS as LEVEL_NUMBERS
 from opentelemetry._logs import LogRecord, Logger, LoggerProvider
 from opentelemetry.util.types import _ExtendedAttributes
-from threading import Lock
+from threading import RLock
 from typing import Any, overload
 from weakref import WeakSet
 
@@ -12,7 +12,7 @@ class ProxyLoggerProvider(LoggerProvider):
     """A logger provider that wraps another internal logger provider allowing it to be re-assigned."""
     provider: LoggerProvider
     loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet['ProxyLogger'])
-    lock: Lock = dataclasses.field(default_factory=Lock)
+    lock: RLock = dataclasses.field(default_factory=RLock)
     suppressed_scopes: set[str] = dataclasses.field(default_factory=set[str])
     min_level: int = ...
     def get_logger(self, name: str, version: str | None = None, schema_url: str | None = None, attributes: _ExtendedAttributes | None = None) -> Logger: ...
