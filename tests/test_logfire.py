@@ -23,7 +23,18 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
+from opentelemetry.trace import (
+    INVALID_SPAN,
+    Link,
+    NonRecordingSpan,
+    SpanContext,
+    SpanKind,
+    StatusCode,
+    TraceFlags,
+    TraceState,
+    get_current_span,
+    get_tracer,
+)
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -3030,8 +3041,10 @@ def test_span_links(exporter: TestExporter):
 
     assert first_context
     assert second_context
-    with logfire.span('foo', _links=[(first_context, None)]) as span:
-        span.add_link(second_context)
+    span = logfire.span('foo', _links=[(first_context, None)])
+    span.add_link(second_context)
+    with span:
+        pass
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True)[-2:] == snapshot(
         [
@@ -3050,7 +3063,10 @@ def test_span_links(exporter: TestExporter):
                     'logfire.span_type': 'pending_span',
                     'logfire.pending_parent_id': '0000000000000000',
                 },
-                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
+                'links': [
+                    {'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}},
+                    {'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False}, 'attributes': {}},
+                ],
             },
             {
                 'name': 'foo',
@@ -3130,6 +3146,212 @@ def test_span_add_link_before_start(exporter: TestExporter):
                     }
                 ],
             },
+        ]
+    )
+
+
+def test_span_add_link_input_types(exporter: TestExporter):
+    local_context = SpanContext(1, 2, False, TraceFlags(TraceFlags.SAMPLED), TraceState())
+    local_span = NonRecordingSpan(local_context)
+    linked_span = logfire.span('linked')
+    linked_span.add_link(local_context)
+    with linked_span:
+        pass
+
+    span = logfire.span('destination')
+    span.add_link(linked_span, {'source': 'logfire'})
+    span.add_link(local_span, {'source': 'otel'})
+    span.add_link(Link(local_context, {'source': 'link'}))
+    with patch('opentelemetry.propagate.extract', side_effect=AssertionError('global propagator used')):
+        span.add_link(
+            {
+                'traceparent': '00-0000000000000000000000000000000a-000000000000000b-01',
+                'tracestate': 'vendor=value',
+            },
+            {'source': 'carrier'},
+        )
+        span.add_link('00-0000000000000000000000000000000c-000000000000000d-00')
+        span.add_link({'Traceparent': '00-0000000000000000000000000000000e-000000000000000f-01'})
+    with span:
+        pass
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'linked',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_input_types',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'linked',
+                    'logfire.msg': 'linked',
+                    'logfire.span_type': 'span',
+                },
+                'links': [{'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False}, 'attributes': {}}],
+            },
+            {
+                'name': 'destination',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_input_types',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'destination',
+                    'logfire.msg': 'destination',
+                    'logfire.span_type': 'span',
+                },
+                'links': [
+                    {'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {'source': 'logfire'}},
+                    {'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False}, 'attributes': {'source': 'otel'}},
+                    {'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False}, 'attributes': {'source': 'link'}},
+                    {
+                        'context': {'trace_id': 10, 'span_id': 11, 'is_remote': True},
+                        'attributes': {'source': 'carrier'},
+                    },
+                    {'context': {'trace_id': 12, 'span_id': 13, 'is_remote': True}, 'attributes': {}},
+                    {'context': {'trace_id': 14, 'span_id': 15, 'is_remote': True}, 'attributes': {}},
+                ],
+            },
+        ]
+    )
+
+    destination = next(
+        exported_span
+        for exported_span in exporter.exported_spans
+        if exported_span.name == 'destination' and len(exported_span.links) == 6
+    )
+    carrier_context = destination.links[3].context
+    assert carrier_context is not None
+    assert carrier_context.trace_flags == TraceFlags(TraceFlags.SAMPLED)
+    assert list(carrier_context.trace_state.items()) == [('vendor', 'value')]
+
+
+@pytest.mark.parametrize('value', [{}, {'tracestate': 'vendor=value'}, 'not-a-traceparent'])
+def test_span_add_link_ignores_invalid_carrier_without_ambient_fallback(
+    value: dict[str, str] | str, exporter: TestExporter
+) -> None:
+    with logfire.span('ambient'):
+        span = logfire.span('destination')
+        span.add_link(value)
+        with span:
+            pass
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'destination',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_ignores_invalid_carrier_without_ambient_fallback',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'destination',
+                    'logfire.msg': 'destination',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'ambient',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_ignores_invalid_carrier_without_ambient_fallback',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'ambient',
+                    'logfire.msg': 'ambient',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+def test_span_add_link_rejects_invalid_direct_context() -> None:
+    with pytest.raises(ValueError, match='span context is invalid'):
+        logfire.span('destination').add_link(SpanContext(0, 0, False))
+
+
+def test_span_add_link_after_start(exporter: TestExporter):
+    with logfire.span('destination') as span:
+        span.add_link(SpanContext(1, 2, False))
+
+    with pytest.raises(RuntimeError, match='destination span has already ended'):
+        span.add_link(SpanContext(1, 3, False))
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'destination',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_span_add_link_after_start',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'destination',
+                    'logfire.msg': 'destination',
+                    'logfire.span_type': 'span',
+                },
+                'links': [{'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False}, 'attributes': {}}],
+            }
+        ]
+    )
+
+
+def test_span_add_link_while_sampled_out(config_kwargs: dict[str, Any], exporter: TestExporter) -> None:
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
+
+    with logfire.span('destination') as span:
+        assert not span.is_recording()
+        span.add_link(SpanContext(1, 2, False))
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot([])
+
+
+def test_span_add_link_rejects_unstarted_source_span():
+    destination = logfire.span('destination')
+    with pytest.raises(ValueError, match='source span must be started first'):
+        destination.add_link(logfire.span('source'))
+
+
+def test_links_remains_an_ordinary_span_attribute(exporter: TestExporter):
+    with logfire.span('attribute', links=['one', 'two']):
+        pass
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'attribute',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_links_remains_an_ordinary_span_attribute',
+                    'code.lineno': 123,
+                    'links': ['one', 'two'],
+                    'logfire.msg_template': 'attribute',
+                    'logfire.msg': 'attribute',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'links': {'type': 'array'}}},
+                    'logfire.span_type': 'span',
+                },
+            }
         ]
     )
 
