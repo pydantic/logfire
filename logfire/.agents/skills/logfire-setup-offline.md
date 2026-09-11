@@ -387,15 +387,15 @@ Close with a final report built from what you just confirmed — org/project/reg
 
 # Skill: logfire-evals
 
-*Run offline evaluations for Python (`pydantic_evals`) or JavaScript/TypeScript (`logfire/evals`) and review experiments in Logfire. Also redirects existing Braintrust `Eval()` suites. Use for evaluation setup, test datasets, AI scoring, agent-behavior checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Do not use for live production traffic or infrastructure monitoring.*
+*Run offline evaluations for Python (`pydantic_evals`) or Node.js (`logfire/evals`) and review experiments in Logfire. Also redirects existing Braintrust `Eval()` suites. Use for evaluation setup, test datasets, AI scoring, agent-behavior checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Do not use for live production traffic or infrastructure monitoring.*
 
 # Evaluate AI code with Logfire
 
 ## How This Works
 
-Python's `pydantic_evals` and JavaScript/TypeScript's `logfire/evals` run the real task against cases, apply evaluators, and return a report. Both run locally without sending results anywhere. Uploading needs `logfire.configure()` in Python or a configured Logfire/OpenTelemetry exporter in JavaScript/TypeScript. Without it, the report remains local rather than failing.
+Python's `pydantic_evals` and Node.js's `logfire/evals` run the real task against cases, apply evaluators, and return a report. An active Logfire or OpenTelemetry provider may export evaluation inputs and outputs even if this skill did not configure it. Uploading intentionally needs `logfire.configure()` in Python or a configured exporter in Node.js.
 
-Span-based evaluators inspect the task's OpenTelemetry span tree. Without working Logfire instrumentation, Python reports "No span tree available" and JavaScript/TypeScript `HasMatchingSpan` has no task spans to match. Treat either as a setup failure, not evidence about the agent.
+Span-based evaluators inspect the task's OpenTelemetry span tree. Without working Logfire instrumentation, Python reports "No span tree available" and Node.js `HasMatchingSpan` has no task spans to match. Treat either as a setup failure, not evidence about the agent.
 
 ## Step 1: Check for an Existing Braintrust Suite First
 
@@ -405,9 +405,11 @@ Keep the existing `Eval()` code (Python `braintrust>=0.30.1` / TypeScript `brain
 
 ```bash
 export BRAINTRUST_APP_URL="https://logfire-us.pydantic.dev/v1/braintrust"  # EU: logfire-eu.pydantic.dev
-export BRAINTRUST_API_KEY="<logfire-project-write-token>"                  # Project -> Settings -> Write tokens
+export BRAINTRUST_API_KEY="<logfire-project-api-key>"                     # Settings -> API Keys
 unset BRAINTRUST_API_URL BRAINTRUST_PROXY_URL  # these override the endpoint above if set — the #1 "it still hit Braintrust" cause
 ```
+
+The API key must belong to the destination project and include `project:write_otlp` and `project:read_datasets`. The SDK writes the run, then reads experiment metadata for its comparison summary; an ingest-only write token fails that read with `403`.
 
 This is a **compatibility preview, not full parity**: covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It does not cover Braintrust-hosted datasets/prompts/functions, BTQL, the model proxy, server-side scoring, or post-finalization feedback — and `summarize_scores=False`, a manual `flush()` without a comparison, or the Rust SDK never request the summary this endpoint needs, so nothing lands even though the run appears to succeed. Full detail and the concept-translation table (Braintrust "project" → Logfire dataset name, "scorer" → evaluator, etc.): https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/.
 
@@ -417,7 +419,7 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 ## Step 2: Authenticate When the Run Needs Logfire
 
-Skip authentication and continue to Step 3 only when the user explicitly wants a local-only run using evaluators that do not need span data. Omit the Python `logfire.configure()` call or the JavaScript/TypeScript Logfire bootstrap so results stay in the terminal. Uploading results, using a hosted dataset, or running a span-based evaluator requires Logfire, so authenticate before running the evaluation and target the exact project first.
+Skip authentication and continue to Step 3 only when the user explicitly wants a local-only run using evaluators that do not need span data. Run it in a fresh process that neither preloads nor imports the application's telemetry setup; omit Python's `logfire.configure()` and any Node.js exporter bootstrap. Inspect the task's imports first: if it configures an exporter itself and the repository has no documented disable switch, stop rather than claiming the run is local-only. Uploading results, using a hosted dataset, or running a span-based evaluator requires Logfire, so authenticate before running the evaluation and target the exact project first.
 
 For a Logfire-backed run, use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
 
@@ -425,7 +427,7 @@ For a Logfire-backed run, use [Authenticate and Select the Exact Project](#authe
 
 Identify the real task and any existing dataset. Follow repository package, test, and dependency conventions. For a first evaluation, prefer 3-5 cases from existing tests, schemas, examples, or synthetic fixtures, with deterministic checks for defined behavior. Do not copy the example unless it fits, replace an evaluation framework, or refactor unrelated code. If there is no runnable task or safe expected behavior, ask one focused question instead of inventing either.
 
-- **In-code dataset**: a Python module using `pydantic_evals`, or a JavaScript/TypeScript module using `logfire/evals`. This is the default for an agent-driven workflow.
+- **In-code dataset**: a Python module using `pydantic_evals`, or a Node.js module using `logfire/evals`. This is the default for an agent-driven workflow.
 - **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[MyEvaluator]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
 
 ## Step 4: Define the Dataset and Run It
@@ -443,10 +445,10 @@ import logfire
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import EqualsExpected, IsInstance
 
-logfire.configure()  # omit this and results stay local only, silently
+logfire.configure()  # omit only in the isolated local-only process described above
 
 def classify_sentiment(text: str) -> str:
-    ...  # the function under test
+    return 'positive' if 'love' in text else 'negative'
 
 
 dataset = Dataset[str, str, None](
@@ -487,15 +489,18 @@ const dataset = new Dataset<string, string>({
   evaluators: [new EqualsExpected()],
 })
 
-const report = await dataset.evaluate(classifySentiment)
-console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+dataset.evaluate(classifySentiment).then((report) => {
+  console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+})
 ```
 
-Other built-ins include `Equals`, `Contains`, `IsInstance`, `MaxDuration`, `HasMatchingSpan`, and `LLMJudge`. JavaScript/TypeScript custom evaluators extend `Evaluator`, and `LLMJudge` needs a judge callback. Use `@pydantic/logfire-node/datasets` only for hosted datasets.
+Other built-ins include `Equals`, `Contains`, `IsInstance`, `MaxDuration`, `HasMatchingSpan`, and `LLMJudge`. Node.js custom evaluators extend `Evaluator`, and `LLMJudge` needs a judge callback. Use `@pydantic/logfire-node/datasets` only for hosted datasets.
 
-For Deno, Bun, browsers, or workers, keep the existing OpenTelemetry setup and follow the [runtime guidance](https://github.com/pydantic/logfire-js#evaluations); do not add the Node exporter to a non-Node runtime.
+### Smoke test before a paid or full run
 
-**Before running the full dataset, run a smoke test on 2-3 cases** if the dataset is large or uses `LLMJudge` or any evaluator that makes a real, billed model call. A bug caught on 3 cases costs 3 model calls; the same bug caught on 300 costs 300. In JavaScript/TypeScript, construct the smoke `Dataset` with `dataset.cases.slice(0, 3)` and preserve its evaluators and report evaluators.
+**Before running the full dataset, run a smoke test on 2-3 cases** if the dataset is large or uses `LLMJudge` or any evaluator that makes billed model calls. This catches setup errors before they multiply cost across the dataset.
+
+Python:
 
 ```python
 smoke = Dataset(
@@ -508,15 +513,29 @@ smoke_report = smoke.evaluate_sync(classify_sentiment)
 smoke_report.print(include_input=True, include_output=True)
 ```
 
+Node.js:
+
+```ts
+const smoke = new Dataset({
+  name: dataset.name,
+  cases: dataset.cases.slice(0, 3),
+  evaluators: dataset.evaluators,
+  reportEvaluators: dataset.reportEvaluators,
+})
+smoke.evaluate(classifySentiment).then((report) => {
+  console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+})
+```
+
 Confirm the smoke run has zero unexpected errors and the assertions that should pass do. Then, if the full dataset is large or uses paid model calls, tell the user the case count and which evaluators will make model calls, and get explicit confirmation before running the full dataset — don't run an expensive full pass on the strength of a clean smoke test alone without saying so.
 
-The remaining details in this section are Python-specific. Custom evaluators **must be `@dataclass`** subclasses — a plain class raises at run time. Case names must be unique within a dataset. The evaluators reached for most:
+The remaining details in this section are Python-specific. Custom evaluators inherit `Evaluator` and implement `evaluate`; use `@dataclass` for configurable fields and portable serialization. Case names must be unique within a dataset. The evaluators reached for most:
 
 | Evaluator | Checks |
 |-----------|--------|
 | `Equals(value)` / `EqualsExpected()` | Exact match against a literal / `expected_output` (no-op if `expected_output` is unset — don't rely on it silently catching that) |
 | `IsInstance(type_name)` | Output's type matches by name |
-| `LLMJudge(rubric, model=None, score=False)` | LLM-as-judge scoring; costs a real model call per case per judge — prefer boolean/categorical rubrics over 1-10 scales (judges are unstable on continuous scores), and benchmark the judge against ~20-100 hand-labeled cases before trusting it |
+| `LLMJudge(rubric, model=None, score=False)` | Subjective or rubric-based judgment; makes billed model requests, so validate the rubric against human-reviewed examples before treating it as a quality gate |
 | `ToolCorrectness(expected_tools, ...)` | Which tools an agent called — reads the span tree, so needs Step 2's `logfire.configure()` to work at all, not just to upload |
 
 Also available: `Contains`, `MaxDuration`, `TrajectoryMatch`, `ArgumentCorrectness`, `MaxToolCalls`, `MaxModelRequests` — same span-tree dependency as `ToolCorrectness` for the tool/trajectory ones; see `pydantic_evals.evaluators` for the full set. These five agentic (span-based) evaluators need `pydantic-evals>=2.4.0` — on an older pin, check `pyproject.toml`/`uv.lock` and upgrade before reaching for them, since the import itself is what fails, not a silent no-op.

@@ -182,11 +182,28 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert 'Use `logfire[datasets]` instead only when' in evals
     assert 'npm install logfire @pydantic/logfire-node' in evals
     assert "from 'logfire/evals'" in evals
-    assert 'do not add the Node exporter to a non-Node runtime' in evals
     assert 'compatibility endpoint is documented only for Logfire Cloud US and EU' in evals
+    assert 'project:write_otlp` and `project:read_datasets' in evals
+    assert '<logfire-project-write-token>' not in evals
     assert 'The `pydantic_evals` workflow is Python-only' not in evals
     assert '3-5 cases from existing tests' in evals
     assert 'ask one focused question instead of inventing either' in evals
+    assert 'if it configures an exporter itself' in evals
+    assert 'stop rather than claiming the run is local-only' in evals
+    assert 'reportEvaluators: dataset.reportEvaluators' in evals
+    assert 'a plain class raises at run time' not in evals
+    assert 'use `@dataclass` for configurable fields and portable serialization' in evals
+
+
+def test_braintrust_skill_and_guide_require_the_working_api_key_scopes() -> None:
+    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    guide = (REPO_ROOT / 'docs' / 'comparisons' / 'migrate-from-braintrust.md').read_text()
+
+    for content in (evals, guide):
+        assert 'project:write_otlp' in content
+        assert 'project:read_datasets' in content
+        assert 'ingest-only write token' in content
+    assert '<your-logfire-write-token>' not in guide
 
 
 def _wrap(component: str, prompt_lines: list[str]) -> str:
