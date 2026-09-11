@@ -47,13 +47,11 @@ Identify the real task and any dataset. Follow repository package, test, and dep
 
 ## Step 4: Define the Dataset and Run It
 
-Use the repository's existing package manager. Install only the missing integration for its language.
+Use the repository's existing package manager and lockfile. Install only the missing integration for its language.
 
 ### Python
 
-```bash
-uv add 'pydantic-evals[logfire]'
-```
+Add `pydantic-evals[logfire]` with the detected Python manager: `uv add`, `poetry add`, or `pdm add`. For a pip/requirements project, update its declared requirements and install from that file; do not introduce a second manager or lockfile.
 
 ```python
 import logfire
@@ -85,11 +83,7 @@ Use `logfire[datasets]` instead only when the task specifically needs the hosted
 
 Do not apply this section to Deno, Bun, browsers, or workers; their exporter setup is not validated by this skill.
 
-Add `logfire` and the Node exporter if missing:
-
-```bash
-npm install logfire @pydantic/logfire-node
-```
+Add `logfire` and `@pydantic/logfire-node` with the manager selected by the existing lockfile: `pnpm add`, `yarn add`, `bun add`, or `npm install`. Do not introduce a second lockfile.
 
 Configure Logfire before loading the task. Reuse an existing instrumentation entry point rather than configuring it twice.
 
@@ -108,8 +102,7 @@ const dataset = new Dataset<string, string>({
 
 dataset.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
-  return logfire.shutdown()
-})
+}).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
 ```
 
 Other built-ins include `Equals`, `Contains`, `IsInstance`, `MaxDuration`, `HasMatchingSpan`, and `LLMJudge`. Node.js custom evaluators extend `Evaluator`, and `LLMJudge` needs a judge callback. Use `@pydantic/logfire-node/datasets` only for hosted datasets.
@@ -142,8 +135,7 @@ const smoke = new Dataset({
 })
 smoke.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
-  return logfire.shutdown()
-})
+}).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
 ```
 
 Confirm the smoke run has zero unexpected errors and the assertions that should pass do. Then, if the full dataset is large or uses paid model calls, tell the user the case count and which evaluators will make model calls, and get explicit confirmation before running the full dataset — don't run an expensive full pass on the strength of a clean smoke test alone without saying so.

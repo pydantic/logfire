@@ -91,7 +91,8 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'accept only an absolute origin' in auth
     assert 'no userinfo, non-root path, query, fragment, whitespace, or control characters' in auth
     assert 'check only whether `LOGFIRE_TOKEN` is set; never read its value' in auth
-    assert 'commands below use the safe default `env -u LOGFIRE_TOKEN`' in auth
+    assert 'Every CLI command below excludes that ambient token' in auth
+    assert 'do not make an exception' in auth
     assert 'never concatenate it into shell text or use `eval`' in auth
     assert '<target> projects new <project-name>' in auth
     assert 'product prompt only needs to supply the exact Logfire URL' in auth
@@ -284,11 +285,11 @@ def test_evals_skill_keeps_local_runs_local_and_smoke_tests_report_evaluators() 
 def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
-    assert "uv add 'pydantic-evals[logfire]'" in evals
+    assert 'Add `pydantic-evals[logfire]` with the detected Python manager' in evals
     assert "uv add 'logfire[datasets]'" not in evals
     assert 'Use `logfire[datasets]` instead only when' in evals
     assert 'Hosted inputs and outputs must be JSON objects' in evals
-    assert 'npm install logfire @pydantic/logfire-node' in evals
+    assert 'Add `logfire` and `@pydantic/logfire-node` with the manager selected by the existing lockfile' in evals
     assert 'their exporter setup is not validated by this skill' in evals
     assert "from 'logfire/evals'" in evals
     assert 'compatibility endpoint is documented only for Logfire Cloud US and EU' in evals
@@ -301,7 +302,7 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert 'stop rather than claiming local-only' in evals
     assert 'reportEvaluators: dataset.reportEvaluators' in evals
     assert 'const report = await' not in evals
-    assert evals.count('return logfire.shutdown()') == 2
+    assert evals.count('.finally(() => logfire.shutdown({ timeoutMillis: 5000 }))') == 2
     assert 'Node.js `HasMatchingSpan` can produce no evaluator result at all' in evals
     assert 'a plain class raises at run time' not in evals
     assert 'use `@dataclass` for configurable fields and portable serialization' in evals
