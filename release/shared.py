@@ -10,5 +10,6 @@ def run_command(*args: str) -> str:
 REPO = 'pydantic/logfire'
 CHANGELOG_FILE = 'CHANGELOG.md'
 ROOT_PYPROJECT = 'pyproject.toml'
+META_PYPROJECT = 'logfire-meta/pyproject.toml'
 API_PYPROJECT = 'logfire-api/pyproject.toml'
 GITHUB_TOKEN = run_command('gh', 'auth', 'token')

@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v6.0.0] (2026-09-11)
+
+* **Breaking Change:** Split the `logfire` distribution into the `logfire-sdk` Python SDK and the standalone `logfire-cli`. The `logfire` package now installs both while preserving upgrades from Logfire 5, the existing `import logfire` API, and optional extras. Install `logfire-sdk` directly when the CLI is not needed.
+
 ## [v5.1.0] (2026-09-11)
 
 ### Integrations
@@ -1302,3 +1306,4 @@ First release from new repo!
 [v4.41.0]: https://github.com/pydantic/logfire/compare/v4.40.0...v4.41.0
 [v5.0.0]: https://github.com/pydantic/logfire/compare/v4.41.0...v5.0.0
 [v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0
+[v6.0.0]: https://github.com/pydantic/logfire/compare/v5.1.0...v6.0.0

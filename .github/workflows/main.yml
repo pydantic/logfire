@@ -56,7 +56,7 @@ jobs:
           version: "0.11.1"
           enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
-      - name: Install only logfire
+      - name: Install only logfire-sdk
         run: |
           uv venv --python 3.14 .minimal-venv
           uv pip install --python .minimal-venv .
@@ -65,6 +65,30 @@ jobs:
         run: |
           cd "$(mktemp -d)"
           "$GITHUB_WORKSPACE/.minimal-venv/bin/python" "$GITHUB_WORKSPACE/.github/workflows/scripts/minimal_install_smoke.py"
+
+      - name: Build all distributions
+        run: uv build --all --no-sources
+
+      - name: Install the logfire meta-package
+        run: |
+          uv venv --python 3.14 .meta-venv
+          uv pip install --python .meta-venv --find-links dist dist/logfire-[0-9]*-py3-none-any.whl
+
+      - name: Smoke test the meta-package
+        run: |
+          .meta-venv/bin/python .github/workflows/scripts/meta_package_smoke.py
+          .meta-venv/bin/logfire --version
+
+      - name: Upgrade logfire 5 to logfire 6
+        run: |
+          uv venv --python 3.14 --seed .upgrade-venv
+          .upgrade-venv/bin/python -m pip install "logfire==5.1.0"
+          .upgrade-venv/bin/python .github/workflows/scripts/upgrade_install_smoke.py 5
+          .upgrade-venv/bin/logfire --version
+          .upgrade-venv/bin/python -m pip install --upgrade --find-links dist dist/logfire-[0-9]*-py3-none-any.whl
+          .upgrade-venv/bin/python .github/workflows/scripts/upgrade_install_smoke.py 6
+          .upgrade-venv/bin/logfire --version
+          .upgrade-venv/bin/python -m pip check
 
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
@@ -262,9 +286,9 @@ jobs:
           version_file_path: pyproject.toml
 
       - name: Build artifacts
-        run: uv build --all
+        run: uv build --all --no-sources
 
-      - name: Publish logfire and logfire-api to PyPI
+      - name: Publish logfire, logfire-sdk, and logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           skip-existing: true

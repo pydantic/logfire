@@ -37,6 +37,9 @@ This is a very brief overview of how to use Logfire, the [documentation](https:/
 pip install logfire
 ```
 
+This installs both the Python SDK and the Logfire CLI. To install only the SDK, use
+`pip install logfire-sdk`; the import remains `import logfire`.
+
 [_(learn more)_](https://pydantic.dev/docs/logfire/get-started/#sdk)
 
 ## Authenticate

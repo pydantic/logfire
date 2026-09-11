@@ -1,0 +1,98 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "logfire"
+version = "6.0.0"
+description = "Pydantic Logfire Python SDK and command-line interface"
+requires-python = ">=3.10"
+authors = [
+    { name = "Pydantic Team", email = "engineering@pydantic.dev" },
+    { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
+    { name = "Hasan Ramezani", email = "hasan@pydantic.dev" },
+    { name = "Adrian Garcia Badaracco", email = "adrian@pydantic.dev" },
+    { name = "David Montague", email = "david@pydantic.dev" },
+    { name = "Marcelo Trylesinski", email = "marcelo@pydantic.dev" },
+    { name = "David Hewitt", email = "david.hewitt@pydantic.dev" },
+    { name = "Alex Hall", email = "alex@pydantic.dev" },
+    { name = "Jiri Kuncar", email = "jiri@pydantic.dev" },
+]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Operating System :: Unix",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+    "Framework :: OpenTelemetry",
+    "Framework :: OpenTelemetry :: Distros",
+    "Framework :: OpenTelemetry :: Exporters",
+    "Framework :: OpenTelemetry :: Instrumentations",
+]
+dependencies = ["logfire-sdk==6.0.0", "logfire-cli>=0.1.2"]
+
+[project.scripts]
+logfire = "logfire_cli:main"
+
+[project.optional-dependencies]
+gateway = ["logfire-sdk[gateway]==6.0.0"]
+system-metrics = ["logfire-sdk[system-metrics]==6.0.0"]
+asgi = ["logfire-sdk[asgi]==6.0.0"]
+wsgi = ["logfire-sdk[wsgi]==6.0.0"]
+aiohttp = ["logfire-sdk[aiohttp]==6.0.0"]
+aiohttp-client = ["logfire-sdk[aiohttp-client]==6.0.0"]
+aiohttp-server = ["logfire-sdk[aiohttp-server]==6.0.0"]
+celery = ["logfire-sdk[celery]==6.0.0"]
+django = ["logfire-sdk[django]==6.0.0"]
+fastapi = ["logfire-sdk[fastapi]==6.0.0"]
+flask = ["logfire-sdk[flask]==6.0.0"]
+httpx = ["logfire-sdk[httpx]==6.0.0"]
+starlette = ["logfire-sdk[starlette]==6.0.0"]
+litestar = ["logfire-sdk[litestar]==6.0.0"]
+sqlalchemy = ["logfire-sdk[sqlalchemy]==6.0.0"]
+asyncpg = ["logfire-sdk[asyncpg]==6.0.0"]
+psycopg = ["logfire-sdk[psycopg]==6.0.0"]
+psycopg2 = ["logfire-sdk[psycopg2]==6.0.0"]
+pymongo = ["logfire-sdk[pymongo]==6.0.0"]
+redis = ["logfire-sdk[redis]==6.0.0"]
+requests = ["logfire-sdk[requests]==6.0.0"]
+mysql = ["logfire-sdk[mysql]==6.0.0"]
+sqlite3 = ["logfire-sdk[sqlite3]==6.0.0"]
+urllib = ["logfire-sdk[urllib]==6.0.0"]
+aws-lambda = ["logfire-sdk[aws-lambda]==6.0.0"]
+google-genai = ["logfire-sdk[google-genai]==6.0.0"]
+litellm = ["logfire-sdk[litellm]==6.0.0"]
+dspy = ["logfire-sdk[dspy]==6.0.0"]
+datasets = ["logfire-sdk[datasets]==6.0.0"]
+variables = ["logfire-sdk[variables]==6.0.0"]
+
+[project.urls]
+Homepage = "https://pydantic.dev/logfire"
+Source = "https://github.com/pydantic/logfire"
+Documentation = "https://pydantic.dev/docs/logfire/"
+Changelog = "https://github.com/pydantic/logfire/blob/main/CHANGELOG.md"
+
+[tool.uv.sources]
+logfire-sdk = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
+
+[tool.hatch.build.targets.sdist]
+include = ["/LICENSE", "/README.md"]
