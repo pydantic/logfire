@@ -231,3 +231,27 @@ def test_get_node_source_text_falls_back_to_unparse(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(ast, 'get_source_segment', get_source_segment)
 
     assert ast_utils.get_node_source_text(node, Source()) == 'x'
+
+
+def test_source_code_extraction_warning_not_repeated_per_span(exporter: TestExporter) -> None:
+    """Repeated spans from the same call site should not each emit `InspectArgumentsFailedWarning`.
+
+    Regression test for https://github.com/pydantic/logfire/issues/2223.
+    When the caller's source is unavailable (e.g. running .pyc files without the source .py
+    files, or exec()'d code) but the message template is a plain literal with explicit
+    keyword values, the warning should only be emitted once per call site/process, not once
+    per span.
+    """
+    code = """\
+import logfire
+
+def make_span(test_name: str) -> None:
+    with logfire.span('wc-test {test_name}', test_name=test_name):
+        pass
+
+for i in range(3):
+    make_span(f'test-{i}')
+"""
+    with pytest.warns(InspectArgumentsFailedWarning, match='No source code available') as record:
+        exec(code)
+    assert len(record) == 1
