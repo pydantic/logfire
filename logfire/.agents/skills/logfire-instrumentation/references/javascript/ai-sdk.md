@@ -25,9 +25,9 @@ registerTelemetry(new OpenTelemetry())
 
 For Next.js, put this registration in `instrumentation.ts` alongside `registerOTel()`. For Node.js, put it in the instrumentation entrypoint that loads before application modules import or call the AI SDK.
 
-Telemetry is enabled for every AI SDK call after registration, and input/output recording defaults to enabled. Before registering it, identify calls that handle secrets, personal data, or sensitive user content. Set both `recordInputs` and `recordOutputs` to `false` on those calls, default to false when sensitivity is uncertain, and enable content capture only after the user explicitly chooses it. Metadata, timing, model, and token-usage telemetry remain useful without captured content.
+Telemetry is enabled for every AI SDK call after registration, and input/output recording defaults to enabled. Before registering it, identify calls that handle secrets, personal data, or sensitive user content. Set both `recordInputs` and `recordOutputs` to `false` on those calls, default to false when sensitivity is uncertain, and enable content capture only after the user explicitly chooses it. Function identity, timing, model, and token-usage telemetry remain useful without captured content.
 
-Use the stable `telemetry` option when a call needs metadata, content-capture controls, or must opt out:
+Use the stable `telemetry` option when a call needs a function identity, content-capture controls, or must opt out:
 
 ```ts
 const result = await generateText({
@@ -35,7 +35,6 @@ const result = await generateText({
   prompt,
   telemetry: {
     functionId: 'support-reply',
-    metadata: { tenant: tenantSlug },
     recordInputs: false,
     recordOutputs: false,
   },
@@ -64,9 +63,15 @@ Both version-specific paths apply to AI SDK operations that emit telemetry, incl
 - `generateObject` and `streamObject`
 - `embed` and `embedMany`
 
-## Add Stable Metadata
+## Add Stable Labels
 
-Use `functionId` to distinguish use cases and `metadata` for bounded, non-sensitive labels. On AI SDK 7 use `telemetry`; on versions 5 and 6 use `experimental_telemetry` and include `isEnabled: true`:
+Use `functionId` to distinguish use cases. AI SDK 7 removed the older `telemetry.metadata` field. When an AI SDK 7 call needs additional bounded, non-sensitive labels, opt selected runtime-context keys into telemetry at both layers. Replace the registration above with:
+
+```ts
+registerTelemetry(new OpenTelemetry({ runtimeContext: true }))
+```
+
+Then pass the value through `runtimeContext` and explicitly include only the intended keys:
 
 AI SDK 7:
 
@@ -74,14 +79,19 @@ AI SDK 7:
 await generateText({
   model,
   prompt,
+  runtimeContext: {
+    tenant: tenantSlug,
+  },
   telemetry: {
     functionId: 'support-reply',
-    metadata: {
-      tenant: tenantSlug,
+    includeRuntimeContext: {
+      tenant: true,
     },
   },
 })
 ```
+
+Both switches are required: the AI SDK excludes runtime-context keys unless the call allowlists them, and `@ai-sdk/otel` excludes runtime context unless its integration enables it.
 
 AI SDK 5 or 6:
 

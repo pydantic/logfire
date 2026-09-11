@@ -247,7 +247,7 @@ see the `logfire-infrastructure` skill.
 
 Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
-1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
+1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear. If Step 1 found an ambient `LOGFIRE_TOKEN` while the local SDK is meant to use the newly selected `.logfire/` credential, omit that variable from the child application process too and make sure an env loader does not reintroduce an unrelated token. Do not mutate the parent shell or silently rewrite existing environment files.
 2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path and token policy as Step 1. The commands below always exclude an ambient `LOGFIRE_TOKEN`; use the OAuth and project credentials selected in Step 1. With `uv`:
    ```bash
    env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
@@ -616,7 +616,7 @@ env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python 
 
 # Explicitly supplied non-cloud origin:
 (
-  credential_probe_dir="$(mktemp -d)"
+  credential_probe_dir="$(mktemp -d)" || exit 1
   trap 'rm -rf -- "$credential_probe_dir"' EXIT
   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
 )
@@ -636,13 +636,13 @@ run_logfire_js <target> whoami
 
 # Explicitly supplied non-cloud origin:
 (
-  credential_probe_dir="$(mktemp -d)"
+  credential_probe_dir="$(mktemp -d)" || exit 1
   trap 'rm -rf -- "$credential_probe_dir"' EXIT
   run_logfire_js --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
 )
 ```
 
-Do not use a plain `npx logfire` command or omit the external `--prefix`, shared `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and use the isolated Python CLI above rather than translating the POSIX command into a repository-local npm invocation.
+Do not use a plain `npx logfire` command or omit the external `--prefix`, shared `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. The command blocks above are POSIX shell. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and launch the same isolated Python arguments through a child process whose environment omits `LOGFIRE_TOKEN`; use the agent runtime's process API rather than translating `env -u`, the subshell, or `trap` into shell text. For the non-cloud probe, pass a newly created temporary directory as `--data-dir` and remove it afterward.
 
 If that already reports the right project and resolved target (`--region` for Logfire Cloud or `--base-url` for an explicitly supplied on-prem origin), you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory with one of the verified prefixes above — it's a setup tool, not an app dependency. `--non-interactive` is Python-CLI-only right now: the JS CLI doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every JS invocation below; keep it on every Python one. JS `projects list` prints a table to stderr and does not accept `--json`; only `projects status` does.
 
@@ -673,7 +673,7 @@ run_logfire_js <target> whoami
 
 - Any command failing with `NonInteractiveError` explains what to do next in its own message — usually the exact missing flag (commonly `--org`), but `auth` with no region instead prints a runnable `--region <id> auth` line per region. Follow what the message says and retry once. Don't drop `--non-interactive` to make the error go away; that trades a clear message for the hang it exists to prevent.
 - `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
-- If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing.
+- The CLI commands above exclude ambient `LOGFIRE_TOKEN`, but a later application process can still inherit that variable and silently override the `.logfire/` project credential. During local verification, launch the application through a child environment that also omits the ambient token and make sure its env loader does not reintroduce an unrelated token. Do not mutate the parent shell or silently rewrite the application's existing environment files.
 - Never print, log, hard-code, commit, or echo a token, and don't read `~/.logfire/default.toml`'s contents — a bad or missing credential surfaces as a CLI error, not a prompt. The one exception is reading `.logfire/logfire_credentials.json`'s `token` key programmatically, and only to hand it to a non-native-SDK application language that needs the actual value (see below) — never to print, display, or otherwise surface it.
 
 <a id="reference-logfire-instrumentation-references-auth-md--if-the-calling-skill-needs-a-write-token-not-just-a-cli-session"></a>

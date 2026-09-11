@@ -191,7 +191,7 @@ see the `logfire-infrastructure` skill.
 
 Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
-1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
+1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear. If Step 1 found an ambient `LOGFIRE_TOKEN` while the local SDK is meant to use the newly selected `.logfire/` credential, omit that variable from the child application process too and make sure an env loader does not reintroduce an unrelated token. Do not mutate the parent shell or silently rewrite existing environment files.
 2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path and token policy as Step 1. The commands below always exclude an ambient `LOGFIRE_TOKEN`; use the OAuth and project credentials selected in Step 1. With `uv`:
    ```bash
    env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json

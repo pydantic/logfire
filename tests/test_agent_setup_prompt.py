@@ -106,10 +106,14 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'run_logfire_js <target> projects list --json' not in auth
     assert 'run_logfire_js <target> projects list\n' in auth
     assert auth.count('whoami --data-dir "$credential_probe_dir"') == 2
-    assert auth.count('credential_probe_dir="$(mktemp -d)"') == 2
+    assert auth.count('credential_probe_dir="$(mktemp -d)" || exit 1') == 2
     assert auth.count('trap \'rm -rf -- "$credential_probe_dir"\' EXIT') == 2
     assert 'these commands use the user credential bound to the selected origin' in auth
     assert 'Do not pass the temporary data directory to `projects use` or the final check' in auth
+    assert 'The command blocks above are POSIX shell' in auth
+    assert 'child process whose environment omits `LOGFIRE_TOKEN`' in auth
+    assert 'a later application process can still inherit that variable' in auth
+    assert 'omit that variable from the child application process too' in instrumentation
     for document in (auth, instrumentation, offline):
         assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
         assert 'logfire@0.22.5' not in document
@@ -228,6 +232,13 @@ def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None
     assert 'input/output recording defaults to enabled' in ai_sdk
     assert ai_sdk.count('recordInputs: false') >= 2
     assert ai_sdk.count('recordOutputs: false') >= 2
+    ai_sdk_7 = ai_sdk.split('## Configure AI SDK 7', 1)[1].split('## Configure AI SDK 5 or 6', 1)[0]
+    stable_labels = ai_sdk.split('## Add Stable Labels', 1)[1].split('AI SDK 5 or 6:', 1)[0]
+    assert 'metadata:' not in ai_sdk_7
+    assert 'AI SDK 7 removed the older `telemetry.metadata` field' in stable_labels
+    assert 'new OpenTelemetry({ runtimeContext: true })' in stable_labels
+    assert 'runtimeContext:' in stable_labels
+    assert 'includeRuntimeContext:' in stable_labels
     assert 'AI SDK 7' in troubleshooting
     assert 'AI SDK 5/6' in troubleshooting
 
