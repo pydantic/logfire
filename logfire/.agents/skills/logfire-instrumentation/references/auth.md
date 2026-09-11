@@ -8,7 +8,7 @@ Choose the CLI target before assuming anything needs to happen. Logfire Cloud is
 - `https://logfire-eu.pydantic.dev` -> `--region eu`
 - An explicitly supplied non-cloud Logfire origin -> `--base-url <exact-origin>`. Customer-facing, this means an on-prem Logfire deployment.
 
-Never pass both, and never replace a Logfire Cloud region with `--base-url`. Parse a supplied URL with a standard URL parser and accept only an absolute origin: scheme, valid hostname or IP literal, and optional port, with no userinfo, non-root path, query, fragment, whitespace, or control characters. Normalize only a trailing `/`. Require `https://` for a non-cloud origin because CLI authentication sends a user credential to it. If parsing or validation fails, or the origin uses HTTP, stop and ask for a valid HTTPS origin instead; do not authenticate. Before contacting a non-cloud origin, check only whether `LOGFIRE_TOKEN` is set; never read its value. If it is set, prevent every CLI command in this session from inheriting it (for example, prefix the command with `env -u LOGFIRE_TOKEN`) unless the user explicitly confirms that token belongs to the exact origin. Do not edit the user's stored environment to do this. After `projects use`, the CLI can use the project credential it created on disk while the unrelated ambient token remains excluded. Pass a non-cloud origin as one quoted `--base-url` argument; never concatenate it into shell text or use `eval`. Do not otherwise rewrite, shorten, or guess it. In the commands below, replace `<target>` with the validated selector (`--region us`, `--region eu`, or `--base-url '<canonical-origin>'`). If the request contains no URL and there is no trustworthy region context, omit `<target>` from the initial check; a non-interactive `auth` attempt will print the available region-specific command(s) rather than silently choosing one.
+Never pass both, and never replace a Logfire Cloud region with `--base-url`. Parse a supplied URL with a standard URL parser and accept only an absolute origin: scheme, valid hostname or IP literal, and optional port, with no userinfo, non-root path, query, fragment, whitespace, or control characters. Normalize only a trailing `/`. Require `https://` for a non-cloud origin because CLI authentication sends a user credential to it. If parsing or validation fails, or the origin uses HTTP, stop and ask for a valid HTTPS origin instead; do not authenticate. Before contacting a non-cloud origin, check only whether `LOGFIRE_TOKEN` is set; never read its value. The commands below use the safe default `env -u LOGFIRE_TOKEN` so an ambient token cannot override the selected target. Omit only that token exclusion after the user explicitly confirms the token belongs to the exact origin, then require `whoami` to confirm its exact project before any further command. Do not edit the user's stored environment. After `projects use`, the CLI can use the project credential it created on disk while an unrelated ambient token remains excluded. Pass a non-cloud origin as one quoted `--base-url` argument; never concatenate it into shell text or use `eval`. Do not otherwise rewrite, shorten, or guess it. In the commands below, replace `<target>` with the validated selector (`--region us`, `--region eu`, or `--base-url '<canonical-origin>'`). If the request contains no URL and there is no trustworthy region context, omit `<target>` from the initial check; a non-interactive `auth` attempt will print the available region-specific command(s) rather than silently choosing one.
 
 Before trusting repository-local credentials, inspect path metadata only: neither
 `.logfire` nor `.logfire/logfire_credentials.json` may be a symlink. In a Git
@@ -21,7 +21,7 @@ step; do not open any application or configuration file yet.
 Then check, before assuming anything needs to happen. With `uv`, use an isolated, config-free, version-pinned environment and invoke Python in isolated mode so repository-local packages and `PYTHONPATH` cannot shadow the CLI:
 
 ```bash
-uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
 ```
 
 In a JS/TS project without `uv`, use this POSIX-shell fallback. Include the helper at the start of every JS CLI command block so a fresh shell can run it. The exact package version and `--ignore-scripts` keep the reviewed CLI artifact stable and prevent lifecycle scripts from running:
@@ -30,7 +30,7 @@ In a JS/TS project without `uv`, use this POSIX-shell fallback. Include the help
 npm_cache="$(mktemp -d)"
 npm_prefix="$(mktemp -d)"
 run_logfire_js() {
-  env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+  env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
 }
 
 run_logfire_js <target> whoami
@@ -42,16 +42,16 @@ If that already reports the right project and resolved target (`--region` for Lo
 
 ```bash
 # Python CLI (uvx --isolated) -- always include --non-interactive:
-uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> auth
-uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects list --json
-uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects use <project-name> --org <organization-name>
-uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> auth
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects list --json
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects use <project-name> --org <organization-name>
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
 
 # JS CLI (POSIX shell) -- include the helper in this shell; drop --non-interactive:
 npm_cache="$(mktemp -d)"
 npm_prefix="$(mktemp -d)"
 run_logfire_js() {
-  env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+  env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
 }
 run_logfire_js <target> auth
 run_logfire_js <target> projects list

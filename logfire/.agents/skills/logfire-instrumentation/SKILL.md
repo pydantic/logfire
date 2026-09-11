@@ -192,30 +192,30 @@ see the `logfire-infrastructure` skill.
 Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
 1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
-2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path as Step 1. With `uv`:
+2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path and token policy as Step 1. The commands below exclude an ambient `LOGFIRE_TOKEN` by default; omit that exclusion only when Step 1 verified that token for this exact origin and project. With `uv`:
    ```bash
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
    ```
    For a JS/TS project without `uv`:
    ```bash
    npm_cache="$(mktemp -d)"
    npm_prefix="$(mktemp -d)"
    run_logfire_js() {
-     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+     env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
    }
    run_logfire_js <target> projects status --json
    ```
    If it reports no usable read token, create one for the exact project `whoami` reported and retry — `--project` goes on `read-tokens` itself, before `create`:
    ```bash
    # Python CLI
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> read-tokens --project <organization>/<project> create --save
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> read-tokens --project <organization>/<project> create --save
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
 
    # JS CLI (POSIX shell)
    npm_cache="$(mktemp -d)"
    npm_prefix="$(mktemp -d)"
    run_logfire_js() {
-     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+     env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
    }
    run_logfire_js <target> read-tokens --project <organization>/<project> create --save
    run_logfire_js <target> projects status --json

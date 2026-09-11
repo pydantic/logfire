@@ -74,7 +74,7 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
     offline = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
     npm_exec = (
-        'env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
+        'env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
         '--cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
         '--prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire'
     )
@@ -91,7 +91,7 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'accept only an absolute origin' in auth
     assert 'no userinfo, non-root path, query, fragment, whitespace, or control characters' in auth
     assert 'check only whether `LOGFIRE_TOKEN` is set; never read its value' in auth
-    assert 'prevent every CLI command in this session from inheriting it' in auth
+    assert 'commands below use the safe default `env -u LOGFIRE_TOKEN`' in auth
     assert 'never concatenate it into shell text or use `eval`' in auth
     assert '<target> projects new <project-name>' in auth
     assert 'product prompt only needs to supply the exact Logfire URL' in auth
@@ -111,6 +111,9 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
             if re.search(r'^\s*run_logfire_js\s', fence, re.MULTILINE):
                 assert 'run_logfire_js() {' in fence
                 assert npm_exec in fence
+        for line in document.splitlines():
+            if 'uvx --isolated' in line and not line.lstrip().startswith('#'):
+                assert line.lstrip().startswith('env -u LOGFIRE_TOKEN ')
     for document in (auth, offline):
         npm_commands = [line.strip() for line in document.splitlines() if 'npm ' in line and '-- logfire' in line]
         assert npm_commands
@@ -298,6 +301,7 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert 'stop rather than claiming local-only' in evals
     assert 'reportEvaluators: dataset.reportEvaluators' in evals
     assert 'const report = await' not in evals
+    assert evals.count('return logfire.shutdown()') == 2
     assert 'Node.js `HasMatchingSpan` can produce no evaluator result at all' in evals
     assert 'a plain class raises at run time' not in evals
     assert 'use `@dataclass` for configurable fields and portable serialization' in evals

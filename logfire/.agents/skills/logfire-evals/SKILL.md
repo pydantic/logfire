@@ -108,6 +108,7 @@ const dataset = new Dataset<string, string>({
 
 dataset.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+  return logfire.shutdown()
 })
 ```
 
@@ -141,6 +142,7 @@ const smoke = new Dataset({
 })
 smoke.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+  return logfire.shutdown()
 })
 ```
 
