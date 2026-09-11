@@ -100,7 +100,7 @@ const dataset = new Dataset<string, string>({
   evaluators: [new EqualsExpected()],
 })
 
-dataset.evaluate(classifySentiment).then((report) => {
+await dataset.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
 }).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
 ```
@@ -133,7 +133,7 @@ const smoke = new Dataset({
   evaluators: dataset.evaluators,
   reportEvaluators: dataset.reportEvaluators,
 })
-smoke.evaluate(classifySentiment).then((report) => {
+await smoke.evaluate(classifySentiment).then((report) => {
   console.log(renderReport(report, { includeInput: true, includeOutput: true }))
 }).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
 ```

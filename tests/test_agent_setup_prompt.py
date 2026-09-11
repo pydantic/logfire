@@ -324,6 +324,8 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert 'reportEvaluators: dataset.reportEvaluators' in evals
     assert 'const report = await' not in evals
     assert evals.count('.finally(() => logfire.shutdown({ timeoutMillis: 5000 }))') == 2
+    assert 'await dataset.evaluate(classifySentiment)' in evals
+    assert 'await smoke.evaluate(classifySentiment)' in evals
     assert 'Node.js `HasMatchingSpan` can produce no evaluator result at all' in evals
     assert 'a plain class raises at run time' not in evals
     assert 'use `@dataclass` for configurable fields and portable serialization' in evals
