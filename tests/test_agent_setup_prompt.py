@@ -234,6 +234,8 @@ def test_python_logging_guidance_preserves_existing_configuration() -> None:
     assert "'disable_existing_loggers': False" in logging
     assert "'root': {'level': 'INFO', 'handlers': ['logfire']}" in logging
     assert 'The `root.handlers` list replaces existing root handlers' in logging
+    assert "Python's root logger defaults to `WARNING`" in logging
+    assert 'Do not lower an intentional threshold' in logging
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:

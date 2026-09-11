@@ -54,7 +54,7 @@ logfire.configure()
 getLogger().addHandler(logfire.LogfireLoggingHandler())
 ```
 
-This explicitly adds the Logfire handler even when the application configured other root handlers first. Keep those handlers unless the user asks to replace them.
+This explicitly adds the Logfire handler even when the application configured other root handlers first. Keep those handlers and the application's existing logging threshold unless the user asks to change them. Python's root logger defaults to `WARNING`; if the application has not chosen a threshold and should send `INFO` records, set the root logger to `INFO` alongside this handler. Do not lower an intentional threshold.
 
 If the application already owns its complete `dictConfig`, add Logfire to that configuration. The `root.handlers` list replaces existing root handlers, so include every intended console, file, and Logfire handler there. This minimal example intentionally makes Logfire the only root handler:
 
