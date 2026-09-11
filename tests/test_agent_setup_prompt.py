@@ -126,6 +126,8 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
     assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
     assert 'run_logfire_js <target> projects status --json' in instrumentation
+    assert 'The commands below always exclude an ambient `LOGFIRE_TOKEN`' in instrumentation
+    assert 'omit that exclusion' not in instrumentation
     assert (
         "uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive "
         '<target> read-tokens --project <organization>/<project> create --save' in instrumentation
