@@ -9,7 +9,7 @@ description: Run offline evaluations for Python (`pydantic_evals`) or Node.js (`
 
 Python's `pydantic_evals` and Node.js's `logfire/evals` run the real task against cases, apply evaluators, and return a report. An active Logfire or OpenTelemetry provider may export evaluation inputs and outputs even if this skill did not configure it. Uploading intentionally needs `logfire.configure()` in Python or a configured exporter in Node.js.
 
-Span-based evaluators inspect the task's OpenTelemetry span tree. Without working Logfire instrumentation, Python reports "No span tree available" and Node.js `HasMatchingSpan` has no task spans to match. Treat either as a setup failure, not evidence about the agent.
+Span-based evaluators inspect the task's OpenTelemetry span tree. Without working Logfire instrumentation, Python reports "No span tree available"; Node.js `HasMatchingSpan` can produce no evaluator result at all. Treat either signal as a setup failure, not evidence about the agent.
 
 ## Step 1: Check for an Existing Braintrust Suite First
 

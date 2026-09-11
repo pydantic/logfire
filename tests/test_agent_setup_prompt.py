@@ -191,6 +191,8 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
     assert 'if it configures an exporter itself' in evals
     assert 'stop rather than claiming the run is local-only' in evals
     assert 'reportEvaluators: dataset.reportEvaluators' in evals
+    assert 'const report = await' not in evals
+    assert 'Node.js `HasMatchingSpan` can produce no evaluator result at all' in evals
     assert 'a plain class raises at run time' not in evals
     assert 'use `@dataclass` for configurable fields and portable serialization' in evals
 
