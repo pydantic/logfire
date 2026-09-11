@@ -78,6 +78,9 @@ class UnexpectedResponse(RequestException):
     def raise_for_status(cls, response: Response) -> None:
         """Like the requests method, but raises a more informative exception."""
 
+READ_TOKEN_FILENAME: str
+DATA_DIR_FILENAMES: Incomplete
+
 def ensure_data_dir_exists(data_dir: Path) -> None: ...
 def get_version(version: str) -> Version:
     """Return a packaging.version.Version object from a version string.
@@ -128,6 +131,14 @@ def platform_is_emscripten() -> bool:
     """Return True if the platform is Emscripten, e.g. Pyodide.
 
     Threads cannot be created on Emscripten, so we need to avoid any code that creates threads.
+    """
+def platform_is_aws_lambda() -> bool:
+    """Return True when running inside an AWS Lambda function.
+
+    Lambda freezes the execution environment between the end of the init phase and the first
+    invocation (and between invocations), so background work started during init may be
+    interrupted for minutes. `AWS_LAMBDA_FUNCTION_NAME` is set by the runtime in every Lambda
+    execution environment.
     """
 def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None = None) -> str:
     """Return a canonical string representation of an exception traceback.

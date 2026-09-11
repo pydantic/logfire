@@ -70,12 +70,6 @@ you can use the plain [`LogfireQueryClient`][logfire.query_client.LogfireQueryCl
 
 Here's an example of how to use these clients:
 
-/// version-deprecated | v4.35.0
-The older `query_json()` method is deprecated in favor of `query_json_rows()`. Calling `query_json_rows()`,
-`query_arrow()`, or `query_csv()` without providing a `min_timestamp` is also deprecated: pass an explicit
-timestamp as shown below.
-///
-
 === "Async"
 
     ```python skip-run="true" skip-reason="external-connection"
@@ -305,10 +299,6 @@ cursor = conn.cursor()
 cursor.min_timestamp = datetime.now(timezone.utc) - timedelta(days=14)
 cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
 ```
-
-/// version-deprecated | v4.35.0
-Setting `min_timestamp` to `None` in `connect()` or on the cursor is deprecated.
-///
 
 ## Making Direct HTTP Requests
 

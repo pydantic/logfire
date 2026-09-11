@@ -6,7 +6,7 @@ integration: otel
 
 # Send Flowise metrics to Logfire
 
-Track Flowise API, flow, prediction, and optional node metrics (numbers tracked over time, like requests per second or CPU load) in Logfire. Flowise sends these metrics using the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive telemetry. Its current OpenTelemetry support does not send detailed model or tool traces.
+Track Flowise API, flow, and prediction metrics (numbers tracked over time, such as request counts and duration) in Logfire. Flowise sends these metrics using the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive telemetry. Its current OpenTelemetry support does not send detailed model or tool traces or Node.js process metrics.
 
 This setup requires access to Flowise's runtime configuration and an [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md). The Collector is a separate program that sits between Flowise and Logfire, gathering telemetry and forwarding it. It also adds the Logfire authorization header.
 
@@ -17,13 +17,15 @@ Set these values in the Flowise environment:
 ```dotenv
 ENABLE_METRICS=true
 METRICS_PROVIDER=open_telemetry
-METRICS_INCLUDE_NODE_METRICS=true
 METRICS_OPEN_TELEMETRY_METRIC_ENDPOINT=http://otel-collector:4318/v1/metrics
 METRICS_OPEN_TELEMETRY_PROTOCOL=http
 METRICS_OPEN_TELEMETRY_DEBUG=false
 ```
 
 Replace `otel-collector` if the Collector has a different hostname. Restart Flowise after applying the environment.
+
+!!! warning "Flowise exports metrics every five seconds"
+    Flowise currently hard-codes a five-second interval in its OpenTelemetry metrics implementation and does not provide a setting to change it. This sends twelve times as many datapoints as the recommended 60-second interval. Monitor metric usage on busy instances and only enable this integration when you need its metrics. `METRICS_INCLUDE_NODE_METRICS` only affects Flowise's Prometheus provider, so it is intentionally omitted here.
 
 ## Configure the Collector
 

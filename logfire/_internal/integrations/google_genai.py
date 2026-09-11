@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import base64
-import json
-from typing import Any, TypeAlias
-
-from opentelemetry._logs import Logger, LoggerProvider, LogRecord
-from opentelemetry.trace import get_current_span
+import os
+from typing import Any
 
 import logfire
-from logfire._internal.utils import handle_internal_errors, safe_repr
+from logfire._internal.utils import safe_repr
+
+CAPTURE_MESSAGE_CONTENT_ENV_VAR = 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'
+LEGACY_CAPTURE_MESSAGE_CONTENT_VALUES = {'true': 'SPAN_ONLY', 'false': 'NO_CONTENT'}
+EMIT_EVENT_ENV_VAR = 'OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT'
 
 try:
     from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
@@ -36,116 +36,31 @@ except Exception:  # pragma: no cover
     pass
 
 
-try:
-    from opentelemetry.instrumentation.google_genai import generate_content
-    from pydantic import TypeAdapter
-
-    original_to_dict: Any = generate_content._to_dict  # pyright: ignore[reportPrivateUsage]
-
-    ANY_ADAPTER = TypeAdapter[Any](Any)
-
-    def wrapped_to_dict(obj: object) -> object:
-        try:
-            return original_to_dict(obj)
-        except Exception:  # pragma: no cover
-            try:
-                return ANY_ADAPTER.dump_python(obj, mode='json')
-            except Exception:  # pragma: no cover
-                return safe_repr(obj)
-
-    generate_content._to_dict = wrapped_to_dict  # pyright: ignore[reportPrivateUsage]
-
-except Exception:  # pragma: no cover
-    pass
-
-
-Part: TypeAlias = 'dict[str, Any] | str'
-
-
-def default_json(x: Any) -> str:
-    return base64.b64encode(x).decode('utf-8') if isinstance(x, bytes) else x
-
-
-def _strip_cycles(obj: Any, _seen: set[int] | None = None) -> Any:
-    """Return a copy of `obj` with any container cycles replaced by `safe_repr`.
-
-    `json.dumps` raises `ValueError: Circular reference detected` when a dict or list
-    contains itself anywhere in its descendants. This can happen when upstream
-    instrumentation captures Gemini SDK objects (e.g. an uploaded `File`) whose
-    `_to_dict` representation contains self-references. See pydantic/logfire#1881.
-    """
-    if _seen is None:
-        _seen = set()
-    if isinstance(obj, dict):
-        obj_id = id(obj)  # pyright: ignore[reportUnknownArgumentType]
-        if obj_id in _seen:
-            return safe_repr(obj)
-        _seen.add(obj_id)
-        try:
-            return {k: _strip_cycles(v, _seen) for k, v in obj.items()}  # pyright: ignore[reportUnknownVariableType]
-        finally:
-            _seen.discard(obj_id)
-    if isinstance(obj, (list, tuple)):
-        obj_id = id(obj)  # pyright: ignore[reportUnknownArgumentType]
-        if obj_id in _seen:
-            return safe_repr(obj)
-        _seen.add(obj_id)
-        try:
-            return [_strip_cycles(v, _seen) for v in obj]  # pyright: ignore[reportUnknownVariableType]
-        finally:
-            _seen.discard(obj_id)
-    return obj
-
-
-class SpanEventLogger(Logger):
-    @handle_internal_errors
-    def emit(self, record: LogRecord) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
-        span = get_current_span()
-        assert isinstance(record.body, dict)
-        assert record.event_name
-        body: dict[str, Any] = {**record.body}
-        if record.event_name == 'gen_ai.choice':
-            if 'content' in body and isinstance(body['content'], dict):
-                parts = body.pop('content')['parts']
-                new_parts = [transform_part(part) for part in parts] if parts else []
-                body['message'] = {'role': 'assistant', 'content': new_parts}
-        else:
-            if 'content' in body:  # pragma: no branch
-                if isinstance(body['content'], (list, tuple, set)):
-                    body['content'] = [transform_part(part) for part in body['content']]  # type: ignore  # pragma: no cover
-                else:
-                    body['content'] = transform_part(body['content'])
-            body['role'] = body.get('role', record.event_name.split('.')[1])
-
-        try:
-            event_body = json.dumps(body, default=default_json)
-        except ValueError:
-            # `json.dumps` raises ValueError for circular references. Strip the cycles
-            # so a single bad payload cannot silently drop the entire span event.
-            event_body = json.dumps(_strip_cycles(body), default=default_json)
-        span.add_event(record.event_name, attributes={'event_body': event_body})
-
-
-def transform_part(part: Part) -> Part:
-    if isinstance(part, str):
-        return part
-    new_part = {k: v for k, v in part.items() if v is not None}
-    if list(new_part.keys()) == ['text']:
-        return new_part['text']
-    return new_part
-
-
-class SpanEventLoggerProvider(LoggerProvider):
-    def get_logger(self, *args: Any, **kwargs: Any) -> SpanEventLogger:
-        return SpanEventLogger(*args, **kwargs)
-
-
 def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
+    capture_message_content = os.getenv(CAPTURE_MESSAGE_CONTENT_ENV_VAR)
+    if capture_message_content is not None:
+        canonical_value = LEGACY_CAPTURE_MESSAGE_CONTENT_VALUES.get(capture_message_content.strip().lower())
+        if canonical_value is not None:
+            os.environ[CAPTURE_MESSAGE_CONTENT_ENV_VAR] = canonical_value
+
+    # The instrumentation unconditionally sets OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT=true when it
+    # instruments, which makes it emit a `gen_ai.client.inference.operation.details` log event alongside
+    # every request span. In the span-based capture modes we use, that event is redundant (it duplicates the
+    # span attributes and, without content, adds nothing). Restore the user's own setting afterwards so the
+    # event follows the normal default for the content-capture mode (no event for NO_CONTENT / SPAN_ONLY).
+    # Upstream issue: https://github.com/open-telemetry/opentelemetry-python-genai/issues/619
+    emit_event = os.environ.get(EMIT_EVENT_ENV_VAR)
+
     GoogleGenAiSdkInstrumentor().instrument(
         **{
-            'logger_provider': SpanEventLoggerProvider(),
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'meter_provider': logfire_instance.config.get_meter_provider(),
+            'logger_provider': logfire_instance.config.get_logger_provider(),
             **kwargs,
         }
     )
+
+    if emit_event is None:
+        os.environ.pop(EMIT_EVENT_ENV_VAR, None)
+    else:
+        os.environ[EMIT_EVENT_ENV_VAR] = emit_event

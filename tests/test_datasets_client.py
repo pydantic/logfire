@@ -4,12 +4,13 @@
 
 from __future__ import annotations
 
+import builtins
 import json
+import sys
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
-from unittest.mock import patch
 from uuid import UUID
 
 import httpx
@@ -31,7 +32,6 @@ from logfire.experimental.api_client import (
     _from_dict_compat,
     _from_dict_supports_report_evaluators,
     _get_dataset_type_args,
-    _import_pydantic_evals,
     _serialize_case,
     _serialize_evaluators,
     _serialize_value,
@@ -305,20 +305,6 @@ class TestSerializeCase:
         )
         result = _serialize_case(case)
         assert result == {'inputs': {'q': 'hi'}, 'metadata': {'source': 'test'}, 'evaluators': []}
-
-
-class TestImportPydanticEvals:
-    def test_success(self):
-        Dataset, Case_ = _import_pydantic_evals()
-        from pydantic_evals import Case as RealCase, Dataset as RealDataset
-
-        assert Dataset is RealDataset
-        assert Case_ is RealCase
-
-    def test_import_error(self):
-        with patch.dict('sys.modules', {'pydantic_evals': None}):
-            with pytest.raises(ImportError, match='pydantic-evals is required'):
-                _import_pydantic_evals()
 
 
 class TestFromDictCompat:
@@ -1029,6 +1015,46 @@ class TestLogfireAPIClient:
 
         assert isinstance(result, Dataset)
 
+    def test_get_dataset_typed_type_form_with_defaults(self):
+        export = {
+            'name': 'test-dataset',
+            'cases': [{'name': 'test-case', 'inputs': [1, 2]}],
+        }
+        responses = {('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=export)}
+        client = make_client(responses)
+
+        result = client.get_dataset('test-dataset', input_type=list[int])
+
+        assert _get_dataset_type_args(result) == (list[int], Any, Any)
+        assert result.cases[0].inputs == [1, 2]
+
+    def test_get_dataset_typed_without_pydantic_evals(self, monkeypatch: pytest.MonkeyPatch):
+        client = make_client()
+        monkeypatch.setitem(sys.modules, 'pydantic_evals', None)
+
+        with pytest.raises(ImportError, match='pydantic-evals is required for this operation'):
+            client.get_dataset('test-dataset', input_type=MyInput)
+
+    def test_get_dataset_typed_with_broken_pydantic_evals_dependency(self, monkeypatch: pytest.MonkeyPatch):
+        client = make_client()
+        import_ = builtins.__import__
+
+        def mock_import(
+            name: str,
+            globals: dict[str, Any] | None = None,
+            locals: dict[str, Any] | None = None,
+            fromlist: tuple[str, ...] = (),
+            level: int = 0,
+        ) -> Any:
+            if name == 'pydantic_evals':
+                raise ModuleNotFoundError("No module named 'broken_dependency'", name='broken_dependency')
+            return import_(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, '__import__', mock_import)
+
+        with pytest.raises(ModuleNotFoundError, match='broken_dependency'):
+            client.get_dataset('test-dataset', input_type=MyInput)
+
     def test_add_cases_with_dicts(self):
         client = make_client()
         cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
@@ -1444,6 +1470,20 @@ class TestAsyncLogfireAPIClient:
         from pydantic_evals import Dataset
 
         assert isinstance(result, Dataset)
+
+    @pytest.mark.anyio
+    async def test_get_dataset_typed_type_form_with_defaults(self):
+        export = {
+            'name': 'test-dataset',
+            'cases': [{'name': 'test-case', 'inputs': [1, 2]}],
+        }
+        responses = {('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=export)}
+        client = make_async_client(responses)
+
+        result = await client.get_dataset('test-dataset', input_type=list[int])
+
+        assert _get_dataset_type_args(result) == (list[int], Any, Any)
+        assert result.cases[0].inputs == [1, 2]
 
     @pytest.mark.anyio
     async def test_add_cases_with_dicts(self):

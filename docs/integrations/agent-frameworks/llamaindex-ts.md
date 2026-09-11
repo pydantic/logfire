@@ -84,7 +84,7 @@ contains the agent run, its model calls, and that tool call.
 ## Managed prompts
 
 You can author and version prompts in [Prompt Management](../../reference/advanced/prompt-management/index.md)
-and fetch them at runtime with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/)
+and fetch them at runtime with the [Logfire TypeScript SDK](https://pydantic.dev/docs/logfire/instrument/typescript/)
 using `defineTemplateVar`:
 
 ```typescript

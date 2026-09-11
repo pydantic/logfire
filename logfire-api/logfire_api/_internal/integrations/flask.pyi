@@ -1,5 +1,4 @@
 from flask.app import Flask
-from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from logfire._internal.utils import maybe_capture_server_headers as maybe_capture_server_headers
 from logfire.integrations.flask import CommenterOptions as CommenterOptions, RequestHook as RequestHook, ResponseHook as ResponseHook
 from typing import Any

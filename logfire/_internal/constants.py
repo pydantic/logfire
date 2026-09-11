@@ -179,4 +179,7 @@ MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT = 128
 
 ONE_SECOND_IN_NANOSECONDS = 1_000_000_000
 
+HTTP_CONNECT_TIMEOUT = 3
+"""Maximum time in seconds to wait for each HTTP connection attempt."""
+
 ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY = 'logfire.exception.fingerprint'

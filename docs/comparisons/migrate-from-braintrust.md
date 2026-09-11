@@ -13,21 +13,21 @@ Keep your existing Braintrust `Eval` code and send its next completed evaluation
 
 ## Send your next evaluation to Logfire
 
-You need a Logfire project and its **write token**, the credential that selects the destination project and lets the Braintrust SDK send evaluation data. Copy one from **Project → Settings → Write tokens** in Logfire.
+Create a project API key under **Project → Settings → API keys** with **Send telemetry** (`project:write_otlp`) and **Read datasets** (`project:read_datasets`). The key selects the destination project, sends the run, and lets the Braintrust SDK read experiment metadata for its final comparison summary. An ingest-only write token cannot complete that read.
 
-Set the Braintrust app URL to the compatibility endpoint for your Logfire data region. Put the write token in the variable where the Braintrust SDK expects its API key:
+Set the Braintrust app URL to the compatibility endpoint for your Logfire data region. Put the project API key in the variable where the Braintrust SDK expects its API key:
 
 ```bash
 # US project
 export BRAINTRUST_APP_URL="https://logfire-us.pydantic.dev/v1/braintrust"
-export BRAINTRUST_API_KEY="<your-logfire-write-token>"
+export BRAINTRUST_API_KEY="<your-logfire-project-api-key>"
 
 # Remove overrides that would send part of the run somewhere else.
 unset BRAINTRUST_API_URL
 unset BRAINTRUST_PROXY_URL
 ```
 
-For an EU project, use `https://logfire-eu.pydantic.dev/v1/braintrust` instead. Keep the token out of source control.
+For an EU project, use `https://logfire-eu.pydantic.dev/v1/braintrust` instead. Keep the API key out of source control.
 
 Run the same Python or TypeScript evaluation command you use today. The compatibility endpoint makes no request to Braintrust. It accepts the SDK protocol, translates the completed run into Logfire experiment data, and returns a result link that opens Logfire.
 
@@ -42,7 +42,7 @@ Let the SDK finish its normal score summary, then use either route:
 
 Confirm that the experiment contains the expected cases and evaluator results. Case data appears when the SDK requests its final comparison summary, so it does not appear incrementally while the run is still in progress.
 
-One naming difference matters immediately: the write token selects the actual Logfire project. The string passed as the first argument to `Eval(...)`, which Braintrust calls a project, becomes the dataset name used to group experiments inside that Logfire project.
+One naming difference matters immediately: the API key selects the actual Logfire project. The string passed as the first argument to `Eval(...)`, which Braintrust calls a project, becomes the dataset name used to group experiments inside that Logfire project.
 
 ## Translate evaluation concepts
 
@@ -51,7 +51,7 @@ The two systems use similar evaluation shapes, but some nouns have different bou
 | If you know this in Braintrust | Use this in Logfire | What changes |
 | --- | --- | --- |
 | Organization | Organization | The team and access-control boundary remains an organization. |
-| Project | Logfire project | A Logfire project holds the telemetry, datasets, experiments, prompts, and other resources for an application or environment. With the compatibility endpoint, the write token selects this project. |
+| Project | Logfire project | A Logfire project holds the telemetry, datasets, experiments, prompts, and other resources for an application or environment. With the compatibility endpoint, the project API key selects this project. |
 | `Eval("support", ...)` project argument | Dataset name `support` | The compatibility endpoint uses Braintrust's project argument to group related experiments as a Logfire dataset. In native Pydantic Evals, set [`Dataset.name`](../evaluate/evals-in-code.md) directly. |
 | Dataset | Code-defined or hosted dataset | Keep cases beside your code in a `pydantic_evals.Dataset`, or [manage a hosted dataset](../evaluate/manage-datasets.md) with your team in Logfire. Braintrust-hosted datasets do not pass through the compatibility endpoint. |
 | Dataset row `input` | `Case.inputs` | Both hold the value passed to the task. |
@@ -100,7 +100,9 @@ The endpoint does not provide Braintrust-hosted datasets, prompts, functions, re
 
 **The SDK still contacts Braintrust:** Unset `BRAINTRUST_API_URL` and `BRAINTRUST_PROXY_URL`. Those overrides take precedence over the URLs returned by compatibility login.
 
-**The endpoint returns `401`:** Confirm that `BRAINTRUST_API_KEY` contains a Logfire project write token, not a Logfire user token or a Braintrust API key. Confirm that the endpoint region matches the project.
+**The endpoint returns `401`:** Confirm that `BRAINTRUST_API_KEY` contains a Logfire project API key rather than a Logfire user token or Braintrust API key, and that the endpoint region matches the project.
+
+**The endpoint returns `403` while producing the summary:** Confirm that the project API key has both `project:write_otlp` and `project:read_datasets`. An ingest-only write token can start the run but cannot read the experiment metadata requested by the Braintrust SDK.
 
 **The experiment exists but has no cases:** Let the normal SDK summary finish. Do not set `summarize_scores=False`, rely on manual `flush()`, or use the Rust SDK for this compatibility path.
 
@@ -110,4 +112,4 @@ The endpoint does not provide Braintrust-hosted datasets, prompts, functions, re
 
 - [Run a native evaluation](../evaluate/evals-in-code.md) when you are ready to replace the compatibility layer.
 - [Review experiments](../evaluate/review-experiments.md) to compare the first Logfire run with its next iteration.
-- [Compare Logfire and Braintrust](braintrust.md) for the broader product differences.
+- [Compare Logfire and Braintrust](https://pydantic.dev/logfire/vs-braintrust) for the broader product differences.

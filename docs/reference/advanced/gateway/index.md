@@ -15,7 +15,7 @@ The gateway gives you:
 - **One endpoint, many providers**: call OpenAI, Anthropic, Google, AWS Bedrock, Groq, Mistral, and more through provider-compatible endpoints, using the SDKs you already have.
 - **Key management**: project-scoped and personal API keys with per-key spending limits and expiry, managed in the Logfire UI.
 - **Cost controls**: usage analytics plus daily, weekly, monthly, and total spending caps per key, and per-member limits.
-- **Failover and load balancing**: routing groups let you group providers with priorities and weights.
+- **Failover and load balancing**: gateway endpoints route requests across one or more providers, using priorities and weights.
 - **Observability**: with telemetry enabled, every gateway request is traced into a Logfire project of your choice.
 
 The gateway is configured per **organization** and is available on the Personal, Team, Growth, and Enterprise Cloud plans.
@@ -33,11 +33,11 @@ The recommended setup runs the whole onboarding in one go: it enables the gatewa
 If you prefer to wire things up yourself, **Manual setup** just turns the gateway on and leaves providers, telemetry, and keys to you.
 
 !!! note "Prerequisites"
-    - You need to be an **organization admin** to enable the gateway and manage providers, routing, and spending. Non-admin members see the **Connect** and **API Keys** tabs only.
+    - You need to be an **organization admin** to enable the gateway and manage providers, gateway endpoints, and spending. Non-admin members see the **Connect** and **API Keys** tabs only.
     - The organization needs at least one **project**: API keys and telemetry are scoped to a project.
     - On the Personal, Team, and Growth plans, built-in providers are billed against a prepaid balance and require a payment method; the exact fees and initial balance are shown during activation. You can skip this entirely by adding your own provider credentials instead (see [Providers](#providers)).
 
-Once enabled, the Gateway page has these tabs: **Overview**, **Connect**, **API Keys**, **Providers**, **Routing**, **Spending**, and **Settings**.
+Once enabled, the Gateway page has these tabs: **Overview**, **Connect**, **API Keys**, **Providers**, **Endpoints**, **Spending**, and **Settings**.
 
 ### Connect an SDK
 
@@ -51,7 +51,7 @@ The gateway base URL depends on your Logfire region:
 | EU | `https://gateway-eu.pydantic.dev/proxy` |
 | Self-hosted | `https://<your-logfire-host>/proxy` |
 
-Requests are addressed to `<gateway-base-url>/<route>`, where `<route>` is a provider slug (or routing group slug) from your **Providers** tab, and authenticated with an `Authorization: Bearer` header carrying your gateway API key.
+Requests are addressed to `<gateway-base-url>/<route>`, where `<route>` is a provider slug from the **Providers** tab or a gateway endpoint slug from the **Endpoints** tab. Authenticate the request with an `Authorization: Bearer` header carrying your gateway API key.
 
 For example, with an OpenAI-compatible provider whose slug is `openai`, in the US region:
 
@@ -136,9 +136,9 @@ Gateway API keys authenticate requests to the gateway. Keys are scoped to a proj
 
 Each key can have an expiry date and its own **spending limits**: daily, weekly, monthly, and total. The recommended setup creates a first project key named **Quick Start**.
 
-### Routing groups
+### Gateway endpoints
 
-Routing groups (the **Routing** tab) let you define fallback strategies by grouping multiple providers under a single slug. Each member provider has a **priority** (failover order) and a **weight** (load balancing between members at the same priority level). Use the group's slug in place of a provider slug in your request URL to route through the group.
+A gateway endpoint routes requests across one or more providers under a single slug. Manage gateway endpoints on the **Endpoints** tab. Each provider assigned to a gateway endpoint has a **priority** (failover order) and a **weight** (load balancing between providers at the same priority level). Use the gateway endpoint's slug in place of a provider slug in your request URL.
 
 ### Spending limits and balance
 
@@ -160,6 +160,9 @@ The Logfire CLI can run a local authenticating proxy and launch supported AI cod
 pip install "logfire[gateway]"
 logfire gateway launch claude
 ```
+
+!!! note
+    For self-hosted Logfire, set `LOGFIRE_BASE_URL` to your Logfire URL or pass `--base-url "https://<your-logfire-host>"` before `gateway`. If the Gateway is exposed at a different URL, set `LOGFIRE_GATEWAY_URL` or append `--gateway-url "https://<your-gateway-host>"`.
 
 Or run just the proxy and configure a tool manually with `logfire gateway serve`. See the [CLI reference](../../cli.md#ai-gateway-gateway) for details.
 

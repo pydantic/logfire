@@ -36,9 +36,9 @@ do_work();
 use logfire;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let shutdown_handler = logfire::configure()
-        .install_panic_handler()  // captures panics as error spans
+    let logfire = logfire::configure()
         .finish()?;
+    let shutdown_handler = logfire.shutdown_guard();
 
     // application code...
 
@@ -47,7 +47,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-Set `LOGFIRE_TOKEN` in your environment or use the Logfire CLI (`logfire auth`).
+Panic capture is enabled by default. Keep the shutdown guard on the main stack
+so a panic still flushes. Call `.with_install_panic_handler(false)` before
+`.finish()` only to disable the hook.
+
+Set `LOGFIRE_TOKEN` in your environment or follow the
+[authentication and project-selection flow](../auth.md), including `projects use`,
+to create `.logfire/logfire_credentials.json` for the selected project.
 
 ## Tracing Crate Compatibility
 
@@ -90,7 +96,8 @@ Always call `shutdown()` before program exit to flush pending data:
 
 ```rust
 // In main()
-let shutdown_handler = logfire::configure().finish()?;
+let logfire = logfire::configure().finish()?;
+let shutdown_handler = logfire.shutdown_guard();
 
 // ... app runs ...
 

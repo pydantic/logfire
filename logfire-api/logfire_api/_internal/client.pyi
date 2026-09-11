@@ -1,7 +1,9 @@
 from .auth import UserToken as UserToken, UserTokenCollection as UserTokenCollection
+from .constants import HTTP_CONNECT_TIMEOUT as HTTP_CONNECT_TIMEOUT
 from .server_response import ServerResponseCallback as ServerResponseCallback, install_logfire_response_hook as install_logfire_response_hook
 from .utils import UnexpectedResponse as UnexpectedResponse
 from _typeshed import Incomplete
+from datetime import datetime
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.version import VERSION as VERSION
 from typing import Any
@@ -55,7 +57,12 @@ class LogfireClient:
         """
     def create_write_token(self, organization: str, project_name: str) -> dict[str, Any]:
         """Create a write token for the given project in the given organization."""
-    def create_read_token(self, organization: str, project_name: str) -> dict[str, Any]:
-        """Create a read token for the given project in the given organization."""
+    def create_read_token(self, organization: str, project_name: str, expires_at: datetime | None = None) -> dict[str, Any]:
+        """Create a read token for the given project in the given organization.
+
+        `expires_at` bounds how long the token stays valid. The CLI has no way to revoke
+        one, so a token it stores on disk gets an expiry; a token it prints for the caller
+        to place somewhere else does not, because we do not know what it was used for.
+        """
     def get_prompt(self, organization: str, project_name: str, issue: str) -> dict[str, Any]:
         """Get a prompt to be used with your favorite LLM."""

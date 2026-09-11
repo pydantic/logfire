@@ -117,11 +117,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 Run `LOGFIRE_TOKEN=<write-token> OPENAI_API_KEY=<key> cargo run` in your terminal. The program fails unless the
-native Rig agent executes `lookup_incident`. In Logfire, the trace contains Rig's agent, completion, and tool
-spans. Because `record_content_telemetry(true)` is enabled, the completion spans also contain
+native Rig agent executes `lookup_incident`. Logfire receives Rig's agent, completion, and tool spans. Because
+`record_content_telemetry(true)` is enabled, the completion spans also contain
 `gen_ai.input.messages` and `gen_ai.output.messages`, and tool spans contain the arguments and results. The
 Logfire SDK does not add a synthetic agent wrapper. Rig runs also appear in the specialized **Agents** view; the
-[support matrix](support-matrix.md) shows which columns each view populates.
+[framework coverage guide](support-matrix.md) shows which details each view adds.
+
+Rig currently records the agent run and its completion on separate trace IDs. The **LLMs** page shows the model
+call and its token counts, and the **Agents** page shows the agent run, but Logfire cannot safely associate those
+records. Agent-level model, token, cost, tool, and message fields therefore remain empty. Use Live or Explore to
+inspect both traces.
 
 For an EU-region project, use its EU write token. The Logfire Rust SDK infers the data region from the token.
 
@@ -144,7 +149,7 @@ For an EU-region project, use its EU write token. The Logfire Rust SDK infers th
 Managed prompts are authored and versioned in
 [Prompt Management](../../reference/advanced/prompt-management/index.md). The dedicated prompt-fetching SDK
 helpers are currently available in the [Python](../../reference/advanced/prompt-management/application.md) and
-[TypeScript](https://pydantic.dev/docs/logfire/typescript-sdk/) SDKs. From Rust, consume managed variables over
+[TypeScript](https://pydantic.dev/docs/logfire/instrument/typescript/) SDKs. From Rust, consume managed variables over
 the language-agnostic
 [OpenFeature Remote Evaluation Protocol (OFREP) HTTP API](../../reference/advanced/managed-variables/external.md),
 or resolve the prompt in a small Python or TypeScript sidecar and pass the rendered text into the Rig agent.

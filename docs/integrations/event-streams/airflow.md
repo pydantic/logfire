@@ -62,7 +62,7 @@ otel_on = True
 otel_host = logfire-us.pydantic.dev
 otel_port = 443
 otel_prefix = airflow
-otel_interval_milliseconds = 30000  # The interval between exports, defaults to 60000
+otel_interval_milliseconds = 60000  # One minute, which is also Airflow's default
 otel_ssl_active = True
 
 [traces]
@@ -76,6 +76,8 @@ otel_task_log_event = True
 ```
 
 For the full list of settings, see Airflow's [traces] and [metrics] documentation.
+
+Keep the metrics export interval at 60,000 milliseconds (one minute) unless you have a specific need for finer resolution. Shorter intervals increase datapoint volume across every Airflow metric and usually do not make scheduler or task trends more useful.
 
 ## Verify it worked
 
@@ -167,7 +169,7 @@ otel_on = True
 otel_host = localhost
 otel_port = 4318
 otel_prefix = airflow
-otel_interval_milliseconds = 30000  # The interval between exports, defaults to 60000
+otel_interval_milliseconds = 60000  # One minute, which is also Airflow's default
 otel_ssl_active = False
 
 [traces]

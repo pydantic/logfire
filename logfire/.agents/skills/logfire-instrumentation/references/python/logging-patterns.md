@@ -28,6 +28,19 @@ async def send_request(url: str):
         logfire.info("Response {status}", status=response.status_code)
 ```
 
+## Exceptions
+
+Use `logfire.exception()`, which automatically captures the traceback:
+
+```python
+async def handle_order(order_id: int):
+    try:
+        await process_order(order_id)
+    except Exception:
+        logfire.exception('Failed to process order {order_id}', order_id=order_id)
+        raise
+```
+
 ## Standard Library Logging Integration
 
 For projects that already use Python's `logging` module, route existing log calls through Logfire rather than rewriting them all:

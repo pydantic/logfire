@@ -165,4 +165,4 @@ Users who joined the organization before SSO was configured need to connect thei
 
 ---
 
-**See also:** [Enterprise Plan Overview](../enterprise.md)
+**See also:** [Provision group access with SCIM](../scim-provisioning.md), the System for Cross-domain Identity Management standard your identity provider uses to synchronize group membership, and [Enterprise Plan Overview](../enterprise.md)

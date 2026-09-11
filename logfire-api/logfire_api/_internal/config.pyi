@@ -16,6 +16,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter as RemovePendin
 from .exporters.test import TestExporter as TestExporter
 from .forwarding import OTLPForwardingManager as OTLPForwardingManager
 from .integrations.executors import instrument_executors as instrument_executors
+from .interactive import ask_or_default as ask_or_default, ask_required as ask_required, require_answer as require_answer
 from .logs import ProxyLoggerProvider as ProxyLoggerProvider
 from .main import Logfire as Logfire
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
@@ -23,7 +24,7 @@ from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUB
 from .server_response import ServerResponseCallback as ServerResponseCallback, install_logfire_response_hook as install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
-from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, suppress_instrumentation as suppress_instrumentation
+from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_aws_lambda as platform_is_aws_lambda, platform_is_emscripten as platform_is_emscripten, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -45,8 +46,8 @@ from opentelemetry.sdk.resources import ResourceDetector
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
-from typing import Any, ClassVar, Literal, TextIO, TypedDict
-from typing_extensions import Self, Unpack
+from typing import Any, ClassVar, Literal, TextIO
+from typing_extensions import Self
 
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
@@ -76,7 +77,12 @@ class AdvancedOptions:
     emit_configuration_span: bool | None = ...
     server_response_hook: ServerResponseCallback | None = ...
     resource_detectors: Sequence[ResourceDetector | str] | None = ...
-    def generate_base_url(self, token: str) -> str: ...
+    def generate_base_url(self, token: str, warn_unknown_region: bool = True) -> str:
+        """Resolve the base API URL for `token`, honouring an explicitly configured `base_url`.
+
+        Unknown regions warn by default. The background credential check opts out because the
+        synchronous exporter setup has already emitted the same warning.
+        """
 
 @dataclass
 class PydanticPlugin:
@@ -134,9 +140,7 @@ class LocalVariablesOptions:
     instrument: bool = ...
     template_mismatch_policy: TemplateMismatchPolicy = ...
 
-class DeprecatedKwargs(TypedDict): ...
-
-def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
+def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | list[str] | None = None, api_key: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, resource_attributes: Mapping[str, Any] | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | LocalVariablesOptions | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> Logfire:
     """Configure the logfire SDK.
 
     Args:
@@ -192,7 +196,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             or provide a `MetricsOptions` object to configure metrics, e.g. additional metric readers.
         scrubbing: Options for scrubbing sensitive data. Set to `False` to disable.
         inspect_arguments: Whether to enable
-            [f-string magic](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/#f-strings).
+            [f-string magic](https://pydantic.dev/docs/logfire/instrument/python/add-manual-tracing/#f-strings).
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
@@ -264,13 +268,13 @@ class LogfireConfig(_LogfireConfigData):
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
     def shutdown(self, timeout_millis: int = 30000, flush: bool = True) -> bool:
         """Shut down variables, forwarding, traces, logs, and metrics."""
@@ -416,8 +420,15 @@ class LogfireCredentials:
     def print_token_summary(self) -> None:
         """Print a summary of the existing project."""
 
-def get_base_url_from_token(token: str) -> str:
-    """Get the base API URL from the token's region."""
+def get_base_url_from_token(token: str, warn_unknown_region: bool = True) -> str:
+    """Get the base API URL from the token's region.
+
+    Args:
+        token: The Logfire token to read the region from.
+        warn_unknown_region: Whether to emit a `LogfireConfigWarning` when the token's region is
+            unrecognised and the US region is used as a fallback. This is on by default for every
+            caller; disable it only when the same token has already produced the warning.
+    """
 def get_git_revision_hash() -> str:
     """Get the current git commit hash."""
 def sanitize_project_name(name: str) -> str:

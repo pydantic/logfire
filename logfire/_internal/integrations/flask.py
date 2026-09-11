@@ -4,8 +4,6 @@ from typing import Any
 
 from flask.app import Flask
 
-from logfire._internal.stack_info import warn_at_user_stacklevel
-
 try:
     from opentelemetry.instrumentation.flask import FlaskInstrumentor
 except ImportError:
@@ -35,11 +33,6 @@ def instrument_flask(
     See the `Logfire.instrument_flask` method for details.
     """
     maybe_capture_server_headers(capture_headers)
-
-    # Previously the parameter was accidentally called exclude_urls, so we support both.
-    if 'exclude_urls' in kwargs:  # pragma: no cover
-        warn_at_user_stacklevel('exclude_urls is deprecated; use excluded_urls instead', DeprecationWarning)
-    excluded_urls = excluded_urls or kwargs.pop('exclude_urls', None)
 
     FlaskInstrumentor().instrument_app(  # pyright: ignore[reportUnknownMemberType]
         app,

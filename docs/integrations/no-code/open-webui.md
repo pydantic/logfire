@@ -10,6 +10,8 @@ See Open WebUI HTTP requests, database and cache calls, metrics, and logs in Log
 
 Open WebUI sends this data using the OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive telemetry. Its documented authentication settings support Basic authentication rather than Logfire's write-token header, so this setup uses an OpenTelemetry Collector to add that header.
 
+This setup provides application and infrastructure telemetry. Open WebUI's built-in OpenTelemetry integration does not produce AI-specific spans for prompts, model responses, token usage, or cost.
+
 The [OpenTelemetry Collector](../../how-to-guides/otel-collector/otel-collector-overview.md) is a separate program that sits between Open WebUI and Logfire, gathering telemetry and forwarding it. This route requires access to Open WebUI's runtime configuration. The official Docker images include the OpenTelemetry dependencies. A source or `pip` installation may need the optional OpenTelemetry packages described in the vendor documentation.
 
 !!! warning "Review request, database, and log data"
@@ -33,6 +35,8 @@ OTEL_METRICS_EXPORT_INTERVAL_MILLIS=60000
 ```
 
 Replace `otel-collector` if the Collector has a different hostname. Restart Open WebUI after applying the environment.
+
+`OTEL_METRICS_EXPORT_INTERVAL_MILLIS` is in milliseconds. Open WebUI defaults to 10,000 milliseconds, so the recommended 60,000-millisecond setting sends one-sixth as many datapoints. Keep it at one minute unless you have a specific need for finer resolution.
 
 ## Configure the Collector
 

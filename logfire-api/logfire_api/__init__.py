@@ -124,7 +124,8 @@ except ImportError:
             def with_settings(self, *args, **kwargs) -> Logfire:
                 return self
 
-            def force_flush(self, *args, **kwargs) -> None: ...
+            def force_flush(self, *args, **kwargs) -> bool:
+                return True
 
             def log_slow_async_callbacks(self, *args, **kwargs) -> None:  # pragma: no cover
                 return nullcontext()
@@ -165,6 +166,9 @@ except ImportError:
             def instrument_flask(self, *args, **kwargs) -> None: ...
 
             def instrument_starlette(self, *args, **kwargs) -> None: ...
+
+            def instrument_litestar(self, app, *args, **kwargs):
+                return app
 
             def instrument_django(self, *args, **kwargs) -> None: ...
 
@@ -255,6 +259,7 @@ except ImportError:
         instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
         instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
+        instrument_litestar = DEFAULT_LOGFIRE_INSTANCE.instrument_litestar
         instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
         instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
         instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy

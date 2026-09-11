@@ -5,6 +5,7 @@ import importlib
 import sys
 import warnings
 from collections.abc import Callable
+from importlib.metadata import version as package_version
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock
@@ -17,6 +18,7 @@ from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
+pydantic_pre_2_10 = get_version(pydantic_version) < get_version('2.10.0')
 
 
 @pytest.fixture(autouse=True)
@@ -165,7 +167,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('with_tags')
 
     assert hasattr(logfire_api, 'force_flush')
-    logfire_api.force_flush()
+    assert logfire_api.force_flush() is True
     logfire__all__.remove('force_flush')
 
     assert hasattr(logfire_api, 'no_auto_trace')
@@ -257,6 +259,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         getattr(logfire_api, member)(app=MagicMock())
         logfire__all__.remove(member)
 
+    assert hasattr(logfire_api, 'instrument_litestar')
+    if module_name == 'logfire_api.':
+        app = MagicMock()
+        assert logfire_api.instrument_litestar(app) is app
+    logfire__all__.remove('instrument_litestar')
+
     assert hasattr(logfire_api, 'instrument_fastapi')
     if get_version(pydantic_version) >= get_version('2.7.0'):
         logfire_api.instrument_fastapi(app=MagicMock())
@@ -269,7 +277,9 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire__all__.remove(member)
 
     assert hasattr(logfire_api, 'instrument_openai_agents')
-    logfire_api.instrument_openai_agents()
+    # openai-agents 0.20 requires pydantic >=2.12.2.
+    if get_version(pydantic_version) >= get_version('2.12.2'):
+        logfire_api.instrument_openai_agents()
     logfire__all__.remove('instrument_openai_agents')
 
     assert hasattr(logfire_api, 'instrument_pydantic_ai')
@@ -292,12 +302,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_claude_agent_sdk')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
-    if get_version(pydantic_version) >= get_version('2.7.0'):
+    if get_version(pydantic_version) >= get_version('2.12.5') and get_version(
+        package_version('opentelemetry-sdk')
+    ) >= get_version('1.43.0'):
         logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
-    if not pydantic_pre_2_5:
+    if not pydantic_pre_2_10:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)
             try:
@@ -309,7 +321,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_litellm')
 
     assert hasattr(logfire_api, 'instrument_dspy')
-    if not pydantic_pre_2_5:
+    if not pydantic_pre_2_10:
         # DSPy emits deprecation warnings while being instrumented; pytest treats warnings as errors.
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)
