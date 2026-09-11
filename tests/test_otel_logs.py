@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import warnings
 from collections.abc import Sequence
 from typing import Any
 
@@ -8,7 +10,7 @@ import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
-from opentelemetry.sdk._logs import ReadableLogRecord
+from opentelemetry.sdk._logs import LoggingHandler, LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
 from opentelemetry.sdk._logs.export import (
     InMemoryLogRecordExporter,
     LogRecordExporter,
@@ -214,3 +216,34 @@ def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.timeout(5)
+def test_otel_logging_handler_during_force_flush_does_not_deadlock(config_kwargs: dict[str, Any]) -> None:
+    class ExportFailureProcessor(LogRecordProcessor):
+        def on_emit(self, log_record: ReadWriteLogRecord) -> None:
+            pass
+
+        def shutdown(self) -> None:
+            pass
+
+        def force_flush(self, timeout_millis: int = 30_000) -> bool:
+            logging.getLogger('opentelemetry.exporter.otlp.proto.http._log_exporter').error(
+                'Failed to export logs batch code: 404, reason: Not Found'
+            )
+            return True
+
+    config_kwargs['advanced'].log_record_processors = [ExportFailureProcessor()]
+    logfire.configure(**config_kwargs)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        handler = LoggingHandler(logger_provider=get_logger_provider())
+
+    logger = logging.getLogger('opentelemetry.exporter.otlp.proto.http._log_exporter')
+    logger.addHandler(handler)
+    logger.propagate = False
+    try:
+        logfire.force_flush(timeout_millis=1_000)
+    finally:
+        logger.removeHandler(handler)

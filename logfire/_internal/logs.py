@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 from dataclasses import dataclass
-from threading import Lock
+from threading import RLock
 from typing import TYPE_CHECKING, Any, overload
 from weakref import WeakSet
 
@@ -23,7 +23,8 @@ class ProxyLoggerProvider(LoggerProvider):
     provider: LoggerProvider
 
     loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet['ProxyLogger'])
-    lock: Lock = dataclasses.field(default_factory=Lock)
+    # Provider callbacks may emit logs through this provider.
+    lock: RLock = dataclasses.field(default_factory=RLock)
     suppressed_scopes: set[str] = dataclasses.field(default_factory=set[str])
     min_level: int = 0
 
