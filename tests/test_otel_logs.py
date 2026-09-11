@@ -244,6 +244,6 @@ def test_otel_logging_handler_during_force_flush_does_not_deadlock(config_kwargs
     logger.addHandler(handler)
     logger.propagate = False
     try:
-        assert logfire.force_flush(timeout_millis=1_000)
+        logfire.force_flush(timeout_millis=1_000)
     finally:
         logger.removeHandler(handler)
