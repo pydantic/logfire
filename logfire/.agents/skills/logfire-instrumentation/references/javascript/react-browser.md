@@ -6,7 +6,7 @@ Use this for browser-only telemetry in React, Vite, or other SPA projects. If th
 
 Browser telemetry sends directly to Logfire with a restricted public frontend application token. The token can report only for that application; it cannot read project data or choose another service identity. Never put an ordinary Logfire write token in browser code.
 
-Open **Project settings → Frontend applications**, create or select the browser application, and copy its generated trace URL and token configuration. If that page is unavailable, enable **Frontend observability** under **Settings → Early access** or explain that browser setup cannot continue with an ordinary write token.
+Open **Project settings → Frontend applications**, create or select the browser application, and copy its generated trace URL and token configuration. If that page is unavailable, explain that browser setup cannot continue with an ordinary write token and direct the user to [Logfire support](https://pydantic.dev/docs/logfire/get-started/help/).
 
 ## Install
 
@@ -16,7 +16,7 @@ npm install @pydantic/logfire-browser
 
 ## Configure In Browser-Only Code
 
-For React, add a provider mounted once near the app root:
+For React, add a provider mounted once near the app root. The restricted token is designed to be public and may be embedded in the client bundle or supplied through the app's public build/runtime configuration. Replace both placeholders before deploying:
 
 ```tsx
 import * as logfire from '@pydantic/logfire-browser'

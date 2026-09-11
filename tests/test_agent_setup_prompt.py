@@ -278,7 +278,9 @@ def test_browser_framework_examples_configure_once_without_strict_mode_shutdown(
         browser = (references / browser_doc).read_text()
         assert 'useRef(false)' in browser
         assert 'if (!configured.current)' in browser
-        assert 'void shutdown()' not in browser
+        effect_body = browser.split('useEffect(() => {', 1)[1].split('\n  }, [])', 1)[0]
+        assert '\n    return ' not in effect_body
+        assert '\n      return ' not in effect_body
     assert 'Import this Client Component normally' in (references / 'javascript/nextjs.md').read_text()
 
 

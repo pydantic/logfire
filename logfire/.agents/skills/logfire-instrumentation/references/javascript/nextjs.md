@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
 Browser tracing uses a frontend application, which supplies a restricted public token and pins the browser service identity at ingest. This is separate from the ordinary write token used by Next.js server-side tracing.
 
-Open **Project settings → Frontend applications**, create or select the browser application, and copy its generated configuration. If that page is unavailable, enable **Frontend observability** under **Settings → Early access** or explain that browser setup cannot continue with an ordinary write token.
+Open **Project settings → Frontend applications**, create or select the browser application, and copy its generated configuration. If that page is unavailable, explain that browser setup cannot continue with an ordinary write token and direct the user to [Logfire support](https://pydantic.dev/docs/logfire/get-started/help/).
 
 Install:
 
@@ -76,7 +76,7 @@ Install:
 npm install @pydantic/logfire-browser
 ```
 
-Create a client-only component using the exact regional trace URL and restricted token from the generated setup. Keep placeholders in committed code unless the repository intentionally commits public runtime configuration:
+Create a client-only component using the exact regional trace URL and restricted token from the generated setup. The restricted token is designed to be public and may be embedded in the client bundle or supplied through the app's public build/runtime configuration. Replace both placeholders before deploying:
 
 ```tsx
 'use client'

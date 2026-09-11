@@ -55,7 +55,7 @@ OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics
 - Put `LOGFIRE_TOKEN` in server-only env files, deployment secrets, or Worker secrets.
 - Do not create `NEXT_PUBLIC_LOGFIRE_TOKEN`, `VITE_LOGFIRE_TOKEN`, `PUBLIC_LOGFIRE_TOKEN`, or any public write-token variable.
 - For browser code, create a frontend application and use its generated regional trace URL and restricted public token. Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser.
-- A frontend application token is intentionally shipped to the browser, but keep it out of source control and chat. Use the repository's existing public runtime-config mechanism or the generated setup's placeholder.
+- A frontend application token is intentionally restricted and public. Embed the generated token and trace URL directly in the client bundle, or supply them through the app's public build/runtime configuration (for example, `VITE_LOGFIRE_FRONTEND_TOKEN` and `VITE_LOGFIRE_TRACE_URL`). Do not deploy the generated example with placeholder values.
 - Preserve an existing backend telemetry proxy. Add a new one only when the application needs its own authentication, origin checks, or rate limits; hiding the restricted token alone is not a reason.
 - Update `.env.example` or documented env templates with placeholder values, not real tokens.
 - If the app has separate frontend and backend packages, put the write token only in the backend package or hosting environment.
