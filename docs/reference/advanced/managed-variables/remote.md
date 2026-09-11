@@ -393,3 +393,62 @@ merged = server_config.merge(local_config)
 |--------|-------------|
 | `config.merge(other)` | Merge with another config (other takes precedence) |
 | `VariablesConfig.from_variables(vars)` | Create minimal config from Variable instances |
+
+## Change Notifications
+
+You can register callbacks that fire when a variable's configuration changes:
+
+```python
+import logfire
+
+feature_enabled = logfire.var('feature_enabled', default=False)
+
+
+@feature_enabled.on_change
+def on_feature_change():
+    new_value = feature_enabled.get().value
+    logfire.info('feature_enabled changed to {new_value}', new_value=new_value)
+```
+
+**What fires a notification:**
+
+- Changes to the resolution-relevant parts of the variable's configuration: its labels,
+  rollout, overrides, latest version, or aliases. Metadata-only edits (e.g. changing the
+  variable's description in the UI) do not fire.
+- Changes to any variable this one (transitively) references via
+  [`@{ref}@` composition](templates-and-composition.md) — whether the reference appears in a
+  server-stored value or in the variable's code default — since the composed value this
+  variable resolves to may have changed even though its own configuration didn't.
+- For local providers, `create_variable`, `update_variable`, and `delete_variable` fire the
+  same way (an update with an identical configuration does not).
+
+**Callbacks must be idempotent.** A configuration change does not necessarily change the
+value *you* resolve to: a change to a label the rollout never serves, or to a value only
+served for other targeting keys, still fires. Treat the callback as "re-read and
+reconcile", not "the value definitely changed".
+
+Other key points:
+
+- Callbacks receive no arguments; call `variable.get()` to see the current value
+- Callbacks may run on the provider's polling thread — keep them fast and non-blocking
+- Don't create, update, or delete variables from inside a callback (that would re-enter
+  change notification)
+- Multiple callbacks can be registered on the same variable
+- Exceptions in callbacks are caught and logged (they don't crash the polling thread)
+- Delivery of the *initial* load of remote configuration is best-effort: the provider may
+  fetch it before your callback is registered, so don't rely on it firing. To reliably
+  reconcile once at startup, call your handler yourself right after registering it:
+
+```python
+import logfire
+
+feature_enabled = logfire.var('feature_enabled', default=False)
+
+
+@feature_enabled.on_change
+def on_feature_change():
+    logfire.info('feature_enabled is now {value}', value=feature_enabled.get().value)
+
+
+on_feature_change()  # reconcile once at startup
+```
