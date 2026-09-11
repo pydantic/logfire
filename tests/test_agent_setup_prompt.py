@@ -163,15 +163,30 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
 def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
     evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
-    assert 'custom_evaluator_types=[ExactMatch]' in evals
+    assert 'custom_evaluator_types=[MyEvaluator]' in evals
     assert 'custom_report_evaluator_types=[...]' in evals
 
 
 def test_evals_skill_keeps_local_runs_local_and_smoke_tests_report_evaluators() -> None:
     evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
-    assert 'Skip authentication and continue to Step 3 only when the user explicitly wants a local-only' in evals
+    assert 'Skip authentication and continue to Step 3 only when the user explicitly wants a local-only run' in evals
     assert 'report_evaluators=dataset.report_evaluators' in evals
+
+
+def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
+    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+
+    assert "uv add 'pydantic-evals[logfire]'" in evals
+    assert "uv add 'logfire[datasets]'" not in evals
+    assert 'Use `logfire[datasets]` instead only when' in evals
+    assert 'npm install logfire @pydantic/logfire-node' in evals
+    assert "from 'logfire/evals'" in evals
+    assert 'do not add the Node exporter to a non-Node runtime' in evals
+    assert 'compatibility endpoint is documented only for Logfire Cloud US and EU' in evals
+    assert 'The `pydantic_evals` workflow is Python-only' not in evals
+    assert '3-5 cases from existing tests' in evals
+    assert 'ask one focused question instead of inventing either' in evals
 
 
 def _wrap(component: str, prompt_lines: list[str]) -> str:
