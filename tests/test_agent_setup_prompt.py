@@ -105,6 +105,9 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert '$(mktemp -d)" exec' not in auth
     assert 'run_logfire_js <target> projects list --json' not in auth
     assert 'run_logfire_js <target> projects list\n' in auth
+    assert auth.count('whoami --data-dir "$credential_probe_dir"') == 2
+    assert auth.count('credential_probe_dir="$(mktemp -d)"') == 2
+    assert 'Do not pass the temporary data directory to `projects use` or the final check' in auth
     for document in (auth, instrumentation, offline):
         assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
         assert 'logfire@0.22.5' not in document

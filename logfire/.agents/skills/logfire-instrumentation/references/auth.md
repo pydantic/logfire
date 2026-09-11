@@ -18,10 +18,18 @@ is unsafe. Stop and report the unsafe path rather than reading or overwriting it
 This metadata check is allowed before the calling skill's repository-inspection
 step; do not open any application or configuration file yet.
 
-Then check, before assuming anything needs to happen. With `uv`, use an isolated, config-free, version-pinned environment and invoke Python in isolated mode so repository-local packages and `PYTHONPATH` cannot shadow the CLI:
+Then check, before assuming anything needs to happen. A Logfire Cloud region may use the repository credential because its target is a fixed Logfire origin. An explicitly supplied non-cloud origin is not yet trusted to receive that credential, so point only its initial `whoami` at a fresh empty data directory. A missing project from that isolated probe is expected; continue through `auth` and `projects use`, which installs a credential for the selected origin, then confirm it with the normal final `whoami`. Do not pass the temporary data directory to `projects use` or the final check.
+
+With `uv`, use an isolated, config-free, version-pinned environment and invoke Python in isolated mode so repository-local packages and `PYTHONPATH` cannot shadow the CLI:
 
 ```bash
+# Logfire Cloud:
 env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
+
+# Explicitly supplied non-cloud origin:
+credential_probe_dir="$(mktemp -d)"
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
+rmdir "$credential_probe_dir"
 ```
 
 In a JS/TS project without `uv`, use this POSIX-shell fallback. Include the helper at the start of every JS CLI command block so a fresh shell can run it. The exact package version and `--ignore-scripts` keep the reviewed CLI artifact stable and prevent lifecycle scripts from running:
@@ -33,7 +41,13 @@ run_logfire_js() {
   env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
 }
 
+# Logfire Cloud:
 run_logfire_js <target> whoami
+
+# Explicitly supplied non-cloud origin:
+credential_probe_dir="$(mktemp -d)"
+run_logfire_js --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
+rmdir "$credential_probe_dir"
 ```
 
 Do not use a plain `npx logfire` command or omit the external `--prefix`, shared `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and use the isolated Python CLI above rather than translating the POSIX command into a repository-local npm invocation.
