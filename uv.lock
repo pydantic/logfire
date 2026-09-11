@@ -25,18 +25,20 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
-genai-prices = false
-pydantic-core = false
 pydantic-graph = false
 pydantic-ai-slim = false
 pydantic-evals = false
-pydantic = false
 pydantic-handlebars = false
+genai-prices = false
+logfire-cli = false
+pydantic = false
+pydantic-core = false
 
 [manifest]
 members = [
     "logfire",
     "logfire-api",
+    "logfire-sdk",
 ]
 
 [[package]]
@@ -2851,7 +2853,167 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "5.1.0"
+version = "6.0.0"
+source = { editable = "logfire-meta" }
+dependencies = [
+    { name = "logfire-cli" },
+    { name = "logfire-sdk" },
+]
+
+[package.optional-dependencies]
+aiohttp = [
+    { name = "logfire-sdk", extra = ["aiohttp"] },
+]
+aiohttp-client = [
+    { name = "logfire-sdk", extra = ["aiohttp-client"] },
+]
+aiohttp-server = [
+    { name = "logfire-sdk", extra = ["aiohttp-server"] },
+]
+asgi = [
+    { name = "logfire-sdk", extra = ["asgi"] },
+]
+asyncpg = [
+    { name = "logfire-sdk", extra = ["asyncpg"] },
+]
+aws-lambda = [
+    { name = "logfire-sdk", extra = ["aws-lambda"] },
+]
+celery = [
+    { name = "logfire-sdk", extra = ["celery"] },
+]
+datasets = [
+    { name = "logfire-sdk", extra = ["datasets"] },
+]
+django = [
+    { name = "logfire-sdk", extra = ["django"] },
+]
+dspy = [
+    { name = "logfire-sdk", extra = ["dspy"] },
+]
+fastapi = [
+    { name = "logfire-sdk", extra = ["fastapi"] },
+]
+flask = [
+    { name = "logfire-sdk", extra = ["flask"] },
+]
+gateway = [
+    { name = "logfire-sdk", extra = ["gateway"] },
+]
+google-genai = [
+    { name = "logfire-sdk", extra = ["google-genai"] },
+]
+httpx = [
+    { name = "logfire-sdk", extra = ["httpx"] },
+]
+litellm = [
+    { name = "logfire-sdk", extra = ["litellm"] },
+]
+litestar = [
+    { name = "logfire-sdk", extra = ["litestar"] },
+]
+mysql = [
+    { name = "logfire-sdk", extra = ["mysql"] },
+]
+psycopg = [
+    { name = "logfire-sdk", extra = ["psycopg"] },
+]
+psycopg2 = [
+    { name = "logfire-sdk", extra = ["psycopg2"] },
+]
+pymongo = [
+    { name = "logfire-sdk", extra = ["pymongo"] },
+]
+redis = [
+    { name = "logfire-sdk", extra = ["redis"] },
+]
+requests = [
+    { name = "logfire-sdk", extra = ["requests"] },
+]
+sqlalchemy = [
+    { name = "logfire-sdk", extra = ["sqlalchemy"] },
+]
+sqlite3 = [
+    { name = "logfire-sdk", extra = ["sqlite3"] },
+]
+starlette = [
+    { name = "logfire-sdk", extra = ["starlette"] },
+]
+system-metrics = [
+    { name = "logfire-sdk", extra = ["system-metrics"] },
+]
+urllib = [
+    { name = "logfire-sdk", extra = ["urllib"] },
+]
+variables = [
+    { name = "logfire-sdk", extra = ["variables"] },
+]
+wsgi = [
+    { name = "logfire-sdk", extra = ["wsgi"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "logfire-cli", specifier = ">=0.1.2" },
+    { name = "logfire-sdk", editable = "." },
+    { name = "logfire-sdk", extras = ["aiohttp"], marker = "extra == 'aiohttp'", editable = "." },
+    { name = "logfire-sdk", extras = ["aiohttp-client"], marker = "extra == 'aiohttp-client'", editable = "." },
+    { name = "logfire-sdk", extras = ["aiohttp-server"], marker = "extra == 'aiohttp-server'", editable = "." },
+    { name = "logfire-sdk", extras = ["asgi"], marker = "extra == 'asgi'", editable = "." },
+    { name = "logfire-sdk", extras = ["asyncpg"], marker = "extra == 'asyncpg'", editable = "." },
+    { name = "logfire-sdk", extras = ["aws-lambda"], marker = "extra == 'aws-lambda'", editable = "." },
+    { name = "logfire-sdk", extras = ["celery"], marker = "extra == 'celery'", editable = "." },
+    { name = "logfire-sdk", extras = ["datasets"], marker = "extra == 'datasets'", editable = "." },
+    { name = "logfire-sdk", extras = ["django"], marker = "extra == 'django'", editable = "." },
+    { name = "logfire-sdk", extras = ["dspy"], marker = "extra == 'dspy'", editable = "." },
+    { name = "logfire-sdk", extras = ["fastapi"], marker = "extra == 'fastapi'", editable = "." },
+    { name = "logfire-sdk", extras = ["flask"], marker = "extra == 'flask'", editable = "." },
+    { name = "logfire-sdk", extras = ["gateway"], marker = "extra == 'gateway'", editable = "." },
+    { name = "logfire-sdk", extras = ["google-genai"], marker = "extra == 'google-genai'", editable = "." },
+    { name = "logfire-sdk", extras = ["httpx"], marker = "extra == 'httpx'", editable = "." },
+    { name = "logfire-sdk", extras = ["litellm"], marker = "extra == 'litellm'", editable = "." },
+    { name = "logfire-sdk", extras = ["litestar"], marker = "extra == 'litestar'", editable = "." },
+    { name = "logfire-sdk", extras = ["mysql"], marker = "extra == 'mysql'", editable = "." },
+    { name = "logfire-sdk", extras = ["psycopg"], marker = "extra == 'psycopg'", editable = "." },
+    { name = "logfire-sdk", extras = ["psycopg2"], marker = "extra == 'psycopg2'", editable = "." },
+    { name = "logfire-sdk", extras = ["pymongo"], marker = "extra == 'pymongo'", editable = "." },
+    { name = "logfire-sdk", extras = ["redis"], marker = "extra == 'redis'", editable = "." },
+    { name = "logfire-sdk", extras = ["requests"], marker = "extra == 'requests'", editable = "." },
+    { name = "logfire-sdk", extras = ["sqlalchemy"], marker = "extra == 'sqlalchemy'", editable = "." },
+    { name = "logfire-sdk", extras = ["sqlite3"], marker = "extra == 'sqlite3'", editable = "." },
+    { name = "logfire-sdk", extras = ["starlette"], marker = "extra == 'starlette'", editable = "." },
+    { name = "logfire-sdk", extras = ["system-metrics"], marker = "extra == 'system-metrics'", editable = "." },
+    { name = "logfire-sdk", extras = ["urllib"], marker = "extra == 'urllib'", editable = "." },
+    { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "." },
+    { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "." },
+]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+
+[[package]]
+name = "logfire-api"
+version = "6.0.0"
+source = { editable = "logfire-api" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = []
+
+[[package]]
+name = "logfire-cli"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/a4/20077555e57ca9912c0aea67098305ebb4733c1cb4eb3f14ac86ada937ca/logfire_cli-0.1.2-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:a37cd1489955b21db752d0706ab014e447455758c302954a9d5f70ccb488ac3d", size = 2580184, upload-time = "2026-09-11T21:19:29.671Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/d8/b40e02c2e4ae0a96fd79530353c245eb460d617fa090b43349626cbf0def/logfire_cli-0.1.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:acf93b9b2890014b7ca69f26f05fee1c4b567d3e8ca57aeddfa3c524d0d1587e", size = 2394516, upload-time = "2026-09-11T21:19:31.03Z" },
+    { url = "https://files.pythonhosted.org/packages/10/b4/9bb91438ef58808a9404cd96d8d4cfc0a297316fb106df07543271f3d308/logfire_cli-0.1.2-py3-none-manylinux_2_35_aarch64.whl", hash = "sha256:0ff844fdb9f190b65fe69fb4bbafebad8053b71ac2f74ddeb6e95cdb7d036663", size = 3110770, upload-time = "2026-09-11T21:19:32.429Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/6e/62d9aa255736b6883cbd9b0f2f01f93dfb30c7c37f6672d6df7dcb6d6a3a/logfire_cli-0.1.2-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:e3dd5f3eb49da0399ec554b74d0a12a5f1a0e695f11f4358f33552cda3c00280", size = 3239504, upload-time = "2026-09-11T21:19:33.879Z" },
+    { url = "https://files.pythonhosted.org/packages/22/80/f7c937503932acc35862be8718e8e7df70b853296d348bc0b70985b3911e/logfire_cli-0.1.2-py3-none-win_amd64.whl", hash = "sha256:fe5248de2de803ed001722e2104952b55963eb83c777f855808c14cf930026fa", size = 2534641, upload-time = "2026-09-11T21:19:34.943Z" },
+]
+
+[[package]]
+name = "logfire-sdk"
+version = "6.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -3224,16 +3386,6 @@ dev = [
     { name = "uvicorn", specifier = ">=0.30.6" },
     { name = "vcrpy", specifier = ">=8.2.1" },
 ]
-
-[[package]]
-name = "logfire-api"
-version = "5.1.0"
-source = { editable = "logfire-api" }
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = []
 
 [[package]]
 name = "loguru"

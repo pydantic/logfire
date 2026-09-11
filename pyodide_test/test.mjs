@@ -62,7 +62,7 @@ sys.stderr.flush()
 async function findWheel(dist_dir) {
     const dir = await opendir(dist_dir);
     for await (const dirent of dir) {
-        if (dirent.name.endsWith('.whl')) {
+        if (dirent.name.startsWith('logfire_sdk-') && dirent.name.endsWith('.whl')) {
             return path.join(dist_dir, dirent.name);
         }
     }

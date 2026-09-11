@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "logfire"
-version = "5.1.0"
+name = "logfire-sdk"
+version = "6.0.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.10"
 authors = [
@@ -93,9 +93,6 @@ Homepage = "https://pydantic.dev/logfire"
 Source = "https://github.com/pydantic/logfire"
 Documentation = "https://pydantic.dev/docs/logfire/"
 Changelog = "https://github.com/pydantic/logfire/blob/main/CHANGELOG.md"
-
-[project.scripts]
-logfire = "logfire.cli:main"
 
 [project.entry-points."pydantic"]
 logfire-plugin = "logfire.integrations.pydantic:plugin"
@@ -242,18 +239,41 @@ pydantic = false
 pydantic-core = false
 pydantic-handlebars = false
 genai-prices = false
+logfire-cli = false
 
 [tool.uv.workspace]
-members = ["logfire-api"]
+members = ["logfire-api", "logfire-meta"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build]
+dev-mode-dirs = ["."]
+
+[tool.hatch.build.hooks.custom]
+
 [tool.hatch.build.targets.wheel]
 packages = ["logfire"]
 
+# Pip installs dependencies before their dependants. During a v5 -> v6 upgrade,
+# uninstalling the old `logfire` distribution therefore deletes the top-level
+# files already installed by `logfire-sdk`. Keep a private fallback copy on the
+# import path so the SDK survives that uninstall; the normal copy remains for
+# fresh installs, static analysis, and runtimes such as Pyodide that ignore .pth.
+[tool.hatch.build.targets.wheel.force-include]
+"logfire" = "_logfire_sdk/logfire"
+"logfire_sdk.pth" = "logfire_sdk.pth"
+
 [tool.hatch.build.targets.sdist]
-include = ["/README.md", "CHANGELOG.md", "/Makefile", "/logfire", "/tests"]
+include = [
+    "/README.md",
+    "CHANGELOG.md",
+    "/Makefile",
+    "/hatch_build.py",
+    "/logfire",
+    "/logfire_sdk.pth",
+    "/tests",
+]
 
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
