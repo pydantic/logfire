@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
+BASH_FENCE = re.compile(r'```(?:bash|sh)\n(.*?)```', re.DOTALL)
 
 
 def extract_agent_setup_prompt(path: Path, component: str) -> str:
@@ -100,9 +102,15 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'logfire@0.22.8' in auth
     assert 'logfire@0.22.5' not in auth
     assert '$(mktemp -d)" exec' not in auth
+    assert 'run_logfire_js <target> projects list --json' not in auth
+    assert 'run_logfire_js <target> projects list\n' in auth
     for document in (auth, instrumentation, offline):
         assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
         assert 'logfire@0.22.5' not in document
+        for fence in BASH_FENCE.findall(document):
+            if re.search(r'^\s*run_logfire_js\s', fence, re.MULTILINE):
+                assert 'run_logfire_js() {' in fence
+                assert npm_exec in fence
     for document in (auth, offline):
         npm_commands = [line.strip() for line in document.splitlines() if 'npm ' in line and '-- logfire' in line]
         assert npm_commands
@@ -113,15 +121,12 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'use the external-prefix npm fallback' in instrumentation
     assert 'a detected FastAPI service that also uses HTTPX' in instrumentation
     assert "uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary" in instrumentation
-    assert 'run_logfire_js projects status --json' in instrumentation
+    assert 'run_logfire_js <target> projects status --json' in instrumentation
     assert (
         "uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive "
-        '--region <region> read-tokens --project <organization>/<project> create --save' in instrumentation
+        '<target> read-tokens --project <organization>/<project> create --save' in instrumentation
     )
-    assert (
-        'run_logfire_js --region <region> read-tokens --project <organization>/<project> create --save'
-        in instrumentation
-    )
+    assert 'run_logfire_js <target> read-tokens --project <organization>/<project> create --save' in instrumentation
     assert 'cargo add logfire' in instrumentation
     assert 'logfire = "0.6"' not in instrumentation
     assert 'shutdown_guard()' in instrumentation

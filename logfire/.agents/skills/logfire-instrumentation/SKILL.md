@@ -194,21 +194,31 @@ Instrumentation isn't done when the code compiles or an SDK reports "connected."
 1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
 2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path as Step 1. With `uv`:
    ```bash
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive projects status --json
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
    ```
-   For a JS/TS project without `uv`, reuse the `run_logfire_js` helper from Step 1 (define it once if this is a new shell):
+   For a JS/TS project without `uv`:
    ```bash
-   run_logfire_js projects status --json
+   npm_cache="$(mktemp -d)"
+   npm_prefix="$(mktemp -d)"
+   run_logfire_js() {
+     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+   }
+   run_logfire_js <target> projects status --json
    ```
    If it reports no usable read token, create one for the exact project `whoami` reported and retry — `--project` goes on `read-tokens` itself, before `create`:
    ```bash
    # Python CLI
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --region <region> read-tokens --project <organization>/<project> create --save
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive projects status --json
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> read-tokens --project <organization>/<project> create --save
+   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
 
    # JS CLI (POSIX shell)
-   run_logfire_js --region <region> read-tokens --project <organization>/<project> create --save
-   run_logfire_js projects status --json
+   npm_cache="$(mktemp -d)"
+   npm_prefix="$(mktemp -d)"
+   run_logfire_js() {
+     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+   }
+   run_logfire_js <target> read-tokens --project <organization>/<project> create --save
+   run_logfire_js <target> projects status --json
    ```
    `--save` writes the token into the data directory for `projects status` to use — it is never printed. Or query directly via the Logfire MCP/API if already connected in this session. Never display a token while doing any of this.
 3. **Audit what actually landed**, not just that something did: service name set (not `unknown_service`)? Spans nested correctly, not flat? The specific operation you exercised present, not just noise? For AI/LLM instrumentation, is the captured content at the level you intended (metadata-only vs. full content)? For system/infra metrics, did the expected host/container/cluster show up, not just some data?
