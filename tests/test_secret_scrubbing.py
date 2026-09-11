@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -124,6 +125,156 @@ def test_default_pattern_start_chars_cover_each_pattern():
         assert len(scrub_matches) == 1, (pattern, value)
         actual = scrub_matches[0].pattern_match
         assert (actual.span(), actual.group(0)) == (expected.span(), expected.group(0))
+
+
+@pytest.mark.parametrize(
+    ('extra_patterns', 'value', 'expected_match'),
+    [
+        pytest.param(['(a)', r'(b)\1'], 'q bb', 'bb', id='backreference'),
+        pytest.param(['(a)', r'(b)\1'], 'bb q', 'bb', id='backreference-at-start-of-value'),
+        pytest.param([r'(a)', r'(x)?(?(1)y|z)'], 'q xy', 'xy', id='conditional-reference'),
+        pytest.param([r'(?P<x>aaa)', r'(?P<x>bbb)'], 'q bbb', 'bbb', id='duplicate-group-names'),
+        pytest.param([r'(?s)fo.o'], 'q fo\no', 'fo\no', id='global-inline-flag'),
+    ],
+)
+def test_extra_patterns_are_matched_independently(extra_patterns: list[str], value: str, expected_match: str):
+    """Each extra pattern must behave as it does on its own, whatever the other patterns are."""
+    for pattern in extra_patterns:
+        re.compile(pattern, re.IGNORECASE | re.DOTALL)  # each pattern is valid by itself
+
+    result, scrubbed_notes = Scrubber(extra_patterns).scrub_value(('attributes', 'value'), value)
+
+    assert result == f'[Scrubbed due to {expected_match!r}]'
+    assert scrubbed_notes == [{'path': ('attributes', 'value'), 'matched_substring': expected_match}]
+
+
+@pytest.mark.parametrize(
+    ('extra_patterns', 'expected_result'),
+    [
+        pytest.param([r'(TOKEN=)', r'TOKEN=.*'], "[Scrubbed due to 'TOKEN=']", id='grouped-pattern-first'),
+        pytest.param([r'TOKEN=.*', r'(TOKEN=)'], 'TOKEN=secret', id='grouped-pattern-second'),
+    ],
+)
+def test_extra_patterns_keep_their_configured_order(extra_patterns: list[str], expected_result: str):
+    """Where two patterns match at the same position, the earlier one wins, as in one alternation.
+
+    Compiling a pattern separately must not move it, in either direction. `TOKEN=.*` matches the
+    whole value, which `scrub` treats as safe and keeps, so promoting it above `(TOKEN=)` would
+    export the value instead of redacting it.
+    """
+    result, _ = Scrubber(extra_patterns).scrub_value(('attributes', 'value'), 'TOKEN=secret')
+
+    assert result == expected_result
+
+
+def test_earlier_pattern_wins_the_callback():
+    """The callback gets the match of the pattern that would have won a single alternation."""
+    groups: list[dict[str, str | Any]] = []
+
+    def callback(match: logfire.ScrubMatch):
+        groups.append(match.pattern_match.groupdict())
+        return match.value
+
+    Scrubber([r'(?P<x>zzz)', 'zzz'], callback).scrub_value(('attributes', 'value'), 'q zzz')
+
+    assert groups == [{'x': 'zzz'}]
+
+
+def test_extra_pattern_match_only_contains_its_own_groups():
+    """The match passed to the callback belongs to the pattern that matched, not to a combined one."""
+    scrub_matches: list[logfire.ScrubMatch] = []
+
+    def callback(match: logfire.ScrubMatch):
+        scrub_matches.append(match)
+        return match.value
+
+    Scrubber([r'(?P<mine>zzz)'], callback).scrub_value(('attributes', 'value'), 'q zzz')
+
+    assert len(scrub_matches) == 1
+    pattern_match = scrub_matches[0].pattern_match
+    assert pattern_match.groups() == ('zzz',)
+    assert pattern_match.groupdict() == {'mine': 'zzz'}
+
+
+@pytest.mark.parametrize('extra_pattern', ['bad[(', r'\1'])
+def test_invalid_extra_pattern_is_named_in_the_error(extra_pattern: str):
+    """The error must name the offending pattern, and give a position inside it.
+
+    Only the part of the message this module adds is asserted. The rest is CPython's wording,
+    which is free to differ between the Python versions this package supports.
+    """
+    with pytest.raises(re.error, match=re.escape(f'(in scrubbing pattern {extra_pattern!r})')) as exc_info:
+        Scrubber(['custom', extra_pattern])
+
+    assert exc_info.value.pos is not None
+    assert exc_info.value.pos <= len(extra_pattern)
+
+
+def test_extra_pattern_warning_is_raised_once_and_is_not_an_error():
+    """A pattern that only warns still works, e.g. `[[a]`, which warns about a possible nested set.
+
+    The user should hear about it once, from compiling their own pattern. A second warning from the
+    combined pattern would report a position they can't act on.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        scrubber = Scrubber(['[[a]'])
+
+    assert [str(warning.message) for warning in caught] == ['Possible nested set at position 1']
+
+    result, _ = scrubber.scrub_value(('attributes', 'value'), 'q [a')
+    assert result == "[Scrubbed due to '[']"
+
+
+@pytest.mark.parametrize(
+    ('extra_patterns', 'expected_number_of_regexes'),
+    [
+        (None, 1),
+        (['custom', r'\d+'], 1),
+        ([r'(b)\1'], 2),
+        (['custom', r'(b)\1', r'(?P<x>c)'], 3),
+        # A joinable pattern after a separated one starts a new regex, to keep the configured order.
+        ([r'(b)\1', 'custom'], 3),
+    ],
+)
+def test_only_patterns_with_groups_need_their_own_regex(
+    extra_patterns: list[str] | None, expected_number_of_regexes: int
+):
+    """Scrubbing runs on the application's thread, so the usual case must stay a single search."""
+    assert len(Scrubber(extra_patterns)._patterns) == expected_number_of_regexes  # pyright: ignore[reportPrivateUsage]
+
+
+def test_scrub_with_backreference_pattern(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=['(a)', r'(b)\1']), **config_kwargs)
+
+    # `hit` is matched by the backreference pattern, `miss` by nothing. The keys deliberately
+    # contain neither `a` nor `bb`, so only the values decide what is redacted.
+    logfire.info('hi', hit='q bb', miss='q zz')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_scrub_with_backreference_pattern',
+                    'code.lineno': 123,
+                    'hit': "[Scrubbed due to 'bb']",
+                    'miss': 'q zz',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'hit': {}, 'miss': {}}},
+                    'logfire.scrubbed': [{'path': ['attributes', 'hit'], 'matched_substring': 'bb'}],
+                },
+            }
+        ]
+    )
 
 
 def test_scrub_attribute(exporter: TestExporter):
