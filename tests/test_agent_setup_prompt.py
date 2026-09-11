@@ -99,6 +99,8 @@ def test_setup_hub_routes_each_surface_to_its_skill() -> None:
 
     for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals', 'logfire-query', 'logfire-ui'):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
+    assert '"set up evals for this agent"' in hub
+    assert 'evaluations against test-case datasets in Python or Node.js' in hub
     assert '../logfire-' not in hub
     assert 'not in this repo' not in hub
 
