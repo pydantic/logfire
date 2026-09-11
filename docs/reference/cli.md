@@ -10,6 +10,8 @@ description: "Use the Logfire CLI to simplify project management. Use commands t
 {{ logfire_help }}
 ```
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/di0ToWrOEPw" title="API Keys, CLI Auth & Trust Policies in Pydantic Logfire" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 ## Authentication (`auth`)
 
 You need to be authenticated to use the **Logfire**.
