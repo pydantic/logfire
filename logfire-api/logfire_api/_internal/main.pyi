@@ -15,7 +15,6 @@ from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook a
 from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
 from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
 from ..variables import ResolveFunction as ResolveFunction, TemplateVariable as TemplateVariable, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
-from ..variables.variable import FeatureFlag as FeatureFlag
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig, TemplateMismatchPolicy as TemplateMismatchPolicy

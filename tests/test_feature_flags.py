@@ -7,7 +7,6 @@ import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
-from typing import cast
 from unittest.mock import patch
 
 import hypothesis.strategies as st
@@ -23,7 +22,7 @@ from hypothesis.stateful import (
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
-from logfire.experimental.feature_flags import feature_context, feature_flag
+from logfire.experimental.feature_flags import FeatureFlag, feature_context, feature_flag
 from logfire.variables import (
     LabeledValue,
     Rollout,
@@ -34,7 +33,7 @@ from logfire.variables import (
     targeting_context,
 )
 from logfire.variables.abstract import ResolvedVariable
-from logfire.variables.variable import FeatureFlag as FeatureFlagImplementation, _feature_flag_telemetry_attributes
+from logfire.variables.variable import _feature_flag_evaluation_details, _feature_flag_telemetry_attributes
 
 MUTATION_TESTING = 'MUTANT_UNDER_TEST' in os.environ
 DETERMINISTIC_PROPERTY_SETTINGS = settings(
@@ -180,7 +179,13 @@ def test_feature_flag_telemetry_translation(
     expected_error: str | None,
 ):
     telemetry = _feature_flag_telemetry_attributes(result, config, attributes)
+    details = _feature_flag_evaluation_details(result, config, attributes)
 
+    assert details.flag_key == result.name
+    assert details.value is result.value
+    assert details.variant == result.label
+    assert details.reason == expected_reason
+    assert details.error_code == expected_error
     assert telemetry['feature_flag.key'] == result.name
     assert telemetry['feature_flag.provider.name'] == 'logfire'
     assert telemetry['feature_flag.result.value'] is result.value
@@ -262,10 +267,16 @@ def test_feature_flag_preserves_description():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = feature_flag('test_flag', default=False, description='Enable the new checkout.')
+    flag = FeatureFlag('test_flag', default=False, description='Enable the new checkout.')
 
+    assert isinstance(flag, FeatureFlag)
     assert flag.description == 'Enable the new checkout.'
-    assert flag.evaluate(targeting_key='account-a').value is False
+    assert not hasattr(flag, 'get')
+    details = flag.evaluate(targeting_key='account-a')
+    assert details.flag_key == 'test_flag'
+    assert details.value is False
+    assert details.variant == 'disabled'
+    assert details.reason == 'static'
 
 
 def test_rollout_warning_truth_table():
@@ -307,8 +318,7 @@ def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
     flag = feature_flag('test_flag', default=False)
-    flag_implementation = cast(FeatureFlagImplementation, flag)
-    provider = flag_implementation.logfire_instance.config.get_variable_provider()
+    provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
 
     with (
         patch.object(provider, 'get_serialized_value', wraps=provider.get_serialized_value) as get_serialized_value,
@@ -344,7 +354,7 @@ def test_resource_attributes_target_feature_flags_when_enabled(
     )
     flag = feature_flag('test_flag', default=False)
 
-    assert flag.evaluate(targeting_key='account-a').label == 'disabled'
+    assert flag.evaluate(targeting_key='account-a').variant == 'disabled'
 
 
 class FeatureFlagStateMachine(RuleBasedStateMachine):
@@ -431,25 +441,25 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
 
         if self.overrides:
             expected_value = self.overrides[-1][1]
-            expected_label = None
-            expected_reason = 'context_override'
+            expected_variant = None
+            expected_reason = 'static'
         elif expected_attributes.get('plan') == 'team':
             expected_value = True
-            expected_label = 'enabled'
-            expected_reason = 'resolved'
+            expected_variant = 'enabled'
+            expected_reason = 'targeting_match'
         elif expected_attributes.get('plan') == 'guest':
             expected_value = False
-            expected_label = 'disabled'
-            expected_reason = 'resolved'
+            expected_variant = 'disabled'
+            expected_reason = 'targeting_match'
         else:
             effective_key = targeting_key if targeting_key is not None else self.contexts[-1][1]
             baseline = self.base_results[effective_key]
             expected_value = baseline.value
-            expected_label = baseline.label
+            expected_variant = baseline.variant
             expected_reason = baseline.reason
 
         assert details.value is expected_value
-        assert details.label == expected_label
+        assert details.variant == expected_variant
         assert details.reason == expected_reason
         assert self.flag.is_enabled(targeting_key=targeting_key, attributes=attributes) is expected_value
 
@@ -558,7 +568,7 @@ def test_feature_context_reuses_managed_variable_targeting_context():
     with targeting_context('regular-variable-key'):
         with feature_context('feature-flag-key', attributes={'plan': 'team'}):
             assert regular_variable.get().value == 'feature-flag-key'
-            assert flag.evaluate().label == config.variables['test_flag'].resolve_label('feature-flag-key')
+            assert flag.evaluate().variant == config.variables['test_flag'].resolve_label('feature-flag-key')
 
     for feature_context_is_outer in (False, True):
         with ExitStack() as stack:
@@ -571,4 +581,4 @@ def test_feature_context_reuses_managed_variable_targeting_context():
                 stack.enter_context(feature_context('feature-flag-key'))
 
             assert regular_variable.get().value == 'feature-flag-key'
-            assert flag.evaluate().label == config.variables['test_flag'].resolve_label('specific-feature-flag-key')
+            assert flag.evaluate().variant == config.variables['test_flag'].resolve_label('specific-feature-flag-key')

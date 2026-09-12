@@ -127,7 +127,7 @@ if TYPE_CHECKING:
         Variable,
         VariablesConfig,
     )
-    from ..variables.variable import FeatureFlag
+    from ..variables.variable import _ManagedVariableFeatureFlagAdapter  # pyright: ignore[reportPrivateUsage]
     from .config import TemplateMismatchPolicy
     from .forwarding import ForwardExportRequestResponse
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
@@ -2578,7 +2578,7 @@ class Logfire:
         *,
         default: bool,
         description: str | None = None,
-    ) -> FeatureFlag:
+    ) -> _ManagedVariableFeatureFlagAdapter:
         """Define a boolean feature flag with a safe code default.
 
         The returned flag evaluates from the same locally cached configuration as managed
@@ -2611,13 +2611,13 @@ class Logfire:
 
         ensure_variables_dependencies()
 
-        from logfire.variables.variable import FeatureFlag
+        from logfire.variables.variable import _ManagedVariableFeatureFlagAdapter  # pyright: ignore[reportPrivateUsage]
 
         if not isinstance(cast(Any, default), bool):
             raise TypeError('Feature flag defaults must be boolean.')
 
         self._validate_variable_registration(name)
-        flag = FeatureFlag(name, default=default, description=description, logfire_instance=self)
+        flag = _ManagedVariableFeatureFlagAdapter(name, default=default, description=description, logfire_instance=self)
         return self._register_variable(flag)
 
     @overload

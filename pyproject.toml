@@ -231,6 +231,7 @@ format-command = "ruff format --stdin-filename {filename}"
 [tool.mutmut]
 source_paths = ["logfire/"]
 only_mutate = [
+    "logfire/experimental/feature_flags.py",
     "logfire/variables/config.py",
     "logfire/variables/variable.py",
 ]

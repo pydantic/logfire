@@ -38,7 +38,7 @@ To inspect the selected variant, version, fallback reason, or error, call `evalu
 details = new_checkout.evaluate(targeting_key='account-123')
 
 print(details.value)
-print(details.label)
+print(details.variant)
 print(details.reason)
 ```
 

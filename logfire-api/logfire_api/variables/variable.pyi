@@ -4,13 +4,14 @@ from collections.abc import Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from logfire._internal.config import TemplateMismatchPolicy
+from logfire.experimental.feature_flags import FlagEvaluationDetails
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.composition import ComposedReference
 from logfire.variables.config import VariableConfig
 from typing import Any, Generic, Protocol, TypeVar
 from typing_extensions import TypeIs
 
-__all__ = ['ResolveFunction', 'is_resolve_function', 'Variable', 'FeatureFlag', 'TemplateVariable', 'TemplateInputsMismatchError', 'feature_context', 'targeting_context']
+__all__ = ['ResolveFunction', 'is_resolve_function', 'Variable', 'TemplateVariable', 'TemplateInputsMismatchError', 'feature_context', 'targeting_context']
 
 class TemplateInputsMismatchError(Exception):
     """Render-time `{{field}}` mismatch raised under the strict policy.
@@ -40,7 +41,8 @@ class ResolveFunction(Protocol[T_co]):
 
 class _TargetableVariable(Protocol):
     """Structural type accepted by variable-specific targeting contexts."""
-    name: str
+    @property
+    def name(self) -> str: ...
 
 class _RenderFunction(Protocol):
     def __call__(self, serialized_json: str, /) -> str:
@@ -165,16 +167,14 @@ class Variable(Generic[T_co]):
             version, and any errors that occurred.
         """
 
-class FeatureFlag(Variable[bool]):
-    """A boolean feature flag backed by Logfire managed variables."""
+class _ManagedVariableFeatureFlagAdapter(Variable[bool]):
+    """Compatibility adapter that evaluates feature flags through managed variables."""
     kind: str
     def __init__(self, name: str, *, default: bool, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
     def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[bool]:
         """Evaluate the flag and return its value and resolution details."""
-    def evaluate(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[bool]:
-        """Evaluate the flag and return its value and resolution details."""
-    def is_enabled(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> bool:
-        """Return whether the feature is enabled for the evaluation context."""
+    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails:
+        """Evaluate through managed variables and translate to the feature-flag contract."""
     def override_for_testing(self, value: bool) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
 

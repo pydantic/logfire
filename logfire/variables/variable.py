@@ -25,6 +25,7 @@ from logfire.variables.composition import (
 
 if TYPE_CHECKING:
     from logfire._internal.config import TemplateMismatchPolicy
+    from logfire.experimental.feature_flags import FlagEvaluationDetails, FlagEvaluationReason
     from logfire.variables.abstract import VariableProvider
     from logfire.variables.config import VariableConfig
 
@@ -41,7 +42,6 @@ __all__ = (
     'ResolveFunction',
     'is_resolve_function',
     'Variable',
-    'FeatureFlag',
     'TemplateVariable',
     'TemplateInputsMismatchError',
     'feature_context',
@@ -107,7 +107,8 @@ class ResolveFunction(Protocol[T_co]):
 class _TargetableVariable(Protocol):
     """Structural type accepted by variable-specific targeting contexts."""
 
-    name: str
+    @property
+    def name(self) -> str: ...
 
 
 class _RenderFunction(Protocol):
@@ -190,13 +191,15 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
         pass
 
 
-def _feature_flag_telemetry_attributes(
+def _feature_flag_evaluation_details(
     result: ResolvedVariable[bool],
     config: VariableConfig | None,
     attributes: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Translate managed-variable resolution details to feature-flag semantic attributes."""
-    reason = 'default'
+) -> FlagEvaluationDetails:
+    """Translate a managed-variable result into the feature-flag domain model."""
+    from logfire.experimental.feature_flags import FlagEvaluationDetails
+
+    reason: FlagEvaluationReason = 'default'
     error_type: str | None = None
 
     if result.reason == 'validation_error':
@@ -219,22 +222,38 @@ def _feature_flag_telemetry_attributes(
         elif result.reason == 'resolved':
             reason = 'static'
 
+    return FlagEvaluationDetails(
+        flag_key=result.name,
+        value=result.value,
+        variant=result.label,
+        reason=reason,
+        error_code=error_type,
+    )
+
+
+def _feature_flag_telemetry_attributes(
+    result: ResolvedVariable[bool],
+    config: VariableConfig | None,
+    attributes: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Translate a managed-variable result to feature-flag semantic attributes."""
+    details = _feature_flag_evaluation_details(result, config, attributes)
     result_attributes: dict[str, Any] = {
-        'feature_flag.key': result.name,
+        'feature_flag.key': details.flag_key,
         'feature_flag.provider.name': 'logfire',
-        'feature_flag.result.value': result.value,
-        'feature_flag.result.reason': reason,
+        'feature_flag.result.value': details.value,
+        'feature_flag.result.reason': details.reason,
         'logfire.feature_flag.resolution_reason': result.reason,
     }
-    if result.label is not None:
-        result_attributes['feature_flag.result.variant'] = result.label
+    if details.variant is not None:
+        result_attributes['feature_flag.result.variant'] = details.variant
     if result.version is not None:
         # Managed-variable versions identify the selected value, not the complete flag ruleset.
         # Keep that useful detail without assigning OpenTelemetry's `feature_flag.version`, which
         # is reserved for a version that uniquely identifies the flag or flag set configuration.
         result_attributes['logfire.feature_flag.value_version'] = result.version
-    if error_type is not None:
-        result_attributes['error.type'] = error_type
+    if details.error_code is not None:
+        result_attributes['error.type'] = details.error_code
     return result_attributes
 
 
@@ -1182,8 +1201,8 @@ class Variable(Generic[T_co]):
         return self._get_result_and_record_span(targeting_key, attributes, label)
 
 
-class FeatureFlag(Variable[bool]):
-    """A boolean feature flag backed by Logfire managed variables."""
+class _ManagedVariableFeatureFlagAdapter(Variable[bool]):  # pyright: ignore[reportUnusedClass]
+    """Compatibility adapter that evaluates feature flags through managed variables."""
 
     kind = 'feature_flag'
 
@@ -1262,21 +1281,16 @@ class FeatureFlag(Variable[bool]):
         config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
         return _feature_flag_telemetry_attributes(result, config, attributes)
 
-    def evaluate(
+    def evaluate_flag(
         self,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-    ) -> ResolvedVariable[bool]:
-        """Evaluate the flag and return its value and resolution details."""
-        return self.get(targeting_key, attributes)
-
-    def is_enabled(
-        self,
-        targeting_key: str | None = None,
-        attributes: Mapping[str, Any] | None = None,
-    ) -> bool:
-        """Return whether the feature is enabled for the evaluation context."""
-        return self.evaluate(targeting_key, attributes).value
+    ) -> FlagEvaluationDetails:
+        """Evaluate through managed variables and translate to the feature-flag contract."""
+        merged_attributes = self._get_merged_attributes(attributes)
+        result = self.get(targeting_key, attributes)
+        config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
+        return _feature_flag_evaluation_details(result, config, merged_attributes)
 
     def override_for_testing(self, value: bool) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""

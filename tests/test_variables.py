@@ -1954,7 +1954,7 @@ class TestFeatureFlag:
         flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
 
         assert flag.is_enabled() is False
-        assert flag.evaluate().reason == 'code_default'
+        assert flag.evaluate().reason == 'default'
         with flag.override_for_testing(True):
             assert flag.is_enabled() is True
 
@@ -1977,7 +1977,8 @@ class TestFeatureFlag:
             details = flag.evaluate(targeting_key='user-123')
 
         assert details.value is False
-        assert details.reason == 'validation_error'
+        assert details.reason == 'error'
+        assert details.error_code == 'type_mismatch'
 
     def test_evaluate_with_feature_context(self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
@@ -1987,7 +1988,7 @@ class TestFeatureFlag:
         with feature_context('user-123', attributes={'plan': 'free', 'region': 'us'}):
             details = flag.evaluate()
             assert details.value is False
-            assert details.label == 'disabled'
+            assert details.variant == 'disabled'
 
             # Invocation attributes take precedence over request-local attributes.
             assert flag.is_enabled(attributes={'plan': 'team'}) is True
@@ -1999,7 +2000,7 @@ class TestFeatureFlag:
             assert flag.is_enabled() is False
 
         # Leaving the outer context restores the base rollout and does not retain plan='free'.
-        assert flag.evaluate(targeting_key='user-123').label == 'enabled'
+        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
 
     @pytest.mark.anyio
     async def test_feature_context_is_isolated_between_tasks(self, config_kwargs: dict[str, Any]):
@@ -2029,7 +2030,7 @@ class TestFeatureFlag:
             with feature_context(targeting_key, attributes={'plan': plan}):
                 await asyncio.sleep(0)
                 details = flag.evaluate()
-                return details.value, details.label
+                return details.value, details.variant
 
         team, free = await asyncio.gather(evaluate('team-user', 'team'), evaluate('free-user', 'free'))
 
@@ -2098,7 +2099,7 @@ class TestFeatureFlag:
         assert config.resolve_label('user-12') == 'disabled'
         expected_label = config.resolve_label('user-123')
         assert expected_label == 'enabled'
-        assert details.label == expected_label
+        assert details.variant == expected_label
 
     def test_rejects_non_boolean_default(self, config_kwargs: dict[str, Any]):
         logfire.configure(**config_kwargs)
@@ -2112,7 +2113,10 @@ class TestFeatureFlag:
         logfire.configure(**config_kwargs)
         flag = feature_flag('new_checkout', default=False)
 
-        assert logfire.variables_get() == [flag]
+        registered = logfire.variables_get()
+        assert len(registered) == 1
+        assert registered[0].name == flag.name
+        assert registered[0] is not flag  # The managed variable is a private compatibility adapter.
         with pytest.raises(ValueError, match='already been registered'):
             logfire.var('new_checkout', default=False)
 
@@ -2151,8 +2155,8 @@ class TestFeatureFlag:
 
         with logfire.set_baggage(plan='free'):
             # user-123 resolves differently for the base rollout and the free-plan override.
-            assert flag.evaluate(targeting_key='user-123').label == 'enabled'
-            assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).label == 'disabled'
+            assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+            assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
 
     def test_resource_attributes_can_be_excluded_from_feature_flag_targeting(
         self,
@@ -2169,8 +2173,8 @@ class TestFeatureFlag:
         flag = feature_flag('new_checkout', default=False)
 
         # The resource attribute would select the free-plan override if the opt-out were ignored.
-        assert flag.evaluate(targeting_key='user-123').label == 'enabled'
-        assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).label == 'disabled'
+        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+        assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
 
 
 class TestVariable:
