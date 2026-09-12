@@ -132,6 +132,8 @@ def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
     if 'from fastapi' in example.source and get_version(pydantic.__version__) < get_version('2.7.0'):
         pytest.skip('FastAPI requires pydantic>=2.7')
+    if 'agent_control' in example.source and get_version(pydantic.__version__) < get_version('2.10.0'):
+        pytest.skip('Agent Control requires pydantic>=2.10')
 
     set_eval_config(eval_example)
 
