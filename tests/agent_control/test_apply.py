@@ -392,6 +392,13 @@ def test_a_config_built_in_code_remembers_no_unrecognized_sections() -> None:
     assert AgentConfig(model='openai:gpt-5.6-sol').unrecognized == ()
 
 
+def test_re_validating_a_parsed_config_does_not_forget_what_it_remembered() -> None:
+    # An adapter that hands a config back through validation -- a test, a migration script -- gets a
+    # model instance rather than a mapping, which has no keys to re-read but has already read them.
+    published = config(instructions=['Be brief.'], mcp_servers=[])
+    assert AgentConfig.model_validate(published).unrecognized == ('mcp_servers',)
+
+
 def test_a_timeout_that_is_not_a_request_budget_is_dropped_rather_than_clamped() -> None:
     applied = apply_settings(config(settings={'timeout': -1, 'temperature': 0.4}))
     assert applied.settings == {'temperature': 0.4}

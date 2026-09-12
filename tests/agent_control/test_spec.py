@@ -143,11 +143,7 @@ def issues_as_paths(issues: Sequence[ApplyIssue]) -> list[dict[str, Any]]:
     across the two is the decision and the path to what it was about.
     """
     return [
-        {
-            name: value
-            for name, value in asdict(issue).items()
-            if name != 'message' and value is not None  # pyright: ignore[reportUnknownArgumentType]
-        }
+        {name: value for name, value in asdict(issue).items() if name != 'message' and value is not None}
         for issue in issues
     ]
 
