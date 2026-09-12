@@ -338,6 +338,16 @@ def test_is_enabled_forwards_an_explicit_targeting_key():
     assert test_flag.is_enabled(targeting_key=enabled_key) is True
 
 
+def test_is_enabled_forwards_the_complete_evaluation_context():
+    test_flag = feature_flag('test_flag', default=False)
+    attributes = {'plan': 'team'}
+
+    with patch.object(FeatureFlag, 'value', return_value=True) as value:
+        assert test_flag.is_enabled(targeting_key='account-a', attributes=attributes) is True
+
+    value.assert_called_once_with('account-a', attributes)
+
+
 def test_feature_context_wins_over_generic_context_but_not_variable_specific_context():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     keys = {
@@ -416,6 +426,13 @@ def test_parameterized_flag_requires_an_explicit_type():
 
     values = flag('values', type=list[str], default=[])
     assert values.value() == []
+
+
+def test_duplicate_flag_name_is_validated_before_type_inference():
+    feature_flag('duplicate', default=False)
+
+    with pytest.raises(ValueError, match="variable with name 'duplicate' has already been registered"):
+        flag('duplicate', default=[])
 
 
 def test_typed_flag_validates_its_code_default_during_construction():

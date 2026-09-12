@@ -105,12 +105,14 @@ class Flag(Generic[T]):
     ):
         """Define a typed feature flag backed by the configured Logfire provider."""
         ensure_variables_dependencies()
-        if type is None:
-            type = _infer_flag_type(default)
         if logfire_instance is None:
             from logfire import DEFAULT_LOGFIRE_INSTANCE
 
             logfire_instance = DEFAULT_LOGFIRE_INSTANCE
+        # Registration errors should be stable even when type inference would also fail.
+        logfire_instance._validate_variable_registration(name)  # pyright: ignore[reportPrivateUsage]
+        if type is None:
+            type = _infer_flag_type(default)
         self._adapter: _FlagAdapter[T] = logfire_instance._flag(  # pyright: ignore[reportPrivateUsage]
             name, type=type, default=default, description=description
         )

@@ -1247,16 +1247,17 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         description: str | None = None,
         logfire_instance: logfire.Logfire,
     ):
+        # Managed variables permit incompatible sentinel defaults, but a typed feature flag
+        # promises that every value it returns conforms to its declared type. Validate before
+        # initializing the variables engine so it never observes an invalid default.
+        validated_default = TypeAdapter[FlagT](type).validate_python(default)
         super().__init__(
             name,
             type=type,
-            default=default,
+            default=validated_default,
             description=description,
             logfire_instance=logfire_instance,
         )
-        # Managed variables permit incompatible sentinel defaults, but a typed feature flag
-        # promises that every value it returns conforms to its declared type.
-        self.default = self.type_adapter.validate_python(default)
 
     def get(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,

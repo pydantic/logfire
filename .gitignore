@@ -13,6 +13,8 @@ venv
 
 # stubgen
 out
+
+# mutation testing
 mutants
 
 # Node/Cloudflare
