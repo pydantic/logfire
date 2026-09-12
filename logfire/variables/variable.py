@@ -220,16 +220,23 @@ def _feature_flag_evaluation_details(
         # Custom providers may resolve a value without exposing their rules as VariableConfig.
         reason = Reason.STATIC
     elif config is not None:
-        rollout, matched_target = config._select_rollout_with_match(attributes)  # pyright: ignore[reportPrivateUsage]
-        positive_labels = sum(weight > 0 for weight in rollout.labels.values())
-        includes_code_default = sum(rollout.labels.values()) < 1.0
-        has_multiple_outcomes = positive_labels + includes_code_default > 1
-        if has_multiple_outcomes:
-            reason = Reason.SPLIT
-        elif matched_target and result.reason == 'resolved':
-            reason = Reason.TARGETING_MATCH
-        elif result.reason == 'resolved':
-            reason = Reason.STATIC
+        try:
+            rollout, matched_target = config._select_rollout_with_match(  # pyright: ignore[reportPrivateUsage]
+                attributes
+            )
+            positive_labels = sum(weight > 0 for weight in rollout.labels.values())
+            includes_code_default = sum(rollout.labels.values()) < 1.0
+            has_multiple_outcomes = positive_labels + includes_code_default > 1
+            if has_multiple_outcomes:
+                reason = Reason.SPLIT
+            elif matched_target and result.reason == 'resolved':
+                reason = Reason.TARGETING_MATCH
+            elif result.reason == 'resolved':
+                reason = Reason.STATIC
+        except (AttributeError, KeyError, TypeError, ValueError):
+            # This inspection only enriches evaluation details and telemetry. A malformed custom
+            # provider configuration must not replace the safe value already returned by resolution.
+            pass
 
     return FlagResolutionDetails(
         value=result.value,

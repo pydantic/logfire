@@ -3339,7 +3339,7 @@ dev = [
     { name = "litestar", specifier = ">=2.11.0" },
     { name = "logfire-api", editable = "logfire-api" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mutmut", specifier = ">=3.0" },
+    { name = "mutmut", specifier = ">=3.7.0" },
     { name = "mypy", specifier = ">=1.10.0" },
     { name = "mysql-connector-python", specifier = ">=8.0" },
     { name = "numpy", marker = "python_full_version < '3.12'", specifier = ">=2.0" },

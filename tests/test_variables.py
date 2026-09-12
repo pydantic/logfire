@@ -2105,7 +2105,7 @@ class TestFeatureFlag:
     def test_rejects_non_boolean_default(self, config_kwargs: dict[str, Any]):
         logfire.configure(**config_kwargs)
 
-        with pytest.raises(TypeError, match='Feature flag defaults must be boolean'):
+        with pytest.raises(TypeError, match=r'^Feature flag defaults must be boolean\.$'):
             feature_flag('new_checkout', default=cast(Any, 'false'))
         with pytest.raises(ValueError, match='Invalid variable name'):
             feature_flag('new_checkout\n', default=False)

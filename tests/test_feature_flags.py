@@ -216,6 +216,17 @@ def test_feature_flag_telemetry_translation(
         assert details.error_message is None
 
 
+def test_feature_flag_telemetry_inspection_cannot_break_a_resolved_value():
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0})).variables['test_flag']
+    result = ResolvedVariable(name='test_flag', value=True, reason='resolved')
+
+    with patch.object(config, '_select_rollout_with_match', side_effect=ValueError('malformed targeting metadata')):
+        details = _feature_flag_evaluation_details(result, config, {})
+
+    assert details.value is True
+    assert details.reason == Reason.DEFAULT
+
+
 @DETERMINISTIC_PROPERTY_SETTINGS
 @given(parts=ROLLOUT_PARTS, targeting_key=st.text(min_size=0, max_size=80))
 def test_rollout_resolution_is_deterministic_and_selects_only_possible_outcomes(
@@ -297,6 +308,23 @@ def test_feature_flag_preserves_description():
     assert details.variant == 'disabled'
     assert details.reason == Reason.STATIC
     assert details.flag_metadata == {'logfire.value_version': 1}
+
+
+def test_is_enabled_forwards_an_explicit_targeting_key():
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    enabled_key = next(
+        f'account-{index}'
+        for index in range(100)
+        if config.variables['test_flag'].resolve_label(f'account-{index}') == 'enabled'
+    )
+    test_flag = feature_flag('test_flag', default=False)
+
+    assert test_flag.is_enabled(targeting_key=enabled_key) is True
 
 
 def test_feature_flag_uses_the_explicit_logfire_instance():
@@ -519,8 +547,9 @@ def test_rollout_warning_truth_table():
             flag.evaluate(attributes={'plan': 'free'})
     assert caught == []
 
-    with pytest.warns(RuntimeWarning, match='no stable targeting key'):
+    with pytest.warns(RuntimeWarning, match='no stable targeting key') as caught:
         flag.evaluate(attributes={'plan': 'free'})
+    assert len(caught) == 1
 
 
 def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
