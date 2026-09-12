@@ -41,6 +41,7 @@ from logfire.variables import (
 )
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import (
+    Variable,
     _feature_flag_evaluation_details,
     _feature_flag_telemetry_attributes,
     _feature_flag_telemetry_value,
@@ -773,6 +774,45 @@ def test_provider_metadata_failure_cannot_break_feature_flag_telemetry():
 
     assert telemetry['feature_flag.result.value'] == 'us'
     assert telemetry['feature_flag.result.reason'] == 'static'
+
+
+def test_provider_metadata_failure_cannot_break_flag_evaluation():
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    provider = adapter.logfire_instance.config.get_variable_provider()
+
+    with (
+        patch.object(adapter, 'get', return_value=ResolvedVariable(name='region', value='eu', reason='resolved')),
+        patch.object(provider, 'get_variable_config', side_effect=RuntimeError('broken provider')),
+    ):
+        details = adapter.evaluate_flag(targeting_key='account-a')
+
+    assert details.value == 'eu'
+    assert details.reason == Reason.STATIC
+
+
+def test_provider_metadata_failure_cannot_break_rollout_warning():
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    provider = adapter.logfire_instance.config.get_variable_provider()
+
+    with (
+        patch.object(Variable, 'get', return_value=ResolvedVariable(name='region', value='eu', reason='resolved')),
+        patch.object(provider, 'get_variable_config', side_effect=RuntimeError('broken provider')),
+    ):
+        assert adapter.get().value == 'eu'
+
+
+def test_openfeature_provider_returns_default_when_evaluation_raises():
+    enabled = feature_flag('enabled', default=False)
+
+    with patch.object(enabled._adapter, 'evaluate_flag', side_effect=RuntimeError('sensitive provider failure')):
+        details = LogfireProvider().resolve_boolean_details('enabled', True)
+
+    assert details.value is True
+    assert details.reason == Reason.ERROR
+    assert details.error_code == ErrorCode.GENERAL
+    assert details.error_message == 'Feature flag evaluation failed.'
 
 
 def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: dict[str, Any], exporter: TestExporter):

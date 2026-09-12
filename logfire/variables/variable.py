@@ -1272,12 +1272,12 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
 
         result = super().get(targeting_key, attributes)
         if not has_stable_targeting_key:
-            variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
             try:
+                variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
                 requires_targeting_key = variable_config is not None and variable_config.requires_targeting_key(
                     self._get_merged_attributes(attributes)
                 )
-            except (AttributeError, KeyError, TypeError, ValueError):
+            except Exception:
                 # This inspection only enriches a warning. Malformed custom-provider metadata
                 # must not replace the safe value already returned by resolution.
                 return result
@@ -1365,7 +1365,11 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         """Evaluate through managed variables and translate to the feature-flag contract."""
         merged_attributes = self._get_merged_attributes(attributes)
         result = self.get(targeting_key, attributes)
-        config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
+        try:
+            config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
+        except Exception:
+            # Provider metadata only enriches OpenFeature details and must not break a resolved value.
+            config = None
         return _feature_flag_evaluation_details(result, config, merged_attributes)
 
     def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:

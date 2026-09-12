@@ -4,17 +4,17 @@ from collections.abc import Callable
 from importlib import import_module, metadata, util
 
 
-def assert_not_available(package: str) -> None:
+def assert_not_available(import_name: str, distribution_name: str | None = None) -> None:
     """Assert that a package is neither installed nor importable."""
-    if util.find_spec(package) is not None:
-        raise AssertionError(f'{package} should not be importable')
+    if util.find_spec(import_name) is not None:
+        raise AssertionError(f'{import_name} should not be importable')
 
     try:
-        metadata.version(package)
+        metadata.version(distribution_name or import_name)
     except metadata.PackageNotFoundError:
         pass
     else:
-        raise AssertionError(f'{package} should not be installed')
+        raise AssertionError(f'{distribution_name or import_name} should not be installed')
 
 
 def assert_import_error(label: str, func: Callable[[], object], expected_message: str) -> None:
@@ -34,15 +34,21 @@ class NotJsonSerializable:
 
 def main() -> None:
     """Smoke-test core logfire APIs in a minimal installation."""
-    optional_packages = ('pytest', 'pydantic', 'pydantic_handlebars', 'httpx', 'openfeature')
+    optional_packages = (
+        ('pytest', None),
+        ('pydantic', None),
+        ('pydantic_handlebars', None),
+        ('httpx', None),
+        ('openfeature', 'openfeature-sdk'),
+    )
 
-    for package in optional_packages:
-        assert_not_available(package)
+    for import_name, distribution_name in optional_packages:
+        assert_not_available(import_name, distribution_name)
 
     import logfire
 
-    for package in optional_packages:
-        assert_not_available(package)
+    for import_name, distribution_name in optional_packages:
+        assert_not_available(import_name, distribution_name)
 
     assert_import_error('testing helpers', lambda: import_module('logfire.testing'), "No module named 'pytest'")
     assert_import_error(
@@ -70,8 +76,8 @@ def main() -> None:
         lambda: import_module('logfire.experimental.feature_flags').feature_flag('minimal_install_flag', default=False),
         'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages',
     )
-    for package in optional_packages:
-        assert_not_available(package)
+    for import_name, distribution_name in optional_packages:
+        assert_not_available(import_name, distribution_name)
 
     logfire.configure(send_to_logfire=False)
     not_json_serializable = NotJsonSerializable()

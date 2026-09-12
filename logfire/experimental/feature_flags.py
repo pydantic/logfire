@@ -296,10 +296,19 @@ class LogfireProvider(AbstractProvider):
             return _type_mismatch(default_value, f"Flag '{flag_key}' is not registered as {expected_type.__name__}.")
 
         context = evaluation_context or EvaluationContext()
-        return cast(
-            FlagResolutionDetails[T],
-            adapter.evaluate_flag(targeting_key=context.targeting_key, attributes=context.attributes),
-        )
+        try:
+            return cast(
+                FlagResolutionDetails[T],
+                adapter.evaluate_flag(targeting_key=context.targeting_key, attributes=context.attributes),
+            )
+        except Exception:
+            # OpenFeature providers return structured errors rather than raising evaluation failures.
+            return FlagResolutionDetails(
+                value=default_value,
+                reason='ERROR',
+                error_code=ErrorCode.GENERAL,
+                error_message='Feature flag evaluation failed.',
+            )
 
 
 def _type_mismatch(default_value: T, message: str) -> FlagResolutionDetails[T]:
