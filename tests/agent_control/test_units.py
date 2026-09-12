@@ -47,16 +47,15 @@ def test_a_budget_a_request_cannot_be_given_is_refused_rather_than_clamped(secon
 
 def test_an_unrepresentable_published_timeout_is_reported_and_left_out_of_the_patch() -> None:
     published = AgentConfig.model_validate({'settings': {'timeout': -5, 'temperature': 0.4}})
-    with pytest.warns(UserWarning, match='request timeout of -5.0 seconds, which is not a budget a request can be'):
-        assert apply_settings(published) == {'temperature': 0.4}
-    assert apply_settings(published, on_unmatched='ignore') == {'temperature': 0.4}
-    with pytest.raises(ValueError, match='request timeout of -5.0 seconds'):
-        apply_settings(published, on_unmatched='error')
+    applied = apply_settings(published)
+    assert applied.settings == {'temperature': 0.4}
+    assert [(i.reason, i.setting) for i in applied.issues] == [('unrepresentable-timeout', 'timeout')]
+    assert 'request timeout of -5.0 seconds, which is not a budget a request can be' in applied.issues[0].message
 
 
 def test_a_representable_timeout_is_applied_like_any_other_setting() -> None:
     published = AgentConfig.model_validate({'settings': {'timeout': 30}})
-    assert apply_settings(published) == {'timeout': 30.0}
+    assert apply_settings(published).settings == {'timeout': 30.0}
 
 
 def test_an_integer_too_large_to_be_a_float_is_refused_rather_than_raised() -> None:

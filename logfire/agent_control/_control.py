@@ -17,7 +17,7 @@ from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
 
 from ._config import AgentConfig
 from ._names import agent_variable_name
-from ._reporting import OnUnmatched, report_unmatched, warn_dropped
+from ._reporting import ApplyIssue, OnUnmatched, report_issues, report_unmatched, warn_dropped
 from ._schema import AGENT_CONFIG_JSON_SCHEMA
 
 if TYPE_CHECKING:
@@ -298,13 +298,22 @@ class AgentControl:
 
     config = control.resolve()
     if config is not None:
-        blocks = apply_instructions([Block('You are a checkout assistant.', id='agent')], config).blocks
+        applied = apply_instructions([Block('You are a checkout assistant.', id='agent')], config)
+        blocks = applied.blocks
+        control.report(*applied.issues)
     ```
 
-    Nothing published can crash a request. An unreachable provider, a missing value, or one this
+    Nothing published can crash the *SDK*. An unreachable provider, a missing value, or one this
     version of the contract cannot parse leaves `resolve()` returning `None`, which means "run the
     agent as written"; beyond that, a value the contract can't act on costs only the piece containing
-    it -- one setting, one tool, one block -- and warns once per process.
+    it -- one setting, one tool, one block -- and is reported under `on_unmatched`.
+
+    It is not a promise about the request. A setting the adapter *can* lower is forwarded to the
+    provider, and providers refuse settings: a published `presence_penalty` is a `400` on some
+    models, as is a `temperature` alongside a reasoning effort. Which settings a given model accepts
+    is not in this contract and is not something the Logfire editor can warn about -- it is the
+    adapter's own reasoning, and [`AgentSupport`][logfire.agent_control.AgentSupport] declares only
+    what the *adapter* can apply.
     """
 
     def __init__(
@@ -332,10 +341,11 @@ class AgentControl:
                 targeting rules and rollout choose which label this process gets.
             logfire_instance: The Logfire instance to resolve and publish through. Defaults to the
                 global one, which is what `logfire.configure()` sets up.
-            on_unmatched: The default policy for published entries that reach nothing, carried here so
-                an adapter can read it off the control it was handed rather than plumbing a second
-                argument through its hooks. Nothing in this class applies it; the pure helpers take it
-                per call. See [`OnUnmatched`][logfire.agent_control.OnUnmatched].
+            on_unmatched: The policy for published entries that reach nothing. Applied by
+                [`report`][logfire.agent_control.AgentControl.report], which is the one place it is
+                applied: the pure helpers plan a request and hand back what they could not apply, so
+                an adapter reports every section's issues together and `'error'` names all of them.
+                See [`OnUnmatched`][logfire.agent_control.OnUnmatched].
             publish_baseline: Whether `publish_baseline()` actually writes. Enabled by default because
                 the baseline is documentation for the Logfire editor and is never resolved or applied
                 to a request, so a failed or stale publish cannot change agent behavior. Disable it
@@ -357,7 +367,7 @@ class AgentControl:
         self.label = label
         """The label resolved, or `None` to let the variable's targeting rules choose."""
         self.on_unmatched: OnUnmatched = on_unmatched
-        """The policy an adapter should pass to the pure helpers; see `OnUnmatched`."""
+        """The policy `report` applies to a request's issues; see `OnUnmatched`."""
 
         self._logfire_instance = logfire_instance if logfire_instance is not None else logfire.DEFAULT_LOGFIRE_INSTANCE
         self._publish_baseline = publish_baseline
@@ -469,15 +479,51 @@ class AgentControl:
             'running the agent as written.'
         )
 
-    def report_unmatched(self, message: str) -> None:
-        """Report something published that this adapter could not apply, under `on_unmatched`.
+    def report(self, *issues: ApplyIssue) -> None:
+        """Apply this control's `on_unmatched` policy to everything one request could not apply.
 
-        The pure helpers report what *they* could not apply -- an instruction id no block carries, a
-        tool override no tool matches, a settings key the contract has no field for. This is the same
-        policy for what only the adapter can know: a `model` section on a framework that cannot switch
-        models at request time, a section its hook does not reach. It exists so an adapter reports
-        those through the policy the user configured rather than reimplementing it, and so every gap
-        between what Logfire shows and what the agent does sounds the same.
+        The apply helpers plan and report nothing; this is where the policy the user configured is
+        applied, once, to every section at once. Which is what makes their return value load-bearing:
+        an adapter that plans three sections and forgets to report says nothing, visibly, rather than
+        duplicating a warning that was already emitted.
+
+        ```python skip-run="true" skip-reason="illustrative-fragment"
+        instructions = apply_instructions(blocks, config)
+        tools = apply_tool_definitions(request.tools, config, reserved=request.provider_tool_names)
+        settings = apply_settings(config, support=SUPPORT)
+        control.report(*instructions.issues, *tools.issues, *settings.issues)
+        ```
+
+        Reporting after everything is planned is the point of collecting them: `'error'` used to
+        raise inside the first section's apply call, so the strictest policy reported the least --
+        the other sections were never planned and their issues were never returned. One call raises
+        once, naming every issue.
+
+        An adapter whose framework has its own error type translates this without restating a single
+        message, because the exception carries them:
+
+        ```python skip-run="true" skip-reason="illustrative-fragment"
+        try:
+            control.report(*issues)
+        except UnmatchedConfigError as exc:
+            raise MyFrameworkError(str(exc)) from exc
+        ```
+
+        Raises:
+            UnmatchedConfigError: naming every issue, when `on_unmatched` is `'error'`.
+        """
+        report_issues(self.on_unmatched, issues)
+
+    def report_unmatched(self, message: str) -> None:
+        """Report something published that this adapter could not apply, as a message.
+
+        [`report`][logfire.agent_control.AgentControl.report] is the channel for anything the core
+        planned, and anything an adapter can describe as an
+        [`ApplyIssue`][logfire.agent_control.ApplyIssue] -- including a section it cannot reach
+        (`'unsupported-section'`) and a setting its provider dropped
+        ([`ApplyIssue.dropped_by_provider`][logfire.agent_control.ApplyIssue.dropped_by_provider]).
+        This is the same policy for a message with no path to give, and applies it on its own so a
+        message is not held back waiting for a request's other sections.
 
         Write the message the way the helpers do -- what was published, and what was not applied:
 
@@ -489,7 +535,7 @@ class AgentControl:
         ```
 
         Raises:
-            ValueError: with `message`, when `on_unmatched` is `'error'`.
+            UnmatchedConfigError: with `message`, when `on_unmatched` is `'error'`.
         """
         report_unmatched(self.on_unmatched, message)
 

@@ -8,6 +8,7 @@ functions that say what a published value does to a request. Framework adapters 
 
 from ._apply import (
     AppliedInstructions,
+    AppliedSettings,
     AppliedTools,
     Block,
     CollisionScope,
@@ -29,8 +30,9 @@ from ._config import (
 from ._control import AgentControl, BaselineSource, Resolution, current_resolution, use_resolution
 from ._merge import Provenance, SettingSource, merge_settings
 from ._names import AGENT_VARIABLE_PREFIX, agent_variable_name, normalize_agent_name
-from ._reporting import OnUnmatched, UnappliedEntry, UnappliedReason
+from ._reporting import ApplyIssue, ApplyIssueReason, OnUnmatched, UnmatchedConfigError
 from ._schema import AGENT_CONFIG_JSON_SCHEMA, MAX_MODEL_FACING_TEXT_LENGTH, SCHEMA_SHA256
+from ._support import AgentSupport, Destination, Section
 from ._units import MAX_TIMEOUT_MILLISECONDS, MAX_TIMEOUT_SECONDS, is_representable_timeout, to_milliseconds
 
 __all__ = (
@@ -43,22 +45,27 @@ __all__ = (
     'AgentConfig',
     'AgentConfigSettings',
     'AgentControl',
+    'AgentSupport',
     'AppliedInstructions',
+    'AppliedSettings',
     'AppliedTools',
+    'ApplyIssue',
+    'ApplyIssueReason',
     'BaselineSource',
     'Block',
     'CollisionScope',
+    'Destination',
     'InstructionBlock',
     'OnUnmatched',
     'ParameterOverride',
     'Provenance',
     'Resolution',
+    'Section',
     'SettingSource',
     'ToolDef',
     'ToolDefinitionOverride',
     'ToolKey',
-    'UnappliedEntry',
-    'UnappliedReason',
+    'UnmatchedConfigError',
     'agent_variable_name',
     'apply_instructions',
     'apply_settings',

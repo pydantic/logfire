@@ -97,3 +97,23 @@ def baseline_vectors() -> list[dict[str, Any]]:
 @pytest.fixture(scope='session')
 def config_parsing_vectors() -> list[dict[str, Any]]:
     return _vectors('config-parsing.json')
+
+
+@pytest.fixture(scope='session')
+def instructions_apply_vectors() -> list[dict[str, Any]]:
+    return _vectors('instructions-apply.json')
+
+
+@pytest.fixture(scope='session')
+def tools_apply_vectors() -> list[dict[str, Any]]:
+    return _vectors('tools-apply.json')
+
+
+@pytest.fixture(scope='session')
+def settings_apply_vectors() -> list[dict[str, Any]]:
+    return _vectors('settings-apply.json')
+
+
+@pytest.fixture(scope='session')
+def merge_vectors() -> list[dict[str, Any]]:
+    return _vectors('merge.json')

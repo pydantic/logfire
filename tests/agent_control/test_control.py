@@ -14,8 +14,10 @@ import logfire
 from logfire.agent_control import (
     AGENT_CONFIG_JSON_SCHEMA,
     AgentControl,
+    ApplyIssue,
     Block,
     Resolution,
+    UnmatchedConfigError,
     build_baseline,
     current_resolution,
     use_resolution,
@@ -238,8 +240,48 @@ def test_an_adapter_reports_what_it_cannot_apply_through_the_configured_policy()
     with pytest.warns(UserWarning, match='cannot switch per request'):
         AgentControl('checkout').report_unmatched(message)
     AgentControl('checkout', on_unmatched='ignore').report_unmatched(message)
-    with pytest.raises(ValueError, match='cannot switch per request'):
+    with pytest.raises(UnmatchedConfigError, match='cannot switch per request'):
         AgentControl('checkout', on_unmatched='error').report_unmatched(message)
+
+
+UNKNOWN_TOOL = ApplyIssue(
+    section='tool_definitions',
+    reason='unknown-tool',
+    tool='refund',
+    message="Managed agent config patches tool 'refund', which no toolset advertises for this request.",
+)
+UNKNOWN_SETTING = ApplyIssue(
+    section='settings',
+    reason='unknown-setting',
+    setting='service_tier',
+    message="Managed agent config sets 'service_tier', which this contract has no model setting for.",
+)
+
+
+def test_one_report_applies_the_policy_to_every_section_at_once() -> None:
+    with pytest.warns(UserWarning) as caught:
+        AgentControl('checkout').report(UNKNOWN_TOOL, UNKNOWN_SETTING)
+    assert [str(warning.message) for warning in caught] == [UNKNOWN_TOOL.message, UNKNOWN_SETTING.message]
+
+
+def test_erroring_raises_once_naming_every_issue_rather_than_on_the_first() -> None:
+    # The defect this replaces: `'error'` raised inside the first section's apply call, so the other
+    # sections were never planned and the strictest policy reported the least.
+    control = AgentControl('checkout', on_unmatched='error')
+    with pytest.raises(UnmatchedConfigError) as caught:
+        control.report(UNKNOWN_TOOL, UNKNOWN_SETTING)
+    assert str(caught.value) == f'{UNKNOWN_TOOL.message}\n{UNKNOWN_SETTING.message}'
+    assert caught.value.issues == (UNKNOWN_TOOL, UNKNOWN_SETTING)
+    # A `ValueError`, so a deployment that was catching one still catches this, and a class of its
+    # own so an adapter can translate it into its framework's error type without restating a message.
+    assert isinstance(caught.value, ValueError)
+
+
+def test_ignoring_says_nothing_and_reporting_nothing_is_a_no_op() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        AgentControl('checkout', on_unmatched='ignore').report(UNKNOWN_TOOL)
+        AgentControl('checkout', on_unmatched='error').report()
 
 
 def test_publishing_creates_the_variable_with_the_stored_schema(

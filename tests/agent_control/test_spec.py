@@ -1,9 +1,10 @@
 """The cross-language vectors, run against this core.
 
-Three things have to give the same answer in Python and TypeScript, because a Logfire project is
+Everything that has to give the same answer in Python and TypeScript, because a Logfire project is
 shared and the SDKs are not: which variable an agent's config lives in, what a code baseline says,
-and what a published value parses to. `spec/` is where those answers live, and this is the half of
-the agreement this package keeps. A change to a rule changes the file first, and both cores after.
+what a published value parses to, and what applying one does to a request. `spec/` is where those
+answers live, and this is the half of the agreement this package keeps. A change to a rule changes
+the file first, and both cores after.
 
 The agent-name vectors are exercised in `test_control.py`, where the naming is public API.
 """
@@ -12,11 +13,26 @@ from __future__ import annotations
 
 import hashlib
 import warnings
+from collections.abc import Sequence
+from dataclasses import asdict
 from typing import Any
 
 import pytest
 
-from logfire.agent_control import AgentConfig, Block, ToolDef, build_baseline
+from logfire.agent_control import (
+    AgentConfig,
+    AgentSupport,
+    ApplyIssue,
+    Block,
+    Destination,
+    Section,
+    ToolDef,
+    apply_instructions,
+    apply_settings,
+    apply_tool_definitions,
+    build_baseline,
+    merge_settings,
+)
 from logfire.agent_control._reporting import reset_warned_messages
 
 from .conftest import SPEC, expand_repeats
@@ -96,7 +112,123 @@ def test_the_config_parsing_vectors(config_parsing_vectors: list[dict[str, Any]]
             assert list(config.settings.unrecognized) == vector['unrecognized_settings'], vector['name']
 
 
-CANONICAL_SPEC_SHA256 = 'f9fa69ee77a56d0eed2d7448cf42b4f0052645ec8d1ad38508d9a0bf5384d155'
+def support_of(data: Any) -> AgentSupport | None:
+    """The `support` an apply vector declares, or `None` for an adapter that declares nothing.
+
+    Read here rather than in each vector's assertions because it is the same three lines in every
+    apply file, and because the JSON is the wire form -- arrays, `accepts_additions` -- while the
+    core's own is a frozenset of `Section` and a tuple of `Destination`.
+    """
+    if data is None:
+        return None
+    sections: list[Section] = data['sections']
+    return AgentSupport(
+        sections=frozenset(sections),
+        destinations=tuple(
+            Destination(
+                id=destination['id'],
+                default=destination.get('default', False),
+                accepts_additions=destination.get('accepts_additions', True),
+            )
+            for destination in data.get('destinations', [])
+        ),
+        settings=frozenset(data.get('settings', [])),
+    )
+
+
+def issues_as_paths(issues: Sequence[ApplyIssue]) -> list[dict[str, Any]]:
+    """Every issue as the fields it actually set, which is what the vectors compare.
+
+    The message is left out on purpose: each core words it for its own users, and what has to match
+    across the two is the decision and the path to what it was about.
+    """
+    return [
+        {
+            name: value
+            for name, value in asdict(issue).items()
+            if name != 'message' and value is not None  # pyright: ignore[reportUnknownArgumentType]
+        }
+        for issue in issues
+    ]
+
+
+def parts_of(parts: list[dict[str, Any]]) -> list[Block]:
+    return [Block(text=part['text'], id=part.get('id'), dynamic=part.get('dynamic', False)) for part in parts]
+
+
+def parts_as_json(blocks: Sequence[Block]) -> list[dict[str, Any]]:
+    """Each part as the vectors write one: `id` even when absent, `dynamic` only when it is set."""
+    return [{'id': block.id, 'text': block.text, **({'dynamic': True} if block.dynamic else {})} for block in blocks]
+
+
+def tools_of(tools: list[dict[str, Any]]) -> list[ToolDef]:
+    return [
+        ToolDef(
+            name=tool['name'],
+            description=tool.get('description'),
+            parameters_json_schema=tool.get('parameters_json_schema', {}),
+            toolset=tool.get('toolset'),
+        )
+        for tool in tools
+    ]
+
+
+def tools_as_json(tools: Sequence[ToolDef]) -> list[dict[str, Any]]:
+    """Each tool as the vectors write one, leaving out what it does not carry."""
+    return [
+        {
+            'name': tool.name,
+            **({'description': tool.description} if tool.description is not None else {}),
+            **({'parameters_json_schema': tool.parameters_json_schema} if tool.parameters_json_schema else {}),
+            **({'toolset': tool.toolset} if tool.toolset is not None else {}),
+        }
+        for tool in tools
+    ]
+
+
+def test_the_instructions_apply_vectors(instructions_apply_vectors: list[dict[str, Any]]) -> None:
+    for vector in instructions_apply_vectors:
+        data: dict[str, Any] = expand_repeats(vector['input'])
+        expected: dict[str, Any] = expand_repeats(vector['expected'])
+        applied = apply_instructions(parts_of(data.get('parts', [])), AgentConfig.model_validate(data['config']))
+        assert parts_as_json(applied.blocks) == expected.get('parts', []), vector['name']
+        assert issues_as_paths(applied.issues) == expected['issues'], vector['name']
+
+
+def test_the_tools_apply_vectors(tools_apply_vectors: list[dict[str, Any]]) -> None:
+    for vector in tools_apply_vectors:
+        data: dict[str, Any] = expand_repeats(vector['input'])
+        expected: dict[str, Any] = expand_repeats(vector['expected'])
+        applied = apply_tool_definitions(
+            tools_of(data.get('tools', [])),
+            AgentConfig.model_validate(data['config']),
+            reserved=data.get('reserved', ()),
+            collision_scope=data.get('collision_scope', 'global'),
+        )
+        assert tools_as_json(applied.tools) == expected.get('tools', []), vector['name']
+        if 'routes' in expected:
+            assert applied.routes == expected['routes'], vector['name']
+        assert issues_as_paths(applied.issues) == expected['issues'], vector['name']
+
+
+def test_the_settings_apply_vectors(settings_apply_vectors: list[dict[str, Any]]) -> None:
+    for vector in settings_apply_vectors:
+        data: dict[str, Any] = expand_repeats(vector['input'])
+        expected: dict[str, Any] = expand_repeats(vector['expected'])
+        applied = apply_settings(AgentConfig.model_validate(data['config']), support=support_of(data.get('support')))
+        assert applied.settings == expected.get('settings', {}), vector['name']
+        assert issues_as_paths(applied.issues) == expected['issues'], vector['name']
+
+
+def test_the_merge_vectors(merge_vectors: list[dict[str, Any]]) -> None:
+    for vector in merge_vectors:
+        data: dict[str, Any] = vector['input']
+        merged = merge_settings(data.get('code'), data.get('published'), data.get('run_explicit'))
+        assert merged.settings == vector['expected']['settings'], vector['name']
+        assert merged.sources == vector['expected']['sources'], vector['name']
+
+
+CANONICAL_SPEC_SHA256 = '5cb4575a54d84049d5ffb37d249e453ef175a3dac24ffba20b61d3b9afdf4aed'
 
 SPEC_LOCKSTEP = (
     'The vectors in tests/agent_control/spec/ are one half of a contract with every other Agent '

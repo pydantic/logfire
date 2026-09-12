@@ -281,8 +281,10 @@ class ToolDefinitionOverride(BaseModel):
     parameters: dict[str, ParameterOverride] | None = None
     """Patches per top-level parameter name; see `ParameterOverride`.
 
-    Unknown parameter names are ignored: a parameter is part of the tool's code-defined shape, so a
-    patch on one the tool does not have is the tool having changed, which the baseline shows.
+    A patch naming a parameter the tool does not have applies nothing and is reported under the
+    adapter's `OnUnmatched` policy, rather than dropped in silence: a parameter is part of the tool's
+    code-defined shape, so a patch on one the tool does not have is the tool having changed, which
+    the baseline shows.
     """
     toolset: str | None = None
     """The group the tool came from: the baseline reports it, and on an override it narrows the match.
@@ -307,25 +309,37 @@ def _entry_errors(error: ValidationError, *, whole: str) -> str:
     )
 
 
-def first_by_key(entries: list[tuple[KeyT, EntryT]], describe: Callable[[KeyT], str]) -> dict[KeyT, EntryT]:
-    """Index entries by key, keeping the first of any duplicates with a warning.
+def first_by_key(
+    entries: list[tuple[KeyT, EntryT]], describe: Callable[[KeyT], str]
+) -> tuple[dict[KeyT, EntryT], list[tuple[KeyT, str]]]:
+    """Index entries by key, keeping the first of any duplicates and naming the rest.
 
     Both list sections address things by key, so both can be written with the same key twice -- by a
     hand-edited value, or by a UI bug. Keeping the first matches how a colliding rename is resolved in
     `apply_tool_definitions`: the request stays predictable and the ignored entry is named, rather than
     the last writer silently winning depending on how the JSON happened to be ordered. `describe`
-    renders a key for that warning, since a tool's key is a pair and reads badly as a bare tuple.
+    renders a key for that message, since a tool's key is a pair and reads badly as a bare tuple.
+
+    Returns the index plus every duplicate key with the message naming it, for the caller to turn into
+    a `'duplicate-entry'` issue of its own section. Deliberately not warned from here: this is an
+    apply-time decision about a value, so it belongs under the caller's `OnUnmatched` policy like
+    every other one -- warning directly, as this used to, meant `'ignore'` still warned and `'error'`
+    did not raise.
     """
     indexed: dict[KeyT, EntryT] = {}
+    duplicates: list[tuple[KeyT, str]] = []
     for key, entry in entries:
         if key in indexed:
-            warn_dropped(
-                f'Managed agent config names {describe(key)} more than once; keeping the first entry '
-                f'and ignoring the rest.'
+            duplicates.append(
+                (
+                    key,
+                    f'Managed agent config names {describe(key)} more than once; keeping the first entry '
+                    f'and ignoring the rest.',
+                )
             )
             continue
         indexed[key] = entry
-    return indexed
+    return indexed, duplicates
 
 
 ToolKey: TypeAlias = tuple[str | None, str]
@@ -350,9 +364,11 @@ class AgentConfig(BaseModel):
     its own override, with a warning. Both rules exist for the same reason: a value that fails
     validation falls back through Logfire's resolution to the code-defined agent *in its entirety*,
     so without them one unfamiliar key or enum value would silently un-manage the instructions, the
-    model, and every tool override alongside it. An ignored `settings` key is the one extra that is
-    reported rather than silently dropped, under the adapter's `OnUnmatched` policy: it is a setting
-    someone published and the SDK did not apply, which the request should say.
+    model, and every tool override alongside it. An extra key is nonetheless *remembered* and
+    reported under the adapter's `OnUnmatched` policy, at both levels: a `settings` key this release
+    has no field for, and a top-level key it has no section for. Ignoring what it cannot do is what
+    keeps a future section readable by an older SDK; saying so is what stops the first person who
+    publishes one from getting a silently degraded agent.
     """
 
     model_config = ConfigDict(protected_namespaces=())
@@ -390,6 +406,29 @@ class AgentConfig(BaseModel):
     """Canonical model settings patch; see `AgentConfigSettings`."""
     tool_definitions: list[ToolDefinitionOverride] | None = None
     """LLM-facing overlays, each naming the tool it patches; see `ToolDefinitionOverride`."""
+
+    _unrecognized: tuple[str, ...] = PrivateAttr(default=())
+    """The top-level keys of the value this was validated from that this release has no section for.
+
+    Private rather than a field for the same reason `AgentConfigSettings._unrecognized` is: it is not
+    part of the value, it is what the value asked for that this release could not do, and only the
+    code applying the config has any use for it. Not reported from validation -- see
+    `report_unmatched` for why -- and deliberately ignored on a code baseline, which is built from
+    keyword arguments rather than from a mapping and so never has any.
+    """
+
+    @property
+    def unrecognized(self) -> tuple[str, ...]:
+        """The published top-level keys this release has no section for, for an adapter to report."""
+        return self._unrecognized
+
+    @model_validator(mode='wrap')
+    @classmethod
+    def _remember_unrecognized_sections(cls, data: Any, handler: ModelWrapValidatorHandler[AgentConfig]) -> AgentConfig:
+        config = handler(data)
+        if isinstance(data, dict):
+            config._unrecognized = tuple(name for name in cast(dict[str, Any], data) if name not in cls.model_fields)
+        return config
 
     @field_validator('model', mode='before')
     @classmethod

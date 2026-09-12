@@ -1,10 +1,10 @@
 # Cross-language conformance vectors
 
-Three things in Agent Control have to give the same answer in every language, because a Logfire
+Everything in Agent Control that has to give the same answer in every language, because a Logfire
 project is shared and the SDKs are not: which variable an agent's config lives in, what a code
-baseline says, and what a published value parses to. Each is one algorithm with vectors here, and
-each core has a test that reads the file and asserts against it. A change to a rule is a change to
-the file first, and to both cores after.
+baseline says, what a published value parses to, and what applying one does to a request. Each is one
+algorithm with vectors here, and each core has a test that reads the file and asserts against it. A
+change to a rule is a change to the file first, and to both cores after.
 
 The canonical copy of this directory lives in the `pydantic/logfire` repository at
 `tests/agent_control/spec/`; every other SDK vendors it and pins the same digest, which each core's
@@ -16,6 +16,10 @@ test suite asserts. Prose for all three rules lives in the Agent Control documen
 | `agent-name.json` | Agent name -> `agent__<key>` variable name, and which names have no key at all | `agent_variable_name` / `agentVariableName` |
 | `baseline.json` | The code baseline built from one snapshot of an agent | `build_baseline` / `buildBaseline` |
 | `config-parsing.json` | What a published value parses to, and what it warns about on the way | `AgentConfig` parsing / `parseAgentConfig` |
+| `instructions-apply.json` | What a published `instructions` section does to the parts a request assembles | `apply_instructions` / `applyInstructions` |
+| `tools-apply.json` | Matching, narrowing, renaming, parameter patching, and the routing maps | `apply_tool_definitions` / `applyToolDefinitions` |
+| `settings-apply.json` | The canonical patch, the adapter's support declaration, timeout representability, and the unrecognized key and section reports | `apply_settings` / `applySettings` |
+| `merge.json` | code < published < explicit-run precedence, the `sources` map, and clearing from the run layer only | `merge_settings` / `mergeSettings` |
 
 ## Reading a vector file
 
@@ -74,3 +78,30 @@ what has to match is which decision was taken.
 | `duplicate-key` | The same instruction `id`, or the same `(toolset, name)`, was written twice (raised when a value is *applied*, not when it is parsed, so no vector here carries it) |
 | `baseline-value-not-describable` | A code-side setting value the contract cannot hold, left out of the baseline |
 | `baseline-timeout-not-representable` | A code-side `timeout` outside the representable range |
+
+### The apply files
+
+`instructions-apply.json`, `tools-apply.json` and `settings-apply.json` share one shape: `input` is
+what a request carries (`parts`, `tools`, or nothing but the `config`), the published `config`, and
+the adapter's `support` declaration when it has one; `expected` is what the helper returns.
+
+`support` is the adapter's own capability, never a model's: `sections` are the sections it can apply
+at all and `settings` the canonical keys it can lower. `null` -- or an absent key -- says the adapter
+applies everything, which is what an adapter that has not been taught to declare yet is doing.
+
+**Issues compare by their set fields, with the message left out.** Each expected issue lists every
+field the core sets on it and nothing else, because every core words its messages for its own users
+while the decision and its path have to match. `section` is one of the four section names, except on
+`unknown-section`, where it is the unrecognized top-level key itself.
+
+Unset things are left out rather than spelled as null: a part carries `dynamic` only when it is
+`true`, a tool carries `description`, `toolset` and `parameters_json_schema` only when it has them,
+and an `expected` with no `settings`, `routes` or `parts` key is asserting the empty one. The one
+exception is a part's `id`, which is written even when `null`, because an added part having no id is
+the assertion.
+
+### `merge.json`
+
+`input` has a `code`, `published` and `run_explicit` layer, each optional. `expected` is the merged
+`settings` and the `sources` map naming the layer that won each key -- which is a superset of
+`settings`, since a key a run cleared is owned by the run and carries no value.

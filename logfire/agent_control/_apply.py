@@ -27,8 +27,9 @@ from ._config import (
     first_by_key,
     instruction_blocks,
 )
-from ._reporting import OnUnmatched, UnappliedEntry, report_unapplied, report_unmatched, warn_dropped
+from ._reporting import ApplyIssue, warn_dropped
 from ._schema import MAX_MODEL_FACING_TEXT_LENGTH
+from ._support import AgentSupport, Section
 from ._units import MAX_TIMEOUT_SECONDS, is_representable_timeout
 
 
@@ -86,12 +87,12 @@ class AppliedInstructions:
 
     blocks: list[Block]
     """The blocks to send, with published text swapped in, removed, or added."""
-    unapplied: Sequence[UnappliedEntry]
-    """Every published instruction entry this request did not apply; see `UnappliedEntry`.
+    issues: Sequence[ApplyIssue]
+    """Every published instruction entry this request did not apply; see `ApplyIssue`.
 
-    Already reported under the caller's `OnUnmatched` policy before it is returned, so this is for an
-    adapter that wants to do something *else* with them -- put them on a span, count them -- rather
-    than the way they are surfaced.
+    Reported by nothing here. Hand these to
+    [`AgentControl.report`][logfire.agent_control.AgentControl.report], with the other sections'
+    issues, and the policy the user configured is applied to all of it at once.
     """
 
 
@@ -145,10 +146,11 @@ class AppliedTools:
     under `collision_scope='toolset'` the adapter also knows which toolset it came from, which is
     what keeps two servers' identically named tools distinguishable.
     """
-    unapplied: Sequence[UnappliedEntry]
-    """Every published tool entry, or part of one, this request did not apply; see `UnappliedEntry`.
+    issues: Sequence[ApplyIssue]
+    """Every published tool entry, or part of one, this request did not apply; see `ApplyIssue`.
 
-    Already reported under the caller's `OnUnmatched` policy before it is returned.
+    Reported by nothing here; hand them to
+    [`AgentControl.report`][logfire.agent_control.AgentControl.report] with the rest.
     """
 
 
@@ -163,10 +165,11 @@ def _oversized(text: str) -> bool:
     return len(text) > MAX_MODEL_FACING_TEXT_LENGTH
 
 
-def _oversized_entry(text: str, *, instruction_id: str | None = None) -> UnappliedEntry:
+def _oversized_entry(text: str, *, instruction_id: str | None = None) -> ApplyIssue:
     """One entry whose text is past the budget, refused rather than truncated."""
     where = f'for instruction block {instruction_id!r} ' if instruction_id is not None else ''
-    return UnappliedEntry(
+    return ApplyIssue(
+        section='instructions',
         reason='oversized-text',
         instruction_id=instruction_id,
         message=(
@@ -177,9 +180,7 @@ def _oversized_entry(text: str, *, instruction_id: str | None = None) -> Unappli
     )
 
 
-def apply_instructions(
-    blocks: Sequence[Block], config: AgentConfig, *, on_unmatched: OnUnmatched = 'warn'
-) -> AppliedInstructions:
+def apply_instructions(blocks: Sequence[Block], config: AgentConfig) -> AppliedInstructions:
     """Apply the `instructions` section to the blocks an agent is about to send.
 
     An entry with an `id` replaces that block's text, or removes the block when its text is `None`.
@@ -198,23 +199,27 @@ def apply_instructions(
     computation -- either way the block stops doing the thing it was written to do, and nothing about
     the managed value says which. Addressing one is refused and reported rather than applied.
 
-    Three decisions are reported under `on_unmatched` and returned as
-    [`UnappliedEntry`][logfire.agent_control.UnappliedEntry]s: an `id` no block carries
-    (`'unknown-id'`), an `id` only a dynamic block carries (`'dynamic-id'`), and text past the
-    contract's per-request budget (`'oversized-text'`). The first is decided per request, because the
-    blocks are this request's: an agent whose prompt varies with its input can carry a block on one
-    request and not the next.
+    Four decisions come back as [`ApplyIssue`][logfire.agent_control.ApplyIssue]s on `issues`, and
+    are reported by nothing here: an `id` no block carries (`'unknown-id'`), an `id` only a dynamic
+    block carries (`'dynamic-id'`), text past the contract's per-request budget
+    (`'oversized-text'`), and the second and later entries naming one `id` (`'duplicate-entry'`).
+    Pass them to [`AgentControl.report`][logfire.agent_control.AgentControl.report] along with the
+    other sections'. The first is decided per request, because the blocks are this request's: an
+    agent whose prompt varies with its input can carry a block on one request and not the next.
     """
     entries = instruction_blocks(config)
-    overrides = first_by_key(
+    overrides, duplicates = first_by_key(
         [(entry.id, entry.instructions) for entry in entries if entry.id is not None],
         lambda key: f'instruction id {key!r}',
     )
+    issues: list[ApplyIssue] = [
+        ApplyIssue(section='instructions', reason='duplicate-entry', instruction_id=key, message=message)
+        for key, message in duplicates
+    ]
     added = [entry.instructions for entry in entries if entry.id is None and entry.instructions is not None]
     if not overrides and not added:
-        return AppliedInstructions(blocks=list(blocks), unapplied=())
+        return AppliedInstructions(blocks=list(blocks), issues=issues)
 
-    unapplied: list[UnappliedEntry] = []
     matched: set[str] = set()
     result: list[Block] = []
     for block in blocks:
@@ -225,8 +230,9 @@ def apply_instructions(
         # again as a key nothing carries.
         matched.add(block.id)
         if block.dynamic:
-            unapplied.append(
-                UnappliedEntry(
+            issues.append(
+                ApplyIssue(
+                    section='instructions',
                     reason='dynamic-id',
                     instruction_id=block.id,
                     message=(
@@ -242,14 +248,15 @@ def apply_instructions(
         if replacement is None:
             continue
         if _oversized(replacement):
-            unapplied.append(_oversized_entry(replacement, instruction_id=block.id))
+            issues.append(_oversized_entry(replacement, instruction_id=block.id))
             result.append(block)
             continue
         result.append(replace(block, text=replacement))
     for key in overrides:
         if key not in matched:
-            unapplied.append(
-                UnappliedEntry(
+            issues.append(
+                ApplyIssue(
+                    section='instructions',
                     reason='unknown-id',
                     instruction_id=key,
                     message=(
@@ -262,19 +269,20 @@ def apply_instructions(
     additions: list[str] = []
     for text in added:
         if _oversized(text):
-            unapplied.append(_oversized_entry(text))
+            issues.append(_oversized_entry(text))
         else:
             additions.append(text)
     if additions:
         boundary = next((index for index, block in enumerate(result) if block.dynamic), len(result))
         result[boundary:boundary] = [Block(text=text) for text in additions]
-    return AppliedInstructions(blocks=result, unapplied=report_unapplied(on_unmatched, unapplied))
+    return AppliedInstructions(blocks=result, issues=issues)
 
 
 def _parameter_entry(
     reason: Literal['unknown-parameter', 'no-patchable-schema'], tool: ToolDef, parameter: str, because: str
-) -> UnappliedEntry:
-    return UnappliedEntry(
+) -> ApplyIssue:
+    return ApplyIssue(
+        section='tool_definitions',
         reason=reason,
         toolset=tool.toolset,
         tool=tool.name,
@@ -288,7 +296,7 @@ def _parameter_entry(
 
 def _with_parameters(
     tool: ToolDef, parameters: Mapping[str, ParameterOverride]
-) -> tuple[dict[str, Any], list[UnappliedEntry]]:
+) -> tuple[dict[str, Any], list[ApplyIssue]]:
     """Patch top-level parameter descriptions while preserving all schema structure.
 
     Reports each patch that reached nothing, which is the half that used to be silent: from the
@@ -296,12 +304,12 @@ def _with_parameters(
     applied.
     """
     parameters_json_schema = tool.parameters_json_schema
-    unapplied: list[UnappliedEntry] = []
+    issues: list[ApplyIssue] = []
     properties = parameters_json_schema.get('properties')
     if not isinstance(properties, dict):
         for name in parameters:
-            unapplied.append(_parameter_entry('no-patchable-schema', tool, name, 'has no top-level parameters'))
-        return parameters_json_schema, unapplied
+            issues.append(_parameter_entry('no-patchable-schema', tool, name, 'has no top-level parameters'))
+        return parameters_json_schema, issues
     typed_properties: dict[str, Any] = parameters_json_schema['properties']
     new_properties: dict[str, Any] = {}
     changed = False
@@ -315,29 +323,29 @@ def _with_parameters(
             new_properties[name] = schema
     for name, override in parameters.items():
         if name not in typed_properties:
-            unapplied.append(_parameter_entry('unknown-parameter', tool, name, 'has no parameter of that name'))
+            issues.append(_parameter_entry('unknown-parameter', tool, name, 'has no parameter of that name'))
         elif override.description is not None and not isinstance(typed_properties[name], dict):
-            unapplied.append(
+            issues.append(
                 _parameter_entry('no-patchable-schema', tool, name, 'describes that parameter with no schema object')
             )
     if not changed:
-        return parameters_json_schema, unapplied
-    return {**parameters_json_schema, 'properties': new_properties}, unapplied
+        return parameters_json_schema, issues
+    return {**parameters_json_schema, 'properties': new_properties}, issues
 
 
-def _apply_override(tool: ToolDef, override: ToolDefinitionOverride) -> tuple[ToolDef, list[UnappliedEntry]]:
+def _apply_override(tool: ToolDef, override: ToolDefinitionOverride) -> tuple[ToolDef, list[ApplyIssue]]:
     """Apply the LLM-facing parts of an override, returning the original definition for a no-op."""
     changes: dict[str, Any] = {}
-    unapplied: list[UnappliedEntry] = []
+    issues: list[ApplyIssue] = []
     if override.new_name is not None and override.new_name != tool.name:
         changes['name'] = override.new_name
     if override.description is not None and override.description != tool.description:
         changes['description'] = override.description
     if override.parameters:
-        schema, unapplied = _with_parameters(tool, override.parameters)
+        schema, issues = _with_parameters(tool, override.parameters)
         if schema is not tool.parameters_json_schema:
             changes['parameters_json_schema'] = schema
-    return (replace(tool, **changes) if changes else tool), unapplied
+    return (replace(tool, **changes) if changes else tool), issues
 
 
 def _namespace(tool: ToolDef, scope: CollisionScope) -> str | None:
@@ -349,7 +357,6 @@ def apply_tool_definitions(
     tools: Sequence[ToolDef],
     config: AgentConfig,
     *,
-    on_unmatched: OnUnmatched = 'warn',
     reserved: Collection[str] = (),
     collision_scope: CollisionScope = 'global',
 ) -> AppliedTools:
@@ -371,14 +378,17 @@ def apply_tool_definitions(
     Parameter descriptions are patched in place and every other piece of schema structure is
     preserved. A patch on a parameter the tool does not have, or on one whose schema is not an object
     to patch a description into, applies nothing -- a parameter is part of the tool's code-defined
-    shape, and the baseline is what says which ones exist -- and is reported rather than dropped in
-    silence.
+    shape, and the baseline is what says which ones exist -- and comes back on `issues` rather than
+    being dropped in silence.
+
+    Every decision it makes -- an override no tool matched, a patch on a parameter that is not there,
+    a dropped rename, the second entry naming one tool -- comes back as an
+    [`ApplyIssue`][logfire.agent_control.ApplyIssue] and is reported by nothing here. Hand them to
+    [`AgentControl.report`][logfire.agent_control.AgentControl.report] with the other sections'.
 
     Args:
         tools: The tools the agent is about to advertise, in the order it would advertise them.
         config: The resolved managed config.
-        on_unmatched: What to do with an entry that reached nothing. Every decision this function
-            makes goes through it, a dropped rename included.
         reserved: Advertised names this adapter needs kept free -- an OpenAI Agents handoff, a
             provider-side tool the framework adds after this call, anything outside the editable
             list. A rename onto one of them is refused like any other collision. Read as taken in
@@ -391,7 +401,7 @@ def apply_tool_definitions(
         The tools to advertise and the routing maps for them; see
         [`AppliedTools`][logfire.agent_control.AppliedTools].
     """
-    overrides = first_by_key(
+    overrides, duplicates = first_by_key(
         [((override.toolset, override.name), override) for override in config.tool_definitions or []],
         describe_tool_key,
     )
@@ -403,7 +413,10 @@ def apply_tool_definitions(
     for tool in tools:
         taken.setdefault(_namespace(tool, collision_scope), set()).add(tool.name)
 
-    unapplied: list[UnappliedEntry] = []
+    issues: list[ApplyIssue] = [
+        ApplyIssue(section='tool_definitions', reason='duplicate-entry', toolset=key[0], tool=key[1], message=message)
+        for key, message in duplicates
+    ]
     matched: set[ToolKey] = set()
     applied: list[ToolDef] = []
     routes: dict[str, str] = {}
@@ -418,11 +431,12 @@ def apply_tool_definitions(
             new_tool = tool
         else:
             new_tool, parameter_entries = _apply_override(tool, override)
-            unapplied.extend(parameter_entries)
+            issues.extend(parameter_entries)
         names = taken[_namespace(tool, collision_scope)]
         if new_tool.name != tool.name and (new_tool.name in names or new_tool.name in reserved_names):
-            unapplied.append(
-                UnappliedEntry(
+            issues.append(
+                ApplyIssue(
+                    section='tool_definitions',
                     reason='rename-collision',
                     toolset=tool.toolset,
                     tool=tool.name,
@@ -441,8 +455,9 @@ def apply_tool_definitions(
         reverse[(tool.toolset, new_tool.name)] = tool.name
     for key in overrides:
         if key not in matched:
-            unapplied.append(
-                UnappliedEntry(
+            issues.append(
+                ApplyIssue(
+                    section='tool_definitions',
                     reason='unknown-tool',
                     toolset=key[0],
                     tool=key[1],
@@ -457,7 +472,7 @@ def apply_tool_definitions(
         routes=routes,
         forward=forward,
         reverse=reverse,
-        unapplied=report_unapplied(on_unmatched, unapplied),
+        issues=issues,
     )
 
 
@@ -469,57 +484,153 @@ def _unrepresentable_timeout_message(timeout: float) -> str:
     )
 
 
-def apply_settings(
-    config: AgentConfig, *, supported: Collection[str] | None = None, on_unmatched: OnUnmatched = 'warn'
-) -> dict[str, Any]:
+def _section_issues(config: AgentConfig, support: AgentSupport | None) -> list[ApplyIssue]:
+    """What this release, and this adapter, cannot do with the sections a value carries.
+
+    Two decisions about the config as a whole rather than about any one entry, which is why they are
+    here rather than in one section's helper: a top-level key this release has no section for, and a
+    section it does have and the adapter declared it cannot apply.
+
+    The first is the other half of the openness that makes a future `mcp_servers` or `skills` section
+    readable by an older SDK. Unknown keys are ignored on purpose -- refusing them would make the day
+    a section is added the day every older SDK stops resolving -- but an ignored key that nobody
+    hears about is how the first person to publish one gets a silently degraded agent.
+    """
+    issues = [
+        ApplyIssue(
+            section=name,
+            reason='unknown-section',
+            message=(
+                f'Managed agent config publishes a {name!r} section, which this version of the Agent Control '
+                'contract has no section for; that section is not applied.'
+            ),
+        )
+        for name in config.unrecognized
+    ]
+    if support is None:
+        return issues
+    published: tuple[tuple[Section, Any], ...] = (
+        ('instructions', config.instructions),
+        ('model', config.model),
+        ('settings', config.settings),
+        ('tool_definitions', config.tool_definitions),
+    )
+    issues.extend(
+        ApplyIssue(
+            section=name,
+            reason='unsupported-section',
+            message=(
+                f'Managed agent config publishes a {name!r} section, which this agent framework has no way to '
+                'apply; that section is not applied.'
+            ),
+        )
+        for name, value in published
+        if value is not None and name not in support.sections
+    )
+    return issues
+
+
+@dataclass(frozen=True)
+class AppliedSettings:
+    """What `apply_settings` returns: the patch to merge, and what reached nothing."""
+
+    settings: dict[str, Any]
+    """The canonical settings patch: every key that was published and can be applied."""
+    issues: Sequence[ApplyIssue]
+    """Every published key, and every whole section, this request did not apply; see `ApplyIssue`.
+
+    Reported by nothing here; hand them to
+    [`AgentControl.report`][logfire.agent_control.AgentControl.report] with the rest. The shape is
+    the same as the other two sections' so an adapter treats all three alike, which is what it could
+    not do while this one returned a bare `dict`.
+    """
+
+
+def apply_settings(config: AgentConfig, *, support: AgentSupport | None = None) -> AppliedSettings:
     """The `settings` section as a patch to merge over the agent's own settings.
 
     Only explicitly set, non-`None` fields are emitted, and every key is already a canonical
-    `AgentConfigSettings` name, so the result is the patch: merge it over the framework's settings,
+    `AgentConfigSettings` name, so `settings` is the patch: merge it over the framework's settings,
     let a per-call setting outrank it, and leave every key it does not mention alone.
     [`merge_settings`][logfire.agent_control.merge_settings] is how to do that merge with the
     contract's precedence and a record of which layer won each key.
 
-    Three kinds of published key are reported under `on_unmatched` rather than silently dropped, all
-    for the same reason -- someone published a setting and the agent did not apply it, which is a gap
+    Five kinds of published thing come back on `issues` rather than being silently dropped, all for
+    the same reason -- someone published something and the agent did not apply it, which is a gap
     between what Logfire shows and what the agent does:
 
-    - a key this version of the contract has no field for, which a newer Logfire UI can write;
-    - a key this adapter cannot lower into its framework, which it names by passing the canonical
-      keys it *can* apply as `supported`. Leaving `supported` as `None` says the adapter applies all
-      of them;
-    - a `timeout` that is not a representable request budget -- negative, not finite, or past
-      [`MAX_TIMEOUT_SECONDS`][logfire.agent_control.MAX_TIMEOUT_SECONDS]. Dropped rather than clamped,
-      because clamping turns "no real limit" into a deadline nobody published, and rounding a
-      negative one to `0` cancels the request before it is sent.
+    - a key this version of the contract has no field for (`'unknown-setting'`), which a newer
+      Logfire UI can write;
+    - a key this adapter cannot lower into its framework (`'unsupported-setting'`), which it names
+      through [`AgentSupport.settings`][logfire.agent_control.AgentSupport.settings]. Leaving
+      `support` as `None` says the adapter applies all of them;
+    - a `timeout` that is not a representable request budget (`'unrepresentable-timeout'`) --
+      negative, not finite, or past
+      [`MAX_TIMEOUT_SECONDS`][logfire.agent_control.MAX_TIMEOUT_SECONDS]. Dropped rather than
+      clamped, because clamping turns "no real limit" into a deadline nobody published, and rounding
+      a negative one to `0` cancels the request before it is sent;
+    - a top-level key this release has no section for (`'unknown-section'`);
+    - a section this adapter declared it cannot apply (`'unsupported-section'`).
+
+    The last two are about the whole config rather than about settings, and they are here because
+    this is the helper every adapter can call with the whole config and its own support declaration,
+    whatever hooks its framework gives it: an adapter that never calls
+    `apply_instructions` would otherwise have nowhere to learn that an `instructions` section was
+    published at an agent that cannot apply one.
+
+    Args:
+        config: The resolved managed config.
+        support: What this adapter can apply; see
+            [`AgentSupport`][logfire.agent_control.AgentSupport]. `None` says it can apply every
+            section and every canonical setting, which is the right answer for an adapter that has
+            not been taught to declare yet and the wrong one for any that has.
     """
+    issues = _section_issues(config, support)
     settings = config.settings
     if settings is None:
-        return {}
-    for name in settings.unrecognized:
-        report_unmatched(
-            on_unmatched,
-            f'Managed agent config sets {name!r}, which this version of the Agent Control contract has no '
-            'model setting for; that key is not applied.',
+        return AppliedSettings(settings={}, issues=issues)
+    issues.extend(
+        ApplyIssue(
+            section='settings',
+            reason='unknown-setting',
+            setting=name,
+            message=(
+                f'Managed agent config sets {name!r}, which this version of the Agent Control contract has no '
+                'model setting for; that key is not applied.'
+            ),
         )
-    values: dict[str, Any] = settings.model_dump(exclude_none=True)
-    timeout = values.get('timeout')
-    if timeout is not None and not is_representable_timeout(timeout):
-        del values['timeout']
-        report_unmatched(on_unmatched, _unrepresentable_timeout_message(timeout))
-    if supported is None:
-        return values
+        for name in settings.unrecognized
+    )
     applied: dict[str, Any] = {}
-    for name, value in values.items():
-        if name in supported:
-            applied[name] = value
-        else:
-            report_unmatched(
-                on_unmatched,
-                f'Managed agent config sets {name!r}, which this agent framework has no equivalent for; '
-                'that key is not applied.',
+    # One pass in the canonical field order, so an issue's place in the list is the same in both
+    # cores: judging the timeout in a pass of its own would put it ahead of keys the adapter cannot
+    # lower here and behind them in TypeScript, for the same published value.
+    for name, value in settings.model_dump(exclude_none=True).items():
+        if name == 'timeout' and not is_representable_timeout(value):
+            issues.append(
+                ApplyIssue(
+                    section='settings',
+                    reason='unrepresentable-timeout',
+                    setting='timeout',
+                    message=_unrepresentable_timeout_message(value),
+                )
             )
-    return applied
+            continue
+        if support is not None and name not in support.settings:
+            issues.append(
+                ApplyIssue(
+                    section='settings',
+                    reason='unsupported-setting',
+                    setting=name,
+                    message=(
+                        f'Managed agent config sets {name!r}, which this agent framework has no equivalent for; '
+                        'that key is not applied.'
+                    ),
+                )
+            )
+            continue
+        applied[name] = value
+    return AppliedSettings(settings=applied, issues=issues)
 
 
 def canonical_settings(settings: Mapping[str, Any]) -> dict[str, Any]:

@@ -126,11 +126,17 @@ An adapter does five things. Nothing else in `logfire.agent_control` is required
 
 **4. Apply it, in the framework's own per-request hook.**
 
-- `apply_instructions(blocks, config)` takes the `Block`s the agent is about to send and returns `.blocks`, with published text swapped in, removed, or added, plus `.unapplied`.
-- `apply_tool_definitions(tools, config)` takes the `ToolDef`s the agent is about to advertise and returns `.tools` with managed names and descriptions applied, `.routes` mapping advertised name back to code name, `.forward` and `.reverse` for a framework where a bare name is not an identity, and `.unapplied`. Pass `reserved={...}` to keep names the adapter needs for itself out of reach of a rename.
-- `apply_settings(config)` returns the settings patch to merge over the agent's own. `merge_settings(code, published, run_explicit)` is that merge, in the contract's order; `canonical_settings(settings)` is the reverse, for a baseline.
+All three take the config and return a result carrying `.issues`: everything the section could not apply, as `ApplyIssue` records. None of them reports anything itself.
 
-**5. Report what reached nothing.** Every apply function takes `on_unmatched`: `'warn'` (the default, once per process), `'error'`, or `'ignore'`. An instruction `id` no block carries, a tool override no tool matches, a rename that collides, a settings key your framework can't apply: each is a place where Logfire shows one thing and the agent does another, and the adapter is the only thing that can see it.
+- `apply_instructions(blocks, config)` takes the `Block`s the agent is about to send and returns `.blocks`, with published text swapped in, removed, or added.
+- `apply_tool_definitions(tools, config)` takes the `ToolDef`s the agent is about to advertise and returns `.tools` with managed names and descriptions applied, `.routes` mapping advertised name back to code name, and `.forward` and `.reverse` for a framework where a bare name is not an identity. Pass `reserved={...}` to keep names the adapter needs for itself out of reach of a rename.
+- `apply_settings(config, support=...)` returns `.settings`, the patch to merge over the agent's own. `merge_settings(code, published, run_explicit)` is that merge, in the contract's order; `canonical_settings(settings)` is the reverse, for a baseline.
+
+**5. Declare what you can apply, and report the rest.** `AgentSupport` is your adapter's own capability, declared once: the `sections` it can apply, the canonical `settings` it can lower, its named instruction `destinations`, how faithfully it can tell a per-run setting from a default (`precedence`), and what one resolved config covers (`resolution_unit`). Pass it to `apply_settings` and a published section or setting you cannot act on is reported rather than silently doing nothing. The Logfire UI reads the same declaration to grey out what would be pointless to publish.
+
+Then hand every section's issues to `control.report(*issues)` **once**, which applies `on_unmatched`: `'warn'` (the default, once per process per message), `'error'`, or `'ignore'`. Reporting after everything is planned is why the helpers do not report for you -- `'error'` raises one `UnmatchedConfigError` naming every issue, instead of failing on whichever section you happened to apply first. An instruction `id` no block carries, a tool override no tool matches, a rename that collides, a settings key your framework can't lower, a whole section it cannot reach: each is a place where Logfire shows one thing and the agent does another, and the adapter is the only thing that can see it.
+
+A published setting your adapter *can* lower goes to the provider, and providers refuse settings -- a `presence_penalty` some models answer with a `400`, a `temperature` alongside a reasoning effort. Which settings a given model accepts is deliberately not in this contract: `AgentSupport` says what the adapter can do, not what a model will take, so keeping a setting away from a model that refuses it is your adapter's own reasoning to do.
 
 Here is an adapter end to end, for an imaginary framework whose agent has one prompt string, a list of tools, a hook around each run, and a hook before each model request:
 
@@ -139,6 +145,7 @@ from contextvars import ContextVar
 
 from logfire.agent_control import (
     AgentControl,
+    AgentSupport,
     Block,
     ToolDef,
     apply_instructions,
@@ -147,6 +154,14 @@ from logfire.agent_control import (
     build_baseline,
     canonical_settings,
     merge_settings,
+)
+
+# What this adapter can do with a published value, declared once rather than inferred.
+SUPPORT = AgentSupport(
+    sections=frozenset({'instructions', 'model', 'settings', 'tool_definitions'}),
+    settings=frozenset({'max_tokens', 'temperature', 'top_p', 'stop_sequences'}),
+    precedence='exact',  # This framework's hook says which settings the call itself passed.
+    resolution_unit='run',
 )
 
 
@@ -196,23 +211,23 @@ def agent_control(agent, name, *, label=None):
         if config is None:
             return request  # Nothing published: the agent runs exactly as written.
 
-        # Every helper takes the policy the control was built with, so `on_unmatched='error'` really
-        # does fail and `'ignore'` really is silent, wherever the mismatch turns up.
-        policy = control.on_unmatched
-        applied_blocks = apply_instructions(blocks, config, on_unmatched=policy).blocks
+        # Each helper plans its section and hands back what it could not apply. Nothing is reported
+        # until every section has been planned, which is what lets `on_unmatched='error'` fail once
+        # naming all of it rather than on whichever section ran first.
+        instructions = apply_instructions(blocks, config)
         # The same blocks the baseline described, so what the editor offered is what gets applied.
-        request.prompt = '\n\n'.join(block.text for block in applied_blocks)
-        applied = apply_tool_definitions(tools, config, on_unmatched=policy, reserved=request.provider_tool_names)
+        request.prompt = '\n\n'.join(block.text for block in instructions.blocks)
+        applied = apply_tool_definitions(tools, config, reserved=request.provider_tool_names)
         by_name = {tool.name: tool for tool in request.tools}
         request.tools = [by_name[applied.routes[t.name]].with_definition(t) for t in applied.tools]
         request.routes = applied.routes  # The dispatcher maps a name the model called back with this.
-        # `supported` names the canonical keys this framework has a knob for; the rest are reported.
-        patch = apply_settings(config, supported=agent.supported_settings, on_unmatched=policy)
+        settings = apply_settings(config, support=SUPPORT)
         # Published settings beat the agent's own; the ones this call passed explicitly beat both.
-        merged = merge_settings(agent.settings, patch, request.explicit_settings)
+        merged = merge_settings(agent.settings, settings.settings, request.explicit_settings)
         request.settings = merged.settings
         if config.model is not None:
             request.model = config.model
+        control.report(*instructions.issues, *applied.issues, *settings.issues)
         return request
 
     agent.around_run(around_run)
@@ -291,7 +306,9 @@ Values are read **strictly** with respect to JSON types: `1` is a valid `tempera
 
 ## What it guarantees
 
-**Nothing published can crash your agent.** An unreachable Logfire, a missing value, or one this release can't parse leaves `resolve()` returning `None`. Beyond that, a value the contract can't act on costs only the piece containing it (one setting, one tool override, one block) and warns once per process, so one unfamiliar key from a newer UI never silently un-manages the rest.
+**Nothing published can crash the SDK.** An unreachable Logfire, a missing value, or one this release can't parse leaves `resolve()` returning `None`. Beyond that, a value the contract can't act on costs only the piece containing it (one setting, one tool override, one block) and is reported once per process, so one unfamiliar key from a newer UI never silently un-manages the rest.
+
+That is not a promise about the request. A **setting** is forwarded to the provider, and providers refuse settings: some models answer a `presence_penalty` with a `400`, and some refuse a `temperature` sent alongside a reasoning effort. Which settings a model accepts is not part of this contract and is not something the Logfire UI can warn you about, so editing settings in Logfire can take a live agent down the same way editing them in code can. Keeping a published setting away from a model that would refuse it is the adapter's own job.
 
 **Overrides never move the prompt-cache boundary.** A replaced block keeps its position and its static/dynamic side, and an added block lands at the end of the leading run of static blocks, so published text stays inside the prefix a provider can cache.
 

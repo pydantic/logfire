@@ -1,6 +1,7 @@
 from ._config import AgentConfig as AgentConfig, AgentConfigSettings as AgentConfigSettings, InstructionBlock as InstructionBlock, InstructionText as InstructionText, ParameterOverride as ParameterOverride, SETTING_ADAPTERS as SETTING_ADAPTERS, ToolDefinitionOverride as ToolDefinitionOverride, ToolKey as ToolKey, describe_tool_key as describe_tool_key, first_by_key as first_by_key, instruction_blocks as instruction_blocks
-from ._reporting import OnUnmatched as OnUnmatched, UnappliedEntry as UnappliedEntry, report_unapplied as report_unapplied, report_unmatched as report_unmatched, warn_dropped as warn_dropped
+from ._reporting import ApplyIssue as ApplyIssue, warn_dropped as warn_dropped
 from ._schema import MAX_MODEL_FACING_TEXT_LENGTH as MAX_MODEL_FACING_TEXT_LENGTH
+from ._support import AgentSupport as AgentSupport, Section as Section
 from ._units import MAX_TIMEOUT_SECONDS as MAX_TIMEOUT_SECONDS, is_representable_timeout as is_representable_timeout
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -36,7 +37,7 @@ class ToolDef:
 class AppliedInstructions:
     """What `apply_instructions` returns: the blocks to send, and what reached nothing."""
     blocks: list[Block]
-    unapplied: Sequence[UnappliedEntry]
+    issues: Sequence[ApplyIssue]
 
 CollisionScope: TypeAlias
 
@@ -47,9 +48,9 @@ class AppliedTools:
     routes: dict[str, str]
     forward: dict[ToolKey, str]
     reverse: dict[ToolKey, str]
-    unapplied: Sequence[UnappliedEntry]
+    issues: Sequence[ApplyIssue]
 
-def apply_instructions(blocks: Sequence[Block], config: AgentConfig, *, on_unmatched: OnUnmatched = 'warn') -> AppliedInstructions:
+def apply_instructions(blocks: Sequence[Block], config: AgentConfig) -> AppliedInstructions:
     """Apply the `instructions` section to the blocks an agent is about to send.
 
     An entry with an `id` replaces that block's text, or removes the block when its text is `None`.
@@ -68,14 +69,15 @@ def apply_instructions(blocks: Sequence[Block], config: AgentConfig, *, on_unmat
     computation -- either way the block stops doing the thing it was written to do, and nothing about
     the managed value says which. Addressing one is refused and reported rather than applied.
 
-    Three decisions are reported under `on_unmatched` and returned as
-    [`UnappliedEntry`][logfire.agent_control.UnappliedEntry]s: an `id` no block carries
-    (`'unknown-id'`), an `id` only a dynamic block carries (`'dynamic-id'`), and text past the
-    contract's per-request budget (`'oversized-text'`). The first is decided per request, because the
-    blocks are this request's: an agent whose prompt varies with its input can carry a block on one
-    request and not the next.
+    Four decisions come back as [`ApplyIssue`][logfire.agent_control.ApplyIssue]s on `issues`, and
+    are reported by nothing here: an `id` no block carries (`'unknown-id'`), an `id` only a dynamic
+    block carries (`'dynamic-id'`), text past the contract's per-request budget
+    (`'oversized-text'`), and the second and later entries naming one `id` (`'duplicate-entry'`).
+    Pass them to [`AgentControl.report`][logfire.agent_control.AgentControl.report] along with the
+    other sections'. The first is decided per request, because the blocks are this request's: an
+    agent whose prompt varies with its input can carry a block on one request and not the next.
     """
-def apply_tool_definitions(tools: Sequence[ToolDef], config: AgentConfig, *, on_unmatched: OnUnmatched = 'warn', reserved: Collection[str] = (), collision_scope: CollisionScope = 'global') -> AppliedTools:
+def apply_tool_definitions(tools: Sequence[ToolDef], config: AgentConfig, *, reserved: Collection[str] = (), collision_scope: CollisionScope = 'global') -> AppliedTools:
     '''Apply the `tool_definitions` section to the tools an agent is about to advertise.
 
     An override is matched on the tool\'s code-side `name`, narrowed to one group when it sets
@@ -94,14 +96,17 @@ def apply_tool_definitions(tools: Sequence[ToolDef], config: AgentConfig, *, on_
     Parameter descriptions are patched in place and every other piece of schema structure is
     preserved. A patch on a parameter the tool does not have, or on one whose schema is not an object
     to patch a description into, applies nothing -- a parameter is part of the tool\'s code-defined
-    shape, and the baseline is what says which ones exist -- and is reported rather than dropped in
-    silence.
+    shape, and the baseline is what says which ones exist -- and comes back on `issues` rather than
+    being dropped in silence.
+
+    Every decision it makes -- an override no tool matched, a patch on a parameter that is not there,
+    a dropped rename, the second entry naming one tool -- comes back as an
+    [`ApplyIssue`][logfire.agent_control.ApplyIssue] and is reported by nothing here. Hand them to
+    [`AgentControl.report`][logfire.agent_control.AgentControl.report] with the other sections\'.
 
     Args:
         tools: The tools the agent is about to advertise, in the order it would advertise them.
         config: The resolved managed config.
-        on_unmatched: What to do with an entry that reached nothing. Every decision this function
-            makes goes through it, a dropped rename included.
         reserved: Advertised names this adapter needs kept free -- an OpenAI Agents handoff, a
             provider-side tool the framework adds after this call, anything outside the editable
             list. A rename onto one of them is refused like any other collision. Read as taken in
@@ -114,27 +119,51 @@ def apply_tool_definitions(tools: Sequence[ToolDef], config: AgentConfig, *, on_
         The tools to advertise and the routing maps for them; see
         [`AppliedTools`][logfire.agent_control.AppliedTools].
     '''
-def apply_settings(config: AgentConfig, *, supported: Collection[str] | None = None, on_unmatched: OnUnmatched = 'warn') -> dict[str, Any]:
+
+@dataclass(frozen=True)
+class AppliedSettings:
+    """What `apply_settings` returns: the patch to merge, and what reached nothing."""
+    settings: dict[str, Any]
+    issues: Sequence[ApplyIssue]
+
+def apply_settings(config: AgentConfig, *, support: AgentSupport | None = None) -> AppliedSettings:
     '''The `settings` section as a patch to merge over the agent\'s own settings.
 
     Only explicitly set, non-`None` fields are emitted, and every key is already a canonical
-    `AgentConfigSettings` name, so the result is the patch: merge it over the framework\'s settings,
+    `AgentConfigSettings` name, so `settings` is the patch: merge it over the framework\'s settings,
     let a per-call setting outrank it, and leave every key it does not mention alone.
     [`merge_settings`][logfire.agent_control.merge_settings] is how to do that merge with the
     contract\'s precedence and a record of which layer won each key.
 
-    Three kinds of published key are reported under `on_unmatched` rather than silently dropped, all
-    for the same reason -- someone published a setting and the agent did not apply it, which is a gap
+    Five kinds of published thing come back on `issues` rather than being silently dropped, all for
+    the same reason -- someone published something and the agent did not apply it, which is a gap
     between what Logfire shows and what the agent does:
 
-    - a key this version of the contract has no field for, which a newer Logfire UI can write;
-    - a key this adapter cannot lower into its framework, which it names by passing the canonical
-      keys it *can* apply as `supported`. Leaving `supported` as `None` says the adapter applies all
-      of them;
-    - a `timeout` that is not a representable request budget -- negative, not finite, or past
-      [`MAX_TIMEOUT_SECONDS`][logfire.agent_control.MAX_TIMEOUT_SECONDS]. Dropped rather than clamped,
-      because clamping turns "no real limit" into a deadline nobody published, and rounding a
-      negative one to `0` cancels the request before it is sent.
+    - a key this version of the contract has no field for (`\'unknown-setting\'`), which a newer
+      Logfire UI can write;
+    - a key this adapter cannot lower into its framework (`\'unsupported-setting\'`), which it names
+      through [`AgentSupport.settings`][logfire.agent_control.AgentSupport.settings]. Leaving
+      `support` as `None` says the adapter applies all of them;
+    - a `timeout` that is not a representable request budget (`\'unrepresentable-timeout\'`) --
+      negative, not finite, or past
+      [`MAX_TIMEOUT_SECONDS`][logfire.agent_control.MAX_TIMEOUT_SECONDS]. Dropped rather than
+      clamped, because clamping turns "no real limit" into a deadline nobody published, and rounding
+      a negative one to `0` cancels the request before it is sent;
+    - a top-level key this release has no section for (`\'unknown-section\'`);
+    - a section this adapter declared it cannot apply (`\'unsupported-section\'`).
+
+    The last two are about the whole config rather than about settings, and they are here because
+    this is the helper every adapter can call with the whole config and its own support declaration,
+    whatever hooks its framework gives it: an adapter that never calls
+    `apply_instructions` would otherwise have nowhere to learn that an `instructions` section was
+    published at an agent that cannot apply one.
+
+    Args:
+        config: The resolved managed config.
+        support: What this adapter can apply; see
+            [`AgentSupport`][logfire.agent_control.AgentSupport]. `None` says it can apply every
+            section and every canonical setting, which is the right answer for an adapter that has
+            not been taught to declare yet and the wrong one for any that has.
     '''
 def canonical_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
     """A framework's own settings reduced to the contract's canonical keys and describable values.

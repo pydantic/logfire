@@ -4,20 +4,25 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from logfire.agent_control import (
     MAX_MODEL_FACING_TEXT_LENGTH,
     AgentConfig,
+    AgentSupport,
     AppliedInstructions,
+    AppliedSettings,
     AppliedTools,
+    ApplyIssue,
     Block,
+    Destination,
     InstructionBlock,
     ToolDef,
     apply_instructions,
     apply_settings,
     apply_tool_definitions,
 )
+
+SETTINGS_ONLY = AgentSupport(sections=frozenset({'settings'}), settings=frozenset({'temperature', 'max_tokens'}))
+"""An adapter that can lower two settings and apply no other section."""
 
 AGENT = Block('You are a checkout assistant.', id='agent')
 REFUNDS = Block('Always confirm the order total.', id='agent:refunds')
@@ -42,7 +47,7 @@ def config(**sections: Any) -> AgentConfig:
 
 def test_nothing_published_leaves_every_block_alone() -> None:
     blocks = [AGENT, TODAY]
-    assert apply_instructions(blocks, AgentConfig()) == AppliedInstructions(blocks=blocks, unapplied=())
+    assert apply_instructions(blocks, AgentConfig()) == AppliedInstructions(blocks=blocks, issues=[])
 
 
 def test_an_id_replaces_that_blocks_text_and_leaves_its_position_and_flag() -> None:
@@ -80,33 +85,37 @@ def test_a_block_with_no_id_cannot_be_addressed_and_passes_through() -> None:
 
 
 def test_a_dynamic_block_is_not_addressable() -> None:
-    with pytest.warns(UserWarning, match="addresses instruction block 'agent:today', which the agent recomputes"):
-        applied = apply_instructions([AGENT, TODAY], config(instructions=[{'id': 'agent:today', 'instructions': 'x'}]))
+    applied = apply_instructions([AGENT, TODAY], config(instructions=[{'id': 'agent:today', 'instructions': 'x'}]))
     assert applied.blocks == [AGENT, TODAY]
-    assert [(e.reason, e.instruction_id) for e in applied.unapplied] == [('dynamic-id', 'agent:today')]
+    assert [(i.section, i.reason, i.instruction_id) for i in applied.issues] == [
+        ('instructions', 'dynamic-id', 'agent:today')
+    ]
+    assert 'which the agent recomputes per request' in applied.issues[0].message
 
 
-def test_an_id_this_request_does_not_assemble_is_reported_once() -> None:
-    with pytest.warns(UserWarning, match="addresses instruction block 'toolset:crm', which this request does not"):
-        applied = apply_instructions([AGENT], config(instructions=[{'id': 'toolset:crm', 'instructions': 'x'}]))
+def test_an_id_this_request_does_not_assemble_is_returned_as_an_issue() -> None:
+    # And is reported by nothing here: the section plans, and the adapter reports every section at
+    # once, so `'error'` fails on the whole request rather than on whichever section came first.
+    applied = apply_instructions([AGENT], config(instructions=[{'id': 'toolset:crm', 'instructions': 'x'}]))
     assert applied.blocks == [AGENT]
-    assert [(e.reason, e.instruction_id) for e in applied.unapplied] == [('unknown-id', 'toolset:crm')]
+    assert [(i.section, i.reason, i.instruction_id) for i in applied.issues] == [
+        ('instructions', 'unknown-id', 'toolset:crm')
+    ]
+    assert 'which this request does not assemble' in applied.issues[0].message
 
 
-def test_an_unmatched_entry_can_be_ignored_or_raised() -> None:
-    published = config(instructions=[{'id': 'toolset:crm', 'instructions': 'x'}])
-    assert apply_instructions([AGENT], published, on_unmatched='ignore').blocks == [AGENT]
-    with pytest.raises(ValueError, match="addresses instruction block 'toolset:crm'"):
-        apply_instructions([AGENT], published, on_unmatched='error')
-
-
-def test_two_entries_naming_one_id_keep_the_first() -> None:
-    with pytest.warns(UserWarning, match="names instruction id 'agent' more than once"):
-        applied = apply_instructions(
-            [AGENT],
-            config(instructions=[{'id': 'agent', 'instructions': 'First.'}, {'id': 'agent', 'instructions': 'Last.'}]),
-        )
+def test_two_entries_naming_one_id_keep_the_first_and_report_the_rest() -> None:
+    # It used to warn straight from indexing, which made `'ignore'` warn anyway and `'error'` not
+    # raise at all -- the one decision the policy never governed.
+    applied = apply_instructions(
+        [AGENT],
+        config(instructions=[{'id': 'agent', 'instructions': 'First.'}, {'id': 'agent', 'instructions': 'Last.'}]),
+    )
     assert applied.blocks == [Block('First.', id='agent')]
+    assert [(i.section, i.reason, i.instruction_id) for i in applied.issues] == [
+        ('instructions', 'duplicate-entry', 'agent')
+    ]
+    assert "names instruction id 'agent' more than once" in applied.issues[0].message
 
 
 def test_a_description_override_leaves_the_rest_of_the_schema_alone() -> None:
@@ -137,30 +146,28 @@ def test_a_description_override_leaves_the_rest_of_the_schema_alone() -> None:
         routes={'get_weather': 'get_weather'},
         forward={('<agent>', 'get_weather'): 'get_weather'},
         reverse={('<agent>', 'get_weather'): 'get_weather'},
-        unapplied=[],
+        issues=[],
     )
 
 
 def test_a_patch_on_a_parameter_the_tool_does_not_have_is_reported() -> None:
     # It used to be silent, which from the Logfire UI looked exactly like a patch that applied.
     published = config(tool_definitions=[{'name': 'get_weather', 'parameters': {'unknown': {'description': 'x'}}}])
-    with pytest.warns(UserWarning, match="patches parameter 'unknown' of tool 'get_weather' from toolset '<agent>'"):
-        applied = apply_tool_definitions([WEATHER], published)
+    applied = apply_tool_definitions([WEATHER], published)
     assert applied.tools == [WEATHER]
-    assert [(e.reason, e.tool, e.parameter, e.toolset) for e in applied.unapplied] == [
-        ('unknown-parameter', 'get_weather', 'unknown', '<agent>')
+    assert [(i.section, i.reason, i.tool, i.parameter, i.toolset) for i in applied.issues] == [
+        ('tool_definitions', 'unknown-parameter', 'get_weather', 'unknown', '<agent>')
     ]
-    with pytest.raises(ValueError, match="patches parameter 'unknown'"):
-        apply_tool_definitions([WEATHER], published, on_unmatched='error')
+    assert "patches parameter 'unknown' of tool 'get_weather' from toolset '<agent>'" in applied.issues[0].message
 
 
 def test_a_parameter_whose_schema_is_not_an_object_cannot_be_patched() -> None:
     tool = ToolDef(name='odd', parameters_json_schema={'type': 'object', 'properties': {'flag': True}})
     published = config(tool_definitions=[{'name': 'odd', 'parameters': {'flag': {'description': 'x'}}}])
-    with pytest.warns(UserWarning, match='describes that parameter with no schema object'):
-        applied = apply_tool_definitions([tool], published)
+    applied = apply_tool_definitions([tool], published)
     assert applied.tools == [tool]
-    assert [e.reason for e in applied.unapplied] == ['no-patchable-schema']
+    assert [i.reason for i in applied.issues] == ['no-patchable-schema']
+    assert 'describes that parameter with no schema object' in applied.issues[0].message
 
 
 def test_an_override_that_changes_nothing_returns_the_definition_it_was_given() -> None:
@@ -182,12 +189,12 @@ def test_an_override_that_changes_nothing_returns_the_definition_it_was_given() 
 
 def test_a_tool_with_no_patchable_schema_reports_every_parameter_patch() -> None:
     tool = ToolDef(name='ping', parameters_json_schema={'type': 'object'})
-    with pytest.warns(UserWarning, match="patches parameter 'city' of tool 'ping', which has no top-level parameters"):
-        applied = apply_tool_definitions(
-            [tool], config(tool_definitions=[{'name': 'ping', 'parameters': {'city': {'description': 'x'}}}])
-        )
+    applied = apply_tool_definitions(
+        [tool], config(tool_definitions=[{'name': 'ping', 'parameters': {'city': {'description': 'x'}}}])
+    )
     assert applied.tools == [tool]
-    assert [(e.reason, e.parameter) for e in applied.unapplied] == [('no-patchable-schema', 'city')]
+    assert [(i.reason, i.parameter) for i in applied.issues] == [('no-patchable-schema', 'city')]
+    assert "patches parameter 'city' of tool 'ping', which has no top-level parameters" in applied.issues[0].message
 
 
 def test_a_rename_is_advertised_and_routed_back_to_the_code_name() -> None:
@@ -200,8 +207,7 @@ def test_a_rename_is_advertised_and_routed_back_to_the_code_name() -> None:
 
 def test_a_rename_onto_another_advertised_name_is_dropped_and_the_rest_of_the_patch_applies() -> None:
     published = config(tool_definitions=[{'name': 'get_weather', 'new_name': 'search', 'description': 'Weather.'}])
-    with pytest.warns(UserWarning, match="renames 'get_weather' to 'search', which is already advertised"):
-        applied = apply_tool_definitions([WEATHER, SEARCH], published)
+    applied = apply_tool_definitions([WEATHER, SEARCH], published)
     assert applied.tools[0] == ToolDef(
         name='get_weather',
         description='Weather.',
@@ -209,25 +215,18 @@ def test_a_rename_onto_another_advertised_name_is_dropped_and_the_rest_of_the_pa
         toolset='<agent>',
     )
     assert applied.routes == {'get_weather': 'get_weather', 'search': 'search'}
-    assert [(e.reason, e.tool) for e in applied.unapplied] == [('rename-collision', 'get_weather')]
-
-
-def test_a_dropped_rename_obeys_the_policy_like_every_other_decision() -> None:
-    # It used to warn unconditionally, so `'ignore'` still warned and `'error'` did not fail.
-    published = config(tool_definitions=[{'name': 'get_weather', 'new_name': 'search'}])
-    applied = apply_tool_definitions([WEATHER, SEARCH], published, on_unmatched='ignore')
-    assert [tool.name for tool in applied.tools] == ['get_weather', 'search']
-    with pytest.raises(ValueError, match="renames 'get_weather' to 'search'"):
-        apply_tool_definitions([WEATHER, SEARCH], published, on_unmatched='error')
+    assert [(i.reason, i.tool) for i in applied.issues] == [('rename-collision', 'get_weather')]
+    assert "renames 'get_weather' to 'search', which is already advertised" in applied.issues[0].message
 
 
 def test_a_rename_onto_a_name_the_adapter_reserved_is_refused() -> None:
     # An OpenAI Agents handoff, or a provider tool the framework adds after this call: outside the
     # editable list, and the core cannot see it unless the adapter says so.
     published = config(tool_definitions=[{'name': 'get_weather', 'new_name': 'transfer_to_billing'}])
-    with pytest.warns(UserWarning, match="renames 'get_weather' to 'transfer_to_billing'"):
-        applied = apply_tool_definitions([WEATHER], published, reserved={'transfer_to_billing'})
+    applied = apply_tool_definitions([WEATHER], published, reserved={'transfer_to_billing'})
     assert [tool.name for tool in applied.tools] == ['get_weather']
+    assert [i.reason for i in applied.issues] == ['rename-collision']
+    assert "renames 'get_weather' to 'transfer_to_billing'" in applied.issues[0].message
 
 
 def test_names_collide_per_toolset_when_the_runtime_name_carries_the_toolset() -> None:
@@ -237,28 +236,30 @@ def test_names_collide_per_toolset_when_the_runtime_name_carries_the_toolset() -
     published = config(tool_definitions=[{'name': 'search', 'toolset': 'crm', 'new_name': 'lookup'}])
     applied = apply_tool_definitions([crm, docs], published, collision_scope='toolset')
     assert [tool.name for tool in applied.tools] == ['lookup', 'lookup']
-    assert applied.unapplied == []
+    assert applied.issues == []
     # The flat map cannot tell the two apart, which is exactly why the identity maps exist.
     assert applied.reverse == {('crm', 'lookup'): 'search', ('docs', 'lookup'): 'lookup'}
     assert applied.forward == {('crm', 'search'): 'lookup', ('docs', 'lookup'): 'lookup'}
     assert applied.routes == {'lookup': 'search'}
     # The same rename against one flat namespace is a collision.
-    globally = apply_tool_definitions([crm, docs], published, on_unmatched='ignore')
+    globally = apply_tool_definitions([crm, docs], published)
     assert [tool.name for tool in globally.tools] == ['search', 'lookup']
+    assert [i.reason for i in globally.issues] == ['rename-collision']
 
 
 def test_a_rename_onto_a_name_an_earlier_rename_took_is_dropped_too() -> None:
-    with pytest.warns(UserWarning, match="renames 'search' to 'lookup', which is already advertised"):
-        applied = apply_tool_definitions(
-            [WEATHER, SEARCH],
-            config(
-                tool_definitions=[
-                    {'name': 'get_weather', 'new_name': 'lookup'},
-                    {'name': 'search', 'new_name': 'lookup'},
-                ]
-            ),
-        )
+    applied = apply_tool_definitions(
+        [WEATHER, SEARCH],
+        config(
+            tool_definitions=[
+                {'name': 'get_weather', 'new_name': 'lookup'},
+                {'name': 'search', 'new_name': 'lookup'},
+            ]
+        ),
+    )
     assert applied.routes == {'lookup': 'get_weather', 'search': 'search'}
+    assert [(i.reason, i.tool) for i in applied.issues] == [('rename-collision', 'search')]
+    assert "renames 'search' to 'lookup', which is already advertised" in applied.issues[0].message
 
 
 def test_a_toolset_qualified_override_beats_one_that_only_names_the_tool() -> None:
@@ -280,51 +281,134 @@ def test_a_toolset_qualified_override_beats_one_that_only_names_the_tool() -> No
 
 def test_an_override_that_matches_no_tool_is_reported() -> None:
     published = config(tool_definitions=[{'name': 'search', 'toolset': 'crm'}])
-    with pytest.warns(UserWarning, match="patches tool 'search' from toolset 'crm', which no toolset advertises"):
-        assert apply_tool_definitions([WEATHER], published).tools == [WEATHER]
-    assert apply_tool_definitions([WEATHER], published, on_unmatched='ignore').tools == [WEATHER]
-    with pytest.raises(ValueError, match="patches tool 'search' from toolset 'crm'"):
-        apply_tool_definitions([WEATHER], published, on_unmatched='error')
+    applied = apply_tool_definitions([WEATHER], published)
+    assert applied.tools == [WEATHER]
+    assert [(i.section, i.reason, i.toolset, i.tool) for i in applied.issues] == [
+        ('tool_definitions', 'unknown-tool', 'crm', 'search')
+    ]
+    assert "patches tool 'search' from toolset 'crm', which no toolset advertises" in applied.issues[0].message
 
 
-def test_two_overrides_naming_one_tool_keep_the_first() -> None:
-    with pytest.warns(UserWarning, match="names tool 'get_weather' more than once"):
-        applied = apply_tool_definitions(
-            [WEATHER],
-            config(
-                tool_definitions=[
-                    {'name': 'get_weather', 'description': 'First.'},
-                    {'name': 'get_weather', 'description': 'Last.'},
-                ]
-            ),
-        )
+def test_two_overrides_naming_one_tool_keep_the_first_and_report_the_rest() -> None:
+    applied = apply_tool_definitions(
+        [WEATHER],
+        config(
+            tool_definitions=[
+                {'name': 'get_weather', 'description': 'First.'},
+                {'name': 'get_weather', 'description': 'Last.'},
+            ]
+        ),
+    )
     assert applied.tools[0].description == 'First.'
+    assert [(i.section, i.reason, i.toolset, i.tool) for i in applied.issues] == [
+        ('tool_definitions', 'duplicate-entry', None, 'get_weather')
+    ]
+    assert "names tool 'get_weather' more than once" in applied.issues[0].message
+
+
+def test_what_an_adapter_declares_it_can_do_and_what_it_leaves_to_the_defaults() -> None:
+    # The declaration is adapter capability and nothing else: there is deliberately no way to say
+    # anything here about what a given model will accept.
+    support = AgentSupport(
+        sections=frozenset({'instructions', 'settings'}),
+        destinations=(Destination(id='prompt', default=True), Destination(id='preset', accepts_additions=False)),
+        settings=frozenset({'temperature'}),
+    )
+    assert support.precedence == 'exact'
+    assert support.resolution_unit == 'run'
+    # A destination accepts additions unless the adapter says otherwise, and is the default only if
+    # it says so; `AgentSupport` declares no destinations at all for a framework with one prompt.
+    assert support.destinations[0] == Destination(id='prompt', default=True, accepts_additions=True)
+    assert support.destinations[1] == Destination(id='preset', default=False, accepts_additions=False)
+    assert AgentSupport(sections=frozenset()).destinations == ()
+    assert AgentSupport(sections=frozenset()).settings == frozenset()
 
 
 def test_no_settings_published_is_an_empty_patch() -> None:
-    assert apply_settings(AgentConfig()) == {}
+    assert apply_settings(AgentConfig()) == AppliedSettings(settings={}, issues=[])
 
 
 def test_only_the_keys_that_were_set_are_in_the_patch() -> None:
-    assert apply_settings(config(settings={'temperature': 0.4, 'stop_sequences': ['STOP']})) == {
-        'temperature': 0.4,
-        'stop_sequences': ['STOP'],
-    }
+    applied = apply_settings(config(settings={'temperature': 0.4, 'stop_sequences': ['STOP']}))
+    assert applied == AppliedSettings(settings={'temperature': 0.4, 'stop_sequences': ['STOP']}, issues=[])
 
 
 def test_a_key_this_contract_has_no_field_for_is_reported() -> None:
-    published = config(settings={'temperature': 0.4, 'service_tier': 'flex'})
-    with pytest.warns(UserWarning, match="sets 'service_tier', which this version of the Agent Control contract"):
-        assert apply_settings(published) == {'temperature': 0.4}
-    with pytest.raises(ValueError, match="sets 'service_tier'"):
-        apply_settings(published, on_unmatched='error')
+    applied = apply_settings(config(settings={'temperature': 0.4, 'service_tier': 'flex'}))
+    assert applied.settings == {'temperature': 0.4}
+    assert [(i.section, i.reason, i.setting) for i in applied.issues] == [
+        ('settings', 'unknown-setting', 'service_tier')
+    ]
+    assert "sets 'service_tier', which this version of the Agent Control contract" in applied.issues[0].message
 
 
 def test_a_key_the_adapter_cannot_lower_is_reported_and_left_out() -> None:
     published = config(settings={'temperature': 0.4, 'top_k': 20})
-    with pytest.warns(UserWarning, match="sets 'top_k', which this agent framework has no equivalent for"):
-        assert apply_settings(published, supported={'temperature', 'max_tokens'}) == {'temperature': 0.4}
-    assert apply_settings(published, supported={'temperature'}, on_unmatched='ignore') == {'temperature': 0.4}
+    applied = apply_settings(published, support=SETTINGS_ONLY)
+    assert applied.settings == {'temperature': 0.4}
+    assert [(i.section, i.reason, i.setting) for i in applied.issues] == [('settings', 'unsupported-setting', 'top_k')]
+    assert "sets 'top_k', which this agent framework has no equivalent for" in applied.issues[0].message
+    # No support declared is the adapter saying it can lower all of them, which is what every
+    # adapter that has not been taught to declare yet is doing.
+    assert apply_settings(published).settings == {'temperature': 0.4, 'top_k': 20}
+
+
+def test_a_section_the_adapter_cannot_apply_is_reported_once() -> None:
+    # The editor can grey out a section from this; nothing else in the contract can tell it that a
+    # `model` an adapter cannot switch is not worth publishing.
+    published = config(model='openai:gpt-5.6-sol', instructions=['Be brief.'], settings={'temperature': 0.4})
+    applied = apply_settings(published, support=SETTINGS_ONLY)
+    assert applied.settings == {'temperature': 0.4}
+    assert [(i.section, i.reason) for i in applied.issues] == [
+        ('instructions', 'unsupported-section'),
+        ('model', 'unsupported-section'),
+    ]
+    assert "publishes a 'model' section, which this agent framework has no way to apply" in applied.issues[1].message
+    # Declaring the section is what silences it, and it is per section rather than per entry.
+    everything = AgentSupport(
+        sections=frozenset({'instructions', 'model', 'settings'}), settings=frozenset({'temperature'})
+    )
+    assert apply_settings(published, support=everything).issues == []
+
+
+def test_a_top_level_key_this_release_has_no_section_for_is_reported() -> None:
+    # The openness is deliberate -- it is what lets a future section be published against an older
+    # SDK -- but a drop nobody hears about is a silently degraded agent.
+    published = config(instructions=['Be brief.'], mcp_servers=[{'name': 'crm'}], skills=[])
+    assert published.unrecognized == ('mcp_servers', 'skills')
+    applied = apply_settings(published)
+    assert [(i.section, i.reason) for i in applied.issues] == [
+        ('mcp_servers', 'unknown-section'),
+        ('skills', 'unknown-section'),
+    ]
+    assert "publishes a 'mcp_servers' section, which this version of the Agent Control contract" in (
+        applied.issues[0].message
+    )
+
+
+def test_a_config_built_in_code_remembers_no_unrecognized_sections() -> None:
+    # A baseline is built from keyword arguments rather than from a mapping, and an adapter's own
+    # extra key would not be something anyone published.
+    assert AgentConfig(model='openai:gpt-5.6-sol').unrecognized == ()
+
+
+def test_a_timeout_that_is_not_a_request_budget_is_dropped_rather_than_clamped() -> None:
+    applied = apply_settings(config(settings={'timeout': -1, 'temperature': 0.4}))
+    assert applied.settings == {'temperature': 0.4}
+    assert [(i.section, i.reason, i.setting) for i in applied.issues] == [
+        ('settings', 'unrepresentable-timeout', 'timeout')
+    ]
+
+
+def test_a_setting_the_provider_dropped_is_an_issue_the_core_needs_no_sdk_knowledge_for() -> None:
+    # Discovered after the request, by an adapter reading whatever its own SDK reports, so the core
+    # takes the two things every one of those shapes carries.
+    issue = ApplyIssue.dropped_by_provider('top_k', 'unsupported by this model')
+    assert (issue.section, issue.reason, issue.setting) == ('settings', 'dropped-by-provider', 'top_k')
+    assert issue.message == (
+        "Managed agent config sets 'top_k', which the provider did not apply -- unsupported by this "
+        'model; that key had no effect on the request.'
+    )
 
 
 def test_a_config_assembled_in_code_may_hold_bare_strings_in_its_list() -> None:
@@ -346,12 +430,10 @@ def test_text_past_the_budget_is_refused_rather_than_truncated() -> None:
         InstructionBlock.model_construct(id='agent', instructions='a' * (MAX_MODEL_FACING_TEXT_LENGTH + 1)),
         InstructionBlock.model_construct(instructions='b' * (MAX_MODEL_FACING_TEXT_LENGTH + 1)),
     ]
-    with pytest.warns(UserWarning, match='past the 65536-character limit'):
-        applied = apply_instructions([AGENT], published)
+    applied = apply_instructions([AGENT], published)
     assert applied.blocks == [AGENT]
-    assert [(e.reason, e.instruction_id) for e in applied.unapplied] == [
+    assert [(i.reason, i.instruction_id) for i in applied.issues] == [
         ('oversized-text', 'agent'),
         ('oversized-text', None),
     ]
-    with pytest.raises(ValueError, match='past the 65536-character limit'):
-        apply_instructions([AGENT], published, on_unmatched='error')
+    assert 'past the 65536-character limit' in applied.issues[0].message

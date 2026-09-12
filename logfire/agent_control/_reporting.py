@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
@@ -11,14 +11,19 @@ OnUnmatched: TypeAlias = Literal['ignore', 'warn', 'error']
 """What to do with a published entry that reaches nothing in this deployment.
 
 That is an instruction `id` no block carries (or that only a dynamic block carries), a tool override
-whose `name` -- and `toolset`, when it sets one -- matches no tool the agent advertises, and a
-`settings` key the contract or the adapter cannot apply. Each is a place where Logfire shows one
-thing and the agent does another.
+whose `name` -- and `toolset`, when it sets one -- matches no tool the agent advertises, a `settings`
+key the contract or the adapter cannot apply, and a whole section this adapter or this release has no
+way to act on. Each is a place where Logfire shows one thing and the agent does another.
 
-- `'warn'` (the default everywhere) emits a `UserWarning` once per process per message, at the point
-  the entry would have been applied.
-- `'error'` raises `ValueError` with the same message at that point, failing the request.
+- `'warn'` (the default everywhere) emits a `UserWarning` once per process per message.
+- `'error'` raises [`UnmatchedConfigError`][logfire.agent_control.UnmatchedConfigError] naming every
+  issue at once, failing the request.
 - `'ignore'` applies nothing and says nothing.
+
+The policy is applied in one place, by
+[`AgentControl.report`][logfire.agent_control.AgentControl.report], rather than inside each apply
+helper: an adapter plans every section and then reports, so `'error'` fails on everything the request
+would have got wrong rather than on whichever section happened to be planned first.
 
 Warning rather than raising is the default because tool availability is dynamic: one config is
 applied across deployments that need not all install the same tools, and an agent can advertise
@@ -47,31 +52,12 @@ def warn_dropped(message: str) -> None:
     warnings.warn(message)
 
 
-def report_unmatched(policy: OnUnmatched, message: str) -> None:
-    """Apply an `OnUnmatched` policy to one published entry that reached nothing.
-
-    Called where the entry would have been applied -- `apply_settings`, `apply_instructions`,
-    `apply_tool_definitions` -- and never from validation, for two reasons. Validation runs inside
-    Logfire's resolution, which turns any exception into a fallback to the code-defined agent, so an
-    `'error'` raised there would be swallowed and un-manage the whole config instead of stopping the
-    request. And the same validation builds the code baseline, where a key this contract has no field
-    for is the agent's own provider-specific setting rather than anything anyone published.
-
-    The message is the same under every policy so a warning someone chose to tolerate reads like the
-    error they would have gotten by not tolerating it.
-    """
-    if policy == 'error':
-        raise ValueError(message)
-    if policy == 'warn':
-        warn_dropped(message)
-
-
 def reset_warned_messages() -> None:
     """Forget which messages have been warned about. Intended for tests only."""
     _warned.clear()
 
 
-UnappliedReason: TypeAlias = Literal[
+ApplyIssueReason: TypeAlias = Literal[
     'unknown-id',
     'dynamic-id',
     'oversized-text',
@@ -79,6 +65,13 @@ UnappliedReason: TypeAlias = Literal[
     'unknown-parameter',
     'no-patchable-schema',
     'rename-collision',
+    'unknown-setting',
+    'unsupported-setting',
+    'unrepresentable-timeout',
+    'unknown-section',
+    'unsupported-section',
+    'duplicate-entry',
+    'dropped-by-provider',
 ]
 """Why one published entry did not reach the request, as a stable string an adapter can branch on.
 
@@ -100,6 +93,28 @@ Tools:
   already answers to. The rename is dropped and the tool keeps its code-side name; the same entry's
   other patches still apply.
 
+Settings:
+
+- `'unknown-setting'` -- a `settings` key this version of the contract has no field for, which a
+  newer Logfire UI can write.
+- `'unsupported-setting'` -- a canonical key this adapter declared it cannot lower; see
+  [`AgentSupport.settings`][logfire.agent_control.AgentSupport.settings].
+- `'unrepresentable-timeout'` -- a `timeout` that is not a request budget: negative, not finite, or
+  past [`MAX_TIMEOUT_SECONDS`][logfire.agent_control.MAX_TIMEOUT_SECONDS].
+
+Any section:
+
+- `'unknown-section'` -- a top-level key this release has no section for. Every section is optional
+  and unknown keys cost nothing, which is what lets a future section be written against an older SDK
+  -- but the drop has to be audible, or the first person to publish one gets a silently degraded
+  agent.
+- `'unsupported-section'` -- a section this release understands and this adapter cannot apply; see
+  [`AgentSupport.sections`][logfire.agent_control.AgentSupport.sections].
+- `'duplicate-entry'` -- the same instruction `id`, or the same `(toolset, name)`, written twice. The
+  first is applied and the rest are not.
+- `'dropped-by-provider'` -- a setting the adapter did forward and the provider or its SDK dropped;
+  see [`ApplyIssue.dropped_by_provider`][logfire.agent_control.ApplyIssue.dropped_by_provider].
+
 These are the runtime decisions: what a *valid* published value did not reach in *this* deployment,
 on *this* request. They are deliberately not the parser's compatibility warnings -- an entry a newer
 UI wrote that this release cannot understand -- which are about the value rather than the request,
@@ -108,46 +123,137 @@ warn once per process from validation, and never take an `OnUnmatched` policy.
 
 
 @dataclass(frozen=True)
-class UnappliedEntry:
+class ApplyIssue:
     """One published entry that reached nothing, with the path that says which one.
 
-    Returned by the apply helpers so an adapter can do more than repeat the message: count them,
-    attach them to a span, decide per section, or feed the tool ones back into its own routing. The
-    fields are a path, and only the ones that apply to `reason` are set -- `tool` and `parameter` on
-    a parameter patch, `instruction_id` on an instruction entry -- so an adapter never has to parse
-    `message` to learn what an entry was about.
+    Returned by the apply helpers, which report nothing themselves: an adapter collects the issues of
+    every section it planned and hands them to
+    [`AgentControl.report`][logfire.agent_control.AgentControl.report] once. That is what makes the
+    return value load-bearing rather than a duplicate of a warning already emitted, and what lets
+    `'error'` fail on everything a request got wrong instead of on the first section planned.
 
-    The helpers report every entry they return under the caller's `OnUnmatched` policy before
-    returning it, so an adapter that only wants the configured behavior can ignore these entirely and
-    one that wants both does not get the message twice.
+    The fields are a path, and only the ones that apply to `reason` are set -- `tool` and `parameter`
+    on a parameter patch, `instruction_id` on an instruction entry, `setting` on a settings key -- so
+    an adapter never has to parse `message` to learn what an issue was about.
     """
 
-    reason: UnappliedReason
-    """Why it was not applied; see [`UnappliedReason`][logfire.agent_control.UnappliedReason]."""
+    section: str
+    """Which section of the config the issue is about.
+
+    One of the four [`Section`][logfire.agent_control.Section] names, except for
+    `'unknown-section'`, where it is the unrecognized top-level key itself: a key this release has no
+    section for has no section name to give, and naming the key is what makes the report actionable.
+    A plain string for that reason, in both cores, rather than a `Section` that half the reasons
+    would have to lie about.
+    """
+    reason: ApplyIssueReason
+    """Why it was not applied; see [`ApplyIssueReason`][logfire.agent_control.ApplyIssueReason]."""
     message: str
     """What the policy reports: what was published, and what was not applied."""
     instruction_id: str | None = None
     """The instruction `id` the entry addressed, for the instruction reasons."""
+    destination: str | None = None
+    """The instruction destination the entry named, when it named one."""
     toolset: str | None = None
     """The toolset the entry named or the tool came from, when either has one."""
     tool: str | None = None
     """The code-side tool name the entry named, for the tool reasons."""
     parameter: str | None = None
     """The parameter the entry patched, for `'unknown-parameter'` and `'no-patchable-schema'`."""
+    setting: str | None = None
+    """The canonical settings key the issue is about, for the settings reasons."""
+
+    @classmethod
+    def dropped_by_provider(cls, setting: str, detail: str) -> ApplyIssue:
+        """One setting the adapter forwarded and the provider, or its own SDK, did not apply.
+
+        The one issue the core cannot find for itself: it is discovered *after* the request, by an
+        adapter reading whatever its framework reports -- the Vercel AI SDK's `result.warnings`, a
+        provider's own "unsupported parameter" note. Those shapes differ per SDK and the core knows
+        none of them, so it takes the two things every one of them carries: which canonical setting,
+        and what the SDK said about it.
+
+        ```python skip-run="true" skip-reason="illustrative-fragment"
+        control.report(*(ApplyIssue.dropped_by_provider('top_k', w.detail) for w in result.warnings))
+        ```
+
+        Args:
+            setting: The canonical settings key that did not reach the model.
+            detail: What the provider or SDK said, in its own words, as one clause.
+        """
+        return cls(
+            section='settings',
+            reason='dropped-by-provider',
+            setting=setting,
+            message=(
+                f'Managed agent config sets {setting!r}, which the provider did not apply -- {detail}; '
+                'that key had no effect on the request.'
+            ),
+        )
 
 
-def report_unapplied(policy: OnUnmatched, entries: Iterable[UnappliedEntry]) -> Sequence[UnappliedEntry]:
-    """Apply one `OnUnmatched` policy to every entry that reached nothing, and hand them back.
+class UnmatchedConfigError(ValueError):
+    """Raised by `on_unmatched='error'` for everything one request could not apply.
 
-    One call site per helper, so the policy governs *all* of a section's decisions rather than the
-    subset that happened to be routed through it: a rename dropped for colliding is as much a gap
-    between what Logfire shows and what the agent does as an override naming a tool that is not
-    there, and `'ignore'` has to silence both while `'error'` has to fail on both.
+    A `ValueError` so a deployment that was catching one keeps catching this, and a class of its own
+    so an adapter can tell a config the deployment asked to fail on from a model or tool failure --
+    and translate it into its own framework's error type without restating a single message:
+
+    ```python skip-run="true" skip-reason="illustrative-fragment"
+    try:
+        control.report(*issues)
+    except UnmatchedConfigError as exc:
+        raise MyFrameworkError(str(exc)) from exc
+    ```
+
+    Raised once for a whole request, with every issue's message in `str(exc)` and the issues
+    themselves on `issues`, so an adapter that reports a kind it has never heard of still reports it
+    faithfully.
+    """
+
+    def __init__(self, message: str, issues: Sequence[ApplyIssue] = ()) -> None:
+        super().__init__(message)
+        self.issues: tuple[ApplyIssue, ...] = tuple(issues)
+        """Every issue this request could not apply, in the order they were planned.
+
+        Empty for the string channel --
+        [`AgentControl.report_unmatched`][logfire.agent_control.AgentControl.report_unmatched] --
+        which carries a message and no path.
+        """
+
+
+def report_unmatched(policy: OnUnmatched, message: str) -> None:
+    """Apply an `OnUnmatched` policy to one thing an adapter could not apply, as a message.
+
+    Never called from validation, for two reasons. Validation runs inside Logfire's resolution, which
+    turns any exception into a fallback to the code-defined agent, so an `'error'` raised there would
+    be swallowed and un-manage the whole config instead of stopping the request. And the same
+    validation builds the code baseline, where a key this contract has no field for is the agent's
+    own provider-specific setting rather than anything anyone published.
+
+    The message is the same under every policy so a warning someone chose to tolerate reads like the
+    error they would have gotten by not tolerating it.
+    """
+    if policy == 'error':
+        raise UnmatchedConfigError(message)
+    if policy == 'warn':
+        warn_dropped(message)
+
+
+def report_issues(policy: OnUnmatched, issues: Sequence[ApplyIssue]) -> None:
+    """Apply one `OnUnmatched` policy to every issue a request's planning produced.
+
+    One call for a whole request, which is the point: the apply helpers plan and report nothing, so
+    `'error'` raises after every section has been planned, naming all of it, rather than on the first
+    entry of the first section -- which used to mean the strictest policy reported the least.
 
     Raises:
-        ValueError: on the first entry, when `policy` is `'error'`.
+        UnmatchedConfigError: naming every issue, when `policy` is `'error'`.
     """
-    collected = list(entries)
-    for entry in collected:
-        report_unmatched(policy, entry.message)
-    return collected
+    if not issues:
+        return
+    if policy == 'error':
+        raise UnmatchedConfigError('\n'.join(issue.message for issue in issues), issues)
+    if policy == 'warn':
+        for issue in issues:
+            warn_dropped(issue.message)
