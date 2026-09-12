@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, overload
 
 from typing_extensions import TypeForm
@@ -362,6 +363,15 @@ def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: 
         values = schema['expected']
     elif schema_type == 'enum':
         values = tuple(member.value for member in schema['members'])
+    elif schema_type == 'lax-or-strict':
+        # Pydantic 2.4 represented enums as lax/strict wrappers around an is-instance schema.
+        try:
+            enum_type = schema['strict_schema']['python_schema']['cls']
+        except (KeyError, TypeError):
+            return False
+        if not isinstance(enum_type, type) or not issubclass(enum_type, Enum):
+            return False
+        values = tuple(member.value for member in enum_type)
     else:
         return False
     return bool(values) and all(type(value) is expected_type for value in values)

@@ -7,7 +7,7 @@ import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
-from http import HTTPMethod, HTTPStatus
+from enum import Enum, IntEnum
 from typing import Annotated, Any, Literal, cast
 from unittest.mock import Mock, patch
 
@@ -428,6 +428,14 @@ class CheckoutConfig(BaseModel):
     retries: int
 
 
+class RegionFlag(str, Enum):
+    US = 'us'
+
+
+class RetriesFlag(IntEnum):
+    THREE = 3
+
+
 class SecretConfig(BaseModel):
     api_key: str
 
@@ -595,12 +603,12 @@ def test_openfeature_provider_accepts_literal_scalar_flags():
     MUTATION_TESTING, reason='mutmut loads transformed flag and test modules under different identities'
 )
 def test_openfeature_provider_accepts_enum_scalar_flags():
-    flag('enum_method', default=HTTPMethod.GET)
-    flag('enum_status', default=HTTPStatus.OK)
+    flag('enum_region', default=RegionFlag.US)
+    flag('enum_retries', default=RetriesFlag.THREE)
     provider = LogfireProvider()
 
-    assert provider.resolve_string_details('enum_method', 'fallback').value == 'GET'
-    assert provider.resolve_integer_details('enum_status', 0).value == 200
+    assert provider.resolve_string_details('enum_region', 'fallback').value == 'us'
+    assert provider.resolve_integer_details('enum_retries', 0).value == 3
 
 
 def test_openfeature_scalar_type_matches_enum_member_values():
@@ -609,6 +617,23 @@ def test_openfeature_scalar_type_matches_enum_member_values():
 
     assert _matches_openfeature_scalar_type(adapter, str) is True
     assert _matches_openfeature_scalar_type(adapter, int) is False
+
+    adapter.type_adapter.core_schema = {
+        'type': 'lax-or-strict',
+        'strict_schema': {'python_schema': {'cls': RegionFlag}},
+    }
+    assert _matches_openfeature_scalar_type(adapter, str) is True
+    assert _matches_openfeature_scalar_type(adapter, int) is False
+
+    adapter.type_adapter.core_schema = {'type': 'lax-or-strict', 'strict_schema': {}}
+    assert _matches_openfeature_scalar_type(adapter, str) is False
+
+    for invalid_enum_type in (None, str):
+        adapter.type_adapter.core_schema = {
+            'type': 'lax-or-strict',
+            'strict_schema': {'python_schema': {'cls': invalid_enum_type}},
+        }
+        assert _matches_openfeature_scalar_type(adapter, str) is False
 
 
 def test_openfeature_provider_uses_an_explicit_logfire_instance():
