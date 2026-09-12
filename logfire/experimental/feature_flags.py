@@ -251,6 +251,10 @@ class LogfireProvider(AbstractProvider):
         adapter = self._get_adapter(flag_key)
         if adapter is None:
             return resolution
+        if resolution.error_code is not None:
+            # `_resolve` has already selected the caller's JSON-compatible fallback. Do not
+            # run that fallback through the registered flag type's serializer.
+            return resolution
         try:
             value = cast(FlagValueType, adapter.type_adapter.dump_python(resolution.value, mode='json'))
         except Exception as e:  # OpenFeature providers return errors rather than raising.
@@ -297,10 +301,7 @@ class LogfireProvider(AbstractProvider):
 
         context = evaluation_context or EvaluationContext()
         try:
-            return cast(
-                FlagResolutionDetails[T],
-                adapter.evaluate_flag(targeting_key=context.targeting_key, attributes=context.attributes),
-            )
+            resolution = adapter.evaluate_flag(targeting_key=context.targeting_key, attributes=context.attributes)
         except Exception:
             # OpenFeature providers return structured errors rather than raising evaluation failures.
             return FlagResolutionDetails(
@@ -309,6 +310,18 @@ class LogfireProvider(AbstractProvider):
                 error_code=ErrorCode.GENERAL,
                 error_message='Feature flag evaluation failed.',
             )
+        if resolution.error_code is not None:
+            # Provider errors use the fallback supplied by the OpenFeature caller, which may
+            # intentionally differ from the flag's code default.
+            return FlagResolutionDetails(
+                value=default_value,
+                variant=resolution.variant,
+                reason=resolution.reason,
+                error_code=resolution.error_code,
+                error_message=resolution.error_message,
+                flag_metadata=resolution.flag_metadata,
+            )
+        return cast(FlagResolutionDetails[T], resolution)
 
 
 def _type_mismatch(default_value: T, message: str) -> FlagResolutionDetails[T]:

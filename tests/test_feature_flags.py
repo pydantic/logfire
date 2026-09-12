@@ -532,6 +532,32 @@ def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
         openfeature_api.clear_providers()
 
 
+def test_openfeature_provider_uses_the_caller_default_on_resolution_error():
+    config = VariablesConfig(
+        variables={
+            'test_flag': VariableConfig(
+                name='test_flag',
+                labels={'invalid': LabeledValue(version=1, serialized_value='"not-a-boolean"')},
+                rollout=Rollout(labels={'invalid': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    feature_flag('test_flag', default=True)
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = LogfireProvider().resolve_boolean_details('test_flag', False)
+
+    assert details.value is False
+    assert details.reason == Reason.ERROR
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+
+
 def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
     flag('positive_retries', type=cast(Any, Annotated[int, Field(gt=0)]), default=3)
     flag('positive_ratio', type=cast(Any, Annotated[float, Field(gt=0)]), default=0.5)
@@ -596,7 +622,7 @@ def test_openfeature_provider_serializes_typed_objects():
     assert details.reason == Reason.DEFAULT
 
 
-def test_openfeature_provider_serializes_object_default_after_validation_error():
+def test_openfeature_provider_serializes_caller_default_after_validation_error():
     config = VariablesConfig(
         variables={
             'checkout': VariableConfig(
@@ -617,7 +643,7 @@ def test_openfeature_provider_serializes_object_default_after_validation_error()
     with pytest.warns(RuntimeWarning, match='value failed validation'):
         details = LogfireProvider().resolve_object_details('checkout', {})
 
-    assert details.value == {'provider': 'fallback', 'retries': 1}
+    assert details.value == {}
     assert details.reason == Reason.ERROR
     assert details.error_code == ErrorCode.TYPE_MISMATCH
 
