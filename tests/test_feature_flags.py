@@ -23,8 +23,8 @@ from hypothesis.stateful import (
 from openfeature import api as openfeature_api
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
-from openfeature.flag_evaluation import Reason
-from pydantic import BaseModel, Field, ValidationError
+from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+from pydantic import BaseModel, Field, PlainSerializer, ValidationError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
@@ -40,7 +40,11 @@ from logfire.variables import (
     targeting_context,
 )
 from logfire.variables.abstract import ResolvedVariable
-from logfire.variables.variable import _feature_flag_evaluation_details, _feature_flag_telemetry_attributes
+from logfire.variables.variable import (
+    _feature_flag_evaluation_details,
+    _feature_flag_telemetry_attributes,
+    _feature_flag_telemetry_value,
+)
 
 MUTATION_TESTING = 'MUTANT_UNDER_TEST' in os.environ
 DETERMINISTIC_PROPERTY_SETTINGS = settings(
@@ -227,6 +231,19 @@ def test_feature_flag_telemetry_inspection_cannot_break_a_resolved_value():
     assert details.reason == Reason.DEFAULT
 
 
+def test_rollout_warning_inspection_cannot_break_a_resolved_value():
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    test_flag = feature_flag('test_flag', default=False)
+
+    with patch.object(VariableConfig, 'requires_targeting_key', side_effect=ValueError('malformed targeting metadata')):
+        assert isinstance(test_flag.value(), bool)
+
+
 @DETERMINISTIC_PROPERTY_SETTINGS
 @given(parts=ROLLOUT_PARTS, targeting_key=st.text(min_size=0, max_size=80))
 def test_rollout_resolution_is_deterministic_and_selects_only_possible_outcomes(
@@ -348,6 +365,20 @@ def test_is_enabled_forwards_the_complete_evaluation_context():
     value.assert_called_once_with('account-a', attributes)
 
 
+def test_value_forwards_the_complete_evaluation_context():
+    adapter = Mock()
+    adapter.name = 'region'
+    adapter.evaluate_flag.return_value = FlagResolutionDetails(value='eu', reason=Reason.STATIC)
+    custom_logfire = Mock()
+    custom_logfire._flag.return_value = adapter
+    region = Flag('region', default='us', logfire_instance=custom_logfire)
+    attributes = {'plan': 'team'}
+
+    assert region.value(targeting_key='account-a', attributes=attributes) == 'eu'
+
+    adapter.evaluate_flag.assert_called_once_with('account-a', attributes)
+
+
 def test_feature_context_wins_over_generic_context_but_not_variable_specific_context():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     keys = {
@@ -389,6 +420,13 @@ class CheckoutConfig(BaseModel):
 
 class SecretConfig(BaseModel):
     api_key: str
+
+
+class JsonOnlySecretConfig(BaseModel):
+    payload: Annotated[
+        str,
+        PlainSerializer(lambda value: {'api_key': value}, return_type=dict[str, str], when_used='json'),
+    ]
 
 
 def test_typed_flag_validates_pydantic_models_and_overrides():
@@ -504,6 +542,44 @@ def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
     assert provider.resolve_string_details('nonempty_region', 'fallback').value == 'us'
 
 
+def test_openfeature_provider_uses_an_explicit_logfire_instance():
+    custom_logfire = Mock()
+
+    assert LogfireProvider(custom_logfire)._logfire is custom_logfire
+
+
+def test_openfeature_provider_returns_object_defaults_for_missing_flags():
+    details = LogfireProvider().resolve_object_details('missing', {'fallback': True})
+
+    assert details.value == {'fallback': True}
+    assert details.error_code == ErrorCode.FLAG_NOT_FOUND
+
+
+def test_openfeature_provider_reports_object_serialization_errors():
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+    )
+    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+
+    with patch.object(checkout._adapter.type_adapter, 'dump_python', side_effect=RuntimeError('broken serializer')):
+        details = LogfireProvider().resolve_object_details('checkout', {})
+
+    assert details.value == {}
+    assert details.error_code == ErrorCode.GENERAL
+    assert details.error_message == 'broken serializer'
+
+
+def test_openfeature_provider_rejects_scalar_flags_as_objects():
+    flag('region', default='us')
+
+    details = LogfireProvider().resolve_object_details('region', {})
+
+    assert details.value == {}
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+
+
 def test_openfeature_provider_serializes_typed_objects():
     logfire.configure(
         send_to_logfire=False,
@@ -587,6 +663,31 @@ def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: di
     assert 'super-secret' not in repr(attributes)
 
 
+def test_typed_flag_telemetry_scrubs_json_only_serializers(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    secret = flag('json_settings', default=JsonOnlySecretConfig(payload='opaque-value'))
+    exporter.clear()
+    scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
+
+    with patch.object(scrubber, 'scrub_value', wraps=scrubber.scrub_value) as scrub_value:
+        secret.value()
+
+    assert scrub_value.call_args_list[0].args == (
+        ('attributes',),
+        {'logfire.feature_flag.result.json_settings': {'payload': {'api_key': 'opaque-value'}}},
+    )
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    attributes = dict(evaluation_span.attributes or {})
+    assert 'feature_flag.result.value' not in attributes
+    assert attributes['logfire.feature_flag.result.value_status'] == 'scrubbed'
+    assert 'opaque-value' not in repr(attributes)
+
+
 def test_typed_flag_telemetry_uses_serialized_value_when_dumping_fails(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ):
@@ -656,6 +757,10 @@ def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: 
     assert 'feature_flag.result.value' not in attributes
     assert attributes['logfire.feature_flag.result.value_status'] == 'scrubbed'
     assert 'super-secret' not in repr(attributes)
+
+
+def test_feature_flag_telemetry_uses_placeholder_when_no_serialized_value_exists():
+    assert _feature_flag_telemetry_value(object(), None) == '<unavailable>'
 
 
 def test_flag_construction_does_not_replace_the_global_openfeature_provider():

@@ -58,9 +58,9 @@ class _FlagAdapter(Protocol[T]):
         self,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-    ) -> FlagResolutionDetails[T]: ...
+    ) -> FlagResolutionDetails[T]: ...  # pragma: no cover
 
-    def override_for_testing(self, value: T) -> AbstractContextManager[None]: ...
+    def override_for_testing(self, value: T) -> AbstractContextManager[None]: ...  # pragma: no cover
 
 
 class Flag(Generic[T]):

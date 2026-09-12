@@ -1273,9 +1273,15 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         result = super().get(targeting_key, attributes)
         if not has_stable_targeting_key:
             variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
-            if variable_config is not None and variable_config.requires_targeting_key(
-                self._get_merged_attributes(attributes)
-            ):
+            try:
+                requires_targeting_key = variable_config is not None and variable_config.requires_targeting_key(
+                    self._get_merged_attributes(attributes)
+                )
+            except (AttributeError, KeyError, TypeError, ValueError):
+                # This inspection only enriches a warning. Malformed custom-provider metadata
+                # must not replace the safe value already returned by resolution.
+                requires_targeting_key = False
+            if requires_targeting_key:
                 _emit_resolution_warning(
                     f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "
                     'Pass targeting_key=... or use feature_context(...) to keep each subject on one variant.',
@@ -1327,7 +1333,9 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
         telemetry = _feature_flag_telemetry_attributes(result, config, attributes, serialized_value)
         try:
-            value = self.type_adapter.dump_python(result.value)
+            # Scrub the same JSON-compatible shape used for structured evaluation telemetry.
+            # Python-mode serializers may leave nested credentials inside opaque objects.
+            value = self.type_adapter.dump_python(result.value, mode='json')
         except (ValueError, TypeError, RuntimeError):
             value = serialized_value
         scrub_key = f'logfire.feature_flag.result.{self.name}'
