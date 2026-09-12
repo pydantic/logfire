@@ -25,7 +25,7 @@ Instead of passing `targeting_key` and `attributes` to every `.get()` call, you 
 ```python skip="true"
 from logfire.variables import targeting_context
 
-async def handle_request(user_id: str, message: str) -> str:
+async def handle_request(user_id: str, message: str, plan: str) -> str:
     # Set targeting key once for all variables in this context
     with targeting_context(user_id, attributes={'plan': plan}):
         # All variable resolutions here use user_id and plan for targeting

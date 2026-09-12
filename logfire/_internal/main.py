@@ -2572,50 +2572,6 @@ class Logfire:
         warn_on_template_inputs_composition_mismatch(self._variables, variable)
         return variable
 
-    def _feature_flag(
-        self,
-        name: str,
-        *,
-        default: bool,
-        description: str | None = None,
-    ) -> _ManagedVariableFlagAdapter[bool]:
-        """Define a boolean feature flag with a safe code default.
-
-        The returned flag evaluates from the same locally cached configuration as managed
-        variables, so normal evaluations do not make network requests. Use
-        [`feature_context()`][logfire.experimental.feature_flags.feature_context] to provide a stable targeting
-        key and request-local attributes for rollouts and targeting.
-
-        ```py
-        import logfire
-
-        from logfire.experimental.feature_flags import feature_context, feature_flag
-
-        new_checkout = feature_flag(
-            'new_checkout',
-            default=False,
-            description='Enable the redesigned checkout.',
-        )
-
-        with feature_context('user-123', attributes={'plan': 'team'}):
-            if new_checkout.is_enabled():
-                ...
-        ```
-
-        Args:
-            name: Unique identifier for the flag. Must match the name configured in Logfire.
-            default: Value used before the flag is configured or when configuration is unavailable.
-            description: Optional human-readable description of what the flag controls.
-        """
-        from logfire.variables import ensure_variables_dependencies
-
-        ensure_variables_dependencies()
-
-        if not isinstance(cast(Any, default), bool):
-            raise TypeError('Feature flag defaults must be boolean.')
-
-        return self._flag(name, type=bool, default=default, description=description)
-
     def _flag(
         self,
         name: str,

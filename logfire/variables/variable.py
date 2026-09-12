@@ -24,8 +24,6 @@ from logfire.variables.composition import (
 )
 
 if TYPE_CHECKING:
-    from openfeature.flag_evaluation import FlagResolutionDetails
-
     from logfire._internal.config import TemplateMismatchPolicy
     from logfire.variables.abstract import VariableProvider
     from logfire.variables.config import VariableConfig
@@ -96,6 +94,7 @@ class _TargetingContextData:
 
 
 _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARGETING_CONTEXT', default=None)
+_FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY', default=None)
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -197,7 +196,7 @@ def _feature_flag_evaluation_details(
     result: ResolvedVariable[T_co],
     config: VariableConfig | None,
     attributes: Mapping[str, Any],
-) -> FlagResolutionDetails[T_co]:
+) -> Any:
     """Translate a managed-variable result into the feature-flag domain model."""
     from openfeature.exception import ErrorCode
     from openfeature.flag_evaluation import FlagResolutionDetails, Reason
@@ -262,9 +261,7 @@ def _feature_flag_telemetry_attributes(
         'feature_flag.result.value': _feature_flag_telemetry_value(result.value, serialized_value),
         # Keep the existing lower-case telemetry contract while the Python API exposes the
         # standardized OpenFeature reason values.
-        # `_feature_flag_evaluation_details` always supplies a reason, although OpenFeature's
-        # general-purpose details type permits providers to omit it.
-        'feature_flag.result.reason': details.reason.lower(),  # pyright: ignore[reportOptionalMemberAccess]
+        'feature_flag.result.reason': details.reason.lower(),
         'logfire.feature_flag.resolution_reason': result.reason,
     }
     if details.variant is not None:
@@ -969,7 +966,7 @@ class Variable(Generic[T_co]):
         if include_baggage:
             result.update(logfire.get_baggage())
         result.update(_get_contextvar_attributes())
-        if attributes:
+        if attributes is not None:
             result.update(attributes)
         return result
 
@@ -1267,7 +1264,10 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         attributes: Mapping[str, Any] | None = None,
     ) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
-        has_stable_targeting_key = targeting_key is not None or _get_contextvar_targeting_key(self.name) is not None
+        context_targeting_key = self._get_context_targeting_key()
+        has_stable_targeting_key = targeting_key is not None or context_targeting_key is not None
+        if targeting_key is None:
+            targeting_key = context_targeting_key
 
         result = super().get(targeting_key, attributes)
         if not has_stable_targeting_key:
@@ -1281,6 +1281,16 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
                 )
         return result
 
+    def _get_context_targeting_key(self) -> str | None:
+        """Resolve feature-specific context without losing variable-specific precedence."""
+        context = _TARGETING_CONTEXT.get()
+        if context is not None and self.name in context.by_variable:
+            return context.by_variable[self.name]
+        feature_key = _FEATURE_TARGETING_KEY.get()
+        if feature_key is not None:
+            return feature_key
+        return context.default if context is not None else None
+
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         # Propagated baggage can be supplied by an untrusted caller. Feature targeting only uses
         # process-owned resource attributes and attributes supplied explicitly by application code.
@@ -1293,7 +1303,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         ):
             result.update(self.logfire_instance.resource_attributes)
         result.update(_get_contextvar_attributes())
-        if attributes:
+        if attributes is not None:
             result.update(attributes)
         return result
 
@@ -1320,8 +1330,11 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         except (ValueError, TypeError, RuntimeError):
             value = serialized_value
         scrub_key = f'logfire.feature_flag.result.{self.name}'
-        _, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(('attributes',), {scrub_key: value})
-        if scrubbed_notes:
+        scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(
+            ('attributes',), {scrub_key: value}
+        )
+        scrubbed_value = scrubbed[scrub_key]
+        if scrubbed_notes or scrubbed_value != value:
             telemetry.pop('feature_flag.result.value')
             telemetry['logfire.feature_flag.result.value_status'] = 'scrubbed'
         return telemetry
@@ -1330,7 +1343,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         self,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-    ) -> FlagResolutionDetails[FlagT]:
+    ) -> Any:
         """Evaluate through managed variables and translate to the feature-flag contract."""
         merged_attributes = self._get_merged_attributes(attributes)
         result = self.get(targeting_key, attributes)
@@ -1645,7 +1658,7 @@ def targeting_context(
     else:
         for var in variables:
             new_data.by_variable[var.name] = targeting_key
-    if attributes:
+    if attributes is not None:
         new_data.attributes.update(attributes)
 
     token = _TARGETING_CONTEXT.set(new_data)
@@ -1670,8 +1683,12 @@ def feature_context(
         targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
         attributes: Optional targeting attributes, such as the user's plan or region.
     """
-    with targeting_context(targeting_key, attributes=attributes):
-        yield
+    feature_token = _FEATURE_TARGETING_KEY.set(targeting_key)
+    try:
+        with targeting_context(targeting_key, attributes=attributes):
+            yield
+    finally:
+        _FEATURE_TARGETING_KEY.reset(feature_token)
 
 
 def _get_contextvar_targeting_key(variable_name: str) -> str | None:

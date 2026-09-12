@@ -258,7 +258,7 @@ def test_falsey_attribute_mapping_is_not_discarded():
         def __bool__(self) -> bool:
             return False
 
-    config = _boolean_config(
+    variables_config = _boolean_config(
         rollout=Rollout(labels={'enabled': 1.0}),
         overrides=[
             RolloutOverride(
@@ -266,12 +266,23 @@ def test_falsey_attribute_mapping_is_not_discarded():
                 rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}),
             )
         ],
-    ).variables['test_flag']
+    )
+    config = variables_config.variables['test_flag']
     attributes = FalseyAttributes(plan='free')
 
     assert config.requires_targeting_key(attributes) is True
     config.overrides[0].rollout = Rollout(labels={'disabled': 1.0})
     assert config.resolve_label('account-a', attributes) == 'disabled'
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=variables_config, instrument=False),
+    )
+    test_flag = feature_flag('test_flag', default=False)
+    assert test_flag.details(targeting_key='account-a', attributes=attributes).variant == 'disabled'
+    with feature_context('account-a', attributes=attributes):
+        assert test_flag.details().variant == 'disabled'
 
 
 def test_deterministic_rollout_population_tracks_configured_weights():
@@ -325,6 +336,30 @@ def test_is_enabled_forwards_an_explicit_targeting_key():
     test_flag = feature_flag('test_flag', default=False)
 
     assert test_flag.is_enabled(targeting_key=enabled_key) is True
+
+
+def test_feature_context_wins_over_generic_context_but_not_variable_specific_context():
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    keys = {
+        label: next(
+            f'account-{index}'
+            for index in range(100)
+            if config.variables['test_flag'].resolve_label(f'account-{index}') == label
+        )
+        for label in ('enabled', 'disabled')
+    }
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    test_flag = feature_flag('test_flag', default=False)
+
+    with feature_context(keys['enabled']):
+        with targeting_context(keys['disabled']):
+            assert test_flag.details().variant == 'enabled'
+        with targeting_context(keys['disabled'], variables=[test_flag]):
+            assert test_flag.details().variant == 'disabled'
 
 
 def test_feature_flag_uses_the_explicit_logfire_instance():
@@ -501,6 +536,32 @@ def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: di
         ('attributes',),
         {'logfire.feature_flag.result.checkout_settings': {'api_key': 'super-secret'}},
     )
+
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    attributes = dict(evaluation_span.attributes or {})
+    assert 'feature_flag.result.value' not in attributes
+    assert attributes['logfire.feature_flag.result.value_status'] == 'scrubbed'
+    assert 'super-secret' not in repr(attributes)
+
+
+def test_typed_flag_telemetry_honors_callback_replacements_without_notes(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    def replace_secret(match: logfire.ScrubMatch):
+        if match.path[-1] == 'api_key':
+            return '[replaced by callback]'
+        return match.value
+
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=replace_secret), **config_kwargs)
+    secret = flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
+    exporter.clear()
+
+    secret.value()
 
     evaluation_span = next(
         span
