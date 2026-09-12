@@ -42,9 +42,10 @@ test-feature-flags-mutation:
 		'*VariableConfig*_select_rollout*' \
 		'*VariableConfig*requires_targeting_key*' \
 		'*FeatureFlag*' \
+		'*_feature_flag_telemetry_attributes*' \
 		'*feature_context*'
 	@results="$$(uv run --no-sync mutmut results)" || exit $$?; \
-	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|FeatureFlag|feature_context' || true)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|FeatureFlag|_feature_flag_telemetry_attributes|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \

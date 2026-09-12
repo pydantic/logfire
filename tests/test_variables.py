@@ -23,6 +23,7 @@ from requests import Session
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions, LogfireConfig, VariablesOptions
+from logfire.experimental.feature_flags import feature_context, feature_flag
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -1950,11 +1951,11 @@ class TestFeatureFlag:
     def test_code_default_and_override(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
 
         assert flag.is_enabled() is False
         assert flag.evaluate().reason == 'code_default'
-        with flag.override(True):
+        with flag.override_for_testing(True):
             assert flag.is_enabled() is True
 
     def test_invalid_managed_value_keeps_boolean_contract(self, config_kwargs: dict[str, Any]):
@@ -1970,7 +1971,7 @@ class TestFeatureFlag:
         )
         config_kwargs['variables'] = LocalVariablesOptions(config=config)
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
         with pytest.warns(RuntimeWarning, match='value failed validation'):
             details = flag.evaluate(targeting_key='user-123')
@@ -1981,9 +1982,9 @@ class TestFeatureFlag:
     def test_evaluate_with_feature_context(self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
-        with logfire.feature_context('user-123', attributes={'plan': 'free', 'region': 'us'}):
+        with feature_context('user-123', attributes={'plan': 'free', 'region': 'us'}):
             details = flag.evaluate()
             assert details.value is False
             assert details.label == 'disabled'
@@ -1991,7 +1992,7 @@ class TestFeatureFlag:
             # Invocation attributes take precedence over request-local attributes.
             assert flag.is_enabled(attributes={'plan': 'team'}) is True
 
-            with logfire.feature_context('user-456', attributes={'region': 'eu'}):
+            with feature_context('user-456', attributes={'region': 'eu'}):
                 assert flag.is_enabled() is True
 
             # Leaving the nested context restores the outer key and attributes.
@@ -2022,10 +2023,10 @@ class TestFeatureFlag:
         )
         config_kwargs['variables'] = LocalVariablesOptions(config=config)
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
         async def evaluate(targeting_key: str, plan: str) -> tuple[bool, str | None]:
-            with logfire.feature_context(targeting_key, attributes={'plan': plan}):
+            with feature_context(targeting_key, attributes={'plan': plan}):
                 await asyncio.sleep(0)
                 details = flag.evaluate()
                 return details.value, details.label
@@ -2041,29 +2042,34 @@ class TestFeatureFlag:
         feature_flags_config: VariablesConfig,
         exporter: TestExporter,
     ):
+        feature_flags_config.variables['new_checkout'].overrides[0].rollout = Rollout(labels={'disabled': 1.0})
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config, instrument=True)
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
         exporter.clear()
 
-        with logfire.feature_context('user-123', attributes={'plan': 'team'}):
+        with feature_context('user-123', attributes={'plan': 'free'}):
             details = flag.evaluate()
 
         evaluation_span = next(
             span
             for span in exporter.exported_spans
-            if span.name == 'Evaluate feature flag new_checkout'
+            if span.name == 'feature_flag.evaluation'
             and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
         )
         attrs = dict(evaluation_span.attributes or {})
         assert attrs['feature_flag.key'] == 'new_checkout'
-        assert attrs['feature_flag.result.value'] is True
-        assert attrs['feature_flag.result.variant'] == 'enabled'
-        assert attrs['feature_flag.result.reason'] == 'resolved'
-        assert attrs['feature_flag.version'] == '3'
+        assert attrs['feature_flag.provider.name'] == 'logfire'
+        assert attrs['feature_flag.result.value'] is False
+        assert attrs['feature_flag.result.variant'] == 'disabled'
+        assert attrs['feature_flag.result.reason'] == 'targeting_match'
+        assert attrs['logfire.feature_flag.resolution_reason'] == 'resolved'
+        assert attrs['logfire.feature_flag.value_version'] == 2
+        assert 'feature_flag.version' not in attrs
+        assert 'error.type' not in attrs
         assert 'targeting_key' not in attrs
         assert 'attributes' not in attrs
-        assert details.value is True
+        assert details.value is False
 
         declaration_span = next(
             span
@@ -2083,9 +2089,9 @@ class TestFeatureFlag:
     ):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
-        with logfire.feature_context('user-12'):
+        with feature_context('user-12'):
             details = flag.evaluate(targeting_key='user-123')
 
         config = feature_flags_config.variables['new_checkout']
@@ -2098,13 +2104,13 @@ class TestFeatureFlag:
         logfire.configure(**config_kwargs)
 
         with pytest.raises(TypeError, match='Feature flag defaults must be boolean'):
-            logfire.feature_flag('new_checkout', default=cast(Any, 'false'))
+            feature_flag('new_checkout', default=cast(Any, 'false'))
         with pytest.raises(ValueError, match='Invalid variable name'):
-            logfire.feature_flag('new_checkout\n', default=False)
+            feature_flag('new_checkout\n', default=False)
 
     def test_shares_the_variable_registry(self, config_kwargs: dict[str, Any]):
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
         assert logfire.variables_get() == [flag]
         with pytest.raises(ValueError, match='already been registered'):
@@ -2123,20 +2129,17 @@ class TestFeatureFlag:
         )
         config_kwargs['variables'] = LocalVariablesOptions(config=config)
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
         with pytest.warns(RuntimeWarning, match='no stable targeting key'):
             flag.is_enabled()
         with logfire.span('request'), pytest.warns(RuntimeWarning, match='no stable targeting key'):
             flag.is_enabled()
-        with pytest.warns(RuntimeWarning, match='no stable targeting key'):
-            flag.evaluate(label='unknown')
-
         with warnings.catch_warnings():
             warnings.simplefilter('error')
             assert isinstance(flag.is_enabled(), bool)
             flag.is_enabled(targeting_key='user-123')
-            with logfire.feature_context('user-456'):
+            with feature_context('user-456'):
                 flag.is_enabled()
 
     def test_propagated_baggage_does_not_target_feature_flags(
@@ -2144,7 +2147,7 @@ class TestFeatureFlag:
     ):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
         with logfire.set_baggage(plan='free'):
             # user-123 resolves differently for the base rollout and the free-plan override.
@@ -2163,7 +2166,7 @@ class TestFeatureFlag:
             include_resource_attributes_in_context=False,
         )
         logfire.configure(**config_kwargs)
-        flag = logfire.feature_flag('new_checkout', default=False)
+        flag = feature_flag('new_checkout', default=False)
 
         # The resource attribute would select the free-plan override if the opt-out were ignored.
         assert flag.evaluate(targeting_key='user-123').label == 'enabled'
@@ -3193,6 +3196,29 @@ class TestTargetingContext:
         with targeting_context('user123'):
             assert var_a.get().value == result_a.value
             assert var_b.get().value == result_b.value
+
+    def test_targeting_context_provides_attributes(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Context attributes participate in targeting and invocation attributes win."""
+        from logfire.variables.variable import targeting_context
+
+        rollout_config.variables['var_a'].overrides = [
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='team')],
+                rollout=Rollout(labels={'v2': 1.0}),
+            ),
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='free')],
+                rollout=Rollout(labels={'v1': 1.0}),
+            ),
+        ]
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
+        variable = logfire.configure(**config_kwargs).var(name='var_a', default='default', type=str)
+
+        with targeting_context('account-123', attributes={'plan': 'team'}):
+            assert variable.get().label == 'v2'
+            assert variable.get(attributes={'plan': 'free'}).label == 'v1'
 
     def test_targeting_context_for_specific_variables(
         self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig

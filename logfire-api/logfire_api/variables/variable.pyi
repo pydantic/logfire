@@ -1,7 +1,7 @@
 import logfire
 from _typeshed import Incomplete
 from collections.abc import Generator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from logfire._internal.config import TemplateMismatchPolicy
 from logfire.variables.abstract import ResolvedVariable
@@ -31,17 +31,16 @@ class _TargetingContextData:
     """Internal data structure for targeting context."""
     default: str | None = ...
     by_variable: dict[str, str] = field(default_factory=dict[str, str])
-
-@dataclass
-class _FeatureContextData:
-    """Request-local context used by feature flag evaluations."""
-    targeting_key: str
-    attributes: dict[str, Any]
+    attributes: dict[str, Any] = field(default_factory=dict[str, Any])
 
 class ResolveFunction(Protocol[T_co]):
     """Protocol for functions that resolve variable values based on context."""
     def __call__(self, targeting_key: str | None, attributes: Mapping[str, Any] | None) -> T_co:
         """Resolve the variable value given a targeting key and attributes."""
+
+class _TargetableVariable(Protocol):
+    """Structural type accepted by variable-specific targeting contexts."""
+    name: str
 
 class _RenderFunction(Protocol):
     def __call__(self, serialized_json: str, /) -> str:
@@ -170,12 +169,14 @@ class FeatureFlag(Variable[bool]):
     """A boolean feature flag backed by Logfire managed variables."""
     kind: str
     def __init__(self, name: str, *, default: bool, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
-    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[bool]:
+    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[bool]:
         """Evaluate the flag and return its value and resolution details."""
-    def evaluate(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[bool]:
+    def evaluate(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[bool]:
         """Evaluate the flag and return its value and resolution details."""
     def is_enabled(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> bool:
         """Return whether the feature is enabled for the evaluation context."""
+    def override_for_testing(self, value: bool) -> AbstractContextManager[None]:
+        """Temporarily replace the flag value in the current context."""
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
     """A managed variable with integrated template rendering.
@@ -233,8 +234,8 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
         """
 
 @contextmanager
-def targeting_context(targeting_key: str, variables: Sequence[Variable[Any] | TemplateVariable[Any, Any]] | None = None) -> Generator[None]:
-    '''Set the targeting key for variable resolution within this context.
+def targeting_context(targeting_key: str, variables: Sequence[_TargetableVariable] | None = None, *, attributes: Mapping[str, Any] | None = None) -> Generator[None]:
+    '''Set the request-local targeting key and attributes for variable resolution.
 
     The targeting key is used for deterministic label selection - the same targeting key
     will always resolve to the same label for a given variable configuration.
@@ -244,6 +245,8 @@ def targeting_context(targeting_key: str, variables: Sequence[Variable[Any] | Te
             (e.g., user ID, organization ID).
         variables: If provided, only apply this targeting key to these specific variables.
             If not provided, this becomes the default targeting key for all variables.
+        attributes: Optional targeting attributes shared by all variables in this context.
+            Nested contexts merge attributes, with inner values taking precedence.
 
     Variable-specific targeting always takes precedence over the default, regardless
     of nesting order. Call-site explicit targeting_key still wins over everything.
@@ -266,10 +269,10 @@ def targeting_context(targeting_key: str, variables: Sequence[Variable[Any] | Te
     '''
 @contextmanager
 def feature_context(targeting_key: str, *, attributes: Mapping[str, Any] | None = None) -> Generator[None]:
-    """Set the request-local identity and attributes used to evaluate feature flags.
+    """Set request-local targeting for feature flags and other managed variables.
 
-    Nested contexts inherit attributes from their parent. Attributes supplied by an inner
-    context, or directly to ``FeatureFlag.evaluate()``, take precedence.
+    This is an experimental convenience alias for :func:`targeting_context`. Attributes
+    supplied directly to an evaluation take precedence over values set here.
 
     Args:
         targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.

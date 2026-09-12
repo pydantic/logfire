@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+# pyright: reportPrivateUsage=false
 import os
 import threading
 import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
+from typing import cast
 from unittest.mock import patch
 
 import hypothesis.strategies as st
@@ -21,6 +23,7 @@ from hypothesis.stateful import (
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
+from logfire.experimental.feature_flags import feature_context, feature_flag
 from logfire.variables import (
     LabeledValue,
     Rollout,
@@ -30,6 +33,8 @@ from logfire.variables import (
     VariablesConfig,
     targeting_context,
 )
+from logfire.variables.abstract import ResolvedVariable
+from logfire.variables.variable import FeatureFlag as FeatureFlagImplementation, _feature_flag_telemetry_attributes
 
 MUTATION_TESTING = 'MUTANT_UNDER_TEST' in os.environ
 DETERMINISTIC_PROPERTY_SETTINGS = settings(
@@ -67,6 +72,124 @@ def _rollout_from_parts(parts: tuple[int, int, int]) -> Rollout:
             'alternate': parts[2] / 100,
         }
     )
+
+
+def test_feature_flag_api_is_experimental():
+    assert not hasattr(logfire, 'feature_flag')
+    assert not hasattr(logfire, 'feature_context')
+
+
+@pytest.mark.parametrize(
+    ('result', 'config', 'attributes', 'expected_reason', 'expected_error'),
+    [
+        (
+            ResolvedVariable(name='test_flag', value=False, reason='code_default'),
+            None,
+            {},
+            'default',
+            None,
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=True, reason='context_override'),
+            None,
+            {},
+            'static',
+            None,
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=False, reason='validation_error', exception=ValueError()),
+            None,
+            {},
+            'error',
+            'type_mismatch',
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=False, reason='other_error'),
+            None,
+            {},
+            'error',
+            'general',
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=False, reason='code_default', exception=RuntimeError()),
+            None,
+            {},
+            'error',
+            'general',
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=True, label='enabled', version=2, reason='resolved'),
+            _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5})).variables['test_flag'],
+            {},
+            'split',
+            None,
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=False, reason='code_default'),
+            _boolean_config(rollout=Rollout(labels={'enabled': 0.5})).variables['test_flag'],
+            {},
+            'split',
+            None,
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=False, label='disabled', version=1, reason='resolved'),
+            _boolean_config(
+                rollout=Rollout(labels={'enabled': 1.0}),
+                overrides=[
+                    RolloutOverride(
+                        conditions=[ValueEquals(attribute='plan', value='free')],
+                        rollout=Rollout(labels={'disabled': 1.0}),
+                    )
+                ],
+            ).variables['test_flag'],
+            {'plan': 'free'},
+            'targeting_match',
+            None,
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=False, reason='code_default'),
+            _boolean_config(
+                rollout=Rollout(labels={'enabled': 1.0}),
+                overrides=[
+                    RolloutOverride(
+                        conditions=[ValueEquals(attribute='plan', value='free')],
+                        rollout=Rollout(labels={}),
+                    )
+                ],
+            ).variables['test_flag'],
+            {'plan': 'free'},
+            'default',
+            None,
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=True, label='enabled', version=2, reason='resolved'),
+            _boolean_config(rollout=Rollout(labels={'enabled': 1.0, 'disabled': 0.0, 'alternate': 0.0})).variables[
+                'test_flag'
+            ],
+            {},
+            'static',
+            None,
+        ),
+    ],
+)
+def test_feature_flag_telemetry_translation(
+    result: ResolvedVariable[bool],
+    config: VariableConfig | None,
+    attributes: Mapping[str, object],
+    expected_reason: str,
+    expected_error: str | None,
+):
+    telemetry = _feature_flag_telemetry_attributes(result, config, attributes)
+
+    assert telemetry['feature_flag.key'] == result.name
+    assert telemetry['feature_flag.provider.name'] == 'logfire'
+    assert telemetry['feature_flag.result.value'] is result.value
+    assert telemetry['feature_flag.result.reason'] == expected_reason
+    assert telemetry['logfire.feature_flag.resolution_reason'] == result.reason
+    assert telemetry.get('error.type') == expected_error
+    assert telemetry.get('feature_flag.result.variant') == result.label
+    assert telemetry.get('logfire.feature_flag.value_version') == result.version
+    assert 'feature_flag.version' not in telemetry
 
 
 @DETERMINISTIC_PROPERTY_SETTINGS
@@ -132,18 +255,17 @@ def test_deterministic_rollout_population_tracks_configured_weights():
     assert counts[None] / sample_size == pytest.approx(0.05, abs=rare_tolerance)
 
 
-def test_feature_flag_preserves_description_and_forwards_explicit_labels():
+def test_feature_flag_preserves_description():
     config = _boolean_config(rollout=Rollout(labels={'disabled': 1.0}))
     logfire.configure(
         send_to_logfire=False,
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = logfire.feature_flag('test_flag', default=False, description='Enable the new checkout.')
+    flag = feature_flag('test_flag', default=False, description='Enable the new checkout.')
 
     assert flag.description == 'Enable the new checkout.'
-    assert flag.get(targeting_key='account-a', label='enabled').value is True
-    assert flag.evaluate(targeting_key='account-a', label='enabled').value is True
+    assert flag.evaluate(targeting_key='account-a').value is False
 
 
 def test_rollout_warning_truth_table():
@@ -161,14 +283,13 @@ def test_rollout_warning_truth_table():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = logfire.feature_flag('test_flag', default=False)
+    flag = feature_flag('test_flag', default=False)
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter('always')
         flag.evaluate(attributes={'plan': 'team'})
         flag.evaluate(targeting_key='account-a', attributes={'plan': 'free'})
-        flag.evaluate(label='enabled', attributes={'plan': 'free'})
-        with logfire.feature_context('account-a', attributes={'plan': 'free'}):
+        with feature_context('account-a', attributes={'plan': 'free'}):
             flag.evaluate()
         with targeting_context('account-a', variables=[flag]):
             flag.evaluate(attributes={'plan': 'free'})
@@ -176,8 +297,6 @@ def test_rollout_warning_truth_table():
 
     with pytest.warns(RuntimeWarning, match='no stable targeting key'):
         flag.evaluate(attributes={'plan': 'free'})
-    with pytest.warns(RuntimeWarning, match='no stable targeting key'):
-        flag.evaluate(label='unknown', attributes={'plan': 'free'})
 
 
 def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
@@ -187,8 +306,9 @@ def test_feature_flags_do_not_use_inbound_trace_ids_for_targeting():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = logfire.feature_flag('test_flag', default=False)
-    provider = flag.logfire_instance.config.get_variable_provider()
+    flag = feature_flag('test_flag', default=False)
+    flag_implementation = cast(FeatureFlagImplementation, flag)
+    provider = flag_implementation.logfire_instance.config.get_variable_provider()
 
     with (
         patch.object(provider, 'get_serialized_value', wraps=provider.get_serialized_value) as get_serialized_value,
@@ -222,7 +342,7 @@ def test_resource_attributes_target_feature_flags_when_enabled(
             include_resource_attributes_in_context=True,
         ),
     )
-    flag = logfire.feature_flag('test_flag', default=False)
+    flag = feature_flag('test_flag', default=False)
 
     assert flag.evaluate(targeting_key='account-a').label == 'disabled'
 
@@ -255,7 +375,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
             ),
         )
         self.logfire.variables_clear()
-        self.flag = self.logfire.feature_flag('test_flag', default=False)
+        self.flag = feature_flag('test_flag', default=False, logfire_instance=self.logfire)
         self.contexts: list[tuple[AbstractContextManager[None], str, dict[str, str]]] = []
         self.overrides: list[tuple[AbstractContextManager[None], bool]] = []
         self.base_results = {key: self.flag.evaluate(targeting_key=key) for key in self.KEYS}
@@ -269,7 +389,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
         attributes = {'region': region}
         if plan != 'none':
             attributes['plan'] = plan
-        manager = logfire.feature_context(targeting_key, attributes=attributes)
+        manager = feature_context(targeting_key, attributes=attributes)
         manager.__enter__()
         self.contexts.append((manager, targeting_key, attributes))
 
@@ -281,7 +401,7 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
 
     @rule(value=st.booleans())
     def enter_override(self, value: bool):
-        manager = self.flag.override(value)
+        manager = self.flag.override_for_testing(value)
         manager.__enter__()
         self.overrides.append((manager, value))
 
@@ -372,12 +492,12 @@ def test_feature_context_isolated_across_threads():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = logfire.feature_flag('test_flag', default=False)
+    flag = feature_flag('test_flag', default=False)
     barrier = threading.Barrier(4)
     results: dict[str, bool] = {}
 
     def evaluate(name: str, plan: str):
-        with logfire.feature_context(name, attributes={'plan': plan}):
+        with feature_context(name, attributes={'plan': plan}):
             barrier.wait()
             results[name] = flag.is_enabled()
 
@@ -409,11 +529,11 @@ def test_feature_context_copies_attributes_and_restores_after_an_exception():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = logfire.feature_flag('test_flag', default=False)
+    flag = feature_flag('test_flag', default=False)
     attributes = {'plan': 'team'}
 
     with pytest.raises(RuntimeError, match='stop setup'):
-        with logfire.feature_context('account-a', attributes=attributes):
+        with feature_context('account-a', attributes=attributes):
             attributes['plan'] = 'guest'
             assert flag.is_enabled() is True
             raise RuntimeError('stop setup')
@@ -421,14 +541,14 @@ def test_feature_context_copies_attributes_and_restores_after_an_exception():
     assert flag.is_enabled(targeting_key='account-a') is False
 
 
-def test_feature_context_does_not_change_regular_variable_targeting():
+def test_feature_context_reuses_managed_variable_targeting_context():
     config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
     logfire.configure(
         send_to_logfire=False,
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    flag = logfire.feature_flag('test_flag', default=False)
+    flag = feature_flag('test_flag', default=False)
 
     def regular_default(targeting_key: str | None, _attributes: Mapping[str, object] | None) -> str:
         return targeting_key or 'no-targeting-key'
@@ -436,19 +556,19 @@ def test_feature_context_does_not_change_regular_variable_targeting():
     regular_variable = logfire.var('regular_variable', type=str, default=regular_default)
 
     with targeting_context('regular-variable-key'):
-        with logfire.feature_context('feature-flag-key'):
-            assert regular_variable.get().value == 'regular-variable-key'
+        with feature_context('feature-flag-key', attributes={'plan': 'team'}):
+            assert regular_variable.get().value == 'feature-flag-key'
             assert flag.evaluate().label == config.variables['test_flag'].resolve_label('feature-flag-key')
 
     for feature_context_is_outer in (False, True):
         with ExitStack() as stack:
             stack.enter_context(targeting_context('regular-variable-key'))
             if feature_context_is_outer:
-                stack.enter_context(logfire.feature_context('feature-flag-key'))
+                stack.enter_context(feature_context('feature-flag-key'))
                 stack.enter_context(targeting_context('specific-feature-flag-key', variables=[flag]))
             else:
                 stack.enter_context(targeting_context('specific-feature-flag-key', variables=[flag]))
-                stack.enter_context(logfire.feature_context('feature-flag-key'))
+                stack.enter_context(feature_context('feature-flag-key'))
 
-            assert regular_variable.get().value == 'regular-variable-key'
+            assert regular_variable.get().value == 'feature-flag-key'
             assert flag.evaluate().label == config.variables['test_flag'].resolve_label('specific-feature-flag-key')

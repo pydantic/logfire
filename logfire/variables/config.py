@@ -381,12 +381,17 @@ class VariableConfig(BaseModel):
 
     def _select_rollout(self, attributes: Mapping[str, Any] | None) -> Rollout:
         """Return the first rollout whose targeting conditions apply."""
+        rollout, _ = self._select_rollout_with_match(attributes)
+        return rollout
+
+    def _select_rollout_with_match(self, attributes: Mapping[str, Any] | None) -> tuple[Rollout, bool]:
+        """Return the selected rollout and whether a targeting override matched."""
         if attributes is None:
             attributes = {}
         for override in self.overrides:
             if _matches_all_conditions(override.conditions, attributes):
-                return override.rollout
-        return self.rollout
+                return override.rollout, True
+        return self.rollout, False
 
     def resolve_value(
         self,

@@ -121,13 +121,13 @@ if TYPE_CHECKING:
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from ..variables import (
-        FeatureFlag,
         ResolveFunction,
         TemplateVariable,
         ValidationReport,
         Variable,
         VariablesConfig,
     )
+    from ..variables.variable import FeatureFlag
     from .config import TemplateMismatchPolicy
     from .forwarding import ForwardExportRequestResponse
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
@@ -2572,7 +2572,7 @@ class Logfire:
         warn_on_template_inputs_composition_mismatch(self._variables, variable)
         return variable
 
-    def feature_flag(
+    def _feature_flag(
         self,
         name: str,
         *,
@@ -2583,19 +2583,21 @@ class Logfire:
 
         The returned flag evaluates from the same locally cached configuration as managed
         variables, so normal evaluations do not make network requests. Use
-        [`feature_context()`][logfire.variables.feature_context] to provide a stable targeting
+        [`feature_context()`][logfire.experimental.feature_flags.feature_context] to provide a stable targeting
         key and request-local attributes for rollouts and targeting.
 
         ```py
         import logfire
 
-        new_checkout = logfire.feature_flag(
+        from logfire.experimental.feature_flags import feature_context, feature_flag
+
+        new_checkout = feature_flag(
             'new_checkout',
             default=False,
             description='Enable the redesigned checkout.',
         )
 
-        with logfire.feature_context('user-123', attributes={'plan': 'team'}):
+        with feature_context('user-123', attributes={'plan': 'team'}):
             if new_checkout.is_enabled():
                 ...
         ```
@@ -2836,7 +2838,7 @@ class Logfire:
     def variables_clear(self) -> None:
         """Clear all variables registered with this Logfire instance's config.
 
-        This removes all variables previously registered via [`feature_flag()`][logfire.Logfire.feature_flag],
+        This removes all variables previously registered via the experimental feature-flag API,
         [`var()`][logfire.Logfire.var], or [`template_var()`][logfire.Logfire.template_var] on this instance or any
         [`with_settings()`][logfire.Logfire.with_settings] sibling that shares its config,
         allowing them to be re-registered. This is primarily intended for use in tests to

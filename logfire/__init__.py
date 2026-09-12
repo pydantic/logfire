@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from contextlib import AbstractContextManager
 from typing import Any
 
 from logfire.propagate import attach_context, get_context
@@ -103,7 +101,6 @@ metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
 
 # Variables
-feature_flag = DEFAULT_LOGFIRE_INSTANCE.feature_flag
 var = DEFAULT_LOGFIRE_INSTANCE.var
 template_var = DEFAULT_LOGFIRE_INSTANCE.template_var
 variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
@@ -113,13 +110,6 @@ variables_validate = DEFAULT_LOGFIRE_INSTANCE.variables_validate
 variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
 variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
 variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
-
-
-def feature_context(targeting_key: str, *, attributes: Mapping[str, Any] | None = None) -> AbstractContextManager[None]:
-    """Set request-local identity and attributes for feature flag evaluations."""
-    from .variables import feature_context as _feature_context
-
-    return _feature_context(targeting_key, attributes=attributes)
 
 
 def loguru_handler() -> Any:
@@ -212,8 +202,6 @@ __all__ = (
     'VariablesOptions',
     'LocalVariablesOptions',
     'variables',
-    'feature_flag',
-    'feature_context',
     'var',
     'template_var',
     'variables_get',

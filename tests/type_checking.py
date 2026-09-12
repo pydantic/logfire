@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Any, assert_type, reveal_type
 from pydantic import BaseModel
 
 import logfire
-from logfire.variables import FeatureFlag, TemplateVariable, Variable
+from logfire.experimental.feature_flags import FeatureFlag, feature_flag
+from logfire.variables import TemplateVariable, Variable
 
 if TYPE_CHECKING:
     from logfire.experimental.api_client import LogfireAPIClient
@@ -31,7 +32,7 @@ my_template_variable = logfire.template_var(
 assert_type(my_template_variable, TemplateVariable[str, PromptInputs])
 assert_type(my_template_variable.get(PromptInputs(name='Alice')).value, str)
 
-my_feature_flag = logfire.feature_flag(name='my_feature_flag', default=False)
+my_feature_flag = feature_flag(name='my_feature_flag', default=False)
 assert_type(my_feature_flag, FeatureFlag)
 assert_type(my_feature_flag.is_enabled(), bool)
 assert_type(my_feature_flag.evaluate().value, bool)
