@@ -85,8 +85,8 @@ Use these references:
 - [project detection](./references/javascript/project-detection.md): package manager, workspace, runtime, framework, and existing OpenTelemetry detection.
 - [installation and environment](./references/javascript/installation-and-env.md): package matrix, tokens, service metadata, and secret placement.
 - [Node runtime](./references/javascript/node-runtime.md): generic Node, Express, Fastify-style servers, startup preload rules, and shutdown.
-- [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, optional browser proxy, client-only provider, and server component/manual API patterns.
-- [React/browser](./references/javascript/react-browser.md): browser package setup, proxy requirement, React provider, and client error reporting.
+- [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, direct frontend application ingest, client-only provider, and server component/manual API patterns.
+- [React/browser](./references/javascript/react-browser.md): restricted frontend credentials, direct browser export, React provider, and client error reporting.
 - [Cloudflare and Deno](./references/javascript/cloudflare-and-deno.md): Workers `instrument()` setup, Wrangler secrets, Tail Workers, and Deno OTLP export.
 - [Vercel AI SDK](./references/javascript/ai-sdk.md): version-specific telemetry setup for model calls, tools, streaming, and metadata.
 - [patterns](./references/javascript/patterns.md): current manual API for logs, spans, function instrumentation, errors, tags, baggage, sampling, and scrubbing.
@@ -96,11 +96,11 @@ Use these references:
 
 - Use the runtime package that owns SDK setup: `@pydantic/logfire-node` for Node.js, `@pydantic/logfire-browser` for browser code, `@pydantic/logfire-cf-workers` for Cloudflare Workers, and `logfire` for runtime-agnostic manual spans when OpenTelemetry is already configured.
 - Load Node instrumentation before importing the app or instrumented libraries. Prefer `node --import ./instrumentation.js` for ESM and modern Node; use `--require` only for CommonJS.
-- Never expose a Logfire write token to browser code. Browser traces must go through an authenticated same-origin backend proxy.
+- Never expose an ordinary Logfire write token to browser code. Direct browser export requires the restricted public token and regional trace URL generated for a frontend application.
 - Use the current span shape: `logfire.span('message {id}', { attributes: { id }, callback: async () => ... })`.
 - Use structured attributes instead of string interpolation when the data should be queryable.
 - For caught errors, use `logfire.reportError(message, error, attributes?, options?)` and then rethrow when preserving behavior matters.
-- Verify with the project's normal typecheck/build/test command and a runtime smoke request. Also check that no `LOGFIRE_TOKEN` or raw write token is present in client-side code or public environment variables.
+- Verify with the project's normal typecheck/build/test command and a runtime smoke request. Also check that no `LOGFIRE_TOKEN` or ordinary write token is present in client-side code or public environment variables; the restricted frontend application token is the deliberate exception.
 
 ### Rust
 
