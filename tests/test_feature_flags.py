@@ -662,7 +662,7 @@ def test_openfeature_provider_reports_object_serialization_errors():
 
     assert details.value == {}
     assert details.error_code == ErrorCode.GENERAL
-    assert details.error_message == 'broken serializer'
+    assert details.error_message == 'Feature flag result serialization failed.'
 
 
 def test_openfeature_provider_reports_scalar_serialization_errors():
@@ -684,10 +684,12 @@ def test_openfeature_provider_reports_scalar_serialization_errors():
 
 
 def test_openfeature_provider_rejects_scalar_flags_as_objects():
-    flag('region', default='us')
+    region = flag('region', default='us')
 
-    details = LogfireProvider().resolve_object_details('region', {})
+    with patch.object(region._adapter, 'evaluate_flag') as evaluate_flag:
+        details = LogfireProvider().resolve_object_details('region', {})
 
+    evaluate_flag.assert_not_called()
     assert details.value == {}
     assert details.error_code == ErrorCode.TYPE_MISMATCH
 

@@ -248,22 +248,27 @@ class LogfireProvider(AbstractProvider):
         evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
         """Resolve an object flag as JSON-compatible data."""
-        resolution = self._resolve(flag_key, default_value, None, evaluation_context)
         adapter = self._get_adapter(flag_key)
         if adapter is None:
-            return resolution
+            return self._resolve(flag_key, default_value, None, evaluation_context)
+        schema_type = adapter.type_adapter.core_schema.get('type')
+        if schema_type == 'literal' or any(
+            _matches_openfeature_scalar_type(adapter, scalar_type) for scalar_type in (bool, str, int, float)
+        ):
+            return _type_mismatch(default_value, 'The registered flag does not resolve to an object value.')
+        resolution = self._resolve(flag_key, default_value, None, evaluation_context)
         if resolution.error_code is not None:
             # `_resolve` has already selected the caller's JSON-compatible fallback. Do not
             # run that fallback through the registered flag type's serializer.
             return resolution
         try:
             value = cast(FlagValueType, adapter.type_adapter.dump_python(resolution.value, mode='json'))
-        except Exception as e:  # OpenFeature providers return errors rather than raising.
+        except Exception:  # OpenFeature providers return errors rather than raising.
             return FlagResolutionDetails(
                 value=default_value,
                 reason='ERROR',
                 error_code=ErrorCode.GENERAL,
-                error_message=str(e),
+                error_message='Feature flag result serialization failed.',
             )
         if not isinstance(value, (Mapping, Sequence)) or isinstance(value, (str, bytes, bytearray)):
             return _type_mismatch(default_value, 'The registered flag does not resolve to an object value.')

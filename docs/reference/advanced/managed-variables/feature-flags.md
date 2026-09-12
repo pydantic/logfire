@@ -13,7 +13,7 @@ pip install 'logfire[feature-flags]'
 
 Define the flag once, near the code it controls. The required default keeps your application working before Logfire receives configuration or whenever configuration is unavailable.
 
-Flag names currently share the managed-variable naming contract, so use a valid Python identifier such as `new_checkout` rather than `new-checkout`.
+Flag names currently share the managed-variable naming contract: use ASCII letters, digits, and underscores, without starting with a digit. For example, use `new_checkout` rather than `new-checkout`.
 
 ```python
 import logfire
@@ -73,7 +73,7 @@ print(config.provider)
 
 Logfire validates a configured value before returning it. If validation fails, the evaluation returns the code default and reports OpenFeature's `TYPE_MISMATCH` error in `checkout.details()`.
 
-Pass `type=...` when Python cannot safely infer the complete type from the default, such as an empty list or `None`:
+Pass `type=...` for any list, dict, set, tuple, or nullable default because Python cannot safely infer the complete type from those runtime values:
 
 ```python
 from logfire.experimental.feature_flags import flag
