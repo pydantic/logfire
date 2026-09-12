@@ -7,7 +7,8 @@ import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
-from typing import Annotated, Any, cast
+from http import HTTPMethod, HTTPStatus
+from typing import Annotated, Any, Literal, cast
 from unittest.mock import Mock, patch
 
 import hypothesis.strategies as st
@@ -28,7 +29,15 @@ from pydantic import BaseModel, Field, PlainSerializer, ValidationError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
-from logfire.experimental.feature_flags import FeatureFlag, Flag, LogfireProvider, feature_context, feature_flag, flag
+from logfire.experimental.feature_flags import (
+    FeatureFlag,
+    Flag,
+    LogfireProvider,
+    _matches_openfeature_scalar_type,
+    feature_context,
+    feature_flag,
+    flag,
+)
 from logfire.testing import TestExporter
 from logfire.variables import (
     LabeledValue,
@@ -569,6 +578,39 @@ def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
     assert provider.resolve_string_details('nonempty_region', 'fallback').value == 'us'
 
 
+def test_openfeature_provider_accepts_literal_scalar_flags():
+    flag('literal_region', type=cast(Any, Literal['us', 'eu']), default='us')
+    flag('literal_retries', type=cast(Any, Literal[1, 3]), default=1)
+    flag('mixed_literal', type=cast(Any, Literal['us', 1]), default='us')
+    provider = LogfireProvider()
+
+    assert provider.resolve_string_details('literal_region', 'fallback').value == 'us'
+    assert provider.resolve_integer_details('literal_retries', 0).value == 1
+    mismatch = provider.resolve_string_details('mixed_literal', 'fallback')
+    assert mismatch.value == 'fallback'
+    assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
+
+
+@pytest.mark.skipif(
+    MUTATION_TESTING, reason='mutmut loads transformed flag and test modules under different identities'
+)
+def test_openfeature_provider_accepts_enum_scalar_flags():
+    flag('enum_method', default=HTTPMethod.GET)
+    flag('enum_status', default=HTTPStatus.OK)
+    provider = LogfireProvider()
+
+    assert provider.resolve_string_details('enum_method', 'fallback').value == 'GET'
+    assert provider.resolve_integer_details('enum_status', 0).value == 200
+
+
+def test_openfeature_scalar_type_matches_enum_member_values():
+    adapter = Mock()
+    adapter.type_adapter.core_schema = {'type': 'enum', 'members': [Mock(value='GET'), Mock(value='POST')]}
+
+    assert _matches_openfeature_scalar_type(adapter, str) is True
+    assert _matches_openfeature_scalar_type(adapter, int) is False
+
+
 def test_openfeature_provider_uses_an_explicit_logfire_instance():
     custom_logfire = Mock()
 
@@ -604,6 +646,17 @@ def test_openfeature_provider_rejects_scalar_flags_as_objects():
     details = LogfireProvider().resolve_object_details('region', {})
 
     assert details.value == {}
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+
+
+def test_openfeature_provider_rejects_object_flags_as_scalars_without_evaluating():
+    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+
+    with patch.object(checkout._adapter, 'evaluate_flag') as evaluate_flag:
+        details = LogfireProvider().resolve_string_details('checkout', 'fallback')
+
+    evaluate_flag.assert_not_called()
+    assert details.value == 'fallback'
     assert details.error_code == ErrorCode.TYPE_MISMATCH
 
 

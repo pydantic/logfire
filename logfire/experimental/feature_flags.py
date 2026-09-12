@@ -321,6 +321,24 @@ class LogfireProvider(AbstractProvider):
                 error_message=resolution.error_message,
                 flag_metadata=resolution.flag_metadata,
             )
+        if expected_type is not None:
+            try:
+                value = adapter.type_adapter.dump_python(resolution.value, mode='json')
+            except Exception:
+                return FlagResolutionDetails(
+                    value=default_value,
+                    reason='ERROR',
+                    error_code=ErrorCode.GENERAL,
+                    error_message='Feature flag result serialization failed.',
+                )
+            if type(value) is not expected_type:
+                return _type_mismatch(default_value, 'The registered flag did not resolve to the expected scalar type.')
+            return FlagResolutionDetails(
+                value=cast(T, value),
+                variant=resolution.variant,
+                reason=resolution.reason,
+                flag_metadata=resolution.flag_metadata,
+            )
         return cast(FlagResolutionDetails[T], resolution)
 
 
@@ -336,7 +354,17 @@ def _type_mismatch(default_value: T, message: str) -> FlagResolutionDetails[T]:
 def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: type[Any]) -> bool:
     """Match Pydantic constrained scalar types to their OpenFeature primitive type."""
     expected_schema_type = {bool: 'bool', str: 'str', int: 'int', float: 'float'}[expected_type]
-    return adapter.type_adapter.core_schema.get('type') == expected_schema_type
+    schema = adapter.type_adapter.core_schema
+    schema_type = schema.get('type')
+    if schema_type == expected_schema_type:
+        return True
+    if schema_type == 'literal':
+        values = schema.get('expected', ())
+    elif schema_type == 'enum':
+        values = tuple(member.value for member in schema.get('members', ()))
+    else:
+        return False
+    return bool(values) and all(type(value) is expected_type for value in values)
 
 
 def _infer_flag_type(default: Any) -> type[Any]:
