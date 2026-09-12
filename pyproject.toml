@@ -87,6 +87,11 @@ litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
+feature-flags = [
+    "openfeature-sdk>=0.10,<1",
+    "pydantic>=2",
+    "pydantic-handlebars>=0.2.1",
+]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"
@@ -223,6 +228,7 @@ dev = [
     "claude-agent-sdk>=0",
     "hypothesis>=6.0",
     "mutmut>=3.0",
+    "openfeature-sdk>=0.10,<1",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]
@@ -239,7 +245,7 @@ pytest_add_cli_args_test_selection = [
     "tests/test_feature_flags.py",
     "tests/test_variables.py",
     "-k",
-    "FeatureFlag or feature_flag or requires_targeting_key or VarDuplicateName or VarInvalidName",
+    "flag or requires_targeting_key or VarDuplicateName or VarInvalidName",
 ]
 pytest_add_cli_args = ["-p", "no:logfire", "-p", "no:pytest_logfire"]
 mutate_only_covered_lines = true

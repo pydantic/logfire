@@ -34,19 +34,19 @@ test:
 
 .PHONY: test-feature-flags  # Run the deterministic feature-flag reliability suite
 test-feature-flags:
-	uv run --no-sync pytest tests/test_feature_flags.py tests/test_variables.py -k 'FeatureFlag or feature_flag or requires_targeting_key or VarDuplicateName or VarInvalidName'
+	uv run --no-sync pytest tests/test_feature_flags.py tests/test_variables.py -k 'flag or requires_targeting_key or VarDuplicateName or VarInvalidName'
 
 .PHONY: test-feature-flags-mutation  # Mutate the feature-flag decision and context boundaries
 test-feature-flags-mutation:
 	PYDANTIC_DISABLE_PLUGINS=__all__ uv run --no-sync mutmut run \
 		'*VariableConfig*_select_rollout*' \
 		'*VariableConfig*requires_targeting_key*' \
-		'*FeatureFlag*' \
+		'*Flag*' \
 		'*_feature_flag_evaluation_details*' \
 		'*_feature_flag_telemetry_attributes*' \
 		'*feature_context*'
 	@results="$$(uv run --no-sync mutmut results)" || exit $$?; \
-	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|FeatureFlag|_feature_flag_(evaluation_details|telemetry_attributes)|feature_context' || true)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|Flag|_feature_flag_(evaluation_details|telemetry_attributes)|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \

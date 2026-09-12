@@ -34,7 +34,7 @@ class NotJsonSerializable:
 
 def main() -> None:
     """Smoke-test core logfire APIs in a minimal installation."""
-    optional_packages = ('pytest', 'pydantic', 'pydantic_handlebars', 'httpx')
+    optional_packages = ('pytest', 'pydantic', 'pydantic_handlebars', 'httpx', 'openfeature')
 
     for package in optional_packages:
         assert_not_available(package)
@@ -68,12 +68,12 @@ def main() -> None:
     assert_import_error(
         'feature flag usage',
         lambda: import_module('logfire.experimental.feature_flags').feature_flag('minimal_install_flag', default=False),
-        'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
+        'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages',
     )
     assert_import_error(
         'feature context usage',
         lambda: import_module('logfire.experimental.feature_flags').feature_context('minimal_install_subject'),
-        'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
+        'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages',
     )
 
     for package in optional_packages:

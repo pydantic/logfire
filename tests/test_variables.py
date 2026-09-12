@@ -1954,7 +1954,7 @@ class TestFeatureFlag:
         flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
 
         assert flag.is_enabled() is False
-        assert flag.evaluate().reason == 'default'
+        assert flag.evaluate().reason == 'DEFAULT'
         with flag.override_for_testing(True):
             assert flag.is_enabled() is True
 
@@ -1977,8 +1977,9 @@ class TestFeatureFlag:
             details = flag.evaluate(targeting_key='user-123')
 
         assert details.value is False
-        assert details.reason == 'error'
-        assert details.error_code == 'type_mismatch'
+        assert details.reason == 'ERROR'
+        assert details.error_code == 'TYPE_MISMATCH'
+        assert details.error_message == 'Configured value did not match the declared flag type.'
 
     def test_evaluate_with_feature_context(self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig):
         config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)

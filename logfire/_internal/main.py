@@ -127,7 +127,7 @@ if TYPE_CHECKING:
         Variable,
         VariablesConfig,
     )
-    from ..variables.variable import _ManagedVariableFeatureFlagAdapter  # pyright: ignore[reportPrivateUsage]
+    from ..variables.variable import _ManagedVariableFlagAdapter  # pyright: ignore[reportPrivateUsage]
     from .config import TemplateMismatchPolicy
     from .forwarding import ForwardExportRequestResponse
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
@@ -2578,7 +2578,7 @@ class Logfire:
         *,
         default: bool,
         description: str | None = None,
-    ) -> _ManagedVariableFeatureFlagAdapter:
+    ) -> _ManagedVariableFlagAdapter[bool]:
         """Define a boolean feature flag with a safe code default.
 
         The returned flag evaluates from the same locally cached configuration as managed
@@ -2611,13 +2611,34 @@ class Logfire:
 
         ensure_variables_dependencies()
 
-        from logfire.variables.variable import _ManagedVariableFeatureFlagAdapter  # pyright: ignore[reportPrivateUsage]
-
         if not isinstance(cast(Any, default), bool):
             raise TypeError('Feature flag defaults must be boolean.')
 
+        return self._flag(name, type=bool, default=default, description=description)
+
+    def _flag(
+        self,
+        name: str,
+        *,
+        type: Any,
+        default: T,
+        description: str | None = None,
+    ) -> _ManagedVariableFlagAdapter[T]:
+        """Define the managed-variable compatibility adapter for a typed feature flag."""
+        from logfire.variables import ensure_variables_dependencies
+
+        ensure_variables_dependencies()
+
+        from logfire.variables.variable import _ManagedVariableFlagAdapter  # pyright: ignore[reportPrivateUsage]
+
         self._validate_variable_registration(name)
-        flag = _ManagedVariableFeatureFlagAdapter(name, default=default, description=description, logfire_instance=self)
+        flag = _ManagedVariableFlagAdapter(
+            name,
+            type=type,
+            default=default,
+            description=description,
+            logfire_instance=self,
+        )
         return self._register_variable(flag)
 
     @overload

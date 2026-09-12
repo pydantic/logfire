@@ -4,10 +4,10 @@ from collections.abc import Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from logfire._internal.config import TemplateMismatchPolicy
-from logfire.experimental.feature_flags import FlagEvaluationDetails
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.composition import ComposedReference
 from logfire.variables.config import VariableConfig
+from openfeature.flag_evaluation import FlagResolutionDetails
 from typing import Any, Generic, Protocol, TypeVar
 from typing_extensions import TypeIs
 
@@ -26,6 +26,7 @@ class TemplateInputsMismatchError(Exception):
     """
 T_co = TypeVar('T_co', covariant=True)
 InputsT = TypeVar('InputsT')
+FlagT = TypeVar('FlagT')
 
 @dataclass
 class _TargetingContextData:
@@ -167,15 +168,15 @@ class Variable(Generic[T_co]):
             version, and any errors that occurred.
         """
 
-class _ManagedVariableFeatureFlagAdapter(Variable[bool]):
+class _ManagedVariableFlagAdapter(Variable[FlagT]):
     """Compatibility adapter that evaluates feature flags through managed variables."""
     kind: str
-    def __init__(self, name: str, *, default: bool, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
-    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[bool]:
+    def __init__(self, name: str, *, type: type[FlagT], default: FlagT, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
+    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
-    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails:
+    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagResolutionDetails[FlagT]:
         """Evaluate through managed variables and translate to the feature-flag contract."""
-    def override_for_testing(self, value: bool) -> AbstractContextManager[None]:
+    def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):

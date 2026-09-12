@@ -7,7 +7,8 @@ import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import Mock, patch
 
 import hypothesis.strategies as st
 import pytest
@@ -19,10 +20,16 @@ from hypothesis.stateful import (
     rule,
     run_state_machine_as_test,  # pyright: ignore[reportUnknownVariableType]
 )
+from openfeature import api as openfeature_api
+from openfeature.evaluation_context import EvaluationContext
+from openfeature.exception import ErrorCode
+from openfeature.flag_evaluation import Reason
+from pydantic import BaseModel
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
-from logfire.experimental.feature_flags import FeatureFlag, feature_context, feature_flag
+from logfire.experimental.feature_flags import FeatureFlag, Flag, LogfireProvider, feature_context, feature_flag, flag
+from logfire.testing import TestExporter
 from logfire.variables import (
     LabeledValue,
     Rollout,
@@ -90,6 +97,13 @@ def test_feature_flag_api_is_experimental():
         ),
         (
             ResolvedVariable(name='test_flag', value=True, reason='context_override'),
+            None,
+            {},
+            'static',
+            None,
+        ),
+        (
+            ResolvedVariable(name='test_flag', value=True, reason='resolved'),
             None,
             {},
             'static',
@@ -181,11 +195,10 @@ def test_feature_flag_telemetry_translation(
     telemetry = _feature_flag_telemetry_attributes(result, config, attributes)
     details = _feature_flag_evaluation_details(result, config, attributes)
 
-    assert details.flag_key == result.name
     assert details.value is result.value
     assert details.variant == result.label
-    assert details.reason == expected_reason
-    assert details.error_code == expected_error
+    assert details.reason == expected_reason.upper()
+    assert details.error_code == (expected_error.upper() if expected_error else None)
     assert telemetry['feature_flag.key'] == result.name
     assert telemetry['feature_flag.provider.name'] == 'logfire'
     assert telemetry['feature_flag.result.value'] is result.value
@@ -195,6 +208,12 @@ def test_feature_flag_telemetry_translation(
     assert telemetry.get('feature_flag.result.variant') == result.label
     assert telemetry.get('logfire.feature_flag.value_version') == result.version
     assert 'feature_flag.version' not in telemetry
+    if result.reason == 'validation_error':
+        assert details.error_message == 'Configured value did not match the declared flag type.'
+    elif expected_reason == 'error':
+        assert details.error_message == 'Feature flag evaluation failed.'
+    else:
+        assert details.error_message is None
 
 
 @DETERMINISTIC_PROPERTY_SETTINGS
@@ -276,7 +295,201 @@ def test_feature_flag_preserves_description():
     assert details.flag_key == 'test_flag'
     assert details.value is False
     assert details.variant == 'disabled'
-    assert details.reason == 'static'
+    assert details.reason == Reason.STATIC
+    assert details.flag_metadata == {'logfire.value_version': 1}
+
+
+def test_feature_flag_uses_the_explicit_logfire_instance():
+    adapter = Mock()
+    custom_logfire = Mock()
+    custom_logfire._flag.return_value = adapter
+
+    FeatureFlag('test_flag', default=False, logfire_instance=custom_logfire)
+
+    custom_logfire._flag.assert_called_once_with('test_flag', type=bool, default=False, description=None)
+
+
+class CheckoutConfig(BaseModel):
+    provider: str
+    retries: int
+
+
+class SecretConfig(BaseModel):
+    api_key: str
+
+
+def test_typed_flag_validates_pydantic_models_and_overrides():
+    config = VariablesConfig(
+        variables={
+            'checkout': VariableConfig(
+                name='checkout',
+                labels={
+                    'fast': LabeledValue(
+                        version=1,
+                        serialized_value='{"provider":"stripe","retries":3}',
+                    )
+                },
+                rollout=Rollout(labels={'fast': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+
+    assert checkout.value() == CheckoutConfig(provider='stripe', retries=3)
+    assert checkout.details().variant == 'fast'
+    with checkout.override_for_testing(CheckoutConfig(provider='test', retries=0)):
+        assert checkout.value() == CheckoutConfig(provider='test', retries=0)
+
+
+def test_parameterized_flag_requires_an_explicit_type():
+    with pytest.raises(TypeError, match=r'Pass type=\.\.\.'):
+        flag('ambiguous', default=[])
+
+    values = flag('values', type=list[str], default=[])
+    assert values.value() == []
+
+
+def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
+    config = _boolean_config(
+        rollout=Rollout(labels={'disabled': 1.0}),
+        overrides=[
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='team')],
+                rollout=Rollout(labels={'enabled': 1.0}),
+            )
+        ],
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    feature_flag('test_flag', default=False)
+    openfeature_api.set_provider(LogfireProvider(), domain='logfire-test')
+    try:
+        client = openfeature_api.get_client(domain='logfire-test')
+        details = client.get_boolean_details(
+            'test_flag',
+            False,
+            EvaluationContext(targeting_key='account-a', attributes={'plan': 'team'}),
+        )
+        assert details.value is True
+        assert details.variant == 'enabled'
+        assert details.reason == Reason.TARGETING_MATCH
+
+        mismatch = client.get_string_details('test_flag', 'fallback')
+        assert mismatch.value == 'fallback'
+        assert mismatch.reason == Reason.ERROR
+        assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
+
+        missing = client.get_boolean_details('missing', True)
+        assert missing.value is True
+        assert missing.error_code == ErrorCode.FLAG_NOT_FOUND
+    finally:
+        openfeature_api.clear_providers()
+
+
+def test_openfeature_provider_serializes_typed_objects():
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=False),
+    )
+    flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    provider = LogfireProvider()
+
+    details = provider.resolve_object_details('checkout', {})
+
+    assert details.value == {'provider': 'fallback', 'retries': 1}
+    assert details.reason == Reason.DEFAULT
+
+
+def test_openfeature_provider_serializes_object_default_after_validation_error():
+    config = VariablesConfig(
+        variables={
+            'checkout': VariableConfig(
+                name='checkout',
+                labels={'invalid': LabeledValue(version=1, serialized_value='{"provider":7}')},
+                rollout=Rollout(labels={'invalid': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = LogfireProvider().resolve_object_details('checkout', {})
+
+    assert details.value == {'provider': 'fallback', 'retries': 1}
+    assert details.reason == Reason.ERROR
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+
+
+def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    checkout = flag('checkout', default=CheckoutConfig(provider='stripe', retries=2))
+    exporter.clear()
+
+    checkout.value()
+
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    assert (evaluation_span.attributes or {})['feature_flag.result.value'] == '{"provider":"stripe","retries":2}'
+
+
+def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    secret = flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
+    exporter.clear()
+    scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
+
+    with patch.object(scrubber, 'scrub_value', wraps=scrubber.scrub_value) as scrub_value:
+        secret.value()
+
+    assert scrub_value.call_args_list[0].args == (
+        ('attributes',),
+        {'logfire.feature_flag.result.checkout_settings': {'api_key': 'super-secret'}},
+    )
+
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    attributes = dict(evaluation_span.attributes or {})
+    assert 'feature_flag.result.value' not in attributes
+    assert attributes['logfire.feature_flag.result.value_status'] == 'scrubbed'
+    assert 'super-secret' not in repr(attributes)
+
+
+def test_flag_construction_does_not_replace_the_global_openfeature_provider():
+    class MarkerProvider(LogfireProvider):
+        def get_metadata(self):
+            return type(super().get_metadata())(name='marker')
+
+    marker = MarkerProvider()
+    openfeature_api.set_provider(marker)
+    try:
+        Flag('unrelated', default='fallback')
+        assert openfeature_api.get_provider_metadata().name == marker.get_metadata().name
+    finally:
+        openfeature_api.clear_providers()
 
 
 def test_rollout_warning_truth_table():
@@ -442,15 +655,15 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
         if self.overrides:
             expected_value = self.overrides[-1][1]
             expected_variant = None
-            expected_reason = 'static'
+            expected_reason = Reason.STATIC
         elif expected_attributes.get('plan') == 'team':
             expected_value = True
             expected_variant = 'enabled'
-            expected_reason = 'targeting_match'
+            expected_reason = Reason.TARGETING_MATCH
         elif expected_attributes.get('plan') == 'guest':
             expected_value = False
             expected_variant = 'disabled'
-            expected_reason = 'targeting_match'
+            expected_reason = Reason.TARGETING_MATCH
         else:
             effective_key = targeting_key if targeting_key is not None else self.contexts[-1][1]
             baseline = self.base_results[effective_key]
