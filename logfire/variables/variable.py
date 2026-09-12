@@ -1327,15 +1327,20 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
         telemetry = _feature_flag_telemetry_attributes(result, config, attributes, serialized_value)
         try:
-            value = self.type_adapter.dump_python(result.value, mode='json')
+            value = self.type_adapter.dump_python(result.value)
         except (ValueError, TypeError, RuntimeError):
             value = serialized_value
         scrub_key = f'logfire.feature_flag.result.{self.name}'
-        scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(
-            ('attributes',), {scrub_key: value}
-        )
-        scrubbed_value = scrubbed[scrub_key]
-        if scrubbed_notes or scrubbed_value != value:
+        try:
+            scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(
+                ('attributes',), {scrub_key: value}
+            )
+            was_scrubbed = bool(scrubbed_notes) or scrubbed[scrub_key] != value
+        except Exception:
+            # Scrubbing is best-effort telemetry processing and must not break a successful
+            # evaluation. Fail closed so an unreliable callback cannot leak the unchecked value.
+            was_scrubbed = True
+        if was_scrubbed:
             telemetry.pop('feature_flag.result.value')
             telemetry['logfire.feature_flag.result.value_status'] = 'scrubbed'
         return telemetry

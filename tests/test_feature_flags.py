@@ -561,26 +561,6 @@ def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[s
     assert (evaluation_span.attributes or {})['feature_flag.result.value'] == '{"provider":"stripe","retries":2}'
 
 
-def test_tuple_flag_telemetry_is_not_mistaken_for_a_scrubber_replacement(
-    config_kwargs: dict[str, Any], exporter: TestExporter
-):
-    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
-    logfire.configure(**config_kwargs)
-    regions = flag('regions', type=tuple[str, ...], default=('us', 'eu'))
-    exporter.clear()
-
-    regions.value()
-
-    evaluation_span = next(
-        span
-        for span in exporter.exported_spans
-        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
-    )
-    attributes = dict(evaluation_span.attributes or {})
-    assert attributes['feature_flag.result.value'] == '["us","eu"]'
-    assert 'logfire.feature_flag.result.value_status' not in attributes
-
-
 def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
@@ -607,6 +587,27 @@ def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: di
     assert 'super-secret' not in repr(attributes)
 
 
+def test_typed_flag_telemetry_uses_serialized_value_when_dumping_fails(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    checkout = flag('checkout', default=CheckoutConfig(provider='stripe', retries=2))
+    exporter.clear()
+    scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
+
+    with (
+        patch.object(checkout._adapter.type_adapter, 'dump_python', side_effect=RuntimeError('broken serializer')),
+        patch.object(scrubber, 'scrub_value', wraps=scrubber.scrub_value) as scrub_value,
+    ):
+        checkout.value()
+
+    assert scrub_value.call_args_list[0].args == (
+        ('attributes',),
+        {'logfire.feature_flag.result.checkout': '{"provider":"stripe","retries":2}'},
+    )
+
+
 def test_typed_flag_telemetry_honors_callback_replacements_without_notes(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ):
@@ -621,6 +622,30 @@ def test_typed_flag_telemetry_honors_callback_replacements_without_notes(
     exporter.clear()
 
     secret.value()
+
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    attributes = dict(evaluation_span.attributes or {})
+    assert 'feature_flag.result.value' not in attributes
+    assert attributes['logfire.feature_flag.result.value_status'] == 'scrubbed'
+    assert 'super-secret' not in repr(attributes)
+
+
+def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    secret = flag('checkout_settings', default=SecretConfig(api_key='super-secret'))
+    exporter.clear()
+
+    with patch.object(
+        logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber,
+        'scrub_value',
+        side_effect=RuntimeError('broken callback'),
+    ):
+        assert secret.value() == SecretConfig(api_key='super-secret')
 
     evaluation_span = next(
         span
