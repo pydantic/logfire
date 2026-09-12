@@ -7,7 +7,7 @@ import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
-from typing import Any
+from typing import Any, cast
 from unittest.mock import Mock, patch
 
 import hypothesis.strategies as st
@@ -24,7 +24,7 @@ from openfeature import api as openfeature_api
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import Reason
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
@@ -381,6 +381,13 @@ def test_parameterized_flag_requires_an_explicit_type():
 
     values = flag('values', type=list[str], default=[])
     assert values.value() == []
+
+
+def test_typed_flag_validates_its_code_default_during_construction():
+    with pytest.raises(ValidationError, match='int_parsing'):
+        flag('invalid_default', type=int, default=cast(Any, 'not-an-int'))
+
+    assert logfire.variables_get() == []
 
 
 def test_openfeature_provider_uses_declared_flags_and_evaluation_context():

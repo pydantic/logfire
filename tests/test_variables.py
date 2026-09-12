@@ -2110,6 +2110,10 @@ class TestFeatureFlag:
         with pytest.raises(ValueError, match='Invalid variable name'):
             feature_flag('new_checkout\n', default=False)
 
+        feature_flag('duplicate', default=False)
+        with pytest.raises(ValueError, match='already been registered'):
+            feature_flag('duplicate', default=cast(Any, 'false'))
+
     def test_shares_the_variable_registry(self, config_kwargs: dict[str, Any]):
         logfire.configure(**config_kwargs)
         flag = feature_flag('new_checkout', default=False)

@@ -173,6 +173,12 @@ class FeatureFlag(Flag[bool]):
         logfire_instance: Logfire | None = None,
     ):
         """Define a boolean feature flag backed by the configured Logfire provider."""
+        ensure_variables_dependencies()
+        if logfire_instance is None:
+            from logfire import DEFAULT_LOGFIRE_INSTANCE
+
+            logfire_instance = DEFAULT_LOGFIRE_INSTANCE
+        logfire_instance._validate_variable_registration(name)  # pyright: ignore[reportPrivateUsage]
         if not isinstance(cast(Any, default), bool):
             raise TypeError('Feature flag defaults must be boolean.')
         super().__init__(name, default=default, description=description, logfire_instance=logfire_instance)
