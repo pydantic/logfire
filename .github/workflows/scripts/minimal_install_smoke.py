@@ -72,8 +72,8 @@ def main() -> None:
         'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
     )
     assert_import_error(
-        'feature flag usage',
-        lambda: import_module('logfire.experimental.feature_flags').feature_flag('minimal_install_flag', default=False),
+        'feature flag imports',
+        lambda: import_module('logfire.experimental.feature_flags'),
         'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages',
     )
     for import_name, distribution_name in optional_packages:
