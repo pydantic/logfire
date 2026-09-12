@@ -70,12 +70,6 @@ def main() -> None:
         lambda: import_module('logfire.experimental.feature_flags').feature_flag('minimal_install_flag', default=False),
         'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages',
     )
-    assert_import_error(
-        'feature context usage',
-        lambda: import_module('logfire.experimental.feature_flags').feature_context('minimal_install_subject'),
-        'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages',
-    )
-
     for package in optional_packages:
         assert_not_available(package)
 

@@ -162,7 +162,7 @@ class Flag(Generic[T]):
 
     def override_for_testing(self, value: T) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
-        validated_value = cast(T, self._adapter.type_adapter.validate_python(value))
+        validated_value: T = self._adapter.type_adapter.validate_python(value)
         return self._adapter.override_for_testing(validated_value)
 
 
@@ -292,7 +292,7 @@ class LogfireProvider(AbstractProvider):
                 error_code=ErrorCode.FLAG_NOT_FOUND,
                 error_message=f"Flag '{flag_key}' has not been declared with logfire.experimental.feature_flags.flag().",
             )
-        if expected_type is not None and adapter.value_type is not expected_type:
+        if expected_type is not None and not _matches_openfeature_scalar_type(adapter, expected_type):
             return _type_mismatch(default_value, f"Flag '{flag_key}' is not registered as {expected_type.__name__}.")
 
         context = evaluation_context or EvaluationContext()
@@ -309,6 +309,12 @@ def _type_mismatch(default_value: T, message: str) -> FlagResolutionDetails[T]:
         error_code=ErrorCode.TYPE_MISMATCH,
         error_message=message,
     )
+
+
+def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: type[Any]) -> bool:
+    """Match Pydantic constrained scalar types to their OpenFeature primitive type."""
+    expected_schema_type = {bool: 'bool', str: 'str', int: 'int', float: 'float'}[expected_type]
+    return adapter.type_adapter.core_schema.get('type') == expected_schema_type
 
 
 def _infer_flag_type(default: Any) -> type[Any]:

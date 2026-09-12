@@ -7,7 +7,7 @@ import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
-from typing import Any, cast
+from typing import Annotated, Any, cast
 from unittest.mock import Mock, patch
 
 import hypothesis.strategies as st
@@ -24,7 +24,7 @@ from openfeature import api as openfeature_api
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import Reason
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
@@ -425,6 +425,8 @@ def test_feature_flag_validates_test_overrides_before_installing_them():
 
     with pytest.raises(ValidationError, match='bool_type'):
         enabled.override_for_testing(cast(Any, object()))
+    with pytest.raises(ValidationError, match='bool_type'):
+        enabled._adapter.override_for_testing(cast(Any, object()))
 
     assert enabled.is_enabled() is False
 
@@ -489,6 +491,17 @@ def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
         assert missing.error_code == ErrorCode.FLAG_NOT_FOUND
     finally:
         openfeature_api.clear_providers()
+
+
+def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
+    flag('positive_retries', type=cast(Any, Annotated[int, Field(gt=0)]), default=3)
+    flag('positive_ratio', type=cast(Any, Annotated[float, Field(gt=0)]), default=0.5)
+    flag('nonempty_region', type=cast(Any, Annotated[str, Field(min_length=1)]), default='us')
+    provider = LogfireProvider()
+
+    assert provider.resolve_integer_details('positive_retries', 1).value == 3
+    assert provider.resolve_float_details('positive_ratio', 0.1).value == 0.5
+    assert provider.resolve_string_details('nonempty_region', 'fallback').value == 'us'
 
 
 def test_openfeature_provider_serializes_typed_objects():

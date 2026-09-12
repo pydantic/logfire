@@ -1353,7 +1353,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
 
     def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
-        return self.override(value)
+        return self.override(self.type_adapter.validate_python(value))
 
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
