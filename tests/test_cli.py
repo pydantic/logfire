@@ -663,6 +663,31 @@ expiration = "fake_exp"
         webbrowser_open.assert_called_once_with('http://example.com/auth', new=2)
 
 
+def test_auth_device_request_user_agent(tmp_path: Path) -> None:
+    """The device auth request identifies the Logfire SDK and its version."""
+    auth_file = tmp_path / 'default.toml'
+    with ExitStack() as stack:
+        stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=EOFError))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/device-auth/new/',
+            text='{"device_code": "DC", "frontend_auth_url": "http://example.com/auth"}',
+        )
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/device-auth/wait/DC',
+            text='{"token": "fake_token", "expiration": "fake_exp"}',
+        )
+
+        main(['--region', 'us', 'auth'])
+
+        device_auth_request = next(request for request in m.request_history if request.path == '/v1/device-auth/new/')
+        assert device_auth_request.headers['User-Agent'] == f'logfire/{VERSION}'
+
+
 def test_auth_non_interactive_completes_without_a_keypress(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """`logfire --region us auth` works with no terminal attached.
 

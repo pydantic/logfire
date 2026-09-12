@@ -31,6 +31,19 @@ via the cli instead of interactively, use `logfire --region eu auth` or `logfire
     If you're using a [self-hosted Logfire instance](./self-hosted/overview.md), you can authenticate by specifying your instance's URL using the `--base-url` flag:
     `logfire --base-url="https://<your_logfire_hostname>" auth`
 
+!!! note
+    To add optional signup attribution, set `LOGFIRE_AUTH_SOURCE` before running `logfire auth`. It
+    tells Logfire where a signup came from, such as a setup skill, installer script, or docs page.
+
+    ```bash
+    export LOGFIRE_AUTH_SOURCE=pydantic-ai-skill
+    logfire auth
+    ```
+
+    The value can contain letters, digits, dots, underscores, and hyphens. The SDK trims the value,
+    caps it at 100 characters, and ignores it if it does not fit that shape. It never affects
+    authentication or what the CLI does.
+
 Then you will be given the option to open logfire in your browser:
 ![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
 
