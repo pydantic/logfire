@@ -19,7 +19,7 @@ The inventory defaults to the last 15 minutes. Summary cards and the **Activity 
 - Quick links to service details, [Live View](live.md), and [Explore](explore.md).
 - A **Reliability** column when reliability targets are available.
 
-When the **Databases** or **Queues** toggle is available, you can include resources inferred from database and messaging spans. On narrow screens, rows become cards with the same key signals and separate sort controls.
+Database and queue monitoring is in Beta. Logfire automatically includes resources inferred from database and messaging spans in the inventory. On narrow screens, rows become cards with the same key signals and separate sort controls.
 
 Each resource type is limited to its 200 busiest entries in the selected range. Logfire displays a warning when results reach that limit.
 
