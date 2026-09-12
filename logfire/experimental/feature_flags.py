@@ -359,9 +359,9 @@ def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: 
     if schema_type == expected_schema_type:
         return True
     if schema_type == 'literal':
-        values = schema.get('expected', ())
+        values = schema['expected']
     elif schema_type == 'enum':
-        values = tuple(member.value for member in schema.get('members', ()))
+        values = tuple(member.value for member in schema['members'])
     else:
         return False
     return bool(values) and all(type(value) is expected_type for value in values)
