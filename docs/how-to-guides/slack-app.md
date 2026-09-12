@@ -71,7 +71,7 @@ Logfire only lists channels the app is a member of, so this step is what makes a
 
 A *notification channel* in Logfire is a destination you attach to alerts and issues.
 
-1. In your project, go to **Delivery** → **Channels** in the **Notify** section of the sidebar, then click **New channel**. You can also create one inline from the **Send notifications to** section of an alert form.
+1. In your project, open **Project settings**, then select **Delivery** under **Notifications**. On the **Channels** tab, click **New channel**. You can also create one inline from the **Send notifications to** section of an alert form.
 2. Name it. This is a Logfire label, not the Slack channel name.
 3. Pick **Slack App** as the type. (**Slack Webhook** is the other route, covered in [Setup Slack Alerts](setup-slack-alerts.md).)
 4. Pick the **Slack workspace** you connected.
