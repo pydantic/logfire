@@ -664,6 +664,12 @@ def test_openfeature_provider_reports_object_serialization_errors():
     assert details.error_code == ErrorCode.GENERAL
     assert details.error_message == 'Feature flag result serialization failed.'
 
+    with patch.object(checkout._adapter.type_adapter, 'dump_python', return_value='not-an-object'):
+        mismatch = LogfireProvider().resolve_object_details('checkout', {})
+
+    assert mismatch.value == {}
+    assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
+
 
 def test_openfeature_provider_reports_scalar_serialization_errors():
     region = flag('region', default='us')
