@@ -18,7 +18,9 @@ try:
     from openfeature.exception import ErrorCode
     from openfeature.flag_evaluation import FlagEvaluationDetails, FlagResolutionDetails, FlagValueType, Reason
     from openfeature.provider import AbstractProvider, Metadata
-except ImportError as e:  # pragma: no cover
+except ModuleNotFoundError as e:  # pragma: no cover
+    if e.name is None or (e.name != 'openfeature' and not e.name.startswith('openfeature.')):
+        raise
     raise ImportError(
         'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages.\n'
         'You can install these with:\n'
