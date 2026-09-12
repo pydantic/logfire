@@ -85,10 +85,10 @@ Use these references:
 - [project detection](./references/javascript/project-detection.md): package manager, workspace, runtime, framework, and existing OpenTelemetry detection.
 - [installation and environment](./references/javascript/installation-and-env.md): package matrix, tokens, service metadata, and secret placement.
 - [Node runtime](./references/javascript/node-runtime.md): generic Node, Express, Fastify-style servers, startup preload rules, and shutdown.
-- [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, optional browser proxy, client-only provider, and server component/manual API patterns.
-- [React/browser](./references/javascript/react-browser.md): browser package setup, proxy requirement, React provider, and client error reporting.
+- [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, direct frontend application ingest, client-only provider, and server component/manual API patterns.
+- [React/browser](./references/javascript/react-browser.md): restricted frontend credentials, direct browser export, React provider, and client error reporting.
 - [Cloudflare and Deno](./references/javascript/cloudflare-and-deno.md): Workers `instrument()` setup, Wrangler secrets, Tail Workers, and Deno OTLP export.
-- [Vercel AI SDK](./references/javascript/ai-sdk.md): enabling `experimental_telemetry` for model calls, tools, streaming, and metadata.
+- [Vercel AI SDK](./references/javascript/ai-sdk.md): version-specific telemetry setup for model calls, tools, streaming, and metadata.
 - [patterns](./references/javascript/patterns.md): current manual API for logs, spans, function instrumentation, errors, tags, baggage, sampling, and scrubbing.
 - [verification](./references/javascript/verification-troubleshooting.md): build checks, smoke tests, local console output, browser network checks, and common missing-trace causes.
 
@@ -96,11 +96,11 @@ Use these references:
 
 - Use the runtime package that owns SDK setup: `@pydantic/logfire-node` for Node.js, `@pydantic/logfire-browser` for browser code, `@pydantic/logfire-cf-workers` for Cloudflare Workers, and `logfire` for runtime-agnostic manual spans when OpenTelemetry is already configured.
 - Load Node instrumentation before importing the app or instrumented libraries. Prefer `node --import ./instrumentation.js` for ESM and modern Node; use `--require` only for CommonJS.
-- Never expose a Logfire write token to browser code. Browser traces must go through an authenticated same-origin backend proxy.
+- Never expose an ordinary Logfire write token to browser code. Direct browser export requires the restricted public token and regional trace URL generated for a frontend application.
 - Use the current span shape: `logfire.span('message {id}', { attributes: { id }, callback: async () => ... })`.
 - Use structured attributes instead of string interpolation when the data should be queryable.
 - For caught errors, use `logfire.reportError(message, error, attributes?, options?)` and then rethrow when preserving behavior matters.
-- Verify with the project's normal typecheck/build/test command and a runtime smoke request. Also check that no `LOGFIRE_TOKEN` or raw write token is present in client-side code or public environment variables.
+- Verify with the project's normal typecheck/build/test command and a runtime smoke request. Also check that no `LOGFIRE_TOKEN` or ordinary write token is present in client-side code or public environment variables; the restricted frontend application token is the deliberate exception.
 
 ### Rust
 
@@ -191,31 +191,31 @@ see the `logfire-infrastructure` skill.
 
 Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
-1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
-2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path as Step 1. With `uv`:
+1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear. If Step 1 found an ambient `LOGFIRE_TOKEN` while the local SDK is meant to use the newly selected `.logfire/` credential, omit that variable from the child application process too and make sure an env loader does not reintroduce an unrelated token. Do not mutate the parent shell or silently rewrite existing environment files.
+2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path and token policy as Step 1. The commands below always exclude an ambient `LOGFIRE_TOKEN`; use the OAuth and project credentials selected in Step 1. With `uv`:
    ```bash
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
    ```
    For a JS/TS project without `uv`:
    ```bash
    npm_cache="$(mktemp -d)"
    npm_prefix="$(mktemp -d)"
    run_logfire_js() {
-     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+     env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
    }
    run_logfire_js <target> projects status --json
    ```
    If it reports no usable read token, create one for the exact project `whoami` reported and retry — `--project` goes on `read-tokens` itself, before `create`:
    ```bash
    # Python CLI
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> read-tokens --project <organization>/<project> create --save
-   uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> read-tokens --project <organization>/<project> create --save
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
 
    # JS CLI (POSIX shell)
    npm_cache="$(mktemp -d)"
    npm_prefix="$(mktemp -d)"
    run_logfire_js() {
-     env -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+     env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
    }
    run_logfire_js <target> read-tokens --project <organization>/<project> create --save
    run_logfire_js <target> projects status --json
