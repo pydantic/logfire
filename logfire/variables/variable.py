@@ -1330,7 +1330,11 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         requested_label: str | None,
     ) -> dict[str, Any]:
         del targeting_key, requested_label
-        config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
+        try:
+            config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
+        except Exception:
+            # Provider metadata only enriches telemetry and must not break a resolved value.
+            config = None
         telemetry = _feature_flag_telemetry_attributes(result, config, attributes, serialized_value)
         try:
             # Scrub the same JSON-compatible shape used for structured evaluation telemetry.

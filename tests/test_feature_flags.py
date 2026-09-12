@@ -757,6 +757,24 @@ def test_typed_flag_telemetry_honors_scrub_notes_without_replacements():
     assert telemetry['logfire.feature_flag.result.value_status'] == 'scrubbed'
 
 
+def test_provider_metadata_failure_cannot_break_feature_flag_telemetry():
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    provider = adapter.logfire_instance.config.get_variable_provider()
+
+    with patch.object(provider, 'get_variable_config', side_effect=RuntimeError('broken provider')):
+        telemetry = adapter._resolution_telemetry_attributes(
+            ResolvedVariable(name='region', value='us', reason='code_default'),
+            serialized_value='us',
+            targeting_key=None,
+            attributes={},
+            requested_label=None,
+        )
+
+    assert telemetry['feature_flag.result.value'] == 'us'
+    assert telemetry['feature_flag.result.reason'] == 'default'
+
+
 def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
