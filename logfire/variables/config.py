@@ -393,6 +393,19 @@ class VariableConfig(BaseModel):
                 return override.rollout, True
         return self.rollout, False
 
+    def rule_evaluation_reason(
+        self, attributes: Mapping[str, Any] | None = None
+    ) -> Literal['static', 'split', 'targeting_match']:
+        """Classify the selected rule for feature-flag evaluation details."""
+        rollout, matched_target = self._select_rollout_with_match(attributes)
+        positive_labels = sum(weight > 0 for weight in rollout.labels.values())
+        includes_code_default = sum(rollout.labels.values()) < 1.0
+        if positive_labels + includes_code_default > 1:
+            return 'split'
+        if matched_target:
+            return 'targeting_match'
+        return 'static'
+
     def resolve_value(
         self,
         targeting_key: str | None = None,
@@ -540,6 +553,7 @@ class VariablesConfig(BaseModel):
             label=selected_label,
             version=version,
             reason='resolved',
+            rule_evaluation_reason=variable_config.rule_evaluation_reason(attributes),
         )
 
     def _get_variable_config(self, name: VariableName) -> VariableConfig | None:

@@ -7,6 +7,7 @@ import warnings
 from collections import Counter
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, ExitStack
+from dataclasses import replace
 from enum import Enum, IntEnum
 from typing import Annotated, Any, Literal, cast
 from unittest.mock import Mock, patch
@@ -206,8 +207,10 @@ def test_feature_flag_telemetry_translation(
     expected_reason: str,
     expected_error: str | None,
 ):
-    telemetry = _feature_flag_telemetry_attributes(result, config, attributes)
-    details = _feature_flag_evaluation_details(result, config, attributes)
+    if config is not None:
+        result = replace(result, rule_evaluation_reason=config.rule_evaluation_reason(attributes))
+    telemetry = _feature_flag_telemetry_attributes(result)
+    details = _feature_flag_evaluation_details(result)
 
     assert details.value is result.value
     assert details.variant == result.label
@@ -230,15 +233,13 @@ def test_feature_flag_telemetry_translation(
         assert details.error_message is None
 
 
-def test_feature_flag_telemetry_inspection_cannot_break_a_resolved_value():
-    config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0})).variables['test_flag']
+def test_feature_flag_telemetry_defaults_custom_provider_results_to_static():
     result = ResolvedVariable(name='test_flag', value=True, reason='resolved')
 
-    with patch.object(config, '_select_rollout_with_match', side_effect=ValueError('malformed targeting metadata')):
-        details = _feature_flag_evaluation_details(result, config, {})
+    details = _feature_flag_evaluation_details(result)
 
     assert details.value is True
-    assert details.reason == Reason.DEFAULT
+    assert details.reason == Reason.STATIC
 
 
 def test_rollout_warning_inspection_cannot_break_a_resolved_value():
@@ -919,6 +920,53 @@ def test_provider_metadata_failure_cannot_break_flag_evaluation():
 
     assert details.value == 'eu'
     assert details.reason == Reason.STATIC
+
+
+def test_flag_evaluation_details_use_the_resolved_config_snapshot():
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}))
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    test_flag = feature_flag('test_flag', default=False)
+    adapter = cast(Any, test_flag._adapter)
+    provider = adapter.logfire_instance.config.get_variable_provider()
+    original_get = provider.get_serialized_value
+
+    def resolve_then_replace_config(*args: Any, **kwargs: Any):
+        result = original_get(*args, **kwargs)
+        static_config = _boolean_config(rollout=Rollout(labels={'enabled': 1.0})).variables['test_flag']
+        provider.update_variable('test_flag', static_config)
+        return result
+
+    with patch.object(provider, 'get_serialized_value', side_effect=resolve_then_replace_config):
+        details = adapter.evaluate_flag(targeting_key='account-a')
+
+    assert details.reason == Reason.SPLIT
+    current_config = provider.get_variable_config('test_flag')
+    assert current_config is not None
+    assert current_config.rule_evaluation_reason({}) == 'static'
+
+
+def test_split_reason_is_preserved_when_rollout_selects_the_code_default():
+    config = _boolean_config(rollout=Rollout(labels={'enabled': 0.5}))
+    variable_config = config.variables['test_flag']
+    targeting_key = next(
+        candidate
+        for candidate in (f'account-{i}' for i in range(100))
+        if variable_config.resolve_label(candidate) is None
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+
+    details = feature_flag('test_flag', default=False).details(targeting_key=targeting_key)
+
+    assert details.value is False
+    assert details.reason == Reason.SPLIT
 
 
 def test_provider_metadata_failure_cannot_break_rollout_warning():

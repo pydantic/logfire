@@ -37,6 +37,7 @@ ANSI_GRAY = '\033[90m'
 __all__ = (
     'ResolvedVariable',
     'ResolutionReason',
+    'RuleEvaluationReason',
     'SyncMode',
     'ValidationReport',
     'VariableProvider',
@@ -60,6 +61,7 @@ ResolutionReason = Literal[
     'no_provider',
     'code_default',
 ]
+
 """Why a variable (or a composed reference) resolved to its final value.
 
 - `resolved`: provider returned a value that was used as-is.
@@ -71,6 +73,9 @@ ResolutionReason = Literal[
 - `no_provider`: no provider is configured.
 - `code_default`: the variable's code-default was used because the provider had no value.
 """
+
+RuleEvaluationReason = Literal['static', 'split', 'targeting_match']
+"""How the provider rule selected a resolved value."""
 
 
 class VariableWriteError(Exception):
@@ -130,6 +135,8 @@ class ResolvedVariable(Generic[T_co]):
     """
     reason: ResolutionReason
     """How the variable was resolved (see `ResolutionReason` for possible values)."""
+    rule_evaluation_reason: RuleEvaluationReason | None = field(default=None, repr=False, compare=False)
+    """How the provider rule selected this value, when available from the resolution snapshot."""
 
     def __post_init__(self):
         self._exit_stack = ExitStack()

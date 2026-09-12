@@ -25,7 +25,7 @@ from logfire.variables.composition import (
 
 if TYPE_CHECKING:
     from logfire._internal.config import TemplateMismatchPolicy
-    from logfire.variables.abstract import VariableProvider
+    from logfire.variables.abstract import RuleEvaluationReason, VariableProvider
     from logfire.variables.config import VariableConfig
 
 if find_spec('anyio') is not None:  # pragma: no branch
@@ -194,8 +194,6 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
 
 def _feature_flag_evaluation_details(
     result: ResolvedVariable[T_co],
-    config: VariableConfig | None,
-    attributes: Mapping[str, Any],
 ) -> Any:
     """Translate a managed-variable result into the feature-flag domain model."""
     from openfeature.exception import ErrorCode
@@ -215,27 +213,13 @@ def _feature_flag_evaluation_details(
         error_message = 'Feature flag evaluation failed.'
     elif result.reason == 'context_override':
         reason = Reason.STATIC
-    elif result.reason == 'resolved' and config is None:
-        # Custom providers may resolve a value without exposing their rules as VariableConfig.
+    elif result.rule_evaluation_reason == 'split':
+        reason = Reason.SPLIT
+    elif result.rule_evaluation_reason == 'targeting_match' and result.reason == 'resolved':
+        reason = Reason.TARGETING_MATCH
+    elif result.reason == 'resolved':
+        # Custom providers may resolve a value without exposing rule metadata.
         reason = Reason.STATIC
-    elif config is not None:
-        try:
-            rollout, matched_target = config._select_rollout_with_match(  # pyright: ignore[reportPrivateUsage]
-                attributes
-            )
-            positive_labels = sum(weight > 0 for weight in rollout.labels.values())
-            includes_code_default = sum(rollout.labels.values()) < 1.0
-            has_multiple_outcomes = positive_labels + includes_code_default > 1
-            if has_multiple_outcomes:
-                reason = Reason.SPLIT
-            elif matched_target and result.reason == 'resolved':
-                reason = Reason.TARGETING_MATCH
-            elif result.reason == 'resolved':
-                reason = Reason.STATIC
-        except (AttributeError, KeyError, TypeError, ValueError):
-            # This inspection only enriches evaluation details and telemetry. A malformed custom
-            # provider configuration must not replace the safe value already returned by resolution.
-            pass
 
     return FlagResolutionDetails(
         value=result.value,
@@ -249,12 +233,10 @@ def _feature_flag_evaluation_details(
 
 def _feature_flag_telemetry_attributes(
     result: ResolvedVariable[T_co],
-    config: VariableConfig | None,
-    attributes: Mapping[str, Any],
     serialized_value: str | None = None,
 ) -> dict[str, Any]:
     """Translate a managed-variable result to feature-flag semantic attributes."""
-    details = _feature_flag_evaluation_details(result, config, attributes)
+    details = _feature_flag_evaluation_details(result)
     result_attributes: dict[str, Any] = {
         'feature_flag.key': result.name,
         'feature_flag.provider.name': 'logfire',
@@ -493,6 +475,7 @@ class Variable(Generic[T_co]):
                     label=None,
                     version=None,
                     provider_exception=serialized_result.exception,
+                    feature_flag_reason=serialized_result.rule_evaluation_reason,
                 )
 
             # A provider (or label-specific) value: compose it strictly, so any
@@ -519,6 +502,7 @@ class Variable(Generic[T_co]):
                 label=serialized_result.label,
                 version=serialized_result.version,
                 provider_exception=serialized_result.exception,
+                feature_flag_reason=serialized_result.rule_evaluation_reason,
             )
 
         except TemplateInputsMismatchError:
@@ -597,6 +581,7 @@ class Variable(Generic[T_co]):
             label=None,
             version=None,
             provider_exception=None,
+            feature_flag_reason=None,
         )
 
     def _lookup_serialized(
@@ -655,6 +640,7 @@ class Variable(Generic[T_co]):
                     version=None,
                     reason='code_default',
                     exception=provider_result.exception,
+                    rule_evaluation_reason=provider_result.rule_evaluation_reason,
                 )
 
         # No value at any tier; propagate the provider's metadata so callers
@@ -757,6 +743,7 @@ class Variable(Generic[T_co]):
                 version=serialized_result.version,
                 reason='resolved',
                 composed_from=composed,
+                rule_evaluation_reason=serialized_result.rule_evaluation_reason,
             ),
         )
 
@@ -775,6 +762,7 @@ class Variable(Generic[T_co]):
         label: str | None,
         version: int | None,
         provider_exception: Exception | None,
+        feature_flag_reason: RuleEvaluationReason | None,
     ) -> ResolvedVariable[T_co]:
         """Resolve via the code default: compose strict, then non-strict, then raw.
 
@@ -802,9 +790,15 @@ class Variable(Generic[T_co]):
                 reason=self._fallback_reason(trigger_stage) if trigger_exc is not None else 'code_default',
                 label=label,
                 version=version,
+                rule_evaluation_reason=feature_flag_reason,
             )
 
-        default_result = ResolvedVariable[str | None](name=self.name, value=serialized_default, reason='code_default')
+        default_result = ResolvedVariable[str | None](
+            name=self.name,
+            value=serialized_default,
+            reason='code_default',
+            rule_evaluation_reason=feature_flag_reason,
+        )
         # Compose the code default strictly first; if a reference within it is unresolved,
         # re-compose non-strict so the missing reference renders as an empty string.
         attempt = self._try_resolve(default_result, provider, targeting_key, attributes, span, render_fn, strict=True)
@@ -851,6 +845,7 @@ class Variable(Generic[T_co]):
             label=label,
             version=version,
             composed_from=trigger_composed or [],
+            rule_evaluation_reason=feature_flag_reason,
         )
 
     @staticmethod
@@ -939,6 +934,7 @@ class Variable(Generic[T_co]):
             label=None,
             version=None,
             reason='code_default',
+            rule_evaluation_reason=serialized_result.rule_evaluation_reason,
         )
 
     def _warn_validation_fallback(self, error: Exception) -> None:
@@ -1330,12 +1326,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         requested_label: str | None,
     ) -> dict[str, Any]:
         del targeting_key, requested_label
-        try:
-            config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
-        except Exception:
-            # Provider metadata only enriches telemetry and must not break a resolved value.
-            config = None
-        telemetry = _feature_flag_telemetry_attributes(result, config, attributes, serialized_value)
+        telemetry = _feature_flag_telemetry_attributes(result, serialized_value)
         try:
             # Scrub the same JSON-compatible shape used for structured evaluation telemetry.
             # Python-mode serializers may leave nested credentials inside opaque objects.
@@ -1363,14 +1354,8 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         attributes: Mapping[str, Any] | None = None,
     ) -> Any:
         """Evaluate through managed variables and translate to the feature-flag contract."""
-        merged_attributes = self._get_merged_attributes(attributes)
         result = self.get(targeting_key, attributes)
-        try:
-            config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
-        except Exception:
-            # Provider metadata only enriches OpenFeature details and must not break a resolved value.
-            config = None
-        return _feature_flag_evaluation_details(result, config, merged_attributes)
+        return _feature_flag_evaluation_details(result)
 
     def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
