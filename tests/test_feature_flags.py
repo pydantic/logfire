@@ -764,7 +764,7 @@ def test_provider_metadata_failure_cannot_break_feature_flag_telemetry():
 
     with patch.object(provider, 'get_variable_config', side_effect=RuntimeError('broken provider')):
         telemetry = adapter._resolution_telemetry_attributes(
-            ResolvedVariable(name='region', value='us', reason='code_default'),
+            ResolvedVariable(name='region', value='us', reason='resolved'),
             serialized_value='us',
             targeting_key=None,
             attributes={},
@@ -772,7 +772,7 @@ def test_provider_metadata_failure_cannot_break_feature_flag_telemetry():
         )
 
     assert telemetry['feature_flag.result.value'] == 'us'
-    assert telemetry['feature_flag.result.reason'] == 'default'
+    assert telemetry['feature_flag.result.reason'] == 'static'
 
 
 def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: dict[str, Any], exporter: TestExporter):
