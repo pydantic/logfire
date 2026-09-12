@@ -1327,7 +1327,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
         telemetry = _feature_flag_telemetry_attributes(result, config, attributes, serialized_value)
         try:
-            value = self.type_adapter.dump_python(result.value)
+            value = self.type_adapter.dump_python(result.value, mode='json')
         except (ValueError, TypeError, RuntimeError):
             value = serialized_value
         scrub_key = f'logfire.feature_flag.result.{self.name}'

@@ -561,6 +561,26 @@ def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[s
     assert (evaluation_span.attributes or {})['feature_flag.result.value'] == '{"provider":"stripe","retries":2}'
 
 
+def test_tuple_flag_telemetry_is_not_mistaken_for_a_scrubber_replacement(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    regions = flag('regions', type=tuple[str, ...], default=('us', 'eu'))
+    exporter.clear()
+
+    regions.value()
+
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    attributes = dict(evaluation_span.attributes or {})
+    assert attributes['feature_flag.result.value'] == '["us","eu"]'
+    assert 'logfire.feature_flag.result.value_status' not in attributes
+
+
 def test_typed_flag_telemetry_omits_scrubbed_structured_values(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
@@ -854,11 +874,14 @@ def test_feature_context_isolated_across_threads():
     flag = feature_flag('test_flag', default=False)
     barrier = threading.Barrier(4)
     results: dict[str, bool] = {}
+    results_lock = threading.Lock()
 
     def evaluate(name: str, plan: str):
         with feature_context(name, attributes={'plan': plan}):
             barrier.wait()
-            results[name] = flag.is_enabled()
+            value = flag.is_enabled()
+            with results_lock:
+                results[name] = value
 
     threads = [
         threading.Thread(target=evaluate, args=(f'user-{index}', 'team' if index % 2 else 'guest'))
