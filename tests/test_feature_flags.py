@@ -420,6 +420,15 @@ def test_typed_flag_validates_pydantic_models_and_overrides():
         assert checkout.value() == CheckoutConfig(provider='test', retries=0)
 
 
+def test_feature_flag_validates_test_overrides_before_installing_them():
+    enabled = feature_flag('enabled', default=False)
+
+    with pytest.raises(ValidationError, match='bool_type'):
+        enabled.override_for_testing(cast(Any, object()))
+
+    assert enabled.is_enabled() is False
+
+
 def test_parameterized_flag_requires_an_explicit_type():
     with pytest.raises(TypeError, match=r'Pass type=\.\.\.'):
         flag('ambiguous', default=[])

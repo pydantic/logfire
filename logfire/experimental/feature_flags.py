@@ -162,7 +162,8 @@ class Flag(Generic[T]):
 
     def override_for_testing(self, value: T) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
-        return self._adapter.override_for_testing(value)
+        validated_value = cast(T, self._adapter.type_adapter.validate_python(value))
+        return self._adapter.override_for_testing(validated_value)
 
 
 class FeatureFlag(Flag[bool]):
