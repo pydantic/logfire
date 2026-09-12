@@ -665,6 +665,24 @@ def test_openfeature_provider_reports_object_serialization_errors():
     assert details.error_message == 'broken serializer'
 
 
+def test_openfeature_provider_reports_scalar_serialization_errors():
+    region = flag('region', default='us')
+    provider = LogfireProvider()
+
+    with patch.object(region._adapter.type_adapter, 'dump_python', side_effect=RuntimeError('broken serializer')):
+        failed = provider.resolve_string_details('region', 'fallback')
+
+    assert failed.value == 'fallback'
+    assert failed.error_code == ErrorCode.GENERAL
+    assert failed.error_message == 'Feature flag result serialization failed.'
+
+    with patch.object(region._adapter.type_adapter, 'dump_python', return_value=1):
+        mismatch = provider.resolve_string_details('region', 'fallback')
+
+    assert mismatch.value == 'fallback'
+    assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
+
+
 def test_openfeature_provider_rejects_scalar_flags_as_objects():
     flag('region', default='us')
 
