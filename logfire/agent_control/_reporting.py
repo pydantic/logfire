@@ -247,6 +247,19 @@ def report_issues(policy: OnUnmatched, issues: Sequence[ApplyIssue]) -> None:
     `'error'` raises after every section has been planned, naming all of it, rather than on the first
     entry of the first section -- which used to mean the strictest policy reported the least.
 
+    [`AgentControl.report`][logfire.agent_control.AgentControl.report] is this with the policy read
+    off the control, and is what an adapter built on one should call. This is the same thing for an
+    adapter that carries the policy itself -- one whose framework has its own notion of a managed
+    capability, and so never holds an `AgentControl` to ask. Either way, an adapter with its own
+    error type translates it without restating a message:
+
+    ```python skip-run="true" skip-reason="illustrative-fragment"
+    try:
+        report_issues(self.on_unmatched, issues)
+    except UnmatchedConfigError as exc:
+        raise MyFrameworkError(str(exc)) from exc
+    ```
+
     Raises:
         UnmatchedConfigError: naming every issue, when `policy` is `'error'`.
     """

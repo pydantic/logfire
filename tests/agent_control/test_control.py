@@ -20,6 +20,7 @@ from logfire.agent_control import (
     UnmatchedConfigError,
     build_baseline,
     current_resolution,
+    report_issues,
     use_resolution,
 )
 from logfire.testing import CaptureLogfire
@@ -275,6 +276,18 @@ def test_erroring_raises_once_naming_every_issue_rather_than_on_the_first() -> N
     # A `ValueError`, so a deployment that was catching one still catches this, and a class of its
     # own so an adapter can translate it into its framework's error type without restating a message.
     assert isinstance(caught.value, ValueError)
+
+
+def test_an_adapter_that_holds_no_control_applies_the_same_policy_itself() -> None:
+    # The harness's `AgentControl` is a Pydantic AI capability rather than this one, so it carries
+    # the policy and never has a control to ask. It still gets one raise with every message, which is
+    # what lets it re-raise as its own framework's error without restating one.
+    with pytest.warns(UserWarning) as caught:
+        report_issues('warn', [UNKNOWN_TOOL, UNKNOWN_SETTING])
+    assert [str(warning.message) for warning in caught] == [UNKNOWN_TOOL.message, UNKNOWN_SETTING.message]
+    with pytest.raises(UnmatchedConfigError) as raised:
+        report_issues('error', [UNKNOWN_TOOL, UNKNOWN_SETTING])
+    assert str(raised.value) == f'{UNKNOWN_TOOL.message}\n{UNKNOWN_SETTING.message}'
 
 
 def test_ignoring_says_nothing_and_reporting_nothing_is_a_no_op() -> None:

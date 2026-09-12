@@ -30,7 +30,7 @@ from ._config import (
 from ._control import AgentControl, BaselineSource, Resolution, current_resolution, use_resolution
 from ._merge import Provenance, SettingSource, merge_settings
 from ._names import AGENT_VARIABLE_PREFIX, agent_variable_name, normalize_agent_name
-from ._reporting import ApplyIssue, ApplyIssueReason, OnUnmatched, UnmatchedConfigError
+from ._reporting import ApplyIssue, ApplyIssueReason, OnUnmatched, UnmatchedConfigError, report_issues
 from ._schema import AGENT_CONFIG_JSON_SCHEMA, MAX_MODEL_FACING_TEXT_LENGTH, SCHEMA_SHA256
 from ._support import AgentSupport, Destination, Section
 from ._units import MAX_TIMEOUT_MILLISECONDS, MAX_TIMEOUT_SECONDS, is_representable_timeout, to_milliseconds
@@ -76,6 +76,7 @@ __all__ = (
     'is_representable_timeout',
     'merge_settings',
     'normalize_agent_name',
+    'report_issues',
     'to_milliseconds',
     'use_resolution',
 )
