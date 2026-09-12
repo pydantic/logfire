@@ -1280,7 +1280,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
             except (AttributeError, KeyError, TypeError, ValueError):
                 # This inspection only enriches a warning. Malformed custom-provider metadata
                 # must not replace the safe value already returned by resolution.
-                requires_targeting_key = False
+                return result
             if requires_targeting_key:
                 _emit_resolution_warning(
                     f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "

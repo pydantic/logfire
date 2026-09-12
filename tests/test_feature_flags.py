@@ -735,6 +735,28 @@ def test_typed_flag_telemetry_honors_callback_replacements_without_notes(
     assert 'super-secret' not in repr(attributes)
 
 
+def test_typed_flag_telemetry_honors_scrub_notes_without_replacements():
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    scrub_key = 'logfire.feature_flag.result.region'
+
+    with patch.object(
+        logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber,
+        'scrub_value',
+        return_value=({scrub_key: 'us'}, [Mock()]),
+    ):
+        telemetry = adapter._resolution_telemetry_attributes(
+            ResolvedVariable(name='region', value='us', reason='code_default'),
+            serialized_value='us',
+            targeting_key=None,
+            attributes={},
+            requested_label=None,
+        )
+
+    assert 'feature_flag.result.value' not in telemetry
+    assert telemetry['logfire.feature_flag.result.value_status'] == 'scrubbed'
+
+
 def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
