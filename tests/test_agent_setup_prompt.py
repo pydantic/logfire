@@ -94,6 +94,10 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'Every CLI command below excludes that ambient token' in auth
     assert 'do not make an exception' in auth
     assert 'never concatenate it into shell text or use `eval`' in auth
+    assert 'ask whether the account is in the US or EU before running the CLI' in auth
+    assert 'Never run targetless `whoami` or `auth`' in auth
+    assert 'Use the explicit region throughout' in auth
+    assert 'omit `<target>` from the initial check' not in auth
     assert '<target> projects new <project-name>' in auth
     assert 'product prompt only needs to supply the exact Logfire URL' in auth
     assert '--region eu auth' not in auth
@@ -113,6 +117,10 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
     assert 'The command blocks above are POSIX shell' in auth
     assert 'child process whose environment omits `LOGFIRE_TOKEN`' in auth
     assert 'a later application process can still inherit that variable' in auth
+    assert 'use only that exact target' in auth
+    assert 'ask instead of substituting another' in auth
+    assert 'when several exist' in auth
+    assert 'only in that last, zero-project case' in auth
     assert 'omit that variable from the child application process too' in instrumentation
     for document in (auth, instrumentation, offline):
         assert not any(line.lstrip().startswith('npx') and 'logfire' in line for line in document.splitlines())
@@ -171,6 +179,8 @@ def test_setup_hub_routes_each_surface_to_its_skill() -> None:
     assert 'evaluations against test-case datasets in Python or Node.js' in hub
     assert '../logfire-' not in hub
     assert 'not in this repo' not in hub
+    assert 'ask whether the account is in the US or EU' in hub
+    assert 'never infer it from a saved session' in hub
 
 
 def test_separately_published_setup_skills_use_public_cross_skill_links() -> None:
