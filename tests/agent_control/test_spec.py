@@ -224,7 +224,7 @@ def test_the_merge_vectors(merge_vectors: list[dict[str, Any]]) -> None:
         assert merged.sources == vector['expected']['sources'], vector['name']
 
 
-CANONICAL_SPEC_SHA256 = '5cb4575a54d84049d5ffb37d249e453ef175a3dac24ffba20b61d3b9afdf4aed'
+CANONICAL_SPEC_SHA256 = '662f91c7155aa745f22d171e9bf6251be6e44e309fbd92bdfe1cc84ddd328304'
 
 SPEC_LOCKSTEP = (
     'The vectors in tests/agent_control/spec/ are one half of a contract with every other Agent '

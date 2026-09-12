@@ -371,6 +371,15 @@ def test_a_section_the_adapter_cannot_apply_is_reported_once() -> None:
     assert apply_settings(published, support=everything).issues == []
 
 
+def test_a_settings_section_the_adapter_cannot_apply_yields_no_patch() -> None:
+    # Handing back the patch anyway would be this helper contradicting the declaration it was just
+    # given, and reporting each key again would bury the one report that matters.
+    support = AgentSupport(sections=frozenset({'instructions'}), settings=frozenset({'temperature'}))
+    applied = apply_settings(config(settings={'temperature': 0.4}), support=support)
+    assert applied.settings == {}
+    assert [(i.section, i.reason) for i in applied.issues] == [('settings', 'unsupported-section')]
+
+
 def test_a_top_level_key_this_release_has_no_section_for_is_reported() -> None:
     # The openness is deliberate -- it is what lets a future section be published against an older
     # SDK -- but a drop nobody hears about is a silently degraded agent.

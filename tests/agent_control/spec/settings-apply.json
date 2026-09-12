@@ -54,6 +54,17 @@
     "expected": { "issues": [{ "section": "model", "reason": "unsupported-section" }] }
   },
   {
+    "name": "a settings section the adapter cannot apply yields no patch, whatever keys it can lower",
+    "input": {
+      "config": { "settings": { "temperature": 0.4 } },
+      "support": { "sections": ["instructions"], "settings": ["temperature"] }
+    },
+    "expected": {
+      "settings": {},
+      "issues": [{ "section": "settings", "reason": "unsupported-section" }]
+    }
+  },
+  {
     "name": "every section the adapter declares is applied without a word about it",
     "input": {
       "config": { "instructions": ["Be brief."], "model": "openai:gpt-5.6-sol", "settings": { "temperature": 0.4 } },

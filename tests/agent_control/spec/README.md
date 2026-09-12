@@ -8,7 +8,7 @@ change to a rule is a change to the file first, and to both cores after.
 
 The canonical copy of this directory lives in the `pydantic/logfire` repository at
 `tests/agent_control/spec/`; every other SDK vendors it and pins the same digest, which each core's
-test suite asserts. Prose for all three rules lives in the Agent Control documentation under
+test suite asserts. The prose for these rules lives in the Agent Control documentation under
 **Contract**; this directory is the machine-readable half.
 
 | File | What it pins | Applied by |

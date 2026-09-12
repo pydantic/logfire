@@ -578,6 +578,9 @@ def apply_settings(config: AgentConfig, *, support: AgentSupport | None = None) 
     `apply_instructions` would otherwise have nowhere to learn that an `instructions` section was
     published at an agent that cannot apply one.
 
+    An adapter that declares it cannot apply the `settings` section at all gets an empty patch and
+    the one `'unsupported-section'` issue, whatever its `AgentSupport.settings` says.
+
     Args:
         config: The resolved managed config.
         support: What this adapter can apply; see
@@ -587,7 +590,11 @@ def apply_settings(config: AgentConfig, *, support: AgentSupport | None = None) 
     """
     issues = _section_issues(config, support)
     settings = config.settings
-    if settings is None:
+    if settings is None or (support is not None and 'settings' not in support.sections):
+        # An adapter that declared it cannot apply the section has already been told so, once, by
+        # `_section_issues`. Handing it the patch anyway would be this function contradicting that
+        # declaration, and reporting every key in it a second time would bury the one report that
+        # matters under a list of keys the adapter was never going to reach.
         return AppliedSettings(settings={}, issues=issues)
     issues.extend(
         ApplyIssue(
