@@ -196,8 +196,6 @@ jobs:
           package-manager-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
       - run: make test-pyodide
-        env:
-          UV_PYTHON: ${{ matrix.python-version }}
 
   feature-flag-mutation:
     name: feature flag mutation tests
