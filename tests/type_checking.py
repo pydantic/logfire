@@ -49,6 +49,10 @@ checkout_flag = flag('checkout', default=CheckoutConfig(provider='stripe', retri
 assert_type(checkout_flag, Flag[CheckoutConfig])
 assert_type(checkout_flag.value(), CheckoutConfig)
 assert_type(checkout_flag.details(), FlagEvaluationDetails[CheckoutConfig])
+assert_type(
+    Flag('checkout_direct', default=CheckoutConfig(provider='stripe', retries=2)),
+    Flag[CheckoutConfig],
+)
 
 string_list_flag = flag('allowed_regions', type=list[str], default=[])
 assert_type(string_list_flag, Flag[list[str]])

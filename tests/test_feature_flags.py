@@ -490,7 +490,7 @@ def test_feature_flag_validates_test_overrides_before_installing_them():
 
 def test_parameterized_flag_requires_an_explicit_type():
     with pytest.raises(TypeError, match=r'Pass type=\.\.\.'):
-        flag('ambiguous', default=[])
+        flag('ambiguous', default=[])  # pyright: ignore[reportArgumentType]
 
     values = flag('values', type=list[str], default=[])
     assert values.value() == []
@@ -500,7 +500,7 @@ def test_duplicate_flag_name_is_validated_before_type_inference():
     feature_flag('duplicate', default=False)
 
     with pytest.raises(ValueError, match="variable with name 'duplicate' has already been registered"):
-        flag('duplicate', default=[])
+        flag('duplicate', default=[])  # pyright: ignore[reportArgumentType]
 
 
 def test_typed_flag_validates_its_code_default_during_construction():

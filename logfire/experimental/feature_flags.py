@@ -10,6 +10,7 @@ from contextlib import AbstractContextManager
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, overload
 
+from pydantic import BaseModel
 from typing_extensions import TypeForm
 
 from logfire.variables import ensure_variables_dependencies
@@ -45,6 +46,8 @@ __all__ = (
 
 
 T = TypeVar('T')
+InferableFlagValue = bool | str | int | float | Enum | BaseModel
+InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
 
 
 class _FlagAdapter(Protocol[T]):
@@ -76,10 +79,10 @@ class Flag(Generic[T]):
 
     @overload
     def __init__(
-        self,
+        self: Flag[InferableFlagT],
         name: str,
         *,
-        default: T,
+        default: InferableFlagT,
         description: str | None = None,
         logfire_instance: Logfire | None = None,
     ) -> None: ...
@@ -394,10 +397,10 @@ def _infer_flag_type(default: Any) -> type[Any]:
 def flag(
     name: str,
     *,
-    default: T,
+    default: InferableFlagT,
     description: str | None = None,
     logfire_instance: Logfire | None = None,
-) -> Flag[T]: ...
+) -> Flag[InferableFlagT]: ...
 
 
 @overload
@@ -421,7 +424,18 @@ def flag(
 ) -> Flag[T]:
     """Define a Pydantic-validated feature flag with a safe code default."""
     if type is None:
-        return Flag(name, default=default, description=description, logfire_instance=logfire_instance)
+        # The no-type overload restricts callers to values whose runtime class is a complete
+        # declaration. The implementation still uses the broader T shared with the explicit-type
+        # branch, so preserve the overload's narrowing across this runtime dispatch.
+        return cast(
+            Flag[T],
+            Flag(
+                name,
+                default=cast(InferableFlagValue, default),
+                description=description,
+                logfire_instance=logfire_instance,
+            ),
+        )
     return Flag(name, type=type, default=default, description=description, logfire_instance=logfire_instance)
 
 

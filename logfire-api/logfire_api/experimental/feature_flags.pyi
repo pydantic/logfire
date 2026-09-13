@@ -1,16 +1,20 @@
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
+from enum import Enum
 from logfire import Logfire
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode as ErrorCode
 from openfeature.flag_evaluation import FlagEvaluationDetails as FlagEvaluationDetails, FlagResolutionDetails, FlagValueType, Reason as Reason
 from openfeature.provider import AbstractProvider, Metadata
+from pydantic import BaseModel
 from typing import Any, Generic, Protocol, TypeVar, overload
 from typing_extensions import TypeForm
 
-__all__ = ['ErrorCode', 'FeatureFlag', 'Flag', 'FlagEvaluationDetails', 'LogfireProvider', 'Reason', 'feature_context', 'feature_flag', 'flag']
-
 T = TypeVar('T')
+InferableFlagValue = bool | str | int | float | Enum | BaseModel
+InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
+
+__all__ = ['ErrorCode', 'FeatureFlag', 'Flag', 'FlagEvaluationDetails', 'LogfireProvider', 'Reason', 'feature_context', 'feature_flag', 'flag']
 
 class _FlagAdapter(Protocol[T]):
     """Private compatibility boundary implemented by the current variables engine."""
@@ -29,7 +33,7 @@ class Flag(Generic[T]):
     a runtime default such as ``[]`` or ``None``.
     """
     @overload
-    def __init__(self, name: str, *, default: T, description: str | None = None, logfire_instance: Logfire | None = None) -> None: ...
+    def __init__(self, name: str, *, default: InferableFlagT, description: str | None = None, logfire_instance: Logfire | None = None) -> None: ...
     @overload
     def __init__(self, name: str, *, type: TypeForm[T], default: T, description: str | None = None, logfire_instance: Logfire | None = None) -> None: ...
     @property
@@ -75,7 +79,7 @@ class LogfireProvider(AbstractProvider):
         """Resolve an object flag as JSON-compatible data."""
 
 @overload
-def flag(name: str, *, default: T, description: str | None = None, logfire_instance: Logfire | None = None) -> Flag[T]: ...
+def flag(name: str, *, default: InferableFlagT, description: str | None = None, logfire_instance: Logfire | None = None) -> Flag[InferableFlagT]: ...
 @overload
 def flag(name: str, *, type: TypeForm[T], default: T, description: str | None = None, logfire_instance: Logfire | None = None) -> Flag[T]: ...
 def feature_flag(name: str, *, default: bool, description: str | None = None, logfire_instance: Logfire | None = None) -> FeatureFlag:

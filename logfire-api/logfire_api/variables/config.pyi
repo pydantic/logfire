@@ -146,6 +146,8 @@ class VariableConfig(BaseModel):
         A stable targeting key is required to keep a subject on the same outcome when a
         rollout can select multiple labels or fall back to the code default.
         """
+    def rule_evaluation_reason(self, attributes: Mapping[str, Any] | None = None) -> Literal['static', 'split', 'targeting_match']:
+        """Classify the selected rule for feature-flag evaluation details."""
     def resolve_value(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> tuple[str | None, str | None, int | None]:
         """Resolve the serialized value for this variable.
 
