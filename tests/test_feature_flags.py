@@ -37,6 +37,7 @@ from logfire.experimental.feature_flags import (
     LogfireProvider,
     _is_exclusively_openfeature_scalar_schema,
     _matches_openfeature_scalar_type,
+    _unwrap_transparent_schema,
     feature_context,
     feature_flag,
     flag,
@@ -673,6 +674,24 @@ def test_openfeature_provider_accepts_validator_wrapped_scalar_flags():
     mismatch = provider.resolve_object_details('validated_retries', {})
     assert mismatch.value == {}
     assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
+
+
+@pytest.mark.parametrize('wrapper', ['function-after', 'function-before', 'function-wrap', 'default', 'definitions'])
+def test_openfeature_scalar_classification_unwraps_transparent_schemas(wrapper: str):
+    schema = {'type': wrapper, 'schema': {'type': 'int'}}
+    adapter = Mock()
+    adapter.type_adapter.core_schema = schema
+
+    assert _unwrap_transparent_schema(schema) == {'type': 'int'}
+    assert _matches_openfeature_scalar_type(adapter, int) is True
+    assert _is_exclusively_openfeature_scalar_schema(schema) is True
+
+
+def test_openfeature_scalar_classification_stops_at_malformed_wrapper():
+    schema = {'type': 'function-after', 'schema': None}
+
+    assert _unwrap_transparent_schema(schema) is schema
+    assert _is_exclusively_openfeature_scalar_schema(schema) is False
 
 
 def test_openfeature_provider_accepts_literal_scalar_flags():

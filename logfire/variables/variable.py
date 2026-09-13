@@ -256,8 +256,8 @@ def _feature_flag_telemetry_attributes(
         result_attributes['logfire.feature_flag.value_version'] = result.version
     if details.error_code is not None:
         result_attributes['error.type'] = details.error_code.lower()
-        if details.error_message is not None:
-            result_attributes['feature_flag.error.message'] = details.error_message
+        # Every internal error classification above has a matching safe, generic message.
+        result_attributes['feature_flag.error.message'] = details.error_message
     return result_attributes
 
 
