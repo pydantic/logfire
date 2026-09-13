@@ -652,6 +652,20 @@ def test_openfeature_object_schema_classification_handles_pydantic_24_enums():
 
 
 @pytest.mark.parametrize(
+    'schema, expected',
+    [
+        ({'type': 'enum', 'members': [Mock(value='us')]}, True),
+        ({'type': 'enum', 'members': [Mock(value=object())]}, False),
+        ({'type': 'enum', 'members': []}, False),
+        ({'type': 'enum'}, False),
+        ({'type': 'enum', 'members': 'not-a-list'}, False),
+    ],
+)
+def test_openfeature_object_schema_classification_handles_direct_enums(schema: dict[str, Any], expected: bool):
+    assert _is_exclusively_openfeature_scalar_schema(schema) is expected
+
+
+@pytest.mark.parametrize(
     'flag_type, default', [(bool, False), (float, 1.5), (Literal['a'], 'a'), (RegionFlag, RegionFlag.US)]
 )
 def test_openfeature_object_schema_classification_recognizes_scalar_schemas(flag_type: Any, default: Any):
@@ -664,6 +678,8 @@ def test_openfeature_object_schema_classification_recognizes_scalar_schemas(flag
     'schema',
     [
         {'type': 'union', 'choices': []},
+        {'type': 'union'},
+        {'type': 'union', 'choices': 'not-a-list'},
         {'type': 'union', 'choices': [{'type': 'str'}, 'not-a-schema']},
         {'type': 'union', 'choices': [{'type': 'str'}, {'type': 'list'}]},
     ],

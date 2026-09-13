@@ -393,8 +393,9 @@ def _is_exclusively_openfeature_scalar_schema(schema: Mapping[Any, Any]) -> bool
         return True
     if schema_type == 'enum':
         members = schema.get('members')
-        typed_members = cast(list[Any], members) if isinstance(members, list) else []
-        return bool(typed_members) and all(type(member.value) in (bool, str, int, float) for member in typed_members)
+        if not _is_schema_list(members) or not members:
+            return False
+        return all(type(member.value) in (bool, str, int, float) for member in members)
     if schema_type == 'lax-or-strict':
         try:
             enum_type = schema['strict_schema']['python_schema']['cls']
