@@ -1,4 +1,5 @@
 import contextlib
+import sys
 from collections import ChainMap
 from collections.abc import Mapping
 from types import SimpleNamespace
@@ -13,7 +14,7 @@ from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 from logfire.testing import TestExporter
 
 
-def chunks(format_string: str, kwargs: Mapping[str, Any]):
+def chunks(format_string: Any, kwargs: Mapping[str, Any]):
     result, _extra_attrs, _span_name = chunks_formatter.chunks(format_string, dict(kwargs), scrubber=Scrubber([]))
     return result
 
@@ -100,6 +101,34 @@ def warns_failed(msg: str):
 class BadRepr:
     def __repr__(self):
         raise ValueError('bad repr')
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='template strings require Python 3.14')
+def test_template_string():
+    from string.templatelib import Interpolation, Template
+
+    template = Template(
+        'foo ',
+        Interpolation(123.456, 'bar', None, '0.2f'),
+        ' ',
+        Interpolation('spam', 'name', 'r'),
+    )
+
+    result, extra_attrs, span_name = chunks_formatter.chunks(template, {}, scrubber=Scrubber([]))
+
+    assert result == snapshot(
+        [{'t': 'lit', 'v': 'foo '}, {'t': 'arg', 'v': '123.46'}, {'t': 'lit', 'v': ' '}, {'t': 'arg', 'v': "'spam'"}]
+    )
+    assert extra_attrs == snapshot({'bar': 123.456, 'name': 'spam'})
+    assert span_name == snapshot('foo {bar} {name}')
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason='template strings require Python 3.14')
+def test_template_string_conversion_error():
+    from string.templatelib import Interpolation, Template
+
+    with warns_failed('Error converting field {a}: bad repr'):
+        logfire_format(Template(Interpolation(BadRepr(), 'a', 'r')), {}, NOOP_SCRUBBER)
 
 
 def test_conversion_error():
