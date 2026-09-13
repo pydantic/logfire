@@ -76,7 +76,6 @@ services:
       OTEL_EBPF_OPEN_PORT: "8080"
       OTEL_EBPF_AUTO_TARGET_EXE: /app/checkout-api
       OTEL_EBPF_ENFORCE_SYS_CAPS: "1"
-      OTEL_EBPF_SERVICE_NAME: checkout-api
       OTEL_EXPORTER_OTLP_ENDPOINT: https://logfire-us.pydantic.dev
       OTEL_EXPORTER_OTLP_HEADERS: Authorization=${LOGFIRE_TOKEN}
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -92,14 +91,12 @@ curl http://localhost:8080/health
 
 `OTEL_EBPF_OPEN_PORT` matches the port opened by the process inside its container. If you publish
 container port `8080` as host port `18080`, keep the selector set to `8080`.
-`OTEL_EBPF_AUTO_TARGET_EXE` matches the target's full executable command. OBI requires both
+`OTEL_EBPF_AUTO_TARGET_EXE` matches the target's full executable path. OBI requires both
 selectors to match, which prevents it from instrumenting Docker's port-forwarding process instead.
 
-Set `OTEL_SERVICE_NAME` and the service metadata on each target workload. The
-`OTEL_EBPF_SERVICE_NAME` fallback in this single-service example gives OBI the same stable identity
-when it cannot read that metadata from a target process. For one OBI instance that observes multiple
-services, remove the fallback and configure discovery metadata for each target instead.
-Use OBI's [service discovery configuration](https://opentelemetry.io/docs/zero-code/obi/configure/service-discovery/)
+Set `OTEL_SERVICE_NAME` and the service metadata on each target workload. For one OBI instance that
+observes multiple services, configure discovery metadata for each target. Use OBI's
+[service discovery configuration](https://opentelemetry.io/docs/zero-code/obi/configure/service-discovery/)
 when you need to select workloads by executable, container, namespace, or Kubernetes metadata.
 
 ## Deploy OBI on Kubernetes
@@ -157,9 +154,10 @@ http.server.request.duration
 target.info
 ```
 
-OBI metadata metrics such as `target.info` use the discovered workload's service name and instance
-ID even though OBI places that identity on each metric datapoint instead of its enclosing
-OpenTelemetry resource.
+OBI places the discovered workload's service name and instance ID on each `target.info` datapoint
+instead of its enclosing OpenTelemetry resource. Logfire promotes those values into its core
+`service_name` and `service_instance_id` fields so the metadata metric appears under the same
+service as its request traces and metrics.
 
 ## Troubleshoot the setup
 
