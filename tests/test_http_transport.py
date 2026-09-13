@@ -190,7 +190,8 @@ def test_keepalive_reaches_the_socket(session: requests.Session, server_url: str
     response = session.get(server_url, stream=True)
     connection: Any = response.raw.connection
     sock: socket.socket = connection.sock
-    idle_option = getattr(socket, 'TCP_KEEPIDLE', None) or socket.TCP_KEEPALIVE  # macOS spells it TCP_KEEPALIVE
+    # Linux calls it TCP_KEEPIDLE, macOS TCP_KEEPALIVE; looked up by name so either type checks.
+    idle_option: int = getattr(socket, 'TCP_KEEPIDLE' if hasattr(socket, 'TCP_KEEPIDLE') else 'TCP_KEEPALIVE')
 
     assert sock.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE)
     assert sock.getsockopt(socket.IPPROTO_TCP, idle_option) == TCP_KEEPALIVE_IDLE_SECONDS
