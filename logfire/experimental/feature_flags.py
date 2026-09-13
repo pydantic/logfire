@@ -10,7 +10,6 @@ from contextlib import AbstractContextManager
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, overload
 
-from pydantic import BaseModel
 from typing_extensions import TypeForm
 
 from logfire.variables import ensure_variables_dependencies
@@ -30,7 +29,13 @@ except ModuleNotFoundError as e:  # pragma: no cover
     ) from e
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from logfire import Logfire
+
+    InferableFlagValue = bool | str | int | float | Enum | BaseModel
+else:
+    InferableFlagValue = Any
 
 __all__ = (
     'ErrorCode',
@@ -46,7 +51,6 @@ __all__ = (
 
 
 T = TypeVar('T')
-InferableFlagValue = bool | str | int | float | Enum | BaseModel
 InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
 
 
