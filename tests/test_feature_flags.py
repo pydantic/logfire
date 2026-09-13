@@ -34,6 +34,7 @@ from logfire.experimental.feature_flags import (
     FeatureFlag,
     Flag,
     LogfireProvider,
+    _is_exclusively_openfeature_scalar_schema,
     _matches_openfeature_scalar_type,
     feature_context,
     feature_flag,
@@ -437,6 +438,10 @@ class RetriesFlag(IntEnum):
     THREE = 3
 
 
+class ObjectFlag(Enum):
+    VALUE = ('not', 'a', 'scalar')
+
+
 class SecretConfig(BaseModel):
     api_key: str
 
@@ -637,6 +642,15 @@ def test_openfeature_scalar_type_matches_enum_member_values():
         assert _matches_openfeature_scalar_type(adapter, str) is False
 
 
+def test_openfeature_object_schema_classification_handles_pydantic_24_enums():
+    def lax_schema(enum_type: Any) -> dict[str, Any]:
+        return {'type': 'lax-or-strict', 'strict_schema': {'python_schema': {'cls': enum_type}}}
+
+    assert _is_exclusively_openfeature_scalar_schema(lax_schema(RegionFlag)) is True
+    assert _is_exclusively_openfeature_scalar_schema(lax_schema(ObjectFlag)) is False
+    assert _is_exclusively_openfeature_scalar_schema(lax_schema(str)) is False
+
+
 def test_openfeature_provider_uses_an_explicit_logfire_instance():
     custom_logfire = Mock()
 
@@ -699,6 +713,24 @@ def test_openfeature_provider_rejects_scalar_flags_as_objects():
     evaluate_flag.assert_not_called()
     assert details.value == {}
     assert details.error_code == ErrorCode.TYPE_MISMATCH
+
+
+@pytest.mark.parametrize('flag_type, default', [(str | None, None), (int | str, 1)])
+def test_openfeature_provider_rejects_wrapped_scalar_flags_as_objects_without_evaluating(flag_type: Any, default: Any):
+    wrapped_scalar = flag('wrapped_scalar', type=flag_type, default=default)
+
+    with patch.object(wrapped_scalar._adapter, 'evaluate_flag') as evaluate_flag:
+        details = LogfireProvider().resolve_object_details('wrapped_scalar', {})
+
+    evaluate_flag.assert_not_called()
+    assert details.value == {}
+    assert details.error_code == ErrorCode.TYPE_MISMATCH
+
+
+def test_openfeature_object_schema_classification_allows_nullable_objects():
+    adapter = flag('nullable_object', type=cast(Any, list[str] | None), default=cast(list[str] | None, None))._adapter
+
+    assert _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema) is False
 
 
 def test_openfeature_provider_rejects_object_flags_as_scalars_without_evaluating():

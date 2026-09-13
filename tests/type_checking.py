@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import logfire
 from logfire.experimental.feature_flags import FeatureFlag, Flag, FlagEvaluationDetails, feature_flag, flag
 from logfire.variables import TemplateVariable, Variable
+from logfire_api.experimental.feature_flags import Flag as ApiFlag  # pyright: ignore[reportMissingModuleSource]
 
 if TYPE_CHECKING:
     from logfire.experimental.api_client import LogfireAPIClient
@@ -52,6 +53,10 @@ assert_type(checkout_flag.details(), FlagEvaluationDetails[CheckoutConfig])
 assert_type(
     Flag('checkout_direct', default=CheckoutConfig(provider='stripe', retries=2)),
     Flag[CheckoutConfig],
+)
+assert_type(
+    ApiFlag('checkout_api', default=CheckoutConfig(provider='stripe', retries=2)),
+    ApiFlag[CheckoutConfig],
 )
 
 string_list_flag = flag('allowed_regions', type=list[str], default=[])

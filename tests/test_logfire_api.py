@@ -97,6 +97,33 @@ def import_logfire_api_with_logfire() -> ModuleType:
     return importlib.reload(logfire_api)
 
 
+def _postprocess_feature_flags_pyi(content: str) -> str:
+    """Restore generic constructor inference that stubgen strips from annotated self."""
+    # stubgen emits assignments from both TYPE_CHECKING branches. Keep the precise static alias.
+    content = content.replace('InferableFlagValue = Any\n', '')
+    generated_constructor = 'def __init__(self, name: str, *, default: InferableFlagT,'
+    typed_constructor = 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,'
+    if generated_constructor in content:
+        return content.replace(generated_constructor, typed_constructor, 1)
+    if typed_constructor not in content:
+        raise ValueError('The generated Flag constructor signature changed; update the stub post-processing contract.')
+    return content
+
+
+def test_postprocess_feature_flags_pyi_preserves_direct_constructor_inference() -> None:
+    generated = (
+        'InferableFlagValue = bool | str\n'
+        'InferableFlagValue = Any\n'
+        '    def __init__(self, name: str, *, default: InferableFlagT, description: str | None = None)'
+    )
+
+    processed = _postprocess_feature_flags_pyi(generated)
+
+    assert 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,' in processed
+    assert 'InferableFlagValue = Any' not in processed
+    assert _postprocess_feature_flags_pyi(processed) == processed
+
+
 @pytest.mark.parametrize(
     ['logfire_api_factory', 'module_name'],
     [
@@ -433,18 +460,19 @@ def test_match_version_on_pyproject() -> None:
     assert logfire_pyproject_content['project']['version'] == logfire_api_pyproject_content['project']['version']
 
 
-def test_override_init_pyi() -> None:  # pragma: no cover
-    """The logic here is:
+def test_postprocess_generated_stubs() -> None:  # pragma: no cover
+    """Apply the small corrections that stubgen cannot represent itself.
 
-    1. If `span: Incomplete` is present, it means we need to regenerate the `DEFAULT_LOGFIRE_INSTANCE` logic.
-    2. If the `span: Incomplete` is present, but we have `Incomplete` in the file, it means we need to update to a
-        `DEFAULT_LOGFIRE_INSTANCE` logic.
-    3. If none of the above is present, we skip the test.
+    Resolve module-level ``Incomplete`` declarations through ``DEFAULT_LOGFIRE_INSTANCE`` and
+    preserve the annotated ``self`` that binds the generic type for direct ``Flag(...)`` calls.
+    The first invocation after stubgen writes corrections and fails; the second proves idempotence.
     """
     incomplete = ': Incomplete'
     len_incomplete = len(incomplete)
 
-    init_pyi = (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').read_text()
+    api_dir = Path(__file__).parent.parent / 'logfire-api' / 'logfire_api'
+    init_pyi_path = api_dir / '__init__.pyi'
+    init_pyi = init_pyi_path.read_text()
     lines = init_pyi.splitlines()
 
     try:
@@ -469,7 +497,17 @@ def test_override_init_pyi() -> None:  # pragma: no cover
         lines[span_index - 1 :] = new_end_lines
 
     new_init_pyi = '\n'.join(lines) + '\n'
-    if new_init_pyi == init_pyi:
-        pytest.skip('No changes were made to the __init__.pyi file.')
-    (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').write_text(new_init_pyi)
-    pytest.fail('The __init__.pyi file was updated.')
+    changed = new_init_pyi != init_pyi
+    if changed:
+        init_pyi_path.write_text(new_init_pyi)
+
+    feature_flags_pyi_path = api_dir / 'experimental' / 'feature_flags.pyi'
+    feature_flags_pyi = feature_flags_pyi_path.read_text()
+    processed_feature_flags_pyi = _postprocess_feature_flags_pyi(feature_flags_pyi)
+    if processed_feature_flags_pyi != feature_flags_pyi:
+        feature_flags_pyi_path.write_text(processed_feature_flags_pyi)
+        changed = True
+
+    if not changed:
+        pytest.skip('No changes were made to generated stubs.')
+    pytest.fail('Generated stubs were updated.')

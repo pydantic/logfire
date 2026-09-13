@@ -43,13 +43,14 @@ test-feature-flags-mutation:
 		'*VariableConfig*requires_targeting_key*' \
 		'*Flag*' \
 		'*_matches_openfeature_scalar_type*' \
+		'*_is_exclusively_openfeature_scalar_schema*' \
 		'*_feature_flag_evaluation_details*' \
 		'*_feature_flag_telemetry_attributes*' \
 		'*feature_context*'
 	# `mutmut results` includes unselected mutants as "not checked", so filter its
 	# qualified mutant identifiers back to the functions selected above.
 	@results="$$(uv run --no-sync mutmut results)" || exit $$?; \
-	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|Flag|_matches_openfeature_scalar_type|_feature_flag_(evaluation_details|telemetry_attributes)|feature_context' || true)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|Flag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_feature_flag_(evaluation_details|telemetry_attributes)|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \
@@ -67,8 +68,8 @@ generate-stubs:
 	rsync -a out/logfire/ logfire-api/logfire_api/
 	rm -rf out
 	# || true so that we ignore the test failure on the first pass, it should report as skipped on the second
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi || true
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi
+	uv run pytest ./tests/test_logfire_api.py::test_postprocess_generated_stubs || true
+	uv run pytest ./tests/test_logfire_api.py::test_postprocess_generated_stubs
 
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov:

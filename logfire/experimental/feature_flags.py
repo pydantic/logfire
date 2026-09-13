@@ -258,10 +258,7 @@ class LogfireProvider(AbstractProvider):
         adapter = self._get_adapter(flag_key)
         if adapter is None:
             return self._resolve(flag_key, default_value, None, evaluation_context)
-        schema_type = adapter.type_adapter.core_schema.get('type')
-        if schema_type == 'literal' or any(
-            _matches_openfeature_scalar_type(adapter, scalar_type) for scalar_type in (bool, str, int, float)
-        ):
+        if _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema):
             return _type_mismatch(default_value, 'The registered flag does not resolve to an object value.')
         resolution = self._resolve(flag_key, default_value, None, evaluation_context)
         if resolution.error_code is not None:
@@ -387,6 +384,40 @@ def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: 
     else:
         return False
     return bool(values) and all(type(value) is expected_type for value in values)
+
+
+def _is_exclusively_openfeature_scalar_schema(schema: Mapping[str, Any]) -> bool:
+    """Return whether every value admitted by a Pydantic schema is an OpenFeature scalar."""
+    schema_type = schema.get('type')
+    if schema_type in {'bool', 'str', 'int', 'float', 'literal'}:
+        return True
+    if schema_type == 'enum':
+        members = schema.get('members')
+        typed_members = cast(list[Any], members) if isinstance(members, list) else []
+        return bool(typed_members) and all(type(member.value) in (bool, str, int, float) for member in typed_members)
+    if schema_type == 'lax-or-strict':
+        try:
+            enum_type = schema['strict_schema']['python_schema']['cls']
+        except (KeyError, TypeError):
+            return False
+        return (
+            isinstance(enum_type, type)
+            and issubclass(enum_type, Enum)
+            and all(type(member.value) in (bool, str, int, float) for member in enum_type)
+        )
+    if schema_type == 'nullable':
+        inner_schema = schema.get('schema')
+        return isinstance(inner_schema, Mapping) and _is_exclusively_openfeature_scalar_schema(
+            cast(Mapping[str, Any], inner_schema)
+        )
+    if schema_type == 'union':
+        choices = schema.get('choices')
+        typed_choices = cast(list[Any], choices) if isinstance(choices, list) else []
+        return bool(typed_choices) and all(
+            isinstance(choice, Mapping) and _is_exclusively_openfeature_scalar_schema(cast(Mapping[str, Any], choice))
+            for choice in typed_choices
+        )
+    return False
 
 
 def _infer_flag_type(default: Any) -> type[Any]:

@@ -10,11 +10,11 @@ from pydantic import BaseModel
 from typing import Any, Generic, Protocol, TypeVar, overload
 from typing_extensions import TypeForm
 
-T = TypeVar('T')
-InferableFlagValue = bool | str | int | float | Enum | BaseModel
-InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
-
 __all__ = ['ErrorCode', 'FeatureFlag', 'Flag', 'FlagEvaluationDetails', 'LogfireProvider', 'Reason', 'feature_context', 'feature_flag', 'flag']
+
+InferableFlagValue = bool | str | int | float | Enum | BaseModel
+T = TypeVar('T')
+InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
 
 class _FlagAdapter(Protocol[T]):
     """Private compatibility boundary implemented by the current variables engine."""
@@ -33,7 +33,7 @@ class Flag(Generic[T]):
     a runtime default such as ``[]`` or ``None``.
     """
     @overload
-    def __init__(self, name: str, *, default: InferableFlagT, description: str | None = None, logfire_instance: Logfire | None = None) -> None: ...
+    def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT, description: str | None = None, logfire_instance: Logfire | None = None) -> None: ...
     @overload
     def __init__(self, name: str, *, type: TypeForm[T], default: T, description: str | None = None, logfire_instance: Logfire | None = None) -> None: ...
     @property
