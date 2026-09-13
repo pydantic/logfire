@@ -274,8 +274,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
         """Build the session for a single SSE connection attempt.
 
         Separate from the polling session so that reconnecting cannot disturb polling, and
-        separate from the loop below so the connection policy on this stream, the longest-lived
-        connection the SDK opens, can be asserted without driving the loop.
+        separate from the loop below so the connection policy on this stream can be asserted
+        without driving the loop. TCP keepalive matters most here: the stream is read with no read
+        timeout, so after a silent drop only a failed keepalive probe unblocks it. The idle recycle
+        window does not apply, because a streamed response keeps its connection checked out.
         """
         session = Session()
         install_connection_policy(session)

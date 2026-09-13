@@ -82,8 +82,8 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self) -> None:
+        super().__init__()
         install_connection_policy(self)
 
     @staticmethod
