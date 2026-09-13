@@ -8,7 +8,7 @@ Set a measurable reliability goal for a service or large language model (LLM) pr
 
 A service level objective (SLO) is a target for how reliable a service should be, such as "99.9% of checkout requests succeed over the last 30 days." Logfire calls each SLO a **reliability target**. An SLO is an internal engineering target; a service level agreement (SLA) is an external contract.
 
-You'll find <OpenInLogfire path="service-levels" variant="inline" label="Service levels" /> under **Notify** in the project sidebar. The page lists every target in the project. Search by target name, service, provider, or description; filter by status; or group by service, status, time window, source, or not at all. Service detail pages show the same targets on their **Reliability** page.
+You'll find <OpenInLogfire path="service-levels" variant="inline" label="Service levels" /> under **Reliability** in the project sidebar. The page lists every target in the project. Search by target name, service, provider, or description; filter by status; or group by service, status, time window, source, or not at all. Service detail pages show the same targets on their **Reliability** page.
 
 !!! note "Plans and limits"
     Reliability targets are available on **Growth**, **Enterprise**, and self-hosted Logfire. Growth organizations can create up to five targets across the organization and use windows up to 30 days. Enterprise and self-hosted organizations have no target-count limit and can use windows up to 90 days. Project retention still limits the available history.
