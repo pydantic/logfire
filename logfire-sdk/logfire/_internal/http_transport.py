@@ -20,6 +20,7 @@ instrumented, never reconfigured.
 
 from __future__ import annotations
 
+import functools
 import socket
 import time
 from typing import Any
@@ -119,8 +120,6 @@ class _IdleRecyclingPoolMixin(HTTPConnectionPool):
     lazily, exactly as it does for a connection it detected as dropped.
     """
 
-    idle_recycle_seconds: float = IDLE_CONNECTION_RECYCLE_SECONDS
-
     def _put_conn(self, conn: Any) -> Any:
         if conn is not None:
             conn._logfire_idle_since = _now()
@@ -130,18 +129,18 @@ class _IdleRecyclingPoolMixin(HTTPConnectionPool):
         conn = super()._get_conn(timeout)
         # Absent on a connection this pool has never handed back, i.e. a brand new one.
         idle_since = getattr(conn, '_logfire_idle_since', None)
-        if idle_since is not None and _now() - idle_since > self.idle_recycle_seconds:
+        if idle_since is not None and _now() - idle_since > IDLE_CONNECTION_RECYCLE_SECONDS:
             conn.close()
         return conn
 
 
-def _recycling_pool_class(base: type[HTTPConnectionPool], idle_recycle_seconds: float) -> type[HTTPConnectionPool]:
-    return type(
-        f'IdleRecycling{base.__name__}', (_IdleRecyclingPoolMixin, base), {'idle_recycle_seconds': idle_recycle_seconds}
-    )
+@functools.cache
+def _recycling_pool_class(base: type[HTTPConnectionPool]) -> type[HTTPConnectionPool]:
+    # Cached so that sessions built repeatedly, such as one per SSE reconnect, share classes.
+    return type(f'IdleRecycling{base.__name__}', (_IdleRecyclingPoolMixin, base), {})
 
 
-def _install_recycling_pools(manager: PoolManager, idle_recycle_seconds: float) -> None:
+def _install_recycling_pools(manager: PoolManager) -> None:
     """Point a pool manager at recycling versions of the pool classes it already uses.
 
     Derived from whatever the manager has rather than named outright, because the classes vary:
@@ -150,47 +149,35 @@ def _install_recycling_pools(manager: PoolManager, idle_recycle_seconds: float) 
     to its pool-key normalizer, which rejects keys it does not know.
     """
     manager.pool_classes_by_scheme = {
-        # `requests` hands back a proxy manager it has already built, so the classes may be ours
-        # from an earlier call; subclassing again each time would nest them without end.
-        scheme: cls if issubclass(cls, _IdleRecyclingPoolMixin) else _recycling_pool_class(cls, idle_recycle_seconds)
-        for scheme, cls in manager.pool_classes_by_scheme.items()
+        scheme: _recycling_pool_class(cls) for scheme, cls in manager.pool_classes_by_scheme.items()
     }
 
 
 class LogfireHTTPAdapter(HTTPAdapter):
     """A `requests` adapter that enables TCP keepalive and recycles idle pooled connections."""
 
-    __attrs__ = [*HTTPAdapter.__attrs__, '_idle_recycle_seconds']
-
-    def __init__(
-        self,
-        *args: Any,
-        idle_recycle_seconds: float = IDLE_CONNECTION_RECYCLE_SECONDS,
-        **kwargs: Any,
-    ) -> None:
-        # Set before `super().__init__`, which calls `init_poolmanager`.
-        self._idle_recycle_seconds = idle_recycle_seconds
-        super().__init__(*args, **kwargs)
-
     def init_poolmanager(
         self, connections: int, maxsize: int, block: bool = DEFAULT_POOLBLOCK, **pool_kwargs: Any
     ) -> None:
         pool_kwargs.setdefault('socket_options', keepalive_socket_options())
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
-        _install_recycling_pools(self.poolmanager, self._idle_recycle_seconds)
+        _install_recycling_pools(self.poolmanager)
 
     def proxy_manager_for(self, proxy: str, **proxy_kwargs: Any) -> Any:
         # A proxied request goes through a manager of its own, built here rather than by
         # `init_poolmanager`, so the policy has to be applied again as each one appears.
+        # `requests` calls this for every proxied request and caches the managers it builds, so
+        # one it has already built, and we have already configured, is handed straight back.
+        if proxy in self.proxy_manager:
+            return self.proxy_manager[proxy]
         proxy_kwargs.setdefault('socket_options', keepalive_socket_options())
         manager = super().proxy_manager_for(proxy, **proxy_kwargs)
-        _install_recycling_pools(manager, self._idle_recycle_seconds)
+        _install_recycling_pools(manager)
         return manager
 
 
-def install_connection_policy(session: Session, *, idle_recycle_seconds: float | None = None) -> None:
+def install_connection_policy(session: Session) -> None:
     """Apply the keepalive and idle recycle policy to a session Logfire owns."""
-    kwargs: dict[str, Any] = {} if idle_recycle_seconds is None else {'idle_recycle_seconds': idle_recycle_seconds}
-    adapter = LogfireHTTPAdapter(**kwargs)
+    adapter = LogfireHTTPAdapter()
     session.mount('http://', adapter)
     session.mount('https://', adapter)

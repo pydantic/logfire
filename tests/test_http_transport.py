@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import pickle
 import socket
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 import requests
@@ -114,7 +116,7 @@ def test_derived_pools_keep_their_own_connection_class(
     attribute lookup walks each class's own `__dict__` along the MRO, so `HTTPSConnectionPool`
     is the first to supply them.
     """
-    cls = _recycling_pool_class(base, IDLE_CONNECTION_RECYCLE_SECONDS)
+    cls = _recycling_pool_class(base)
 
     assert cls.ConnectionCls is expected_connection
     assert cls.scheme == expected_scheme
@@ -123,12 +125,57 @@ def test_derived_pools_keep_their_own_connection_class(
 
 
 def test_adapter_registers_the_recycling_pools() -> None:
-    adapter = LogfireHTTPAdapter(idle_recycle_seconds=11)
-    classes = adapter.poolmanager.pool_classes_by_scheme
+    classes = LogfireHTTPAdapter().poolmanager.pool_classes_by_scheme
 
     for scheme in ('http', 'https'):
         assert issubclass(classes[scheme], _IdleRecyclingPoolMixin)
-        assert classes[scheme].idle_recycle_seconds == 11
+
+
+def test_adapters_share_their_recycling_pool_classes() -> None:
+    """Sessions are built repeatedly, one per SSE reconnect, so the derived classes are cached."""
+    first = LogfireHTTPAdapter().poolmanager.pool_classes_by_scheme['https']
+    second = LogfireHTTPAdapter().poolmanager.pool_classes_by_scheme['https']
+
+    assert first is second
+
+
+class _PortEchoHandler(BaseHTTPRequestHandler):
+    """Replies with the client's port, which identifies the connection a request arrived on."""
+
+    protocol_version = 'HTTP/1.1'
+
+    def do_GET(self) -> None:
+        if self.path == '/drop':
+            # Close without replying, so the request fails.
+            self.close_connection = True
+            return
+        body = str(self.client_address[1]).encode()
+        self.send_response(200)
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        pass
+
+
+@pytest.fixture
+def server_url() -> Iterator[str]:
+    server = ThreadingHTTPServer(('127.0.0.1', 0), _PortEchoHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f'http://127.0.0.1:{server.server_port}'
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.fixture
+def session() -> Iterator[requests.Session]:
+    with requests.Session() as session:
+        install_connection_policy(session)
+        yield session
 
 
 @pytest.fixture
@@ -139,47 +186,35 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return now
 
 
-def make_pool(monkeypatch: pytest.MonkeyPatch, idle_recycle_seconds: float) -> Any:
-    def not_dropped(conn: Any) -> bool:
-        return False
+def test_keepalive_reaches_the_socket(session: requests.Session, server_url: str) -> None:
+    response = session.get(server_url, stream=True)
+    connection: Any = response.raw.connection
+    sock: socket.socket = connection.sock
+    idle_option = getattr(socket, 'TCP_KEEPIDLE', None) or socket.TCP_KEEPALIVE  # macOS spells it TCP_KEEPALIVE
 
-    # Mock connections are not real sockets, so urllib3's own liveness check must stand aside.
-    monkeypatch.setattr('urllib3.connectionpool.is_connection_dropped', not_dropped)
-    pool: Any = _recycling_pool_class(HTTPSConnectionPool, idle_recycle_seconds)('example.com', maxsize=5)
-    # urllib3 pre-fills the pool with `None` placeholders; drain them so seeded connections are
-    # not discarded as "pool is full".
-    while not pool.pool.empty():
-        pool.pool.get(block=False)
-    return pool
-
-
-@pytest.fixture
-def pool(monkeypatch: pytest.MonkeyPatch, clock: list[float]) -> Any:
-    return make_pool(monkeypatch, IDLE_CONNECTION_RECYCLE_SECONDS)
+    assert sock.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE)
+    assert sock.getsockopt(socket.IPPROTO_TCP, idle_option) == TCP_KEEPALIVE_IDLE_SECONDS
+    # urllib3's own default survives.
+    assert sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
+    # Reading the body hands the connection back to the pool, to be closed cleanly with the session.
+    assert response.content
 
 
-def test_connection_used_within_the_window_is_reused(pool: Any, clock: list[float]) -> None:
-    conn = Mock()
-    pool._put_conn(conn)
+def test_connection_is_reused_within_the_window_and_replaced_beyond_it(
+    session: requests.Session, server_url: str, clock: list[float]
+) -> None:
+    first_port = session.get(server_url).text
 
     clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS - 1
-
-    assert pool._get_conn() is conn
-    conn.close.assert_not_called()
-
-
-def test_connection_idle_beyond_the_window_is_closed(pool: Any, clock: list[float]) -> None:
-    conn = Mock()
-    pool._put_conn(conn)
+    assert session.get(server_url).text == first_port
 
     clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS + 1
-
-    # urllib3 reconnects lazily, so the connection is still handed back, just closed first.
-    assert pool._get_conn() is conn
-    conn.close.assert_called_once()
+    assert session.get(server_url).text != first_port
 
 
-def test_a_busy_session_still_recycles_a_connection_that_sat_idle(pool: Any, clock: list[float]) -> None:
+def test_a_busy_session_still_recycles_a_connection_that_sat_idle(
+    session: requests.Session, server_url: str, clock: list[float]
+) -> None:
     """Idleness is per connection, not per session.
 
     One Logfire session carries traces, metrics and logs from different threads. A steady trace
@@ -191,41 +226,30 @@ def test_a_busy_session_still_recycles_a_connection_that_sat_idle(pool: Any, clo
     goes cold, then gets handed back out at the next overlap. Measured on a real session, 98 of
     99 requests went to one connection while another was used once and abandoned.
     """
-    idle_conn, busy_conn = Mock(name='idle'), Mock(name='busy')
-    pool._put_conn(idle_conn)  # parked at the bottom of the LIFO pool
-    pool._put_conn(busy_conn)
+    # Two overlapping requests open two connections. Reading a body returns its connection to the
+    # pool, so the first one read ends up underneath.
+    parked = session.get(server_url, stream=True)
+    busy = session.get(server_url, stream=True)
+    parked_port, busy_port = parked.text, busy.text
 
-    # Traffic keeps cycling the top connection well inside the window.
+    # Sequential traffic keeps cycling the top connection well inside the window.
     for _ in range(5):
         clock[0] += IDLE_CONNECTION_RECYCLE_SECONDS / 2
-        assert pool._get_conn() is busy_conn
-        pool._put_conn(busy_conn)
-    busy_conn.close.assert_not_called()
+        assert session.get(server_url).text == busy_port
 
-    # The one underneath has been idle the whole time and must not be trusted.
-    assert pool._get_conn() is busy_conn
-    assert pool._get_conn() is idle_conn
-    idle_conn.close.assert_called_once()
-
-
-def test_recycle_window_is_configurable(monkeypatch: pytest.MonkeyPatch, clock: list[float]) -> None:
-    pool = make_pool(monkeypatch, idle_recycle_seconds=5)
-    conn = Mock()
-    pool._put_conn(conn)
-
-    clock[0] += 6
-
-    pool._get_conn()
-    conn.close.assert_called_once()
+    # The next overlap reaches the one underneath, idle all along, which must not be trusted.
+    top = session.get(server_url, stream=True)
+    underneath = session.get(server_url, stream=True)
+    assert top.text == busy_port
+    assert underneath.text not in (parked_port, busy_port)
 
 
-def test_connections_urllib3_never_pooled_are_passed_through(pool: Any) -> None:
-    """`urllib3` puts `None` back after a failed request, and builds fresh connections lazily."""
-    pool._put_conn(None)
+def test_a_failed_request_does_not_break_the_pool(session: requests.Session, server_url: str) -> None:
+    """`urllib3` puts `None` back in the pool in place of a connection a request broke."""
+    with pytest.raises(requests.ConnectionError):
+        session.get(f'{server_url}/drop')
 
-    conn = pool._get_conn()
-
-    assert not hasattr(conn, '_logfire_idle_since')
+    assert session.get(server_url).text
 
 
 def test_recycling_pools_are_derived_from_the_classes_the_manager_already_uses() -> None:
@@ -237,7 +261,7 @@ def test_recycling_pools_are_derived_from_the_classes_the_manager_already_uses()
     manager = PoolManager()
     manager.pool_classes_by_scheme = {'https': CustomPool}  # pyright: ignore[reportAttributeAccessIssue]
 
-    _install_recycling_pools(manager, IDLE_CONNECTION_RECYCLE_SECONDS)
+    _install_recycling_pools(manager)
 
     installed = manager.pool_classes_by_scheme['https']
     assert issubclass(installed, CustomPool)
@@ -246,25 +270,22 @@ def test_recycling_pools_are_derived_from_the_classes_the_manager_already_uses()
 
 def test_proxied_requests_get_the_policy_too() -> None:
     """`requests` builds a separate manager per proxy, which `init_poolmanager` never sees."""
-    adapter = LogfireHTTPAdapter(idle_recycle_seconds=13)
-
-    manager = adapter.proxy_manager_for('http://proxy.example.com')
+    manager = LogfireHTTPAdapter().proxy_manager_for('http://proxy.example.com')
 
     assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in manager.connection_pool_kw['socket_options']
-    pool_class = manager.pool_classes_by_scheme['https']
-    assert issubclass(pool_class, _IdleRecyclingPoolMixin)
-    assert pool_class.idle_recycle_seconds == 13
+    assert issubclass(manager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
 
 
-def test_a_reused_proxy_manager_is_not_wrapped_again() -> None:
-    """`requests` caches proxy managers, so re-applying the policy must be a no-op."""
+def test_a_reused_proxy_manager_is_handed_back_as_is() -> None:
+    """`requests` asks for the proxy manager on every proxied request and caches it."""
     adapter = LogfireHTTPAdapter()
     proxy = 'http://proxy.example.com'
 
-    first = adapter.proxy_manager_for(proxy).pool_classes_by_scheme['https']
-    second = adapter.proxy_manager_for(proxy).pool_classes_by_scheme['https']
+    first = adapter.proxy_manager_for(proxy)
+    classes = first.pool_classes_by_scheme
 
-    assert first is second
+    assert adapter.proxy_manager_for(proxy) is first
+    assert first.pool_classes_by_scheme is classes
 
 
 def test_install_connection_policy_mounts_both_schemes() -> None:
@@ -279,11 +300,10 @@ def test_install_connection_policy_mounts_both_schemes() -> None:
 
 def test_adapter_survives_pickling() -> None:
     """`requests.Session` is picklable, so the adapter must rebuild its pools on unpickling."""
-    restored = pickle.loads(pickle.dumps(LogfireHTTPAdapter(idle_recycle_seconds=7)))
+    restored = pickle.loads(pickle.dumps(LogfireHTTPAdapter()))
 
     assert isinstance(restored, LogfireHTTPAdapter)
-    assert restored._idle_recycle_seconds == 7  # pyright: ignore[reportPrivateUsage]
-    assert restored.poolmanager.pool_classes_by_scheme['https'].idle_recycle_seconds == 7
+    assert issubclass(restored.poolmanager.pool_classes_by_scheme['https'], _IdleRecyclingPoolMixin)
 
 
 def _otlp_exporter_session() -> requests.Session:
@@ -301,10 +321,11 @@ def _remote_variables_session() -> requests.Session:
 
 
 def test_the_sse_stream_session_gets_the_policy() -> None:
-    """The SSE stream is the longest-lived connection the SDK opens, so it matters most there.
+    """The SSE stream is read with no read timeout, so TCP keepalive matters most there.
 
-    It is built by its own session rather than the polling one, so covering the provider's
-    polling session says nothing about it.
+    After a silent drop only a failed keepalive probe unblocks the read. The stream is built by its
+    own session rather than the polling one, so covering the provider's polling session says
+    nothing about it.
     """
     provider = LogfireRemoteVariableProvider(base_url='https://x', token='t', options=VariablesOptions())
 
