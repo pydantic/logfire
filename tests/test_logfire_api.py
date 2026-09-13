@@ -111,17 +111,27 @@ def _postprocess_feature_flags_pyi(content: str) -> str:
 
 
 def test_postprocess_feature_flags_pyi_preserves_direct_constructor_inference() -> None:
-    generated = (
-        'InferableFlagValue = bool | str\n'
-        'InferableFlagValue = Any\n'
-        '    def __init__(self, name: str, *, default: InferableFlagT, description: str | None = None)'
+    checked_in = (
+        Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'experimental' / 'feature_flags.pyi'
+    ).read_text()
+    precise_alias = 'InferableFlagValue = bool | str | int | float | Enum | BaseModel\n'
+    typed_constructor = 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,'
+    generated_constructor = 'def __init__(self, name: str, *, default: InferableFlagT,'
+    assert precise_alias in checked_in
+    assert typed_constructor in checked_in
+    generated = checked_in.replace(precise_alias, f'{precise_alias}InferableFlagValue = Any\n', 1).replace(
+        typed_constructor, generated_constructor, 1
     )
 
     processed = _postprocess_feature_flags_pyi(generated)
 
-    assert 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,' in processed
-    assert 'InferableFlagValue = Any' not in processed
+    assert processed == checked_in
     assert _postprocess_feature_flags_pyi(processed) == processed
+
+
+def test_postprocess_feature_flags_pyi_rejects_an_unknown_constructor() -> None:
+    with pytest.raises(ValueError, match='generated Flag constructor signature changed'):
+        _postprocess_feature_flags_pyi('class Flag: ...\n')
 
 
 @pytest.mark.parametrize(

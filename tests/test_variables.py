@@ -6397,6 +6397,48 @@ class TestVariablesConfigResolveSerializedValueCodeDefault:
         assert result.reason == 'resolved'
 
 
+class TestFeatureFlagResolveSerializedValueExplicitLabel:
+    def test_existing_explicit_label_is_static_even_when_rollout_is_split(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='false'),
+                        'treatment': LabeledValue(version=1, serialized_value='true'),
+                    },
+                    rollout=Rollout(labels={'control': 0.5, 'treatment': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+
+        result = config.resolve_serialized_value('test_var', targeting_key='user-1', label='treatment')
+
+        assert result.label == 'treatment'
+        assert result.rule_evaluation_reason == 'static'
+
+    def test_missing_explicit_label_keeps_fallback_rollout_reason(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='false'),
+                        'treatment': LabeledValue(version=1, serialized_value='true'),
+                    },
+                    rollout=Rollout(labels={'control': 0.5, 'treatment': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+
+        result = config.resolve_serialized_value('test_var', targeting_key='user-1', label='missing')
+
+        assert result.label in {'control', 'treatment'}
+        assert result.rule_evaluation_reason == 'split'
+
+
 class TestVariablesConfigValidationErrorsWithLatestVersion:
     """Test get_validation_errors validates latest_version values."""
 

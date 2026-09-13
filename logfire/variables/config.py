@@ -544,6 +544,7 @@ class VariablesConfig(BaseModel):
         if variable_config is None:
             return ResolvedVariable(name=name, value=None, reason='unrecognized_variable')
 
+        explicit_label_selected = label is not None and label in variable_config.labels
         serialized_value, selected_label, version = variable_config.resolve_value(
             targeting_key, attributes, label=label
         )
@@ -553,7 +554,9 @@ class VariablesConfig(BaseModel):
             label=selected_label,
             version=version,
             reason='resolved',
-            rule_evaluation_reason=variable_config.rule_evaluation_reason(attributes),
+            rule_evaluation_reason=(
+                'static' if explicit_label_selected else variable_config.rule_evaluation_reason(attributes)
+            ),
         )
 
     def _get_variable_config(self, name: VariableName) -> VariableConfig | None:
