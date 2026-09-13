@@ -1344,7 +1344,11 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
             # Python-mode serializers may leave nested credentials inside opaque objects.
             value = self.type_adapter.dump_python(result.value, mode='json')
         except (ValueError, TypeError, RuntimeError):
-            value = serialized_value
+            # The serialized fallback is one opaque string, so path-based scrubbing cannot inspect
+            # nested fields. Omit it instead of weakening the scrubber's fail-closed guarantee.
+            telemetry.pop('feature_flag.result.value')
+            telemetry['logfire.feature_flag.result.value_status'] = 'serialization_error'
+            return telemetry
         scrub_key = f'logfire.feature_flag.result.{self.name}'
         try:
             scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(

@@ -955,12 +955,12 @@ def test_typed_flag_telemetry_scrubs_json_only_serializers(config_kwargs: dict[s
     assert 'opaque-value' not in repr(attributes)
 
 
-def test_typed_flag_telemetry_uses_serialized_value_when_dumping_fails(
+def test_typed_flag_telemetry_omits_serialized_value_when_dumping_fails(
     config_kwargs: dict[str, Any], exporter: TestExporter
 ):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
-    checkout = flag('checkout', default=CheckoutConfig(provider='stripe', retries=2))
+    checkout = flag('checkout', default=SecretConfig(api_key='nested-secret'))
     exporter.clear()
     scrubber = logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber
 
@@ -970,10 +970,16 @@ def test_typed_flag_telemetry_uses_serialized_value_when_dumping_fails(
     ):
         checkout.value()
 
-    assert scrub_value.call_args_list[0].args == (
-        ('attributes',),
-        {'logfire.feature_flag.result.checkout': '{"provider":"stripe","retries":2}'},
+    assert all('logfire.feature_flag.result.checkout' not in call.args[1] for call in scrub_value.call_args_list)
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
     )
+    attributes = dict(evaluation_span.attributes or {})
+    assert 'feature_flag.result.value' not in attributes
+    assert attributes['logfire.feature_flag.result.value_status'] == 'serialization_error'
+    assert 'nested-secret' not in repr(evaluation_span)
 
 
 def test_typed_flag_telemetry_honors_callback_replacements_without_notes(

@@ -6413,7 +6413,9 @@ class TestFeatureFlagResolveSerializedValueExplicitLabel:
             }
         )
 
-        result = config.resolve_serialized_value('test_var', targeting_key='user-1', label='treatment')
+        # This key selects control through the rollout, so the explicit treatment assertion also
+        # proves the requested label reaches VariableConfig.resolve_value().
+        result = config.resolve_serialized_value('test_var', targeting_key='user-2', label='treatment')
 
         assert result.name == 'test_var'
         assert result.reason == 'resolved'
@@ -6435,12 +6437,19 @@ class TestFeatureFlagResolveSerializedValueExplicitLabel:
             }
         )
 
-        result = config.resolve_serialized_value('test_var', targeting_key='user-1', label='missing')
+        result = config.resolve_serialized_value('test_var', targeting_key='user-2', label='missing')
 
         assert result.name == 'test_var'
         assert result.reason == 'resolved'
-        assert result.label in {'control', 'treatment'}
+        assert result.label == 'control'
         assert result.rule_evaluation_reason == 'split'
+
+    def test_unrecognized_flag_preserves_name_and_reason(self):
+        result = VariablesConfig(variables={}).resolve_serialized_value('missing_flag')
+
+        assert result.name == 'missing_flag'
+        assert result.value is None
+        assert result.reason == 'unrecognized_variable'
 
 
 class TestVariablesConfigValidationErrorsWithLatestVersion:
