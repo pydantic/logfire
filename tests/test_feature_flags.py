@@ -126,7 +126,14 @@ def test_feature_flag_api_is_experimental():
             None,
         ),
         (
-            ResolvedVariable(name='test_flag', value=False, reason='validation_error', exception=ValueError()),
+            ResolvedVariable(
+                name='test_flag',
+                value=False,
+                label='invalid',
+                version=9,
+                reason='validation_error',
+                exception=ValueError(),
+            ),
             None,
             {},
             'error',
@@ -212,9 +219,14 @@ def test_feature_flag_telemetry_translation(
         result = replace(result, rule_evaluation_reason=config.rule_evaluation_reason(attributes))
     telemetry = _feature_flag_telemetry_attributes(result)
     details = _feature_flag_evaluation_details(result)
+    expected_variant = None if expected_error else result.label
+    expected_version = None if expected_error else result.version
 
     assert details.value is result.value
-    assert details.variant == result.label
+    assert details.variant == expected_variant
+    assert details.flag_metadata == (
+        {'logfire.value_version': expected_version} if expected_version is not None else {}
+    )
     assert details.reason == expected_reason.upper()
     assert details.error_code == (expected_error.upper() if expected_error else None)
     assert telemetry['feature_flag.key'] == result.name
@@ -223,8 +235,9 @@ def test_feature_flag_telemetry_translation(
     assert telemetry['feature_flag.result.reason'] == expected_reason
     assert telemetry['logfire.feature_flag.resolution_reason'] == result.reason
     assert telemetry.get('error.type') == expected_error
-    assert telemetry.get('feature_flag.result.variant') == result.label
-    assert telemetry.get('logfire.feature_flag.value_version') == result.version
+    assert telemetry.get('feature_flag.error.message') == details.error_message
+    assert telemetry.get('feature_flag.result.variant') == expected_variant
+    assert telemetry.get('logfire.feature_flag.value_version') == expected_version
     assert 'feature_flag.version' not in telemetry
     if result.reason == 'validation_error':
         assert details.error_message == 'Configured value did not match the declared flag type.'
@@ -571,14 +584,65 @@ def test_openfeature_provider_uses_the_caller_default_on_resolution_error():
         console=False,
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
-    feature_flag('test_flag', default=True)
+    test_flag = feature_flag('test_flag', default=True)
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        direct_details = test_flag.details()
 
     with pytest.warns(RuntimeWarning, match='value failed validation'):
         details = LogfireProvider().resolve_boolean_details('test_flag', False)
 
+    assert direct_details.value is True
+    assert direct_details.variant is None
+    assert direct_details.flag_metadata == {}
+    assert direct_details.reason == Reason.ERROR
+    assert direct_details.error_code == ErrorCode.TYPE_MISMATCH
     assert details.value is False
+    assert details.variant is None
+    assert details.flag_metadata == {}
     assert details.reason == Reason.ERROR
     assert details.error_code == ErrorCode.TYPE_MISMATCH
+
+
+def test_openfeature_context_takes_precedence_over_logfire_feature_context():
+    config = _boolean_config(
+        rollout=Rollout(labels={'disabled': 1.0}),
+        overrides=[
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='team')],
+                rollout=Rollout(labels={'enabled': 1.0}),
+            )
+        ],
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    test_flag = feature_flag('test_flag', default=False)
+    openfeature_api.set_provider(LogfireProvider(), domain='logfire-context-test')
+    previous_global_context = openfeature_api.get_evaluation_context()
+    openfeature_api.set_evaluation_context(
+        EvaluationContext(targeting_key='global-account', attributes={'plan': 'free'})
+    )
+    client = openfeature_api.get_client(domain='logfire-context-test')
+    try:
+        with feature_context('request-account', attributes={'plan': 'team'}):
+            assert test_flag.details().variant == 'enabled'
+            assert client.get_boolean_details('test_flag', False).variant == 'disabled'
+            assert (
+                client.get_boolean_details(
+                    'test_flag',
+                    False,
+                    EvaluationContext(targeting_key='invocation-account', attributes={'plan': 'team'}),
+                ).variant
+                == 'enabled'
+            )
+
+        assert client.get_boolean_details('test_flag', False).variant == 'disabled'
+    finally:
+        openfeature_api.set_evaluation_context(previous_global_context)
+        openfeature_api.clear_providers()
 
 
 def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
@@ -1062,6 +1126,34 @@ def test_openfeature_provider_returns_default_when_evaluation_raises():
     assert details.reason == Reason.ERROR
     assert details.error_code == ErrorCode.GENERAL
     assert details.error_message == 'Feature flag evaluation failed.'
+
+
+def test_provider_exception_text_is_not_recorded_for_feature_flags(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    region = flag('region', default='us')
+    provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+    exporter.clear()
+
+    with patch.object(
+        provider,
+        'get_serialized_value',
+        side_effect=RuntimeError('provider failed for victim@example.com'),
+    ):
+        assert region.value() == 'us'
+
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    attributes = dict(evaluation_span.attributes or {})
+    assert attributes['error.type'] == 'general'
+    assert attributes['feature_flag.error.message'] == 'Feature flag evaluation failed.'
+    assert evaluation_span.events == ()
+    assert 'victim@example.com' not in repr(evaluation_span)
 
 
 def test_scrubbing_callback_failure_cannot_break_flag_evaluation(config_kwargs: dict[str, Any], exporter: TestExporter):

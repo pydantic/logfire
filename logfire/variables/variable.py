@@ -221,13 +221,14 @@ def _feature_flag_evaluation_details(
         # Custom providers may resolve a value without exposing rule metadata.
         reason = Reason.STATIC
 
+    has_error = error_code is not None
     return FlagResolutionDetails(
         value=result.value,
-        variant=result.label,
+        variant=None if has_error else result.label,
         reason=reason,
         error_code=error_code,
         error_message=error_message,
-        flag_metadata={'logfire.value_version': result.version} if result.version is not None else {},
+        flag_metadata={'logfire.value_version': result.version} if result.version is not None and not has_error else {},
     )
 
 
@@ -248,13 +249,15 @@ def _feature_flag_telemetry_attributes(
     }
     if details.variant is not None:
         result_attributes['feature_flag.result.variant'] = details.variant
-    if result.version is not None:
+    if result.version is not None and details.error_code is None:
         # Managed-variable versions identify the selected value, not the complete flag ruleset.
         # Keep that useful detail without assigning OpenTelemetry's `feature_flag.version`, which
         # is reserved for a version that uniquely identifies the flag or flag set configuration.
         result_attributes['logfire.feature_flag.value_version'] = result.version
     if details.error_code is not None:
         result_attributes['error.type'] = details.error_code.lower()
+        if details.error_message is not None:
+            result_attributes['feature_flag.error.message'] = details.error_message
     return result_attributes
 
 
@@ -1168,7 +1171,7 @@ class Variable(Generic[T_co]):
                     )
                 span.set_attributes(attrs)
                 if result.exception:
-                    span.record_exception(result.exception)
+                    self._record_resolution_exception(span, result.exception)
                 # Keep discovery metadata on its own child span so attribute limits cannot
                 # displace the resolution result that users rely on for observability.
                 self._emit_declaration_once(span)
@@ -1195,6 +1198,10 @@ class Variable(Generic[T_co]):
     def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
         """Return evaluation context attributes included on the resolution span."""
         return {'targeting_key': targeting_key, 'attributes': attributes}
+
+    def _record_resolution_exception(self, span: logfire.LogfireSpan, exception: BaseException) -> None:
+        """Record a managed-variable resolution exception."""
+        span.record_exception(exception)
 
     def _uses_trace_id_as_targeting_key(self) -> bool:
         """Return whether an active trace may provide a fallback targeting key."""
@@ -1315,6 +1322,11 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         # locally, so the surrounding trace is sufficient for correlation and the raw context
         # does not need to leave the process.
         return {}
+
+    def _record_resolution_exception(self, span: logfire.LogfireSpan, exception: BaseException) -> None:
+        # Provider exceptions may contain targeting data. The generic error attributes retain the
+        # actionable classification without exporting exception text from feature-flag evaluation.
+        del span, exception
 
     def _resolution_telemetry_attributes(
         self,

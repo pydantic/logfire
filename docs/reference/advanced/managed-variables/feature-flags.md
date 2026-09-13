@@ -34,6 +34,8 @@ with feature_context('account-123', attributes={'plan': 'team'}):
 
 The targeting key identifies the subject receiving the flag. Use a stable user or organization identifier so percentage rollouts consistently select the same outcome. Attributes let targeting rules select groups such as plans or regions. Context set by `feature_context()` also applies to other managed variables evaluated inside the block; pass `targeting_key` or `attributes` directly to an evaluation when it needs different values.
 
+When evaluating through an OpenFeature client, use OpenFeature's own evaluation context. If both context APIs are active, OpenFeature's merged context is passed to Logfire as explicit evaluation input and takes precedence over `feature_context()`.
+
 To inspect the selected variant, fallback reason, or error, call `details()` (or the initial boolean API's `evaluate()` alias):
 
 ```python skip="true"

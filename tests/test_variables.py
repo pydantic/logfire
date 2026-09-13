@@ -6415,6 +6415,8 @@ class TestFeatureFlagResolveSerializedValueExplicitLabel:
 
         result = config.resolve_serialized_value('test_var', targeting_key='user-1', label='treatment')
 
+        assert result.name == 'test_var'
+        assert result.reason == 'resolved'
         assert result.label == 'treatment'
         assert result.rule_evaluation_reason == 'static'
 
@@ -6435,6 +6437,8 @@ class TestFeatureFlagResolveSerializedValueExplicitLabel:
 
         result = config.resolve_serialized_value('test_var', targeting_key='user-1', label='missing')
 
+        assert result.name == 'test_var'
+        assert result.reason == 'resolved'
         assert result.label in {'control', 'treatment'}
         assert result.rule_evaluation_reason == 'split'
 
