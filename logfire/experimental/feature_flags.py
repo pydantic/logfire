@@ -364,7 +364,7 @@ def _type_mismatch(default_value: T, message: str) -> FlagResolutionDetails[T]:
 def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: type[Any]) -> bool:
     """Match Pydantic constrained scalar types to their OpenFeature primitive type."""
     expected_schema_type = {bool: 'bool', str: 'str', int: 'int', float: 'float'}[expected_type]
-    schema = adapter.type_adapter.core_schema
+    schema = _unwrap_transparent_schema(adapter.type_adapter.core_schema)
     schema_type = schema.get('type')
     if schema_type == expected_schema_type:
         return True
@@ -388,6 +388,7 @@ def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: 
 
 def _is_exclusively_openfeature_scalar_schema(schema: Mapping[Any, Any]) -> bool:
     """Return whether every value admitted by a Pydantic schema is an OpenFeature scalar."""
+    schema = _unwrap_transparent_schema(schema)
     schema_type = schema.get('type')
     if schema_type in {'bool', 'str', 'int', 'float', 'literal'}:
         return True
@@ -417,6 +418,16 @@ def _is_exclusively_openfeature_scalar_schema(schema: Mapping[Any, Any]) -> bool
             _is_schema_mapping(choice) and _is_exclusively_openfeature_scalar_schema(choice) for choice in choices
         )
     return False
+
+
+def _unwrap_transparent_schema(schema: Mapping[Any, Any]) -> Mapping[Any, Any]:
+    """Unwrap Pydantic schemas that retain the declared value's underlying shape."""
+    while schema.get('type') in {'function-after', 'function-before', 'function-wrap', 'default', 'definitions'}:
+        inner_schema = schema.get('schema')
+        if not _is_schema_mapping(inner_schema):
+            break
+        schema = inner_schema
+    return schema
 
 
 def _is_schema_mapping(value: object) -> TypeIs[Mapping[Any, Any]]:

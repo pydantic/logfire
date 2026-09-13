@@ -341,7 +341,7 @@ venv = ".venv"
 [tool.pytest.ini_options]
 xfail_strict = true
 # Preserve pytest's default exclusions and ignore mutmut's generated copy of the repository.
-norecursedirs = ["*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "mutants"]
+norecursedirs = ["*.egg", "*.egg-info", ".*", "__pycache__", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "mutants"]
 # The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
 filterwarnings = [

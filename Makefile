@@ -45,6 +45,7 @@ test-feature-flags-mutation:
 		'*Flag*' \
 		'*_matches_openfeature_scalar_type*' \
 		'*_is_exclusively_openfeature_scalar_schema*' \
+		'*_unwrap_transparent_schema*' \
 		'*_feature_flag_evaluation_details*' \
 		'*_feature_flag_telemetry_attributes*' \
 		'*_ManagedVariableFlagAdapter*resolution_telemetry_attributes*' \
@@ -52,7 +53,7 @@ test-feature-flags-mutation:
 	# `mutmut results` includes unselected mutants as "not checked", so filter its
 	# qualified mutant identifiers back to the functions selected above.
 	@results="$$(uv run --no-sync mutmut results)" || exit $$?; \
-	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|Flag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*resolution_telemetry_attributes|feature_context' || true)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|Flag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_transparent_schema|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*resolution_telemetry_attributes|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \

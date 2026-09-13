@@ -6,6 +6,7 @@ import threading
 import warnings
 from collections import Counter
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, ExitStack
 from dataclasses import replace
 from enum import Enum, IntEnum
@@ -26,7 +27,7 @@ from openfeature import api as openfeature_api
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
-from pydantic import BaseModel, Field, PlainSerializer, ValidationError
+from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, ValidationError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
@@ -98,6 +99,14 @@ def _rollout_from_parts(parts: tuple[int, int, int]) -> Rollout:
 
 def test_feature_flag_api_is_experimental():
     assert not hasattr(logfire, 'feature_flag')
+
+
+def test_boolean_feature_flag_rejects_non_boolean_defaults():
+    with pytest.raises(TypeError, match='Feature flag defaults must be boolean'):
+        feature_flag('not_really_boolean', default=cast(Any, 1))
+
+    with pytest.raises(TypeError, match='Feature flag defaults must be boolean'):
+        FeatureFlag('still_not_boolean', default=cast(Any, 1))
     assert not hasattr(logfire, 'feature_context')
 
 
@@ -654,6 +663,16 @@ def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
     assert provider.resolve_integer_details('positive_retries', 1).value == 3
     assert provider.resolve_float_details('positive_ratio', 0.1).value == 0.5
     assert provider.resolve_string_details('nonempty_region', 'fallback').value == 'us'
+
+
+def test_openfeature_provider_accepts_validator_wrapped_scalar_flags():
+    flag('validated_retries', type=cast(Any, Annotated[int, AfterValidator(abs)]), default=3)
+    provider = LogfireProvider()
+
+    assert provider.resolve_integer_details('validated_retries', 1).value == 3
+    mismatch = provider.resolve_object_details('validated_retries', {})
+    assert mismatch.value == {}
+    assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
 
 
 def test_openfeature_provider_accepts_literal_scalar_flags():
@@ -1429,27 +1448,17 @@ def test_feature_context_isolated_across_threads():
         variables=LocalVariablesOptions(config=config, instrument=False),
     )
     flag = feature_flag('test_flag', default=False)
-    barrier = threading.Barrier(4)
-    results: dict[str, bool] = {}
-    results_lock = threading.Lock()
+    barrier = threading.Barrier(4, timeout=2)
 
-    def evaluate(name: str, plan: str):
+    def evaluate(name: str, plan: str) -> tuple[str, bool]:
         with feature_context(name, attributes={'plan': plan}):
             barrier.wait()
-            value = flag.is_enabled()
-            with results_lock:
-                results[name] = value
+            return name, flag.is_enabled()
 
-    threads = [
-        threading.Thread(target=evaluate, args=(f'user-{index}', 'team' if index % 2 else 'guest'))
-        for index in range(4)
-    ]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=5)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(evaluate, f'user-{index}', 'team' if index % 2 else 'guest') for index in range(4)]
+        results = dict(future.result(timeout=5) for future in futures)
 
-    assert all(not thread.is_alive() for thread in threads)
     assert results == {'user-0': False, 'user-1': True, 'user-2': False, 'user-3': True}
 
 
