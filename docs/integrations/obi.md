@@ -13,8 +13,9 @@ metric is a number tracked over time, like requests per second or CPU load.
 
 OBI is useful when you cannot add an SDK to a service, or when you want a quick inventory before
 adding deeper instrumentation. It does not collect application logs or instrument application-level
-work such as model calls. OBI can trace supported database protocols, but add an OpenTelemetry or
-Logfire SDK when you need deeper application detail.
+work such as model calls. OBI can trace
+[supported database protocols](https://opentelemetry.io/docs/zero-code/obi/configure/export-data/#instrumentation-compatibility),
+but add an OpenTelemetry or Logfire SDK when you need deeper application detail.
 
 OBI is a pre-release OpenTelemetry project. Its configuration and telemetry can change between
 `v0` minor releases, so this guide pins the exact OBI v0.13.0 image tested with Logfire.
