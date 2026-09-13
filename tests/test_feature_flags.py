@@ -649,6 +649,8 @@ def test_openfeature_object_schema_classification_handles_pydantic_24_enums():
     assert _is_exclusively_openfeature_scalar_schema(lax_schema(RegionFlag)) is True
     assert _is_exclusively_openfeature_scalar_schema(lax_schema(ObjectFlag)) is False
     assert _is_exclusively_openfeature_scalar_schema(lax_schema(str)) is False
+    assert _is_exclusively_openfeature_scalar_schema({'type': 'lax-or-strict', 'strict_schema': {}}) is False
+    assert _is_exclusively_openfeature_scalar_schema({'type': 'lax-or-strict', 'strict_schema': None}) is False
 
 
 @pytest.mark.parametrize(
