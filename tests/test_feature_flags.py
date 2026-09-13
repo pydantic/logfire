@@ -651,6 +651,27 @@ def test_openfeature_object_schema_classification_handles_pydantic_24_enums():
     assert _is_exclusively_openfeature_scalar_schema(lax_schema(str)) is False
 
 
+@pytest.mark.parametrize(
+    'flag_type, default', [(bool, False), (float, 1.5), (Literal['a'], 'a'), (RegionFlag, RegionFlag.US)]
+)
+def test_openfeature_object_schema_classification_recognizes_scalar_schemas(flag_type: Any, default: Any):
+    adapter = flag('scalar_schema', type=flag_type, default=default)._adapter
+
+    assert _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema) is True
+
+
+@pytest.mark.parametrize(
+    'schema',
+    [
+        {'type': 'union', 'choices': []},
+        {'type': 'union', 'choices': [{'type': 'str'}, 'not-a-schema']},
+        {'type': 'union', 'choices': [{'type': 'str'}, {'type': 'list'}]},
+    ],
+)
+def test_openfeature_object_schema_classification_rejects_non_scalar_unions(schema: dict[str, Any]):
+    assert _is_exclusively_openfeature_scalar_schema(schema) is False
+
+
 def test_openfeature_provider_uses_an_explicit_logfire_instance():
     custom_logfire = Mock()
 

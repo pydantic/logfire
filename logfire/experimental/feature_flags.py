@@ -10,7 +10,7 @@ from contextlib import AbstractContextManager
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast, overload
 
-from typing_extensions import TypeForm
+from typing_extensions import TypeForm, TypeIs
 
 from logfire.variables import ensure_variables_dependencies
 
@@ -386,7 +386,7 @@ def _matches_openfeature_scalar_type(adapter: _FlagAdapter[Any], expected_type: 
     return bool(values) and all(type(value) is expected_type for value in values)
 
 
-def _is_exclusively_openfeature_scalar_schema(schema: Mapping[str, Any]) -> bool:
+def _is_exclusively_openfeature_scalar_schema(schema: Mapping[Any, Any]) -> bool:
     """Return whether every value admitted by a Pydantic schema is an OpenFeature scalar."""
     schema_type = schema.get('type')
     if schema_type in {'bool', 'str', 'int', 'float', 'literal'}:
@@ -407,17 +407,23 @@ def _is_exclusively_openfeature_scalar_schema(schema: Mapping[str, Any]) -> bool
         )
     if schema_type == 'nullable':
         inner_schema = schema.get('schema')
-        return isinstance(inner_schema, Mapping) and _is_exclusively_openfeature_scalar_schema(
-            cast(Mapping[str, Any], inner_schema)
-        )
+        return _is_schema_mapping(inner_schema) and _is_exclusively_openfeature_scalar_schema(inner_schema)
     if schema_type == 'union':
         choices = schema.get('choices')
-        typed_choices = cast(list[Any], choices) if isinstance(choices, list) else []
-        return bool(typed_choices) and all(
-            isinstance(choice, Mapping) and _is_exclusively_openfeature_scalar_schema(cast(Mapping[str, Any], choice))
-            for choice in typed_choices
+        if not _is_schema_list(choices):
+            return False
+        return bool(choices) and all(
+            _is_schema_mapping(choice) and _is_exclusively_openfeature_scalar_schema(choice) for choice in choices
         )
     return False
+
+
+def _is_schema_mapping(value: object) -> TypeIs[Mapping[Any, Any]]:
+    return isinstance(value, Mapping)
+
+
+def _is_schema_list(value: object) -> TypeIs[list[Any]]:
+    return isinstance(value, list)
 
 
 def _infer_flag_type(default: Any) -> type[Any]:
