@@ -364,22 +364,47 @@ class VariableConfig(BaseModel):
             The name of the selected label, or None if no label is selected (empty rollout
             means 'use code default').
         """
-        if attributes is None:
-            attributes = {}
-
-        # Step 1: Determine the rollout and overrides to use
-        base_rollout = self.rollout
-        base_overrides = self.overrides
-
-        # Step 2: Find the first matching override, or use the base rollout
-        selected_rollout = base_rollout
-        for override in base_overrides:
-            if _matches_all_conditions(override.conditions, attributes):
-                selected_rollout = override.rollout
-                break  # First match takes precedence
-
+        selected_rollout = self._select_rollout(attributes)
         seed = None if targeting_key is None else f'{self.name!r}:{targeting_key!r}'
         return selected_rollout.select_label(seed)
+
+    def requires_targeting_key(self, attributes: Mapping[str, Any] | None = None) -> bool:
+        """Return whether the selected rollout has more than one possible outcome.
+
+        A stable targeting key is required to keep a subject on the same outcome when a
+        rollout can select multiple labels or fall back to the code default.
+        """
+        selected_rollout = self._select_rollout(attributes)
+        positive_labels = sum(weight > 0 for weight in selected_rollout.labels.values())
+        includes_code_default = sum(selected_rollout.labels.values()) < 1.0
+        return positive_labels + includes_code_default > 1
+
+    def _select_rollout(self, attributes: Mapping[str, Any] | None) -> Rollout:
+        """Return the first rollout whose targeting conditions apply."""
+        rollout, _ = self._select_rollout_with_match(attributes)
+        return rollout
+
+    def _select_rollout_with_match(self, attributes: Mapping[str, Any] | None) -> tuple[Rollout, bool]:
+        """Return the selected rollout and whether a targeting override matched."""
+        if attributes is None:
+            attributes = {}
+        for override in self.overrides:
+            if _matches_all_conditions(override.conditions, attributes):
+                return override.rollout, True
+        return self.rollout, False
+
+    def rule_evaluation_reason(
+        self, attributes: Mapping[str, Any] | None = None
+    ) -> Literal['static', 'split', 'targeting_match']:
+        """Classify the selected rule for feature-flag evaluation details."""
+        rollout, matched_target = self._select_rollout_with_match(attributes)
+        positive_labels = sum(weight > 0 for weight in rollout.labels.values())
+        includes_code_default = sum(rollout.labels.values()) < 1.0
+        if positive_labels + includes_code_default > 1:
+            return 'split'
+        if matched_target:
+            return 'targeting_match'
+        return 'static'
 
     def resolve_value(
         self,
@@ -519,6 +544,7 @@ class VariablesConfig(BaseModel):
         if variable_config is None:
             return ResolvedVariable(name=name, value=None, reason='unrecognized_variable')
 
+        explicit_label_selected = label is not None and label in variable_config.labels
         serialized_value, selected_label, version = variable_config.resolve_value(
             targeting_key, attributes, label=label
         )
@@ -528,6 +554,9 @@ class VariablesConfig(BaseModel):
             label=selected_label,
             version=version,
             reason='resolved',
+            rule_evaluation_reason=(
+                'static' if explicit_label_selected else variable_config.rule_evaluation_reason(attributes)
+            ),
         )
 
     def _get_variable_config(self, name: VariableName) -> VariableConfig | None:

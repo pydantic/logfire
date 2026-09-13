@@ -3,10 +3,12 @@ from typing import TYPE_CHECKING, Any, assert_type, reveal_type
 from pydantic import BaseModel
 
 import logfire
+from logfire.experimental.feature_flags import FeatureFlag, Flag, FlagEvaluationDetails, feature_flag, flag
 from logfire.variables import TemplateVariable, Variable
 
 if TYPE_CHECKING:
     from logfire.experimental.api_client import LogfireAPIClient
+    from logfire_api.experimental.feature_flags import Flag as ApiFlag  # pyright: ignore[reportMissingModuleSource]
 
 # Documenting the current behavior: including a default of an incompatible type extends the union rather than producing
 # a type error. This is arguably a feature, not a bug — the `type` is only used for validating provider values, not the
@@ -31,7 +33,36 @@ my_template_variable = logfire.template_var(
 assert_type(my_template_variable, TemplateVariable[str, PromptInputs])
 assert_type(my_template_variable.get(PromptInputs(name='Alice')).value, str)
 
+my_feature_flag = feature_flag(name='my_feature_flag', default=False)
+assert_type(my_feature_flag, FeatureFlag)
+assert_type(my_feature_flag.is_enabled(), bool)
+assert_type(my_feature_flag.evaluate(), FlagEvaluationDetails[bool])
+assert_type(my_feature_flag.evaluate().value, bool)
+assert_type(FeatureFlag(name='another_feature_flag', default=True), FeatureFlag)
+
+
+class CheckoutConfig(BaseModel):
+    provider: str
+    retries: int
+
+
+checkout_flag = flag('checkout', default=CheckoutConfig(provider='stripe', retries=2))
+assert_type(checkout_flag, Flag[CheckoutConfig])
+assert_type(checkout_flag.value(), CheckoutConfig)
+assert_type(checkout_flag.details(), FlagEvaluationDetails[CheckoutConfig])
+assert_type(
+    Flag('checkout_direct', default=CheckoutConfig(provider='stripe', retries=2)),
+    Flag[CheckoutConfig],
+)
+string_list_flag = flag('allowed_regions', type=list[str], default=[])
+assert_type(string_list_flag, Flag[list[str]])
+assert_type(string_list_flag.value(), list[str])
+
 if TYPE_CHECKING:
+    assert_type(
+        ApiFlag('checkout_api', default=CheckoutConfig(provider='stripe', retries=2)),
+        ApiFlag[CheckoutConfig],
+    )
     dataset_client = LogfireAPIClient()
     reveal_type(
         dataset_client.get_dataset('dataset', input_type=PromptInputs),

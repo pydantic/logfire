@@ -32,6 +32,35 @@ typecheck:
 test:
 	uv run --no-sync pytest -n logical --dist=loadgroup
 
+.PHONY: test-feature-flags  # Run the deterministic feature-flag reliability suite
+test-feature-flags:
+	uv run --no-sync pytest tests/test_feature_flags.py tests/test_variables.py -k 'flag or requires_targeting_key or VarDuplicateName or VarInvalidName'
+
+.PHONY: test-feature-flags-mutation  # Mutate the feature-flag decision and context boundaries
+test-feature-flags-mutation:
+	PYDANTIC_DISABLE_PLUGINS=__all__ uv run --no-sync mutmut run \
+		'*VariableConfig*_select_rollout*' \
+		'*VariableConfig*requires_targeting_key*' \
+		'*VariablesConfig*resolve_serialized_value*' \
+		'*Flag*' \
+		'*_matches_openfeature_scalar_type*' \
+		'*_is_exclusively_openfeature_scalar_schema*' \
+		'*_unwrap_transparent_schema*' \
+		'*_feature_flag_evaluation_details*' \
+		'*_feature_flag_telemetry_attributes*' \
+		'*_ManagedVariableFlagAdapter*resolution_telemetry_attributes*' \
+		'*feature_context*'
+	# `mutmut results` includes unselected mutants as "not checked", so filter its
+	# qualified mutant identifiers back to the functions selected above.
+	@results="$$(uv run --no-sync mutmut results)" || exit $$?; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|Flag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_transparent_schema|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*resolution_telemetry_attributes|feature_context' || true)"; \
+	if [ -n "$$target_results" ]; then \
+		printf '%s\n' "$$target_results"; \
+		echo 'Feature-flag mutation testing left non-killed mutants'; \
+		exit 1; \
+	fi
+	@echo 'All targeted feature-flag mutants were killed.'
+
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
 	uv run pytest --update-examples -k test_docs
@@ -42,8 +71,8 @@ generate-stubs:
 	rsync -a out/logfire/ logfire-api/logfire_api/
 	rm -rf out
 	# || true so that we ignore the test failure on the first pass, it should report as skipped on the second
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi || true
-	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi
+	uv run pytest ./tests/test_logfire_api.py::test_postprocess_generated_stubs || true
+	uv run pytest ./tests/test_logfire_api.py::test_postprocess_generated_stubs
 
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov:

@@ -6,7 +6,7 @@ import os
 import threading
 import warnings
 from collections.abc import Generator, Mapping, Sequence
-from contextlib import ExitStack, contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from importlib.util import find_spec
@@ -25,7 +25,7 @@ from logfire.variables.composition import (
 
 if TYPE_CHECKING:
     from logfire._internal.config import TemplateMismatchPolicy
-    from logfire.variables.abstract import VariableProvider
+    from logfire.variables.abstract import RuleEvaluationReason, VariableProvider
     from logfire.variables.config import VariableConfig
 
 if find_spec('anyio') is not None:  # pragma: no branch
@@ -43,6 +43,7 @@ __all__ = (
     'Variable',
     'TemplateVariable',
     'TemplateInputsMismatchError',
+    'feature_context',
     'targeting_context',
 )
 
@@ -62,6 +63,7 @@ class TemplateInputsMismatchError(Exception):
 
 T_co = TypeVar('T_co', covariant=True)
 InputsT = TypeVar('InputsT')
+FlagT = TypeVar('FlagT')
 
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
@@ -87,9 +89,12 @@ class _TargetingContextData:
     """Default targeting key for all variables."""
     by_variable: dict[str, str] = field(default_factory=dict[str, str])
     """Variable-specific targeting keys (variable name -> targeting key)."""
+    attributes: dict[str, Any] = field(default_factory=dict[str, Any])
+    """Request-local attributes shared by managed-variable evaluations."""
 
 
 _TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARGETING_CONTEXT', default=None)
+_FEATURE_TARGETING_KEY: ContextVar[str | None] = ContextVar('_FEATURE_TARGETING_KEY', default=None)
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -98,6 +103,13 @@ class ResolveFunction(Protocol[T_co]):
     def __call__(self, targeting_key: str | None, attributes: Mapping[str, Any] | None) -> T_co:
         """Resolve the variable value given a targeting key and attributes."""
         raise NotImplementedError  # pragma: no cover
+
+
+class _TargetableVariable(Protocol):
+    """Structural type accepted by variable-specific targeting contexts."""
+
+    @property
+    def name(self) -> str: ...
 
 
 class _RenderFunction(Protocol):
@@ -180,6 +192,84 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
         pass
 
 
+def _feature_flag_evaluation_details(
+    result: ResolvedVariable[T_co],
+) -> Any:
+    """Translate a managed-variable result into the feature-flag domain model."""
+    from openfeature.exception import ErrorCode
+    from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+
+    reason = Reason.DEFAULT
+    error_code: ErrorCode | None = None
+    error_message: str | None = None
+
+    if result.reason == 'validation_error':
+        reason = Reason.ERROR
+        error_code = ErrorCode.TYPE_MISMATCH
+        error_message = 'Configured value did not match the declared flag type.'
+    elif result.reason == 'other_error' or result.exception is not None:
+        reason = Reason.ERROR
+        error_code = ErrorCode.GENERAL
+        error_message = 'Feature flag evaluation failed.'
+    elif result.reason == 'context_override':
+        reason = Reason.STATIC
+    elif result.rule_evaluation_reason == 'split':
+        reason = Reason.SPLIT
+    elif result.rule_evaluation_reason == 'targeting_match' and result.reason == 'resolved':
+        reason = Reason.TARGETING_MATCH
+    elif result.reason == 'resolved':
+        # Custom providers may resolve a value without exposing rule metadata.
+        reason = Reason.STATIC
+
+    has_error = error_code is not None
+    return FlagResolutionDetails(
+        value=result.value,
+        variant=None if has_error else result.label,
+        reason=reason,
+        error_code=error_code,
+        error_message=error_message,
+        flag_metadata={'logfire.value_version': result.version} if result.version is not None and not has_error else {},
+    )
+
+
+def _feature_flag_telemetry_attributes(
+    result: ResolvedVariable[T_co],
+    serialized_value: str | None = None,
+) -> dict[str, Any]:
+    """Translate a managed-variable result to feature-flag semantic attributes."""
+    details = _feature_flag_evaluation_details(result)
+    result_attributes: dict[str, Any] = {
+        'feature_flag.key': result.name,
+        'feature_flag.provider.name': 'logfire',
+        'feature_flag.result.value': _feature_flag_telemetry_value(result.value, serialized_value),
+        # Keep the existing lower-case telemetry contract while the Python API exposes the
+        # standardized OpenFeature reason values.
+        'feature_flag.result.reason': details.reason.lower(),
+        'logfire.feature_flag.resolution_reason': result.reason,
+    }
+    if details.variant is not None:
+        result_attributes['feature_flag.result.variant'] = details.variant
+    if result.version is not None and details.error_code is None:
+        # Managed-variable versions identify the selected value, not the complete flag ruleset.
+        # Keep that useful detail without assigning OpenTelemetry's `feature_flag.version`, which
+        # is reserved for a version that uniquely identifies the flag or flag set configuration.
+        result_attributes['logfire.feature_flag.value_version'] = result.version
+    if details.error_code is not None:
+        result_attributes['error.type'] = details.error_code.lower()
+        # Every internal error classification above has a matching safe, generic message.
+        result_attributes['feature_flag.error.message'] = details.error_message
+    return result_attributes
+
+
+def _feature_flag_telemetry_value(value: Any, serialized_value: str | None) -> Any:
+    """Return a valid OpenTelemetry attribute without changing the existing scalar contract."""
+    if isinstance(value, (bool, str, int, float)):
+        return value
+    if serialized_value is not None:
+        return serialized_value
+    return '<unavailable>'
+
+
 # Stage of the resolution pipeline that a `_ResolveAttempt` failed at. Drives both
 # the fallback warning text and the resulting `ResolutionReason` ('validation' maps
 # to 'validation_error', everything else to 'other_error').
@@ -206,6 +296,9 @@ class _ResolveAttempt:
 class Variable(Generic[T_co]):
     """A managed variable that can be resolved dynamically based on configuration."""
 
+    kind = 'variable'
+    """The product surface this variable was declared through."""
+
     name: str
     """Unique name identifying this variable."""
     value_type: type[T_co]
@@ -214,7 +307,6 @@ class Variable(Generic[T_co]):
     """Default value or function to compute the default."""
     description: str | None
     """Description of the variable."""
-
     logfire_instance: logfire.Logfire
     """The Logfire instance this variable is associated with."""
 
@@ -386,6 +478,7 @@ class Variable(Generic[T_co]):
                     label=None,
                     version=None,
                     provider_exception=serialized_result.exception,
+                    feature_flag_reason=serialized_result.rule_evaluation_reason,
                 )
 
             # A provider (or label-specific) value: compose it strictly, so any
@@ -412,6 +505,7 @@ class Variable(Generic[T_co]):
                 label=serialized_result.label,
                 version=serialized_result.version,
                 provider_exception=serialized_result.exception,
+                feature_flag_reason=serialized_result.rule_evaluation_reason,
             )
 
         except TemplateInputsMismatchError:
@@ -490,6 +584,7 @@ class Variable(Generic[T_co]):
             label=None,
             version=None,
             provider_exception=None,
+            feature_flag_reason=None,
         )
 
     def _lookup_serialized(
@@ -548,6 +643,7 @@ class Variable(Generic[T_co]):
                     version=None,
                     reason='code_default',
                     exception=provider_result.exception,
+                    rule_evaluation_reason=provider_result.rule_evaluation_reason,
                 )
 
         # No value at any tier; propagate the provider's metadata so callers
@@ -650,6 +746,7 @@ class Variable(Generic[T_co]):
                 version=serialized_result.version,
                 reason='resolved',
                 composed_from=composed,
+                rule_evaluation_reason=serialized_result.rule_evaluation_reason,
             ),
         )
 
@@ -668,6 +765,7 @@ class Variable(Generic[T_co]):
         label: str | None,
         version: int | None,
         provider_exception: Exception | None,
+        feature_flag_reason: RuleEvaluationReason | None,
     ) -> ResolvedVariable[T_co]:
         """Resolve via the code default: compose strict, then non-strict, then raw.
 
@@ -695,9 +793,15 @@ class Variable(Generic[T_co]):
                 reason=self._fallback_reason(trigger_stage) if trigger_exc is not None else 'code_default',
                 label=label,
                 version=version,
+                rule_evaluation_reason=feature_flag_reason,
             )
 
-        default_result = ResolvedVariable[str | None](name=self.name, value=serialized_default, reason='code_default')
+        default_result = ResolvedVariable[str | None](
+            name=self.name,
+            value=serialized_default,
+            reason='code_default',
+            rule_evaluation_reason=feature_flag_reason,
+        )
         # Compose the code default strictly first; if a reference within it is unresolved,
         # re-compose non-strict so the missing reference renders as an empty string.
         attempt = self._try_resolve(default_result, provider, targeting_key, attributes, span, render_fn, strict=True)
@@ -744,6 +848,7 @@ class Variable(Generic[T_co]):
             label=label,
             version=version,
             composed_from=trigger_composed or [],
+            rule_evaluation_reason=feature_flag_reason,
         )
 
     @staticmethod
@@ -832,6 +937,7 @@ class Variable(Generic[T_co]):
             label=None,
             version=None,
             reason='code_default',
+            rule_evaluation_reason=serialized_result.rule_evaluation_reason,
         )
 
     def _warn_validation_fallback(self, error: Exception) -> None:
@@ -858,7 +964,8 @@ class Variable(Generic[T_co]):
             result.update(self.logfire_instance.resource_attributes)
         if include_baggage:
             result.update(logfire.get_baggage())
-        if attributes:
+        result.update(_get_contextvar_attributes())
+        if attributes is not None:
             result.update(attributes)
         return result
 
@@ -938,6 +1045,7 @@ class Variable(Generic[T_co]):
             'logfire.variable.declaration': True,
             'logfire.variable.declaration_version': 1,
             'logfire.variable.name': self.name,
+            'logfire.variable.kind': self.kind,
         }
         if self.description:
             # The remote API accepts at most 500 characters, so sending more cannot improve
@@ -1017,23 +1125,27 @@ class Variable(Generic[T_co]):
         if targeting_key is None:
             targeting_key = _get_contextvar_targeting_key(self.name)
 
-        if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
+        if (
+            targeting_key is None
+            and self._uses_trace_id_as_targeting_key()
+            and (current_trace_id := get_current_span().get_span_context().trace_id)
+        ):
             # If there is no active trace, the current_trace_id will be zero
             targeting_key = f'trace_id:{current_trace_id:032x}'
 
         # Include the variable name directly here to make the span name more useful,
         # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
         # Don't inline the f-string to avoid f-string magic.
-        span_name = f'Resolve variable {self.name}'
+        span_name = 'feature_flag.evaluation' if self.kind == 'feature_flag' else f'Resolve variable {self.name}'
         with ExitStack() as stack:
             span: logfire.LogfireSpan | None = None
             if _get_variables_instrument(self.logfire_instance.config.variables):
+                span_context = self._telemetry_context(targeting_key, merged_attributes)
                 span = stack.enter_context(
                     self.logfire_instance.span(
                         span_name,
                         name=self.name,
-                        targeting_key=targeting_key,
-                        attributes=merged_attributes,
+                        **span_context,
                     )
                 )
             result = self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
@@ -1044,13 +1156,13 @@ class Variable(Generic[T_co]):
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
                 except (ValueError, TypeError, RuntimeError):
                     serialized_value = repr(result.value)
-                attrs: dict[str, Any] = {
-                    'name': result.name,
-                    'value': serialized_value,
-                    'label': result.label,
-                    'version': result.version,
-                    'reason': result.reason,
-                }
+                attrs = self._resolution_telemetry_attributes(
+                    result,
+                    serialized_value=serialized_value,
+                    targeting_key=targeting_key,
+                    attributes=merged_attributes,
+                    requested_label=label,
+                )
                 if result.composed_from:
                     import json
 
@@ -1059,11 +1171,41 @@ class Variable(Generic[T_co]):
                     )
                 span.set_attributes(attrs)
                 if result.exception:
-                    span.record_exception(result.exception)
+                    self._record_resolution_exception(span, result.exception)
                 # Keep discovery metadata on its own child span so attribute limits cannot
                 # displace the resolution result that users rely on for observability.
                 self._emit_declaration_once(span)
             return result
+
+    def _resolution_telemetry_attributes(
+        self,
+        result: ResolvedVariable[T_co],
+        *,
+        serialized_value: str,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any],
+        requested_label: str | None,
+    ) -> dict[str, Any]:
+        """Build attributes for a managed-variable resolution span."""
+        return {
+            'name': result.name,
+            'value': serialized_value,
+            'label': result.label,
+            'version': result.version,
+            'reason': result.reason,
+        }
+
+    def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
+        """Return evaluation context attributes included on the resolution span."""
+        return {'targeting_key': targeting_key, 'attributes': attributes}
+
+    def _record_resolution_exception(self, span: logfire.LogfireSpan, exception: BaseException) -> None:
+        """Record a managed-variable resolution exception."""
+        span.record_exception(exception)
+
+    def _uses_trace_id_as_targeting_key(self) -> bool:
+        """Return whether an active trace may provide a fallback targeting key."""
+        return True
 
     def get(
         self,
@@ -1088,6 +1230,152 @@ class Variable(Generic[T_co]):
             version, and any errors that occurred.
         """
         return self._get_result_and_record_span(targeting_key, attributes, label)
+
+
+class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnusedClass]
+    """Compatibility adapter that evaluates feature flags through managed variables."""
+
+    kind = 'feature_flag'
+
+    def _uses_trace_id_as_targeting_key(self) -> bool:
+        # Inbound trace IDs can be controlled by callers and must not influence feature assignment.
+        return False
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        type: type[FlagT],
+        default: FlagT,
+        description: str | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        # Managed variables permit incompatible sentinel defaults, but a typed feature flag
+        # promises that every value it returns conforms to its declared type. Validate before
+        # initializing the variables engine so it never observes an invalid default.
+        validated_default = TypeAdapter[FlagT](type).validate_python(default)
+        super().__init__(
+            name,
+            type=type,
+            default=validated_default,
+            description=description,
+            logfire_instance=logfire_instance,
+        )
+
+    def get(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+    ) -> ResolvedVariable[FlagT]:
+        """Evaluate the flag and return its value and resolution details."""
+        context_targeting_key = self._get_context_targeting_key()
+        has_stable_targeting_key = targeting_key is not None or context_targeting_key is not None
+        if targeting_key is None:
+            targeting_key = context_targeting_key
+
+        result = super().get(targeting_key, attributes)
+        if not has_stable_targeting_key:
+            try:
+                variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
+                requires_targeting_key = variable_config is not None and variable_config.requires_targeting_key(
+                    self._get_merged_attributes(attributes)
+                )
+            except Exception:
+                # This inspection only enriches a warning. Malformed custom-provider metadata
+                # must not replace the safe value already returned by resolution.
+                return result
+            if requires_targeting_key:
+                _emit_resolution_warning(
+                    f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "
+                    'Pass targeting_key=... or use feature_context(...) to keep each subject on one variant.',
+                )
+        return result
+
+    def _get_context_targeting_key(self) -> str | None:
+        """Resolve feature-specific context without losing variable-specific precedence."""
+        context = _TARGETING_CONTEXT.get()
+        if context is not None and self.name in context.by_variable:
+            return context.by_variable[self.name]
+        feature_key = _FEATURE_TARGETING_KEY.get()
+        if feature_key is not None:
+            return feature_key
+        return context.default if context is not None else None
+
+    def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        # Propagated baggage can be supplied by an untrusted caller. Feature targeting only uses
+        # process-owned resource attributes and attributes supplied explicitly by application code.
+        from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+
+        result: dict[str, Any] = {}
+        variables = self.logfire_instance.config.variables
+        if not isinstance(variables, (VariablesOptions, LocalVariablesOptions)) or (
+            variables.include_resource_attributes_in_context
+        ):
+            result.update(self.logfire_instance.resource_attributes)
+        result.update(_get_contextvar_attributes())
+        if attributes is not None:
+            result.update(attributes)
+        return result
+
+    def _telemetry_context(self, targeting_key: str | None, attributes: Mapping[str, Any]) -> dict[str, Any]:
+        # Evaluation context can contain identifiers or customer attributes. Decisions happen
+        # locally, so the surrounding trace is sufficient for correlation and the raw context
+        # does not need to leave the process.
+        return {}
+
+    def _record_resolution_exception(self, span: logfire.LogfireSpan, exception: BaseException) -> None:
+        # Provider exceptions may contain targeting data. The generic error attributes retain the
+        # actionable classification without exporting exception text from feature-flag evaluation.
+        del span, exception
+
+    def _resolution_telemetry_attributes(
+        self,
+        result: ResolvedVariable[FlagT],
+        *,
+        serialized_value: str,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any],
+        requested_label: str | None,
+    ) -> dict[str, Any]:
+        del targeting_key, requested_label
+        telemetry = _feature_flag_telemetry_attributes(result, serialized_value)
+        try:
+            # Scrub the same JSON-compatible shape used for structured evaluation telemetry.
+            # Python-mode serializers may leave nested credentials inside opaque objects.
+            value = self.type_adapter.dump_python(result.value, mode='json')
+        except (ValueError, TypeError, RuntimeError):
+            # The serialized fallback is one opaque string, so path-based scrubbing cannot inspect
+            # nested fields. Omit it instead of weakening the scrubber's fail-closed guarantee.
+            telemetry.pop('feature_flag.result.value')
+            telemetry['logfire.feature_flag.result.value_status'] = 'serialization_error'
+            return telemetry
+        scrub_key = f'logfire.feature_flag.result.{self.name}'
+        try:
+            scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(
+                ('attributes',), {scrub_key: value}
+            )
+            was_scrubbed = bool(scrubbed_notes) or scrubbed[scrub_key] != value
+        except Exception:
+            # Scrubbing is best-effort telemetry processing and must not break a successful
+            # evaluation. Fail closed so an unreliable callback cannot leak the unchecked value.
+            was_scrubbed = True
+        if was_scrubbed:
+            telemetry.pop('feature_flag.result.value')
+            telemetry['logfire.feature_flag.result.value_status'] = 'scrubbed'
+        return telemetry
+
+    def evaluate_flag(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+    ) -> Any:
+        """Evaluate through managed variables and translate to the feature-flag contract."""
+        result = self.get(targeting_key, attributes)
+        return _feature_flag_evaluation_details(result)
+
+    def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
+        """Temporarily replace the flag value in the current context."""
+        return self.override(self.type_adapter.validate_python(value))
 
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
@@ -1343,9 +1631,11 @@ def warn_on_template_inputs_composition_mismatch(
 @contextmanager
 def targeting_context(
     targeting_key: str,
-    variables: Sequence[Variable[Any] | TemplateVariable[Any, Any]] | None = None,
+    variables: Sequence[_TargetableVariable] | None = None,
+    *,
+    attributes: Mapping[str, Any] | None = None,
 ) -> Generator[None]:
-    """Set the targeting key for variable resolution within this context.
+    """Set the request-local targeting key and attributes for variable resolution.
 
     The targeting key is used for deterministic label selection - the same targeting key
     will always resolve to the same label for a given variable configuration.
@@ -1355,6 +1645,8 @@ def targeting_context(
             (e.g., user ID, organization ID).
         variables: If provided, only apply this targeting key to these specific variables.
             If not provided, this becomes the default targeting key for all variables.
+        attributes: Optional targeting attributes shared by all variables in this context.
+            Nested contexts merge attributes, with inner values taking precedence.
 
     Variable-specific targeting always takes precedence over the default, regardless
     of nesting order. Call-site explicit targeting_key still wins over everything.
@@ -1381,6 +1673,7 @@ def targeting_context(
     new_data = _TargetingContextData(
         default=current.default if current else None,
         by_variable=dict(current.by_variable) if current else {},
+        attributes=dict(current.attributes) if current else {},
     )
 
     if variables is None:
@@ -1388,12 +1681,37 @@ def targeting_context(
     else:
         for var in variables:
             new_data.by_variable[var.name] = targeting_key
+    if attributes is not None:
+        new_data.attributes.update(attributes)
 
     token = _TARGETING_CONTEXT.set(new_data)
     try:
         yield
     finally:
         _TARGETING_CONTEXT.reset(token)
+
+
+@contextmanager
+def feature_context(
+    targeting_key: str,
+    *,
+    attributes: Mapping[str, Any] | None = None,
+) -> Generator[None]:
+    """Set request-local targeting for feature flags and other managed variables.
+
+    This is an experimental convenience alias for :func:`targeting_context`. Attributes
+    supplied directly to an evaluation take precedence over values set here.
+
+    Args:
+        targeting_key: Stable identifier used for deterministic rollouts, such as a user or organization ID.
+        attributes: Optional targeting attributes, such as the user's plan or region.
+    """
+    feature_token = _FEATURE_TARGETING_KEY.set(targeting_key)
+    try:
+        with targeting_context(targeting_key, attributes=attributes):
+            yield
+    finally:
+        _FEATURE_TARGETING_KEY.reset(feature_token)
 
 
 def _get_contextvar_targeting_key(variable_name: str) -> str | None:
@@ -1411,6 +1729,12 @@ def _get_contextvar_targeting_key(variable_name: str) -> str | None:
         return None
     # Variable-specific takes precedence over default
     return ctx.by_variable.get(variable_name, ctx.default)
+
+
+def _get_contextvar_attributes() -> Mapping[str, Any]:
+    """Return request-local targeting attributes."""
+    ctx = _TARGETING_CONTEXT.get()
+    return ctx.attributes if ctx is not None else {}
 
 
 def _get_variables_instrument(variables: Any) -> bool:

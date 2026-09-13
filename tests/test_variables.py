@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import os
 import threading
@@ -11,7 +12,7 @@ import unittest.mock
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import requests_mock as requests_mock_module
@@ -22,6 +23,7 @@ from requests import Session
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions, LogfireConfig, VariablesOptions
+from logfire.experimental.feature_flags import feature_context, feature_flag
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -399,6 +401,29 @@ class TestVariableConfig:
         # Try many times to get None
         results = [config.resolve_label(targeting_key=f'user{i}') for i in range(100)]
         assert None in results
+
+    def test_requires_targeting_key_only_for_multiple_outcomes(self):
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'enabled': LabeledValue(version=1, serialized_value='true'),
+                'disabled': LabeledValue(version=1, serialized_value='false'),
+            },
+            rollout=Rollout(labels={'enabled': 1.0}),
+            overrides=[
+                RolloutOverride(
+                    conditions=[ValueEquals(attribute='plan', value='free')],
+                    rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}),
+                )
+            ],
+        )
+
+        assert config.requires_targeting_key() is False
+        assert config.requires_targeting_key({'plan': 'team'}) is False
+        assert config.requires_targeting_key({'plan': 'free'}) is True
+
+        config.rollout = Rollout(labels={'enabled': 0.9999999995})
+        assert config.requires_targeting_key() is True
 
     def test_validation_invalid_label_key(self):
         with pytest.raises(ValidationError, match="Label 'correct_key' present in `rollout.labels` is not present"):
@@ -1901,6 +1926,262 @@ class TestApiKeySupport:
 # =============================================================================
 
 
+class TestFeatureFlag:
+    @pytest.fixture
+    def feature_flags_config(self) -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={
+                        'enabled': LabeledValue(version=3, serialized_value='true'),
+                        'disabled': LabeledValue(version=2, serialized_value='false'),
+                    },
+                    rollout=Rollout(labels={'enabled': 0.9, 'disabled': 0.1}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[ValueEquals(attribute='plan', value='free')],
+                            rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}),
+                        )
+                    ],
+                )
+            }
+        )
+
+    def test_code_default_and_override(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+
+        assert flag.is_enabled() is False
+        assert flag.evaluate().reason == 'DEFAULT'
+        with flag.override_for_testing(True):
+            assert flag.is_enabled() is True
+
+    def test_invalid_managed_value_keeps_boolean_contract(self, config_kwargs: dict[str, Any]):
+        config = VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={'invalid': LabeledValue(version=1, serialized_value='null')},
+                    rollout=Rollout(labels={'invalid': 1.0}),
+                    overrides=[],
+                )
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            details = flag.evaluate(targeting_key='user-123')
+
+        assert details.value is False
+        assert details.reason == 'ERROR'
+        assert details.error_code == 'TYPE_MISMATCH'
+        assert details.error_message == 'Configured value did not match the declared flag type.'
+
+    def test_evaluate_with_feature_context(self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with feature_context('user-123', attributes={'plan': 'free', 'region': 'us'}):
+            details = flag.evaluate()
+            assert details.value is False
+            assert details.variant == 'disabled'
+
+            # Invocation attributes take precedence over request-local attributes.
+            assert flag.is_enabled(attributes={'plan': 'team'}) is True
+
+            with feature_context('user-456', attributes={'region': 'eu'}):
+                assert flag.is_enabled() is True
+
+            # Leaving the nested context restores the outer key and attributes.
+            assert flag.is_enabled() is False
+
+        # Leaving the outer context restores the base rollout and does not retain plan='free'.
+        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+
+    @pytest.mark.anyio
+    async def test_feature_context_is_isolated_between_tasks(self, config_kwargs: dict[str, Any]):
+        config = VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={
+                        'enabled': LabeledValue(version=1, serialized_value='true'),
+                        'disabled': LabeledValue(version=1, serialized_value='false'),
+                    },
+                    rollout=Rollout(labels={'disabled': 1.0}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[ValueEquals(attribute='plan', value='team')],
+                            rollout=Rollout(labels={'enabled': 1.0}),
+                        )
+                    ],
+                )
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        async def evaluate(targeting_key: str, plan: str) -> tuple[bool, str | None]:
+            with feature_context(targeting_key, attributes={'plan': plan}):
+                await asyncio.sleep(0)
+                details = flag.evaluate()
+                return details.value, details.variant
+
+        team, free = await asyncio.gather(evaluate('team-user', 'team'), evaluate('free-user', 'free'))
+
+        assert team == (True, 'enabled')
+        assert free == (False, 'disabled')
+
+    def test_evaluation_and_declaration_telemetry(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+        exporter: TestExporter,
+    ):
+        feature_flags_config.variables['new_checkout'].overrides[0].rollout = Rollout(labels={'disabled': 1.0})
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config, instrument=True)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+        exporter.clear()
+
+        with feature_context('user-123', attributes={'plan': 'free'}):
+            details = flag.evaluate()
+
+        evaluation_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'feature_flag.evaluation'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        attrs = dict(evaluation_span.attributes or {})
+        assert attrs['feature_flag.key'] == 'new_checkout'
+        assert attrs['feature_flag.provider.name'] == 'logfire'
+        assert attrs['feature_flag.result.value'] is False
+        assert attrs['feature_flag.result.variant'] == 'disabled'
+        assert attrs['feature_flag.result.reason'] == 'targeting_match'
+        assert attrs['logfire.feature_flag.resolution_reason'] == 'resolved'
+        assert attrs['logfire.feature_flag.value_version'] == 2
+        assert 'feature_flag.version' not in attrs
+        assert 'error.type' not in attrs
+        assert 'targeting_key' not in attrs
+        assert 'attributes' not in attrs
+        assert details.value is False
+
+        declaration_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable new_checkout'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        declaration_attrs = dict(declaration_span.attributes or {})
+        assert declaration_attrs['logfire.variable.kind'] == 'feature_flag'
+        assert declaration_attrs['logfire.variable.schema'] == '{"type":"boolean"}'
+        assert declaration_attrs['logfire.variable.code_default'] == 'false'
+
+    def test_explicit_targeting_key_takes_precedence(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with feature_context('user-12'):
+            details = flag.evaluate(targeting_key='user-123')
+
+        config = feature_flags_config.variables['new_checkout']
+        assert config.resolve_label('user-12') == 'disabled'
+        expected_label = config.resolve_label('user-123')
+        assert expected_label == 'enabled'
+        assert details.variant == expected_label
+
+    def test_rejects_non_boolean_default(self, config_kwargs: dict[str, Any]):
+        logfire.configure(**config_kwargs)
+
+        with pytest.raises(TypeError, match=r'^Feature flag defaults must be boolean\.$'):
+            feature_flag('new_checkout', default=cast(Any, 'false'))
+        with pytest.raises(ValueError, match='Invalid variable name'):
+            feature_flag('new_checkout\n', default=False)
+
+        feature_flag('duplicate', default=False)
+        with pytest.raises(ValueError, match='already been registered'):
+            feature_flag('duplicate', default=cast(Any, 'false'))
+
+    def test_shares_the_variable_registry(self, config_kwargs: dict[str, Any]):
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        registered = logfire.variables_get()
+        assert len(registered) == 1
+        assert registered[0].name == flag.name
+        assert registered[0] is not flag  # The managed variable is a private compatibility adapter.
+        with pytest.raises(ValueError, match='already been registered'):
+            logfire.var('new_checkout', default=False)
+
+    def test_warns_when_percentage_rollout_has_no_stable_targeting_key(self, config_kwargs: dict[str, Any]):
+        config = VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={'enabled': LabeledValue(version=1, serialized_value='true')},
+                    rollout=Rollout(labels={'enabled': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with pytest.warns(RuntimeWarning, match='no stable targeting key'):
+            flag.is_enabled()
+        with logfire.span('request'), pytest.warns(RuntimeWarning, match='no stable targeting key'):
+            flag.is_enabled()
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            assert isinstance(flag.is_enabled(), bool)
+            flag.is_enabled(targeting_key='user-123')
+            with feature_context('user-456'):
+                flag.is_enabled()
+
+    def test_propagated_baggage_does_not_target_feature_flags(
+        self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with logfire.set_baggage(plan='free'):
+            # user-123 resolves differently for the base rollout and the free-plan override.
+            assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+            assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
+
+    def test_resource_attributes_can_be_excluded_from_feature_flag_targeting(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv('OTEL_RESOURCE_ATTRIBUTES', 'plan=free')
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=feature_flags_config,
+            include_resource_attributes_in_context=False,
+        )
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        # The resource attribute would select the free-plan override if the opt-out were ignored.
+        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+        assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
+
+
 class TestVariable:
     @pytest.fixture
     def variables_config(self) -> VariablesConfig:
@@ -2924,6 +3205,29 @@ class TestTargetingContext:
         with targeting_context('user123'):
             assert var_a.get().value == result_a.value
             assert var_b.get().value == result_b.value
+
+    def test_targeting_context_provides_attributes(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Context attributes participate in targeting and invocation attributes win."""
+        from logfire.variables.variable import targeting_context
+
+        rollout_config.variables['var_a'].overrides = [
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='team')],
+                rollout=Rollout(labels={'v2': 1.0}),
+            ),
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='free')],
+                rollout=Rollout(labels={'v1': 1.0}),
+            ),
+        ]
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
+        variable = logfire.configure(**config_kwargs).var(name='var_a', default='default', type=str)
+
+        with targeting_context('account-123', attributes={'plan': 'team'}):
+            assert variable.get().label == 'v2'
+            assert variable.get(attributes={'plan': 'free'}).label == 'v1'
 
     def test_targeting_context_for_specific_variables(
         self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
@@ -5796,15 +6100,28 @@ class TestVarDuplicateName:
         with pytest.raises(ValueError, match="A variable with name 'dup_var' has already been registered"):
             lf.var(name='dup_var', default='world', type=str)
 
+    def test_duplicate_name_is_checked_before_constructing_type_adapter(self, config_kwargs: dict[str, Any]):
+        class SchemaHookMustNotRun:
+            @classmethod
+            def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> Any:
+                raise AssertionError('duplicate registration constructed a type adapter')
+
+        lf = logfire.configure(**config_kwargs)
+        lf.var(name='dup_var', default='hello', type=str)
+
+        with pytest.raises(ValueError, match="A variable with name 'dup_var' has already been registered"):
+            lf.var(name='dup_var', default=cast(Any, SchemaHookMustNotRun()))
+
 
 class TestVarInvalidName:
     """Test that var() raises when registering a variable with an invalid name."""
 
-    def test_invalid_name_raises(self, config_kwargs: dict[str, Any]):
+    @pytest.mark.parametrize('name', ['1bad-name!', 'trailing_newline\n'])
+    def test_invalid_name_raises(self, config_kwargs: dict[str, Any], name: str):
         lf = logfire.configure(**config_kwargs)
 
         with pytest.raises(ValueError, match='Invalid variable name'):
-            lf.var(name='1bad-name!', default='hello', type=str)
+            lf.var(name=name, default='hello', type=str)
 
 
 class TestVariablesOptionsPollingInterval:
@@ -6078,6 +6395,61 @@ class TestVariablesConfigResolveSerializedValueCodeDefault:
         result = config.resolve_serialized_value('test_var')
         assert result.value is None
         assert result.reason == 'resolved'
+
+
+class TestFeatureFlagResolveSerializedValueExplicitLabel:
+    def test_existing_explicit_label_is_static_even_when_rollout_is_split(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='false'),
+                        'treatment': LabeledValue(version=1, serialized_value='true'),
+                    },
+                    rollout=Rollout(labels={'control': 0.5, 'treatment': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+
+        # This key selects control through the rollout, so the explicit treatment assertion also
+        # proves the requested label reaches VariableConfig.resolve_value().
+        result = config.resolve_serialized_value('test_var', targeting_key='user-2', label='treatment')
+
+        assert result.name == 'test_var'
+        assert result.reason == 'resolved'
+        assert result.label == 'treatment'
+        assert result.rule_evaluation_reason == 'static'
+
+    def test_missing_explicit_label_keeps_fallback_rollout_reason(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='false'),
+                        'treatment': LabeledValue(version=1, serialized_value='true'),
+                    },
+                    rollout=Rollout(labels={'control': 0.5, 'treatment': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+
+        result = config.resolve_serialized_value('test_var', targeting_key='user-2', label='missing')
+
+        assert result.name == 'test_var'
+        assert result.reason == 'resolved'
+        assert result.label == 'control'
+        assert result.rule_evaluation_reason == 'split'
+
+    def test_unrecognized_flag_preserves_name_and_reason(self):
+        result = VariablesConfig(variables={}).resolve_serialized_value('missing_flag')
+
+        assert result.name == 'missing_flag'
+        assert result.value is None
+        assert result.reason == 'unrecognized_variable'
 
 
 class TestVariablesConfigValidationErrorsWithLatestVersion:
