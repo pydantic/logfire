@@ -4,7 +4,8 @@ description: "Send request traces and application metrics from OpenTelemetry eBP
 ---
 # Observe services without code changes using OBI
 
-See HTTP and gRPC requests from Linux services without changing their application code. OpenTelemetry
+See HTTP and gRPC (a remote procedure call protocol) requests from Linux services without changing
+their application code. OpenTelemetry
 eBPF Instrumentation (OBI) observes supported processes at the operating-system level and sends
 the resulting data directly to Logfire. Each span is one unit of work: a single operation, with a
 name, a start, and a duration. A trace is the full journey of one request, made of nested spans. A
@@ -43,9 +44,10 @@ Keep the Logfire write token outside the Compose file:
 export LOGFIRE_TOKEN='your-write-token'
 ```
 
-Add OBI beside the service you want to observe. This example selects the process that listens on
-container port `8080`. It sends both traces and metrics through the OpenTelemetry Protocol (OTLP),
-the standard wire format Logfire uses to receive that data:
+Add OBI beside the service you want to observe. This example assumes the target executable is
+`/app/checkout-api` and selects it together with container port `8080`. Replace the image and
+executable path with those for your service. It sends both traces and metrics through the
+OpenTelemetry Protocol (OTLP), the standard wire format Logfire uses to receive that data:
 
 !!! note "This sends data to Logfire"
     This configuration sends observed request and service metadata to your Logfire project, where
@@ -72,6 +74,7 @@ services:
     restart: unless-stopped
     environment:
       OTEL_EBPF_OPEN_PORT: "8080"
+      OTEL_EBPF_AUTO_TARGET_EXE: /app/checkout-api
       OTEL_EBPF_ENFORCE_SYS_CAPS: "1"
       OTEL_EBPF_SERVICE_NAME: checkout-api
       OTEL_EXPORTER_OTLP_ENDPOINT: https://logfire-us.pydantic.dev
@@ -89,6 +92,8 @@ curl http://localhost:8080/health
 
 `OTEL_EBPF_OPEN_PORT` matches the port opened by the process inside its container. If you publish
 container port `8080` as host port `18080`, keep the selector set to `8080`.
+`OTEL_EBPF_AUTO_TARGET_EXE` matches the target's full executable command. OBI requires both
+selectors to match, which prevents it from instrumenting Docker's port-forwarding process instead.
 
 Set `OTEL_SERVICE_NAME` and the service metadata on each target workload. The
 `OTEL_EBPF_SERVICE_NAME` fallback in this single-service example gives OBI the same stable identity
@@ -108,6 +113,8 @@ Configure its exporter from a Kubernetes Secret rather than placing a token in a
 
 ```yaml
 env:
+  - name: OTEL_EBPF_KUBE_METADATA_ENABLE
+    value: "true"
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: https://logfire-us.pydantic.dev
   - name: OTEL_EXPORTER_OTLP_PROTOCOL
@@ -119,8 +126,9 @@ env:
         key: headers
 ```
 
-Set the `headers` secret value to `Authorization=your-write-token`. Enable OBI's Kubernetes metadata
-decoration and use standard workload labels so service names remain stable when pods are replaced.
+Set the `headers` secret value to `Authorization=your-write-token`. Grant OBI the service account
+and RBAC permissions from the official deployment guide. Use standard workload labels so service
+names remain stable when pods are replaced.
 
 ## Verify the telemetry
 
