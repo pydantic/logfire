@@ -215,9 +215,31 @@ extraPaths = ["logfire-sdk"]
 venvPath = "."
 venv = ".venv"
 
+[tool.mutmut]
+source_paths = ["logfire-sdk/logfire/"]
+only_mutate = [
+    "logfire-sdk/logfire/experimental/feature_flags.py",
+    "logfire-sdk/logfire/variables/config.py",
+    "logfire-sdk/logfire/variables/variable.py",
+]
+pytest_add_cli_args_test_selection = [
+    "tests/test_feature_flags.py",
+    "tests/test_variables.py",
+    "-k",
+    "flag or requires_targeting_key or VarDuplicateName or VarInvalidName",
+    "-p",
+    "no:logfire",
+    "-p",
+    "no:pytest_logfire",
+]
+mutate_only_covered_lines = true
+max_stack_depth = 12
+
 [tool.pytest.ini_options]
 xfail_strict = true
 pythonpath = ["."]
+# Preserve pytest's default exclusions and ignore mutmut's generated copy of the repository.
+norecursedirs = ["*.egg", "*.egg-info", ".*", "__pycache__", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "mutants"]
 # The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
 filterwarnings = [
