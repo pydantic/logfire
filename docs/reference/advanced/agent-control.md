@@ -90,7 +90,7 @@ Ordering follows from the same concern. A replaced block keeps its position and 
 
 ### The baseline
 
-A **baseline** is the same shape, describing your code rather than changing it. Your adapter publishes it as the variable's `example`, and the Logfire editor renders it as the code side to diff published values against. It is what turns a blank form into "here is your prompt, block by block; change this one".
+A **baseline** is the same shape, describing your code rather than changing it. Your adapter reports it to Logfire, which renders it as the code side to diff published values against. It is what turns a blank form into "here is your prompt, block by block; change this one" — and what an agent that has no config yet is registered by.
 
 ```json
 {
@@ -112,7 +112,33 @@ A **baseline** is the same shape, describing your code rather than changing it. 
 }
 ```
 
-Note the third instruction block: it carries its id and `dynamic: true`, and no text. Its text is one request's rendering of whatever that run carried, so publishing it would leak one run's data into a variable the whole project can read. Note also the `units` parameter with an empty entry: an undocumented parameter is exactly the one somebody wants to describe from Logfire, so the baseline lists every top-level parameter, documented or not.
+Note the third instruction block: it carries its id and `dynamic: true`, and no text. Its text is one request's rendering of whatever that run carried, so reporting it would leak one run's data into an artifact the whole project can read. Note also the `units` parameter with an empty entry: an undocumented parameter is exactly the one somebody wants to describe from Logfire, so the baseline lists every top-level parameter, documented or not.
+
+### Publication
+
+A baseline quotes your agent's own prompt and tool descriptions into a Logfire project everyone on your team can read. That is the point — it is what lets the editor open on your prompt instead of on a blank form — and it is also something a team should be able to turn down without giving up Agent Control. `AgentControl(report_baseline=...)` is that control, and it has three settings:
+
+| | What leaves your process | What the editor can do |
+|---|---|---|
+| `'text'` | The whole baseline: instruction text, tool and parameter descriptions | Everything |
+| `'structure'` | Every **seam** and no prose: instruction ids and their `dynamic` flags, tool names, toolsets, parameter names | Override every block and every tool, without showing you what the code says |
+| `'off'` | No baseline at all | Nothing — the agent still appears on the Agent Control page, but there's nothing to build a config from |
+
+`'structure'` is the one to reach for if your prompts can't land in a project-readable artifact: the editor keeps its entire override surface, and simply can't show you the text you are replacing. The model string and the canonical settings survive it, because a model id and a temperature are the agent's shape rather than its prose, and an editor that can't see which model an agent runs can't offer to change it.
+
+`'off'` lands in exactly the state a baseline too large to carry lands in: the span is still emitted, `agent_control.baseline` is absent, and `agent_control.baseline_reduction` says `'omitted'`. There's one state on the span for "the document isn't here", rather than a second word to learn.
+
+Leave `report_baseline` unset and the `source` you pass chooses: **`'structure'` for an `'observed'` baseline, `'text'` for a `'code'` one.** An observed baseline is a snapshot of one request, so its text came from whatever that request carried — one tenant's, one user's, one retrieved document's — and reporting it is the case least likely to be what anyone meant. A baseline read off the code is your own words, written to be read.
+
+Whatever the mode, a **dynamic block never contributes its rendered text** and **settings are reduced to the canonical keys**, so one run's data and your `extra_headers` stay out of every report. Those are `build_baseline`'s rules, not this control's.
+
+### What a report carries
+
+One span per agent per process per Logfire project, named `agent_control_config_hint`, with everything a config would be created from on `agent_control.*` attributes: `variable_name` and `agent_name`, `framework` (which Agent Control implementation reported — an adapter passes its framework's slug, and `AgentControl(framework=...)` is where), `baseline_source`, `schema_sha256`, `baseline` and its `baseline_sha256`, `baseline_reduction` and `baseline_bytes`, `resolution_reason`, and `service_name` / `environment` / `service_version` for the deployment that reported it. Each of the last three is left off rather than sent empty.
+
+Nothing on the span says which publication mode produced it, deliberately. A baseline *is* whatever your policy says it is: `baseline_sha256` and `baseline_bytes` describe what was actually reported, so two deployments running the same code under the same policy agree, and nobody reading the span has to reconstruct what a fuller report would have said.
+
+It is a span rather than a log record on purpose: a log below your `min_level` is dropped before it is exported, and getting your agent onto the Agent Control page is not something a logging setting should get a vote on. A baseline over 1 MiB gives up whole sections rather than being cut to length — `tool_definitions` first, then the baseline entirely — because the backend truncates a long attribute in place, and half a JSON document still looks like a string and no longer parses. `baseline_reduction` says which happened, and `baseline_sha256` is taken before any of it, so two reports of one agent agree.
 
 ## Writing an adapter
 
@@ -120,7 +146,7 @@ An adapter does five things. Nothing else in `logfire.agent_control` is required
 
 **1. Name the agent's config.** `AgentControl('checkout-assistant', label='production')`. The name you pass is kept verbatim for display and normalized for the variable key; see [Agent name to variable key](#agent-name-to-variable-key).
 
-**2. Publish the baseline.** `build_baseline(instructions=..., model=..., settings=..., tools=...)` describes the agent as written, and `control.publish_baseline(...)` stores it, creating the variable with the shared JSON schema if Logfire doesn't have it yet. It is create-only: a variable Logfire already has is left exactly as it is. It runs at most once per process, off the calling thread, and can never fail a request. Say whether you are publishing the agent as written or one request you observed, with `source='code'` or `source='observed'`.
+**2. Report the baseline.** `build_baseline(instructions=..., model=..., settings=..., tools=...)` describes the agent as written, and `control.report_baseline(baseline, resolution)` reports it. **Nothing is written to your project**: the SDK emits one `agent_control_config_hint` span carrying everything a config would be created from, and creating the config — or offering to refresh a stale baseline — happens in Logfire. Hand it the run's own `Resolution` rather than letting it resolve again — a second read could put a version on the span that no request of this run was made under. It reports at most once per process per agent per project, and never raises. Say whether you are describing the agent as written or one request you observed, with `source='code'` or `source='observed'` — it changes what the baseline *means*, and it chooses how much of it leaves your process (see [Publication](#publication)).
 
 **3. Read the published value.** `with control.resolution() as resolution:` resolves once for a run and yields a `Resolution`: `config`, plus the `label`, `version`, and `reason` it came from. Inside that block the resolved label and version ride as OpenTelemetry baggage, so every span and log the run emits says which published version produced it. `control.resolve()` is the one-shot sugar for a framework that has nowhere to hold a context open.
 
@@ -141,8 +167,6 @@ A published setting your adapter *can* lower goes to the provider, and providers
 Here is an adapter end to end, for an imaginary framework whose agent has one prompt string, a list of tools, a hook around each run, and a hook before each model request:
 
 ```python skip="true"
-from contextvars import ContextVar
-
 from logfire.agent_control import (
     AgentControl,
     AgentSupport,
@@ -168,17 +192,14 @@ SUPPORT = AgentSupport(
 def agent_control(agent, name, *, label=None):
     """Make `agent` configurable from Logfire, and return it."""
     control = AgentControl(name, label=label)
-    published = ContextVar('agent_control_config', default=None)
 
     def around_run(run):
         # One resolution per run, held for the whole of it: every span inside carries the label and
-        # version that produced it, and a value published mid-run applies to the next one.
-        with control.resolution() as resolution:
-            token = published.set(resolution.config)
-            try:
-                return run()
-            finally:
-                published.reset(token)
+        # version that produced it, and a value published mid-run applies to the next one. It also
+        # makes `control.current_resolution()` answer with this one resolution for the whole run,
+        # which is how the per-request hook below reads it without resolving again.
+        with control.resolution():
+            return run()
 
     def before_request(request):
         # This framework's agent declares a prompt template and interpolates it per request, so the
@@ -189,25 +210,28 @@ def agent_control(agent, name, *, label=None):
             Block(request.interpolated, id='agent:context', dynamic=True),
         ]
         tools = [ToolDef(t.name, t.description, t.parameters_json_schema) for t in request.tools]
-        control.publish_baseline(
-            # The dynamic block goes in carrying its id and no text: the baseline is published where
+        resolution = control.current_resolution()
+        control.report_baseline(
+            # The dynamic block goes in carrying its id and no text: the baseline is reported where
             # every project member can read it, and its text is one request's. `build_baseline` drops
-            # the text for it. Publishing the *static* block is what lets the editor offer the prompt
+            # the text for it. Reporting the *static* block is what lets the editor offer the prompt
             # for editing at all -- so an adapter whose framework hands it only a finished string,
             # with no seam between the two, marks the whole thing dynamic and offers no prompt
-            # editing rather than publishing one request's rendering as if it were the code.
+            # editing rather than reporting one request's rendering as if it were the code.
             build_baseline(
                 instructions=blocks,
                 model=agent.model,
                 settings=canonical_settings(agent.settings),
                 tools=tools,
             ),
+            resolution,
             # This framework's tool list is only knowable once a request is assembled, so what is
-            # published describes *this* request rather than the code.
+            # reported describes *this* request rather than the code. That also makes the default
+            # publication `'structure'`: every seam, and none of this request's text.
             source='observed',
         )
 
-        config = published.get()
+        config = resolution.config
         if config is None:
             return request  # Nothing published: the agent runs exactly as written.
 
@@ -283,7 +307,7 @@ with use_resolution(state.resolution):
 
 ### What a baseline is
 
-A baseline is a *description of the agent*, published as the variable's `example` and rendered by the Logfire editor as the thing a managed value is layered onto. It is never resolved and never applied. Because it is read by every member of the project and treated as the truth about the code, it owes the editor exactly these things:
+A baseline is a *description of the agent*, reported to Logfire and rendered by the editor as the thing a managed value is layered onto. It is never resolved and never applied. Because it is read by every member of the project and treated as the truth about the code, it owes the editor exactly these things:
 
 - **Stable ids.** Every block the editor may offer an override for carries the `id` that addresses it, and that id is stable across requests and deploys. A positional id that moves when someone reorders their prompt sources is not stable.
 - **A dynamic block carries `{id, dynamic: true}` and never text.** Its text is one request's rendering of whatever that run carried (a tenant name, a user id, a retrieved document), so publishing it leaks one run's data into a shared variable and invites an override that pins it forever. A dynamic block with nothing to key it on is left out entirely, since the editor could neither show nor address it.
@@ -291,7 +315,7 @@ A baseline is a *description of the agent*, published as the variable's `example
 - **Settings are canonical keys with validated values.** Everything else, including provider-specific keys, `extra_headers`, and `extra_body`, stays in code, because that is where authorization headers and signed bodies live. `canonical_settings` is that filter.
 - **`toolset` is present when known and absent when not.** Never guessed: an override narrowed to a toolset only works if the value the editor shows is the value the override can be written against.
 - **Unrepresentable values are omitted and reported, never approximated.** A reasoning effort a framework spells `'max'` is not `'xhigh'`, and a timeout outside the representable range is not the nearest one that fits.
-- **A code baseline is not a first-request observation**, and the adapter says which it is publishing with `publish_baseline(..., source='code' | 'observed')`.
+- **A code baseline is not a first-request observation**, and the adapter says which it is reporting with `report_baseline(..., source='code' | 'observed')`.
 
 ### Parsing a published value
 
@@ -314,7 +338,9 @@ That is not a promise about the request. A **setting** is forwarded to the provi
 
 **Only what the model is told about a tool is editable.** A rename that collides with another advertised name, or with a name the adapter reserved for a handoff or a provider tool, is dropped under `on_unmatched` while that override's other patches still apply, so every tool keeps a name the model can call.
 
-**Publishing the baseline is create-only, so a changed baseline doesn't reach a variable that exists.** The project's variables are fetched before anything is read, so "this variable does not exist yet" means missing in the project rather than merely absent from a cache nothing has filled — a process that publishes before it has ever resolved anything would otherwise try to create a variable that exists, be refused, and never sync again. A missing variable is *created*, with the baseline as its `example`; a variable that exists is left exactly as it is, and the whole thing runs at most once per process per variable. The example seeds the editor once and is yours from then on: editing an agent's prompt in code after Logfire already has its variable won't move the example the editor opens on, and the divergence is logged at debug level rather than written over. That's deliberate — `update_variable` PUTs the whole definition and takes no `If-Match`, so refreshing the example would be a read-modify-write that could overwrite a value, label, or rollout someone saved in the UI in the same round trip. It's also the rule [`variables_push`](managed-variables/index.md) already applies to the variables it manages.
+**The SDK never writes a managed variable.** Reporting a baseline emits a span; creating the config, and offering to refresh a stale baseline, happen in Logfire. So an Agent Control deployment needs only a span-write token, and no publish can carry away a value, a label, or a rollout somebody saved in the UI — the failure mode a client-side refresh of a variable's `example` has and cannot be made not to have, because `update_variable` PUTs the whole definition and takes no `If-Match`. It also means your agent's config does not exist until somebody creates it in Logfire, which is one click on the baseline your agent just reported.
+
+**Every agent reports, whether or not it has a config.** An agent that reported only while unconfigured would go quiet the moment somebody configured it, and the baseline stored against it would describe the deployment it was created from forever. So the report says what the code says *now*, and carries `agent_control.resolution_reason` to say which job it is for: `code_default` is a baseline waiting for a config to be created from it, `resolved` is one that may only be refreshing a stale example. What it carries is always the code and never the managed value — that is what makes a diff a diff.
 
 **The stored JSON schema is a contract, not a derived artifact.** `AGENT_CONFIG_JSON_SCHEMA` is maintained by hand and pinned by `SCHEMA_SHA256`, which the TypeScript SDK and the Logfire UI pin identically: whichever side creates a variable first is the one whose schema is persisted, and the Logfire backend validates every write against it.
 

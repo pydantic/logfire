@@ -11,7 +11,7 @@ import pytest
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire
-from logfire.agent_control._control import reset_baseline_publish_guard
+from logfire.agent_control._hint import reset_config_hint_guard
 from logfire.agent_control._reporting import reset_warned_messages
 from logfire.testing import CaptureLogfire
 from logfire.variables import LabeledValue, Rollout, VariableConfig, VariablesConfig
@@ -20,16 +20,16 @@ from logfire.variables.local import LocalVariableProvider
 
 @pytest.fixture(autouse=True)
 def _reset_process_state() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
-    """Forget what this process has already warned about and already published.
+    """Forget what this process has already warned about and already reported.
 
     Both guards exist so a long-running agent says a thing once; both would otherwise make a test's
     outcome depend on which tests ran before it.
     """
     reset_warned_messages()
-    reset_baseline_publish_guard()
+    reset_config_hint_guard()
     yield
     reset_warned_messages()
-    reset_baseline_publish_guard()
+    reset_config_hint_guard()
 
 
 @pytest.fixture

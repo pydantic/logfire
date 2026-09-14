@@ -12,8 +12,8 @@ from logfire.agent_control import (
     AgentConfigSettings,
     InstructionBlock,
     ToolDefinitionOverride,
+    canonical_json,
 )
-from logfire.agent_control._schema import _canonical_json  # pyright: ignore[reportPrivateUsage]
 
 LOCKSTEP = (
     'AGENT_CONFIG_JSON_SCHEMA is one half of a contract with the Logfire UI and with every other '
@@ -62,7 +62,7 @@ def test_the_canonical_form_encodes_non_ascii_the_way_json_stringify_does() -> N
     is the one kind this digest would be worst at explaining. The schema is ASCII today, so nothing
     but this test would notice if the canonical form stopped saying so.
     """
-    assert _canonical_json({'description': 'caf\u00e9'}) == '{"description":"caf\u00e9"}'.encode()
+    assert canonical_json({'description': 'caf\u00e9'}) == '{"description":"caf\u00e9"}'.encode()
 
 
 def test_every_model_field_is_described() -> None:

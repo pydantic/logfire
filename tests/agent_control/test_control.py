@@ -1,8 +1,10 @@
-"""Reading the published config, and publishing the baseline the editor diffs it against."""
+"""Reading the published config, and reporting what an adapter could not apply.
+
+Reporting the code baseline -- the other half of what an `AgentControl` does -- is `test_hint.py`.
+"""
 
 from __future__ import annotations
 
-import json
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -12,25 +14,19 @@ import pytest
 
 import logfire
 from logfire.agent_control import (
-    AGENT_CONFIG_JSON_SCHEMA,
     AgentControl,
     ApplyIssue,
-    Block,
     Resolution,
     UnmatchedConfigError,
-    build_baseline,
     current_resolution,
     report_issues,
     use_resolution,
 )
 from logfire.testing import CaptureLogfire
-from logfire.variables import LabeledValue, Rollout, Variable, VariableAlreadyExistsError, VariableConfig
+from logfire.variables import Variable
 from logfire.variables.local import LocalVariableProvider
 
 from .conftest import publish
-
-BASELINE = build_baseline(instructions=[Block('You are a checkout assistant.', id='agent')])
-BASELINE_EXAMPLE = json.dumps(BASELINE.model_dump(exclude_none=True), indent=2)
 
 
 @contextmanager
@@ -43,11 +39,6 @@ def collected_warnings() -> Generator[list[warnings.WarningMessage]]:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter('always')
         yield caught
-
-
-def published_baseline(provider: LocalVariableProvider, name: str) -> str | None:
-    config = provider.get_variable_config(name)
-    return None if config is None else config.example
 
 
 def test_the_variable_is_named_after_the_agent() -> None:
@@ -297,203 +288,6 @@ def test_ignoring_says_nothing_and_reporting_nothing_is_a_no_op() -> None:
         AgentControl('checkout', on_unmatched='error').report()
 
 
-def test_publishing_creates_the_variable_with_the_stored_schema(
-    project: LocalVariableProvider, capfire: CaptureLogfire
-) -> None:
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
-    config = project.get_variable_config('agent__checkout')
-    assert config is not None
-    assert config.json_schema == AGENT_CONFIG_JSON_SCHEMA
-    assert config.example == BASELINE_EXAMPLE
-    # Creating a variable writes a teammate-visible object into the project, so the project is where
-    # it is reported -- a `warnings.warn` on a daemon thread is invisible.
-    assert any('Created Logfire managed variable' in span.name for span in capfire.exporter.exported_spans)
-
-
-def test_publishing_never_writes_to_a_variable_that_exists(
-    project: LocalVariableProvider, capfire: CaptureLogfire, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Create-only, which is the whole point: `update_variable` PUTs the entire definition and takes no
-    # `If-Match`, so refreshing the `example` is a read-modify-write that can carry away a value or a
-    # label someone saved in the UI inside the same round trip. Both writes are refused rather than
-    # merely observed, so what this asserts is that no write was *attempted* -- a result that happens
-    # to look unchanged is not the same claim.
-    existing = publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
-    monkeypatch.setattr(project, 'update_variable', _refuse('update_variable'))
-    monkeypatch.setattr(project, 'create_variable', _refuse('create_variable'))
-    with collected_warnings() as caught:
-        # Entered before the publish, because that is what starts the thread that would warn.
-        thread = AgentControl('checkout').publish_baseline(BASELINE)
-        assert thread is not None
-        thread.join()
-    assert caught == []
-    config = project.get_variable_config('agent__checkout')
-    assert config is not None
-    # The example the project already had -- here none at all -- rather than this process's baseline.
-    assert config.example is None
-    assert (config.labels, config.rollout, config.description) == (
-        existing.labels,
-        existing.rollout,
-        existing.description,
-    )
-    # What create-only costs is that a changed baseline does not reach an editor that already has one,
-    # so the divergence is findable rather than silent.
-    [skipped] = [span for span in capfire.exporter.exported_spans if 'already exists' in span.name]
-    assert skipped.attributes is not None and skipped.attributes['baseline_source'] == 'code'
-
-
-def test_a_variable_already_carrying_this_baseline_is_not_even_reported(
-    project: LocalVariableProvider, capfire: CaptureLogfire, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The steady state for a deployed agent: the example is already what this process would publish,
-    # so there is no divergence, and saying so on every process start would be noise.
-    project.create_variable(
-        VariableConfig(
-            name='agent__checkout',
-            labels={'production': LabeledValue(version=1, serialized_value='{}')},
-            rollout=Rollout(labels={'production': 1.0}),
-            overrides=[],
-            example=BASELINE_EXAMPLE,
-        )
-    )
-    monkeypatch.setattr(project, 'update_variable', _refuse('update_variable'))
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
-    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
-    assert [span for span in capfire.exporter.exported_spans if 'already exists' in span.name] == []
-
-
-def test_publishing_happens_once_per_process_per_variable(project: LocalVariableProvider) -> None:
-    control = AgentControl('checkout')
-    thread = control.publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
-    # A second agent object for the same agent -- a process that rebuilds its agent per request --
-    # is one configuration stated twice, and the guard is on the destination rather than the object.
-    assert AgentControl('checkout').publish_baseline(build_baseline()) is None
-    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
-
-
-def test_a_per_request_logfire_instance_is_still_one_destination(project: LocalVariableProvider) -> None:
-    # `with_settings` returns a new `Logfire` over the same configuration, so a framework that tags
-    # per request and rebuilds its agent with it would schedule a publish per request -- and hold
-    # every wrapper for the life of the process -- if the guard were keyed on the wrapper.
-    scheduled = [
-        AgentControl(
-            'checkout', logfire_instance=logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(tags=[f'request-{index}'])
-        ).publish_baseline(BASELINE)
-        for index in range(3)
-    ]
-    for thread in scheduled:
-        if thread is not None:  # pragma: no branch
-            thread.join()
-    assert [thread is not None for thread in scheduled] == [True, False, False]
-    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
-
-
-def test_publishing_fetches_before_deciding_whether_to_create(
-    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # A remote provider answers `get_variable_config` from a cache that is empty until something
-    # fetches, and an adapter may publish when it wraps the agent, before anything has resolved. Read
-    # unfetched, a variable that exists reads as missing, the create path runs, the server rejects it
-    # as a conflict -- and the publish-once guard, marked before the work, means nothing ever retries.
-    publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
-    real_get = project.get_variable_config
-    fetched = False
-
-    def refresh(force: bool = False) -> None:
-        nonlocal fetched
-        fetched = True
-
-    def get_variable_config(name: str) -> VariableConfig | None:
-        return real_get(name) if fetched else None
-
-    created: list[VariableConfig] = []
-    monkeypatch.setattr(project, 'refresh', refresh)
-    monkeypatch.setattr(project, 'get_variable_config', get_variable_config)
-    monkeypatch.setattr(project, 'create_variable', created.append)
-
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
-
-    assert created == []
-    # And nothing else was written either: the variable keeps the example the project gave it.
-    assert published_baseline(project, 'agent__checkout') is None
-
-
-def test_a_fetch_that_fails_does_not_fail_the_publish(
-    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The cache is left exactly as it was, which is no worse than not having fetched, and publishing
-    # warns rather than raising.
-    monkeypatch.setattr(project, 'refresh', _refuse('refresh'))
-    with collected_warnings() as caught:
-        thread = AgentControl('checkout').publish_baseline(BASELINE)
-        assert thread is not None
-        thread.join()
-    assert caught == []
-    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
-
-
-def test_publishing_can_be_turned_off_for_a_read_only_token(project: LocalVariableProvider) -> None:
-    assert AgentControl('checkout', publish_baseline=False).publish_baseline(BASELINE) is None
-    assert project.get_variable_config('agent__checkout') is None
-
-
-def test_publishing_with_no_provider_configured_is_not_a_failure() -> None:
-    with collected_warnings() as caught:
-        # Entered before the publish, because that is what starts the thread that warns.
-        thread = AgentControl('checkout').publish_baseline(BASELINE)
-        assert thread is not None
-        thread.join()
-    assert caught == []
-
-
-def test_a_variable_created_by_someone_else_first_is_not_a_failure(
-    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def already_exists(_config: VariableConfig) -> VariableConfig:
-        raise VariableAlreadyExistsError("Variable 'agent__checkout' already exists")
-
-    monkeypatch.setattr(project, 'create_variable', already_exists)
-    with collected_warnings() as caught:
-        # Entered before the publish, because that is what starts the thread that warns.
-        thread = AgentControl('checkout').publish_baseline(BASELINE)
-        assert thread is not None
-        thread.join()
-    assert caught == []
-
-
-def test_a_failed_publish_is_reported_and_never_raised(
-    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Creating the variable is now the only write the publish makes, so it is the only one that can
-    # fail -- and a failure has to stay on this thread, because the caller is serving a request.
-    monkeypatch.setattr(project, 'create_variable', _refuse('create_variable'))
-    with collected_warnings() as caught:
-        # Entered before the publish, because that is what starts the thread that warns.
-        thread = AgentControl('checkout').publish_baseline(BASELINE)
-        assert thread is not None
-        thread.join()
-    assert [str(warning.message) for warning in caught] == [
-        "Failed to publish the code baseline for Logfire managed variable 'agent__checkout': "
-        'the variables token is read-only'
-    ]
-
-
-def test_an_explicit_logfire_instance_is_the_one_written_to(project: LocalVariableProvider) -> None:
-    instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(tags=['agent-control'])
-    thread = AgentControl('checkout', logfire_instance=instance).publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
-    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
-
-
 def test_two_hooks_in_one_run_read_the_one_resolution_the_run_made(project: LocalVariableProvider) -> None:
     # The reason this exists: a framework that hands an adapter an instructions callable and a model
     # wrapper, with nothing bracketing both. Resolving in each of them can send prompt A with model B
@@ -551,35 +345,3 @@ def test_a_run_that_could_not_read_its_config_still_answers_its_later_hooks(
             # "Resolved to nothing" is an answer; "you are not in a run" is not the same answer.
             assert control.current_resolution() is resolution
             assert resolution.config is None
-
-
-def test_publishing_says_whether_the_baseline_is_the_code_or_one_request(
-    project: LocalVariableProvider, capfire: CaptureLogfire
-) -> None:
-    thread = AgentControl('checkout').publish_baseline(BASELINE, source='observed')
-    assert thread is not None
-    thread.join()
-    config = project.get_variable_config('agent__checkout')
-    assert config is not None
-    # The distinction reaches the person reading the variable, because it changes what the example
-    # means: a description of the code, or a snapshot of the one request that happened first.
-    assert config.description is not None and 'snapshotted from one request' in config.description
-    [created] = [span for span in capfire.exporter.exported_spans if 'Created Logfire managed' in span.name]
-    assert created.attributes is not None and created.attributes['baseline_source'] == 'observed'
-
-
-def test_a_code_baseline_says_so_instead(project: LocalVariableProvider) -> None:
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
-    config = project.get_variable_config('agent__checkout')
-    assert config is not None
-    assert config.description is not None and 'the agent as written' in config.description
-
-
-def _refuse(name: str) -> Any:
-    def refuse(*_args: Any, **_kwargs: Any) -> Any:
-        raise PermissionError('the variables token is read-only')
-
-    refuse.__name__ = name
-    return refuse

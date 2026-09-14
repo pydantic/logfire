@@ -172,21 +172,34 @@ the UI save a row that silently does nothing.
 """
 
 
-def _canonical_json(schema: dict[str, Any]) -> bytes:
+def canonical_json(document: dict[str, Any]) -> bytes:
     """The bytes every copy of this contract digests, and the only definition of "canonical" here.
 
     Sorted keys and `(',', ':')` separators make the document independent of how each copy's literal
     happens to be written. `ensure_ascii=False` makes it independent of the language: `json.dumps`
     escapes non-ASCII by default and `JSON.stringify` does not, so without it the first non-ASCII
-    character in a description or a sample value would give two identical schemas different digests.
+    character in a description or a sample value would give two identical documents different digests.
 
-    A function rather than an expression inside `SCHEMA_SHA256` so that the canonical form is a thing
-    that can be tested, which is what `test_schema.py` does with a deliberately non-ASCII probe.
+    Public, and not only because [`SCHEMA_SHA256`][logfire.agent_control.SCHEMA_SHA256] is taken over
+    it. Every digest this contract carries has to be taken over the same three flags -- the schema's,
+    the one an agent's reported baseline carries as `agent_control.baseline_sha256`, and any an
+    adapter computes for itself -- and a second implementation of "canonical" is how two sides come to
+    disagree about one document. One function, exported, so there is nothing to restate.
     """
-    return json.dumps(schema, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+    return json.dumps(document, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
 
 
-SCHEMA_SHA256 = hashlib.sha256(_canonical_json(AGENT_CONFIG_JSON_SCHEMA)).hexdigest()
+_canonical_json = canonical_json
+"""The name this function had while it was package-private, kept until its one importer moves.
+
+`pydantic-ai-harness` reaches for `logfire.agent_control._schema._canonical_json` to pin its own
+digest against this one, which is exactly the need that made the function public. Removing the alias
+in the same change that renames it would redden that branch from here, so it goes when the harness
+imports [`canonical_json`][logfire.agent_control.canonical_json] instead.
+"""
+
+
+SCHEMA_SHA256 = hashlib.sha256(canonical_json(AGENT_CONFIG_JSON_SCHEMA)).hexdigest()
 """SHA-256 of the stored schema's canonical JSON, which every other copy of this contract pins.
 
 The contract has at least three copies -- this package, the TypeScript package, and the Logfire UI's

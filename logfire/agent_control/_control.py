@@ -2,201 +2,22 @@
 
 from __future__ import annotations
 
-import json
-import threading
-import warnings
 from collections.abc import Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING
 
 import logfire
-from logfire.variables import ResolutionReason, ResolvedVariable, Variable, VariableAlreadyExistsError
-from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
+from logfire.variables import ResolutionReason, ResolvedVariable, Variable
 
 from ._config import AgentConfig
+from ._hint import DEFAULT_FRAMEWORK, BaselinePublication, BaselineSource, emit_config_hint
 from ._names import agent_variable_name
 from ._reporting import ApplyIssue, OnUnmatched, report_issues, report_unmatched, warn_dropped
-from ._schema import AGENT_CONFIG_JSON_SCHEMA
 
 if TYPE_CHECKING:
     from logfire import Logfire
-    from logfire._internal.config import LogfireConfig as _LogfireConfig
-
-BaselineSource: TypeAlias = Literal['code', 'observed']
-"""Where a published baseline came from, which an adapter has to say because it changes what it means.
-
-- `'code'` is the agent *as written*: read off the agent object, its declared prompts, its declared
-  settings, its tool definitions. It describes every request the agent will make.
-- `'observed'` is one request, snapshotted because the framework offers nothing to read the agent
-  from until it runs. It describes the request it came from and nothing else, so a prompt or a tool
-  list assembled from the run's own input is a sample rather than a description -- and text that came
-  from a request is one tenant's, one user's, one retrieved document's, published into a variable
-  every member of the Logfire project can read.
-
-The distinction is not cosmetic: an adapter that can only observe should mark blocks it did not find
-in code as dynamic rather than publishing their rendered text, and the editor has to be able to tell
-a description of the code from a description of one request that happened first.
-"""
-
-# Destinations handed to a baseline publisher in this process. Marking before the thread starts
-# prevents concurrent first requests from scheduling duplicate work, and means a failure is not
-# retried by every later request.
-#
-# Keyed on the *configuration* rather than on the `Logfire` object, because the configuration decides
-# the destination and the wrapper does not: `logfire.with_settings(...)` returns a new `Logfire` over
-# the same configuration, so a framework that builds its agent -- and a tagged instance -- per request
-# would otherwise get a fresh key, and with it a publish per request and a mapping that grows for the
-# life of the process.
-#
-# Keyed on the configuration's `id`, because `LogfireConfig` is a non-frozen dataclass and therefore
-# unhashable, and identity is what is being asked about anyway. The configuration is kept in the value
-# to make that safe: an `id` cannot be reused while the object it belongs to is still referenced.
-# Deliberately *not* keyed on the variable provider, which is the destination proper: reading it can
-# lazily construct a remote provider and start its polling and SSE threads, and this runs on the
-# caller's request thread.
-_baseline_publish_attempted: dict[int, tuple[_LogfireConfig, set[str]]] = {}
-_baseline_publish_lock = threading.Lock()
-
-
-def reset_baseline_publish_guard() -> None:
-    """Clear the once-per-process baseline publishing state. Intended for tests only."""
-    with _baseline_publish_lock:
-        _baseline_publish_attempted.clear()
-
-
-def _spawn_baseline_publish(variable: Variable[AgentConfig], example: str, source: BaselineSource) -> threading.Thread:
-    """Move the provider read and targeted write off the request's thread."""
-    thread = threading.Thread(target=_publish_baseline, args=(variable, example, source), daemon=True)
-    thread.start()
-    return thread
-
-
-_BASELINE_DESCRIPTIONS: Mapping[BaselineSource, str] = {
-    'code': (
-        'Agent Control config for this agent. The example is the agent as written, published by the SDK; '
-        'set a value here to change what the agent sends, and remove it to go back to the code.'
-    ),
-    'observed': (
-        'Agent Control config for this agent. The example was snapshotted from one request, because this '
-        'framework offers nothing to read the agent from until it runs, so it describes that request rather '
-        'than every one. Set a value here to change what the agent sends, and remove it to go back to the code.'
-    ),
-}
-"""What a newly created variable says about itself, which depends on what its example actually is."""
-
-
-def _publish_baseline(variable: Variable[AgentConfig], example: str, source: BaselineSource) -> None:
-    """Create the variable from the baseline, and never touch the one that already exists.
-
-    Creation is what makes Logfire the editing surface without a create-in-UI step: the stored schema
-    is the contract's, not the one a Pydantic version happens to emit, and the baseline rides along as
-    the `example` so the editor opens on what the agent does today rather than on a blank form.
-
-    **This is create-only.** A variable that exists is left exactly as it is -- its `example`
-    included -- and the publish is a no-op. That is the same rule the shipped managed-variables
-    feature already applies: `variables_push` writes `example` in its create path and leaves it out
-    of the object it PUTs when it updates a variable's schema, so "the baseline seeds the editor
-    once" is this feature's own contract rather than something invented here.
-
-    The reason it has to be is that the provider offers nothing narrower than a whole-definition
-    write: `update_variable` PUTs the entire definition to `/v1/variables/{name}/` and takes no
-    revision or `If-Match` input, so any `example` refresh is a read-modify-write that can lose a
-    value, label, or rollout saved in the Logfire UI between the read and the write -- with the UI
-    reporting success for the publish it just lost. Nothing on the client side can close that window;
-    it needs an example-only `PATCH`, or a conditional write, on the platform API:
-    https://github.com/pydantic/pydantic-ai-harness/issues/565. Rather than narrow a window that
-    cannot be shut, the write is not made at all, and a managed value can no longer be lost to a
-    baseline publish.
-
-    What that costs is that a *changed* code baseline does not reach an editor that already has one.
-    That is reported rather than silent: when the stored example differs from what this process would
-    have published, the divergence is logged, at debug level so the steady state stays quiet. Bringing
-    the editor up to date is a deliberate act in the Logfire UI, where the person doing it can see the
-    values they are keeping.
-
-    What is kept from before:
-
-    - The provider is fetched before anything is read, so "missing" means missing in the project
-      rather than merely absent from a cache nothing has filled yet; see `_fetch`.
-    - It runs at most once per process per variable, off the request thread.
-    - Nothing here raises into the caller: publishing is documentation for the editor, never anything
-      a request depends on.
-
-    Every outcome is reported through the Logfire instance the variable belongs to: creation writes a
-    persistent, teammate-visible object into the user's project, so it belongs where they are already
-    looking rather than in a `warnings.warn` raised on a daemon thread that no one sees. The failure
-    keeps the warning as well, for local development that exports nowhere.
-    """
-    logfire_instance = variable.logfire_instance
-    provider = logfire_instance.config.get_variable_provider()
-    try:
-        _fetch(provider)
-        existing = provider.get_variable_config(variable.name)
-        if existing is not None:
-            if existing.example != example:
-                # The editor is showing a different baseline than this process would publish -- an
-                # agent whose code moved on, or a variable created in the UI with no example at all.
-                # Worth being able to find, not worth a console line on every deployed process.
-                logfire_instance.debug(
-                    'Logfire managed variable {variable_name} already exists, so its example is left '
-                    'as published rather than updated from the {baseline_source} baseline',
-                    variable_name=variable.name,
-                    baseline_source=source,
-                )
-            return
-        if isinstance(provider, NoOpVariableProvider):
-            # No provider is configured, so there is nowhere to create anything. That is the
-            # local-development default rather than a failure, and the agent runs on its code.
-            return
-        provider.create_variable(
-            variable.to_config().model_copy(
-                update={
-                    'json_schema': AGENT_CONFIG_JSON_SCHEMA,
-                    'example': example,
-                    'description': _BASELINE_DESCRIPTIONS[source],
-                }
-            )
-        )
-        logfire_instance.info(
-            'Created Logfire managed variable {variable_name} from the {baseline_source} baseline; '
-            'set a value in Logfire to manage this agent from there',
-            variable_name=variable.name,
-            baseline_source=source,
-        )
-    except VariableAlreadyExistsError:
-        # The variable already exists server-side (another process or the UI created it first).
-        pass
-    except Exception as exc:
-        logfire_instance.warn(
-            'Failed to publish the code baseline for Logfire managed variable {variable_name}',
-            variable_name=variable.name,
-            _exc_info=True,
-        )
-        warnings.warn(f'Failed to publish the code baseline for Logfire managed variable {variable.name!r}: {exc}')
-
-
-def _fetch(provider: VariableProvider) -> None:
-    """Fill the provider's cache before anything reads it, and never fail the publish for it.
-
-    `get_variable_config` answers from the provider's cache, and the remote provider's cache is empty
-    until something fetches: it returns `None` for *every* name when it has never synced. Publishing
-    is the one caller that reaches it in that state, because an adapter may publish when it wraps the
-    agent, before the agent has resolved anything. Without this, a variable that exists in the project
-    reads as missing, the create path runs, the server rejects it as a conflict -- and because the
-    publish-once guard is marked *before* the work, nothing retries, so the baseline never syncs again
-    for the life of that process. `variables_push` fetches first for the same reason.
-
-    A provider with nothing to fetch implements this as a no-op, so it costs those nothing. A fetch
-    that fails leaves the cache exactly as it was, which is no worse than not having called this, so
-    it is swallowed: the whole path's contract is that publishing warns rather than raising, and a
-    baseline is documentation for the editor rather than anything a request depends on.
-    """
-    try:
-        provider.refresh(force=True)
-    except Exception:
-        pass
 
 
 @dataclass(frozen=True)
@@ -283,7 +104,7 @@ class AgentControl:
     that section to code. There is no third state.
 
     This class owns the transport, and nothing else: it names the variable, reads the published value,
-    and publishes the code baseline the Logfire editor diffs against. What a published value *does* to
+    and reports the code baseline the Logfire editor diffs against. What a published value *does* to
     a request lives in the pure helpers -- [`apply_instructions`][logfire.agent_control.apply_instructions],
     [`apply_tool_definitions`][logfire.agent_control.apply_tool_definitions], and
     [`apply_settings`][logfire.agent_control.apply_settings] -- so an adapter for any agent framework
@@ -293,13 +114,14 @@ class AgentControl:
     from logfire.agent_control import AgentControl, Block, apply_instructions, build_baseline
 
     control = AgentControl('checkout_assistant', label='production')
-    control.publish_baseline(build_baseline(instructions=[Block('You are a checkout assistant.', id='agent')]))
+    blocks = [Block('You are a checkout assistant.', id='agent')]
 
-    config = control.resolve()
-    if config is not None:
-        applied = apply_instructions([Block('You are a checkout assistant.', id='agent')], config)
-        blocks = applied.blocks
-        control.report(*applied.issues)
+    with control.resolution() as resolution:
+        control.report_baseline(build_baseline(instructions=blocks), resolution)
+        if resolution.config is not None:
+            applied = apply_instructions(blocks, resolution.config)
+            blocks = applied.blocks
+            control.report(*applied.issues)
     ```
 
     Nothing published can crash the *SDK*. An unreachable provider, a missing value, or one this
@@ -322,7 +144,8 @@ class AgentControl:
         label: str | None = None,
         logfire_instance: Logfire | None = None,
         on_unmatched: OnUnmatched = 'warn',
-        publish_baseline: bool = True,
+        framework: str = DEFAULT_FRAMEWORK,
+        report_baseline: BaselinePublication | None = None,
     ) -> None:
         """Declare the variable backing one agent's managed config.
 
@@ -338,18 +161,27 @@ class AgentControl:
                 different managed config the day someone renames it.
             label: The label to resolve, such as `'production'`. When `None`, the variable's own
                 targeting rules and rollout choose which label this process gets.
-            logfire_instance: The Logfire instance to resolve and publish through. Defaults to the
-                global one, which is what `logfire.configure()` sets up.
+            logfire_instance: The Logfire instance to resolve through, and to report the baseline on.
+                Defaults to the global one, which is what `logfire.configure()` sets up.
             on_unmatched: The policy for published entries that reach nothing. Applied by
                 [`report`][logfire.agent_control.AgentControl.report], which is the one place it is
                 applied: the pure helpers plan a request and hand back what they could not apply, so
                 an adapter reports every section's issues together and `'error'` names all of them.
                 See [`OnUnmatched`][logfire.agent_control.OnUnmatched].
-            publish_baseline: Whether `publish_baseline()` actually writes. Enabled by default because
-                the baseline is documentation for the Logfire editor and is never resolved or applied
-                to a request, so a failed or stale publish cannot change agent behavior. Disable it
-                when the variables token is intentionally read-only, or when code must not write
-                variable metadata.
+            framework: Which Agent Control SDK produced this agent's hints, as
+                `agent_control.framework` reports it. An adapter names its framework --
+                `'pydantic-ai'`, `'mastra'`, `'openai-agents'` -- because the ids a baseline addresses
+                its instruction blocks by are each implementation's own, so a consumer has to know
+                whose baseline it is reading. An application driving this core directly has no
+                framework to name and can leave it alone; see `DEFAULT_FRAMEWORK`.
+            report_baseline: How much of the code baseline leaves this process on the hint span; see
+                [`BaselinePublication`][logfire.agent_control.BaselinePublication]. Defaults to
+                `'structure'` when the baseline was `'observed'` and `'text'` when it was read off the
+                code, which is where the two differ: code-side text is the author's, written knowing
+                it is editable from this Logfire project, while text snapshotted from a request is
+                whoever's request it happened to be. Set it explicitly to hold a code-side baseline to
+                its seams as well, which is what a deployment whose prompts are not for every member
+                of its Logfire project wants.
         """
         variable_name = agent_variable_name(name)
 
@@ -369,8 +201,8 @@ class AgentControl:
         """The policy `report` applies to a request's issues; see `OnUnmatched`."""
 
         self._logfire_instance = logfire_instance if logfire_instance is not None else logfire.DEFAULT_LOGFIRE_INSTANCE
-        self._publish_baseline = publish_baseline
-        self._publish_thread: threading.Thread | None = None
+        self._framework = framework
+        self._report_baseline: BaselinePublication | None = report_baseline
         # Constructed directly rather than through `logfire.var`, which registers in a per-instance
         # registry and raises on a duplicate name: two `AgentControl`s for one agent -- a process that
         # builds its agent per request, a test suite -- are one configuration stated twice, not a
@@ -538,48 +370,85 @@ class AgentControl:
         """
         report_unmatched(self.on_unmatched, message)
 
-    def publish_baseline(self, baseline: AgentConfig, *, source: BaselineSource = 'code') -> threading.Thread | None:
-        """Create the variable from a baseline, if the project does not have it yet.
+    def report_baseline(
+        self, baseline: AgentConfig, resolution: Resolution, *, source: BaselineSource = 'code'
+    ) -> None:
+        """Report the code baseline for this agent, once per process, on one hint span.
 
-        Call this once the adapter can describe the agent. It runs at most once per process per
-        variable, off the calling thread, and it is marked as attempted *before* the work starts, so
-        a failure does not retry on every later request and concurrent first requests do not schedule
-        the same write twice.
+        This is how an agent gets a managed config, and how it stays accurate once it has one.
+        **Nothing here writes a variable.** Every agent reports what it says in code, and Logfire
+        turns that into a config for an agent it has none for, or offers to refresh a stored baseline
+        the code has moved on from -- on a person's click, which is what keeps a managed config
+        something someone decided to have rather than something a deployment made for them. The span
+        carries the whole contract; every attribute on it is documented on `emit_config_hint`.
 
-        **Create-only.** The baseline becomes the new variable's `example`, which is what the Logfire
-        editor opens on; a variable that already exists is never written to, so publishing can never
-        overwrite a value, label, or rollout someone saved in the UI. A changed code baseline
-        therefore does not reach an editor that already has one -- the divergence is logged at debug
-        level, and updating the example is a deliberate act in Logfire. This is the same rule
-        `variables_push` applies to the variables it manages.
+        The SDK holds a span-write token and no opinion about what is already in the project, which is
+        the right split: a client-side create needs variable-management scope it should not need, and
+        could not tell an unknown variable from one with nothing published at this label anyway, while
+        the platform knows both. It also means no report can ever carry away a value, a label, or a
+        rollout someone saved in the Logfire UI -- the failure mode a read-modify-write of a variable's
+        `example` has, and cannot be made not to have from the client side.
+
+        Reported **whether or not a config resolved**, which is what makes the second half possible:
+        an agent that reported only while unconfigured would go quiet the moment someone configured
+        it, and the baseline stored against it would describe the code as it was that day.
+        `resolution.reason` is what tells the two apart on the span, which is why the run's resolution
+        is a parameter rather than something this resolves for itself -- a second resolve could
+        disagree with the one the run is using, and would report a version the agent never ran on.
+        What the report carries is always the code and never the managed value, which is what makes a
+        diff a diff.
+
+        At most once per process per destination, and the guard is marked *before* the work, so
+        concurrent first requests cannot report twice and a failure is not retried by every later run.
+        That is also what makes the caller's job easy: call it on every request and let this decide.
+
+        ```python skip-run="true" skip-reason="illustrative-fragment"
+        with control.resolution() as resolution:
+            control.report_baseline(build_baseline(instructions=blocks, model=model, tools=tools), resolution)
+            ...
+        ```
+
+        Never raises. It is called from the middle of an agent run, and describing the agent must not
+        be what takes that run down, so anything that goes wrong is said once per process and the run
+        keeps running.
 
         Args:
-            baseline: What to publish, from
-                [`build_baseline`][logfire.agent_control.build_baseline].
+            baseline: What to report, from [`build_baseline`][logfire.agent_control.build_baseline].
+            resolution: The run's resolution, from
+                [`resolution`][logfire.agent_control.AgentControl.resolution] or
+                [`current_resolution`][logfire.agent_control.AgentControl.current_resolution].
             source: Whether `baseline` describes the agent as written or one request that happened to
                 come first; see [`BaselineSource`][logfire.agent_control.BaselineSource]. An adapter
                 that reads its framework's agent object leaves this at `'code'`. One whose framework
                 assembles its prompt or tool list from callables, so that the earliest anything can be
                 read is a request, passes `'observed'` and says so, rather than letting a snapshot of
-                one request stand in for a description of the code. A new process publishes again, so
-                a changed deployment updates either kind.
-
-        Returns:
-            The daemon thread doing the write, or `None` when nothing was scheduled -- publishing is
-            disabled, or this variable was already published to in this process. Join it if the
-            process may exit before a background write completes; ignore it otherwise.
+                one request stand in for a description of the code. A new process reports again, so a
+                changed deployment updates either kind. It also chooses how much of the baseline is
+                reported by default; see the `report_baseline` argument to `AgentControl`.
         """
-        if not self._publish_baseline:
-            return None
-        example = json.dumps(baseline.model_dump(exclude_none=True), indent=2)
-        config = self._logfire_instance.config
-        with _baseline_publish_lock:
-            _, published = _baseline_publish_attempted.setdefault(id(config), (config, set()))
-            if self.variable_name in published:
-                return None
-            published.add(self.variable_name)
-        self._publish_thread = _spawn_baseline_publish(self._variable, example, source)
-        return self._publish_thread
+        try:
+            emit_config_hint(
+                # The variable's own instance, which is the one scoped to variables and the one whose
+                # project would hold the config -- a process serving two projects reports to each.
+                logfire_instance=self._variable.logfire_instance,
+                variable_name=self.variable_name,
+                agent_name=self.name,
+                baseline=baseline,
+                source=source,
+                framework=self._framework,
+                # The source is what decides this when nobody said; see `AgentControl.__init__`.
+                publication=self._report_baseline or ('structure' if source == 'observed' else 'text'),
+                resolution_reason=resolution.reason,
+            )
+        except Exception as exc:
+            # Describing the agent is not supposed to be able to fail: a baseline is a Pydantic model
+            # of JSON-shaped fields, so there is no cycle for `json.dumps` to choke on the way there
+            # is in the TypeScript core. What is left is the span pipeline, and a report is
+            # documentation that no request depends on -- so this stays here, said once per process
+            # rather than once per report, and the caller's request keeps going.
+            warn_dropped(
+                f'Failed to report the code baseline for Logfire managed variable {self.variable_name!r}: {exc}'
+            )
 
     def current_resolution(self) -> Resolution | None:
         """This agent's resolution for the surrounding run scope, or `None` outside one.

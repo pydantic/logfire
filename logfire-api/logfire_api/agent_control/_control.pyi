@@ -1,20 +1,13 @@
-import threading
 from ._config import AgentConfig as AgentConfig
+from ._hint import BaselinePublication as BaselinePublication, BaselineSource as BaselineSource, DEFAULT_FRAMEWORK as DEFAULT_FRAMEWORK, emit_config_hint as emit_config_hint
 from ._names import agent_variable_name as agent_variable_name
 from ._reporting import ApplyIssue as ApplyIssue, OnUnmatched as OnUnmatched, report_issues as report_issues, report_unmatched as report_unmatched, warn_dropped as warn_dropped
-from ._schema import AGENT_CONFIG_JSON_SCHEMA as AGENT_CONFIG_JSON_SCHEMA
 from _typeshed import Incomplete
+from collections.abc import Mapping as Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from logfire import Logfire as Logfire
-from logfire.variables import ResolutionReason as ResolutionReason, ResolvedVariable as ResolvedVariable, Variable as Variable, VariableAlreadyExistsError as VariableAlreadyExistsError
-from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
-from typing import TypeAlias
-
-BaselineSource: TypeAlias
-
-def reset_baseline_publish_guard() -> None:
-    """Clear the once-per-process baseline publishing state. Intended for tests only."""
+from logfire.variables import ResolutionReason as ResolutionReason, ResolvedVariable as ResolvedVariable, Variable as Variable
 
 @dataclass(frozen=True)
 class Resolution:
@@ -58,7 +51,7 @@ class AgentControl:
     that section to code. There is no third state.
 
     This class owns the transport, and nothing else: it names the variable, reads the published value,
-    and publishes the code baseline the Logfire editor diffs against. What a published value *does* to
+    and reports the code baseline the Logfire editor diffs against. What a published value *does* to
     a request lives in the pure helpers -- [`apply_instructions`][logfire.agent_control.apply_instructions],
     [`apply_tool_definitions`][logfire.agent_control.apply_tool_definitions], and
     [`apply_settings`][logfire.agent_control.apply_settings] -- so an adapter for any agent framework
@@ -68,13 +61,14 @@ class AgentControl:
     from logfire.agent_control import AgentControl, Block, apply_instructions, build_baseline
 
     control = AgentControl(\'checkout_assistant\', label=\'production\')
-    control.publish_baseline(build_baseline(instructions=[Block(\'You are a checkout assistant.\', id=\'agent\')]))
+    blocks = [Block(\'You are a checkout assistant.\', id=\'agent\')]
 
-    config = control.resolve()
-    if config is not None:
-        applied = apply_instructions([Block(\'You are a checkout assistant.\', id=\'agent\')], config)
-        blocks = applied.blocks
-        control.report(*applied.issues)
+    with control.resolution() as resolution:
+        control.report_baseline(build_baseline(instructions=blocks), resolution)
+        if resolution.config is not None:
+            applied = apply_instructions(blocks, resolution.config)
+            blocks = applied.blocks
+            control.report(*applied.issues)
     ```
 
     Nothing published can crash the *SDK*. An unreachable provider, a missing value, or one this
@@ -93,7 +87,7 @@ class AgentControl:
     variable_name: Incomplete
     label: Incomplete
     on_unmatched: OnUnmatched
-    def __init__(self, name: str, *, label: str | None = None, logfire_instance: Logfire | None = None, on_unmatched: OnUnmatched = 'warn', publish_baseline: bool = True) -> None:
+    def __init__(self, name: str, *, label: str | None = None, logfire_instance: Logfire | None = None, on_unmatched: OnUnmatched = 'warn', framework: str = ..., report_baseline: BaselinePublication | None = None) -> None:
         """Declare the variable backing one agent's managed config.
 
         Args:
@@ -108,18 +102,27 @@ class AgentControl:
                 different managed config the day someone renames it.
             label: The label to resolve, such as `'production'`. When `None`, the variable's own
                 targeting rules and rollout choose which label this process gets.
-            logfire_instance: The Logfire instance to resolve and publish through. Defaults to the
-                global one, which is what `logfire.configure()` sets up.
+            logfire_instance: The Logfire instance to resolve through, and to report the baseline on.
+                Defaults to the global one, which is what `logfire.configure()` sets up.
             on_unmatched: The policy for published entries that reach nothing. Applied by
                 [`report`][logfire.agent_control.AgentControl.report], which is the one place it is
                 applied: the pure helpers plan a request and hand back what they could not apply, so
                 an adapter reports every section's issues together and `'error'` names all of them.
                 See [`OnUnmatched`][logfire.agent_control.OnUnmatched].
-            publish_baseline: Whether `publish_baseline()` actually writes. Enabled by default because
-                the baseline is documentation for the Logfire editor and is never resolved or applied
-                to a request, so a failed or stale publish cannot change agent behavior. Disable it
-                when the variables token is intentionally read-only, or when code must not write
-                variable metadata.
+            framework: Which Agent Control SDK produced this agent's hints, as
+                `agent_control.framework` reports it. An adapter names its framework --
+                `'pydantic-ai'`, `'mastra'`, `'openai-agents'` -- because the ids a baseline addresses
+                its instruction blocks by are each implementation's own, so a consumer has to know
+                whose baseline it is reading. An application driving this core directly has no
+                framework to name and can leave it alone; see `DEFAULT_FRAMEWORK`.
+            report_baseline: How much of the code baseline leaves this process on the hint span; see
+                [`BaselinePublication`][logfire.agent_control.BaselinePublication]. Defaults to
+                `'structure'` when the baseline was `'observed'` and `'text'` when it was read off the
+                code, which is where the two differ: code-side text is the author's, written knowing
+                it is editable from this Logfire project, while text snapshotted from a request is
+                whoever's request it happened to be. Set it explicitly to hold a code-side baseline to
+                its seams as well, which is what a deployment whose prompts are not for every member
+                of its Logfire project wants.
         """
     def resolve(self) -> AgentConfig | None:
         """The published config for this agent, or `None` to run the agent exactly as written.
@@ -216,37 +219,60 @@ class AgentControl:
         Raises:
             UnmatchedConfigError: with `message`, when `on_unmatched` is `\'error\'`.
         '''
-    def publish_baseline(self, baseline: AgentConfig, *, source: BaselineSource = 'code') -> threading.Thread | None:
-        """Create the variable from a baseline, if the project does not have it yet.
+    def report_baseline(self, baseline: AgentConfig, resolution: Resolution, *, source: BaselineSource = 'code') -> None:
+        '''Report the code baseline for this agent, once per process, on one hint span.
 
-        Call this once the adapter can describe the agent. It runs at most once per process per
-        variable, off the calling thread, and it is marked as attempted *before* the work starts, so
-        a failure does not retry on every later request and concurrent first requests do not schedule
-        the same write twice.
+        This is how an agent gets a managed config, and how it stays accurate once it has one.
+        **Nothing here writes a variable.** Every agent reports what it says in code, and Logfire
+        turns that into a config for an agent it has none for, or offers to refresh a stored baseline
+        the code has moved on from -- on a person\'s click, which is what keeps a managed config
+        something someone decided to have rather than something a deployment made for them. The span
+        carries the whole contract; every attribute on it is documented on `emit_config_hint`.
 
-        **Create-only.** The baseline becomes the new variable's `example`, which is what the Logfire
-        editor opens on; a variable that already exists is never written to, so publishing can never
-        overwrite a value, label, or rollout someone saved in the UI. A changed code baseline
-        therefore does not reach an editor that already has one -- the divergence is logged at debug
-        level, and updating the example is a deliberate act in Logfire. This is the same rule
-        `variables_push` applies to the variables it manages.
+        The SDK holds a span-write token and no opinion about what is already in the project, which is
+        the right split: a client-side create needs variable-management scope it should not need, and
+        could not tell an unknown variable from one with nothing published at this label anyway, while
+        the platform knows both. It also means no report can ever carry away a value, a label, or a
+        rollout someone saved in the Logfire UI -- the failure mode a read-modify-write of a variable\'s
+        `example` has, and cannot be made not to have from the client side.
+
+        Reported **whether or not a config resolved**, which is what makes the second half possible:
+        an agent that reported only while unconfigured would go quiet the moment someone configured
+        it, and the baseline stored against it would describe the code as it was that day.
+        `resolution.reason` is what tells the two apart on the span, which is why the run\'s resolution
+        is a parameter rather than something this resolves for itself -- a second resolve could
+        disagree with the one the run is using, and would report a version the agent never ran on.
+        What the report carries is always the code and never the managed value, which is what makes a
+        diff a diff.
+
+        At most once per process per destination, and the guard is marked *before* the work, so
+        concurrent first requests cannot report twice and a failure is not retried by every later run.
+        That is also what makes the caller\'s job easy: call it on every request and let this decide.
+
+        ```python skip-run="true" skip-reason="illustrative-fragment"
+        with control.resolution() as resolution:
+            control.report_baseline(build_baseline(instructions=blocks, model=model, tools=tools), resolution)
+            ...
+        ```
+
+        Never raises. It is called from the middle of an agent run, and describing the agent must not
+        be what takes that run down, so anything that goes wrong is said once per process and the run
+        keeps running.
 
         Args:
-            baseline: What to publish, from
-                [`build_baseline`][logfire.agent_control.build_baseline].
+            baseline: What to report, from [`build_baseline`][logfire.agent_control.build_baseline].
+            resolution: The run\'s resolution, from
+                [`resolution`][logfire.agent_control.AgentControl.resolution] or
+                [`current_resolution`][logfire.agent_control.AgentControl.current_resolution].
             source: Whether `baseline` describes the agent as written or one request that happened to
                 come first; see [`BaselineSource`][logfire.agent_control.BaselineSource]. An adapter
-                that reads its framework's agent object leaves this at `'code'`. One whose framework
+                that reads its framework\'s agent object leaves this at `\'code\'`. One whose framework
                 assembles its prompt or tool list from callables, so that the earliest anything can be
-                read is a request, passes `'observed'` and says so, rather than letting a snapshot of
-                one request stand in for a description of the code. A new process publishes again, so
-                a changed deployment updates either kind.
-
-        Returns:
-            The daemon thread doing the write, or `None` when nothing was scheduled -- publishing is
-            disabled, or this variable was already published to in this process. Join it if the
-            process may exit before a background write completes; ignore it otherwise.
-        """
+                read is a request, passes `\'observed\'` and says so, rather than letting a snapshot of
+                one request stand in for a description of the code. A new process reports again, so a
+                changed deployment updates either kind. It also chooses how much of the baseline is
+                reported by default; see the `report_baseline` argument to `AgentControl`.
+        '''
     def current_resolution(self) -> Resolution | None:
         """This agent's resolution for the surrounding run scope, or `None` outside one.
 
