@@ -6,6 +6,7 @@ from types import ModuleType
 from typing import Any
 
 from logfire import Logfire
+from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors
 
 try:
@@ -86,6 +87,12 @@ def _patch_cursor_class(logfire_instance: Logfire, capture_parameters: bool) -> 
     original_execute = SnowflakeCursor.__dict__.get('execute', SnowflakeCursor.execute)
     if not getattr(original_execute, '_logfire_patched', False):
         SnowflakeCursor.execute = _wrap_execute(logfire_instance, original_execute, capture_parameters)
+    elif original_execute._logfire_capture_parameters != capture_parameters:
+        warn_at_user_stacklevel(
+            'Snowflake is already instrumented with '
+            f'`capture_parameters={original_execute._logfire_capture_parameters}`, the new value is ignored.',
+            UserWarning,
+        )
 
     original_executemany = SnowflakeCursor.__dict__.get('executemany', SnowflakeCursor.executemany)
     if not getattr(original_executemany, '_logfire_patched', False):
@@ -98,13 +105,13 @@ def _instrument_connection(logfire_instance: Logfire, conn: SnowflakeConnection,
         return
 
     def wrapped_cursor_factory(*args: Any, **kwargs: Any) -> SnowflakeCursor:
-        cursor = original_cursor_factory(*args, **kwargs)
-        # Always wrap this connection's cursors with this call's capture_parameters,
-        # using the unpatched methods so a later module-level patch cannot override
-        # them or double-wrap.
-        execute = _unpatched(SnowflakeCursor.execute)
+        cursor: SnowflakeCursor = original_cursor_factory(*args, **kwargs)
+        # Wrap the unpatched methods of the cursor's own class so a module-level patch
+        # cannot double-wrap and cursor subclass overrides are preserved.
+        cursor_class = type(cursor)
+        execute = _unpatched(cursor_class.execute)
         cursor.execute = types.MethodType(_wrap_execute(logfire_instance, execute, capture_parameters), cursor)
-        executemany = _unpatched(SnowflakeCursor.executemany)
+        executemany = _unpatched(cursor_class.executemany)
         cursor.executemany = types.MethodType(
             _wrap_executemany(logfire_instance, executemany, capture_parameters), cursor
         )
@@ -128,6 +135,7 @@ def _wrap_execute(logfire_instance: Logfire, original: Any, capture_parameters: 
             return result
 
     wrapped._logfire_patched = True  # type: ignore[attr-defined]
+    wrapped._logfire_capture_parameters = capture_parameters  # type: ignore[attr-defined]
     return wrapped
 
 
@@ -147,4 +155,5 @@ def _wrap_executemany(logfire_instance: Logfire, original: Any, capture_paramete
             return result
 
     wrapped._logfire_patched = True  # type: ignore[attr-defined]
+    wrapped._logfire_capture_parameters = capture_parameters  # type: ignore[attr-defined]
     return wrapped

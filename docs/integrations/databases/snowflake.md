@@ -51,7 +51,10 @@ pip install snowflake-connector-python
 
 Call [`logfire.instrument_snowflake()`][logfire.Logfire.instrument_snowflake] before connecting.
 With no arguments, it records queries from every connection in the process, including ones made
-later.
+later. Import the module as `snowflake.connector` and call `snowflake.connector.connect()`.
+A `connect` name imported before instrumenting (`from snowflake.connector import connect`) still
+points at the original function, so its `snowflake connect` span is missing. Query spans are
+recorded either way.
 
 ```python title="main.py" hl_lines="6" skip-run="true" skip-reason="external-connection"
 import snowflake.connector
@@ -88,8 +91,9 @@ logfire.instrument_snowflake(capture_parameters=True)
 
 Logfire's standard scrubbing still applies, but it may not identify every sensitive value.
 Instrumenting the same module or connection again has no effect; the first call determines whether
-parameters are captured. A connection instrumented with `capture_parameters=True` keeps capturing
-parameters even if you later instrument the module with the default.
+parameters are captured, and a later call with a different value emits a warning. A connection
+instrumented with `capture_parameters=True` keeps capturing parameters even if you later instrument
+the module with the default.
 
 ## Verify it worked
 
@@ -121,8 +125,9 @@ cursor.execute('select current_version()')
 - **Importing `snowflake.connector` fails:** install the client separately with
   `pip install snowflake-connector-python`.
 - **No spans appear:** call `logfire.configure()` first. For module-wide instrumentation, call
-  `logfire.instrument_snowflake()` before connecting. For one connection, connect first, then call
-  `logfire.instrument_snowflake(conn)`.
+  `logfire.instrument_snowflake()` before connecting, and connect through
+  `snowflake.connector.connect()` rather than a `connect` name imported earlier. For one connection,
+  connect first, then call `logfire.instrument_snowflake(conn)`.
 - **No data appears in Logfire:** check that your write token is set. Run
   `logfire projects use <your-project>` locally, or set the `LOGFIRE_TOKEN` environment variable in
   production. See [Getting Started](../../index.md).

@@ -306,6 +306,34 @@ def test_instrument_connection_then_module_no_double_wrap(exporter: TestExporter
     assert names.count('snowflake executemany') == 1
 
 
+def test_instrument_single_connection_custom_cursor_class(exporter: TestExporter) -> None:
+    calls: list[str] = []
+
+    class CustomCursor(SnowflakeCursor):
+        def execute(self, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
+            calls.append(command)
+            return super().execute(command, params, *args, **kwargs)  # pyright: ignore[reportUnknownVariableType]
+
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn)
+
+    conn.cursor(CustomCursor).execute('select 1')
+
+    assert calls == ['select 1']
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['snowflake execute']
+
+
+def test_instrument_module_capture_parameters_change_warns(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+    logfire.instrument_snowflake()
+
+    with pytest.warns(UserWarning, match='already instrumented with `capture_parameters=False`'):
+        logfire.instrument_snowflake(capture_parameters=True)
+
+    FakeConnection().cursor().execute('select %s', ('person@example.com',))
+    assert 'params' not in exporter.exported_spans_as_dict()[0]['attributes']
+
+
 def test_instrument_snowflake_invalid_argument() -> None:
     with pytest.raises(ValueError, match=r"Don't know how to instrument 'not a connection'"):
         logfire.instrument_snowflake('not a connection')  # pyright: ignore[reportArgumentType]

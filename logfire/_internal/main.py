@@ -1025,7 +1025,8 @@ class Logfire:
                 By default (`None`), all connections are instrumented, including ones created later.
             capture_parameters: Set to `True` to capture query parameters as span attributes.
                 Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
-                Instrumenting the same target again has no effect; the first call determines this setting.
+                Instrumenting the same target again has no effect; the first call determines this setting,
+                and a later call with a different value emits a warning.
                 A connection keeps the setting it was instrumented with, even if the module is instrumented later.
         """
         from .integrations.snowflake import instrument_snowflake
