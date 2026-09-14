@@ -1,5 +1,7 @@
 # Release Notes
 
+## Unreleased
+
 ## [v5.1.0] (2026-09-11)
 
 ### Integrations
@@ -19,12 +21,6 @@
 
 * Prevent OpenTelemetry logging from deadlocking during `force_flush()` by @L4XB in [#2404](https://github.com/pydantic/logfire/pull/2404)
 * Require directory boundaries when identifying non-user code paths by @yhz5613813 in [#2375](https://github.com/pydantic/logfire/pull/2375)
-
-## New Contributors
-
-* @yhz5613813 made their first contribution in [#2375](https://github.com/pydantic/logfire/pull/2375)
-* @krishna3554 made their first contribution in [#2082](https://github.com/pydantic/logfire/pull/2082)
-* @L4XB made their first contribution in [#2404](https://github.com/pydantic/logfire/pull/2404)
 
 ## [v5.0.0] (2026-09-04)
 
