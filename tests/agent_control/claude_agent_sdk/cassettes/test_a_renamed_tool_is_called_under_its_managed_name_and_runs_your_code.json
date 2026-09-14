@@ -1,0 +1,1316 @@
+{
+  "metadata": {
+    "cli_version": "2.1.267 (Claude Code)"
+  },
+  "messages": [
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_request",
+        "request_id": "req_1_b925fc9e",
+        "request": {
+          "subtype": "initialize",
+          "hooks": {
+            "PreToolUse": [
+              {
+                "matcher": "mcp__shop__issue_refund",
+                "hookCallbackIds": [
+                  "hook_0"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_request",
+        "request_id": "92f5b5b1-18bd-48e4-98e3-f3f2f4a77035",
+        "request": {
+          "subtype": "mcp_message",
+          "server_name": "shop",
+          "message": {
+            "method": "initialize",
+            "params": {
+              "protocolVersion": "2025-11-25",
+              "capabilities": {},
+              "clientInfo": {
+                "name": "claude-code",
+                "title": "Claude Code",
+                "description": "Anthropic's agentic coding tool",
+                "websiteUrl": "https://claude.com/claude-code",
+                "version": "2.1.267"
+              }
+            },
+            "jsonrpc": "2.0",
+            "id": 0
+          }
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "92f5b5b1-18bd-48e4-98e3-f3f2f4a77035",
+          "response": {
+            "mcp_response": {
+              "jsonrpc": "2.0",
+              "id": 0,
+              "result": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {
+                  "experimental": {},
+                  "tools": {
+                    "listChanged": false
+                  }
+                },
+                "serverInfo": {
+                  "name": "shop",
+                  "version": "1.0.0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "req_1_b925fc9e",
+          "response": {
+            "commands": [
+              {
+                "name": "deep-research",
+                "description": "Deep research harness \u2014 fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report. (dynamic workflow)",
+                "argumentHint": ""
+              },
+              {
+                "name": "design",
+                "description": "Grant or revoke Claude agent access to your Design projects",
+                "argumentHint": "consent | revoke"
+              },
+              {
+                "name": "design-sync",
+                "description": "Push a React design system to claude.ai/design. This runs a converter that bundles the real component code (from Storybook or a bare package) and uploads it. Use when the user runs /design-sync or says \"sync my design system to Claude Design\".",
+                "argumentHint": "[<project hint, e.g. \"Acme DS\">]"
+              },
+              {
+                "name": "dataviz",
+                "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium \u2014 an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, \u2026), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG \u2014 a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system \u2014 elegant, accessible, consistent in light and dark \u2014 using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` \u2014 swap that file's values for your brand's. Triggers on: \"chart\", \"graph\", \"plot\", \"data viz\", \"visualization\", \"dashboard\", \"analytics\", \"visualize data\", \"categorical colors\", \"sequential / diverging palette\", \"stat tile\", \"sparkline\", \"heatmap\", \"legend\", \"axis\", \"tooltip\", \"chart colors\", \"color by series\".",
+                "argumentHint": ""
+              },
+              {
+                "name": "update-config",
+                "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command.",
+                "argumentHint": ""
+              },
+              {
+                "name": "verify",
+                "description": "Verify that a code change actually does what it's supposed to by exercising it end-to-end and observing behavior \u2014 drive the affected flow, not just tests or typecheck. Run before committing nontrivial changes; bootstraps this repo's project verify skill if none exists yet. Don't invoke it on a diff that only touches tests, docs, or other code with no runtime surface to drive (a change to product source always has one) \u2014 there's nothing to observe.",
+                "argumentHint": ""
+              },
+              {
+                "name": "debug",
+                "description": "Enable debug logging for this session and help diagnose issues",
+                "argumentHint": "[issue description]"
+              },
+              {
+                "name": "code-review",
+                "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs and reuse/simplification/efficiency cleanups at the given effort level (low/medium: fewer, high-confidence findings; high\u2192max: broader coverage, may include uncertain findings); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply the findings to the working tree after the review.",
+                "argumentHint": "[low|medium|high|xhigh|max] [--fix] [--comment] [<pr#>|<branch>|<path>]",
+                "aliases": [
+                  "review"
+                ]
+              },
+              {
+                "name": "simplify",
+                "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only \u2014 it does not hunt for bugs; use /code-review for that.",
+                "argumentHint": "[<target>]"
+              },
+              {
+                "name": "batch",
+                "description": "Research and plan a large-scale change, then execute it in parallel across 5\u201330 isolated worktree agents that each open a PR.",
+                "argumentHint": "<instruction>"
+              },
+              {
+                "name": "fewer-permission-prompts",
+                "description": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts.",
+                "argumentHint": ""
+              },
+              {
+                "name": "doctor",
+                "description": "Health-check the user's Claude Code setup and fix issues: diagnose installation health \u2014 what the `claude doctor` terminal diagnostics cover \u2014 from local data (duplicate or leftover installs, PATH, unparseable settings files, broken or colliding agent definitions, skills whose frontmatter fails to parse); find unused skills, MCP servers, and plugins versus their context cost and disable dead weight; deduplicate local CLAUDE.md files against checked-in ones; trim checked-in CLAUDE.md files by cutting content a session could derive from the codebase (directory layouts, tech-stack lists, architecture overviews) while keeping gotchas, rationale, and non-standard conventions; migrate always-loaded CLAUDE.md guidance into lazy skills and nested CLAUDE.md files; flag slow hooks and context-heavy extensions; check the installed version is current; make auto mode the default permission mode; and pre-approve frequently denied read-only commands. Use when the user asks for a doctor run, checkup, audit, tune-up, or cleanup of their Claude Code setup or configuration.",
+                "argumentHint": "",
+                "aliases": [
+                  "checkup"
+                ]
+              },
+              {
+                "name": "loop",
+                "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace.",
+                "argumentHint": "[interval] [prompt]",
+                "aliases": [
+                  "proactive"
+                ]
+              },
+              {
+                "name": "claude-api",
+                "description": "Reference for the Claude API / Anthropic SDK \u2014 model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\nTRIGGER \u2014 read BEFORE opening the target file; don't skip because it \"looks like a one-liner\" \u2014 whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) \u2014 never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named \u2014 don't Read the file).",
+                "argumentHint": ""
+              },
+              {
+                "name": "workflow-authoring",
+                "description": "Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one.",
+                "argumentHint": ""
+              },
+              {
+                "name": "run",
+                "description": "Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library).",
+                "argumentHint": ""
+              },
+              {
+                "name": "run-skill-generator",
+                "description": "Author or improve the run-<unit> skill - a per-project skill that tells agents how to build, launch, and drive this project's app. Use when the user asks to set up the project, get it running, write run instructions, or verify build/run steps work from a clean environment.",
+                "argumentHint": ""
+              },
+              {
+                "name": "advisor",
+                "description": "Let Claude consult a stronger model at key moments",
+                "argumentHint": "[fable|opus|sonnet|off]"
+              },
+              {
+                "name": "agents",
+                "description": "(removed) Ask Claude to create/manage subagents, or edit .claude/agents/",
+                "argumentHint": ""
+              },
+              {
+                "name": "auto-mode-setup",
+                "description": "Teach auto mode about your environment, plus optional rule tweaks",
+                "argumentHint": "[--request-id <uuid>] (--wizard posture=\u2026 scope=\u2026 depth=\u2026 --propose | --expect-sha256 <64-hex> --apply-file <path>)"
+              },
+              {
+                "name": "autocompact",
+                "description": "Configure the auto-compact window size",
+                "argumentHint": "[auto|<tokens>]"
+              },
+              {
+                "name": "clear",
+                "description": "Start a new session with empty context; previous session stays on disk (resumable with /resume)",
+                "argumentHint": "[name]",
+                "aliases": [
+                  "reset",
+                  "new"
+                ]
+              },
+              {
+                "name": "color",
+                "description": "Set the prompt bar color for this session",
+                "argumentHint": "[red|blue|green|yellow|purple|orange|pink|cyan|default]"
+              },
+              {
+                "name": "compact",
+                "description": "Free up context by summarizing the conversation so far",
+                "argumentHint": "<optional custom summarization instructions>"
+              },
+              {
+                "name": "config",
+                "description": "Set a setting by key",
+                "argumentHint": "key=value",
+                "aliases": [
+                  "settings"
+                ]
+              },
+              {
+                "name": "context",
+                "description": "Show current context usage",
+                "argumentHint": ""
+              },
+              {
+                "name": "effort",
+                "description": "Set effort level for model usage",
+                "argumentHint": "<low|medium|high|xhigh|max|auto>"
+              },
+              {
+                "name": "fast",
+                "description": "Toggle fast mode (Opus 5)",
+                "argumentHint": "[on|off]"
+              },
+              {
+                "name": "heapdump",
+                "description": "Dump the JS heap to ~/Desktop",
+                "argumentHint": ""
+              },
+              {
+                "name": "init",
+                "description": "Initialize a new CLAUDE.md file with codebase documentation",
+                "argumentHint": ""
+              },
+              {
+                "name": "mcp",
+                "description": "Manage MCP servers",
+                "argumentHint": "[reconnect|enable|disable [<server>|all]]"
+              },
+              {
+                "name": "import",
+                "description": "Import config from another AI coding agent",
+                "argumentHint": ""
+              },
+              {
+                "name": "model",
+                "description": "Set the AI model for Claude Code",
+                "argumentHint": "<model>"
+              },
+              {
+                "name": "__remote-workflow",
+                "description": "Run the workflow script delivered in this session environment (server-launched sessions only)",
+                "argumentHint": ""
+              },
+              {
+                "name": "workflow-launch-exec",
+                "description": "Execute a server-launched workflow handoff (workflow_launch event sessions only)",
+                "argumentHint": ""
+              },
+              {
+                "name": "reload-plugins",
+                "description": "Activate pending plugin changes in the current session",
+                "argumentHint": "[--force]"
+              },
+              {
+                "name": "reload-skills",
+                "description": "Pick up skills added or changed on disk during this session",
+                "argumentHint": ""
+              },
+              {
+                "name": "rename",
+                "description": "Rename the current conversation",
+                "argumentHint": "[name]",
+                "aliases": [
+                  "name"
+                ]
+              },
+              {
+                "name": "security-review",
+                "description": "Complete a security review of the pending changes on the current branch",
+                "argumentHint": ""
+              },
+              {
+                "name": "usage",
+                "description": "Show session cost, plan usage, and what's contributing to your limits",
+                "argumentHint": "",
+                "aliases": [
+                  "cost",
+                  "stats"
+                ]
+              },
+              {
+                "name": "insights",
+                "description": "Generate a report analyzing your Claude Code sessions",
+                "argumentHint": ""
+              },
+              {
+                "name": "recap",
+                "description": "Generate a one-line session recap now",
+                "argumentHint": ""
+              },
+              {
+                "name": "skill-doctor",
+                "description": "Show which loaded skills are unused and costing context",
+                "argumentHint": ""
+              },
+              {
+                "name": "goal",
+                "description": "Set a goal \u2014 keep working until the condition is met",
+                "argumentHint": ""
+              },
+              {
+                "name": "design-consent",
+                "description": "Grant Claude agent access to your Design projects",
+                "argumentHint": ""
+              },
+              {
+                "name": "design-revoke",
+                "description": "Revoke Claude agent access to your Design projects",
+                "argumentHint": ""
+              },
+              {
+                "name": "list-agents",
+                "description": "List subagents, teammates, and other Claude sessions you can message",
+                "argumentHint": "",
+                "aliases": [
+                  "peers"
+                ]
+              },
+              {
+                "name": "team-onboarding",
+                "description": "Help teammates ramp on Claude Code with a guide from your usage",
+                "argumentHint": ""
+              }
+            ],
+            "agents": [
+              {
+                "name": "claude",
+                "description": "Catch-all for any task that doesn't fit a more specific agent. FleetView's default when no agent name is typed."
+              },
+              {
+                "name": "Explore",
+                "description": "Fast read-only search agent for locating code. Use it to find files by pattern (eg. \"src/components/**/*.tsx\"), grep for symbols or keywords (eg. \"API endpoints\"), or answer \"where is X defined / which files reference Y.\" Do NOT use it for code review, design-doc auditing, cross-file consistency checks, or open-ended analysis \u2014 it reads excerpts rather than whole files and will miss content past its read window. When calling, specify search breadth: \"quick\" for a single targeted lookup, \"medium\" for moderate exploration, or \"very thorough\" to search across multiple locations and naming conventions.",
+                "model": "inherit"
+              },
+              {
+                "name": "general-purpose",
+                "description": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you."
+              },
+              {
+                "name": "Plan",
+                "description": "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs.",
+                "model": "inherit"
+              },
+              {
+                "name": "statusline-setup",
+                "description": "Use this agent to configure the user's Claude Code status line setting.",
+                "model": "sonnet"
+              }
+            ],
+            "output_style": "default",
+            "available_output_styles": [
+              "default",
+              "Proactive",
+              "Concise",
+              "Explanatory",
+              "Learning"
+            ],
+            "models": [
+              {
+                "value": "default",
+                "resolvedModel": "claude-opus-5[1m]",
+                "displayName": "Default (recommended)",
+                "description": "Use the default model (currently Opus 5 (1M context)) \u00b7 $5/$25 per Mtok",
+                "supportsEffort": true,
+                "supportedEffortLevels": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "supportsAdaptiveThinking": true,
+                "supportsFastMode": true,
+                "supportsAutoMode": true
+              },
+              {
+                "value": "opus[1m]",
+                "resolvedModel": "claude-opus-5[1m]",
+                "displayName": "Opus (1M context)",
+                "description": "Opus 5 with 1M context \u00b7 Best for everyday, complex tasks \u00b7 $5/$25 per Mtok",
+                "supportsEffort": true,
+                "supportedEffortLevels": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "supportsAdaptiveThinking": true,
+                "supportsFastMode": true,
+                "supportsAutoMode": true
+              },
+              {
+                "value": "sonnet",
+                "resolvedModel": "claude-sonnet-5",
+                "displayName": "Sonnet",
+                "description": "Sonnet 5 \u00b7 Efficient for routine tasks \u00b7 $2/$10 per Mtok",
+                "supportsEffort": true,
+                "supportedEffortLevels": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "supportsAdaptiveThinking": true,
+                "supportsAutoMode": true
+              },
+              {
+                "value": "haiku",
+                "resolvedModel": "claude-haiku-4-5-20251001",
+                "displayName": "Haiku",
+                "description": "Haiku 4.5 \u00b7 Fastest for quick answers \u00b7 $1/$5 per Mtok"
+              },
+              {
+                "value": "claude-haiku-4-5",
+                "resolvedModel": "claude-haiku-4-5",
+                "displayName": "Haiku 4.5",
+                "description": "Fastest for quick answers (claude-haiku-4-5)"
+              }
+            ],
+            "account": {
+              "tokenSource": "none",
+              "apiKeySource": "ANTHROPIC_API_KEY",
+              "apiProvider": "firstParty"
+            },
+            "pid": 1895863,
+            "current_permission_mode": "default",
+            "hooks_applied": true,
+            "analytics_disabled": false,
+            "remote_control_auto_enable": false,
+            "remote_control_available": true,
+            "remote_control_auto_on_by_default": false,
+            "ide_rc_auto_enable_gate": true,
+            "fast_mode_state": "off",
+            "fast_mode_disabled_reason": "sdk_opt_in_required",
+            "session_state": "idle"
+          }
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "Refund order A-1234, then reply DONE."
+        },
+        "parent_tool_use_id": null,
+        "session_id": "default"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_request",
+        "request_id": "ef3b011f-edef-4a77-88a8-69f38659996f",
+        "request": {
+          "subtype": "mcp_message",
+          "server_name": "shop",
+          "message": {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized"
+          }
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "ef3b011f-edef-4a77-88a8-69f38659996f",
+          "response": {
+            "mcp_response": {
+              "jsonrpc": "2.0",
+              "result": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_request",
+        "request_id": "e40748cc-ae07-4c96-852a-f8392225b3cf",
+        "request": {
+          "subtype": "mcp_message",
+          "server_name": "shop",
+          "message": {
+            "method": "tools/list",
+            "jsonrpc": "2.0",
+            "id": 1
+          }
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "e40748cc-ae07-4c96-852a-f8392225b3cf",
+          "response": {
+            "mcp_response": {
+              "jsonrpc": "2.0",
+              "id": 1,
+              "result": {
+                "tools": [
+                  {
+                    "name": "issue_refund",
+                    "description": "Issue a refund for one order. Use this whenever a refund is requested.",
+                    "inputSchema": {
+                      "type": "object",
+                      "properties": {
+                        "order_id": {
+                          "type": "string",
+                          "description": "The order's id, e.g. 'A-1234'."
+                        }
+                      },
+                      "required": [
+                        "order_id"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "system",
+        "subtype": "init",
+        "cwd": "/agent",
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "tools": [
+          "Task",
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "DesignSync",
+          "Edit",
+          "EnterWorktree",
+          "ExitWorktree",
+          "ListAgents",
+          "Monitor",
+          "NotebookEdit",
+          "PushNotification",
+          "Read",
+          "ReportFindings",
+          "ScheduleWakeup",
+          "SendMessage",
+          "Skill",
+          "TaskCreate",
+          "TaskGet",
+          "TaskList",
+          "TaskOutput",
+          "TaskStop",
+          "TaskUpdate",
+          "ToolSearch",
+          "WebFetch",
+          "WebSearch",
+          "Workflow",
+          "Write",
+          "mcp__shop__issue_refund"
+        ],
+        "mcp_servers": [
+          {
+            "name": "shop",
+            "status": "connected"
+          }
+        ],
+        "model": "claude-haiku-4-5",
+        "permissionMode": "default",
+        "slash_commands": [
+          "deep-research",
+          "design",
+          "design-sync",
+          "dataviz",
+          "update-config",
+          "verify",
+          "debug",
+          "code-review",
+          "simplify",
+          "batch",
+          "fewer-permission-prompts",
+          "doctor",
+          "loop",
+          "claude-api",
+          "workflow-authoring",
+          "run",
+          "run-skill-generator",
+          "advisor",
+          "agents",
+          "auto-mode-setup",
+          "autocompact",
+          "clear",
+          "color",
+          "compact",
+          "config",
+          "context",
+          "effort",
+          "fast",
+          "heapdump",
+          "init",
+          "mcp",
+          "import",
+          "model",
+          "__remote-workflow",
+          "workflow-launch-exec",
+          "reload-plugins",
+          "reload-skills",
+          "rename",
+          "security-review",
+          "usage",
+          "insights",
+          "recap",
+          "skill-doctor",
+          "goal",
+          "design-consent",
+          "design-revoke",
+          "list-agents",
+          "team-onboarding"
+        ],
+        "terminal_slash_commands": [
+          "doctor",
+          "color",
+          "reload-plugins"
+        ],
+        "apiKeySource": "ANTHROPIC_API_KEY",
+        "claude_code_version": "2.1.267",
+        "output_style": "default",
+        "agents": [
+          "claude",
+          "Explore",
+          "general-purpose",
+          "Plan",
+          "statusline-setup"
+        ],
+        "skills": [
+          "deep-research",
+          "design",
+          "design-sync",
+          "dataviz",
+          "update-config",
+          "verify",
+          "debug",
+          "code-review",
+          "simplify",
+          "batch",
+          "fewer-permission-prompts",
+          "doctor",
+          "loop",
+          "claude-api",
+          "workflow-authoring",
+          "run",
+          "run-skill-generator"
+        ],
+        "plugins": [],
+        "capabilities": [
+          "interrupt_receipt_v1",
+          "interrupt_cancel_queued_v1",
+          "msg_lifecycle_v1"
+        ],
+        "analytics_disabled": false,
+        "product_feedback_disabled": false,
+        "uuid": "045c9d06-eeba-43de-a48d-0a6644f5c26c",
+        "memory_paths": {
+          "auto": "/config/projects/-agent/memory/"
+        },
+        "messaging_socket_path": "/tmp/cc-socks/1895863.sock",
+        "fast_mode_state": "off",
+        "fast_mode_disabled_reason": "sdk_opt_in_required"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "system",
+        "subtype": "thinking_tokens",
+        "estimated_tokens": 50,
+        "estimated_tokens_delta": 50,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "e942982d-b7fe-42d6-b542-8d2a33d5a079"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "system",
+        "subtype": "thinking_tokens",
+        "estimated_tokens": 155,
+        "estimated_tokens_delta": 105,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "6e2a003d-0f70-41ca-b9c0-b4b23613e988"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_011Cetj7dEVK59wAn2RwJaTt",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "",
+              "signature": "EuUECrIBCBEYAipAjHMl29YE9UqSMldGd0zajh1U0itB/4aa60MZpVTPkblqJGqZ8nXOELhYQCylXr+Cs8wpE1kD0p+WhQPTh24/4jIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNDRhZTY3NmMtOTU4Zi00ZDY4LTkxMDgtZWFlOWRlN2IzNjZichCXogzBpBt2rXC3NuX2ICCxiAEBqAH11IfVBrABAhIMkaWCKO45ke+PVOp6GgyZ0fqE3EfZUE8VH2oiMKDY+2s2NLRNJsWM4Z2tnNhwq1ePNqltU4qoL7PFI3V91c0gcCoc/rCIDElwXmWFXSrfAmzuNiD8/sUI4nl31xfiHRjEqx5h9wK9zJkhZJxgy3SRiZ/F9P1PBiO0NZFukax0y4u5AZG1LioS+ppFfgY/Ck4yBo5XhC53Hsxz/sg2RNg6wwFZEU9nXAd7sfq3L2/CL3am0sIgs+hIi5BxXA8Ug3nqqyM0ySLY7qTHQ4sJQGnBVNcHrQfr9UgPiAvqs11hrD/473n0fNxLJW2OCKW/SqsDOpclRhMWAXWj3cI6/49x55OJ8Ic6GxJ569Y9Qgi+9E5Yrib4gDVWAU0fkVxiTAp7LZjFeOsirOwO1o7rUQlL2rX4dvl8px6pH9NL7AHJJdnBWV6f9pkM6WC4XqJeuzkjh0cZhe2RlIwIbwnVnCMBtxRE/b1S5yR1cDcSivnLs53qvLor5bXItGzbiNva8uybQ0oqX82XFUa3tv4c9Xq4MEhuBoTI0SjUT5UL/+V3Hw/KhuzUmLOBn7WD05mMrRgB"
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 14144,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 3,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "7277ce75-278e-4330-9bf2-91ddd57875d0",
+        "timestamp": "2026-09-09T23:23:33.829Z",
+        "request_id": "req_011Cetj7ckU2quXrDnLtMU6i"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_011Cetj7dEVK59wAn2RwJaTt",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I'll load the refund tool schema and process the refund for order A-1234."
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 14144,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 3,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "e5565783-0a69-40a8-bf49-28c5ccbb03e0",
+        "timestamp": "2026-09-09T23:23:34.179Z",
+        "request_id": "req_011Cetj7ckU2quXrDnLtMU6i"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_011Cetj7dEVK59wAn2RwJaTt",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01A7s7Xg6ju737okSvcMAKpg",
+              "name": "ToolSearch",
+              "input": {
+                "query": "select:mcp__shop__issue_refund",
+                "max_results": 1
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 14144,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 3,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "84f75efe-b140-411e-bb58-14988273b567",
+        "timestamp": "2026-09-09T23:23:34.711Z",
+        "request_id": "req_011Cetj7ckU2quXrDnLtMU6i"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_01A7s7Xg6ju737okSvcMAKpg",
+              "content": [
+                {
+                  "type": "tool_reference",
+                  "tool_name": "mcp__shop__issue_refund"
+                }
+              ]
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "44c91ddf-9772-488b-bad8-efd621683eaa",
+        "timestamp": "2026-09-09T23:23:34.718Z",
+        "tool_use_result": {
+          "matches": [
+            "mcp__shop__issue_refund"
+          ],
+          "query": "select:mcp__shop__issue_refund",
+          "total_deferred_tools": 19
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_011Cetj7qAaw9vGkyXPy9MGG",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "",
+              "signature": "EvwCCrIBCBEYAipAwn6519RB2KAPGzv1cczdzJ29BCOj3Gg6ftynmOAcS/Kkxrz1B01arTR+lpYmzBJ8DhGXbeJUss4oiC2OsbYawTIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNDRhZTY3NmMtOTU4Zi00ZDY4LTkxMDgtZWFlOWRlN2IzNjZichCXogzBpBt2rXC3NuX2ICCxiAEBqAH41IfVBrABAhIM8ha+nugMJQXDwSbbGgypzIF9PkWKpTt8+TEiMGNtGjt87EgHsyNOn12MVESMeSXdVPlAW5zwuwBk3MYDJwPNWZwqlF4/s+8hH0waGCp3pOVDgNlC8UFbIaIdtxHi25R1LPACxPsZ7m7AQYQSkEuUzfnnbM1WOxjkX1jSwjvJdzq7ZrkG+azl1ySgVM8X6qFdpQKwIGMX+ioMkKnYMcCZr+exzJv57T+6P/XSu1BbhMnaWkAs//nSryhsORAfNZCgou4ip30YAQ=="
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 367,
+            "cache_read_input_tokens": 14144,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 367,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 1,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "4784b7b7-e172-4b58-9704-709b155765c8",
+        "timestamp": "2026-09-09T23:23:36.422Z",
+        "request_id": "req_011Cetj7pYP1cbcZ4PqVNoAd"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_011Cetj7qAaw9vGkyXPy9MGG",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_019j6tsDXJR1n3Ab5kbAMniT",
+              "name": "mcp__shop__issue_refund",
+              "input": {
+                "order_id": "A-1234"
+              },
+              "caller": {
+                "type": "direct"
+              }
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 367,
+            "cache_read_input_tokens": 14144,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 367,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 1,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "d698ed51-4e88-4577-8e6e-82f85b9b9316",
+        "timestamp": "2026-09-09T23:23:36.521Z",
+        "request_id": "req_011Cetj7pYP1cbcZ4PqVNoAd",
+        "tool_use_meta": [
+          {
+            "id": "toolu_019j6tsDXJR1n3Ab5kbAMniT",
+            "display_name": "Issue Refund",
+            "server_display_name": "shop"
+          }
+        ]
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_request",
+        "request_id": "c47d9c5c-8fd9-4097-87ce-f79c3736dae7",
+        "request": {
+          "subtype": "hook_callback",
+          "callback_id": "hook_0",
+          "input": {
+            "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+            "transcript_path": "/config/projects/-agent/50deb978-8a97-4642-9c9f-2626c29d90de.jsonl",
+            "cwd": "/agent",
+            "prompt_id": "933482cd-37ed-4deb-94d0-bf310e1c2f76",
+            "permission_mode": "default",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "mcp__shop__issue_refund",
+            "tool_input": {
+              "order_id": "A-1234"
+            },
+            "tool_use_id": "toolu_019j6tsDXJR1n3Ab5kbAMniT"
+          },
+          "tool_use_id": "toolu_019j6tsDXJR1n3Ab5kbAMniT"
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "c47d9c5c-8fd9-4097-87ce-f79c3736dae7",
+          "response": {}
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_request",
+        "request_id": "f761ad85-1c69-4f79-a153-966b5f207e5e",
+        "request": {
+          "subtype": "mcp_message",
+          "server_name": "shop",
+          "message": {
+            "method": "tools/call",
+            "params": {
+              "name": "issue_refund",
+              "arguments": {
+                "order_id": "A-1234"
+              },
+              "_meta": {
+                "claudecode/toolUseId": "toolu_019j6tsDXJR1n3Ab5kbAMniT",
+                "progressToken": 2
+              }
+            },
+            "jsonrpc": "2.0",
+            "id": 2
+          }
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "f761ad85-1c69-4f79-a153-966b5f207e5e",
+          "response": {
+            "mcp_response": {
+              "jsonrpc": "2.0",
+              "id": 2,
+              "result": {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Refunded A-1234."
+                  }
+                ],
+                "isError": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "tool_use_id": "toolu_019j6tsDXJR1n3Ab5kbAMniT",
+              "type": "tool_result",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Refunded A-1234."
+                }
+              ]
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "d67aac96-9b34-43e6-8ddc-9bc95c066075",
+        "timestamp": "2026-09-09T23:23:36.534Z",
+        "tool_use_result": [
+          {
+            "type": "text",
+            "text": "Refunded A-1234."
+          }
+        ]
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_011Cetj7xeYkWRfNf4RZH8CV",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "",
+              "signature": "EokDCrIBCBEYAipAqhmKrq0aztvVThkgD8eKFPSL3VX12IZ8n26D1DZwXLa67L8g9N0o3t3UUIyNRZzTj17OjnXEeWgFW2QKmDi60TIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNDRhZTY3NmMtOTU4Zi00ZDY4LTkxMDgtZWFlOWRlN2IzNjZichCXogzBpBt2rXC3NuX2ICCxiAEBqAH51IfVBrABAhIMXtcPkN46Zlaq688yGgx864F/hf2zGVCQs40iMH9hgKn1Ekywqn5wr0heveCYWtw+YkgQqsxNW60Sp9iKBxkxWAZRihWus3LFCGkG8SqDAcXQdEpMBxkzKUE55A79qiaX+Xn4m0IyOs19n/DBv6//aiADw2+gRSK0ZfcS1SZtFj/R8qKWjJ0qlWXylWJl70HXWvjDnJ3B4OHpluUdg2FGkWFrDW4cBkOPfxAIsOvGg0OCwjzdtOzI6/ixAzMFdO30VZSN/io39ljLilNSY0+bHbSFGAE="
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 164,
+            "cache_read_input_tokens": 14511,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 164,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 2,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "c6d2057c-d051-46ba-8134-d053c069545b",
+        "timestamp": "2026-09-09T23:23:37.839Z",
+        "request_id": "req_011Cetj7wzbtKTxSNhwXPQUb"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "model": "claude-haiku-4-5-20251001",
+          "id": "msg_011Cetj7xeYkWRfNf4RZH8CV",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "DONE."
+            }
+          ],
+          "container": null,
+          "stop_reason": null,
+          "stop_sequence": null,
+          "stop_details": null,
+          "usage": {
+            "input_tokens": 10,
+            "cache_creation_input_tokens": 164,
+            "cache_read_input_tokens": 14511,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 164,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "output_tokens": 2,
+            "service_tier": "standard",
+            "inference_geo": "not_available"
+          },
+          "diagnostics": null,
+          "context_management": null
+        },
+        "parent_tool_use_id": null,
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "uuid": "85d2470a-4fa7-42f3-bc93-98036cd2011d",
+        "timestamp": "2026-09-09T23:23:37.849Z",
+        "request_id": "req_011Cetj7wzbtKTxSNhwXPQUb"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "duration_api_ms": 7129,
+        "stop_reason": "end_turn",
+        "session_id": "50deb978-8a97-4642-9c9f-2626c29d90de",
+        "total_cost_usd": 0.0077446500000000005,
+        "usage": {
+          "input_tokens": 30,
+          "cache_creation_input_tokens": 531,
+          "cache_read_input_tokens": 42799,
+          "output_tokens": 357,
+          "output_tokens_details": {
+            "thinking_tokens": 176
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 531
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 10,
+              "output_tokens": 43,
+              "cache_read_input_tokens": 14511,
+              "cache_creation_input_tokens": 164,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 164,
+                "ephemeral_1h_input_tokens": 0
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard"
+        },
+        "modelUsage": {
+          "claude-haiku-4-5-20251001": {
+            "inputTokens": 906,
+            "outputTokens": 16,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0,
+            "webSearchRequests": 0,
+            "costUSD": 0.000986,
+            "contextWindow": 200000,
+            "maxOutputTokens": 32000,
+            "thinkingTokens": 0,
+            "canonicalModel": "claude-haiku-4-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          },
+          "claude-haiku-4-5": {
+            "inputTokens": 30,
+            "outputTokens": 357,
+            "cacheReadInputTokens": 42799,
+            "cacheCreationInputTokens": 531,
+            "webSearchRequests": 0,
+            "costUSD": 0.006758650000000001,
+            "contextWindow": 200000,
+            "maxOutputTokens": 32000,
+            "thinkingTokens": 176,
+            "canonicalModel": "claude-haiku-4-5",
+            "provider": "firstParty",
+            "costBasis": "list"
+          }
+        },
+        "permission_denials": [],
+        "terminal_reason": "completed",
+        "fast_mode_state": "off",
+        "fast_mode_disabled_reason": "sdk_opt_in_required",
+        "subagent_stats": {
+          "spawned": 0,
+          "requested": {
+            "background": 0,
+            "foreground": 0,
+            "unset": 0
+          },
+          "started_in_background": 0,
+          "max_depth": 0,
+          "spawned_by_subagents": 0,
+          "completed": 0,
+          "failed": 0,
+          "killed": {
+            "parent": 0,
+            "user": 0,
+            "system": 0
+          },
+          "refused": {
+            "depth_limit": 0,
+            "concurrency_limit": 0,
+            "budget": 0
+          },
+          "by_type": {}
+        },
+        "is_error": false,
+        "num_turns": 3,
+        "subtype": "success",
+        "api_error_status": null,
+        "result": "DONE.",
+        "ttft_ms": 1835,
+        "type": "result",
+        "duration_ms": 5889,
+        "uuid": "78575bd9-189b-4882-9451-d0f827d85353",
+        "ttft_stream_ms": 672,
+        "time_to_request_ms": 32,
+        "first_content_frame_ms": 914,
+        "queued_turn_count": 0
+      }
+    }
+  ]
+}

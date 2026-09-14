@@ -114,4 +114,5 @@ Not seeing data? Check that `logfire.configure()` ran before `instrument_claude_
 ## Reference
 
 - API reference: [`logfire.instrument_claude_agent_sdk()`][logfire.Logfire.instrument_claude_agent_sdk]
+- [Agent Control for the Claude Agent SDK](../../reference/advanced/agent-control/claude-agent-sdk.md): edit this agent's prompt, model, thinking effort, and tool descriptions in Logfire instead of in your code.
 - [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview)

@@ -2869,6 +2869,11 @@ agent-control = [
     { name = "pydantic" },
     { name = "pydantic-handlebars" },
 ]
+agent-control-claude-agent-sdk = [
+    { name = "claude-agent-sdk" },
+    { name = "pydantic" },
+    { name = "pydantic-handlebars" },
+]
 aiohttp = [
     { name = "opentelemetry-instrumentation-aiohttp-client" },
 ]
@@ -3076,10 +3081,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "claude-agent-sdk", marker = "extra == 'agent-control-claude-agent-sdk'", specifier = ">=0.2.82" },
     { name = "executing", specifier = ">=2.0.1" },
     { name = "httpx", marker = "extra == 'datasets'", specifier = ">=0.27.2" },
     { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27.0" },
     { name = "litestar", marker = "extra == 'litestar'", specifier = ">=2.11.0" },
+    { name = "logfire", extras = ["agent-control"], marker = "extra == 'agent-control-claude-agent-sdk'" },
     { name = "logfire", extras = ["variables"], marker = "extra == 'agent-control'" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", marker = "extra == 'litellm'", specifier = ">=0" },
@@ -3127,7 +3134,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "agent-control"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "agent-control", "agent-control-claude-agent-sdk"]
 
 [package.metadata.requires-dev]
 dev = [

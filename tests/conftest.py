@@ -30,6 +30,10 @@ if get_version(pydantic_version) < get_version('2.10.0'):  # pragma: no cover
     # from 2.10; the `agent-control` extra requires that floor. Skipping the directory (rather than
     # each module) also skips its conftest, which imports the package at module level.
     collect_ignore = ['agent_control']
+elif get_version(pydantic_version) < get_version('2.11.0'):  # pragma: no cover
+    # The Claude Agent SDK itself needs pydantic 2.11, so its adapter and tests cannot even be
+    # imported below that floor; the rest of `agent_control` still can.
+    collect_ignore = ['agent_control/claude_agent_sdk']
 
 
 # Emit both new and old semantic convention attribute names

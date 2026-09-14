@@ -88,6 +88,7 @@ dspy = ["openinference-instrumentation-dspy >= 0"]
 datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
 variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
 agent-control = ["logfire[variables]", "pydantic>=2.10"]
+agent-control-claude-agent-sdk = ["logfire[agent-control]", "claude-agent-sdk>=0.2.82"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"

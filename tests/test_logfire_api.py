@@ -298,7 +298,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     except ImportError:
         pass
     else:
-        logfire_api.instrument_claude_agent_sdk()
+        # Entered and exited, so the patching reverts: it is applied to the SDK's classes process-wide
+        # the moment this is called, and left in place it decides what every later test in the same
+        # process runs against.
+        with logfire_api.instrument_claude_agent_sdk():
+            pass
     logfire__all__.remove('instrument_claude_agent_sdk')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
