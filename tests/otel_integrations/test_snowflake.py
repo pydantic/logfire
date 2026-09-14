@@ -8,6 +8,7 @@ from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 import logfire
+import logfire._internal.integrations.snowflake as snowflake_integration
 from logfire._internal.exporters.test import TestExporter
 
 
@@ -42,6 +43,11 @@ class FakeSnowflakeConnection(SnowflakeConnection):
         # Override rather than inherit: the real cursor() checks internal connection
         # state that __init__ never set up here.
         return cursor_class(self)
+
+
+@pytest.fixture(autouse=True)
+def reset_module_instrumentation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(snowflake_integration, '_module_capture_parameters', None)
 
 
 @pytest.fixture(autouse=True)
@@ -257,7 +263,7 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
 def test_instrument_single_connection_idempotent(exporter: TestExporter) -> None:
     conn = FakeSnowflakeConnection(account='my_account')
     logfire.instrument_snowflake(conn)
-    logfire.instrument_snowflake(conn)  # should not double-wrap conn.cursor
+    logfire.instrument_snowflake(conn)
 
     cursor = conn.cursor()
     cursor.execute('select 1')
@@ -268,10 +274,6 @@ def test_instrument_single_connection_idempotent(exporter: TestExporter) -> None
 
 
 def test_instrument_module_then_connection_no_double_wrap(exporter: TestExporter) -> None:
-    """Instrumenting the module first, then a connection, must not double-wrap that
-    connection's cursors: `_instrument_connection` wraps the unpatched execute/executemany
-    methods on the instance, which shadows the class patch.
-    """
     logfire.instrument_snowflake()
 
     conn = FakeSnowflakeConnection(account='my_account')
@@ -287,10 +289,6 @@ def test_instrument_module_then_connection_no_double_wrap(exporter: TestExporter
 
 
 def test_instrument_connection_then_module_no_double_wrap(exporter: TestExporter) -> None:
-    """Instrumenting a connection first, then the module, must not retroactively
-    double-wrap cursors created from that connection afterward: the cursor factory
-    wraps the unpatched methods on the instance, so the later class patch is unused.
-    """
     conn = FakeSnowflakeConnection(account='my_account')
     logfire.instrument_snowflake(conn)
 
@@ -321,6 +319,40 @@ def test_instrument_single_connection_custom_cursor_class(exporter: TestExporter
 
     assert calls == ['select 1']
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == ['snowflake execute']
+
+
+def test_custom_cursor_super_call_with_module_and_connection_instrumented(exporter: TestExporter) -> None:
+    class CustomCursor(SnowflakeCursor):
+        def execute(self, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
+            return super().execute(command, params, *args, **kwargs)  # pyright: ignore[reportUnknownVariableType]
+
+        def executemany(self, command: str, seqparams: Any, **kwargs: Any) -> Any:
+            return super().executemany(command, seqparams, **kwargs)
+
+    logfire.instrument_snowflake()
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn)
+
+    cursor = conn.cursor(CustomCursor)
+    cursor.execute('select 1')
+    cursor.executemany('insert into my_table values (%s)', [(1,)])
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == [
+        'snowflake execute',
+        'snowflake executemany',
+    ]
+
+
+def test_instrument_connection_capture_parameters_change_warns(exporter: TestExporter) -> None:
+    conn = FakeSnowflakeConnection(account='my_account')
+    logfire.instrument_snowflake(conn)
+    logfire.instrument_snowflake(conn)
+
+    with pytest.warns(UserWarning, match='already instrumented with `capture_parameters=False`'):
+        logfire.instrument_snowflake(conn, capture_parameters=True)
+
+    conn.cursor().execute('select %s', ('person@example.com',))
+    assert 'params' not in exporter.exported_spans_as_dict()[0]['attributes']
 
 
 def test_instrument_module_capture_parameters_change_warns(exporter: TestExporter) -> None:
