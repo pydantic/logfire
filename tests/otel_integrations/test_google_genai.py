@@ -89,7 +89,7 @@ def test_instrument_google_genai(capfire: CaptureLogfire) -> None:
         # generate_content itself produces this warning, but only with pydantic 2.9.2 and python 3.13.
         warnings.filterwarnings('ignore', category=UserWarning)
 
-        response = client.models.generate_content(  # type: ignore
+        response = client.models.generate_content(
             model='gemini-2.0-flash-001',
             contents=[
                 'What is the weather like in Boston?',
@@ -195,7 +195,7 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
             # generate_content itself produces this warning, but only with pydantic 2.9.2 and python 3.13.
             warnings.filterwarnings('ignore', category=UserWarning)
 
-            response = client.models.generate_content(  # type: ignore
+            response = client.models.generate_content(
                 model='gemini-2.0-flash-001',
                 contents=[
                     'What is the weather like in Boston?',
@@ -273,7 +273,7 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
         # generate_content itself produces this warning, but only with pydantic 2.9.2 and python 3.13.
         warnings.filterwarnings('ignore', category=UserWarning)
 
-        response = client.models.generate_content(  # type: ignore
+        response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents='Hi',
             config=types.GenerateContentConfig(response_schema=ResponseData, response_mime_type='application/json'),
@@ -377,7 +377,7 @@ def test_instrument_google_genai_emit_event_opt_in(capfire: CaptureLogfire) -> N
             # generate_content itself produces this warning, but only with pydantic 2.9.2 and python 3.13.
             warnings.filterwarnings('ignore', category=UserWarning)
 
-            client.models.generate_content(  # type: ignore
+            client.models.generate_content(
                 model='gemini-2.0-flash-001',
                 contents=[
                     'What is the weather like in Boston?',
