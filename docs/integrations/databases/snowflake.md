@@ -1,6 +1,6 @@
 ---
-title: "See Snowflake queries in Logfire"
-description: "Add Logfire to the Snowflake Python client and see queries alongside the code that triggered them."
+title: "Instrument Snowflake: see every query your app runs"
+description: "Add a few lines to your Snowflake code and see every query in Logfire: the statement, how long it took, and which ones failed."
 integration: logfire
 ---
 # Snowflake

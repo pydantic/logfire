@@ -18,8 +18,6 @@ except ModuleNotFoundError as e:
         raise
     raise ImportError('Run `pip install snowflake-connector-python` to use `logfire.instrument_snowflake()`.') from e
 
-CONNECTION_ATTRS = ('account', 'warehouse', 'database', 'schema', 'role')
-
 # `None` means the module is not instrumented, so only connections registered below produce spans.
 _module_capture_parameters: bool | None = None
 _connection_capture_parameters: WeakKeyDictionary[SnowflakeConnection, bool] = WeakKeyDictionary()
@@ -145,7 +143,7 @@ def _query_span_attributes(command: str, cursor: SnowflakeCursor) -> dict[str, A
 
 def _connection_attributes(conn: Any) -> dict[str, Any]:
     attributes: dict[str, Any] = {}
-    for name in CONNECTION_ATTRS:
+    for name in ('account', 'warehouse', 'database', 'schema', 'role'):
         value = getattr(conn, name, None)
         if value is not None:
             attributes[name] = value
