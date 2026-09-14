@@ -101,11 +101,7 @@ Because it found something more "sole-ful!"\
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
                     'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [IsPartialDict()],
-                    },
+                    'logfire.mcp.tools.count': 1,
                 },
             },
             {
@@ -122,11 +118,7 @@ Because it found something more "sole-ful!"\
                     'logfire.msg_template': 'MCP request: tools/list',
                     'logfire.msg': 'MCP request: tools/list',
                     'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [IsPartialDict()],
-                    },
+                    'logfire.mcp.tools.count': 1,
                 },
             },
             {
