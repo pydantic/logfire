@@ -217,12 +217,19 @@ class AgentControl:
             UnmatchedConfigError: with `message`, when `on_unmatched` is `\'error\'`.
         '''
     def publish_baseline(self, baseline: AgentConfig, *, source: BaselineSource = 'code') -> threading.Thread | None:
-        """Publish a baseline as the variable's `example`, creating the variable if needed.
+        """Create the variable from a baseline, if the project does not have it yet.
 
         Call this once the adapter can describe the agent. It runs at most once per process per
         variable, off the calling thread, and it is marked as attempted *before* the work starts, so
         a failure does not retry on every later request and concurrent first requests do not schedule
         the same write twice.
+
+        **Create-only.** The baseline becomes the new variable's `example`, which is what the Logfire
+        editor opens on; a variable that already exists is never written to, so publishing can never
+        overwrite a value, label, or rollout someone saved in the UI. A changed code baseline
+        therefore does not reach an editor that already has one -- the divergence is logged at debug
+        level, and updating the example is a deliberate act in Logfire. This is the same rule
+        `variables_push` applies to the variables it manages.
 
         Args:
             baseline: What to publish, from

@@ -312,22 +312,43 @@ def test_publishing_creates_the_variable_with_the_stored_schema(
     assert any('Created Logfire managed variable' in span.name for span in capfire.exporter.exported_spans)
 
 
-def test_publishing_updates_only_the_example_of_a_variable_that_exists(project: LocalVariableProvider) -> None:
+def test_publishing_never_writes_to_a_variable_that_exists(
+    project: LocalVariableProvider, capfire: CaptureLogfire, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Create-only, which is the whole point: `update_variable` PUTs the entire definition and takes no
+    # `If-Match`, so refreshing the `example` is a read-modify-write that can carry away a value or a
+    # label someone saved in the UI inside the same round trip. Both writes are refused rather than
+    # merely observed, so what this asserts is that no write was *attempted* -- a result that happens
+    # to look unchanged is not the same claim.
     existing = publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
+    monkeypatch.setattr(project, 'update_variable', _refuse('update_variable'))
+    monkeypatch.setattr(project, 'create_variable', _refuse('create_variable'))
+    with collected_warnings() as caught:
+        # Entered before the publish, because that is what starts the thread that would warn.
+        thread = AgentControl('checkout').publish_baseline(BASELINE)
+        assert thread is not None
+        thread.join()
+    assert caught == []
     config = project.get_variable_config('agent__checkout')
     assert config is not None
-    assert config.example == BASELINE_EXAMPLE
-    # The published value, its labels, and its rollout survive a baseline write.
-    assert config.labels == existing.labels
-    assert config.rollout == existing.rollout
+    # The example the project already had -- here none at all -- rather than this process's baseline.
+    assert config.example is None
+    assert (config.labels, config.rollout, config.description) == (
+        existing.labels,
+        existing.rollout,
+        existing.description,
+    )
+    # What create-only costs is that a changed baseline does not reach an editor that already has one,
+    # so the divergence is findable rather than silent.
+    [skipped] = [span for span in capfire.exporter.exported_spans if 'already exists' in span.name]
+    assert skipped.attributes is not None and skipped.attributes['baseline_source'] == 'code'
 
 
-def test_publishing_writes_nothing_when_the_baseline_already_matches(
-    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
+def test_a_variable_already_carrying_this_baseline_is_not_even_reported(
+    project: LocalVariableProvider, capfire: CaptureLogfire, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # The steady state for a deployed agent: the example is already what this process would publish,
+    # so there is no divergence, and saying so on every process start would be noise.
     project.create_variable(
         VariableConfig(
             name='agent__checkout',
@@ -342,6 +363,7 @@ def test_publishing_writes_nothing_when_the_baseline_already_matches(
     assert thread is not None
     thread.join()
     assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
+    assert [span for span in capfire.exporter.exported_spans if 'already exists' in span.name] == []
 
 
 def test_publishing_happens_once_per_process_per_variable(project: LocalVariableProvider) -> None:
@@ -400,7 +422,8 @@ def test_publishing_fetches_before_deciding_whether_to_create(
     thread.join()
 
     assert created == []
-    assert published_baseline(project, 'agent__checkout') == BASELINE_EXAMPLE
+    # And nothing else was written either: the variable keeps the example the project gave it.
+    assert published_baseline(project, 'agent__checkout') is None
 
 
 def test_a_fetch_that_fails_does_not_fail_the_publish(
@@ -449,8 +472,9 @@ def test_a_variable_created_by_someone_else_first_is_not_a_failure(
 def test_a_failed_publish_is_reported_and_never_raised(
     project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
-    monkeypatch.setattr(project, 'update_variable', _refuse('update_variable'))
+    # Creating the variable is now the only write the publish makes, so it is the only one that can
+    # fail -- and a failure has to stay on this thread, because the caller is serving a request.
+    monkeypatch.setattr(project, 'create_variable', _refuse('create_variable'))
     with collected_warnings() as caught:
         # Entered before the publish, because that is what starts the thread that warns.
         thread = AgentControl('checkout').publish_baseline(BASELINE)
@@ -551,72 +575,6 @@ def test_a_code_baseline_says_so_instead(project: LocalVariableProvider) -> None
     config = project.get_variable_config('agent__checkout')
     assert config is not None
     assert config.description is not None and 'the agent as written' in config.description
-
-
-def test_the_example_written_back_is_the_one_read_immediately_before_writing(
-    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The narrowest the client side can make the lost-update window: everything the UI saved up to
-    # the last read survives, and only an edit landing inside the remaining round trip is lost. With
-    # one read, the value the UI published here would have been restored to what it was before.
-    publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
-    real_get = project.get_variable_config
-    reads = 0
-
-    def get_variable_config(name: str) -> Any:
-        nonlocal reads
-        reads += 1
-        if reads == 1:
-            # Between the read that found the variable and the write, someone publishes in the UI.
-            existing = real_get(name)
-            assert existing is not None
-            project.update_variable(
-                name,
-                existing.model_copy(
-                    update={
-                        'labels': {
-                            'production': LabeledValue(
-                                version=2, serialized_value=json.dumps({'model': 'anthropic:claude-fable-5-1'})
-                            )
-                        }
-                    }
-                ),
-            )
-        return real_get(name)
-
-    monkeypatch.setattr(project, 'get_variable_config', get_variable_config)
-    thread = AgentControl('checkout').publish_baseline(BASELINE)
-    assert thread is not None
-    thread.join()
-    monkeypatch.undo()
-    config = project.get_variable_config('agent__checkout')
-    assert config is not None
-    assert config.example == BASELINE_EXAMPLE
-    value = config.labels['production']
-    assert isinstance(value, LabeledValue)
-    assert json.loads(value.serialized_value)['model'] == 'anthropic:claude-fable-5-1'
-
-
-def test_a_variable_deleted_between_the_two_reads_is_not_re_created(
-    project: LocalVariableProvider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    publish(project, 'agent__checkout', {'model': 'openai:gpt-5.6-sol'})
-    real_get = project.get_variable_config
-    reads = 0
-
-    def get_variable_config(name: str) -> Any:
-        nonlocal reads
-        reads += 1
-        return real_get(name) if reads == 1 else None
-
-    monkeypatch.setattr(project, 'get_variable_config', get_variable_config)
-    monkeypatch.setattr(project, 'update_variable', _refuse('update_variable'))
-    with collected_warnings() as caught:
-        # Entered before the publish, because that is what starts the thread that warns.
-        thread = AgentControl('checkout').publish_baseline(BASELINE)
-        assert thread is not None
-        thread.join()
-    assert caught == []
 
 
 def _refuse(name: str) -> Any:

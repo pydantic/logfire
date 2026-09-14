@@ -88,35 +88,41 @@ _BASELINE_DESCRIPTIONS: Mapping[BaselineSource, str] = {
 
 
 def _publish_baseline(variable: Variable[AgentConfig], example: str, source: BaselineSource) -> None:
-    """Create the variable from the baseline, or update only the `example` on the one that exists.
+    """Create the variable from the baseline, and never touch the one that already exists.
 
     Creation is what makes Logfire the editing surface without a create-in-UI step: the stored schema
     is the contract's, not the one a Pydantic version happens to emit, and the baseline rides along as
     the `example` so the editor opens on what the agent does today rather than on a blank form.
 
-    Updating an existing variable is read-modify-write, because the provider offers nothing narrower:
-    `update_variable` PUTs the whole definition to `/v1/variables/{name}/` and takes no revision or
-    `If-Match` input. Everything a client can do to narrow that window is done here, and it is worth
-    being exact about what is and is not left:
+    **This is create-only.** A variable that exists is left exactly as it is -- its `example`
+    included -- and the publish is a no-op. That is the same rule the shipped managed-variables
+    feature already applies: `variables_push` writes `example` in its create path and leaves it out
+    of the object it PUTs when it updates a variable's schema, so "the baseline seeds the editor
+    once" is this feature's own contract rather than something invented here.
+
+    The reason it has to be is that the provider offers nothing narrower than a whole-definition
+    write: `update_variable` PUTs the entire definition to `/v1/variables/{name}/` and takes no
+    revision or `If-Match` input, so any `example` refresh is a read-modify-write that can lose a
+    value, label, or rollout saved in the Logfire UI between the read and the write -- with the UI
+    reporting success for the publish it just lost. Nothing on the client side can close that window;
+    it needs an example-only `PATCH`, or a conditional write, on the platform API:
+    https://github.com/pydantic/pydantic-ai-harness/issues/565. Rather than narrow a window that
+    cannot be shut, the write is not made at all, and a managed value can no longer be lost to a
+    baseline publish.
+
+    What that costs is that a *changed* code baseline does not reach an editor that already has one.
+    That is reported rather than silent: when the stored example differs from what this process would
+    have published, the divergence is logged, at debug level so the steady state stays quiet. Bringing
+    the editor up to date is a deliberate act in the Logfire UI, where the person doing it can see the
+    values they are keeping.
+
+    What is kept from before:
 
     - The provider is fetched before anything is read, so "missing" means missing in the project
       rather than merely absent from a cache nothing has filled yet; see `_fetch`.
-    - The variable is only ever *created* when the read says it is missing, so the common case for a
-      new agent involves no overwrite at all.
-    - An existing variable is re-read immediately before the write, and the object written is that
-      *fresh* read with `example` replaced -- never one read earlier, and never one a caller passed
-      in. Whatever the UI saved up to that read is preserved: values, labels, rollout, description.
-    - The write is skipped entirely when the fresh read already carries this `example`, which is the
-      steady state for a deployed agent, so the overwhelmingly common outcome is no write.
     - It runs at most once per process per variable, off the request thread.
-
-    What remains is one HTTP round trip: a value or label saved in the Logfire UI *between* the fresh
-    read returning and the write landing is overwritten by the older state that read returned, and the
-    UI reports success for the publish it just lost. There is nothing further the client side can do
-    about it -- closing it needs an example-only PATCH, or a conditional write on a revision or ETag,
-    on the platform API: https://github.com/pydantic/pydantic-ai-harness/issues/565. Until then, a
-    deployment that cannot tolerate that window sets `publish_baseline=False` and creates the variable
-    in the UI. A successful baseline write is *not* evidence that managed values survived it.
+    - Nothing here raises into the caller: publishing is documentation for the editor, never anything
+      a request depends on.
 
     Every outcome is reported through the Logfire instance the variable belongs to: creation writes a
     persistent, teammate-visible object into the user's project, so it belongs where they are already
@@ -127,28 +133,38 @@ def _publish_baseline(variable: Variable[AgentConfig], example: str, source: Bas
     provider = logfire_instance.config.get_variable_provider()
     try:
         _fetch(provider)
-        if provider.get_variable_config(variable.name) is None:
-            if isinstance(provider, NoOpVariableProvider):
-                # No provider is configured, so there is nowhere to create anything. That is the
-                # local-development default rather than a failure, and the agent runs on its code.
-                return
-            provider.create_variable(
-                variable.to_config().model_copy(
-                    update={
-                        'json_schema': AGENT_CONFIG_JSON_SCHEMA,
-                        'example': example,
-                        'description': _BASELINE_DESCRIPTIONS[source],
-                    }
+        existing = provider.get_variable_config(variable.name)
+        if existing is not None:
+            if existing.example != example:
+                # The editor is showing a different baseline than this process would publish -- an
+                # agent whose code moved on, or a variable created in the UI with no example at all.
+                # Worth being able to find, not worth a console line on every deployed process.
+                logfire_instance.debug(
+                    'Logfire managed variable {variable_name} already exists, so its example is left '
+                    'as published rather than updated from the {baseline_source} baseline',
+                    variable_name=variable.name,
+                    baseline_source=source,
                 )
+            return
+        if isinstance(provider, NoOpVariableProvider):
+            # No provider is configured, so there is nowhere to create anything. That is the
+            # local-development default rather than a failure, and the agent runs on its code.
+            return
+        provider.create_variable(
+            variable.to_config().model_copy(
+                update={
+                    'json_schema': AGENT_CONFIG_JSON_SCHEMA,
+                    'example': example,
+                    'description': _BASELINE_DESCRIPTIONS[source],
+                }
             )
-            logfire_instance.info(
-                'Created Logfire managed variable {variable_name} from the {baseline_source} baseline; '
-                'set a value in Logfire to manage this agent from there',
-                variable_name=variable.name,
-                baseline_source=source,
-            )
-        else:
-            _update_example(provider, variable.name, example)
+        )
+        logfire_instance.info(
+            'Created Logfire managed variable {variable_name} from the {baseline_source} baseline; '
+            'set a value in Logfire to manage this agent from there',
+            variable_name=variable.name,
+            baseline_source=source,
+        )
     except VariableAlreadyExistsError:
         # The variable already exists server-side (another process or the UI created it first).
         pass
@@ -181,23 +197,6 @@ def _fetch(provider: VariableProvider) -> None:
         provider.refresh(force=True)
     except Exception:
         pass
-
-
-def _update_example(provider: VariableProvider, name: str, example: str) -> None:
-    """Write `example` onto the variable's current definition, read as late as possible.
-
-    Deliberately its own read rather than reusing the one that decided the variable exists: the value
-    written back is the whole variable definition, so every moment between reading it and writing it
-    is a moment in which someone else's edit can be inside the object about to be overwritten. Taking
-    the read here makes that window one round trip instead of two, and makes "never write from a
-    config read earlier" a property of the code rather than a rule to remember.
-    """
-    config = provider.get_variable_config(name)
-    if config is None or config.example == example:
-        # Vanished between the two reads, or already carries this baseline. Either way there is
-        # nothing to write, and re-creating a variable someone just deleted is not this thread's call.
-        return
-    provider.update_variable(name, config.model_copy(update={'example': example}))
 
 
 @dataclass(frozen=True)
@@ -540,12 +539,19 @@ class AgentControl:
         report_unmatched(self.on_unmatched, message)
 
     def publish_baseline(self, baseline: AgentConfig, *, source: BaselineSource = 'code') -> threading.Thread | None:
-        """Publish a baseline as the variable's `example`, creating the variable if needed.
+        """Create the variable from a baseline, if the project does not have it yet.
 
         Call this once the adapter can describe the agent. It runs at most once per process per
         variable, off the calling thread, and it is marked as attempted *before* the work starts, so
         a failure does not retry on every later request and concurrent first requests do not schedule
         the same write twice.
+
+        **Create-only.** The baseline becomes the new variable's `example`, which is what the Logfire
+        editor opens on; a variable that already exists is never written to, so publishing can never
+        overwrite a value, label, or rollout someone saved in the UI. A changed code baseline
+        therefore does not reach an editor that already has one -- the divergence is logged at debug
+        level, and updating the example is a deliberate act in Logfire. This is the same rule
+        `variables_push` applies to the variables it manages.
 
         Args:
             baseline: What to publish, from

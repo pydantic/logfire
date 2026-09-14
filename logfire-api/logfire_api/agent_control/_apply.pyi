@@ -158,6 +158,9 @@ def apply_settings(config: AgentConfig, *, support: AgentSupport | None = None) 
     `apply_instructions` would otherwise have nowhere to learn that an `instructions` section was
     published at an agent that cannot apply one.
 
+    An adapter that declares it cannot apply the `settings` section at all gets an empty patch and
+    the one `\'unsupported-section\'` issue, whatever its `AgentSupport.settings` says.
+
     Args:
         config: The resolved managed config.
         support: What this adapter can apply; see
