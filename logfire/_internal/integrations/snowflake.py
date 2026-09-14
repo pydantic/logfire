@@ -18,9 +18,10 @@ except ModuleNotFoundError as e:
         raise
     raise ImportError('Run `pip install snowflake-connector-python` to use `logfire.instrument_snowflake()`.') from e
 
+# Each entry is the `Logfire` instance to record spans with and its `capture_parameters` setting.
 # `None` means the module is not instrumented, so only connections registered below produce spans.
-_module_capture_parameters: bool | None = None
-_connection_capture_parameters: WeakKeyDictionary[SnowflakeConnection, bool] = WeakKeyDictionary()
+_module_settings: tuple[Logfire, bool] | None = None
+_connection_settings: WeakKeyDictionary[SnowflakeConnection, tuple[Logfire, bool]] = WeakKeyDictionary()
 
 
 def instrument_snowflake(
@@ -28,24 +29,24 @@ def instrument_snowflake(
     conn_or_module: ModuleType | SnowflakeConnection | None,
     capture_parameters: bool,
 ) -> None:
-    global _module_capture_parameters
+    global _module_settings
 
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='snowflake')
     if conn_or_module is None or conn_or_module is sf_connector:
-        if _module_capture_parameters is None:
-            _module_capture_parameters = capture_parameters
+        if _module_settings is None:
+            _module_settings = (logfire_instance, capture_parameters)
             _patch_connect(logfire_instance)
-        elif _module_capture_parameters != capture_parameters:
-            _warn_capture_parameters_ignored(_module_capture_parameters)
+        elif _module_settings[1] != capture_parameters:
+            _warn_capture_parameters_ignored(_module_settings[1])
     elif isinstance(conn_or_module, SnowflakeConnection):
-        existing = _connection_capture_parameters.get(conn_or_module)
+        existing = _connection_settings.get(conn_or_module)
         if existing is None:
-            _connection_capture_parameters[conn_or_module] = capture_parameters
-        elif existing != capture_parameters:
-            _warn_capture_parameters_ignored(existing)
+            _connection_settings[conn_or_module] = (logfire_instance, capture_parameters)
+        elif existing[1] != capture_parameters:
+            _warn_capture_parameters_ignored(existing[1])
     else:
         raise ValueError(f"Don't know how to instrument {conn_or_module!r}")
-    _patch_cursor_class(logfire_instance)
+    _patch_cursor_class()
 
 
 def _warn_capture_parameters_ignored(existing: bool) -> None:
@@ -70,30 +71,31 @@ def _patch_connect(logfire_instance: Logfire) -> None:
     sf_connector.connect = wrapped_connect
 
 
-def _patch_cursor_class(logfire_instance: Logfire) -> None:
+def _patch_cursor_class() -> None:
     original_execute = SnowflakeCursor.__dict__.get('execute', SnowflakeCursor.execute)
     if not getattr(original_execute, '_logfire_patched', False):
-        SnowflakeCursor.execute = _wrap_execute(logfire_instance, original_execute)
+        SnowflakeCursor.execute = _wrap_execute(original_execute)
 
     original_executemany = SnowflakeCursor.__dict__.get('executemany', SnowflakeCursor.executemany)
     if not getattr(original_executemany, '_logfire_patched', False):
-        SnowflakeCursor.executemany = _wrap_executemany(logfire_instance, original_executemany)
+        SnowflakeCursor.executemany = _wrap_executemany(original_executemany)
 
 
-def _capture_parameters(cursor: SnowflakeCursor) -> bool | None:
-    """Return the effective `capture_parameters` for this cursor, or `None` if it isn't instrumented."""
-    capture_parameters = None
+def _settings(cursor: SnowflakeCursor) -> tuple[Logfire, bool] | None:
+    """Return the settings this cursor was instrumented with, or `None` if it isn't instrumented."""
+    settings = None
     with handle_internal_errors:
-        capture_parameters = _connection_capture_parameters.get(cursor.connection)
-    return _module_capture_parameters if capture_parameters is None else capture_parameters
+        settings = _connection_settings.get(cursor.connection)
+    return _module_settings if settings is None else settings
 
 
-def _wrap_execute(logfire_instance: Logfire, original: Any) -> Any:
+def _wrap_execute(original: Any) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, params: Any = None, *args: Any, **kwargs: Any) -> Any:
-        capture_parameters = _capture_parameters(self)
-        if capture_parameters is None:
+        settings = _settings(self)
+        if settings is None:
             return original(self, command, params, *args, **kwargs)
+        logfire_instance, capture_parameters = settings
         attributes = _query_span_attributes(command, self)
         if capture_parameters:
             attributes['params'] = params
@@ -108,12 +110,13 @@ def _wrap_execute(logfire_instance: Logfire, original: Any) -> Any:
     return wrapped
 
 
-def _wrap_executemany(logfire_instance: Logfire, original: Any) -> Any:
+def _wrap_executemany(original: Any) -> Any:
     @functools.wraps(original)
     def wrapped(self: SnowflakeCursor, command: str, seqparams: Any, **kwargs: Any) -> Any:
-        capture_parameters = _capture_parameters(self)
-        if capture_parameters is None:
+        settings = _settings(self)
+        if settings is None:
             return original(self, command, seqparams, **kwargs)
+        logfire_instance, capture_parameters = settings
         attributes = _query_span_attributes(command, self)
         if capture_parameters:
             attributes['seqparams'] = seqparams

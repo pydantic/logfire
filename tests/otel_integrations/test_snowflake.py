@@ -47,7 +47,7 @@ class FakeSnowflakeConnection(SnowflakeConnection):
 
 @pytest.fixture(autouse=True)
 def reset_module_instrumentation(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(snowflake_integration, '_module_capture_parameters', None)
+    monkeypatch.setattr(snowflake_integration, '_module_settings', None)
 
 
 @pytest.fixture(autouse=True)
@@ -365,6 +365,18 @@ def test_instrument_module_capture_parameters_change_warns(exporter: TestExporte
 
     FakeConnection().cursor().execute('select %s', ('person@example.com',))
     assert 'params' not in exporter.exported_spans_as_dict()[0]['attributes']
+
+
+def test_instrument_connections_with_different_logfire_instances(exporter: TestExporter) -> None:
+    conn_a = FakeSnowflakeConnection(account='a')
+    conn_b = FakeSnowflakeConnection(account='b')
+    logfire.with_settings(tags=['a']).instrument_snowflake(conn_a)
+    logfire.with_settings(tags=['b']).instrument_snowflake(conn_b)
+
+    conn_a.cursor().execute('select 1')
+    conn_b.cursor().execute('select 2')
+
+    assert [span['attributes']['logfire.tags'] for span in exporter.exported_spans_as_dict()] == [('a',), ('b',)]
 
 
 def test_instrument_snowflake_invalid_argument() -> None:
