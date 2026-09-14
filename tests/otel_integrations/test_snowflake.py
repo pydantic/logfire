@@ -227,6 +227,7 @@ def test_instrument_single_connection(exporter: TestExporter) -> None:
     # A second, uninstrumented connection must not produce spans.
     other_conn = FakeSnowflakeConnection(account='other_account')
     other_conn.cursor().execute('select 2')
+    other_conn.cursor().executemany('insert into my_table values (%s)', [(1,)])
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
