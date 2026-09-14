@@ -166,6 +166,61 @@ def test_the_hint_says_which_deployment_reported_the_baseline(capfire: CaptureLo
     assert attributes['agent_control.environment'] == 'prod'
 
 
+def test_the_hint_is_reported_as_written_with_scrubbing_at_its_default(capfire: CaptureLogfire) -> None:
+    """Nothing on this span is rewritten by Logfire's scrubbing, which is on unless a project turns it off.
+
+    Scrubbing matches substrings, and `auth`, `session`, `token`, `secret` and `credential` are
+    ordinary words in a prompt, a tool description, an agent's name and a service's name. Every string
+    here would match one: the instruction says "authoritative", the tool description says
+    "authorization", the agent is an `auth_router` and the service is a `checkout-session-api`. The
+    baseline is the document a config is created from, so a redaction inside it is a corrupted
+    document rather than a hidden secret -- and it would be a corrupted document that no longer
+    matches the digest or the byte count, both of which are taken over the baseline before it is
+    exported. A redacted `variable_name` is worse still: the hint names no variable, so the agent is
+    invisible with nothing raised anywhere.
+
+    The exemption lives in `BaseScrubber.SAFE_KEYS` in this package. This test is what holds it there.
+    """
+    # The deployment identity matches the patterns the same way an ordinary one does: a service that
+    # serves checkout sessions, a preview environment named after the branch it was built from, and a
+    # version string carrying that branch name.
+    instance = _local_project(
+        capfire,
+        service_name='checkout-session-api',
+        service_version='1.4.0+authz.2',
+        environment='pr-auth-refresh',
+    )
+    instructions = 'Order tools are authoritative for status and refunds.'
+    description = 'Refund an order the customer has authorization for.'
+    baseline = build_baseline(
+        instructions=[Block(instructions, id='agent')],
+        tools=[ToolDef(name='refund_order', description=description, toolset='orders')],
+    )
+    report(AgentControl('auth_router', logfire_instance=instance), baseline)
+
+    [attributes] = hints(capfire)
+    carried = baseline_of(attributes)
+    assert carried['instructions'] == [{'id': 'agent', 'instructions': instructions, 'dynamic': False}]
+    assert carried['tool_definitions'] == [{'name': 'refund_order', 'description': description, 'toolset': 'orders'}]
+    assert attributes['agent_control.variable_name'] == 'agent__auth_router'
+    assert attributes['agent_control.agent_name'] == 'auth_router'
+    assert attributes['agent_control.service_name'] == 'checkout-session-api'
+    assert attributes['agent_control.service_version'] == '1.4.0+authz.2'
+    assert attributes['agent_control.environment'] == 'pr-auth-refresh'
+    # The two promises the reduction being `'none'` makes to a consumer, checked against the document
+    # the span actually carries rather than against the one this process built.
+    assert attributes['agent_control.baseline_reduction'] == 'none'
+    assert attributes['agent_control.baseline_sha256'] == hashlib.sha256(canonical_json(carried)).hexdigest()
+    assert attributes['agent_control.baseline_bytes'] == len(attributes['agent_control.baseline'].encode())
+    # Scrubbing records what it rewrote, so reading that record covers every attribute of the
+    # contract rather than the ones this test happens to name. The run's own
+    # `logfire.variables.agent__auth_router` baggage attribute is still redacted, because its key is
+    # built from the variable's name and `SAFE_KEYS` matches a key exactly; that attribute belongs to
+    # the variables feature rather than to this contract.
+    rewritten = json.loads(attributes.get('logfire.scrubbed', '[]'))
+    assert [note for note in rewritten if str(note['path'][1]).startswith('agent_control.')] == []
+
+
 def test_identity_the_sdk_does_not_know_is_left_off(project: LocalVariableProvider, capfire: CaptureLogfire) -> None:
     # Absent rather than `''`: absent is a state a consumer can act on -- group these hints by
     # deployment, or say it cannot -- where an empty string is a value it has to learn to disbelieve.

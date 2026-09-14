@@ -140,6 +140,8 @@ Nothing on the span says which publication mode produced it, deliberately. A bas
 
 It is a span rather than a log record on purpose: a log below your `min_level` is dropped before it is exported, and getting your agent onto the Agent Control page is not something a logging setting should get a vote on. A baseline over 1 MiB gives up whole sections rather than being cut to length — `tool_definitions` first, then the baseline entirely — because the backend truncates a long attribute in place, and half a JSON document still looks like a string and no longer parses. `baseline_reduction` says which happened, and `baseline_sha256` is taken before any of it, so two reports of one agent agree.
 
+The baseline, both names and the three deployment attributes are exempt from [scrubbing](../../how-to-guides/scrubbing.md), which is otherwise on by default. Scrubbing matches substrings, and `auth`, `session` and `token` are ordinary words in a prompt: an instruction reading "Order tools are authoritative for status and refunds" would otherwise arrive as `[Scrubbed due to 'auth']` — the document your config is created from, rewritten after `baseline_sha256` and `baseline_bytes` were taken over it — and an agent named `auth_router` would report a `variable_name` naming no variable at all. A baseline is your own source text rather than anything a request brought in, and what may enter it is already decided by the contract that builds it and by your publication mode, so a second substring-matching pass over it would corrupt the document without protecting anything.
+
 ## Writing an adapter
 
 An adapter does five things. Nothing else in `logfire.agent_control` is required, and nothing else is public.

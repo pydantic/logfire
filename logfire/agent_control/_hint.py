@@ -312,6 +312,17 @@ def emit_config_hint(
       one had a config, and this is the fact a consumer needs to tell a baseline that wants a config
       created from it from one that may only be refreshing a stale example.
 
+    The baseline, both names and the three deployment attributes are exempt from Logfire's scrubbing
+    (`logfire._internal.scrubbing.BaseScrubber.SAFE_KEYS`), which is what makes the digest something a
+    consumer can verify. Scrubbing matches substrings, so an instruction block reading "Order tools are
+    authoritative for status and refunds" would otherwise arrive as `[Scrubbed due to 'auth']`: the
+    document a config is created from, rewritten after the digest and the byte count were taken over
+    it, and an agent named `auth_router` reporting a `variable_name` that names no variable. A baseline
+    is the author's own source text rather than runtime data, and what may enter it is already decided
+    by the contract that builds it and by
+    [`BaselinePublication`][logfire.agent_control.BaselinePublication], so a second substring-matching
+    policy on top of that one corrupts it without adding protection.
+
     There is deliberately no attribute saying which
     [`BaselinePublication`][logfire.agent_control.BaselinePublication] a report was made under. A
     baseline is whatever the deployment's policy says it is: `baseline_sha256` and `baseline_bytes`

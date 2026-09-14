@@ -131,6 +131,10 @@ The `"db.statement"` attribute which is recorded by OpenTelemetry database instr
 Use parameterized queries (e.g. prepared statements) so that sensitive data is not interpolated directly into the query string, even if
 you use an interpolation method that's safe from SQL injection.
 
+### Agent Control baselines
+
+The `agent_control.*` attributes of the `agent_control_config_hint` span that [Agent Control](../reference/advanced/agent-control.md) reports an agent's baseline on are also considered safe. That baseline is the prompt and the tool descriptions you wrote, it is the document a managed config is created from, and `agent_control.baseline_sha256` and `agent_control.baseline_bytes` are taken over it before it is exported — so redacting a word inside it corrupts the document and breaks both. What may enter a baseline is decided by Agent Control's own publication policy instead.
+
 ### LLM and AI messages
 
 Scrubbing is **disabled** for LLM message attributes such as `gen_ai.input.messages`, `gen_ai.output.messages`, and `pydantic_ai.all_messages`. This is intentional because:
