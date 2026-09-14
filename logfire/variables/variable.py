@@ -199,33 +199,33 @@ def _feature_flag_evaluation_details(
     result: ResolvedVariable[T_co],
 ) -> Any:
     """Translate a managed-variable result into the feature-flag domain model."""
-    from openfeature.exception import ErrorCode
-    from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+    from logfire.experimental.feature_flags import FlagErrorCode, FlagEvaluationDetails, FlagEvaluationReason
 
-    reason = Reason.DEFAULT
-    error_code: ErrorCode | None = None
+    reason: FlagEvaluationReason = 'default'
+    error_code: FlagErrorCode | None = None
     error_message: str | None = None
 
     if result.reason == 'validation_error':
-        reason = Reason.ERROR
-        error_code = ErrorCode.TYPE_MISMATCH
+        reason = 'error'
+        error_code = 'type_mismatch'
         error_message = 'Configured value did not match the declared flag type.'
     elif result.reason == 'other_error' or result.exception is not None:
-        reason = Reason.ERROR
-        error_code = ErrorCode.GENERAL
+        reason = 'error'
+        error_code = 'general'
         error_message = 'Feature flag evaluation failed.'
     elif result.reason == 'context_override':
-        reason = Reason.STATIC
+        reason = 'static'
     elif result.rule_evaluation_reason == 'split':
-        reason = Reason.SPLIT
+        reason = 'split'
     elif result.rule_evaluation_reason == 'targeting_match' and result.reason == 'resolved':
-        reason = Reason.TARGETING_MATCH
+        reason = 'targeting_match'
     elif result.reason == 'resolved':
         # Custom providers may resolve a value without exposing rule metadata.
-        reason = Reason.STATIC
+        reason = 'static'
 
     has_error = error_code is not None
-    return FlagResolutionDetails(
+    return FlagEvaluationDetails(
+        flag_key=result.name,
         value=result.value,
         variant=None if has_error else result.label,
         reason=reason,
@@ -247,7 +247,7 @@ def _feature_flag_telemetry_attributes(
         'feature_flag.result.value': _feature_flag_telemetry_value(result.value, serialized_value),
         # Keep the existing lower-case telemetry contract while the Python API exposes the
         # standardized OpenFeature reason values.
-        'feature_flag.result.reason': details.reason.lower(),
+        'feature_flag.result.reason': details.reason,
         'logfire.feature_flag.resolution_reason': result.reason,
     }
     if details.variant is not None:

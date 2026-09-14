@@ -71,10 +71,17 @@ def main() -> None:
         lambda: logfire.var('minimal_install_flag', default=False),
         'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
     )
+    feature_flags = import_module('logfire.experimental.feature_flags')
+    assert_not_available('openfeature', 'openfeature-sdk')
     assert_import_error(
-        'feature flag imports',
-        lambda: import_module('logfire.experimental.feature_flags'),
-        'Using feature flags requires the `openfeature-sdk`, `pydantic_handlebars`, and `pydantic` packages',
+        'feature flag usage',
+        lambda: feature_flags.feature_flag('minimal_install_feature_flag', default=False),
+        'Using managed variables requires the `pydantic_handlebars` and `pydantic` packages',
+    )
+    assert_import_error(
+        'OpenFeature adapter',
+        lambda: import_module('logfire.experimental.openfeature'),
+        'Using the OpenFeature adapter requires the `openfeature-sdk`',
     )
     for import_name, distribution_name in optional_packages:
         assert_not_available(import_name, distribution_name)

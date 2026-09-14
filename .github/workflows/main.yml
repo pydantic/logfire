@@ -66,6 +66,13 @@ jobs:
           cd "$(mktemp -d)"
           "$GITHUB_WORKSPACE/.minimal-venv/bin/python" "$GITHUB_WORKSPACE/.github/workflows/scripts/minimal_install_smoke.py"
 
+      - name: Smoke test native feature flags without OpenFeature
+        run: |
+          uv venv --python 3.14 .feature-flags-venv
+          uv pip install --python .feature-flags-venv '.[feature-flags]'
+          cd "$(mktemp -d)"
+          "$GITHUB_WORKSPACE/.feature-flags-venv/bin/python" "$GITHUB_WORKSPACE/.github/workflows/scripts/feature_flags_install_smoke.py"
+
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
     runs-on: ubuntu-latest

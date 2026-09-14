@@ -34,8 +34,6 @@ with feature_context('account-123', attributes={'plan': 'team'}):
 
 The targeting key identifies the subject receiving the flag. Use a stable user or organization identifier so percentage rollouts consistently select the same outcome. Attributes let targeting rules select groups such as plans or regions. Context set by `feature_context()` also applies to other managed variables evaluated inside the block; pass `targeting_key` or `attributes` directly to an evaluation when it needs different values.
 
-When evaluating through an OpenFeature client, use OpenFeature's own evaluation context. If both context APIs are active, OpenFeature's merged context is passed to Logfire as explicit evaluation input and takes precedence over `feature_context()`.
-
 To inspect the selected variant, fallback reason, or error, call `details()` (or the initial boolean API's `evaluate()` alias):
 
 ```python skip="true"
@@ -46,7 +44,7 @@ print(details.variant)
 print(details.reason)
 ```
 
-Feature-flag evaluation telemetry does not include the targeting key or targeting attributes. It records the flag, selected value and variant, selected value version, and the resolution reason. The Python evaluation details use standardized OpenFeature reasons such as `SPLIT`, `TARGETING_MATCH`, `STATIC`, `DEFAULT`, or `ERROR`.
+Feature-flag evaluation telemetry does not include the targeting key or targeting attributes. It records the flag, selected value and variant, selected value version, and the resolution reason. Native evaluation details use lowercase reasons such as `split`, `targeting_match`, `static`, `default`, or `error`.
 
 ## Validate structured flag values with Pydantic
 
@@ -73,7 +71,7 @@ print(config.provider)
 #> stripe
 ```
 
-Logfire validates a configured value before returning it. If validation fails, the evaluation returns the code default and reports OpenFeature's `TYPE_MISMATCH` error in `checkout.details()`.
+Logfire validates a configured value before returning it. If validation fails, the evaluation returns the code default and reports a `type_mismatch` error in `checkout.details()`.
 
 Pass `type=...` for any list, dict, set, tuple, or nullable default because Python cannot safely infer the complete type from those runtime values:
 
@@ -85,12 +83,19 @@ allowed_regions = flag('allowed_regions', type=list[str], default=[])
 
 ## Use the OpenFeature API
 
-`LogfireProvider` implements the OpenFeature Python provider interface. Register it explicitly when you want to evaluate Logfire flags through OpenFeature's vendor-neutral API. Define each flag in Logfire first so its type and safe code default remain visible in your code:
+Install the optional adapter when you want to evaluate Logfire flags through OpenFeature's vendor-neutral API:
+
+```bash
+pip install 'logfire[openfeature]'
+```
+
+`LogfireProvider` implements the OpenFeature Python provider interface. Define each flag in Logfire first so its type and safe code default remain visible in your code, then register the provider explicitly:
 
 ```python
 from openfeature import api
 
-from logfire.experimental.feature_flags import LogfireProvider, feature_flag
+from logfire.experimental.feature_flags import feature_flag
+from logfire.experimental.openfeature import LogfireProvider
 
 feature_flag('new_checkout', default=False)
 api.set_provider(LogfireProvider())
@@ -100,6 +105,8 @@ enabled = client.get_boolean_value('new_checkout', False)
 ```
 
 Creating a Logfire `Flag` does not change OpenFeature's global provider. This avoids surprising applications that already configure another provider or use separate provider domains.
+
+When evaluating through an OpenFeature client, use OpenFeature's own evaluation context. If both context APIs are active, OpenFeature's merged context is passed to Logfire as explicit evaluation input and takes precedence over `feature_context()`.
 
 ## Verify the flag
 
