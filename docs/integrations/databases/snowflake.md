@@ -83,7 +83,7 @@ Run it with `python main.py`.
 Query parameters may contain sensitive data. Logfire does not capture them by default. To include
 them in spans, pass `capture_parameters=True`:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import logfire
 
 logfire.instrument_snowflake(capture_parameters=True)
