@@ -1396,14 +1396,12 @@ def test_auth_logout_wrong_region(default_credentials: Path, capsys: pytest.Capt
     assert 'No user token was found matching' in capsys.readouterr().err
 
 
-@pytest.mark.parametrize('base_url_env', [None, ''], ids=['unset', 'empty'])
-def test_auth_no_region_specified(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, base_url_env: str | None) -> None:
-    if base_url_env is None:
-        monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
-    else:
-        monkeypatch.setenv('LOGFIRE_BASE_URL', base_url_env)
+@pytest.mark.parametrize('env', [{}, {'LOGFIRE_BASE_URL': ''}], ids=['unset', 'empty'])
+def test_auth_no_region_specified(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+    monkeypatch.delenv('LOGFIRE_BASE_URL', raising=False)
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
+        stack.enter_context(patch.dict(os.environ, env))
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
         stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
