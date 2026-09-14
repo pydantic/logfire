@@ -50,7 +50,7 @@ class ProxyMeterProvider(MeterProvider):
             else:
                 provider = self.provider
             inner_meter = provider.get_meter(name, version, schema_url, *[attributes] if attributes is not None else [])
-            meter = _ProxyMeter(inner_meter, name, version, schema_url)
+            meter = _ProxyMeter(inner_meter, name, version, schema_url, attributes)
             self.meters.add(meter)
             return meter
 
@@ -85,8 +85,10 @@ class _ProxyMeter(Meter):
         name: str,
         version: str | None,
         schema_url: str | None,
+        attributes: Attributes | None,
     ) -> None:
         super().__init__(name, version=version, schema_url=schema_url)
+        self._attributes = attributes
         self._lock = Lock()
         self._meter = meter
         self._instruments: WeakSet[_ProxyInstrument[Any]] = WeakSet()
@@ -97,7 +99,9 @@ class _ProxyMeter(Meter):
         Creates a real backing meter for this instance and notifies all created
         instruments so they can create real backing instruments.
         """
-        real_meter = meter_provider.get_meter(self._name, self._version, self._schema_url)
+        real_meter = meter_provider.get_meter(
+            self._name, self._version, self._schema_url, *[self._attributes] if self._attributes is not None else []
+        )
 
         with self._lock:
             self._meter = real_meter

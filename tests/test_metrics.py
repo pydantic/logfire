@@ -15,6 +15,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricExporter,
     MetricExportResult,
     MetricsData,
+    Sum,
 )
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 
@@ -532,6 +533,44 @@ def test_reconfigure(caplog: pytest.LogCaptureFixture):
     # For comparison, this logs a warning because the advisory is different (unset)
     meter.create_histogram('foo', unit='x', description='bar')
     assert caplog.messages
+
+
+@pytest.mark.parametrize('disable_metrics', [False, True])
+def test_reconfigure_preserves_meter_scope_attributes(
+    metrics_reader: InMemoryMetricReader, config_kwargs: dict[str, Any], disable_metrics: bool
+) -> None:
+    meters = [
+        metrics.get_meter(
+            'model_usage', version='1.0', schema_url='https://example.com/schema', attributes={'provider': provider}
+        )
+        for provider in ['local-a', 'local-b']
+    ]
+    counters = [meter.create_counter('tokens') for meter in meters]
+
+    for iteration in range(3):
+        if iteration:
+            if disable_metrics:
+                logfire.configure(**config_kwargs, metrics=False)
+            metrics_reader = InMemoryMetricReader()
+            logfire.configure(**config_kwargs, metrics=logfire.MetricsOptions(additional_readers=[metrics_reader]))
+
+        counters[0].add(1)
+        counters[1].add(10)
+        metrics_data = metrics_reader.get_metrics_data()
+        assert metrics_data is not None
+        scopes = metrics_data.resource_metrics[0].scope_metrics
+        assert len(scopes) == 2
+        results: list[tuple[dict[str, Any], int | float]] = []
+        for scope in scopes:
+            assert scope.scope.name == 'model_usage'
+            assert scope.scope.version == '1.0'
+            assert scope.schema_url == 'https://example.com/schema'
+            data = scope.metrics[0].data
+            assert isinstance(data, Sum)
+            results.append((dict(scope.scope.attributes or {}), data.data_points[0].value))
+        assert sorted(results, key=lambda result: result[1]) == snapshot(
+            [({'provider': 'local-a'}, 1), ({'provider': 'local-b'}, 10)]
+        )
 
 
 def test_metrics_options_default_views() -> None:
