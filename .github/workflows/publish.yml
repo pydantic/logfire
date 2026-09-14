@@ -13,6 +13,7 @@ jobs:
     environment: release
 
     permissions:
+      checks: read
       contents: read
       id-token: write
 
@@ -34,6 +35,13 @@ jobs:
         uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
         with:
           version_file_path: pyproject.toml
+
+      - name: Check tagged commit passed CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100" \
+            --jq '[.check_runs[] | select(.app.slug == "github-actions" and .name == "check" and .conclusion == "success")] | length')" -gt 0
 
       - name: Build packages
         run: uv build --all
