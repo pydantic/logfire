@@ -318,6 +318,9 @@ navigation:
       - page: "Integrations"
         path: "integrations/index.md"
         slug: "integrations"
+      - page: "OpenTelemetry eBPF Instrumentation"
+        path: "integrations/obi.md"
+        slug: "integrations/obi"
       - section: "Web Frameworks"
         contents:
           - page: "Web Frameworks"
