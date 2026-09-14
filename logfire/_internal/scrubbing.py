@@ -196,6 +196,24 @@ class BaseScrubber(ABC):
         gen_ai_semconv.RESPONSE_MODEL,
     }
 
+    # Attribute keys under these prefixes are safe, for the same reason as `SAFE_KEYS` but where the
+    # key is built at runtime and cannot be listed. This is the SDK exempting its own instrumentation's
+    # namespace, not a general opt-out: nothing outside this module adds to it.
+    SAFE_KEY_PREFIXES = (
+        # `logfire.variables.<name>` carries which label of a managed variable served the run, and
+        # `.version` the version number, for every span inside the resolution. The name is the
+        # developer's variable name, so a variable called `agent__auth_router` or
+        # `prompt__session_summary` matched on its *key* and had its label redacted -- losing the
+        # version attribution that makes a managed variable auditable, on every span of the run,
+        # while protecting nothing: what the value holds is a label the same developer chose.
+        'logfire.variables.',
+    )
+
+    @classmethod
+    def is_safe_key(cls, key: str) -> bool:
+        """Whether an attribute key and everything under it is kept whatever the patterns match."""
+        return key in cls.SAFE_KEYS or key.startswith(cls.SAFE_KEY_PREFIXES)
+
     @abstractmethod
     def scrub_span(self, span: ReadableSpanDict): ...
 
@@ -346,7 +364,7 @@ class SpanScrubber:
         elif isinstance(value, Mapping):
             result: dict[str, Any] = {}
             for k, v in cast('Mapping[str, Any]', value).items():
-                if k in BaseScrubber.SAFE_KEYS:
+                if BaseScrubber.is_safe_key(k):
                     result[k] = v
                 elif match := self._pattern.search(k):
                     redacted = self._redact(ScrubMatch(path + (k,), v, match))

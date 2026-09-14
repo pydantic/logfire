@@ -212,13 +212,11 @@ def test_the_hint_is_reported_as_written_with_scrubbing_at_its_default(capfire: 
     assert attributes['agent_control.baseline_reduction'] == 'none'
     assert attributes['agent_control.baseline_sha256'] == hashlib.sha256(canonical_json(carried)).hexdigest()
     assert attributes['agent_control.baseline_bytes'] == len(attributes['agent_control.baseline'].encode())
-    # Scrubbing records what it rewrote, so reading that record covers every attribute of the
-    # contract rather than the ones this test happens to name. The run's own
-    # `logfire.variables.agent__auth_router` baggage attribute is still redacted, because its key is
-    # built from the variable's name and `SAFE_KEYS` matches a key exactly; that attribute belongs to
-    # the variables feature rather than to this contract.
-    rewritten = json.loads(attributes.get('logfire.scrubbed', '[]'))
-    assert [note for note in rewritten if str(note['path'][1]).startswith('agent_control.')] == []
+    # Scrubbing records what it rewrote, so its absence covers every attribute of the span rather
+    # than the ones this test happens to name -- including the run's own
+    # `logfire.variables.agent__auth_router`, whose key is built from the variable's name and is
+    # covered by `SAFE_KEY_PREFIXES` rather than by a listed key.
+    assert 'logfire.scrubbed' not in attributes
 
 
 def test_identity_the_sdk_does_not_know_is_left_off(project: LocalVariableProvider, capfire: CaptureLogfire) -> None:

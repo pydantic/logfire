@@ -727,6 +727,55 @@ class TestResolvedVariable:
             # be filtered/grouped by `(label, version)`.
             assert baggage['logfire.variables.cm_var.version'] == '1'
 
+    def test_the_label_survives_a_variable_name_the_scrubber_matches(
+        self, config_kwargs: dict[str, Any], exporter: TestExporter
+    ):
+        """A variable's name is the developer's, and scrubbing matches substrings.
+
+        `auth`, `session`, `token` and the rest are ordinary words in a variable name -- a managed
+        prompt called `prompt__session_summary`, an agent called `agent__auth_router` -- and the
+        baggage key is built from that name, so the *key* matched and the label was redacted on every
+        span inside the resolution. What that costs is the version attribution: the whole point of
+        `logfire.variables.<name>` is answering "which version of this prompt produced that answer",
+        and `[Scrubbed due to 'session']` answers nothing while protecting nothing, since the value is
+        a label the same developer wrote.
+        """
+        names = ['prompt__session_summary', 'agent__auth_router']
+        variables_config = VariablesConfig(
+            variables={
+                name: VariableConfig(
+                    name=name,
+                    labels={'production': LabeledValue(version=7, serialized_value='"value"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                )
+                for name in names
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        # On by default in a real process; the test suite's own configuration turns it off.
+        config_kwargs['add_baggage_to_attributes'] = True
+        lf = logfire.configure(**config_kwargs)
+        exporter.clear()
+
+        for name in names:
+            with lf.var(name=name, default='default', type=str).get():
+                lf.info('served a request')
+
+        served = [span for span in exporter.exported_spans_as_dict() if span['name'] == 'served a request']
+        labels = {
+            name: (
+                span['attributes'].get(f'logfire.variables.{name}'),
+                span['attributes'].get(f'logfire.variables.{name}.version'),
+            )
+            for name, span in zip(names, served)
+        }
+        assert labels == {
+            'prompt__session_summary': ('production', '7'),
+            'agent__auth_router': ('production', '7'),
+        }
+        assert all('logfire.scrubbed' not in span['attributes'] for span in served)
+
     def test_context_manager_omits_version_for_code_default(self):
         """Code-default resolutions have version=None and should not emit a version baggage entry."""
         var = logfire.var(name='no_version_var', default='default', type=str)

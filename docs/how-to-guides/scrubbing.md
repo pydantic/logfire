@@ -135,6 +135,10 @@ you use an interpolation method that's safe from SQL injection.
 
 The `agent_control.*` attributes of the `agent_control_config_hint` span that [Agent Control](../reference/advanced/agent-control.md) reports an agent's baseline on are also considered safe. That baseline is the prompt and the tool descriptions you wrote, it is the document a managed config is created from, and `agent_control.baseline_sha256` and `agent_control.baseline_bytes` are taken over it before it is exported — so redacting a word inside it corrupts the document and breaks both. What may enter a baseline is decided by Agent Control's own publication policy instead.
 
+### Managed variable labels
+
+The `logfire.variables.<name>` and `logfire.variables.<name>.version` attributes, which say which label and version of a [managed variable](../reference/advanced/managed-variables/index.md) served a run, are safe on every span that carries them. Their key is built from the variable's own name, so without this a variable called `prompt__session_summary` or `agent__auth_router` would have had its label redacted for matching `session` or `auth` — losing the version attribution those attributes exist to provide, and hiding nothing, since the value is a label you chose.
+
 ### LLM and AI messages
 
 Scrubbing is **disabled** for LLM message attributes such as `gen_ai.input.messages`, `gen_ai.output.messages`, and `pydantic_ai.all_messages`. This is intentional because:
