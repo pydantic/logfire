@@ -84,6 +84,26 @@ OTEL_INSTRUMENTATION_MAP = {
     'openai-agents': 'openai_agents',
 }
 
+INSTRUMENTATION_TO_EXTRA: dict[str, str] = {
+    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
+    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp-server',
+    'opentelemetry-instrumentation-celery': 'celery',
+    'opentelemetry-instrumentation-django': 'django',
+    'opentelemetry-instrumentation-fastapi': 'fastapi',
+    'opentelemetry-instrumentation-flask': 'flask',
+    'opentelemetry-instrumentation-httpx': 'httpx',
+    'opentelemetry-instrumentation-mysql': 'mysql',
+    'opentelemetry-instrumentation-psycopg': 'psycopg',
+    'opentelemetry-instrumentation-psycopg2': 'psycopg2',
+    'opentelemetry-instrumentation-pymongo': 'pymongo',
+    'opentelemetry-instrumentation-redis': 'redis',
+    'opentelemetry-instrumentation-requests': 'requests',
+    'opentelemetry-instrumentation-sqlalchemy': 'sqlalchemy',
+    'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+    'opentelemetry-instrumentation-starlette': 'starlette',
+    'opentelemetry-instrumentation-urllib': 'urllib',
+}
+
 
 @dataclass(frozen=True, order=True)
 class InstrumentationRecommendation:
@@ -420,21 +440,29 @@ def _full_install_command(recommendations: list[InstrumentationRecommendation]) 
     if not recommendations:
         return ''  # pragma: no cover
 
-    package_specs = [shlex.quote(recommendation.package_spec) for recommendation in recommendations]
+    extras: set[str] = set()
+    package_specs: list[str] = []
+    for recommendation in recommendations:
+        extra = INSTRUMENTATION_TO_EXTRA.get(recommendation.package_name)
+        if extra:
+            extras.add(extra)
+        if not extra or recommendation.minimum_version:
+            package_specs.append(recommendation.package_spec)
 
-    # TODO(Marcelo): We should customize this. If the user uses poetry, they'd use `poetry add`.
-    # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
+    if extras:
+        package_specs.insert(0, f'logfire[{",".join(sorted(extras))}]')
+
     if is_uv_installed():
-        return f'uv add {" ".join(package_specs)}'
-
-    if any(
+        installer = 'uv add'
+    elif any(
         recommendation.package_name == 'opentelemetry-instrumentation-httpx' and recommendation.minimum_version
         for recommendation in recommendations
     ):
-        package_specs.insert(0, shlex.quote('logfire[httpx]'))
-        return f'pip install -U {" ".join(package_specs)}'
+        installer = 'pip install -U'
+    else:
+        installer = 'pip install'
 
-    return f'pip install {" ".join(package_specs)}'
+    return f'{installer} {shlex.join(package_specs)}'
 
 
 def _instrumentation_targets(otel_pkg: str, import_name: str) -> tuple[str, ...]:

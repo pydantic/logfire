@@ -22,7 +22,7 @@ logfire.instrument_httpx()
 # ... your application code here ...
 ```
 
-Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [no-code platforms](no-code/index.md) and [OpenRouter Broadcast](llms/openrouter.md).
+Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [Codex](codex.md), [no-code platforms](no-code/index.md), and [OpenRouter Broadcast](llms/openrouter.md).
 
 If a package you are using is not listed in this documentation, please let us know on our [Slack][slack]!
 
@@ -90,6 +90,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [SQLite3](databases/sqlite3.md)           | Database                | [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3]                                                                                                   |
 | [Standard Library Logging](logging.md)    | Logging                 | See documentation                                                                                                                                                      |
 | [Starlette](web-frameworks/starlette.md)  | Web Framework           | [`logfire.instrument_starlette()`][logfire.Logfire.instrument_starlette]                                                                                               |
+| [Litestar](web-frameworks/litestar.md)    | Web Framework           | [`logfire.instrument_litestar()`][logfire.Logfire.instrument_litestar]                                                                                                 |
 | [Stripe](stripe.md)                       | Payment Gateway         | N/A (requires other instrumentations)                                                                                                                                  |
 | [Structlog](structlog.md)                 | Logging                 | See documentation                                                                                                                                                      |
 | [System Metrics](system-metrics.md)       | System Metrics          | [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]                                                                                     |

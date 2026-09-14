@@ -8,9 +8,9 @@ Use the <OpenInLogfire path="frontend" variant="inline" label="Frontend" /> page
 
 The page groups browser telemetry by frontend application. A frontend application gives browser data a stable service name and a restricted token that is safe to publish in a browser bundle. The token can send data only for that application. It cannot read project data or report as another service.
 
-!!! note "Experimental"
+!!! note "Early access"
 
-    Open **Settings → Early access**, choose **Show experimental features**, and enable **Frontend observability**. This browser-level setting applies across every organization you use in that browser.
+    Frontend observability is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
 
 ## Send browser data
 

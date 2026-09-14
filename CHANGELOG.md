@@ -1,5 +1,65 @@
 # Release Notes
 
+## [v5.1.0] (2026-09-11)
+
+### Integrations
+
+* Add `logfire.instrument_litestar()` with support for Litestar 2.11 and later by @dmontagu in [#2249](https://github.com/pydantic/logfire/pull/2249)
+* Recommend Logfire extras when `logfire run` detects missing instrumentation packages by @krishna3554 in [#2082](https://github.com/pydantic/logfire/pull/2082)
+
+### Agent setup
+
+* Use canonical URLs between published Logfire skills by @strawgate in [#2373](https://github.com/pydantic/logfire/pull/2373)
+* Preserve the selected Logfire region or custom base URL throughout setup by @strawgate in [#2377](https://github.com/pydantic/logfire/pull/2377)
+* Continue project selection and verification after browser authentication by @strawgate in [#2384](https://github.com/pydantic/logfire/pull/2384)
+* Make eval setup executable for Python and Node.js by @strawgate in [#2400](https://github.com/pydantic/logfire/pull/2400) and [#2402](https://github.com/pydantic/logfire/pull/2402)
+* Correct setup guidance for Python, Node.js, Rust, and Gunicorn by @adtyavrdhn in [#2365](https://github.com/pydantic/logfire/pull/2365)
+
+### Fixes
+
+* Prevent OpenTelemetry logging from deadlocking during `force_flush()` by @L4XB in [#2404](https://github.com/pydantic/logfire/pull/2404)
+* Require directory boundaries when identifying non-user code paths by @yhz5613813 in [#2375](https://github.com/pydantic/logfire/pull/2375)
+
+## New Contributors
+
+* @yhz5613813 made their first contribution in [#2375](https://github.com/pydantic/logfire/pull/2375)
+* @krishna3554 made their first contribution in [#2082](https://github.com/pydantic/logfire/pull/2082)
+* @L4XB made their first contribution in [#2404](https://github.com/pydantic/logfire/pull/2404)
+
+## [v5.0.0] (2026-09-04)
+
+### Major changes
+
+* Changes in format of attributes recorded by GenAI instrumentations:
+  * Default OpenAI and Anthropic instrumentation to new `version=2` by @alexmojaki in [#2363](https://github.com/pydantic/logfire/pull/2363)
+  * Support opentelemetry-instrumentation-google-genai>=1.0 by @alexmojaki in [#2092](https://github.com/pydantic/logfire/pull/2092)
+* Changes in data recorded by `logfire.instrument_pydantic()`:
+  * Stop instrumenting third-party Pydantic models by default by @chocoHacks33 in [#2054](https://github.com/pydantic/logfire/pull/2054)
+  * Record `input_data` on logs produced by `logfire.instrument_pydantic(record='failure')` by @alexmojaki in [#2352](https://github.com/pydantic/logfire/pull/2352)
+* Keep tail-sampling buffers until every span in the trace has ended by @gyanu2507 in [#2308](https://github.com/pydantic/logfire/pull/2308)
+* Deprecation removals
+  * Remove deprecated query client APIs by @alexmojaki in [#2333](https://github.com/pydantic/logfire/pull/2333)
+  * Remove deprecated CLI --logfire-url option by @alexmojaki in [#2362](https://github.com/pydantic/logfire/pull/2362)
+  * Remove deprecated Flask exclude_urls argument by @alexmojaki in [#2360](https://github.com/pydantic/logfire/pull/2360)
+  * Remove deprecated configure arguments by @alexmojaki in [#2359](https://github.com/pydantic/logfire/pull/2359)
+  * Remove deprecated HTTPX capture arguments by @alexmojaki in [#2361](https://github.com/pydantic/logfire/pull/2361)
+* Moving modules out of the `logfire.experimental` namespace:
+  * Move forwarding out of experimental by @alexmojaki in [#2358](https://github.com/pydantic/logfire/pull/2358)
+  * Move query client out of experimental by @alexmojaki in [#2357](https://github.com/pydantic/logfire/pull/2357)
+* Make managed variable pushes strict by default by @alexmojaki in [#2368](https://github.com/pydantic/logfire/pull/2368)
+
+### Other
+
+* Preserve OpenAI cost on deduplicated Agents spans by @alexmojaki in [#2346](https://github.com/pydantic/logfire/pull/2346)
+* fix(anthropic): price Bedrock calls under the aws provider by @arthi-arumugam-git in [#2162](https://github.com/pydantic/logfire/pull/2162)
+* Report failures from every force_flush pipeline by @alexmojaki in [#2366](https://github.com/pydantic/logfire/pull/2366)
+* Change OTel instrumentation scope of pydantic integration to `logfire.pydantic` by @alexmojaki in [#2369](https://github.com/pydantic/logfire/pull/2369)
+* Let logfire.configure() finish project setup without a TTY by @strawgate in [#2305](https://github.com/pydantic/logfire/pull/2305)
+* Add LOGFIRE_BASE_URL support to Gateway CLI by @bruno-espino in [#2323](https://github.com/pydantic/logfire/pull/2323)
+* Refactor dataset retrieval and improve type inference by @alexmojaki in [#2335](https://github.com/pydantic/logfire/pull/2335)
+* Handle backend 413 responses for span exports by @Alphaxiaoteng in [#2338](https://github.com/pydantic/logfire/pull/2338)
+* Skip the Logfire token check inside AWS Lambda by @reidemeister94 in [#2345](https://github.com/pydantic/logfire/pull/2345)
+
 ## [v4.41.0] (2026-08-20)
 
 * Fix two races in Claude Agent SDK tool-use hook instrumentation by @dmontagu in [#2194](https://github.com/pydantic/logfire/pull/2194)
@@ -1240,3 +1300,5 @@ First release from new repo!
 [v4.39.0]: https://github.com/pydantic/logfire/compare/v4.38.0...v4.39.0
 [v4.40.0]: https://github.com/pydantic/logfire/compare/v4.39.0...v4.40.0
 [v4.41.0]: https://github.com/pydantic/logfire/compare/v4.40.0...v4.41.0
+[v5.0.0]: https://github.com/pydantic/logfire/compare/v4.41.0...v5.0.0
+[v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0

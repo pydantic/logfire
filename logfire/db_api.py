@@ -21,17 +21,20 @@ import warnings
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any
 
-from typing_extensions import deprecated
-
-from logfire.experimental.query_client import LogfireQueryClient
+from logfire.query_client import LogfireQueryClient
 
 if TYPE_CHECKING:
-    from logfire.experimental.query_client import ColumnDetails
+    from logfire.query_client import ColumnDetails
+
 
 # TODO: make use of PEP 661 sentinels once accepted.
-_UNSET = Enum('_UNSET', 'UNSET').UNSET
+class _Unset(Enum):
+    UNSET = 'UNSET'
+
+
+_UNSET = _Unset.UNSET
 """Sentinel to distinguish 'not set' from an explicit `None`."""
 
 # ---------------------------------------------------------------------------
@@ -136,7 +139,7 @@ class Connection:
         self,
         client: LogfireQueryClient,
         *,
-        min_timestamp: datetime | timedelta | None = DEFAULT_MIN_TIMESTAMP_AGE,
+        min_timestamp: datetime | timedelta = DEFAULT_MIN_TIMESTAMP_AGE,
         max_timestamp: datetime | None = None,
         limit: int = DEFAULT_LIMIT,
     ) -> None:
@@ -196,27 +199,41 @@ class Cursor:
         self.rowcount = -1
         self.arraysize = 1
 
-        # Per-cursor overrides (_UNSET means inherit from connection, None means no filter)
-        self._min_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
-        self.max_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
-        self.limit: int = _UNSET  # type: ignore[assignment]
+        # Per-cursor overrides (an absent override inherits from the connection)
+        self._min_timestamp: datetime | None = None
+        self._max_timestamp: datetime | None | _Unset = _UNSET
+        self._limit: int | _Unset = _UNSET
 
     # -- min_timestamp -----------------------------------------------------
 
     @property
-    def min_timestamp(self) -> datetime | None:
-        """Per-cursor override for the lower `start_timestamp` bound."""
-        return self._min_timestamp
+    def min_timestamp(self) -> datetime:
+        """Lower `start_timestamp` bound, inherited from the connection unless overridden."""
+        return self._connection.min_timestamp if self._min_timestamp is None else self._min_timestamp
 
     @min_timestamp.setter
-    def min_timestamp(self, value: datetime | None) -> None:
-        if value is None:
-            warnings.warn(
-                'Setting min_timestamp to None is deprecated',
-                DeprecationWarning,
-                stacklevel=2,
-            )
+    def min_timestamp(self, value: datetime) -> None:
         self._min_timestamp = value
+
+    @property
+    def max_timestamp(self) -> datetime | None:
+        """Upper `start_timestamp` bound, inherited from the connection unless overridden."""
+        max_timestamp = self._max_timestamp
+        return self._connection.max_timestamp if isinstance(max_timestamp, _Unset) else max_timestamp
+
+    @max_timestamp.setter
+    def max_timestamp(self, value: datetime | None) -> None:
+        self._max_timestamp = value
+
+    @property
+    def limit(self) -> int:
+        """Row limit, inherited from the connection unless overridden."""
+        limit = self._limit
+        return self._connection.limit if isinstance(limit, _Unset) else limit
+
+    @limit.setter
+    def limit(self, value: int) -> None:
+        self._limit = value
 
     # -- PEP 249 properties ------------------------------------------------
 
@@ -247,20 +264,12 @@ class Cursor:
         if parameters is not None:
             sql = _substitute_params(operation, parameters)
 
-        # The deprecation warning for a `None` min_timestamp is already surfaced when it is set
-        # (on the connection or cursor), so suppress the one the query method would otherwise emit here.
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecationWarning)
-            result = self._connection.client.query_json_rows(  # type: ignore[reportDeprecated]
-                sql=sql,
-                min_timestamp=self.min_timestamp
-                if self.min_timestamp is not _UNSET
-                else self._connection.min_timestamp,
-                max_timestamp=self.max_timestamp
-                if self.max_timestamp is not _UNSET
-                else self._connection.max_timestamp,
-                limit=self.limit if self.limit is not _UNSET else self._connection.limit,
-            )
+        result = self._connection.client.query_json_rows(
+            sql=sql,
+            min_timestamp=self.min_timestamp,
+            max_timestamp=self.max_timestamp,
+            limit=self.limit,
+        )
 
         self._columns = result['columns']
         self._rows = [tuple(row[col['name']] for col in self._columns) for row in result['rows']]
@@ -270,7 +279,7 @@ class Cursor:
             (col['name'], col['datatype'], None, None, None, None, col.get('nullable')) for col in self._columns
         ]
 
-        effective_limit = self.limit if self.limit is not _UNSET else self._connection.limit
+        effective_limit = self.limit
         if self.rowcount == effective_limit:
             warnings.warn(
                 f'Query returned {effective_limit} rows which is the limit. '
@@ -340,39 +349,12 @@ class Cursor:
 # ---------------------------------------------------------------------------
 
 
-@overload
-@deprecated('Setting min_timestamp=None in connect() is deprecated')
-def connect(
-    read_token: str,
-    base_url: str | None = None,
-    timeout: float = 30.0,
-    *,
-    min_timestamp: None,
-    max_timestamp: datetime | None = None,
-    limit: int = DEFAULT_LIMIT,
-    **kwargs: Any,
-) -> Connection: ...
-
-
-@overload
 def connect(
     read_token: str,
     base_url: str | None = None,
     timeout: float = 30.0,
     *,
     min_timestamp: datetime | timedelta = DEFAULT_MIN_TIMESTAMP_AGE,
-    max_timestamp: datetime | None = None,
-    limit: int = DEFAULT_LIMIT,
-    **kwargs: Any,
-) -> Connection: ...
-
-
-def connect(
-    read_token: str,
-    base_url: str | None = None,
-    timeout: float = 30.0,
-    *,
-    min_timestamp: datetime | timedelta | None = DEFAULT_MIN_TIMESTAMP_AGE,
     max_timestamp: datetime | None = None,
     limit: int = DEFAULT_LIMIT,
     **kwargs: Any,
@@ -385,8 +367,7 @@ def connect(
         timeout: HTTP request timeout in seconds.
         min_timestamp: Default lower bound for `start_timestamp` filtering.
             Accepts a `datetime` for an exact bound, a `timedelta` for a
-            relative window (computed as `now - timedelta`), or `None` to
-            disable the filter.  Defaults to 1 day ago.
+            relative window (computed as `now - timedelta`). Defaults to 1 day ago.
         max_timestamp: Default upper bound for `start_timestamp` filtering.
         limit: Default row limit per query (max 10,000). When the number of
             returned rows equals the limit a warning is emitted.
@@ -396,12 +377,6 @@ def connect(
     Returns:
         A PEP 249 `Connection` object.
     """
-    if min_timestamp is None:
-        warnings.warn(
-            'Setting min_timestamp=None in connect() is deprecated',
-            DeprecationWarning,
-            stacklevel=2,
-        )
     from httpx import Timeout as HttpxTimeout
 
     client = LogfireQueryClient(

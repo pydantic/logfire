@@ -11,10 +11,9 @@ from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportM
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
 
 import logfire
+from logfire._internal import forwarding
 from logfire._internal.config import LogfireConfig
-from logfire._internal.forwarding import ForwardingAdmissionResult, ForwardingRequest
-from logfire.experimental import forwarding
-from logfire.experimental.forwarding import ForwardExportRequestResponse
+from logfire._internal.forwarding import ForwardExportRequestResponse, ForwardingAdmissionResult, ForwardingRequest
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -612,7 +611,7 @@ async def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
     request.path_params = {'path': 'v1/traces'}
     request.method = 'POST'
 
-    with mock.patch('logfire.experimental.forwarding.forward_export_request') as mock_fwd:
+    with mock.patch('logfire._internal.forwarding.forward_export_request') as mock_fwd:
         mock_fwd.return_value = ForwardExportRequestResponse(200, {'Content-Type': 'application/json'}, b'{"ok": true}')
 
         response = await logfire.forward_export_request_starlette(request, max_body_size=10)

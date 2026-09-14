@@ -101,8 +101,8 @@ The large language model (LLM) call also appears on the **LLMs** page. Logfire c
 and their conversations, but aggregate Agent metrics can miss turns or count repeated token attributes more
 than once. Use the **LLMs** page for exact model-call usage while
 [full Eve Agent analytics support](https://github.com/pydantic/platform/issues/28737) is in progress. Eve runs
-also appear in the specialized **Agents** view; the [support matrix](support-matrix.md) shows which columns each
-view populates.
+also appear in the specialized **Agents** view; the [framework coverage guide](support-matrix.md) shows which
+details each view adds.
 
 ## Troubleshoot missing traces
 

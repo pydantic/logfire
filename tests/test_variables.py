@@ -3898,7 +3898,7 @@ class TestPushVariables:
         lf = logfire.configure(**config_kwargs)
         # Now we want it to be a string
         var = lf.var(name='my_var', default='default', type=str)
-        result = provider.push_variables([var], yes=True)
+        result = provider.push_variables([var], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'Variables to UPDATE' in captured.out
@@ -3922,15 +3922,15 @@ class TestPushVariables:
         lf = logfire.configure(**config_kwargs)
         # Changing from string to int - existing label is incompatible
         var = lf.var(name='my_var', default=0, type=int)
-        result = provider.push_variables([var], yes=True)
+        result = provider.push_variables([var], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'Warning' in captured.out or 'Incompatible' in captured.out
 
-    def test_push_variables_strict_mode_fails_with_incompatible(
+    def test_push_variables_fails_with_incompatible_by_default(
         self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
     ):
-        """Test push_variables in strict mode fails with incompatible labels."""
+        """Test push_variables fails with incompatible labels by default."""
         server_config = VariablesConfig(
             variables={
                 'my_var': VariableConfig(
@@ -3945,7 +3945,7 @@ class TestPushVariables:
         provider = LocalVariableProvider(server_config)
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='my_var', default=0, type=int)
-        result = provider.push_variables([var], strict=True)
+        result = provider.push_variables([var])
         assert result is False
         captured = capsys.readouterr()
         # Error message may go to stdout or stderr depending on implementation
@@ -3980,7 +3980,7 @@ class TestPushVariables:
         var1 = lf.var(name='schema_change_var', default=0, type=int)
         # unchanged_var: same schema (int) but label value is incompatible
         var2 = lf.var(name='unchanged_var', default=0, type=int)
-        result = provider.push_variables([var1, var2], yes=True)
+        result = provider.push_variables([var1, var2], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'incompatible with the variable types' in captured.out
@@ -4006,7 +4006,7 @@ class TestPushVariables:
         # Create a new var to ensure there are changes (so push proceeds)
         var_new = lf.var(name='new_var', default='hello', type=str)
         var_unchanged = lf.var(name='unchanged_var', default=0, type=int)
-        result = provider.push_variables([var_new, var_unchanged], yes=True)
+        result = provider.push_variables([var_new, var_unchanged], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'incompatible with the variable types (schema unchanged)' in captured.out
@@ -5323,15 +5323,15 @@ class TestPushVariableTypesWithIncompatibleLabels:
                 ),
             },
         )
-        result = provider.push_variable_types([FeatureConfig], yes=True)
+        result = provider.push_variable_types([FeatureConfig], yes=True, strict=False)
         assert result is True
         captured = capsys.readouterr()
         assert 'Label compatibility warnings' in captured.out
         assert 'my_feature' in captured.out
         assert 'incompatible with the new type schema' in captured.out
 
-    def test_push_types_with_incompatible_labels_strict(self, capsys: pytest.CaptureFixture[str]):
-        """Test push_variable_types in strict mode fails with incompatible labels (line 1356-1357)."""
+    def test_push_types_with_incompatible_labels_fails_by_default(self, capsys: pytest.CaptureFixture[str]):
+        """Test push_variable_types fails with incompatible labels by default."""
         from pydantic import BaseModel
 
         class FeatureConfig(BaseModel):
@@ -5349,7 +5349,7 @@ class TestPushVariableTypesWithIncompatibleLabels:
                 ),
             },
         )
-        result = provider.push_variable_types([FeatureConfig], strict=True)
+        result = provider.push_variable_types([FeatureConfig])
         assert result is False
         captured = capsys.readouterr()
         assert 'Error' in captured.out

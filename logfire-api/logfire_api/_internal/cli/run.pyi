@@ -14,6 +14,7 @@ TARGET_PACKAGE_ALIASES: Incomplete
 INSTRUMENTATION_CALL_ARGUMENTS: Incomplete
 MINIMUM_INSTRUMENTATION_VERSIONS: Incomplete
 OTEL_INSTRUMENTATION_MAP: Incomplete
+INSTRUMENTATION_TO_EXTRA: dict[str, str]
 
 @dataclass(frozen=True, order=True)
 class InstrumentationRecommendation:

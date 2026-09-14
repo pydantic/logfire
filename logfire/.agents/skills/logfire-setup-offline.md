@@ -7,7 +7,7 @@ nothing below needs a network fetch to resolve.
 
 A pointer to "the `logfire-infrastructure` skill" (or any other skill named
 above) means the section below headed `# Skill: logfire-infrastructure` --
-read it in place of fetching it. This build omits the `./references/...` deep-dive files (language-specific edge cases) to stay shorter, EXCEPT the authenticate reference every skill's Step 1 depends on -- that one is always included below, not just linked to -- so if a pointer to any other `./references/...` or `../<skill-name>/references/...` file turns out to matter, fetch it directly from the repo instead.
+read it in place of fetching it. Authentication links jump directly to the inlined authentication appendix. This build omits the other `./references/...` deep-dive files (language-specific edge cases) to stay shorter; if one turns out to matter, fetch it directly from the repo.
 
 
 ---
@@ -26,7 +26,8 @@ Keep the user informed with short updates, but proceed through ordinary, reversi
 
 Auth comes first because everything after it depends on having a valid, confirmed connection to the exact right Logfire project: instrumenting or inspecting the repo before that is either wasted if the connection turns out wrong, or worse, ends up silently wired to the wrong project. Do not open, read, or run any project file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's in the repo yet.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
+Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
+
 
 ## Step 2: Understand the Repo
 
@@ -34,9 +35,9 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 | Surface | Covers | Skill |
 |---------|--------|-------|
-| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](../logfire-instrumentation/SKILL.md) |
-| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](../logfire-infrastructure/SKILL.md) |
-| Evals | Score AI/agent output against test-case datasets with `pydantic_evals` | [`logfire-evals`](../logfire-evals/SKILL.md) |
+| App instrumentation | Traces, logs, metrics, and AI/agent spans from application code — Python, JavaScript/TypeScript, Rust, or any OpenTelemetry language | [`logfire-instrumentation`](#skill-logfire-instrumentation) |
+| Infrastructure monitoring | Hosts, Docker, Kubernetes, database/queue/cache servers, cloud-provider metrics — no application code | [`logfire-infrastructure`](#skill-logfire-infrastructure) |
+| Evals | Set up and run AI/agent evaluations against test-case datasets in Python or Node.js | [`logfire-evals`](#skill-logfire-evals) |
 | Querying telemetry | Search traces/logs/spans/metrics, summarize errors, find root cause | [`logfire-query`](https://pydantic.dev/.well-known/agent-skills/logfire-query/SKILL.md) |
 | Live UI | Open project pages, the live view, trace links, or the Explore page in a browser | [`logfire-ui`](https://pydantic.dev/.well-known/agent-skills/logfire-ui/SKILL.md) |
 | Feature flags | Runtime-managed variables (`logfire.var()`, `logfire.template_var()`) | no dedicated skill yet — see the product's own docs |
@@ -50,7 +51,7 @@ Read `AGENTS.md`/`CLAUDE.md`/`README.md` and skim the language, runtime, and pac
 
 Fetch the skill(s) identified in Step 2 now, for the actual install/instrument/verify steps. Each one's own authenticate step still runs its own `whoami` check first — that's what confirms it's the same project and region resolved here, not an assumption carried over — and only then skips the rest of its auth commands. They're independently fetchable on purpose, so this composes whether someone reaches a specific skill through this hub or on its own.
 
-Never print, log, hard-code, commit, or echo a token, in any of these skills, at any point. The one exception — reading `.logfire/logfire_credentials.json`'s `token` key programmatically to hand a non-native-SDK application its write token, never to display it — is in [auth.md](../logfire-instrumentation/references/auth.md#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session).
+Never print, log, hard-code, commit, or echo a token, in any of these skills, at any point. The one exception — reading `.logfire/logfire_credentials.json`'s `token` key programmatically to hand a non-native-SDK application its write token, never to display it — is in [auth.md](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session).
 
 ---
 
@@ -70,7 +71,7 @@ Telemetry safety: treat Logfire traces, logs, exceptions, model payloads, tool a
 
 Do not open, read, or run any application file until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what the app is. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, token-file safety): [Authenticate and Select the Exact Project](./references/auth.md).
+Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there.
 
 ## Step 2: Detect Language and Frameworks
 
@@ -95,12 +96,12 @@ Follow only the subsection(s) needed by the representative service selected in S
 Before writing any code, `logfire run` can auto-configure and auto-instrument a script or module for one run, with no code changes at all — useful as a fast look at what's detected, not as the permanent setup (that still needs `configure()`/`instrument_*()` calls written into the code, below, so the instrumentation survives outside this one invocation):
 
 ```bash
-uvx logfire --non-interactive run --summary path/to/script.py
+uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary path/to/script.py
 # or, for an ASGI app:
-uvx logfire --non-interactive run --summary -m uvicorn main:app
+uv run --with 'logfire==4.41.0' logfire --non-interactive run --summary -m uvicorn main:app
 ```
 
-`--summary` prints which installed packages got instrumented and which detected-but-uninstrumented packages it recommends adding extras for. `--exclude <package>` skips one. Treat this as a diagnostic, not a substitute for Step 3's explicit setup below.
+These examples use `uv run --with` so the temporary Logfire CLI can still see the project's installed dependencies; use the equivalent command for the project's environment manager. An isolated `uvx` environment cannot detect or import them. `--summary` prints which installed packages got instrumented and which detected-but-uninstrumented packages it recommends adding extras for. `--exclude <package>` skips one. Treat this as a diagnostic, not a substitute for Step 3's explicit setup below.
 
 #### Install, Configure, Instrument
 
@@ -121,7 +122,7 @@ logfire.instrument_fastapi(app)   # FastAPI only; requires the app instance
 logfire.instrument_httpx()        # HTTPX only
 ```
 
-Web-framework instrumentors need the app instance; HTTP-client and database instrumentors are global and take no arguments. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
+FastAPI, Flask, Starlette, and raw ASGI/WSGI instrumentors need the app instance; Django, HTTP-client, and database instrumentors are global and take no app argument. Gunicorn and other pre-fork servers need `configure()` inside `post_fork`, not at module level — see the reference above for that and the rest of the placement rules.
 
 #### Structured Logging and AI/LLM Instrumentation
 
@@ -140,10 +141,10 @@ Use these references:
 - [project detection](./references/javascript/project-detection.md): package manager, workspace, runtime, framework, and existing OpenTelemetry detection.
 - [installation and environment](./references/javascript/installation-and-env.md): package matrix, tokens, service metadata, and secret placement.
 - [Node runtime](./references/javascript/node-runtime.md): generic Node, Express, Fastify-style servers, startup preload rules, and shutdown.
-- [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, optional browser proxy, client-only provider, and server component/manual API patterns.
-- [React/browser](./references/javascript/react-browser.md): browser package setup, proxy requirement, React provider, and client error reporting.
+- [Next.js](./references/javascript/nextjs.md): server-side `@vercel/otel`, direct frontend application ingest, client-only provider, and server component/manual API patterns.
+- [React/browser](./references/javascript/react-browser.md): restricted frontend credentials, direct browser export, React provider, and client error reporting.
 - [Cloudflare and Deno](./references/javascript/cloudflare-and-deno.md): Workers `instrument()` setup, Wrangler secrets, Tail Workers, and Deno OTLP export.
-- [Vercel AI SDK](./references/javascript/ai-sdk.md): enabling `experimental_telemetry` for model calls, tools, streaming, and metadata.
+- [Vercel AI SDK](./references/javascript/ai-sdk.md): version-specific telemetry setup for model calls, tools, streaming, and metadata.
 - [patterns](./references/javascript/patterns.md): current manual API for logs, spans, function instrumentation, errors, tags, baggage, sampling, and scrubbing.
 - [verification](./references/javascript/verification-troubleshooting.md): build checks, smoke tests, local console output, browser network checks, and common missing-trace causes.
 
@@ -151,30 +152,32 @@ Use these references:
 
 - Use the runtime package that owns SDK setup: `@pydantic/logfire-node` for Node.js, `@pydantic/logfire-browser` for browser code, `@pydantic/logfire-cf-workers` for Cloudflare Workers, and `logfire` for runtime-agnostic manual spans when OpenTelemetry is already configured.
 - Load Node instrumentation before importing the app or instrumented libraries. Prefer `node --import ./instrumentation.js` for ESM and modern Node; use `--require` only for CommonJS.
-- Never expose a Logfire write token to browser code. Browser traces must go through an authenticated same-origin backend proxy.
+- Never expose an ordinary Logfire write token to browser code. Direct browser export requires the restricted public token and regional trace URL generated for a frontend application.
 - Use the current span shape: `logfire.span('message {id}', { attributes: { id }, callback: async () => ... })`.
 - Use structured attributes instead of string interpolation when the data should be queryable.
 - For caught errors, use `logfire.reportError(message, error, attributes?, options?)` and then rethrow when preserving behavior matters.
-- Verify with the project's normal typecheck/build/test command and a runtime smoke request. Also check that no `LOGFIRE_TOKEN` or raw write token is present in client-side code or public environment variables.
+- Verify with the project's normal typecheck/build/test command and a runtime smoke request. Also check that no `LOGFIRE_TOKEN` or ordinary write token is present in client-side code or public environment variables; the restricted frontend application token is the deliberate exception.
 
 ### Rust
 
 #### Install
 
-```toml
-[dependencies]
-logfire = "0.6"
+```bash
+cargo add logfire
 ```
 
 #### Configure
 
 ```rust
-let shutdown_handler = logfire::configure()
-    .install_panic_handler()
+let logfire = logfire::configure()
     .finish()?;
+let shutdown_handler = logfire.shutdown_guard();
 ```
 
-Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section, not the local one.
+Set `LOGFIRE_TOKEN` in your environment, or don't — the `logfire` crate's `data-dir` feature (on by default) falls back to `.logfire/logfire_credentials.json` when it's unset, same as Python. Set it explicitly only to override that: a different token, or production, where it should be a separately-minted token per [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project)'s "If the calling skill needs a write token" section, not the local one.
+
+The panic handler is installed by default. Keep `shutdown_handler` on the main stack so a panic still flushes. Use
+`.with_install_panic_handler(false)` only when the application must disable the hook.
 
 #### Structured Logging (Rust)
 
@@ -196,7 +199,7 @@ Always call `shutdown_handler.shutdown()` before program exit to flush data.
 
 No dedicated Logfire SDK — install that language's own OpenTelemetry SDK and point its OTLP exporter at Logfire: [Alternative clients](https://pydantic.dev/docs/logfire/guides/alternative-clients/) has the exact endpoint and header format. Logfire accepts OTLP over both gRPC and HTTP, so an exporter that defaults to gRPC (Java, .NET) needs no protocol override.
 
-For the write token that endpoint needs, see [Authenticate and Select the Exact Project](./references/auth.md)'s "If the calling skill needs a write token" section — for local development, reuse the token `projects use` already put in `.logfire/logfire_credentials.json` rather than assuming a fresh one has to come from the UI.
+For the write token that endpoint needs, see [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project)'s "If the calling skill needs a write token" section — for local development, reuse the token `projects use` already put in `.logfire/logfire_credentials.json` rather than assuming a fresh one has to come from the UI.
 
 ## Step 4: Set Service Metadata and Metrics
 
@@ -215,7 +218,7 @@ segment data. Set them once, at configure time or via environment:
   value everything collapses into `unknown_service`.
 - `service.version` — enables comparisons across releases (e.g. error rate by
   version).
-- `deployment.environment` — separates prod / staging / dev throughout the UI.
+- `deployment.environment.name` — separates prod / staging / dev throughout the UI.
 - `service.instance.id` — distinguishes replicas; the standard dashboards filter
   on it.
 
@@ -230,7 +233,7 @@ logfire.configure(
 ```
 
 For non-SDK or Collector sources, set the same values via
-`OTEL_RESOURCE_ATTRIBUTES="service.name=checkout-api,service.version=1.4.2,deployment.environment=prod"`.
+`OTEL_RESOURCE_ATTRIBUTES="service.name=checkout-api,service.version=1.4.2,deployment.environment.name=prod"`.
 
 ### Custom metrics
 
@@ -244,17 +247,34 @@ see the `logfire-infrastructure` skill.
 
 Instrumentation isn't done when the code compiles or an SDK reports "connected." Run this loop and own it end to end — it's your responsibility to confirm real telemetry arrived in the right project, not just that nothing errored. **Never report success, a span count, or a captured field without having actually queried for it in this same session** — a plausible-sounding summary that wasn't checked is worse than saying you couldn't verify.
 
-1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear.
-2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Same `uvx`/`npx` prefix as Step 1 (JS: drop `--non-interactive`, it's Python-CLI-only):
+1. **Run the app and trigger it.** Start the real application, run one representative request, job, or agent run, and note an identifiable service name and operation that should appear. If Step 1 found an ambient `LOGFIRE_TOKEN` while the local SDK is meant to use the newly selected `.logfire/` credential, omit that variable from the child application process too and make sure an env loader does not reintroduce an unrelated token. Do not mutate the parent shell or silently rewrite existing environment files.
+2. **Confirm fresh data reached the exact project `whoami` reported** — not just "a project." Use the same verified CLI path and token policy as Step 1. The commands below always exclude an ambient `LOGFIRE_TOKEN`; use the OAuth and project credentials selected in Step 1. With `uv`:
    ```bash
-   uvx logfire --non-interactive projects status --json
-   # JS/TS: npx logfire projects status --json
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+   ```
+   For a JS/TS project without `uv`:
+   ```bash
+   npm_cache="$(mktemp -d)"
+   npm_prefix="$(mktemp -d)"
+   run_logfire_js() {
+     env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+   }
+   run_logfire_js <target> projects status --json
    ```
    If it reports no usable read token, create one for the exact project `whoami` reported and retry — `--project` goes on `read-tokens` itself, before `create`:
    ```bash
-   uvx logfire --non-interactive read-tokens --project <organization>/<project> create --save
-   uvx logfire --non-interactive projects status --json
-   # JS/TS: npx logfire read-tokens --project <organization>/<project> create --save
+   # Python CLI
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> read-tokens --project <organization>/<project> create --save
+   env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects status --json
+
+   # JS CLI (POSIX shell)
+   npm_cache="$(mktemp -d)"
+   npm_prefix="$(mktemp -d)"
+   run_logfire_js() {
+     env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+   }
+   run_logfire_js <target> read-tokens --project <organization>/<project> create --save
+   run_logfire_js <target> projects status --json
    ```
    `--save` writes the token into the data directory for `projects status` to use — it is never printed. Or query directly via the Logfire MCP/API if already connected in this session. Never display a token while doing any of this.
 3. **Audit what actually landed**, not just that something did: service name set (not `unknown_service`)? Spans nested correctly, not flat? The specific operation you exercised present, not just noise? For AI/LLM instrumentation, is the captured content at the level you intended (metadata-only vs. full content)? For system/infra metrics, did the expected host/container/cluster show up, not just some data?
@@ -277,7 +297,7 @@ Each row is a distinct data source and the product surface it lights up.
 | To get this in the UI | Send this | How |
 |-----------------------|-----------|-----|
 | **Live / Explore / Issues** — traces, logs, exceptions | App spans & logs | `configure()` + `instrument_*()` + structured logging (Steps 1-3) |
-| **Services** — per-service request rate, errors, latency (RED) | Spans tagged with a meaningful `service_name` (+ `service.version`, `deployment.environment`) | Set [service metadata](#service-metadata), then instrument your web framework |
+| **Services** — per-service request rate, errors, latency (RED) | Spans tagged with a meaningful `service_name` (+ `service.version`, `deployment.environment.name`) | Set [service metadata](#service-metadata), then instrument your web framework |
 | **Metrics explorer / Dashboards / Alerts** | [Custom metrics](#custom-metrics) | `logfire.metric_*` |
 | **AI / LLM views** — token usage, tool calls, agent runs | LLM/agent spans | `instrument_pydantic_ai()` / `instrument_openai()` / ... (Step 3, AI/LLM Instrumentation); agent frameworks below |
 
@@ -314,7 +334,7 @@ Instrument the framework, not just the underlying model provider — a raw `inst
 
 Detailed patterns and integration tables, organized by language:
 
-- **Authentication**: [full command sequence, flags, and gotchas](./references/auth.md) — shared by all three Logfire setup skills
+- **Authentication**: [full command sequence, flags, and gotchas](#authenticate-and-select-the-exact-project) — shared by all three Logfire setup skills
 - **Python**: [logging patterns](./references/python/logging-patterns.md) (log levels, spans, stdlib integration, metrics, capfire testing) and [integrations](./references/python/integrations.md) (full instrumentor table with extras)
 - **JavaScript/TypeScript**: [patterns](./references/javascript/patterns.md) (log levels, spans, error handling, config) and [frameworks](./references/javascript/frameworks.md) (Node.js, Cloudflare Workers, Next.js, Deno setup)
 - **Rust**: [patterns](./references/rust/patterns.md) (macros, spans, tracing/log crate integration, async, shutdown)
@@ -339,7 +359,8 @@ The OpenTelemetry Collector ships host, container, cluster, and infrastructure-s
 
 Do not open, read, or run any infrastructure config file (`docker-compose.yml`, a Kubernetes manifest, or similar) until `whoami` confirms you're authenticated to the right project — nothing about this step requires knowing what's being monitored. Auth is also the one step that can block on a human (browser sign-in), so starting it first means that wait begins on turn one, not after Step 2's detection work.
 
-Check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 2 if it already reports the right project and region. Otherwise, full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict) plus where the Collector's own write token comes from: [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md).
+Use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 2 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there, including its safe handoff for the write credential created by `projects use`.
+
 
 ## Step 2: Identify What to Monitor
 
@@ -387,29 +408,31 @@ Close with a final report built from what you just confirmed — org/project/reg
 
 # Skill: logfire-evals
 
-*Evaluate Python AI/agent code against a dataset of test cases using pydantic_evals, and review results in Logfire's Datasets & Experiments UI. Also covers redirecting an existing Braintrust Eval() suite to Logfire with no code changes. Use this skill whenever the user asks to "set up evals", "add an evaluation", "test my agent against cases", "write a dataset of test cases", "score my LLM output", "add an LLM judge", "check tool-call correctness", "send Braintrust evals to Logfire", "migrate from Braintrust", or mentions pydantic_evals, Braintrust, Datasets & Experiments, or evaluating AI/agent behavior against known inputs. The `pydantic_evals` workflow is Python-only; the Braintrust redirect also supports TypeScript suites, env-vars-only. Both are for scoring DEFINED test cases offline — not for instrumenting live production traffic (use `logfire-instrumentation` for that) and not for infrastructure monitoring (use `logfire-infrastructure`).*
+*Run offline Python (`pydantic_evals`) or Node.js (`logfire/evals`) evaluations and review them in Logfire. Also redirect existing Braintrust `Eval()` suites. Use for eval setup, test datasets, AI scoring, agent checks, LLM judges, Braintrust migration, or Logfire Datasets & Experiments. Not for live traffic or infrastructure monitoring.*
 
-# Evaluate with pydantic_evals and Logfire
+# Evaluate AI code with Logfire
 
 ## How This Works
 
-`pydantic_evals` runs your actual function or agent against a `Dataset` of `Case`s (input + expected output + metadata), scores each with one or more `Evaluator`s, and produces a report. It depends on `logfire` itself (the `datasets` extra pulls in the real SDK, not a mock), so whether `logfire.configure()` has run determines only whether results *also* upload to Logfire's Datasets & Experiments UI — omitting it keeps results entirely local and printed to the terminal, **silently, not an error**.
+Python's `pydantic_evals` and Node.js's `logfire/evals` run a task against cases, apply evaluators, and return a report. An active Logfire or OpenTelemetry provider may export inputs and outputs even if this skill did not configure it. Intentional upload needs `logfire.configure()` in Python or a configured Node.js exporter.
 
-Agentic evaluators (tool-call correctness, trajectory matching) need more than that: they read the task's own execution span tree, so without a working `logfire.configure()` they don't just fail to upload — every case reports "No span tree available" and the check never ran at all.
+Span-based evaluators inspect the task's OpenTelemetry span tree. Without working Logfire instrumentation, Python reports "No span tree available"; Node.js `HasMatchingSpan` can produce no evaluator result at all. Treat either signal as a setup failure, not evidence about the agent.
 
 ## Step 1: Check for an Existing Braintrust Suite First
 
-Cheap check, before anything else: does this repo already have an existing Braintrust suite — actual `Eval(...)` calls or `from braintrust import Eval` in source, not just a `braintrust` dependency listed without any real usage? This path needs **no CLI auth at all** — don't run Step 2 for it.
+Cheap check, before anything else: does this repo already have an existing Braintrust suite — actual `Eval(...)` calls or `from braintrust import Eval` in source, not just a `braintrust` dependency listed without any real usage? This path needs **no CLI auth at all** — don't run Step 2 for it. The compatibility endpoint is documented only for Logfire Cloud US and EU; for any other supplied origin, use the native evaluation path instead.
 
 Keep the existing `Eval()` code (Python `braintrust>=0.30.1` / TypeScript `braintrust>=3.24.0` — verified versions) and redirect its next run to Logfire by changing environment variables only, no `pydantic_evals` involved:
 
 ```bash
 export BRAINTRUST_APP_URL="https://logfire-us.pydantic.dev/v1/braintrust"  # EU: logfire-eu.pydantic.dev
-export BRAINTRUST_API_KEY="<logfire-project-write-token>"                  # Project -> Settings -> Write tokens
+export BRAINTRUST_API_KEY="<logfire-project-api-key>"                     # Settings -> API Keys
 unset BRAINTRUST_API_URL BRAINTRUST_PROXY_URL  # these override the endpoint above if set — the #1 "it still hit Braintrust" cause
 ```
 
-This is a **compatibility preview, not full parity**: covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It does not cover Braintrust-hosted datasets/prompts/functions, BTQL, the model proxy, server-side scoring, or post-finalization feedback — and `summarize_scores=False`, a manual `flush()` without a comparison, or the Rust SDK never request the summary this endpoint needs, so nothing lands even though the run appears to succeed. Full detail and the concept-translation table (Braintrust "project" → Logfire dataset name, "scorer" → evaluator, etc.): https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/.
+The destination project's API key needs `project:write_otlp` and `project:read_datasets`: the SDK writes the run, then reads experiment metadata for its summary. An ingest-only write token fails with `403`.
+
+This **compatibility preview** covers inline/callable data, local tasks and scorers, multiple scores, one label per name, and normal summary finalization. It excludes Braintrust-hosted resources, BTQL, the model proxy, server-side scoring, and post-finalization feedback. Rust, `summarize_scores=False`, and manual `flush()` without comparison do not request the summary needed for projection. See the [full coverage and concept mapping](https://pydantic.dev/docs/logfire/get-started/comparisons/migrate-from-braintrust/).
 
 Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens directly in Logfire, and nothing else here (auth, dataset definition) applies to this path.
 
@@ -417,41 +440,35 @@ Skip straight to Step 5 (Verify) — the SDK's own printed result URL also opens
 
 ## Step 2: Authenticate When the Run Needs Logfire
 
-Skip authentication and continue to Step 3 only when the user explicitly wants a local-only `pydantic_evals` run using evaluators that do not need span data; omit `logfire.configure()` in Step 4 so results stay in the terminal. Uploading results, using a hosted dataset, or running a span-based evaluator such as `ToolCorrectness` requires Logfire, so authenticate before opening or running evaluation files and target the exact project first.
+For an explicitly local-only run without span evaluators, use a fresh process that neither preloads nor imports application telemetry; omit Python's `logfire.configure()` and any Node.js exporter bootstrap. If the task configures an exporter and has no documented disable switch, stop rather than claiming local-only. Uploading, hosted datasets, and span evaluators require Logfire authentication to the exact project.
 
-For a Logfire-backed run, check first — `uvx logfire --non-interactive whoami` (JS: `npx logfire whoami`) — and skip to Step 3 if it already reports the right project and region. Otherwise, follow the full command sequence, flags, and gotchas (the `--non-interactive` requirement, why `auth` won't open a browser for you, the `LOGFIRE_TOKEN`-vs-credentials-file conflict, and token-file safety) in [Authenticate and Select the Exact Project](../logfire-instrumentation/references/auth.md). This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+For a Logfire-backed run, use [Authenticate and Select the Exact Project](#authenticate-and-select-the-exact-project) to derive the CLI target from the supplied Logfire URL and run its target-aware `whoami` check with a verified CLI path — for JS/TS projects without `uv`, use the external-prefix npm fallback instead of plain `npx`, which can execute a repository-local binary. Skip to Step 3 if that already reports the right project and resolved `--region` or `--base-url` target; otherwise, continue through the full authentication and project-selection sequence there. This CLI flow is for `logfire.configure()`; Step 3's hosted-dataset operations use a separate API key with different scopes.
+
 
 ## Step 3: Detect What to Evaluate
 
-Identify the function or agent under test (a PydanticAI agent, an LLM-calling function, any callable that takes an input and returns an output) and whether a dataset already exists:
+Identify the real task and any dataset. Follow repository package, test, and dependency conventions. For a first eval, prefer 3-5 cases from tests, schemas, examples, or synthetic fixtures, with deterministic checks for defined behavior. Do not copy the example unless it fits, replace an eval framework, or refactor unrelated code. Without a runnable task or safe expected behavior, ask one focused question instead of inventing either.
 
-- **In-code dataset**: a Python module defining `Case`/`Dataset` directly — the default for an agent-driven workflow.
-- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[ExactMatch]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
+- **In-code dataset**: a Python module using `pydantic_evals`, or a Node.js module using `logfire/evals`. This is the default for an agent-driven workflow.
+- **Hosted/managed dataset**: cases live in the Logfire UI, edited by non-engineers, pulled/pushed via a separate `LogfireAPIClient` (`from logfire.experimental.api_client import LogfireAPIClient`). Hosted inputs and outputs must be JSON objects; scalar roots accepted by code-defined datasets are rejected. `client.get_dataset(name)` with no type arguments returns a raw dict, not something `push_dataset` or `.evaluate_sync()` can take — pass the input/output (and metadata, if used) types to get back a real `pydantic_evals.Dataset`: `client.get_dataset(name, MyInputType, MyOutputType)`. If the stored dataset contains custom evaluators, also pass their classes with `custom_evaluator_types=[MyEvaluator]` (and custom report evaluators with `custom_report_evaluator_types=[...]`) so they can be deserialized. Push with `client.push_dataset(dataset)`. This needs its own API key from **Settings → API Keys** (scoped `project:read_datasets`/`project:write_datasets`), not Step 2's CLI auth flow. Only relevant if the user specifically wants case editing outside code.
 
 ## Step 4: Define the Dataset and Run It
 
-```bash
-uv add 'logfire[datasets]'
-```
+Use the repository's existing package manager and lockfile. Install only the missing integration for its language.
+
+### Python
+
+Add `pydantic-evals[logfire]` with the detected Python manager: `uv add`, `poetry add`, or `pdm add`. For a pip/requirements project, update its declared requirements and install from that file; do not introduce a second manager or lockfile.
 
 ```python
-from dataclasses import dataclass
-
 import logfire
 from pydantic_evals import Case, Dataset
-from pydantic_evals.evaluators import Evaluator, EvaluatorContext, IsInstance
+from pydantic_evals.evaluators import EqualsExpected, IsInstance
 
-logfire.configure()  # omit this and results stay local only, silently
-
-
-@dataclass
-class ExactMatch(Evaluator[str, str]):
-    def evaluate(self, ctx: EvaluatorContext[str, str]) -> bool:
-        return ctx.output == ctx.expected_output
-
+logfire.configure()  # omit only in the isolated local-only process described above
 
 def classify_sentiment(text: str) -> str:
-    ...  # the function under test
+    return 'positive' if 'love' in text else 'negative'
 
 
 dataset = Dataset[str, str, None](
@@ -460,14 +477,48 @@ dataset = Dataset[str, str, None](
         Case(name='positive', inputs='I love this', expected_output='positive'),
         Case(name='negative', inputs='This is terrible', expected_output='negative'),
     ],
-    evaluators=[ExactMatch(), IsInstance(type_name='str')],
+    evaluators=[EqualsExpected(), IsInstance(type_name='str')],
 )
 
 report = dataset.evaluate_sync(classify_sentiment)  # or `await dataset.evaluate(...)`
 report.print(include_input=True, include_output=True)
 ```
 
-**Before running the full dataset, run a smoke test on 2-3 cases** if the dataset is large or uses `LLMJudge`/any evaluator that makes a real, billed model call — a bug caught on 3 cases costs 3 model calls, the same bug caught on 300 costs 300:
+Use `logfire[datasets]` instead only when the task specifically needs the hosted-dataset API from Step 3.
+
+### JavaScript or TypeScript on Node.js
+
+Do not apply this section to Deno, Bun, browsers, or workers; their exporter setup is not validated by this skill.
+
+Add `logfire` and `@pydantic/logfire-node` with the manager selected by the existing lockfile: `pnpm add`, `yarn add`, `bun add`, or `npm install`. Do not introduce a second lockfile.
+
+Configure Logfire before loading the task. Reuse an existing instrumentation entry point rather than configuring it twice.
+
+```ts
+import * as logfire from '@pydantic/logfire-node'
+import { Case, Dataset, EqualsExpected, renderReport } from 'logfire/evals'
+
+logfire.configure()
+
+const classifySentiment = (text: string) => (text.includes('love') ? 'positive' : 'negative')
+const dataset = new Dataset<string, string>({
+  name: 'sentiment-eval',
+  cases: [new Case({ name: 'positive', inputs: 'I love this', expectedOutput: 'positive' })],
+  evaluators: [new EqualsExpected()],
+})
+
+await dataset.evaluate(classifySentiment).then((report) => {
+  console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+}).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
+```
+
+Other built-ins include `Equals`, `Contains`, `IsInstance`, `MaxDuration`, `HasMatchingSpan`, and `LLMJudge`. Node.js custom evaluators extend `Evaluator`, and `LLMJudge` needs a judge callback. Use `@pydantic/logfire-node/datasets` only for hosted datasets.
+
+### Smoke test before a paid or full run
+
+**Before running the full dataset, run a smoke test on 2-3 cases** if the dataset is large or uses `LLMJudge` or any evaluator that makes billed model calls. This catches setup errors before they multiply cost across the dataset.
+
+Python:
 
 ```python
 smoke = Dataset(
@@ -480,15 +531,29 @@ smoke_report = smoke.evaluate_sync(classify_sentiment)
 smoke_report.print(include_input=True, include_output=True)
 ```
 
+Node.js:
+
+```ts
+const smoke = new Dataset({
+  name: dataset.name,
+  cases: dataset.cases.slice(0, 3),
+  evaluators: dataset.evaluators,
+  reportEvaluators: dataset.reportEvaluators,
+})
+await smoke.evaluate(classifySentiment).then((report) => {
+  console.log(renderReport(report, { includeInput: true, includeOutput: true }))
+}).finally(() => logfire.shutdown({ timeoutMillis: 5000 }))
+```
+
 Confirm the smoke run has zero unexpected errors and the assertions that should pass do. Then, if the full dataset is large or uses paid model calls, tell the user the case count and which evaluators will make model calls, and get explicit confirmation before running the full dataset — don't run an expensive full pass on the strength of a clean smoke test alone without saying so.
 
-Custom evaluators **must be `@dataclass`** subclasses — a plain class raises at run time. Case names must be unique within a dataset. The evaluators reached for most:
+The remaining details in this section are Python-specific. Custom evaluators inherit `Evaluator` and implement `evaluate`; use `@dataclass` for configurable fields and portable serialization. Case names must be unique within a dataset. The evaluators reached for most:
 
 | Evaluator | Checks |
 |-----------|--------|
 | `Equals(value)` / `EqualsExpected()` | Exact match against a literal / `expected_output` (no-op if `expected_output` is unset — don't rely on it silently catching that) |
 | `IsInstance(type_name)` | Output's type matches by name |
-| `LLMJudge(rubric, model=None, score=False)` | LLM-as-judge scoring; costs a real model call per case per judge — prefer boolean/categorical rubrics over 1-10 scales (judges are unstable on continuous scores), and benchmark the judge against ~20-100 hand-labeled cases before trusting it |
+| `LLMJudge(rubric, model=None, score=False)` | Subjective or rubric-based judgment; makes billed model requests, so validate the rubric against human-reviewed examples before treating it as a quality gate |
 | `ToolCorrectness(expected_tools, ...)` | Which tools an agent called — reads the span tree, so needs Step 2's `logfire.configure()` to work at all, not just to upload |
 
 Also available: `Contains`, `MaxDuration`, `TrajectoryMatch`, `ArgumentCorrectness`, `MaxToolCalls`, `MaxModelRequests` — same span-tree dependency as `ToolCorrectness` for the tool/trajectory ones; see `pydantic_evals.evaluators` for the full set. These five agentic (span-based) evaluators need `pydantic-evals>=2.4.0` — on an older pin, check `pyproject.toml`/`uv.lock` and upgrade before reaching for them, since the import itself is what fails, not a silent no-op.
@@ -515,54 +580,111 @@ Close with a final report built from what you just confirmed — the run name, e
 
 # Reference Files
 
+<a id="reference-logfire-instrumentation-references-auth-md"></a>
+
 ## logfire-instrumentation/references/auth.md
+
+<a id="reference-logfire-instrumentation-references-auth-md--authenticate-and-select-the-exact-project"></a>
 
 # Authenticate and Select the Exact Project
 
 Shared by all three Logfire setup skills (instrumentation, infrastructure, evals) — whichever skill you're following, run this once per session; a later skill's own `whoami` check will report "already resolved" and can be skipped.
 
-Check first, before assuming anything needs to happen:
+Choose the CLI target before assuming anything needs to happen. Logfire Cloud is the normal customer path and uses a region. Derive the target from the exact supplied origin and use the same target on every CLI command in this session:
+
+- `https://logfire-us.pydantic.dev` -> `--region us`
+- `https://logfire-eu.pydantic.dev` -> `--region eu`
+- An explicitly supplied non-cloud Logfire origin -> `--base-url <exact-origin>`. Customer-facing, this means an on-prem Logfire deployment.
+
+Never pass both, and never replace a Logfire Cloud region with `--base-url`. Parse a supplied URL with a standard URL parser and accept only an absolute origin: scheme, valid hostname or IP literal, and optional port, with no userinfo, non-root path, query, fragment, whitespace, or control characters. Normalize only a trailing `/`. Require `https://` for a non-cloud origin because CLI authentication sends a user credential to it. If parsing or validation fails, or the origin uses HTTP, stop and ask for a valid HTTPS origin instead; do not authenticate. Before contacting a non-cloud origin, check only whether `LOGFIRE_TOKEN` is set; never read its value. Every CLI command below excludes that ambient token so it cannot override the selected target; do not make an exception or edit the user's stored environment. After `projects use`, the CLI can use the project credential it created on disk while the ambient token remains excluded. Pass a non-cloud origin as one quoted `--base-url` argument; never concatenate it into shell text or use `eval`. Do not otherwise rewrite, shorten, or guess it. In the commands below, replace `<target>` with the validated selector (`--region us`, `--region eu`, or `--base-url '<canonical-origin>'`). If the request contains no URL and there is no trustworthy region context, omit `<target>` from the initial check; a non-interactive `auth` attempt will print the available region-specific command(s) rather than silently choosing one.
+
+Before trusting repository-local credentials, inspect path metadata only: neither
+`.logfire` nor `.logfire/logfire_credentials.json` may be a symlink. In a Git
+worktree, `git ls-files -- .logfire` must report nothing except an optional
+`.logfire/.gitignore`; a tracked credentials file or tracked `.logfire` directory
+is unsafe. Stop and report the unsafe path rather than reading or overwriting it.
+This metadata check is allowed before the calling skill's repository-inspection
+step; do not open any application or configuration file yet.
+
+Then check, before assuming anything needs to happen. A Logfire Cloud region may use the repository credential because its target is a fixed Logfire origin. An explicitly supplied non-cloud origin is not yet trusted to receive that credential, so point only its initial `whoami` at a fresh empty data directory. A missing project from that isolated probe is expected. Continue with `auth`, `projects list`, and `projects use`: these commands use the user credential bound to the selected origin rather than the repository project credential, and `projects use` replaces that project credential before the normal final `whoami` reads it. Do not pass the temporary data directory to `projects use` or the final check.
+
+With `uv`, use an isolated, config-free, version-pinned environment and invoke Python in isolated mode so repository-local packages and `PYTHONPATH` cannot shadow the CLI:
 
 ```bash
-uvx logfire --non-interactive whoami
-# or, JS/TS project with no Python tooling: npx logfire whoami (no --non-interactive)
+# Logfire Cloud:
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
+
+# Explicitly supplied non-cloud origin:
+(
+  credential_probe_dir="$(mktemp -d)" || exit 1
+  trap 'rm -rf -- "$credential_probe_dir"' EXIT
+  env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
+)
 ```
 
-If that already reports the right project and region, you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory, prefixed with `uvx` or `npx` (whichever is available) — it's a setup tool, not an app dependency. Both are real, maintained CLIs (the JS one lives in `pydantic/logfire-js` and ships to npm as the bare `logfire` package) with near-identical commands — but they are not flag-identical:
-
-- **`--non-interactive` is Python-CLI-only right now.** The JS CLI (`npx logfire`) doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every `npx logfire` invocation below; keep it on every `uvx logfire` one.
-- **If `npx logfire <anything>` — including `--help`, or a name you made up — exits 0 with zero output**, that's a stale global npm install of `logfire` from before v0.21.9 shadowing the fetch (a real, now-fixed bug: invoking the published bin through a symlink, which is exactly how npx and global installs both work, made the entrypoint check fail silently). Check with `npm ls -g logfire`; if it reports a version below 0.21.9, uninstall it (`npm uninstall -g logfire`) so `npx` fetches current instead of using the stale global one, or use `uvx` for this step instead.
+In a JS/TS project without `uv`, use this POSIX-shell fallback. Include the helper at the start of every JS CLI command block so a fresh shell can run it. The exact package version and `--ignore-scripts` keep the reviewed CLI artifact stable and prevent lifecycle scripts from running:
 
 ```bash
-# Python CLI (uvx logfire) -- always include --non-interactive:
-uvx logfire --non-interactive --region <region> auth
-uvx logfire --non-interactive projects list --json
-uvx logfire --non-interactive projects use <project-name> --org <organization-name>
-uvx logfire --non-interactive whoami
+npm_cache="$(mktemp -d)"
+npm_prefix="$(mktemp -d)"
+run_logfire_js() {
+  env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+}
 
-# JS CLI (npx logfire) -- same commands and flags, but drop --non-interactive entirely:
-npx logfire --region <region> auth
-npx logfire projects list --json
-npx logfire projects use <project-name> --org <organization-name>
-npx logfire whoami
+# Logfire Cloud:
+run_logfire_js <target> whoami
+
+# Explicitly supplied non-cloud origin:
+(
+  credential_probe_dir="$(mktemp -d)" || exit 1
+  trap 'rm -rf -- "$credential_probe_dir"' EXIT
+  run_logfire_js --base-url '<canonical-origin>' whoami --data-dir "$credential_probe_dir"
+)
 ```
 
-**On the Python CLI, always put `--non-interactive` immediately after `logfire`, on every invocation, for the rest of whichever skill sent you here too.** Without it, a question with nobody to answer it (which org? which project?) blocks on a read that never returns — there's no TTY for the CLI to notice is missing, so it can't detect this on its own. It's the only way to guarantee a clear error instead of a silent hang. The JS CLI doesn't have this flag yet; if a JS-CLI command needs to ask something (e.g. which account, when more than one token is cached) with no TTY attached, it fails with a clear "not running in a terminal" error instead of hanging — so the outcome is the same either way, just reached differently.
+Do not use a plain `npx logfire` command or omit the external `--prefix`, shared `--cache`, or Node and shell overrides. The npm CLI does not support `--non-interactive`; without a TTY it fails instead of prompting. The command blocks above are POSIX shell. On Windows, install `uv` from its [official installation guide](https://docs.astral.sh/uv/getting-started/installation/) and launch the same isolated Python arguments through a child process whose environment omits `LOGFIRE_TOKEN`; use the agent runtime's process API rather than translating `env -u`, the subshell, or `trap` into shell text. For the non-cloud probe, pass a newly created temporary directory as `--data-dir` and remove it afterward.
 
-- Determine the region (US or EU) from the project's URL or the user's context *before* authenticating, and pass it up front — `--region {us,eu}` is global, right after `logfire --non-interactive`, before the subcommand.
-- `auth` with `--non-interactive` does **not** open a browser — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently.
-- `projects list --json`: exactly one project returned? Use it. Several plausible and none identified? Ask the user. None exist? `uvx logfire --non-interactive projects new <project-name> --org <organization-name>` instead (JS: `npx logfire projects new <project-name> --org <organization-name>`).
+If that already reports the right project and resolved target (`--region` for Logfire Cloud or `--base-url` for an explicitly supplied on-prem origin), you're done — skip straight to the rest of whichever skill sent you here, even if you haven't run `auth` yourself yet. Signing in doesn't have to be your action: the user may have done it in a browser tab left over from an earlier session, or in parallel while you were working on something else. Treat it as good news, not something to question — never undo or re-authenticate over a session that's already valid. Otherwise, run the CLI yourself from the application directory with one of the verified prefixes above — it's a setup tool, not an app dependency. `--non-interactive` is Python-CLI-only right now: the JS CLI doesn't recognize it and errors with "Unknown option" if you pass it — omit it entirely on every JS invocation below; keep it on every Python one. JS `projects list` prints a table to stderr and does not accept `--json`; only `projects status` does.
+
+```bash
+# Python CLI (uvx --isolated) -- always include --non-interactive:
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> auth
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects list --json
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> projects use <project-name> --org <organization-name>
+env -u LOGFIRE_TOKEN uvx --isolated --no-config --from 'logfire==4.41.0' python -I -m logfire --non-interactive <target> whoami
+
+# JS CLI (POSIX shell) -- include the helper in this shell; drop --non-interactive:
+npm_cache="$(mktemp -d)"
+npm_prefix="$(mktemp -d)"
+run_logfire_js() {
+  env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ --cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options='' --prefix "$npm_prefix" exec --yes --package=logfire@0.22.8 -- logfire "$@"
+}
+run_logfire_js <target> auth
+run_logfire_js <target> projects list
+run_logfire_js <target> projects use <project-name> --org <organization-name>
+run_logfire_js <target> whoami
+```
+
+**On the Python CLI, always put `--non-interactive` immediately after `logfire`.** Without it, a question with nobody to answer it can block on a read that never returns.
+
+- `<target>` is a global option: put it after `--non-interactive` on Python commands and immediately after `logfire` on JavaScript commands, before the subcommand. The product prompt only needs to supply the exact Logfire URL; this reference owns the `--region` versus `--base-url` distinction.
+- `auth` with `--non-interactive` does **not** open a browser — it prints a URL and polls for you to finish. Relay that URL to the user; don't wait silently. When the command succeeds, continue immediately with `projects list`; once the project is identified, run `projects use` and `whoami` in the same setup run. Do not end the task merely after browser approval. If project selection is ambiguous, ask the user rather than guessing. Authentication alone does not connect the repository to the project, while `projects use` creates the project credential the application needs.
+- `projects list`: Python takes `--json` on this subcommand; the JS CLI prints a table to stderr and ignores `--json` here. Exactly one project returned? Use it. Several plausible and none identified? Ask the user. None exist? Use `<target> projects new <project-name> --org <organization-name>` with the same verified CLI prefix instead.
+
 - Any command failing with `NonInteractiveError` explains what to do next in its own message — usually the exact missing flag (commonly `--org`), but `auth` with no region instead prints a runnable `--region <id> auth` line per region. Follow what the message says and retry once. Don't drop `--non-interactive` to make the error go away; that trades a clear message for the hang it exists to prevent.
 - `whoami`'s org/project/region is what every later step must match — instrumentation, verification, any link you give the user. Never substitute a different or "latest" project.
-- If both `.logfire/` credentials and `LOGFIRE_TOKEN` are present, `LOGFIRE_TOKEN` wins silently — `whoami` reports whichever is actually in effect. If they'd point at different projects, fix or unset the one you don't want before continuing.
+- The CLI commands above exclude ambient `LOGFIRE_TOKEN`, but a later application process can still inherit that variable and silently override the `.logfire/` project credential. During local verification, launch the application through a child environment that also omits the ambient token and make sure its env loader does not reintroduce an unrelated token. Do not mutate the parent shell or silently rewrite the application's existing environment files.
 - Never print, log, hard-code, commit, or echo a token, and don't read `~/.logfire/default.toml`'s contents — a bad or missing credential surfaces as a CLI error, not a prompt. The one exception is reading `.logfire/logfire_credentials.json`'s `token` key programmatically, and only to hand it to a non-native-SDK application language that needs the actual value (see below) — never to print, display, or otherwise surface it.
+
+<a id="reference-logfire-instrumentation-references-auth-md--if-the-calling-skill-needs-a-write-token-not-just-a-cli-session"></a>
 
 ## If the calling skill needs a write token, not just a CLI session
 
-Some callers need an actual token value, not just an authenticated CLI session:
+Some callers need an actual token value, not just an authenticated CLI session. `projects use` creates a project-scoped write token and stores it in the gitignored `.logfire/logfire_credentials.json`; do not mint a second token merely because a non-SDK process needs the value:
 
-- **A setup with no Logfire SDK reading local credentials for it** needs a write token for its OTLP exporter's Authorization header — check the language's own instrumentation reference for whether its SDK already handles this before assuming you need to extract one. When nothing does: for local development, reuse what `projects use` already created instead of minting anything new — read the `token` key from `.logfire/logfire_credentials.json` programmatically and pass it through the runtime's own gitignored local secret mechanism (an environment variable, or a local `.env` the app already loads safely), never printing, logging, or echoing the value itself. For a deployed/production instance, mint a separate write token from **Project Settings → Write tokens** instead and use the platform's own secret manager — a long-lived service shouldn't share the same credential as your CLI session.
-- A **write token** for a Collector exporter comes from **Project Settings → Write tokens** in the Logfire UI — the CLI's own credentials authenticate you as a person, not the Collector as a data source.
+- **A setup with no Logfire SDK reading local credentials for it** needs a write token for its OTLP exporter's Authorization header. Check the language's own instrumentation reference for whether its SDK already handles this. When nothing does, reuse the credential `projects use` created: read only the `token` key programmatically and write it directly into the runtime's existing gitignored local secret mechanism, without sending the value to stdout, stderr, shell history, source control, or chat.
+- An **OpenTelemetry Collector** can use that same CLI-created write token. For Docker or a local host, write a mode-`0600`, gitignored env file such as `.logfire/logfire.env` and configure the Collector to load it. For Kubernetes, create or update the Secret from that env file with `kubectl create secret generic logfire-token --from-env-file=.logfire/logfire.env --dry-run=client -o yaml | kubectl apply -f -`; the dry run emits the manifest directly to `apply` without persisting or displaying an intermediate secret. Use the deployment's secret manager instead when one already exists.
+- If `projects use` cannot create the credential because the authenticated user lacks `write_token` permission, stop and ask a project administrator to provide or install an appropriate credential through their normal secret-management path. Never ask anyone to paste a token into the agent chat.
 - An **API key** for `LogfireAPIClient` (hosted-dataset push/pull) comes from **Settings → API Keys**, scoped `project:read_datasets`/`project:write_datasets` — a generic write/read token lacks those scopes.
 
 Same rule applies to all three: never print, log, hard-code, commit, or echo the value — inject it via environment variable and check only that it's set, not its value.

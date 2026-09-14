@@ -543,28 +543,33 @@ def _default_gen_ai_response_model(span: ReadableSpanDict):
 
 def _transform_google_genai_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    if not (scope and scope.name == 'opentelemetry.instrumentation.google_genai' and span['events']):
+    # opentelemetry-instrumentation-google-genai >= 1.0b0 is built on opentelemetry.util.genai and emits
+    # spans under this shared scope. util.genai is generic infrastructure, so also check the provider name
+    # to avoid rewriting spans from other (future) util.genai-based integrations.
+    if not (scope and scope.name == 'opentelemetry.util.genai.handler'):
         return
 
-    new_events: list[Event] = []
-    events_attr: list[dict[str, Any]] = []
-    for event in span['events']:
-        if not (
-            event.name.startswith('gen_ai.')
-            and event.attributes
-            and isinstance(event_attrs_string := event.attributes.get('event_body'), str)
-        ):  # pragma: no cover
-            new_events.append(event)
-            continue
-        event_attrs: dict[str, Any] = json.loads(event_attrs_string)
-        events_attr.append(event_attrs)
+    attributes = span['attributes']
+    if not (
+        attributes.get('gen_ai.provider.name') == 'gemini'
+        and attributes.get('gen_ai.operation.name') == 'generate_content'
+    ):
+        return
+
     span['attributes'] = {
-        **span['attributes'],
-        'events': json.dumps(events_attr),
+        **attributes,
         'gen_ai.operation.name': 'chat',
-        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties({'events': {'type': 'array'}})),
+        'gen_ai.system': 'gemini',
     }
-    span['events'] = new_events
+    # Rewrite the shared util.genai scope back to the specific instrumentation library so the span is
+    # attributable to google-genai (as it was before 1.0b0). Upstream issue:
+    # https://github.com/open-telemetry/opentelemetry-python-genai/issues/620
+    span['instrumentation_scope'] = InstrumentationScope(
+        name='opentelemetry.instrumentation.google_genai',
+        version=scope.version,
+        schema_url=scope.schema_url,
+        attributes=scope.attributes,
+    )
 
 
 def _transform_litellm_span(span: ReadableSpanDict):

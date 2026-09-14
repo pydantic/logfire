@@ -8,7 +8,7 @@ Use the package manager detected in [project-detection.md](./project-detection.m
 | --- | --- |
 | Node.js server, worker, CLI, script | `@pydantic/logfire-node @opentelemetry/auto-instrumentations-node` |
 | Next.js server-side tracing | `@vercel/otel logfire` |
-| Browser/React/Vite client tracing | `@pydantic/logfire-browser @opentelemetry/auto-instrumentations-web` |
+| Browser/React/Vite client tracing | `@pydantic/logfire-browser` |
 | Cloudflare Workers in-process tracing | `@pydantic/logfire-cf-workers logfire` |
 | Deno | usually no package install; import `npm:logfire` for manual spans |
 | Vercel AI SDK | no Logfire-specific package beyond the runtime setup; ensure `ai` telemetry is enabled in calls |
@@ -54,7 +54,9 @@ OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics
 
 - Put `LOGFIRE_TOKEN` in server-only env files, deployment secrets, or Worker secrets.
 - Do not create `NEXT_PUBLIC_LOGFIRE_TOKEN`, `VITE_LOGFIRE_TOKEN`, `PUBLIC_LOGFIRE_TOKEN`, or any public write-token variable.
-- Browser code must use a proxy URL such as `/logfire-proxy/v1/traces`, never a direct Logfire API URL with an Authorization header.
+- For browser code, create a frontend application and use its generated regional trace URL and restricted public token. Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser.
+- A frontend application token is intentionally restricted and public. Embed the generated token and trace URL directly in the client bundle, or supply them through the app's public build/runtime configuration (for example, `VITE_LOGFIRE_FRONTEND_TOKEN` and `VITE_LOGFIRE_TRACE_URL`). Do not deploy the generated example with placeholder values.
+- Preserve an existing backend telemetry proxy. Add a new one only when the application needs its own authentication, origin checks, or rate limits; hiding the restricted token alone is not a reason.
 - Update `.env.example` or documented env templates with placeholder values, not real tokens.
 - If the app has separate frontend and backend packages, put the write token only in the backend package or hosting environment.
 
@@ -70,4 +72,4 @@ logfire.configure({
 })
 ```
 
-For browser telemetry, use a distinct service name such as `checkout-web`. For Next.js, use separate names for server and browser telemetry when both are enabled.
+For browser telemetry, the frontend application pins the service name, namespace, and optional environment. Do not override them in browser SDK configuration. For Next.js, keep the server service name distinct from the frontend application name.

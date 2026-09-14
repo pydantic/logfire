@@ -2,7 +2,8 @@
 title: "Logfire Write Tokens: Setup Guide"
 description: "Step-by-step guide for creating a Logfire write token in the web UI by injecting LOGFIRE_TOKEN in apps & for optionally suppressing it in local development."
 ---
-To send data to **Logfire**, you need to create a <OpenInLogfire path="settings/write-tokens" variant="inline" label="write token" />.
+To send data to **Logfire**, use a project [API key with **Send telemetry**](../reference/advanced/use-api-keys.md) or a <OpenInLogfire path="settings/write-tokens" variant="inline" label="write token" />.
+This guide covers write tokens. Existing write tokens continue to work.
 A write token is a unique identifier that allows you to send data to a specific **Logfire** project.
 If you set up Logfire according to the [getting started guide](../index.md), you already have a write token locally tied to the project you created.
 But if you want to configure other computers to write to that project, for example in a deployed application, you need to create a new write token.
@@ -27,7 +28,7 @@ Set the token as the value for the environment variable `LOGFIRE_TOKEN` and logf
 
 You may want to not send data to logfire during local development, but still have the option to send it in production without changing your code.
 To do this we provide the parameter `send_to_logfire='if-token-present'` in the `logfire.configure()` function.
-If you set it to `'if-token-present'`, logfire will only send data to logfire if a write token is present in the environment variable `LOGFIRE_TOKEN` or there is a token saved locally.
+If you set it to `'if-token-present'`, Logfire will only send data if `LOGFIRE_TOKEN` contains a project API key with **Send telemetry** (`project:write_otlp`) permission or a write token, or if a token is saved locally.
 If you run tests in CI no data will be sent.
 
 You can also set the environment variable `LOGFIRE_SEND_TO_LOGFIRE` to configure this option.
