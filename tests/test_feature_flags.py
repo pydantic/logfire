@@ -28,7 +28,7 @@ from hypothesis.stateful import (
 from openfeature import api as openfeature_api
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
-from openfeature.flag_evaluation import FlagResolutionDetails, Reason
+from openfeature.flag_evaluation import Reason
 from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, ValidationError
 
 import logfire
@@ -36,13 +36,16 @@ from logfire._internal.config import LocalVariablesOptions, VariablesOptions
 from logfire.experimental.feature_flags import (
     FeatureFlag,
     Flag,
+    FlagEvaluationDetails,
+    feature_context,
+    feature_flag,
+    flag,
+)
+from logfire.experimental.openfeature import (
     LogfireProvider,
     _is_exclusively_openfeature_scalar_schema,
     _matches_openfeature_scalar_type,
     _unwrap_transparent_schema,
-    feature_context,
-    feature_flag,
-    flag,
 )
 from logfire.testing import TestExporter
 from logfire.variables import (
@@ -240,8 +243,8 @@ def test_feature_flag_telemetry_translation(
     assert details.flag_metadata == (
         {'logfire.value_version': expected_version} if expected_version is not None else {}
     )
-    assert details.reason == expected_reason.upper()
-    assert details.error_code == (expected_error.upper() if expected_error else None)
+    assert details.reason == expected_reason
+    assert details.error_code == expected_error
     assert telemetry['feature_flag.key'] == result.name
     assert telemetry['feature_flag.provider.name'] == 'logfire'
     assert telemetry['feature_flag.result.value'] is result.value
@@ -266,7 +269,7 @@ def test_feature_flag_telemetry_defaults_custom_provider_results_to_static():
     details = _feature_flag_evaluation_details(result)
 
     assert details.value is True
-    assert details.reason == Reason.STATIC
+    assert details.reason == 'static'
 
 
 def test_rollout_warning_inspection_cannot_break_a_resolved_value():
@@ -372,7 +375,7 @@ def test_feature_flag_preserves_description():
     assert details.flag_key == 'test_flag'
     assert details.value is False
     assert details.variant == 'disabled'
-    assert details.reason == Reason.STATIC
+    assert details.reason == 'static'
     assert details.flag_metadata == {'logfire.value_version': 1}
 
 
@@ -414,7 +417,7 @@ def test_is_enabled_forwards_the_complete_evaluation_context():
 def test_value_forwards_the_complete_evaluation_context():
     adapter = Mock()
     adapter.name = 'region'
-    adapter.evaluate_flag.return_value = FlagResolutionDetails(value='eu', reason=Reason.STATIC)
+    adapter.evaluate_flag.return_value = FlagEvaluationDetails(flag_key='region', value='eu', reason='static')
     custom_logfire = Mock()
     custom_logfire._flag.return_value = adapter
     region = Flag('region', default='us', logfire_instance=custom_logfire)
@@ -673,8 +676,8 @@ def test_openfeature_provider_uses_the_caller_default_on_resolution_error():
     assert direct_details.value is True
     assert direct_details.variant is None
     assert direct_details.flag_metadata == {}
-    assert direct_details.reason == Reason.ERROR
-    assert direct_details.error_code == ErrorCode.TYPE_MISMATCH
+    assert direct_details.reason == 'error'
+    assert direct_details.error_code == 'type_mismatch'
     assert details.value is False
     assert details.variant is None
     assert details.flag_metadata == {}
@@ -1280,7 +1283,7 @@ def test_provider_metadata_failure_cannot_break_flag_evaluation():
         details = adapter.evaluate_flag(targeting_key='account-a')
 
     assert details.value == 'eu'
-    assert details.reason == Reason.STATIC
+    assert details.reason == 'static'
 
 
 def test_flag_evaluation_details_use_the_resolved_config_snapshot():
@@ -1304,7 +1307,7 @@ def test_flag_evaluation_details_use_the_resolved_config_snapshot():
     with patch.object(provider, 'get_serialized_value', side_effect=resolve_then_replace_config):
         details = adapter.evaluate_flag(targeting_key='account-a')
 
-    assert details.reason == Reason.SPLIT
+    assert details.reason == 'split'
     current_config = provider.get_variable_config('test_flag')
     assert current_config is not None
     assert current_config.rule_evaluation_reason({}) == 'static'
@@ -1327,7 +1330,7 @@ def test_split_reason_is_preserved_when_rollout_selects_the_code_default():
     details = feature_flag('test_flag', default=False).details(targeting_key=targeting_key)
 
     assert details.value is False
-    assert details.reason == Reason.SPLIT
+    assert details.reason == 'split'
 
 
 def test_provider_metadata_failure_cannot_break_rollout_warning():
@@ -1588,15 +1591,15 @@ class FeatureFlagStateMachine(RuleBasedStateMachine):
         if self.overrides:
             expected_value = self.overrides[-1][1]
             expected_variant = None
-            expected_reason = Reason.STATIC
+            expected_reason = 'static'
         elif expected_attributes.get('plan') == 'team':
             expected_value = True
             expected_variant = 'enabled'
-            expected_reason = Reason.TARGETING_MATCH
+            expected_reason = 'targeting_match'
         elif expected_attributes.get('plan') == 'guest':
             expected_value = False
             expected_variant = 'disabled'
-            expected_reason = Reason.TARGETING_MATCH
+            expected_reason = 'targeting_match'
         else:
             effective_key = targeting_key if targeting_key is not None else self.contexts[-1][1]
             baseline = self.base_results[effective_key]

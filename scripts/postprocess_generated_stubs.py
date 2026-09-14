@@ -32,6 +32,20 @@ def postprocess_feature_flags_pyi(content: str) -> str:
     generated_alias = 'InferableFlagValue = Any\n'
     generated_constructor = 'def __init__(self, name: str, *, default: InferableFlagT,'
     typed_constructor = 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,'
+    content = content.replace(
+        'FlagEvaluationReason: Incomplete',
+        "FlagEvaluationReason = Literal['default', 'static', 'split', 'targeting_match', 'error']",
+    ).replace(
+        'FlagErrorCode: Incomplete',
+        "FlagErrorCode = Literal['type_mismatch', 'general']",
+    )
+    if ': Incomplete' not in content:
+        content = content.replace('from _typeshed import Incomplete\n', '')
+    if (
+        'from typing import ' in content
+        and 'Literal' not in content.split('from typing import ', 1)[1].split('\n', 1)[0]
+    ):
+        content = content.replace('from typing import ', 'from typing import Literal, ', 1)
 
     if precise_alias not in content:
         raise ValueError('The generated InferableFlagValue alias changed; update the stub post-processing contract.')

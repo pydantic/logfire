@@ -1,20 +1,30 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from contextlib import AbstractContextManager
+from dataclasses import dataclass, field
 from enum import Enum
 from logfire import Logfire
-from openfeature.evaluation_context import EvaluationContext
-from openfeature.exception import ErrorCode as ErrorCode
-from openfeature.flag_evaluation import FlagEvaluationDetails as FlagEvaluationDetails, FlagResolutionDetails, FlagValueType, Reason as Reason
-from openfeature.provider import AbstractProvider, Metadata
 from pydantic import BaseModel
-from typing import Any, Generic, Protocol, TypeVar, overload
+from typing import Literal, Any, Generic, Protocol, TypeVar, overload
 from typing_extensions import TypeForm
 
-__all__ = ['ErrorCode', 'FeatureFlag', 'Flag', 'FlagEvaluationDetails', 'LogfireProvider', 'Reason', 'feature_context', 'feature_flag', 'flag']
+__all__ = ['FeatureFlag', 'Flag', 'FlagErrorCode', 'FlagEvaluationDetails', 'FlagEvaluationReason', 'feature_context', 'feature_flag', 'flag']
 
 InferableFlagValue = bool | str | int | float | Enum | BaseModel
 T = TypeVar('T')
 InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
+FlagEvaluationReason = Literal['default', 'static', 'split', 'targeting_match', 'error']
+FlagErrorCode = Literal['type_mismatch', 'general']
+
+@dataclass(frozen=True, slots=True)
+class FlagEvaluationDetails(Generic[T]):
+    """The result of evaluating a Logfire feature flag."""
+    flag_key: str
+    value: T
+    variant: str | None = ...
+    reason: FlagEvaluationReason = ...
+    error_code: FlagErrorCode | None = ...
+    error_message: str | None = ...
+    flag_metadata: Mapping[str, Any] = field(default_factory=dict[str, Any])
 
 class _FlagAdapter(Protocol[T]):
     """Private compatibility boundary implemented by the current variables engine."""
@@ -22,7 +32,7 @@ class _FlagAdapter(Protocol[T]):
     value_type: Any
     description: str | None
     type_adapter: Any
-    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagResolutionDetails[T]: ...
+    def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails[T]: ...
     def override_for_testing(self, value: T) -> AbstractContextManager[None]: ...
 
 class Flag(Generic[T]):
@@ -45,7 +55,7 @@ class Flag(Generic[T]):
     def value(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> T:
         """Return the flag value for the evaluation context."""
     def details(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails[T]:
-        """Evaluate the flag and return standard OpenFeature evaluation details."""
+        """Evaluate the flag and return native Logfire evaluation details."""
     def override_for_testing(self, value: T) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
 
@@ -57,26 +67,6 @@ class FeatureFlag(Flag[bool]):
         """Return whether the feature is enabled for the evaluation context."""
     def evaluate(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> FlagEvaluationDetails[bool]:
         """Alias for :meth:`details`, retained for the initial boolean API."""
-
-class LogfireProvider(AbstractProvider):
-    """OpenFeature provider backed by flags declared through Logfire.
-
-    Register this provider explicitly with OpenFeature. Constructing a :class:`Flag` never changes
-    OpenFeature's process-global provider registry.
-    """
-    def __init__(self, logfire_instance: Logfire | None = None) -> None: ...
-    def get_metadata(self) -> Metadata:
-        """Return the provider metadata exposed through OpenFeature."""
-    def resolve_boolean_details(self, flag_key: str, default_value: bool, evaluation_context: EvaluationContext | None = None) -> FlagResolutionDetails[bool]:
-        """Resolve a boolean flag."""
-    def resolve_string_details(self, flag_key: str, default_value: str, evaluation_context: EvaluationContext | None = None) -> FlagResolutionDetails[str]:
-        """Resolve a string flag."""
-    def resolve_integer_details(self, flag_key: str, default_value: int, evaluation_context: EvaluationContext | None = None) -> FlagResolutionDetails[int]:
-        """Resolve an integer flag."""
-    def resolve_float_details(self, flag_key: str, default_value: float, evaluation_context: EvaluationContext | None = None) -> FlagResolutionDetails[float]:
-        """Resolve a floating-point flag."""
-    def resolve_object_details(self, flag_key: str, default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType], evaluation_context: EvaluationContext | None = None) -> FlagResolutionDetails[Sequence[FlagValueType] | Mapping[str, FlagValueType]]:
-        """Resolve an object flag as JSON-compatible data."""
 
 @overload
 def flag(name: str, *, default: InferableFlagT, description: str | None = None, logfire_instance: Logfire | None = None) -> Flag[InferableFlagT]: ...
