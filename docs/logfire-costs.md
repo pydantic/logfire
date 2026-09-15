@@ -61,8 +61,8 @@ You can also filter the chart by time range, project, token, and unit.
 
 ## Standard usage dashboard
 
-Open **Dashboards**, select **Standard**, then enable **Usage Overview** if it is disabled. This
-will then give you a detailed breakdown of:
+Open **Dashboards**, click **+ Dashboard**, choose the **Logfire** tab, then enable **Usage Overview**. This gives you a
+detailed breakdown of:
 
 * Which services are producing the most records (i.e. traces, spans, logs) and
 metrics
