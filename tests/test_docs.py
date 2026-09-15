@@ -55,13 +55,14 @@ def set_eval_config(eval_example: EvalExample):
     )
 
 
-def test_formatting(eval_example: EvalExample):
+def test_formatting(eval_example: EvalExample, monkeypatch: pytest.MonkeyPatch):
     """Ensure examples in documentation are formatted correctly."""
     examples = find_examples('docs/', 'README.md')
     # Filter out skipped examples
     examples = [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS)]
 
     set_eval_config(eval_example)
+    monkeypatch.chdir('logfire-sdk')
 
     for example in examples:
         if eval_example.update_examples:  # pragma: no cover
@@ -98,7 +99,7 @@ def test_documented_metric_intervals_are_at_least_one_minute():
 
 def _get_runnable_examples():
     """Get examples that should be run, filtering out skipped ones."""
-    examples = find_examples('logfire/', 'docs/', 'README.md')
+    examples = find_examples('logfire-sdk/logfire/', 'docs/', 'README.md')
     return [
         ex
         for ex in examples
@@ -108,7 +109,7 @@ def _get_runnable_examples():
 
 def test_skill_examples_formatting(eval_example: EvalExample):
     """Ensure skill examples are formatted, without running instrumentation snippets."""
-    examples = find_examples('logfire/.agents')
+    examples = find_examples('logfire-sdk/logfire/.agents')
     examples = [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS)]
 
     eval_example.set_config(

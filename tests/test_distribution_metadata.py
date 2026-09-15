@@ -24,10 +24,14 @@ def load_pyproject(path: Path) -> dict[str, Any]:
 
 def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     """Keep the meta-package pinned to the SDK released from the same tag."""
-    sdk = load_pyproject(ROOT / 'pyproject.toml')['project']
-    meta = load_pyproject(ROOT / 'logfire-meta' / 'pyproject.toml')['project']
+    workspace = load_pyproject(ROOT / 'pyproject.toml')
+    sdk = load_pyproject(ROOT / 'logfire-sdk' / 'pyproject.toml')['project']
+    meta = load_pyproject(ROOT / 'logfire' / 'pyproject.toml')['project']
     api = load_pyproject(ROOT / 'logfire-api' / 'pyproject.toml')['project']
 
+    assert workspace['project']['name'] == 'logfire-python'
+    assert workspace['tool']['uv']['package'] is False
+    assert set(workspace['tool']['uv']['workspace']['members']) == {'logfire', 'logfire-api', 'logfire-sdk'}
     assert sdk['name'] == 'logfire-sdk'
     assert meta['name'] == 'logfire'
     assert sdk['version'] == meta['version'] == api['version']
@@ -45,8 +49,8 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
 
 def test_meta_package_forwards_every_sdk_extra() -> None:
     """Preserve `pip install logfire[extra]` across the distribution split."""
-    sdk = load_pyproject(ROOT / 'pyproject.toml')['project']
-    meta = load_pyproject(ROOT / 'logfire-meta' / 'pyproject.toml')['project']
+    sdk = load_pyproject(ROOT / 'logfire-sdk' / 'pyproject.toml')['project']
+    meta = load_pyproject(ROOT / 'logfire' / 'pyproject.toml')['project']
 
     assert meta['optional-dependencies'].keys() == sdk['optional-dependencies'].keys()
     for extra, requirements in meta['optional-dependencies'].items():
@@ -55,8 +59,8 @@ def test_meta_package_forwards_every_sdk_extra() -> None:
 
 def test_sdk_does_not_own_the_logfire_executable() -> None:
     """Let the compatibility package forward the standalone CLI executable."""
-    sdk = load_pyproject(ROOT / 'pyproject.toml')['project']
-    meta = load_pyproject(ROOT / 'logfire-meta' / 'pyproject.toml')['project']
+    sdk = load_pyproject(ROOT / 'logfire-sdk' / 'pyproject.toml')['project']
+    meta = load_pyproject(ROOT / 'logfire' / 'pyproject.toml')['project']
 
     assert 'scripts' not in sdk
     assert meta['scripts'] == {'logfire': 'logfire_cli:main'}
@@ -64,7 +68,7 @@ def test_sdk_does_not_own_the_logfire_executable() -> None:
 
 def test_editable_sdk_uses_the_source_tree() -> None:
     """Keep local edits visible without rebuilding the editable installation."""
-    assert Path(logfire.__file__).is_relative_to(ROOT)
+    assert Path(logfire.__file__).is_relative_to(ROOT / 'logfire-sdk')
     installed_files = metadata.files('logfire-sdk')
     assert installed_files is not None
     assert not any(str(path).startswith(('_logfire_sdk/', 'logfire/')) for path in installed_files)

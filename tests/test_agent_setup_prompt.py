@@ -54,9 +54,9 @@ def test_agent_setup_prompt_states_the_load_bearing_content() -> None:
 
 
 def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
-    hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
+    hub = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
     instrumentation = (
-        REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'SKILL.md'
+        REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'SKILL.md'
     ).read_text()
 
     assert 'get one representative application service to verified first data' in hub
@@ -68,11 +68,11 @@ def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
 
 
 def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> None:
-    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
+    skill_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
     instrumentation = (skill_root / 'SKILL.md').read_text()
     auth = (skill_root / 'references' / 'auth.md').read_text()
     integrations = (skill_root / 'references' / 'python' / 'integrations.md').read_text()
-    offline = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
+    offline = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup-offline.md').read_text()
     npm_exec = (
         'env -u LOGFIRE_TOKEN -u NODE_OPTIONS -u NODE_PATH npm --registry=https://registry.npmjs.org/ '
         '--cache "$npm_cache" --ignore-scripts --script-shell=/bin/sh --node-options=\'\' '
@@ -163,7 +163,7 @@ def test_instrumentation_skill_uses_verified_cli_and_framework_guidance() -> Non
 
 
 def test_setup_hub_routes_each_surface_to_its_skill() -> None:
-    hub = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
+    hub = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-setup' / 'SKILL.md').read_text()
 
     for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals', 'logfire-query', 'logfire-ui'):
         assert f'[`{skill}`](https://pydantic.dev/.well-known/agent-skills/{skill}/SKILL.md)' in hub
@@ -174,7 +174,7 @@ def test_setup_hub_routes_each_surface_to_its_skill() -> None:
 
 
 def test_separately_published_setup_skills_use_public_cross_skill_links() -> None:
-    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
     auth_url = 'https://pydantic.dev/.well-known/agent-skills/logfire-instrumentation/references/auth.md'
 
     for skill in ('logfire-setup', 'logfire-infrastructure', 'logfire-evals'):
@@ -184,7 +184,7 @@ def test_separately_published_setup_skills_use_public_cross_skill_links() -> Non
 
 
 def test_setup_skill_entrypoints_delegate_target_aware_whoami_to_auth_reference() -> None:
-    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
 
     for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
         content = (skills_root / skill / 'SKILL.md').read_text()
@@ -195,7 +195,7 @@ def test_setup_skill_entrypoints_delegate_target_aware_whoami_to_auth_reference(
 
 
 def test_offline_setup_bundle_keeps_inlined_skill_links_local() -> None:
-    skills_root = REPO_ROOT / 'logfire' / '.agents' / 'skills'
+    skills_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills'
     offline = (skills_root / 'logfire-setup-offline.md').read_text()
 
     for skill in ('logfire-setup', 'logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
@@ -220,7 +220,7 @@ def test_gunicorn_docs_instrument_the_loaded_worker_application() -> None:
 
 
 def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None:
-    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
+    skill_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation'
     ai_sdk = (skill_root / 'references' / 'javascript' / 'ai-sdk.md').read_text()
     troubleshooting = (skill_root / 'references' / 'javascript' / 'verification-troubleshooting.md').read_text()
 
@@ -244,7 +244,7 @@ def test_ai_sdk_guidance_matches_the_installed_major_and_patch_version() -> None
 
 
 def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -> None:
-    references = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
+    references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
     skill = (references.parent / 'SKILL.md').read_text()
     nextjs = (references / 'javascript' / 'nextjs.md').read_text()
     react = (references / 'javascript' / 'react-browser.md').read_text()
@@ -273,7 +273,7 @@ def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -
 
 
 def test_browser_framework_examples_configure_once_without_strict_mode_shutdown() -> None:
-    references = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
+    references = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-instrumentation' / 'references'
     for browser_doc in ('javascript/nextjs.md', 'javascript/react-browser.md'):
         browser = (references / browser_doc).read_text()
         assert 'useRef(false)' in browser
@@ -287,6 +287,7 @@ def test_browser_framework_examples_configure_once_without_strict_mode_shutdown(
 def test_python_logging_guidance_preserves_existing_configuration() -> None:
     logging = (
         REPO_ROOT
+        / 'logfire-sdk'
         / 'logfire'
         / '.agents'
         / 'skills'
@@ -305,7 +306,7 @@ def test_python_logging_guidance_preserves_existing_configuration() -> None:
 
 
 def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() -> None:
-    skill_root = REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-infrastructure'
+    skill_root = REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-infrastructure'
     reference = (skill_root / 'references' / 'collector' / 'host-and-infra-metrics.md').read_text()
 
     assert "Authorization: '${env:LOGFIRE_TOKEN}'" in reference
@@ -331,21 +332,21 @@ def test_infrastructure_skill_uses_runnable_cost_conscious_collector_defaults() 
 
 
 def test_evals_skill_explains_how_to_restore_custom_evaluators() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
     assert 'custom_evaluator_types=[MyEvaluator]' in evals
     assert 'custom_report_evaluator_types=[...]' in evals
 
 
 def test_evals_skill_keeps_local_runs_local_and_smoke_tests_report_evaluators() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
     assert 'For an explicitly local-only run without span evaluators' in evals
     assert 'report_evaluators=dataset.report_evaluators' in evals
 
 
 def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
 
     assert 'Add `pydantic-evals[logfire]` with the detected Python manager' in evals
     assert "uv add 'logfire[datasets]'" not in evals
@@ -373,7 +374,7 @@ def test_evals_skill_routes_native_python_and_javascript_setups() -> None:
 
 
 def test_braintrust_skill_and_guide_require_the_working_api_key_scopes() -> None:
-    evals = (REPO_ROOT / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
+    evals = (REPO_ROOT / 'logfire-sdk' / 'logfire' / '.agents' / 'skills' / 'logfire-evals' / 'SKILL.md').read_text()
     guide = (REPO_ROOT / 'docs' / 'comparisons' / 'migrate-from-braintrust.md').read_text()
 
     for content in (evals, guide):

@@ -33,21 +33,23 @@ This is about _introducing_ terms, not avoiding them — give the real word plus
 # Core Structure
 
 ```
-logfire/
-├── __init__.py              # Public API via DEFAULT_LOGFIRE_INSTANCE
-├── _internal/               # Internal implementation
-│   ├── main.py              # Logfire and LogfireSpan classes
-│   ├── config.py            # LogfireConfig, configuration setup
-│   ├── config_params.py     # Environment variable and config file handling
-│   ├── tracer.py            # ProxyTracerProvider, tracer wrapping
-│   ├── metrics.py           # ProxyMeterProvider, metrics handling
-│   ├── exporters/           # OTLP, console, test exporters and processors
-│   ├── integrations/        # Framework-specific instrumentation
-│   ├── auto_trace/          # AST rewriting for auto-instrumentation
-│   └── ...
-├── integrations/            # Public integration APIs
-└── experimental/            # Experimental features
+logfire-sdk/
+└── logfire/
+    ├── __init__.py              # Public API via DEFAULT_LOGFIRE_INSTANCE
+    ├── _internal/               # Internal implementation
+    │   ├── main.py              # Logfire and LogfireSpan classes
+    │   ├── config.py            # LogfireConfig, configuration setup
+    │   ├── config_params.py     # Environment variable and config file handling
+    │   ├── tracer.py            # ProxyTracerProvider, tracer wrapping
+    │   ├── metrics.py           # ProxyMeterProvider, metrics handling
+    │   ├── exporters/           # OTLP, console, test exporters and processors
+    │   ├── integrations/        # Framework-specific instrumentation
+    │   ├── auto_trace/          # AST rewriting for auto-instrumentation
+    │   └── ...
+    ├── integrations/            # Public integration APIs
+    └── experimental/            # Experimental features
 
+logfire/                     # Compatibility package that installs the SDK and CLI
 logfire-api/                 # No-op shim package for libraries
 tests/                       # Test suite
 docs/                        # Documentation source for unified docs

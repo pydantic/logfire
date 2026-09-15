@@ -11,7 +11,7 @@ from release.shared import (
     GITHUB_TOKEN,
     META_PYPROJECT,
     REPO,
-    ROOT_PYPROJECT,
+    SDK_PYPROJECT,
     run_command,
 )
 from release.versioning import update_meta_version, update_project_version
@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
     version = sys.argv[1]
 
-    update_project_version(ROOT_PYPROJECT, version)
+    update_project_version(SDK_PYPROJECT, version)
     update_meta_version(META_PYPROJECT, version)
     update_project_version(API_PYPROJECT, version)
     print(f'Updated version to v{version} in all pyproject.toml files.')

@@ -59,7 +59,7 @@ jobs:
       - name: Install only logfire-sdk
         run: |
           uv venv --python 3.14 .minimal-venv
-          uv pip install --python .minimal-venv .
+          uv pip install --python .minimal-venv ./logfire-sdk
 
       - name: Smoke test minimal install
         run: |
@@ -283,7 +283,7 @@ jobs:
       - name: check GITHUB_REF matches package version
         uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
         with:
-          version_file_path: pyproject.toml
+          version_file_path: logfire-sdk/pyproject.toml
 
       - name: Build artifacts
         run: uv build --all --no-sources

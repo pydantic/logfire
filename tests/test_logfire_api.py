@@ -424,7 +424,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 def test_match_version_on_pyproject() -> None:
     import tomllib
 
-    logfire_pyproject = (Path(__file__).parent.parent / 'pyproject.toml').read_text()
+    logfire_pyproject = (Path(__file__).parent.parent / 'logfire-sdk' / 'pyproject.toml').read_text()
     logfire_api_pyproject = (Path(__file__).parent.parent / 'logfire-api' / 'pyproject.toml').read_text()
 
     logfire_pyproject_content = tomllib.loads(logfire_pyproject)
