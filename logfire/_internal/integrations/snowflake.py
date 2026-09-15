@@ -96,10 +96,16 @@ def _wrap_execute(original: Any) -> Any:
         if settings is None:
             return original(self, command, params, *args, **kwargs)
         logfire_instance, capture_parameters = settings
-        attributes = _query_span_attributes(command, self)
+        attributes = _query_span_attributes(command, self, logfire_instance)
         if capture_parameters:
             attributes['params'] = params
-        with logfire_instance.span('snowflake execute {command}', _span_name='snowflake execute', **attributes) as span:
+        if kwargs.get('_exec_async'):
+            template = 'snowflake execute async {command}'
+            span_name = 'snowflake execute async'
+        else:
+            template = 'snowflake execute {command}'
+            span_name = 'snowflake execute'
+        with logfire_instance.span(template, _span_name=span_name, **attributes) as span:
             result = original(self, command, params, *args, **kwargs)
             with handle_internal_errors:
                 span.set_attribute('sfqid', self.sfqid)
@@ -117,7 +123,7 @@ def _wrap_executemany(original: Any) -> Any:
         if settings is None:
             return original(self, command, seqparams, **kwargs)
         logfire_instance, capture_parameters = settings
-        attributes = _query_span_attributes(command, self)
+        attributes = _query_span_attributes(command, self, logfire_instance)
         if capture_parameters:
             attributes['seqparams'] = seqparams
         with logfire_instance.span(
@@ -133,11 +139,14 @@ def _wrap_executemany(original: Any) -> Any:
     return wrapped
 
 
-def _query_span_attributes(command: str, cursor: SnowflakeCursor) -> dict[str, Any]:
+def _query_span_attributes(command: str, cursor: SnowflakeCursor, logfire_instance: Logfire) -> dict[str, Any]:
+    scrubbed_command = '[Scrubbed]'
+    with handle_internal_errors:
+        scrubbed_command, _ = logfire_instance.config.scrubber.scrub_value(('attributes', 'command'), command)
     attributes: dict[str, Any] = {
         'command': command,
         'db.system': 'snowflake',
-        'db.statement': command,
+        'db.statement': scrubbed_command,
     }
     with handle_internal_errors:
         attributes.update(_connection_attributes(cursor.connection))

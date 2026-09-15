@@ -1,6 +1,6 @@
 ---
 title: "Instrument Snowflake: see every query your app runs"
-description: "Add a few lines to your Snowflake code and see every query in Logfire: the statement, how long it took, and which ones failed."
+description: "Add a few lines to see Snowflake statements, failures, and synchronous query duration in Logfire."
 integration: logfire
 ---
 # Snowflake
@@ -23,6 +23,14 @@ queries through, so queries issued via Snowpark's `DataFrame` API get spans too.
   own query ID (`sfqid`), with Logfire's standard **scrubbing**
   (automatically finding and hiding sensitive values in your telemetry, on your machine, before
   anything is sent) applied.
+
+!!! warning "Keep sensitive values out of SQL text"
+    Logfire always captures the SQL text. Scrubbing applies, but it may not identify every sensitive
+    value. Use query parameters instead of inserting sensitive values into the SQL string.
+
+!!! note "Async spans measure submission time"
+    Snowflake's `execute_async()` returns before the query finishes. Its `snowflake execute async`
+    span measures the time taken to submit the query, not its server-side execution time.
 
 ## What this integration does not capture
 
@@ -98,8 +106,8 @@ the module with the default.
 ## Verify it worked
 
 Open the [Live view](../../guides/web-ui/live.md). Within a few seconds, you should see spans
-named `snowflake connect` and `snowflake execute`. Click a span to see its duration and
-attributes, including `sfqid` and `rowcount`.
+named `snowflake connect`, `snowflake execute`, or `snowflake execute async`. Click a span to see
+its duration and attributes, including `sfqid` and `rowcount`.
 
 ## Record one connection
 

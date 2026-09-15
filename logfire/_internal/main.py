@@ -1021,6 +1021,9 @@ class Logfire:
     ) -> None:
         """Instrument the [Snowflake Connector for Python](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector) so that a span is created for each query.
 
+        Calls to `execute_async()` create a `snowflake execute async` span that measures query submission,
+        not server-side execution.
+
         Args:
             conn_or_module: Pass a single connection instance to instrument only that connection.
                 By default (`None`), all connections are instrumented, including ones created later.

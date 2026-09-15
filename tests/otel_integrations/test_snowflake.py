@@ -176,6 +176,26 @@ def test_instrument_execute(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_execute_scrubs_statement(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+
+    FakeConnection().cursor().execute("select 'password=hunter2'")
+
+    attributes = exporter.exported_spans_as_dict()[0]['attributes']
+    assert attributes['command'] == "[Scrubbed due to 'password']"
+    assert attributes['db.statement'] == "[Scrubbed due to 'password']"
+
+
+def test_instrument_execute_async(exporter: TestExporter) -> None:
+    logfire.instrument_snowflake()
+
+    FakeConnection().cursor().execute_async('select 1')
+
+    span = exporter.exported_spans_as_dict()[0]
+    assert span['name'] == 'snowflake execute async'
+    assert span['attributes']['logfire.msg_template'] == 'snowflake execute async {command}'
+
+
 def test_instrument_executemany(exporter: TestExporter) -> None:
     logfire.instrument_snowflake()
 
