@@ -15,13 +15,22 @@ from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
+from pydantic import __version__ as pydantic_version
 
 import logfire
 from logfire import configure
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.test import TestLogExporter
+from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import set_pydantic_plugin_config
 from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
+
+if get_version(pydantic_version) < get_version('2.10.0'):  # pragma: no cover
+    # `logfire.agent_control` uses `pydantic.ModelWrapValidatorHandler`, which pydantic only exports
+    # from 2.10; the `agent-control` extra requires that floor. Skipping the directory (rather than
+    # each module) also skips its conftest, which imports the package at module level.
+    collect_ignore = ['agent_control']
+
 
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
