@@ -5,10 +5,31 @@
 * **What we meter:** every span, log **or** metric you ship. If you're not sure what those are, check out
 our [concepts page](concepts.md)
 * **Free allowance**: Your org's first **10 million** units (equivalent to $20 of usage) each calendar month are free.
-* **Paid rate:** anything above the allowance is billed at **$2 per million**. See our <a href="https://pydantic.dev/pricing" target="_blank">pricing calculator</a>.
+* **Paid rate:** on the Team and Growth plans, anything above the allowance is billed at **$2 per million**.
+  See our <a href="https://pydantic.dev/pricing" target="_blank">pricing calculator</a>. Enterprise plans are
+  billed against their contract. The Personal plan has no paid overage; see
+  [What happens when a Personal org uses up its allowance](#what-happens-when-a-personal-org-uses-up-its-allowance)
+  below.
 * We average payload size over time; anything over the generous **5 KB per span/metric** budget might trigger a polite
   email, never a surprise fee.
 * No hosts, seats, or projects are metered - just what you send.
+
+## What happens when a Personal org uses up its allowance
+
+The Personal plan is free and never bills you for overage, so instead of charging past the allowance
+Logfire limits what the org can do. Two separate things happen, at two different points:
+
+1. **As soon as you pass the allowance, reading your data is restricted.** Live View, queries, and the
+   playground stop returning data and report that the allowance is used up. Logfire *keeps accepting and
+   storing what you send*, so you are not losing data at this point, you just cannot look at it.
+2. **Well past the allowance, new data stops being stored.** So a burst does not cost you everything the
+   moment you cross the line, Logfire keeps ingesting up to **ten times** the allowance (100 million units
+   on the standard 10 million allowance). Above that, new data is dropped rather than stored.
+
+Both limits lift when the monthly allowance resets, or as soon as you upgrade to a paid plan.
+
+If you want to keep an eye on this before you hit it, `Plan & Usage` in your organization settings shows
+your current usage and your reset date, and Logfire emails the org as usage climbs through the allowance.
 
 ## Where to see usage & cost in Logfire
 
