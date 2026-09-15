@@ -22,9 +22,9 @@ Logfire limits what the org can do. Two separate things happen, at two different
 1. **As soon as you pass the allowance, reading your data is restricted.** Live View, queries, and the
    playground stop returning data and report that the allowance is used up. Logfire *keeps accepting and
    storing what you send*, so you are not losing data at this point, you just cannot look at it.
-2. **Well past the allowance, new data stops being stored.** So a burst does not cost you everything the
-   moment you cross the line, Logfire keeps ingesting up to **ten times** the allowance (100 million units
-   on the standard 10 million allowance). Above that, new data is dropped rather than stored.
+2. **Further past the allowance, new data stops being stored.** So a burst does not cost you everything the
+   moment you cross the line, Logfire keeps ingesting for a while after the allowance runs out. Once that
+   extra capacity is used up, new data is dropped rather than stored.
 
 Both limits lift when the monthly allowance resets, or as soon as you upgrade to a paid plan.
 
