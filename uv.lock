@@ -25,18 +25,21 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
-genai-prices = false
-pydantic-core = false
 pydantic-graph = false
 pydantic-ai-slim = false
 pydantic-evals = false
-pydantic = false
 pydantic-handlebars = false
+genai-prices = false
+logfire-cli = false
+pydantic = false
+pydantic-core = false
 
 [manifest]
 members = [
     "logfire",
     "logfire-api",
+    "logfire-python",
+    "logfire-sdk",
 ]
 
 [[package]]
@@ -2236,6 +2239,18 @@ wheels = [
 ]
 
 [[package]]
+name = "jedi"
+version = "0.20.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "parso" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/46/b7/a3635f6a2d7cf5b5dd98064fc1d5fbbafcb25477bcea204a3a92145d158b/jedi-0.20.0.tar.gz", hash = "sha256:c3f4ccbd276696f4b19c54618d4fb18f9fc24b0aef02acf704b23f487daa1011", size = 3119416, upload-time = "2026-05-01T23:38:47.814Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/93/242e2eab5fe682ffcb8b0084bde703a41d51e17ee0f3a31ff0d9d813620a/jedi-0.20.0-py2.py3-none-any.whl", hash = "sha256:7bdd9c2634f56713299976f4cbd59cb3fa92165cc5e05ea811fb253480728b67", size = 4884812, upload-time = "2026-05-01T23:38:43.919Z" },
+]
+
+[[package]]
 name = "jeepney"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2860,14 +2875,408 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "5.1.0"
-source = { editable = "." }
+version = "6.0.0b1"
+source = { editable = "logfire" }
+dependencies = [
+    { name = "logfire-cli" },
+    { name = "logfire-sdk" },
+]
+
+[package.optional-dependencies]
+aiohttp = [
+    { name = "logfire-sdk", extra = ["aiohttp"] },
+]
+aiohttp-client = [
+    { name = "logfire-sdk", extra = ["aiohttp-client"] },
+]
+aiohttp-server = [
+    { name = "logfire-sdk", extra = ["aiohttp-server"] },
+]
+asgi = [
+    { name = "logfire-sdk", extra = ["asgi"] },
+]
+asyncpg = [
+    { name = "logfire-sdk", extra = ["asyncpg"] },
+]
+aws-lambda = [
+    { name = "logfire-sdk", extra = ["aws-lambda"] },
+]
+celery = [
+    { name = "logfire-sdk", extra = ["celery"] },
+]
+datasets = [
+    { name = "logfire-sdk", extra = ["datasets"] },
+]
+django = [
+    { name = "logfire-sdk", extra = ["django"] },
+]
+dspy = [
+    { name = "logfire-sdk", extra = ["dspy"] },
+]
+fastapi = [
+    { name = "logfire-sdk", extra = ["fastapi"] },
+]
+flask = [
+    { name = "logfire-sdk", extra = ["flask"] },
+]
+gateway = [
+    { name = "logfire-sdk", extra = ["gateway"] },
+]
+google-genai = [
+    { name = "logfire-sdk", extra = ["google-genai"] },
+]
+httpx = [
+    { name = "logfire-sdk", extra = ["httpx"] },
+]
+litellm = [
+    { name = "logfire-sdk", extra = ["litellm"] },
+]
+litestar = [
+    { name = "logfire-sdk", extra = ["litestar"] },
+]
+mysql = [
+    { name = "logfire-sdk", extra = ["mysql"] },
+]
+psycopg = [
+    { name = "logfire-sdk", extra = ["psycopg"] },
+]
+psycopg2 = [
+    { name = "logfire-sdk", extra = ["psycopg2"] },
+]
+pymongo = [
+    { name = "logfire-sdk", extra = ["pymongo"] },
+]
+redis = [
+    { name = "logfire-sdk", extra = ["redis"] },
+]
+requests = [
+    { name = "logfire-sdk", extra = ["requests"] },
+]
+sqlalchemy = [
+    { name = "logfire-sdk", extra = ["sqlalchemy"] },
+]
+sqlite3 = [
+    { name = "logfire-sdk", extra = ["sqlite3"] },
+]
+starlette = [
+    { name = "logfire-sdk", extra = ["starlette"] },
+]
+system-metrics = [
+    { name = "logfire-sdk", extra = ["system-metrics"] },
+]
+urllib = [
+    { name = "logfire-sdk", extra = ["urllib"] },
+]
+variables = [
+    { name = "logfire-sdk", extra = ["variables"] },
+]
+wsgi = [
+    { name = "logfire-sdk", extra = ["wsgi"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "logfire-cli", specifier = ">=0.1.2" },
+    { name = "logfire-sdk", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["aiohttp"], marker = "extra == 'aiohttp'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["aiohttp-client"], marker = "extra == 'aiohttp-client'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["aiohttp-server"], marker = "extra == 'aiohttp-server'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["asgi"], marker = "extra == 'asgi'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["asyncpg"], marker = "extra == 'asyncpg'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["aws-lambda"], marker = "extra == 'aws-lambda'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["celery"], marker = "extra == 'celery'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["datasets"], marker = "extra == 'datasets'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["django"], marker = "extra == 'django'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["dspy"], marker = "extra == 'dspy'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["fastapi"], marker = "extra == 'fastapi'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["flask"], marker = "extra == 'flask'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["gateway"], marker = "extra == 'gateway'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["google-genai"], marker = "extra == 'google-genai'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["httpx"], marker = "extra == 'httpx'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["litellm"], marker = "extra == 'litellm'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["litestar"], marker = "extra == 'litestar'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["mysql"], marker = "extra == 'mysql'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["psycopg"], marker = "extra == 'psycopg'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["psycopg2"], marker = "extra == 'psycopg2'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["pymongo"], marker = "extra == 'pymongo'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["redis"], marker = "extra == 'redis'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["requests"], marker = "extra == 'requests'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["sqlalchemy"], marker = "extra == 'sqlalchemy'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["sqlite3"], marker = "extra == 'sqlite3'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["starlette"], marker = "extra == 'starlette'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["system-metrics"], marker = "extra == 'system-metrics'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["urllib"], marker = "extra == 'urllib'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
+]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+
+[[package]]
+name = "logfire-api"
+version = "6.0.0b1"
+source = { editable = "logfire-api" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = []
+
+[[package]]
+name = "logfire-cli"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/a4/20077555e57ca9912c0aea67098305ebb4733c1cb4eb3f14ac86ada937ca/logfire_cli-0.1.2-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:a37cd1489955b21db752d0706ab014e447455758c302954a9d5f70ccb488ac3d", size = 2580184, upload-time = "2026-09-11T21:19:29.671Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/d8/b40e02c2e4ae0a96fd79530353c245eb460d617fa090b43349626cbf0def/logfire_cli-0.1.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:acf93b9b2890014b7ca69f26f05fee1c4b567d3e8ca57aeddfa3c524d0d1587e", size = 2394516, upload-time = "2026-09-11T21:19:31.03Z" },
+    { url = "https://files.pythonhosted.org/packages/10/b4/9bb91438ef58808a9404cd96d8d4cfc0a297316fb106df07543271f3d308/logfire_cli-0.1.2-py3-none-manylinux_2_35_aarch64.whl", hash = "sha256:0ff844fdb9f190b65fe69fb4bbafebad8053b71ac2f74ddeb6e95cdb7d036663", size = 3110770, upload-time = "2026-09-11T21:19:32.429Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/6e/62d9aa255736b6883cbd9b0f2f01f93dfb30c7c37f6672d6df7dcb6d6a3a/logfire_cli-0.1.2-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:e3dd5f3eb49da0399ec554b74d0a12a5f1a0e695f11f4358f33552cda3c00280", size = 3239504, upload-time = "2026-09-11T21:19:33.879Z" },
+    { url = "https://files.pythonhosted.org/packages/22/80/f7c937503932acc35862be8718e8e7df70b853296d348bc0b70985b3911e/logfire_cli-0.1.2-py3-none-win_amd64.whl", hash = "sha256:fe5248de2de803ed001722e2104952b55963eb83c777f855808c14cf930026fa", size = 2534641, upload-time = "2026-09-11T21:19:34.943Z" },
+]
+
+[[package]]
+name = "logfire-python"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "logfire-sdk" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "aiohttp" },
+    { name = "aiosqlite" },
+    { name = "anthropic" },
+    { name = "asyncpg" },
+    { name = "attrs" },
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "celery" },
+    { name = "claude-agent-sdk" },
+    { name = "cloudpickle" },
+    { name = "coverage", extra = ["toml"] },
+    { name = "cryptography" },
+    { name = "dirty-equals" },
+    { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "django", version = "6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "dspy" },
+    { name = "elasticsearch" },
+    { name = "eval-type-backport" },
+    { name = "fastapi" },
+    { name = "faststream", extra = ["redis"] },
+    { name = "flask" },
+    { name = "google-genai" },
+    { name = "greenlet" },
+    { name = "httpx" },
+    { name = "httpx2" },
+    { name = "inline-snapshot" },
+    { name = "jedi" },
+    { name = "langchain" },
+    { name = "langchain-openai" },
+    { name = "langgraph" },
+    { name = "litellm", version = "1.96.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "litellm", version = "1.98.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "litestar" },
+    { name = "logfire-api" },
+    { name = "loguru" },
+    { name = "mypy" },
+    { name = "mysql-connector-python" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "openai" },
+    { name = "openai-agents", extra = ["voice"] },
+    { name = "openinference-instrumentation-dspy" },
+    { name = "openinference-instrumentation-litellm" },
+    { name = "opentelemetry-instrumentation-aiohttp-client" },
+    { name = "opentelemetry-instrumentation-aiohttp-server" },
+    { name = "opentelemetry-instrumentation-asgi" },
+    { name = "opentelemetry-instrumentation-asyncpg" },
+    { name = "opentelemetry-instrumentation-aws-lambda" },
+    { name = "opentelemetry-instrumentation-celery" },
+    { name = "opentelemetry-instrumentation-django" },
+    { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "opentelemetry-instrumentation-flask" },
+    { name = "opentelemetry-instrumentation-google-genai" },
+    { name = "opentelemetry-instrumentation-httpx" },
+    { name = "opentelemetry-instrumentation-mysql" },
+    { name = "opentelemetry-instrumentation-psycopg" },
+    { name = "opentelemetry-instrumentation-psycopg2" },
+    { name = "opentelemetry-instrumentation-pymongo" },
+    { name = "opentelemetry-instrumentation-redis" },
+    { name = "opentelemetry-instrumentation-requests" },
+    { name = "opentelemetry-instrumentation-sqlalchemy" },
+    { name = "opentelemetry-instrumentation-sqlite3" },
+    { name = "opentelemetry-instrumentation-starlette" },
+    { name = "opentelemetry-instrumentation-system-metrics" },
+    { name = "opentelemetry-instrumentation-wsgi" },
+    { name = "packaging" },
+    { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pip" },
+    { name = "pre-commit" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "psycopg2-binary" },
+    { name = "pyarrow" },
+    { name = "pyarrow-stubs" },
+    { name = "pydantic" },
+    { name = "pydantic-ai-slim", extra = ["mcp"] },
+    { name = "pydantic-evals" },
+    { name = "pydantic-handlebars" },
+    { name = "pymongo" },
+    { name = "pymysql" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-django" },
+    { name = "pytest-examples" },
+    { name = "pytest-pretty" },
+    { name = "pytest-recording" },
+    { name = "pytest-timeout" },
+    { name = "pytest-xdist" },
+    { name = "redis" },
+    { name = "requests" },
+    { name = "requests-mock" },
+    { name = "ruff" },
+    { name = "setuptools" },
+    { name = "snowflake-connector-python" },
+    { name = "sqlalchemy" },
+    { name = "sqlmodel" },
+    { name = "structlog" },
+    { name = "surrealdb" },
+    { name = "testcontainers" },
+    { name = "types-requests" },
+    { name = "uvicorn" },
+    { name = "vcrpy" },
+]
+editor-tests = [
+    { name = "jedi" },
+    { name = "mypy" },
+    { name = "pyright" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "logfire-sdk", editable = "logfire-sdk" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "aiohttp", specifier = ">=3.10.9" },
+    { name = "aiosqlite", specifier = "!=0.22.*" },
+    { name = "anthropic", specifier = ">=0.27.0" },
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "attrs", specifier = ">=23.1.0" },
+    { name = "boto3", specifier = ">=1.28.57" },
+    { name = "botocore", specifier = ">=1.31.57" },
+    { name = "celery", specifier = ">=5.4.0" },
+    { name = "claude-agent-sdk", specifier = ">=0" },
+    { name = "cloudpickle", specifier = ">=3.0.0" },
+    { name = "coverage", extras = ["toml"], specifier = ">=7.13.0" },
+    { name = "cryptography", specifier = ">=48.0.1" },
+    { name = "dirty-equals", specifier = ">=0.8.0" },
+    { name = "django", specifier = ">=4.2.16" },
+    { name = "dspy", specifier = ">=3.1.0" },
+    { name = "elasticsearch", specifier = ">=8.15" },
+    { name = "eval-type-backport", specifier = ">=0.2.0" },
+    { name = "fastapi", specifier = "!=0.124.3,!=0.124.4" },
+    { name = "faststream", extras = ["redis"], specifier = ">=0.5.0" },
+    { name = "flask", specifier = ">=3.0.3" },
+    { name = "google-genai", specifier = ">=0" },
+    { name = "greenlet", specifier = ">=3.1.1" },
+    { name = "httpx", specifier = ">=0.27.2" },
+    { name = "httpx2", specifier = ">=2.0.0" },
+    { name = "inline-snapshot", specifier = ">=0.32.5" },
+    { name = "jedi", specifier = ">=0.19.2" },
+    { name = "langchain", specifier = ">=1.3.9" },
+    { name = "langchain-openai", specifier = ">=0.3.17" },
+    { name = "langgraph", specifier = ">=0" },
+    { name = "litellm", marker = "python_full_version < '3.11'", specifier = ">=1.96.2,!=1.97.0,!=1.98.0" },
+    { name = "litellm", marker = "python_full_version >= '3.11'", specifier = ">=1.98.0" },
+    { name = "litestar", specifier = ">=2.11.0" },
+    { name = "logfire-api", editable = "logfire-api" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "mypy", specifier = ">=1.10.0" },
+    { name = "mysql-connector-python", specifier = ">=8.0" },
+    { name = "numpy", marker = "python_full_version < '3.12'", specifier = ">=2.0" },
+    { name = "openai", specifier = ">=1.108.1" },
+    { name = "openai-agents", extras = ["voice"], specifier = ">=0.14.0" },
+    { name = "openinference-instrumentation-dspy", specifier = ">=0" },
+    { name = "openinference-instrumentation-litellm", specifier = ">=0" },
+    { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-aiohttp-server", specifier = ">=0.55b0" },
+    { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-aws-lambda", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-celery", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-django", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-flask", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-google-genai", specifier = ">=1.0b0" },
+    { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-mysql", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-psycopg", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-psycopg2", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-pymongo", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-redis", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-requests", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-sqlalchemy", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-wsgi", specifier = ">=0.42b0" },
+    { name = "packaging" },
+    { name = "pandas", specifier = ">=2.1.2" },
+    { name = "pip", specifier = ">=0" },
+    { name = "pre-commit", specifier = ">=3.5.0" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.3" },
+    { name = "psycopg2-binary", specifier = ">=2.9.10" },
+    { name = "pyarrow", marker = "python_full_version < '3.13'", specifier = ">=17.0.0" },
+    { name = "pyarrow", marker = "python_full_version >= '3.13'", specifier = ">=18.1.0" },
+    { name = "pyarrow-stubs", specifier = ">=20" },
+    { name = "pydantic", specifier = ">=2.11.0" },
+    { name = "pydantic-ai-slim", extras = ["mcp"], specifier = ">=2" },
+    { name = "pydantic-evals", specifier = ">=2" },
+    { name = "pydantic-handlebars", specifier = ">=0.2.1" },
+    { name = "pymongo", specifier = ">=4.10.1" },
+    { name = "pymysql", specifier = ">=1.1.1" },
+    { name = "pyright", specifier = "!=1.1.407" },
+    { name = "pytest", specifier = ">=8.3.4" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-django", specifier = ">=4.6.0" },
+    { name = "pytest-examples", specifier = ">=0.0.18" },
+    { name = "pytest-pretty", specifier = ">=1.2.0" },
+    { name = "pytest-recording", specifier = ">=0.13.2" },
+    { name = "pytest-timeout", specifier = ">=2.4.0" },
+    { name = "pytest-xdist", specifier = ">=3.6.1" },
+    { name = "redis", specifier = ">=5.1.1" },
+    { name = "requests", specifier = ">=2.31.0" },
+    { name = "requests-mock", specifier = ">=1.12.1" },
+    { name = "ruff", specifier = ">=0.8.3" },
+    { name = "setuptools", specifier = ">=75.3.0" },
+    { name = "snowflake-connector-python", specifier = ">=3" },
+    { name = "sqlalchemy", specifier = ">=1.4.54" },
+    { name = "sqlmodel", specifier = ">=0.0.15" },
+    { name = "structlog", specifier = ">=24.4.0" },
+    { name = "surrealdb", specifier = ">=0" },
+    { name = "testcontainers", specifier = "<4.13" },
+    { name = "types-requests" },
+    { name = "uvicorn", specifier = ">=0.30.6" },
+    { name = "vcrpy", specifier = ">=8.2.1" },
+]
+editor-tests = [
+    { name = "jedi", specifier = ">=0.19.2" },
+    { name = "mypy", specifier = ">=1.10.0" },
+    { name = "pyright", specifier = "!=1.1.407" },
+]
+
+[[package]]
+name = "logfire-sdk"
+version = "6.0.0b1"
+source = { editable = "logfire-sdk" }
 dependencies = [
     { name = "executing" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-sdk" },
     { name = "protobuf" },
+    { name = "requests" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typing-extensions" },
@@ -2975,111 +3384,6 @@ wsgi = [
     { name = "opentelemetry-instrumentation-wsgi" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "aiohttp" },
-    { name = "aiosqlite" },
-    { name = "anthropic" },
-    { name = "asyncpg" },
-    { name = "attrs" },
-    { name = "boto3" },
-    { name = "botocore" },
-    { name = "celery" },
-    { name = "claude-agent-sdk" },
-    { name = "cloudpickle" },
-    { name = "coverage", extra = ["toml"] },
-    { name = "cryptography" },
-    { name = "dirty-equals" },
-    { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "django", version = "6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "dspy" },
-    { name = "elasticsearch" },
-    { name = "eval-type-backport" },
-    { name = "fastapi" },
-    { name = "faststream", extra = ["redis"] },
-    { name = "flask" },
-    { name = "google-genai" },
-    { name = "greenlet" },
-    { name = "httpx" },
-    { name = "httpx2" },
-    { name = "inline-snapshot" },
-    { name = "langchain" },
-    { name = "langchain-openai" },
-    { name = "langgraph" },
-    { name = "litellm", version = "1.96.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "litellm", version = "1.98.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "litestar" },
-    { name = "logfire-api" },
-    { name = "loguru" },
-    { name = "mypy" },
-    { name = "mysql-connector-python" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
-    { name = "openai" },
-    { name = "openai-agents", extra = ["voice"] },
-    { name = "openinference-instrumentation-dspy" },
-    { name = "openinference-instrumentation-litellm" },
-    { name = "opentelemetry-instrumentation-aiohttp-client" },
-    { name = "opentelemetry-instrumentation-aiohttp-server" },
-    { name = "opentelemetry-instrumentation-asgi" },
-    { name = "opentelemetry-instrumentation-asyncpg" },
-    { name = "opentelemetry-instrumentation-aws-lambda" },
-    { name = "opentelemetry-instrumentation-celery" },
-    { name = "opentelemetry-instrumentation-django" },
-    { name = "opentelemetry-instrumentation-fastapi" },
-    { name = "opentelemetry-instrumentation-flask" },
-    { name = "opentelemetry-instrumentation-google-genai" },
-    { name = "opentelemetry-instrumentation-httpx" },
-    { name = "opentelemetry-instrumentation-mysql" },
-    { name = "opentelemetry-instrumentation-psycopg" },
-    { name = "opentelemetry-instrumentation-psycopg2" },
-    { name = "opentelemetry-instrumentation-pymongo" },
-    { name = "opentelemetry-instrumentation-redis" },
-    { name = "opentelemetry-instrumentation-requests" },
-    { name = "opentelemetry-instrumentation-sqlalchemy" },
-    { name = "opentelemetry-instrumentation-sqlite3" },
-    { name = "opentelemetry-instrumentation-starlette" },
-    { name = "opentelemetry-instrumentation-system-metrics" },
-    { name = "opentelemetry-instrumentation-wsgi" },
-    { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "pip" },
-    { name = "pre-commit" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "psycopg2-binary" },
-    { name = "pyarrow" },
-    { name = "pyarrow-stubs" },
-    { name = "pydantic" },
-    { name = "pydantic-ai-slim", extra = ["mcp"] },
-    { name = "pydantic-evals" },
-    { name = "pydantic-handlebars" },
-    { name = "pymongo" },
-    { name = "pymysql" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-django" },
-    { name = "pytest-examples" },
-    { name = "pytest-pretty" },
-    { name = "pytest-recording" },
-    { name = "pytest-timeout" },
-    { name = "pytest-xdist" },
-    { name = "redis" },
-    { name = "requests" },
-    { name = "requests-mock" },
-    { name = "ruff" },
-    { name = "setuptools" },
-    { name = "snowflake-connector-python" },
-    { name = "sqlalchemy" },
-    { name = "sqlmodel" },
-    { name = "structlog" },
-    { name = "surrealdb" },
-    { name = "testcontainers" },
-    { name = "types-requests" },
-    { name = "uvicorn" },
-    { name = "vcrpy" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "executing", specifier = ">=2.0.1" },
@@ -3125,6 +3429,7 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "pydantic-evals", marker = "extra == 'datasets'", specifier = ">=1.0.0" },
     { name = "pydantic-handlebars", marker = "extra == 'variables'", specifier = ">=0.2.1" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "starlette", marker = "extra == 'gateway'", specifier = ">=0.37.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
@@ -3132,119 +3437,6 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
 provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "aiohttp", specifier = ">=3.10.9" },
-    { name = "aiosqlite", specifier = "!=0.22.*" },
-    { name = "anthropic", specifier = ">=0.27.0" },
-    { name = "asyncpg", specifier = ">=0.30.0" },
-    { name = "attrs", specifier = ">=23.1.0" },
-    { name = "boto3", specifier = ">=1.28.57" },
-    { name = "botocore", specifier = ">=1.31.57" },
-    { name = "celery", specifier = ">=5.4.0" },
-    { name = "claude-agent-sdk", specifier = ">=0" },
-    { name = "cloudpickle", specifier = ">=3.0.0" },
-    { name = "coverage", extras = ["toml"], specifier = ">=7.13.0" },
-    { name = "cryptography", specifier = ">=48.0.1" },
-    { name = "dirty-equals", specifier = ">=0.8.0" },
-    { name = "django", specifier = ">=4.2.16" },
-    { name = "dspy", specifier = ">=3.1.0" },
-    { name = "elasticsearch", specifier = ">=8.15" },
-    { name = "eval-type-backport", specifier = ">=0.2.0" },
-    { name = "fastapi", specifier = "!=0.124.3,!=0.124.4" },
-    { name = "faststream", extras = ["redis"], specifier = ">=0.5.0" },
-    { name = "flask", specifier = ">=3.0.3" },
-    { name = "google-genai", specifier = ">=0" },
-    { name = "greenlet", specifier = ">=3.1.1" },
-    { name = "httpx", specifier = ">=0.27.2" },
-    { name = "httpx2", specifier = ">=2.0.0" },
-    { name = "inline-snapshot", specifier = ">=0.32.5" },
-    { name = "langchain", specifier = ">=1.3.9" },
-    { name = "langchain-openai", specifier = ">=0.3.17" },
-    { name = "langgraph", specifier = ">=0" },
-    { name = "litellm", marker = "python_full_version < '3.11'", specifier = ">=1.96.2,!=1.97.0,!=1.98.0" },
-    { name = "litellm", marker = "python_full_version >= '3.11'", specifier = ">=1.98.0" },
-    { name = "litestar", specifier = ">=2.11.0" },
-    { name = "logfire-api", editable = "logfire-api" },
-    { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mypy", specifier = ">=1.10.0" },
-    { name = "mysql-connector-python", specifier = ">=8.0" },
-    { name = "numpy", marker = "python_full_version < '3.12'", specifier = ">=2.0" },
-    { name = "openai", specifier = ">=1.108.1" },
-    { name = "openai-agents", extras = ["voice"], specifier = ">=0.14.0" },
-    { name = "openinference-instrumentation-dspy", specifier = ">=0" },
-    { name = "openinference-instrumentation-litellm", specifier = ">=0" },
-    { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-aiohttp-server", specifier = ">=0.55b0" },
-    { name = "opentelemetry-instrumentation-asgi", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-asyncpg", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-aws-lambda", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-celery", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-django", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-flask", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-google-genai", specifier = ">=1.0b0" },
-    { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-mysql", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-psycopg", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-psycopg2", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-pymongo", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-redis", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-requests", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-sqlalchemy", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-wsgi", specifier = ">=0.42b0" },
-    { name = "pandas", specifier = ">=2.1.2" },
-    { name = "pip", specifier = ">=0" },
-    { name = "pre-commit", specifier = ">=3.5.0" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.3" },
-    { name = "psycopg2-binary", specifier = ">=2.9.10" },
-    { name = "pyarrow", marker = "python_full_version < '3.13'", specifier = ">=17.0.0" },
-    { name = "pyarrow", marker = "python_full_version >= '3.13'", specifier = ">=18.1.0" },
-    { name = "pyarrow-stubs", specifier = ">=20" },
-    { name = "pydantic", specifier = ">=2.11.0" },
-    { name = "pydantic-ai-slim", extras = ["mcp"], specifier = ">=2" },
-    { name = "pydantic-evals", specifier = ">=2" },
-    { name = "pydantic-handlebars", specifier = ">=0.2.1" },
-    { name = "pymongo", specifier = ">=4.10.1" },
-    { name = "pymysql", specifier = ">=1.1.1" },
-    { name = "pyright", specifier = "!=1.1.407" },
-    { name = "pytest", specifier = ">=8.3.4" },
-    { name = "pytest-asyncio", specifier = ">=0.24.0" },
-    { name = "pytest-django", specifier = ">=4.6.0" },
-    { name = "pytest-examples", specifier = ">=0.0.18" },
-    { name = "pytest-pretty", specifier = ">=1.2.0" },
-    { name = "pytest-recording", specifier = ">=0.13.2" },
-    { name = "pytest-timeout", specifier = ">=2.4.0" },
-    { name = "pytest-xdist", specifier = ">=3.6.1" },
-    { name = "redis", specifier = ">=5.1.1" },
-    { name = "requests", specifier = ">=2.31.0" },
-    { name = "requests-mock", specifier = ">=1.12.1" },
-    { name = "ruff", specifier = ">=0.8.3" },
-    { name = "setuptools", specifier = ">=75.3.0" },
-    { name = "snowflake-connector-python", specifier = ">=3" },
-    { name = "sqlalchemy", specifier = ">=1.4.54" },
-    { name = "sqlmodel", specifier = ">=0.0.15" },
-    { name = "structlog", specifier = ">=24.4.0" },
-    { name = "surrealdb", specifier = ">=0" },
-    { name = "testcontainers", specifier = "<4.13" },
-    { name = "types-requests" },
-    { name = "uvicorn", specifier = ">=0.30.6" },
-    { name = "vcrpy", specifier = ">=8.2.1" },
-]
-
-[[package]]
-name = "logfire-api"
-version = "5.1.0"
-source = { editable = "logfire-api" }
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = []
 
 [[package]]
 name = "loguru"
@@ -4827,6 +5019,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fe/be/d448af7d657d82e1888dd8551f79c6d6fb161080b5b9752d84d910ec2319/pandas-3.0.5-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:b58b1b39d46a5862e3fb18f50d1a201398619d16a0f9f73f57eea5583cf0e63c", size = 11925105, upload-time = "2026-07-22T22:19:21.515Z" },
     { url = "https://files.pythonhosted.org/packages/29/c1/ccb4238212c8c4f496c584f3044d94e0c030ed8e1d68999db46c91c2242f/pandas-3.0.5-cp314-cp314t-win_amd64.whl", hash = "sha256:1c10461f6eeb35d8f05b6184c65c8b9991663b66c46b1d559b682cb34ae7c6ea", size = 10387612, upload-time = "2026-07-22T22:19:24.257Z" },
     { url = "https://files.pythonhosted.org/packages/d2/cf/6a51b2c38980e04c279fd2fa908a1b0982064e860444acfca4ec2e2c8359/pandas-3.0.5-cp314-cp314t-win_arm64.whl", hash = "sha256:3c5015fd1730fbf883647e88068176c839c102cea883ba1769a6f4593bfc1f8c", size = 9509776, upload-time = "2026-07-22T22:19:26.694Z" },
+]
+
+[[package]]
+name = "parso"
+version = "0.8.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/4b/90c937815137d43ce71ba043cd3566221e9df6b9c805f24b5d138c9d40a7/parso-0.8.7.tar.gz", hash = "sha256:eaaac4c9fdd5e9e8852dc778d2d7405897ec510f2a298071453e5e3a07914bb1", size = 401824, upload-time = "2026-05-01T23:13:02.138Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/5d/8268b644392ee874ee82a635cd0df1773de230bde356c38de28e298392cc/parso-0.8.7-py2.py3-none-any.whl", hash = "sha256:a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c", size = 107025, upload-time = "2026-05-01T23:12:58.867Z" },
 ]
 
 [[package]]

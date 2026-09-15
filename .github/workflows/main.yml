@@ -56,15 +56,104 @@ jobs:
           version: "0.11.1"
           enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
-      - name: Install only logfire
+      - name: Install only logfire-sdk
         run: |
           uv venv --python 3.14 .minimal-venv
-          uv pip install --python .minimal-venv .
+          uv pip install --python .minimal-venv ./logfire-sdk
 
       - name: Smoke test minimal install
         run: |
           cd "$(mktemp -d)"
           "$GITHUB_WORKSPACE/.minimal-venv/bin/python" "$GITHUB_WORKSPACE/.github/workflows/scripts/minimal_install_smoke.py"
+
+      - name: Build all distributions
+        run: uv build --all --no-sources
+
+      - name: Install the logfire meta-package
+        run: |
+          uv venv --python 3.14 .meta-venv
+          uv pip install --python .meta-venv --find-links dist dist/logfire-[0-9]*-py3-none-any.whl
+
+      - name: Smoke test the meta-package
+        run: |
+          .meta-venv/bin/python .github/workflows/scripts/meta_package_smoke.py
+          .meta-venv/bin/logfire --version
+
+  editor-tooling-install:
+    name: test installed SDK with editor tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57  # v8.0.0
+        with:
+          version: "0.11.1"
+          enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
+
+      - name: Install editor test dependencies
+        run: uv sync --python 3.12 --frozen --only-group editor-tests
+
+      - name: Build the SDK wheel
+        run: uv build --package logfire-sdk --wheel --no-sources
+
+      - name: Test type checking and definition navigation
+        run: >-
+          uv run --frozen --only-group editor-tests python
+          .github/workflows/scripts/editor_tooling_install_e2e.py
+          --wheel dist/logfire_sdk-[0-9]*-py3-none-any.whl
+
+  upgrade-install:
+    name: test ${{ matrix.installer }} upgrade from ${{ matrix.from-version }} on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            python-version: "3.10"
+            from-version: "4.41.0"
+            installer: pip
+          - os: ubuntu-latest
+            python-version: "3.14"
+            from-version: "5.1.0"
+            installer: pip
+          - os: ubuntu-latest
+            python-version: "3.14"
+            from-version: "5.1.0"
+            installer: uv
+          - os: macos-14
+            python-version: "3.14"
+            from-version: "5.1.0"
+            installer: pip
+          - os: windows-latest
+            python-version: "3.14"
+            from-version: "5.1.0"
+            installer: pip
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57  # v8.0.0
+        with:
+          version: "0.11.1"
+          enable-cache: true  # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
+
+      - name: Build all distributions
+        run: uv build --all --no-sources
+
+      - name: Exercise the upgrade lifecycle
+        run: >-
+          uv run --no-project --python "${{ matrix.python-version }}" python
+          .github/workflows/scripts/upgrade_install_e2e.py
+          --installer "${{ matrix.installer }}"
+          --from-version "${{ matrix.from-version }}"
+          --dist dist
 
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
@@ -202,7 +291,7 @@ jobs:
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [ lint, minimal-install, test, coverage, test-pyodide ]
+    needs: [ lint, minimal-install, editor-tooling-install, upgrade-install, test, coverage, test-pyodide ]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
@@ -256,15 +345,25 @@ jobs:
       - name: Set up Python 3.12
         run: uv python install 3.12
 
-      - name: check GITHUB_REF matches package version
+      - name: Check tag matches logfire-sdk version
         uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
         with:
-          version_file_path: pyproject.toml
+          version_file_path: logfire-sdk/pyproject.toml
+
+      - name: Check tag matches logfire version
+        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        with:
+          version_file_path: logfire/pyproject.toml
+
+      - name: Check tag matches logfire-api version
+        uses: samuelcolvin/check-python-version@ee87cddb8049d2694cc03badc8569765a05cef00  # v5
+        with:
+          version_file_path: logfire-api/pyproject.toml
 
       - name: Build artifacts
-        run: uv build --all
+        run: uv build --all --no-sources
 
-      - name: Publish logfire and logfire-api to PyPI
+      - name: Publish logfire, logfire-sdk, and logfire-api to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           skip-existing: true

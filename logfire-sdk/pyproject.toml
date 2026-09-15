@@ -1,0 +1,131 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "logfire-sdk"
+version = "6.0.0b1"
+description = "The best Python observability tool! 🪵🔥"
+requires-python = ">=3.10"
+authors = [
+    { name = "Pydantic Team", email = "engineering@pydantic.dev" },
+    { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
+    { name = "Hasan Ramezani", email = "hasan@pydantic.dev" },
+    { name = "Adrian Garcia Badaracco", email = "adrian@pydantic.dev" },
+    { name = "David Montague", email = "david@pydantic.dev" },
+    { name = "Marcelo Trylesinski", email = "marcelo@pydantic.dev" },
+    { name = "David Hewitt", email = "david.hewitt@pydantic.dev" },
+    { name = "Alex Hall", email = "alex@pydantic.dev" },
+    { name = "Jiri Kuncar", email = "jiri@pydantic.dev" },
+]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Operating System :: Unix",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+    "Framework :: OpenTelemetry",
+    "Framework :: OpenTelemetry :: Distros",
+    "Framework :: OpenTelemetry :: Exporters",
+    "Framework :: OpenTelemetry :: Instrumentations",
+]
+dependencies = [
+    "opentelemetry-sdk >= 1.39.0, < 1.45.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.45.0",
+    "opentelemetry-instrumentation >= 0.41b0",
+    "rich >= 13.4.2",
+    "requests >= 2.31.0",
+    "protobuf >= 4.23.4",
+    "typing-extensions >= 4.13.0",
+    "tomli >= 2.0.1; python_version < '3.11'",
+    "executing >= 2.0.1",
+]
+
+[project.optional-dependencies]
+gateway = ["httpx>=0.27.0", "starlette>=0.37.0", "uvicorn>=0.30.0"]
+system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
+asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
+wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
+aiohttp = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
+aiohttp-client = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
+aiohttp-server = ["opentelemetry-instrumentation-aiohttp-server >= 0.55b0"]
+celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
+django = ["opentelemetry-instrumentation-django >= 0.42b0", "opentelemetry-instrumentation-asgi >= 0.42b0"]
+fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
+flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
+httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
+starlette = ["opentelemetry-instrumentation-starlette >= 0.42b0"]
+litestar = ["litestar>=2.11.0", "pydantic>=2.5", "opentelemetry-instrumentation-asgi >= 0.42b0"]
+sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy >= 0.42b0"]
+asyncpg = ["opentelemetry-instrumentation-asyncpg >= 0.42b0"]
+psycopg = ["opentelemetry-instrumentation-psycopg >= 0.42b0", "packaging"]
+psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
+pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
+redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
+requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
+mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
+sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
+urllib = ["opentelemetry-instrumentation-urllib >= 0.42b0"]
+aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
+google-genai = ["opentelemetry-instrumentation-google-genai >= 1.0b0"]
+litellm = ["openinference-instrumentation-litellm >= 0"]
+dspy = ["openinference-instrumentation-dspy >= 0"]
+datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0"]
+variables = ["pydantic>=2", "pydantic-handlebars>=0.2.1"]
+
+[project.urls]
+Homepage = "https://pydantic.dev/logfire"
+Source = "https://github.com/pydantic/logfire"
+Documentation = "https://pydantic.dev/docs/logfire/"
+Changelog = "https://github.com/pydantic/logfire/blob/main/CHANGELOG.md"
+
+[project.entry-points."pydantic"]
+logfire-plugin = "logfire.integrations.pydantic:plugin"
+
+[project.entry-points."pytest11"]
+logfire = "logfire.testing"
+pytest_logfire = "logfire._internal.integrations.pytest"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build]
+dev-mode-dirs = ["."]
+
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build.targets.wheel]
+packages = ["logfire"]
+
+# Pip installs dependencies before their dependants. During a v5 -> v6 upgrade,
+# uninstalling the old `logfire` distribution therefore deletes the top-level
+# files already installed by `logfire-sdk`. Keep a private fallback copy on the
+# import path so the SDK survives that uninstall; the normal copy remains for
+# fresh installs, static analysis, and runtimes such as Pyodide that ignore .pth.
+[tool.hatch.build.targets.wheel.force-include]
+"logfire" = "_logfire_sdk/logfire"
+"logfire_sdk.pth" = "logfire_sdk.pth"
+
+[tool.hatch.build.targets.sdist]
+include = ["/LICENSE", "/README.md", "/hatch_build.py", "/logfire", "/logfire_sdk.pth"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"../CHANGELOG.md" = "CHANGELOG.md"
+"../Makefile" = "Makefile"
+"../tests" = "tests"

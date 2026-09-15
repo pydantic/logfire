@@ -2,4 +2,4 @@
 
 from importlib.metadata import version
 
-VERSION = version('logfire')
+VERSION = version('logfire-sdk')
