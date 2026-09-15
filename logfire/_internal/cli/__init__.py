@@ -1034,6 +1034,8 @@ def _main(args: list[str] | None = None) -> None:
             context = get_context()
             session.hooks = {'response': [functools.partial(log_trace_id, context=context)]}
             session.headers.update(context)
+            # Ensure CLI requests, including device auth, identify the SDK and its version.
+            session.headers.update({'User-Agent': UA_HEADER})
             install_logfire_response_hook(session)
             namespace._session = session
             namespace.func(namespace)
