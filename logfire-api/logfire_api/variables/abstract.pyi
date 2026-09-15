@@ -9,12 +9,13 @@ from logfire.variables.template_validation import TemplateFieldIssue
 from logfire.variables.variable import Variable
 from typing import Any, Generic, TypeVar
 
-__all__ = ['ResolvedVariable', 'ResolutionReason', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError', 'render_serialized_string']
+__all__ = ['ResolvedVariable', 'ResolutionReason', 'RuleEvaluationReason', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError', 'render_serialized_string']
 
 SyncMode: Incomplete
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 ResolutionReason: Incomplete
+RuleEvaluationReason: Incomplete
 
 class VariableWriteError(Exception):
     """Base exception for variable write operation failures."""
@@ -50,6 +51,7 @@ class ResolvedVariable(Generic[T_co]):
     exception: Exception | None = ...
     composed_from: list[ComposedReference] = field(default_factory=list['ComposedReference'])
     reason: ResolutionReason
+    rule_evaluation_reason: RuleEvaluationReason | None = field(default=None, repr=False, compare=False)
     def __post_init__(self) -> None: ...
     def __enter__(self): ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None: ...

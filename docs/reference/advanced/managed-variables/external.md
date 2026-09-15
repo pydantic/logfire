@@ -121,8 +121,6 @@ When no value can be resolved, either because the variable has no versions, or b
 ```json
 {
   "key": "my_variable",
-  "value": null,
-  "variant": null,
   "reason": "DEFAULT"
 }
 ```
@@ -131,7 +129,7 @@ OFREP clients should always provide a client-side default value to handle this c
 
 ```typescript
 const client = OpenFeature.getClient();
-// The second argument is used when the server returns value: null
+// The second argument is used when the server returns no value.
 const theme = await client.getStringValue('ui_theme', 'light');
 ```
 
