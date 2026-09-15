@@ -100,7 +100,7 @@ class LogfireProvider(AbstractProvider):
         """Resolve an object flag as JSON-compatible data."""
         adapter = self._get_adapter(flag_key)
         if adapter is None:
-            return self._resolve(flag_key, default_value, None, evaluation_context)
+            return _flag_not_found(flag_key, default_value)
         if _is_exclusively_openfeature_scalar_schema(adapter.type_adapter.core_schema):
             return _type_mismatch(default_value, 'The registered flag does not resolve to an object value.')
         resolution = self._resolve_native(adapter, default_value, evaluation_context)
@@ -134,42 +134,35 @@ class LogfireProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: T,
-        expected_type: type[Any] | None,
+        expected_type: type[Any],
         evaluation_context: EvaluationContext | None,
     ) -> FlagResolutionDetails[T]:
         adapter = self._get_adapter(flag_key)
         if adapter is None:
-            return FlagResolutionDetails(
-                value=default_value,
-                reason=Reason.ERROR,
-                error_code=ErrorCode.FLAG_NOT_FOUND,
-                error_message=f"Flag '{flag_key}' has not been declared with logfire.experimental.feature_flags.flag().",
-            )
-        if expected_type is not None and not _matches_openfeature_scalar_type(adapter, expected_type):
+            return _flag_not_found(flag_key, default_value)
+        if not _matches_openfeature_scalar_type(adapter, expected_type):
             return _type_mismatch(default_value, f"Flag '{flag_key}' is not registered as {expected_type.__name__}.")
 
         resolution = self._resolve_native(adapter, default_value, evaluation_context)
         if resolution.error_code is not None:
             return resolution
-        if expected_type is not None:
-            try:
-                value = adapter.type_adapter.dump_python(resolution.value, mode='json')
-            except Exception:
-                return FlagResolutionDetails(
-                    value=default_value,
-                    reason=Reason.ERROR,
-                    error_code=ErrorCode.GENERAL,
-                    error_message='Feature flag result serialization failed.',
-                )
-            if type(value) is not expected_type:
-                return _type_mismatch(default_value, 'The registered flag did not resolve to the expected scalar type.')
+        try:
+            value = adapter.type_adapter.dump_python(resolution.value, mode='json')
+        except Exception:
             return FlagResolutionDetails(
-                value=cast(T, value),
-                variant=resolution.variant,
-                reason=resolution.reason,
-                flag_metadata=resolution.flag_metadata,
+                value=default_value,
+                reason=Reason.ERROR,
+                error_code=ErrorCode.GENERAL,
+                error_message='Feature flag result serialization failed.',
             )
-        return resolution
+        if type(value) is not expected_type:
+            return _type_mismatch(default_value, 'The registered flag did not resolve to the expected scalar type.')
+        return FlagResolutionDetails(
+            value=cast(T, value),
+            variant=resolution.variant,
+            reason=resolution.reason,
+            flag_metadata=resolution.flag_metadata,
+        )
 
     @staticmethod
     def _resolve_native(
@@ -208,6 +201,15 @@ def _type_mismatch(default_value: T, message: str) -> FlagResolutionDetails[T]:
         reason=Reason.ERROR,
         error_code=ErrorCode.TYPE_MISMATCH,
         error_message=message,
+    )
+
+
+def _flag_not_found(flag_key: str, default_value: T) -> FlagResolutionDetails[T]:
+    return FlagResolutionDetails(
+        value=default_value,
+        reason=Reason.ERROR,
+        error_code=ErrorCode.FLAG_NOT_FOUND,
+        error_message=f"Flag '{flag_key}' has not been declared with logfire.experimental.feature_flags.flag().",
     )
 
 

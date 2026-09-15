@@ -848,6 +848,9 @@ def test_openfeature_scalar_classification_rejects_recursive_or_malformed_defini
         ({'type': 'union', 'choices': 'invalid'}, int, False),
         ({'type': 'nullable', 'schema': {'type': 'str'}}, str, True),
         ({'type': 'nullable', 'schema': None}, str, False),
+        ({'type': 'enum', 'members': []}, str, False),
+        ({'type': 'enum'}, str, False),
+        ({'type': 'enum', 'members': 'invalid'}, str, False),
     ],
 )
 def test_openfeature_scalar_classification_handles_unions_and_nullable_schemas(
