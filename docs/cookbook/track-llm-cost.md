@@ -125,7 +125,7 @@ See **[Write dashboard queries](../how-to-guides/write-dashboard-queries.md)** f
 
 A dashboard shows spend when you look at it. An [alert](../guides/web-ui/alerts.md) tells you without looking: it's a SQL query Logfire runs on a schedule, and when the query returns rows, Logfire sends a notification. Write the query so that **rows mean "spend is too high"**, and you'll hear about a runaway bill instead of finding it later.
 
-In the sidebar, go to **Alerts** under **Notify**, click **New alert**, pick **Custom query**, and enter a query that returns a row only when the spend in your alert window exceeds your threshold (here, 50 US dollars):
+In the sidebar, go to **Alerts** under **Reliability**, click **New alert**, pick **Custom query**, and enter a query that returns a row only when the spend in your alert window exceeds your threshold (here, 50 US dollars):
 
 ```sql
 SELECT

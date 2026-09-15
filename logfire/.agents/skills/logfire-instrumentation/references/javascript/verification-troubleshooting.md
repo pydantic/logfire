@@ -32,7 +32,7 @@ Next.js:
 1. Confirm `instrumentation.ts` is in root or `src`.
 2. Start the app with OTLP env vars set.
 3. Load a server-rendered route or call a route handler.
-4. If browser tracing was added, inspect browser network requests to `/logfire-proxy/v1/traces`.
+4. If browser tracing was added, inspect network requests to the generated regional `/v1/traces` URL, or to the existing proxy URL when the app deliberately uses one.
 
 Cloudflare:
 
@@ -51,9 +51,9 @@ Deno:
 - The start script was changed for `dev` but production uses a different uninstrumented script.
 - The app is ESM but the preload was added as `--require` instead of `--import`.
 - `LOGFIRE_TOKEN` is absent and local `.logfire` credentials are not configured.
-- Browser code is trying to send directly to Logfire instead of a same-origin proxy.
+- Browser code is using an ordinary write token instead of the restricted frontend application token, or its trace URL and token came from different applications or regions.
 - Next.js has `instrumentation.ts` in the wrong directory for the app structure.
-- Vercel AI SDK calls are missing `experimental_telemetry: { isEnabled: true }`.
+- Vercel AI SDK 7 has no registered `@ai-sdk/otel` integration, or an AI SDK 5/6 call is missing `experimental_telemetry: { isEnabled: true }`.
 - Existing OpenTelemetry configuration exports to a different backend or creates a competing tracer provider.
 
 ## What To Report Back
@@ -65,4 +65,4 @@ Summarize:
 - files changed for instrumentation and startup
 - environment variables or secrets the user must set
 - verification commands run and whether traces/log output were observed
-- any unverified runtime path, especially production-only scripts or browser proxy deployment
+- any unverified runtime path, especially production-only scripts or browser runtime configuration
