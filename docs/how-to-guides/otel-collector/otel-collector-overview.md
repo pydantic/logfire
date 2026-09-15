@@ -27,13 +27,13 @@ For more information on the Collector itself please see the [official documentat
 
 When a metric receiver or deployment preset collects more often than once a minute, set it to a 60-second interval unless you have a specific need for finer resolution. Moving from 10 seconds to 60 seconds sends one-sixth as many datapoints and is usually enough resolution for infrastructure trends. Do not shorten receivers that default to longer intervals unless you need the additional data.
 
-Interval is only one part of metric volume. Enable only the metrics and attributes you use, and pay particular attention to dimensions that multiply series per process, container, pod, CPU core, disk, filesystem, or network interface. The [host monitoring guide](host-monitoring.md#cardinality-and-cost) explains why the singular `hostmetrics.process` scraper should normally stay disabled, and the [Kubernetes monitoring guide](kubernetes-monitoring.md#control-kubernetes-metric-volume) covers the highest-volume Kubernetes settings.
+Interval is only one part of metric volume. Enable only the metrics and attributes you use, and pay particular attention to dimensions that multiply series per process, container, pod, CPU core, disk, filesystem, or network interface. The [host monitoring guide](host-monitoring.md#cardinality-and-cost) explains why the singular `hostmetrics.process` scraper should normally stay disabled, and the [Kubernetes volume guide](kubernetes-reduce-volume.md) provides a lower-volume configuration that preserves the Kubernetes page.
 
 ## Guides
 
 This section is task-oriented: pick the scenario you're working on.
 
 - [**Host Monitoring**](host-monitoring.md): ship CPU, memory, disk, filesystem, network, and process metrics from any host to Logfire using the `hostmetrics` receiver. No SDK or application changes required; the host shows up on the Hosts page.
-- [**Kubernetes Monitoring**](kubernetes-monitoring.md): collect cluster-level state, per-node and per-pod metrics, pod logs, and Kubernetes resource attributes (`k8s.cluster.name`, `k8s.namespace.name`, `k8s.pod.name`, ...). Covers the recommended two-Collector pattern (Deployment + DaemonSet), RBAC, and the `k8sattributesprocessor` for enriching traces from your applications.
+- [**Kubernetes Monitoring**](kubernetes-monitoring.md): install the recommended Helm stack to collect cluster-level state, per-node and per-pod metrics, pod logs, and Kubernetes resource attributes (`k8s.cluster.name`, `k8s.namespace.name`, `k8s.pod.name`, ...). If you need to own the manifests, use the [custom Collector setup](kubernetes-manual-setup.md).
 - [**Back up data in AWS S3**](s3-backup.md): fan out telemetry to both Logfire and an S3 bucket so you can retain raw data beyond Logfire's retention window, with notes on partitioning, IAM least-privilege, encryption, and reading the data back.
 - [**Advanced Scrubbing**](otel-collector-scrubbing.md): centralize sensitive-data scrubbing in the Collector so every application sending to it inherits the same redaction rules.
