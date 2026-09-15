@@ -97,11 +97,14 @@ def uri_path(uri: str) -> Path:
     return Path(url2pathname(unquote(parsed.path))).resolve()
 
 
-def pyright_definition(language_server: Path, python: Path, work_dir: Path, consumer: Path) -> Path:
+def pyright_definition(
+    language_server: Path, python: Path, work_dir: Path, consumer: Path, env: dict[str, str]
+) -> Path:
     """Ask Pyright's language server to navigate to ``logfire.Logfire``."""
     process = subprocess.Popen(
         [str(language_server), '--stdio'],
         cwd=work_dir,
+        env=env,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
     )
@@ -224,7 +227,7 @@ def assert_tooling(
     )
 
     expected_definition = expected_package / '_internal/main.py'
-    actual_pyright_definition = pyright_definition(Path(language_server), python, work_dir, consumer)
+    actual_pyright_definition = pyright_definition(Path(language_server), python, work_dir, consumer, env)
     if actual_pyright_definition != expected_definition:
         raise AssertionError(f'Pyright navigated to {actual_pyright_definition}, expected {expected_definition}')
     actual_jedi_definition = jedi_definition(work_dir, venv, consumer)
@@ -244,9 +247,9 @@ def main() -> None:
     uv = shutil.which('uv')
     if uv is None:
         raise AssertionError('uv is required to run the editor tooling test')
+    for variable in ('PYTHONPATH', 'VIRTUAL_ENV'):
+        os.environ.pop(variable, None)
     env = os.environ.copy()
-    env.pop('PYTHONPATH', None)
-    env.pop('VIRTUAL_ENV', None)
 
     with tempfile.TemporaryDirectory(prefix='logfire-editor-tooling-') as temp_dir:
         work_dir = Path(temp_dir).resolve()
