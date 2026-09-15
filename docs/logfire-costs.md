@@ -4,7 +4,7 @@
 
 * **What we meter:** every span, log **or** metric you ship. If you're not sure what those are, check out
 our [concepts page](concepts.md)
-* **Included usage:** Personal, Team, and Growth include **10 million** logs, spans, and metrics
+* **Included usage:** Personal, Team, and Growth include **10 million total** logs, spans, and metrics combined
   (equivalent to $20 of usage) each month. Enterprise usage follows its contract.
 * **Paid rate:** on the Team and Growth plans, anything above the included amount is billed at **$2 per million**.
   See our <a href="https://pydantic.dev/pricing" target="_blank">pricing calculator</a>. Enterprise plans are
