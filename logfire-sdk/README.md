@@ -18,5 +18,5 @@ pip install logfire-sdk
 ```
 
 The distribution name is `logfire-sdk`, but the Python import remains
-`import logfire`. See the [SDK getting-started guide](https://pydantic.dev/docs/logfire/get-started/#sdk)
+`import logfire`. See the [SDK getting-started guide](https://pydantic.dev/docs/logfire/get-started/first-trace)
 for usage and configuration guidance.
