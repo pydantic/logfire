@@ -13,9 +13,9 @@ def test_update_project_version_only_changes_project_version(tmp_path: Path) -> 
     pyproject = tmp_path / 'pyproject.toml'
     pyproject.write_text('[tool.example]\nversion = "unchanged"\n[project]\nversion = "1.0.0"\n')
 
-    update_project_version(pyproject, '2.0.0')
+    update_project_version(pyproject, '2.0.0b1')
 
-    assert pyproject.read_text() == '[tool.example]\nversion = "unchanged"\n[project]\nversion = "2.0.0"\n'
+    assert pyproject.read_text() == '[tool.example]\nversion = "unchanged"\n[project]\nversion = "2.0.0b1"\n'
 
 
 def test_update_meta_version_updates_base_and_extra_sdk_pins(tmp_path: Path) -> None:
@@ -29,14 +29,14 @@ def test_update_meta_version_updates_base_and_extra_sdk_pins(tmp_path: Path) -> 
         'fastapi = ["logfire-sdk[fastapi]==1.0.0; python_version >= \'3.10\'"]\n'
     )
 
-    update_meta_version(pyproject, '2.0.0')
+    update_meta_version(pyproject, '2.0.0b1')
 
     assert pyproject.read_text() == (
         '[project]\n'
-        'version = "2.0.0"\n'
-        'dependencies = ["logfire-sdk==2.0.0", "logfire-cli>=0.1.2"]\n'
+        'version = "2.0.0b1"\n'
+        'dependencies = ["logfire-sdk==2.0.0b1", "logfire-cli>=0.1.2"]\n'
         '[project.optional-dependencies]\n'
-        'fastapi = ["logfire-sdk[fastapi]==2.0.0; python_version >= \'3.10\'"]\n'
+        'fastapi = ["logfire-sdk[fastapi]==2.0.0b1; python_version >= \'3.10\'"]\n'
     )
 
 

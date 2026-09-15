@@ -2875,7 +2875,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "6.0.0"
+version = "6.0.0b1"
 source = { editable = "logfire" }
 dependencies = [
     { name = "logfire-cli" },
@@ -3013,7 +3013,7 @@ provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aioh
 
 [[package]]
 name = "logfire-api"
-version = "6.0.0"
+version = "6.0.0b1"
 source = { editable = "logfire-api" }
 
 [package.metadata]
@@ -3108,6 +3108,7 @@ dev = [
     { name = "opentelemetry-instrumentation-starlette" },
     { name = "opentelemetry-instrumentation-system-metrics" },
     { name = "opentelemetry-instrumentation-wsgi" },
+    { name = "packaging" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pip" },
@@ -3220,6 +3221,7 @@ dev = [
     { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-wsgi", specifier = ">=0.42b0" },
+    { name = "packaging", specifier = ">=24" },
     { name = "pandas", specifier = ">=2.1.2" },
     { name = "pip", specifier = ">=0" },
     { name = "pre-commit", specifier = ">=3.5.0" },
@@ -3266,7 +3268,7 @@ editor-tests = [
 
 [[package]]
 name = "logfire-sdk"
-version = "6.0.0"
+version = "6.0.0b1"
 source = { editable = "logfire-sdk" }
 dependencies = [
     { name = "executing" },

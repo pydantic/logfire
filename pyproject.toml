@@ -27,6 +27,7 @@ dev = [
     "pytest-pretty >= 1.2.0",
     "pydantic >= 2.11.0",
     "requests >= 2.31.0",
+    "packaging >= 24",
     # requests >= 2.34 bundles inline (py.typed) annotations shaped differently from
     # the types-requests stubs the code was written against. Concretely, it types
     # Session.headers as CaseInsensitiveDict[str], which rejects the str|bytes header

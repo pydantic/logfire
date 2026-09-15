@@ -8,10 +8,10 @@ import requests
 from release.shared import (
     API_PYPROJECT,
     CHANGELOG_FILE,
-    GITHUB_TOKEN,
     META_PYPROJECT,
     REPO,
     SDK_PYPROJECT,
+    get_github_token,
     run_command,
 )
 from release.versioning import update_meta_version, update_project_version
@@ -41,7 +41,7 @@ def get_notes(new_version: str) -> str:
         f'https://api.github.com/repos/{REPO}/releases/generate-notes',
         headers={
             'Accept': 'application/vnd.github+json',
-            'Authorization': f'Bearer {GITHUB_TOKEN}',
+            'Authorization': f'Bearer {get_github_token()}',
         },
         json=data,
     )
