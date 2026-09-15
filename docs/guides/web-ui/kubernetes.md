@@ -1,6 +1,6 @@
 ---
 title: "Logfire Kubernetes view: clusters, namespaces, workloads, pods and nodes"
-description: "Browse your Kubernetes clusters, namespaces, workloads, pods, nodes and container images. Sort by restart count, drill from pod to workload to namespace, and jump straight to the traces each pod produced."
+description: "Browse Kubernetes resources, filter nodes, workloads, and pods to current findings, and jump from each resource to the traces it produced."
 ---
 # Kubernetes
 
@@ -8,15 +8,11 @@ The <OpenInLogfire path="kubernetes" variant="inline" label="Kubernetes view" />
 
 You'll find Kubernetes in the project sidebar, between **Hosts** and **Metrics**.
 
-![Kubernetes view with the Clusters tab open](../../images/kubernetes/inventory.png)
-
-Switch to the **Pods** tab to drop into individual pod state: restart counts, CPU and memory per pod, status pill, and the workload they belong to:
-
-![Kubernetes Pods tab](../../images/kubernetes/pods-tab.png)
+Switch to the **Pods** tab to drop into individual pod state: restart counts, CPU and memory per pod, status pill, and the workload they belong to.
 
 ## What's in the view
 
-The top of the page shows summary cards for the whole project: clusters, nodes, namespaces, workloads, pods, and unique container images.
+The top of the page shows clusters, nodes, namespaces, workloads, pods, and unique container images reporting to the project in the last 2 minutes.
 
 Below the cards, six tabs let you browse by level:
 
@@ -26,10 +22,24 @@ Below the cards, six tabs let you browse by level:
 | **Nodes** | One row per node, with cluster, CPU + sparkline, memory, ready status, and pod count. |
 | **Namespaces** | Pod count, CPU and memory usage, restart count. |
 | **Workloads** | Workload name and kind, namespace, cluster, pod count, available-vs-desired replicas, restarts. |
-| **Pods** | Status pill (Running / Pending / Failed / Succeeded / Unknown), restart count, CPU, memory, ready state. |
-| **Images** | Container image digest, the workloads using it, and total deployed size. |
+| **Pods** | Status (Running / Pending / Failed / Succeeded / Unknown), restart count, CPU, memory, workload, and node. |
+| **Images** | Container image and tag, with pod, namespace, and cluster counts. |
 
 Restart counts roll up at every level. If a single pod is in a crash loop, you can spot it from the Clusters or Workloads tab without drilling all the way down.
+
+## Find current Kubernetes problems
+
+The **Nodes**, **Workloads**, and **Pods** tabs show current finding counts. Open one of those tabs and select **With findings** to query the full fleet for affected resources, including resources beyond the rows initially loaded on the page.
+
+- **Nodes**: not ready, reporting memory or disk pressure, or using at least 80% of allocatable processor or memory capacity.
+- **Workloads**: a deployment has fewer available replicas than desired, or a job reports failed pods.
+- **Pods**: pending or failed, or reporting at least three cumulative container restarts.
+
+![Kubernetes node findings and full-fleet filter](../../images/kubernetes/findings-overview.png)
+
+Kubernetes findings use telemetry received in the last 2 minutes, rather than the selected historical range, so they describe what is happening now. One resource can have more than one condition, which means the condition counts can overlap. A missing metric means Logfire cannot evaluate that condition, not that the resource is healthy.
+
+Kubernetes Events remain separate log records. An image-pull failure, scheduling event, or `OOMKilled` event can explain a finding, but it is not itself counted as one.
 
 ## Drill-down
 
