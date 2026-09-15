@@ -1024,7 +1024,7 @@ navigation:
       - page: "Ingest Limits"
         path: "reference/limits.md"
         slug: "reference/limits"
-      - page: "Convert to a team"
+      - page: "Create a team from a personal account"
         path: "how-to-guides/convert-to-organization.md"
         slug: "manage/convert-to-organization"
         aliases:

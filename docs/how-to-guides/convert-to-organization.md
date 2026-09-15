@@ -1,11 +1,11 @@
 ---
-title: Convert a personal account to a team
-description: Move your personal Logfire projects into a paid Team or Growth organization.
+title: Create a team from a personal account
+description: Create a paid Team or Growth organization and optionally move your personal Logfire projects into it.
 ---
 
-# Convert a personal account to a team
+# Create a team from a personal account
 
-Turn your personal Logfire account into a team so colleagues can share its projects, data, alerts, and dashboards.
+Create a team from your personal Logfire account so colleagues can share projects, data, alerts, and dashboards. Your personal account remains available, and you can choose whether to move its existing projects and data into the new team.
 
 You need permission to manage billing for the personal account. You will choose a paid plan before naming the team, then finish the purchase in checkout.
 
@@ -46,7 +46,7 @@ If the team name is different from your personal account's name, Logfire keeps t
 Select **Create team & continue to checkout**. Logfire creates the team, moves the selected content, and sends you to checkout for the plan you chose.
 
 !!! warning "The team is created before checkout"
-    If checkout is interrupted, the team still exists. Open that team's **Org settings → Billing & usage → Plan** page to finish choosing a paid plan.
+    If checkout is interrupted, the team still exists. Open that team's **Org settings → Billing & usage → Plan** page, choose Team or Growth again, and start a new checkout.
 
 Complete checkout to activate the Team or Growth subscription.
 
@@ -68,7 +68,7 @@ Go back and use a different team name. You can also clear **Bring existing proje
 
 ### Checkout did not finish
 
-Open the new team, then go to **Org settings → Billing & usage → Plan** and resume the plan selection.
+Open the new team, then go to **Org settings → Billing & usage → Plan**, choose Team or Growth again, and start a new checkout.
 
 ## Next steps
 
