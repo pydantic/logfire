@@ -19,7 +19,7 @@ our [concepts page](concepts.md)
 The Personal plan is free and never bills you for overage, so instead of charging past the allowance
 Logfire limits what the org can do. Two separate things happen, at two different points:
 
-1. **As soon as you pass the allowance, parts of the UI are restricted.** Live View and the playground stop
+1. **As soon as you pass the allowance, some views are restricted.** Live View and the playground stop
    returning data, as does opening an individual trace or span to inspect its details. Your existing data is
    still there and still searchable: running queries, browsing logs, and viewing counts keep working. Logfire
    also *keeps accepting and storing what you send*, so you are not losing data at this point.
