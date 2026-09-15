@@ -3221,7 +3221,7 @@ dev = [
     { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-wsgi", specifier = ">=0.42b0" },
-    { name = "packaging", specifier = ">=24" },
+    { name = "packaging" },
     { name = "pandas", specifier = ">=2.1.2" },
     { name = "pip", specifier = ">=0" },
     { name = "pre-commit", specifier = ">=3.5.0" },
