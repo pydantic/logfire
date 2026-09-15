@@ -171,7 +171,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):
     """Compatibility adapter that evaluates feature flags through managed variables."""
     kind: str
     def __init__(self, name: str, *, type: type[FlagT], default: FlagT, description: str | None = None, logfire_instance: logfire.Logfire) -> None: ...
-    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[FlagT]:
+    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None, *, label: str | None = None) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
     def evaluate_flag(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> Any:
         """Evaluate through managed variables and translate to the feature-flag contract."""

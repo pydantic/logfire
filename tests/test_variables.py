@@ -44,7 +44,7 @@ from logfire.variables.config import (
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import _CONSECUTIVE_FAILURES_BEFORE_ERROR, LogfireRemoteVariableProvider
-from logfire.variables.variable import is_resolve_function
+from logfire.variables.variable import Variable, is_resolve_function
 
 # =============================================================================
 # Test Condition Classes
@@ -2124,6 +2124,25 @@ class TestFeatureFlag:
         assert registered[0] is not flag  # The managed variable is a private compatibility adapter.
         with pytest.raises(ValueError, match='already been registered'):
             logfire.var('new_checkout', default=False)
+
+    def test_registry_adapter_preserves_explicit_label_selection(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        feature_flag('new_checkout', default=False)
+
+        registered = logfire.variables_get()
+        assert len(registered) == 1
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            assert cast(Variable[Any], registered[0]).get(label='disabled').value is False
+        assert caught == []
+
+        with pytest.warns(RuntimeWarning, match='no stable targeting key'):
+            assert isinstance(cast(Variable[Any], registered[0]).get(label='missing').value, bool)
 
     def test_warns_when_percentage_rollout_has_no_stable_targeting_key(self, config_kwargs: dict[str, Any]):
         config = VariablesConfig(
