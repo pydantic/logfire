@@ -21,7 +21,7 @@ are working alone or in a small team), we strongly encourage using a normal orga
 at a larger company and want to create a more "official" Logfire org for that company. This also means you don't have
 to share your personal org's projects (which you may wish to keep private) with any colleagues.
 
-**See the [step-by-step guide to converting your personal account to an organization](../../how-to-guides/convert-to-organization.md) for screenshots and detailed instructions.**
+**See the [step-by-step guide to converting your personal account to a team](../../how-to-guides/convert-to-organization.md) for screenshots and detailed instructions.**
 
 ## Roles
 
