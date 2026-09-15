@@ -7,6 +7,7 @@ from threading import Lock
 from typing import Any, Generic, TypeVar
 from weakref import WeakSet
 
+from opentelemetry.context import Context
 from opentelemetry.metrics import (
     CallbackT,
     Counter,
@@ -199,8 +200,10 @@ class _ProxyInstrument(ABC, Generic[InstrumentT]):
         """Create an instance of the real instrument. Implement this."""
 
     @handle_internal_errors
-    def _increment_span_metric(self, amount: float, attributes: Attributes | None = None):
-        span = get_current_span()
+    def _increment_span_metric(
+        self, amount: float, attributes: Attributes | None = None, context: Context | None = None
+    ) -> None:
+        span = get_current_span(context)
         if isinstance(span, _LogfireWrappedSpan):
             span.increment_metric(self._kwargs['name'], attributes or {}, amount)
 
@@ -215,7 +218,7 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        self._increment_span_metric(amount, attributes)
+        self._increment_span_metric(amount, attributes, _measurement_context(args, kwargs))
         self._instrument.add(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
@@ -230,11 +233,15 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        self._increment_span_metric(amount, attributes)
+        self._increment_span_metric(amount, attributes, _measurement_context(args, kwargs))
         self._instrument.record(amount, attributes, *args, **kwargs)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(**self._kwargs)
+
+
+def _measurement_context(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Context | None:
+    return kwargs.get('context', args[0] if args else None)
 
 
 class _ProxyObservableCounter(_ProxyInstrument[ObservableCounter], ObservableCounter):
