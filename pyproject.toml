@@ -5,7 +5,13 @@ requires-python = ">=3.10"
 dependencies = ["logfire-sdk"]
 
 [dependency-groups]
+editor-tests = [
+    "jedi>=0.19.2",
+    "mypy>=1.10.0",
+    "pyright!=1.1.407",
+]
 dev = [
+    { include-group = "editor-tests" },
     "httpx >= 0.27.2",
     "httpx2 >= 2.0.0",
     "aiohttp >= 3.10.9",
@@ -61,7 +67,6 @@ dev = [
     "structlog >= 24.4.0",
     "loguru >= 0.7.3",
     "ruff >= 0.8.3",
-    "pyright != 1.1.407",
     "pre-commit>=3.5.0",
     "coverage[toml]>=7.13.0",
     "psycopg[binary] >= 3.2.3",
@@ -73,7 +78,6 @@ dev = [
     "cloudpickle>=3.0.0",
     "anthropic>=0.27.0",
     "sqlmodel>=0.0.15",
-    "mypy>=1.10.0",
     "celery>=5.4.0",
     "faststream[redis]>=0.5.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
