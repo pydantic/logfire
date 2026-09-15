@@ -13,7 +13,7 @@ You'll find Docker in the project sidebar under **Infrastructure**, after **Kube
 Four lenses on the same container stats, all sortable:
 
 - **Containers**: one row per container, with:
-    - **Status**: **Running** when the collector reported a positive uptime during the selected range, or **Unknown** when it did not report uptime.
+    - **Status**: **Running** when the optional `container.uptime` metric reported a positive value during the selected range, or **Unknown** when that metric was not reported. See [Setting up](#setting-up) to enable it.
     - **Image** it's running.
     - **Host** it runs on: links to the [Hosts view](hosts.md) when that host also reports host metrics.
     - **CPU** utilization (0–100%) with an inline sparkline.
