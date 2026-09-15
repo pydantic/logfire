@@ -51,9 +51,11 @@ def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
     sdk_distribution = metadata.distribution('logfire-sdk')
     sdk_files = sdk_distribution.files
     assert sdk_files is not None
-    assert Path('_logfire_sdk/logfire/__init__.py') in sdk_files
+    assert '_logfire_sdk/logfire/__init__.py' in {path.as_posix() for path in sdk_files}
     package_inits = {
-        sdk_distribution.locate_file(path).resolve() for path in sdk_files if path.match('logfire/__init__.py')
+        sdk_distribution.locate_file(path).resolve()
+        for path in sdk_files
+        if path.as_posix().endswith('logfire/__init__.py')
     }
     assert Path(logfire.__file__).resolve() in package_inits
 
