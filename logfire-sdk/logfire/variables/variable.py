@@ -1266,10 +1266,12 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
             logfire_instance=logfire_instance,
         )
 
-    def get(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def get(
         self,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
     ) -> ResolvedVariable[FlagT]:
         """Evaluate the flag and return its value and resolution details."""
         context_targeting_key = self._get_context_targeting_key()
@@ -1277,7 +1279,7 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
         if targeting_key is None:
             targeting_key = context_targeting_key
 
-        result = super().get(targeting_key, attributes)
+        result = super().get(targeting_key, attributes, label=label)
         if not has_stable_targeting_key:
             try:
                 variable_config = self.logfire_instance.config.get_variable_provider().get_variable_config(self.name)
@@ -1288,7 +1290,10 @@ class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnu
                 # This inspection only enriches a warning. Malformed custom-provider metadata
                 # must not replace the safe value already returned by resolution.
                 return result
-            if requires_targeting_key:
+            label_selects_static_value = (
+                variable_config is not None and label is not None and label in variable_config.labels
+            )
+            if requires_targeting_key and not label_selects_static_value:
                 _emit_resolution_warning(
                     f"Feature flag '{self.name}' has a percentage rollout but no stable targeting key. "
                     'Pass targeting_key=... or use feature_context(...) to keep each subject on one variant.',
