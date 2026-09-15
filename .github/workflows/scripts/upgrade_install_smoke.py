@@ -1,5 +1,6 @@
-"""Verify the installed ownership and entry points before and after v6 upgrade."""
+"""Verify distribution ownership and behavior throughout a v6 upgrade."""
 
+import sqlite3
 import sys
 from importlib import metadata
 from pathlib import Path
@@ -13,57 +14,72 @@ def distribution_version(name: str) -> str | None:
         return None
 
 
-def console_script(name: str) -> str | None:
-    """Return a console script's target from the active environment."""
-    scripts = {entry_point.name: entry_point.value for entry_point in metadata.entry_points(group='console_scripts')}
-    return scripts.get(name)
+def console_scripts(name: str) -> set[str]:
+    """Return every target registered for a console-script name."""
+    return {
+        entry_point.value for entry_point in metadata.entry_points(group='console_scripts') if entry_point.name == name
+    }
 
 
-def assert_v5(expected_major: str) -> None:
-    """Check the monolithic v5 distribution before the upgrade."""
+def assert_legacy(expected_version: str) -> None:
+    """Check the monolithic distribution before the upgrade."""
     import logfire
 
-    assert logfire.VERSION.startswith(f'{expected_major}.')
-    assert distribution_version('logfire') == logfire.VERSION
+    assert logfire.VERSION == expected_version
+    assert distribution_version('logfire') == expected_version
     assert distribution_version('logfire-sdk') is None
     assert distribution_version('logfire-cli') is None
-    assert console_script('logfire') == 'logfire.cli:main'
+    assert console_scripts('logfire') == {'logfire.cli:main'}
 
 
-def assert_v6(expected_major: str) -> None:
-    """Check the split distributions and file ownership after the upgrade."""
+def assert_sdk(expected_version: str, *, meta: bool, cli: bool) -> None:
+    """Check the split SDK's behavior and ownership in the requested state."""
     import logfire
 
-    assert logfire.VERSION.startswith(f'{expected_major}.')
-    assert distribution_version('logfire') == logfire.VERSION
-    assert distribution_version('logfire-sdk') == logfire.VERSION
-    assert distribution_version('logfire-cli') is not None
-    assert console_script('logfire') == 'logfire_cli:main'
+    assert logfire.VERSION == expected_version
+    assert distribution_version('logfire') == (expected_version if meta else None)
+    assert distribution_version('logfire-sdk') == expected_version
+    assert (distribution_version('logfire-cli') is not None) is cli
+    assert distribution_version('opentelemetry-instrumentation-sqlite3') is not None
+    assert console_scripts('logfire') == ({'logfire_cli:main'} if cli else set())
 
-    meta_files = metadata.files('logfire')
-    assert meta_files is not None
-    assert not any(str(path).startswith(('_logfire_sdk/', 'logfire/')) for path in meta_files)
+    if meta:
+        meta_files = metadata.files('logfire')
+        assert meta_files is not None
+        assert not any(str(path).startswith(('_logfire_sdk/', 'logfire/')) for path in meta_files)
 
-    sdk_files = metadata.files('logfire-sdk')
+    sdk_distribution = metadata.distribution('logfire-sdk')
+    sdk_files = sdk_distribution.files
     assert sdk_files is not None
     assert Path('_logfire_sdk/logfire/__init__.py') in sdk_files
+    package_inits = {
+        sdk_distribution.locate_file(path).resolve() for path in sdk_files if path.match('logfire/__init__.py')
+    }
+    assert Path(logfire.__file__).resolve() in package_inits
 
     logfire.configure(send_to_logfire=False)
-    with logfire.span('v5 to v6 upgrade works'):
+    logfire.instrument_sqlite3()
+    with logfire.span('split-package lifecycle works'):
         logfire.info('imported from logfire-sdk')
+        with sqlite3.connect(':memory:') as connection:
+            assert connection.execute('SELECT 1').fetchone() == (1,)
     assert logfire.force_flush()
     assert logfire.shutdown()
 
 
 def main() -> None:
     """Run the assertions for the expected major version."""
-    expected_major = sys.argv[1]
-    if expected_major == '5':
-        assert_v5(expected_major)
-    elif expected_major == '6':
-        assert_v6(expected_major)
+    state, expected_version = sys.argv[1:]
+    if state == 'legacy':
+        assert_legacy(expected_version)
+    elif state == 'split':
+        assert_sdk(expected_version, meta=True, cli=True)
+    elif state == 'sdk-and-cli':
+        assert_sdk(expected_version, meta=False, cli=True)
+    elif state == 'sdk-only':
+        assert_sdk(expected_version, meta=False, cli=False)
     else:
-        raise AssertionError(f'Unsupported upgrade-test major version: {expected_major}')
+        raise AssertionError(f'Unsupported upgrade-test state: {state}')
 
 
 if __name__ == '__main__':
