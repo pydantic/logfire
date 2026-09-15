@@ -46,6 +46,9 @@ def test_distribution_versions_and_dependencies_stay_in_sync() -> None:
     assert str(dependencies['logfire-sdk'].specifier) == f'=={sdk["version"]}'
     assert str(dependencies['logfire-cli'].specifier) == '>=0.1.2'
 
+    sdk_requirements = {requirement.name: requirement for requirement in map(Requirement, sdk['dependencies'])}
+    assert str(sdk_requirements['requests'].specifier) == '>=2.31.0'
+
 
 def test_meta_package_forwards_every_sdk_extra() -> None:
     """Preserve `pip install logfire[extra]` across the distribution split."""

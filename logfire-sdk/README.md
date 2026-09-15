@@ -17,5 +17,6 @@ is unavailable in the target runtime:
 pip install logfire-sdk
 ```
 
-See the [Logfire documentation](https://pydantic.dev/docs/logfire/) for usage
-and configuration guidance.
+The distribution name is `logfire-sdk`, but the Python import remains
+`import logfire`. See the [SDK getting-started guide](https://pydantic.dev/docs/logfire/get-started/#sdk)
+for usage and configuration guidance.
