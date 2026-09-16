@@ -167,6 +167,14 @@ def parse_run(args: argparse.Namespace) -> None:
         # Script mode
         script_path = script_and_args[0]
 
+        # Console entry points are Python callables, but Windows normally exposes
+        # them through generated `.exe` launchers that `runpy` cannot execute.
+        # Resolve metadata in this interpreter so every platform runs the
+        # callable after instrumentation in the same Python process.
+        if not os.path.isfile(script_path) and not os.path.dirname(script_path):
+            if run_console_entry_point(script_path, script_and_args):
+                return
+
         # Make sure the script directory is in sys.path
         script_dir = os.path.dirname(os.path.abspath(script_path))
         if script_dir not in sys.path:  # pragma: no branch
@@ -177,6 +185,22 @@ def parse_run(args: argparse.Namespace) -> None:
     else:
         print('Usage: logfire run [-m MODULE] [args...] OR logfire run SCRIPT [args...]')
         sys.exit(1)
+
+
+def run_console_entry_point(name: str, argv: list[str]) -> bool:
+    """Run one installed `console_scripts` entry point, returning whether it existed."""
+    entry_points = list(importlib.metadata.entry_points(group='console_scripts', name=name))
+    if not entry_points:
+        return False
+    if len(entry_points) > 1:
+        print(f'Multiple installed packages provide the `{name}` console command.', file=sys.stderr)
+        sys.exit(1)
+
+    with alter_sys_argv(argv, shlex.join(argv)):
+        result = entry_points[0].load()()
+    if result is not None:
+        raise SystemExit(result)
+    return True
 
 
 @contextmanager

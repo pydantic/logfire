@@ -6235,6 +6235,65 @@ def test_parse_run_module(
     assert instrument_package_mock.call_args_list == [(('openai',),)]
 
 
+def test_parse_run_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen_argv: list[str] = []
+
+    def console_main() -> None:
+        seen_argv.extend(sys.argv)
+
+    entry_point = Mock()
+    entry_point.load.return_value = console_main
+    entry_points = Mock(return_value=[entry_point])
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', entry_points)
+
+    main(['run', '--no-summary', 'demo-cli', '--target-option'])
+
+    assert seen_argv == ['demo-cli', '--target-option']
+    entry_points.assert_called_once_with(group='console_scripts', name='demo-cli')
+    entry_point.load.assert_called_once_with()
+
+
+def test_parse_run_console_entry_point_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    entry_point = Mock()
+    entry_point.load.return_value = lambda: 17
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
+
+    with pytest.raises(SystemExit, match='17'):
+        main(['run', '--no-summary', 'demo-cli'])
+
+
+def test_parse_run_console_entry_point_ambiguity(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr(
+        'logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[Mock(), Mock()])
+    )
+
+    with pytest.raises(SystemExit):
+        main(['run', '--no-summary', 'demo-cli'])
+
+    assert capsys.readouterr().err == 'Multiple installed packages provide the `demo-cli` console command.\n'
+
+
+def test_parse_run_unknown_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[]))
+
+    with pytest.raises(FileNotFoundError):
+        main(['run', '--no-summary', 'missing-cli'])
+
+
 @pytest.fixture()
 def prompt_http_calls() -> Generator[None]:
     with ExitStack() as stack:
