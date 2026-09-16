@@ -180,6 +180,8 @@ except ImportError:
 
             def instrument_requests(self, *args, **kwargs) -> None: ...
 
+            def instrument_urllib3(self, *args, **kwargs) -> None: ...
+
             def instrument_httpx(self, *args, **kwargs) -> None: ...
 
             def instrument_asyncpg(self, *args, **kwargs) -> None: ...
@@ -256,6 +258,7 @@ except ImportError:
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
+        instrument_urllib3 = DEFAULT_LOGFIRE_INSTANCE.instrument_urllib3
         instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
         instrument_snowflake = DEFAULT_LOGFIRE_INSTANCE.instrument_snowflake
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg

@@ -45,6 +45,7 @@ from flask.app import Flask
 from litestar import Litestar
 from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
+from opentelemetry.instrumentation.urllib3 import RequestInfo as RequestInfo
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
 from opentelemetry.trace import SpanContext, SpanKind
@@ -62,6 +63,8 @@ from surrealdb.connections.sync_template import SyncTemplate
 from types import ModuleType
 from typing import Any, Callable, Literal, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
+from urllib3.connectionpool import HTTPConnectionPool as HTTPConnectionPool
+from urllib3.response import HTTPResponse as HTTPResponse
 from wsgiref.types import WSGIApplication
 
 ExcInfo = SysExcInfo | BaseException | bool | None
@@ -778,6 +781,16 @@ class Logfire:
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
+        """
+    def instrument_urllib3(self, excluded_urls: str | None = None, request_hook: Callable[[Span, HTTPConnectionPool, RequestInfo], None] | None = None, response_hook: Callable[[Span, HTTPConnectionPool, HTTPResponse], None] | None = None, url_filter: Callable[[str], str] | None = None, **kwargs: Any) -> None:
+        """Instrument the `urllib3` module so that spans are automatically created for each request.
+
+        Args:
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            request_hook: A function called right after a span is created for a request.
+            response_hook: A function called right before a span is finished for the response.
+            url_filter: A function used to modify the URL recorded on request spans.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
     @overload
     def instrument_psycopg(self, conn_or_module: PsycopgConnection | Psycopg2Connection, **kwargs: Any) -> None: ...
