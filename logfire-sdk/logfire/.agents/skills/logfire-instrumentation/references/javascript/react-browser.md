@@ -16,9 +16,9 @@ npm install @pydantic/logfire-browser
 
 Use `@pydantic/logfire-browser` 0.21.0 or later for `configureFrontend()`.
 It enables auto-instrumentation and Web Vitals metrics by default. Set
-`autoInstrumentations: false` or `rum: { webVitals: false }` to disable those
-features, or `rum: { webVitals: { metrics: false } }` to keep Web Vitals spans
-without metrics. Nested capture options preserve unrelated defaults. Session
+`autoInstrumentations: false` to disable automatic instrumentation. Set
+`rum: { webVitals: false }` to disable Web Vitals spans and metrics, or
+`rum: { webVitals: { metrics: false } }` to keep Web Vitals spans without metrics. Nested capture options preserve unrelated defaults. Session
 replay remains opt-in through the optional replay integration.
 
 ## Configure In Browser-Only Code
@@ -52,7 +52,14 @@ For non-React browser entrypoints, run the same generated configuration from the
 
 ## Optional Backend Proxy
 
-A backend proxy is not required to hide the restricted frontend token. Preserve one when the application already uses it, or add one only when the application specifically needs its own authentication, origin checks, or rate limits. Use the lower-level `configure()` for custom proxy transports. Follow the browser SDK guide's optional-proxy contract and keep its existing security controls.
+A backend proxy is not required to hide the restricted frontend token. Preserve one when the application already uses it, or add one only when the application specifically needs its own authentication, origin checks, or rate limits. Use the lower-level `configure()` for custom proxy transports. Follow the browser SDK guide's [optional-proxy contract](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#optional-backend-proxy) and keep its existing security controls.
+
+When maintaining a proxy, compare each request's `Origin` against an explicitly
+configured allowed origin, such as `LOGFIRE_PROXY_ALLOWED_ORIGIN` (or the
+application's existing equivalent). Reject requests when that configuration is
+absent, the `Origin` header is missing, or it does not match. Do not derive the
+allowed origin from the incoming request. Preserve the proxy's authentication
+and rate limits as well; an origin check alone is not authentication.
 
 ## Manual Client Events
 

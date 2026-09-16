@@ -78,9 +78,9 @@ npm install @pydantic/logfire-browser
 
 Use `@pydantic/logfire-browser` 0.21.0 or later for `configureFrontend()`.
 It enables auto-instrumentation and Web Vitals metrics by default. Set
-`autoInstrumentations: false` or `rum: { webVitals: false }` to disable those
-features, or `rum: { webVitals: { metrics: false } }` to keep Web Vitals spans
-without metrics. Nested capture options preserve unrelated defaults. Session
+`autoInstrumentations: false` to disable automatic instrumentation. Set
+`rum: { webVitals: false }` to disable Web Vitals spans and metrics, or
+`rum: { webVitals: { metrics: false } }` to keep Web Vitals spans without metrics. Nested capture options preserve unrelated defaults. Session
 replay remains opt-in through the optional replay integration.
 
 Create a client-only component using the exact regional base URL and restricted token from the generated setup. The restricted token is designed to be public and may be embedded in the client bundle or supplied through the app's public build/runtime configuration. Replace both placeholders before deploying:
@@ -114,7 +114,14 @@ Import this Client Component normally from an App Router Server Component. If th
 
 Do not set `serviceName`, `serviceNamespace`, or the environment in browser configuration; the frontend application pins those values. Never substitute the server's `LOGFIRE_TOKEN` or another ordinary write token for the frontend application token.
 
-If the repository already routes browser telemetry through a backend, preserve that architecture using the lower-level `configure()` and follow the browser SDK guide's optional-proxy contract. Do not add a new Next.js rewrite merely to hide the restricted frontend token.
+If the repository already routes browser telemetry through a backend, preserve that architecture using the lower-level `configure()` and follow the browser SDK guide's [optional-proxy contract](https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#optional-backend-proxy). Do not add a new Next.js rewrite merely to hide the restricted frontend token.
+
+When maintaining a proxy, compare each request's `Origin` against an explicitly
+configured allowed origin, such as `LOGFIRE_PROXY_ALLOWED_ORIGIN` (or the
+application's existing equivalent). Reject requests when that configuration is
+absent, the `Origin` header is missing, or it does not match. Do not derive the
+allowed origin from the incoming request. Preserve the proxy's authentication
+and rate limits as well; an origin check alone is not authentication.
 
 ## Vercel Deployment Notes
 

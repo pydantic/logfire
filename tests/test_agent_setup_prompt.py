@@ -258,12 +258,24 @@ def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -
         assert 'Browser code must use a proxy URL' not in source
 
     for source in (nextjs, react):
+        guidance = ' '.join(source.split())
         assert 'logfire.configureFrontend({' in source
         assert "baseUrl: '<generated-regional-base-url>'" in source
         assert "token: '<frontend-application-token>'" in source
+        assert 'Replace both placeholders before deploying' in source
         assert 'Frontend → Applications' in source
         assert '0.21.0 or later' in source
         assert 'auto-instrumentation and Web Vitals metrics by default' in source
+        assert '`autoInstrumentations: false` to disable automatic instrumentation' in source
+        assert '`rum: { webVitals: false }` to disable Web Vitals spans and metrics' in source
+        assert '`rum: { webVitals: { metrics: false } }` to keep Web Vitals spans without metrics' in source
+        assert 'LOGFIRE_PROXY_ALLOWED_ORIGIN' in source
+        assert 'Reject requests when that configuration is absent' in guidance
+        assert 'the `Origin` header is missing, or it does not match' in source
+        assert 'Do not derive the allowed origin from the incoming request' in guidance
+        assert (
+            'https://pydantic.dev/docs/logfire/instrument/typescript/packages/browser/#optional-backend-proxy' in source
+        )
         assert 'traceExporterHeaders:' not in source
         assert '@opentelemetry/auto-instrumentations-web' not in source
 
