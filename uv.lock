@@ -2967,6 +2967,9 @@ system-metrics = [
 urllib = [
     { name = "logfire-sdk", extra = ["urllib"] },
 ]
+urllib3 = [
+    { name = "logfire-sdk", extra = ["urllib3"] },
+]
 variables = [
     { name = "logfire-sdk", extra = ["variables"] },
 ]
@@ -3006,10 +3009,11 @@ requires-dist = [
     { name = "logfire-sdk", extras = ["starlette"], marker = "extra == 'starlette'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["system-metrics"], marker = "extra == 'system-metrics'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["urllib"], marker = "extra == 'urllib'", editable = "logfire-sdk" },
+    { name = "logfire-sdk", extras = ["urllib3"], marker = "extra == 'urllib3'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["variables"], marker = "extra == 'variables'", editable = "logfire-sdk" },
     { name = "logfire-sdk", extras = ["wsgi"], marker = "extra == 'wsgi'", editable = "logfire-sdk" },
 ]
-provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "urllib3", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [[package]]
 name = "logfire-api"
@@ -3221,7 +3225,7 @@ dev = [
     { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-urllib3", specifier = ">=0.47b0" },
+    { name = "opentelemetry-instrumentation-urllib3", specifier = ">=0.48b0" },
     { name = "opentelemetry-instrumentation-wsgi", specifier = ">=0.42b0" },
     { name = "packaging" },
     { name = "pandas", specifier = ">=2.1.2" },
@@ -3424,7 +3428,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-starlette", marker = "extra == 'starlette'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'system-metrics'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-urllib", marker = "extra == 'urllib'", specifier = ">=0.42b0" },
-    { name = "opentelemetry-instrumentation-urllib3", marker = "extra == 'urllib3'", specifier = ">=0.47b0" },
+    { name = "opentelemetry-instrumentation-urllib3", marker = "extra == 'urllib3'", specifier = ">=0.48b0" },
     { name = "opentelemetry-instrumentation-wsgi", marker = "extra == 'wsgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.39.0,<1.45.0" },
     { name = "packaging", marker = "extra == 'psycopg'" },
