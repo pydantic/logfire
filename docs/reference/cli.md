@@ -253,8 +253,9 @@ logfire run -m my_module --my-arg
 logfire run pytest tests/
 ```
 
-Console commands are loaded from the selected Python environment's installed
-`console_scripts` metadata. This keeps automatic instrumentation in the same
+Console commands are resolved from the selected Python environment's installed
+`console_scripts` metadata, which maps each command name to the Python function
+that runs it. This keeps automatic instrumentation in the same
 Python process on macOS, Linux, and Windows, including platforms where package
 installers generate native launcher executables.
 

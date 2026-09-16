@@ -156,11 +156,9 @@ def parse_run(args: argparse.Namespace) -> None:
         if not os.path.isfile(script_path) and not os.path.dirname(script_path):
             console_entry_point = load_console_entry_point(script_path)
 
-    # Resolve installed entry points before the working directory can shadow their modules.
-    # The working directory is still needed while the target executes so it can import the application.
-    sys.path.insert(0, os.getcwd())
-
     if module_name := args.module:
+        # Explicit modules should import application code from the working directory.
+        sys.path.insert(0, os.getcwd())
         module_args = script_and_args
 
         # We need to change the `sys.argv` to make sure the module sees the right CLI args
@@ -178,6 +176,9 @@ def parse_run(args: argparse.Namespace) -> None:
             run_console_entry_point(console_entry_point, script_and_args)
             return
 
+        # Explicit scripts retain the existing working-directory import behavior.
+        sys.path.insert(0, os.getcwd())
+
         # Make sure the script directory is in sys.path
         script_dir = os.path.dirname(os.path.abspath(script_path))
         if script_dir not in sys.path:  # pragma: no branch
@@ -192,13 +193,28 @@ def parse_run(args: argparse.Namespace) -> None:
 
 def load_console_entry_point(name: str) -> Callable[[], object] | None:
     """Load one installed `console_scripts` entry point before local modules can shadow it."""
-    entry_points = list(importlib.metadata.entry_points(group='console_scripts', name=name))
-    if not entry_points:
-        return None
-    if len(entry_points) > 1:
-        print(f'Multiple installed packages provide the `{name}` console command.', file=sys.stderr)
-        sys.exit(1)
-    return cast(Callable[[], object], entry_points[0].load())
+    with without_working_directory_on_sys_path():
+        entry_points = list(importlib.metadata.entry_points(group='console_scripts', name=name))
+        if not entry_points:
+            return None
+        if len(entry_points) > 1:
+            print(f'Multiple installed packages provide the `{name}` console command.', file=sys.stderr)
+            sys.exit(1)
+        return cast(Callable[[], object], entry_points[0].load())
+
+
+@contextmanager
+def without_working_directory_on_sys_path() -> Generator[None, None, None]:
+    """Temporarily give entry-point imports the path behavior of an installed launcher."""
+    working_directory = os.path.normcase(os.path.realpath(os.getcwd()))
+    original_path = sys.path
+    sys.path = [
+        path for path in original_path if path and os.path.normcase(os.path.realpath(path)) != working_directory
+    ]
+    try:
+        yield
+    finally:
+        sys.path = original_path
 
 
 def run_console_entry_point(entry_point: Callable[[], object], argv: list[str]) -> None:
