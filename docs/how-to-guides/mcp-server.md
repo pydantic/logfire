@@ -107,6 +107,9 @@ Pydantic Logfire provides a hosted remote MCP server that you can use without in
     The in-app **MCP** page (in your project's sidebar) shows the same setup instructions with your
     instance's server URL pre-filled, plus one-click install links for several clients.
 
+Organization admins can [limit every external MCP client to read-only tools](mcp-access.md) and
+choose whether agents may share tool feedback with Pydantic.
+
 ---
 
 ## Configuration with well-known MCP clients
@@ -470,12 +473,14 @@ The Logfire MCP server exposes tools for querying telemetry data and managing ob
 The table below lists the full tool set for the `/mcp` endpoint.
 
 !!! note
-    The tools visible to a given client depend on the token scopes granted to that client.
+    The tools visible to a given client depend on the permissions granted to its credential and the
+    organization's [external MCP access policy](mcp-access.md).
 
 | Tool family | What it does | Common tool names |
 | --- | --- | --- |
 | Query execution | Run SQL against telemetry data, inspect schema, and retrieve recent exceptions for a file. | `query_run`, `query_schema_reference`, `query_find_exceptions_in_file` |
 | Projects and auth context | Discover accessible projects, inspect token context, and create Logfire UI links. | `project_list`, `token_info`, `project_logfire_link`, `project_logfire_ui_link` |
+| Agent feedback | Share feedback about Logfire tools and documentation with Pydantic, when the organization allows it. Never include user or customer data. | `agent-feedback` |
 | Dashboards | Create, list, fetch, update, and delete dashboards and panels, including dashboard settings. | `dashboard_create`, `dashboard_list`, `dashboard_get`, `dashboard_update`, `dashboard_delete`, `dashboard_update_settings`, `dashboard_add_panel`, `dashboard_update_panel`, `dashboard_remove_panel` |
 | Dashboard variables | Add, update, replace, or remove dashboard variables. | `dashboard_add_variable`, `dashboard_update_variable`, `dashboard_update_variables`, `dashboard_remove_variable` |
 | Dashboard layout groups | Organize dashboard panels into groups and control group layout/visibility. | `dashboard_create_group`, `dashboard_delete_group`, `dashboard_rename_group`, `dashboard_toggle_group_collapse`, `dashboard_reorder_groups` |
