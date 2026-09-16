@@ -3854,6 +3854,7 @@ dev = [
     { name = "opentelemetry-instrumentation-sqlite3" },
     { name = "opentelemetry-instrumentation-starlette" },
     { name = "opentelemetry-instrumentation-system-metrics" },
+    { name = "opentelemetry-instrumentation-urllib3" },
     { name = "opentelemetry-instrumentation-wsgi" },
     { name = "packaging" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -3980,6 +3981,7 @@ dev = [
     { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-starlette", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-urllib3", specifier = ">=0.47b0" },
     { name = "opentelemetry-instrumentation-wsgi", specifier = ">=0.42b0" },
     { name = "packaging" },
     { name = "pandas", specifier = ">=2.1.2" },
@@ -4148,6 +4150,9 @@ system-metrics = [
 urllib = [
     { name = "opentelemetry-instrumentation-urllib" },
 ]
+urllib3 = [
+    { name = "opentelemetry-instrumentation-urllib3" },
+]
 variables = [
     { name = "pydantic" },
     { name = "pydantic-handlebars" },
@@ -4194,6 +4199,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-starlette", marker = "extra == 'starlette'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'system-metrics'", specifier = ">=0.42b0" },
     { name = "opentelemetry-instrumentation-urllib", marker = "extra == 'urllib'", specifier = ">=0.42b0" },
+    { name = "opentelemetry-instrumentation-urllib3", marker = "extra == 'urllib3'", specifier = ">=0.47b0" },
     { name = "opentelemetry-instrumentation-wsgi", marker = "extra == 'wsgi'", specifier = ">=0.42b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.39.0,<1.46.0" },
     { name = "opentelemetry-semantic-conventions", specifier = ">=0.60b0,<0.67b0" },
@@ -4213,7 +4219,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.13.0" },
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
+provides-extras = ["gateway", "agent-sandboxes", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "litestar", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "urllib3", "mysql", "sqlite3", "urllib", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables", "fleet"]
 
 [[package]]
 name = "loguru"
@@ -5840,6 +5846,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a2/21/626955d129e753d197217564f0688bef4ff62c05bbe9858b00112553604e/opentelemetry_instrumentation_urllib-0.66b1.tar.gz", hash = "sha256:f00daa25375fbdf88b7e1a425ef54c704674d8bef639c834de93df9b3f88d7f4", size = 16577, upload-time = "2026-10-06T17:36:42.918Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3e/47/b661cb253be58118cb27067b41fb001784ed615b5e42b5c59a4e30388ee4/opentelemetry_instrumentation_urllib-0.66b1-py3-none-any.whl", hash = "sha256:6f679d785ebcb04b791a889d8a9c0e8edf897a85ab80a7a12b0139c461b14627", size = 13076, upload-time = "2026-10-06T17:36:01.281Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-urllib3"
+version = "0.65b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "opentelemetry-util-http" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/62/b0bb0b4952720640e9627eeaa185d6948ea9d1528e16f6828372b2d4a8ca/opentelemetry_instrumentation_urllib3-0.65b0.tar.gz", hash = "sha256:6345f5c38785801e1a112895967eabec4e1076e30ecc7e9bd2af87dffc541bf9", size = 18949, upload-time = "2026-07-16T15:26:24.815Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/c5/e8aed121604c378b6a196568cef166a976a274231cee2ffc7a3b5f29f14e/opentelemetry_instrumentation_urllib3-0.65b0-py3-none-any.whl", hash = "sha256:696f3a59f153f23771dfadc826b03c548a2a308984987da9a094aeae23d609ca", size = 13516, upload-time = "2026-07-16T15:25:41.924Z" },
 ]
 
 [[package]]

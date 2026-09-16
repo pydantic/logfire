@@ -1,0 +1,30 @@
+interactions:
+- request:
+    body: null
+    headers:
+      traceparent:
+      - 00-00000000000000000000000000000001-0000000000000003-01
+    method: GET
+    uri: https://httpbin.org/status/200
+  response:
+    body:
+      string: ''
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '0'
+      Content-Type:
+      - text/html; charset=utf-8
+      Date:
+      - Wed, 16 Sep 2026 11:09:22 GMT
+      Server:
+      - gunicorn/19.9.0
+    status:
+      code: 200
+      message: OK
+version: 1
