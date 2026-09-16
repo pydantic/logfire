@@ -33,7 +33,7 @@ Send an invitation directly to someone by email.
 
 Logfire sends a single-use invitation that expires after seven days. Only a Logfire account with the invited email address can accept it. The recipient can sign in or create an account from the invitation page.
 
-To share a reusable URL instead, select **Use an invite link** in the invitation dialog. You can choose how many times the link can be used and when it expires.
+To share a reusable URL instead, select **Use an invite link** in the invitation dialog. Choose how many times the link can be used and when it expires, then select **Create link**. Copy and share the generated URL.
 
 Open the **Past/pending invites** tab to confirm that the invitation appears. You can revoke an invitation there before someone accepts it.
 
