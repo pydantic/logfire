@@ -9,7 +9,7 @@ Limit external Model Context Protocol (MCP) clients to reading and querying Logf
 
 The policy belongs to an organization and applies across all of its projects. Use it when coding agents and other MCP clients should investigate Logfire data but should not create or change dashboards, alerts, notification channels, variables, or prompts. Logfire's in-product AI Chat keeps its own approval flow and is not affected.
 
-External MCP access controls are available on the Enterprise plan and in self-hosted deployments. Personal, Team, and Growth organizations keep normal credential-scoped MCP access, but cannot set an organization-wide read-only policy or use the `agent-feedback` tool.
+External MCP access controls are available on the [Enterprise plan](../enterprise.md), including self-hosted deployments. Personal, Team, and Growth organizations keep normal credential-scoped MCP access, but cannot set an organization-wide read-only policy or use the `agent-feedback` tool.
 
 !!! info "Experimental"
     In **Settings → Early access**, select the flask icon next to the **Early access** heading to show experimental features. Enable **External MCP access** in the browser where you will configure it.
