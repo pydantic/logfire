@@ -6235,6 +6235,89 @@ def test_parse_run_module(
     assert instrument_package_mock.call_args_list == [(('openai',),)]
 
 
+def test_parse_run_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen_argv: list[str] = []
+
+    def console_main() -> None:
+        seen_argv.extend(sys.argv)
+
+    entry_point = Mock()
+    entry_point.load.return_value = console_main
+    entry_points = Mock(return_value=[entry_point])
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', entry_points)
+
+    main(['run', '--no-summary', 'demo-cli', '--target-option'])
+
+    assert seen_argv == ['demo-cli', '--target-option']
+    entry_points.assert_called_once_with(group='console_scripts', name='demo-cli')
+    entry_point.load.assert_called_once_with()
+
+
+def test_parse_run_console_entry_point_is_loaded_before_working_directory(
+    tmp_dir_cwd: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_dir = tmp_path / 'installed'
+    installed_dir.mkdir()
+    marker = tmp_path / 'ran-installed-entry-point'
+    module_name = 'shadowed_console_entry_point'
+    (installed_dir / f'{module_name}.py').write_text(
+        f'from pathlib import Path\ndef main():\n    Path({str(marker)!r}).touch()\n'
+    )
+    (tmp_dir_cwd / f'{module_name}.py').write_text("def main():\n    raise AssertionError('loaded local module')\n")
+    monkeypatch.setattr(sys, 'path', [str(installed_dir), *sys.path])
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    entry_point = importlib.metadata.EntryPoint(name='demo-cli', value=f'{module_name}:main', group='console_scripts')
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
+
+    main(['run', '--no-summary', 'demo-cli'])
+
+    assert marker.exists()
+
+
+def test_parse_run_console_entry_point_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    entry_point = Mock()
+    entry_point.load.return_value = lambda: 17
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
+
+    with pytest.raises(SystemExit, match='17'):
+        main(['run', '--no-summary', 'demo-cli'])
+
+
+def test_parse_run_console_entry_point_ambiguity(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr(
+        'logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[Mock(), Mock()])
+    )
+
+    with pytest.raises(SystemExit):
+        main(['run', '--no-summary', 'demo-cli'])
+
+    assert capsys.readouterr().err == 'Multiple installed packages provide the `demo-cli` console command.\n'
+
+
+def test_parse_run_unknown_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[]))
+
+    with pytest.raises(FileNotFoundError):
+        main(['run', '--no-summary', 'missing-cli'])
+
+
 @pytest.fixture()
 def prompt_http_calls() -> Generator[None]:
     with ExitStack() as stack:
