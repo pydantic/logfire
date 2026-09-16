@@ -6256,6 +6256,30 @@ def test_parse_run_console_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
     entry_point.load.assert_called_once_with()
 
 
+def test_parse_run_console_entry_point_is_loaded_before_working_directory(
+    tmp_dir_cwd: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installed_dir = tmp_path / 'installed'
+    installed_dir.mkdir()
+    marker = tmp_path / 'ran-installed-entry-point'
+    module_name = 'shadowed_console_entry_point'
+    (installed_dir / f'{module_name}.py').write_text(
+        f'from pathlib import Path\ndef main():\n    Path({str(marker)!r}).touch()\n'
+    )
+    (tmp_dir_cwd / f'{module_name}.py').write_text("def main():\n    raise AssertionError('loaded local module')\n")
+    monkeypatch.setattr(sys, 'path', [str(installed_dir), *sys.path])
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    entry_point = importlib.metadata.EntryPoint(name='demo-cli', value=f'{module_name}:main', group='console_scripts')
+    context = Mock(installed_otel_pkgs=set(), instrument_pkg_map={})
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.collect_instrumentation_context', Mock(return_value=context))
+    monkeypatch.setattr('logfire._internal.cli.run.importlib.metadata.entry_points', Mock(return_value=[entry_point]))
+
+    main(['run', '--no-summary', 'demo-cli'])
+
+    assert marker.exists()
+
+
 def test_parse_run_console_entry_point_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
     entry_point = Mock()
     entry_point.load.return_value = lambda: 17

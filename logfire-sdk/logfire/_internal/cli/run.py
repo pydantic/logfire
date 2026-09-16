@@ -9,7 +9,7 @@ import shlex
 import shutil
 import sys
 import warnings
-from collections.abc import Collection, Generator, Mapping
+from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import cast
@@ -150,7 +150,14 @@ def parse_run(args: argparse.Namespace) -> None:
     # Get arguments from the script_and_args parameter
     script_and_args = args.script_and_args
 
-    # Add the current directory to `sys.path`. This is needed for the module to be found.
+    console_entry_point: Callable[[], object] | None = None
+    if not args.module and script_and_args:
+        script_path = script_and_args[0]
+        if not os.path.isfile(script_path) and not os.path.dirname(script_path):
+            console_entry_point = load_console_entry_point(script_path)
+
+    # Resolve installed entry points before the working directory can shadow their modules.
+    # The working directory is still needed while the target executes so it can import the application.
     sys.path.insert(0, os.getcwd())
 
     if module_name := args.module:
@@ -167,13 +174,9 @@ def parse_run(args: argparse.Namespace) -> None:
         # Script mode
         script_path = script_and_args[0]
 
-        # Console entry points are Python callables, but Windows normally exposes
-        # them through generated `.exe` launchers that `runpy` cannot execute.
-        # Resolve metadata in this interpreter so every platform runs the
-        # callable after instrumentation in the same Python process.
-        if not os.path.isfile(script_path) and not os.path.dirname(script_path):
-            if run_console_entry_point(script_path, script_and_args):
-                return
+        if console_entry_point is not None:
+            run_console_entry_point(console_entry_point, script_and_args)
+            return
 
         # Make sure the script directory is in sys.path
         script_dir = os.path.dirname(os.path.abspath(script_path))
@@ -187,20 +190,23 @@ def parse_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def run_console_entry_point(name: str, argv: list[str]) -> bool:
-    """Run one installed `console_scripts` entry point, returning whether it existed."""
+def load_console_entry_point(name: str) -> Callable[[], object] | None:
+    """Load one installed `console_scripts` entry point before local modules can shadow it."""
     entry_points = list(importlib.metadata.entry_points(group='console_scripts', name=name))
     if not entry_points:
-        return False
+        return None
     if len(entry_points) > 1:
         print(f'Multiple installed packages provide the `{name}` console command.', file=sys.stderr)
         sys.exit(1)
+    return cast(Callable[[], object], entry_points[0].load())
 
+
+def run_console_entry_point(entry_point: Callable[[], object], argv: list[str]) -> None:
+    """Run a loaded console entry point with the target command's arguments."""
     with alter_sys_argv(argv, shlex.join(argv)):
-        result = entry_points[0].load()()
+        result = entry_point()
     if result is not None:
         raise SystemExit(result)
-    return True
 
 
 @contextmanager
