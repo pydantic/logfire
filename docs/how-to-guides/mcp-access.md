@@ -33,6 +33,8 @@ You need:
 
 Changes save immediately and apply on the client's next request. Clients do not need to reconnect, sign in again, or rotate an API key.
 
+If an organization leaves the Enterprise plan while **Read-only** is selected, Logfire continues enforcing read-only access so the plan change cannot silently re-enable write tools. Upgrade again or contact support before changing that stored policy.
+
 ![Organization MCP access settings with Read-only selected and agent feedback enabled](../images/guide/mcp-access.png)
 
 ## Decide whether agents can share feedback
