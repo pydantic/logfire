@@ -2,7 +2,7 @@
 name = "logfire-python"
 version = "0.0.0"
 requires-python = ">=3.10"
-dependencies = ["logfire-sdk"]
+dependencies = ["logfire"]
 
 [dependency-groups]
 editor-tests = [
@@ -133,6 +133,7 @@ default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
+logfire = { workspace = true }
 logfire-api = { workspace = true }
 logfire-sdk = { workspace = true }
 
