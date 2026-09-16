@@ -1,6 +1,6 @@
 ---
 title: Control external MCP access
-description: Set an organization-wide read-only policy for external MCP clients and choose whether agents can share tool feedback with Pydantic.
+description: Configure organization-wide access for external MCP clients and choose whether agents can share tool feedback with Pydantic.
 ---
 
 # Control external MCP access
