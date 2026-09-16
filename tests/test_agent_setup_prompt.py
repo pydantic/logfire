@@ -258,18 +258,21 @@ def test_browser_guidance_uses_restricted_frontend_application_direct_ingest() -
         assert 'Browser code must use a proxy URL' not in source
 
     for source in (nextjs, react):
-        assert '<generated-regional-trace-url>' in source
-        assert "Authorization: 'Bearer <frontend-application-token>'" in source
-        assert 'autoInstrumentations: true' in source
-        assert 'rum: { webVitals: true }' in source
+        assert 'logfire.configureFrontend({' in source
+        assert "baseUrl: '<generated-regional-base-url>'" in source
+        assert "token: '<frontend-application-token>'" in source
+        assert 'Frontend → Applications' in source
+        assert '0.21.0 or later' in source
+        assert 'auto-instrumentation and Web Vitals metrics by default' in source
+        assert 'traceExporterHeaders:' not in source
         assert '@opentelemetry/auto-instrumentations-web' not in source
 
     assert 'optional-proxy contract' in nextjs
     assert 'Optional Backend Proxy' in react
-    assert 'restricted public token and regional trace URL generated for a frontend application' in skill
+    assert 'restricted public token and regional base URL generated for a frontend application' in skill
     assert 'restricted public token' in installation
     assert 'Never reuse `LOGFIRE_TOKEN` or another ordinary write token in the browser' in installation
-    assert 'generated regional `/v1/traces` URL' in troubleshooting
+    assert '`/v1/traces` URL derived from the regional `baseUrl`' in troubleshooting
 
 
 def test_browser_framework_examples_configure_once_without_strict_mode_shutdown() -> None:

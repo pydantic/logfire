@@ -6,13 +6,20 @@ Use this for browser-only telemetry in React, Vite, or other SPA projects. If th
 
 Browser telemetry sends directly to Logfire with a restricted public frontend application token. The token can report only for that application; it cannot read project data or choose another service identity. Never put an ordinary Logfire write token in browser code.
 
-Open **Project settings → Frontend applications**, create or select the browser application, and copy its generated trace URL and token configuration. If that page is unavailable, explain that browser setup cannot continue with an ordinary write token and direct the user to [Logfire support](https://pydantic.dev/docs/logfire/get-started/help/).
+Open **Frontend → Applications**, create or select the browser application, and copy its regional base URL and restricted token. If that page is unavailable, explain that browser setup cannot continue with an ordinary write token and direct the user to [Logfire support](https://pydantic.dev/docs/logfire/get-started/help/).
 
 ## Install
 
 ```bash
 npm install @pydantic/logfire-browser
 ```
+
+Use `@pydantic/logfire-browser` 0.21.0 or later for `configureFrontend()`.
+It enables auto-instrumentation and Web Vitals metrics by default. Set
+`autoInstrumentations: false` or `rum: { webVitals: false }` to disable those
+features, or `rum: { webVitals: { metrics: false } }` to keep Web Vitals spans
+without metrics. Nested capture options preserve unrelated defaults. Session
+replay remains opt-in through the optional replay integration.
 
 ## Configure In Browser-Only Code
 
@@ -27,13 +34,9 @@ export function LogfireProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!configured.current) {
-      logfire.configure({
-        traceUrl: '<generated-regional-trace-url>',
-        traceExporterHeaders: () => ({
-          Authorization: 'Bearer <frontend-application-token>',
-        }),
-        autoInstrumentations: true,
-        rum: { webVitals: true },
+      logfire.configureFrontend({
+        baseUrl: '<generated-regional-base-url>',
+        token: '<frontend-application-token>',
       })
       configured.current = true
     }
@@ -43,13 +46,13 @@ export function LogfireProvider({ children }: { children: ReactNode }) {
 }
 ```
 
-Mount this provider once at the app root and do not return the asynchronous SDK cleanup from its effect. The ref prevents React Strict Mode's development-only second effect setup from configuring Logfire twice. Tests, previews, or app shells that intentionally replace the whole telemetry setup should await the cleanup returned by `configure()` before configuring a replacement.
+Mount this provider once at the app root and do not return the asynchronous SDK cleanup from its effect. The ref prevents React Strict Mode's development-only second effect setup from configuring Logfire twice. Tests, previews, or app shells that intentionally replace the whole telemetry setup should await the cleanup returned by `configureFrontend()` before configuring a replacement.
 
 For non-React browser entrypoints, run the same generated configuration from the client entry file before adding manual spans. Do not set `serviceName`, `serviceNamespace`, or the environment; the frontend application pins those values at ingest.
 
 ## Optional Backend Proxy
 
-A backend proxy is not required to hide the restricted frontend token. Preserve one when the application already uses it, or add one only when the application specifically needs its own authentication, origin checks, or rate limits. Follow the browser SDK guide's optional-proxy contract and keep its existing security controls.
+A backend proxy is not required to hide the restricted frontend token. Preserve one when the application already uses it, or add one only when the application specifically needs its own authentication, origin checks, or rate limits. Use the lower-level `configure()` for custom proxy transports. Follow the browser SDK guide's optional-proxy contract and keep its existing security controls.
 
 ## Manual Client Events
 
@@ -75,6 +78,6 @@ window.addEventListener('unhandledrejection', (event) => {
 
 - Configure only in browser runtime code. Avoid importing `@pydantic/logfire-browser` from SSR modules.
 - Use `diagLogLevel: logfire.DiagLogLevel.ALL` only during local troubleshooting.
-- Browser `configure()` returns an async cleanup function. Await it in tests, previews, or app shells that intentionally replace the telemetry setup, but not in the root provider effect above.
+- Browser `configureFrontend()` returns an async cleanup function. Await it in tests, previews, or app shells that intentionally replace the telemetry setup, but not in the root provider effect above.
 - Browser does not install automatic pending-span processing; call `startPendingSpan()` explicitly for long operations.
 - Avoid high-volume spans for every mouse movement, render, or keystroke.

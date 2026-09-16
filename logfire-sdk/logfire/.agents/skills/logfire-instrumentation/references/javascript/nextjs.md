@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
 Browser tracing uses a frontend application, which supplies a restricted public token and pins the browser service identity at ingest. This is separate from the ordinary write token used by Next.js server-side tracing.
 
-Open **Project settings → Frontend applications**, create or select the browser application, and copy its generated configuration. If that page is unavailable, explain that browser setup cannot continue with an ordinary write token and direct the user to [Logfire support](https://pydantic.dev/docs/logfire/get-started/help/).
+Open **Frontend → Applications**, create or select the browser application, and copy its generated configuration. If that page is unavailable, explain that browser setup cannot continue with an ordinary write token and direct the user to [Logfire support](https://pydantic.dev/docs/logfire/get-started/help/).
 
 Install:
 
@@ -76,7 +76,14 @@ Install:
 npm install @pydantic/logfire-browser
 ```
 
-Create a client-only component using the exact regional trace URL and restricted token from the generated setup. The restricted token is designed to be public and may be embedded in the client bundle or supplied through the app's public build/runtime configuration. Replace both placeholders before deploying:
+Use `@pydantic/logfire-browser` 0.21.0 or later for `configureFrontend()`.
+It enables auto-instrumentation and Web Vitals metrics by default. Set
+`autoInstrumentations: false` or `rum: { webVitals: false }` to disable those
+features, or `rum: { webVitals: { metrics: false } }` to keep Web Vitals spans
+without metrics. Nested capture options preserve unrelated defaults. Session
+replay remains opt-in through the optional replay integration.
+
+Create a client-only component using the exact regional base URL and restricted token from the generated setup. The restricted token is designed to be public and may be embedded in the client bundle or supplied through the app's public build/runtime configuration. Replace both placeholders before deploying:
 
 ```tsx
 'use client'
@@ -89,13 +96,9 @@ export function ClientInstrumentation() {
 
   useEffect(() => {
     if (!configured.current) {
-      logfire.configure({
-        traceUrl: '<generated-regional-trace-url>',
-        traceExporterHeaders: () => ({
-          Authorization: 'Bearer <frontend-application-token>',
-        }),
-        autoInstrumentations: true,
-        rum: { webVitals: true },
+      logfire.configureFrontend({
+        baseUrl: '<generated-regional-base-url>',
+        token: '<frontend-application-token>',
       })
       configured.current = true
     }
@@ -105,13 +108,13 @@ export function ClientInstrumentation() {
 }
 ```
 
-Mount this component once at the app root and do not return the asynchronous SDK cleanup from its effect. The ref prevents React Strict Mode's development-only second effect setup from configuring Logfire twice. Tests, previews, or app shells that intentionally replace the whole telemetry setup should await the cleanup returned by `configure()` before configuring a replacement.
+Mount this component once at the app root and do not return the asynchronous SDK cleanup from its effect. The ref prevents React Strict Mode's development-only second effect setup from configuring Logfire twice. Tests, previews, or app shells that intentionally replace the whole telemetry setup should await the cleanup returned by `configureFrontend()` before configuring a replacement.
 
 Import this Client Component normally from an App Router Server Component. If the app needs `next/dynamic` with `ssr: false`, put that dynamic import in another Client Component; Next.js rejects `ssr: false` directly in a Server Component.
 
 Do not set `serviceName`, `serviceNamespace`, or the environment in browser configuration; the frontend application pins those values. Never substitute the server's `LOGFIRE_TOKEN` or another ordinary write token for the frontend application token.
 
-If the repository already routes browser telemetry through a backend, preserve that architecture and follow the browser SDK guide's optional-proxy contract. Do not add a new Next.js rewrite merely to hide the restricted frontend token.
+If the repository already routes browser telemetry through a backend, preserve that architecture using the lower-level `configure()` and follow the browser SDK guide's optional-proxy contract. Do not add a new Next.js rewrite merely to hide the restricted frontend token.
 
 ## Vercel Deployment Notes
 
