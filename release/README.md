@@ -12,7 +12,7 @@ This applies to maintainers preparing a new release.
         * Run `gh auth` to authenticate with GitHub, which is needed for the API calls made in the release process.
 * Your development environment is setup (you've run `make install`) and you have the necessary dev dependencies (like `requests`) installed.
 
-1. Run `uv run release/prepare.py {VERSION}` from the root of the repository. This will:
+1. Run `uv run python -m release.prepare {VERSION}` from the root of the repository. This will:
     * Update the version number in the `pyproject.toml` files for `logfire-sdk`, `logfire`, and `logfire-api`.
     * Add a new section to CHANGELOG.md with a title containing the version number tag and current date.
     * Add a line at the end of this section that looks something like [v1.0.1]: https://github.com/pydantic/logfire/compare/v{PREV_VERSION}...v1.0.1 but with the correct version number tags.
