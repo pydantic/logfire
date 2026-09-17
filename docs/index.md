@@ -11,11 +11,16 @@ New here? [Create a free account](https://logfire.pydantic.dev/login), then pick
 
 ## Quickstarts
 
-<AgentSetup>
+Choose a runner below and run the setup command from your application's directory. `uvx` requires
+[`uv`](https://docs.astral.sh/uv/), while `npx` requires Node.js. The command signs you in, connects
+the directory to a Logfire project, then asks an installed Codex or Claude Code agent to add Logfire
+and verify that data arrives:
 
-````text
-This prompt was copied from the Pydantic Logfire website. Follow https://pydantic.dev/.well-known/agent-skills/logfire-setup/SKILL.md end to end to connect this repository to Logfire. Authenticate first, confirmed via `whoami`, before opening or running any application file -- then get real telemetry flowing.
-````
+<AgentSetup command="uvx logfire-cli setup">
+
+```bash
+uvx logfire-cli setup
+```
 
 </AgentSetup>
 

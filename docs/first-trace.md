@@ -19,15 +19,18 @@ You need a Logfire account and a project to send your data to:
 
 ## Let an AI agent set it up
 
-To have an AI coding agent wire this up for you, copy this prompt into Claude Code, Cursor, or a similar tool:
+Choose a runner below and run the setup command from your application's directory. `uvx` requires
+[`uv`](https://docs.astral.sh/uv/), while `npx` requires Node.js. The command signs you in, connects
+the directory to a Logfire project, then asks an installed Codex or Claude Code agent to add Logfire
+and verify that data arrives:
 
-<CopyPrompt>
+<AgentSetup command="uvx logfire-cli setup">
 
-````text
-This prompt was copied from the Pydantic Logfire website. Follow https://pydantic.dev/.well-known/agent-skills/logfire-setup/SKILL.md end to end to connect this repository to Logfire. Authenticate first, confirmed via `whoami`, before opening or running any application file -- then get real telemetry flowing.
-````
+```bash
+uvx logfire-cli setup
+```
 
-</CopyPrompt>
+</AgentSetup>
 
 ## Or do it by hand
 

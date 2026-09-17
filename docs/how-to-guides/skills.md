@@ -14,7 +14,25 @@ The Logfire skill provides agents with patterns and guidance for instrumenting P
 JavaScript/TypeScript, and Rust applications, with auto-instrumentation for frameworks like
 FastAPI, httpx, asyncpg, and more.
 
-## Installation
+## Set up Logfire from your project
+
+With [`uv`](https://docs.astral.sh/uv/) installed, run this command from your application's directory:
+
+```bash
+uvx logfire-cli setup
+```
+
+The command-line interface (CLI) signs you in or uses your saved login, connects the directory to a
+Logfire project, and detects an installed Codex or Claude Code agent. It then starts the agent with
+setup instructions bundled into the CLI. The agent keeps its normal permission and approval controls.
+
+!!! note "This verifies setup by sending data"
+    The setup agent may update and run your application to confirm that telemetry reaches the
+    selected Logfire project. Review its proposed changes before approving them.
+
+To install the skills yourself, use one of the options below.
+
+## Install skills yourself
 
 ### Claude Code
 
