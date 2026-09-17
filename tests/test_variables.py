@@ -2136,10 +2136,21 @@ class TestFeatureFlag:
 
         registered = logfire.variables_get()
         assert len(registered) == 1
-        with warnings.catch_warnings(record=True) as caught:
+        provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+        with (
+            warnings.catch_warnings(record=True) as caught,
+            unittest.mock.patch.object(
+                provider,
+                'get_serialized_value_for_label',
+                wraps=provider.get_serialized_value_for_label,
+            ) as get_serialized_value_for_label,
+        ):
             warnings.simplefilter('always')
-            assert cast(Variable[Any], registered[0]).get(label='disabled').value is False
+            result = cast(Variable[Any], registered[0]).get(label='disabled')
+            assert result.value is False
+            assert result.label == 'disabled'
         assert caught == []
+        get_serialized_value_for_label.assert_called_once_with('new_checkout', 'disabled')
 
         with pytest.warns(RuntimeWarning, match='no stable targeting key'):
             assert isinstance(cast(Variable[Any], registered[0]).get(label='missing').value, bool)

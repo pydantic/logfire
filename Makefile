@@ -38,6 +38,10 @@ test-feature-flags:
 
 .PHONY: test-feature-flags-mutation  # Mutate the feature-flag decision and context boundaries
 test-feature-flags-mutation:
+	@test ! -e src
+	@mkdir src
+	@ln -s ../logfire-sdk/logfire src/logfire
+	@set -e; trap 'test ! -L src/logfire || unlink src/logfire; rmdir src' EXIT; \
 	NO_PROXY='*' no_proxy='*' PYDANTIC_DISABLE_PLUGINS=__all__ uv run --no-sync mutmut run \
 		'*VariableConfig*_select_rollout*' \
 		'*VariableConfig*requires_targeting_key*' \
@@ -50,17 +54,15 @@ test-feature-flags-mutation:
 		'*_feature_flag_evaluation_details*' \
 		'*_feature_flag_telemetry_attributes*' \
 		'*_ManagedVariableFlagAdapter*resolution_telemetry_attributes*' \
-		'*feature_context*'
-	# `mutmut results` includes unselected mutants as "not checked", so filter its
-	# qualified mutant identifiers back to the functions selected above.
-	@results="$$(uv run --no-sync mutmut results)" || exit $$?; \
+		'*feature_context*'; \
+	results="$$(uv run --no-sync mutmut results)"; \
 	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|Flag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_transparent_schema|_to_openfeature_details|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*resolution_telemetry_attributes|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \
 		exit 1; \
-	fi
-	@echo 'All targeted feature-flag mutants were killed.'
+	fi; \
+	echo 'All targeted feature-flag mutants were killed.'
 
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:

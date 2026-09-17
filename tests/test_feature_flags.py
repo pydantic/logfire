@@ -452,6 +452,16 @@ def test_feature_context_wins_over_generic_context_but_not_variable_specific_con
             assert test_flag.details().variant == 'disabled'
 
 
+def test_feature_flag_falls_back_to_generic_targeting_context():
+    test_flag = feature_flag('test_flag', default=False)
+    adapter = cast(Any, test_flag._adapter)
+
+    with targeting_context('generic-account'):
+        assert adapter._get_context_targeting_key() == 'generic-account'
+
+    assert adapter._get_context_targeting_key() is None
+
+
 def test_feature_flag_uses_the_explicit_logfire_instance():
     adapter = Mock()
     custom_logfire = Mock()

@@ -127,6 +127,9 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pydantic-handlebars>=0.2.1",
     "claude-agent-sdk>=0",
+    "hypothesis>=6.0",
+    "mutmut>=3.7.0",
+    "openfeature-sdk>=0.10,<1",
 ]
 [tool.inline-snapshot]
 default-flags = ["disable"]
@@ -216,11 +219,11 @@ venvPath = "."
 venv = ".venv"
 
 [tool.mutmut]
-source_paths = ["logfire-sdk/logfire/"]
+source_paths = ["src/logfire/"]
 only_mutate = [
-    "logfire-sdk/logfire/experimental/feature_flags.py",
-    "logfire-sdk/logfire/variables/config.py",
-    "logfire-sdk/logfire/variables/variable.py",
+    "src/logfire/experimental/feature_flags.py",
+    "src/logfire/variables/config.py",
+    "src/logfire/variables/variable.py",
 ]
 pytest_add_cli_args_test_selection = [
     "tests/test_feature_flags.py",
@@ -295,7 +298,7 @@ DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_tes
 # https://coverage.readthedocs.io/en/latest/config.html#run
 [tool.coverage.run]
 branch = true
-source = ["logfire-sdk/logfire", "logfire-api"]
+source = ["logfire", "logfire-api"]
 omit = [
     "*/tmp/*",
     "*/temp/*",
