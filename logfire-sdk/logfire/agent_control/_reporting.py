@@ -49,7 +49,24 @@ def warn_dropped(message: str) -> None:
     if message in _warned:
         return
     _warned.add(message)
-    warnings.warn(message)
+    try:
+        warnings.warn(message)
+    except Exception:  # pragma: no cover
+        # Emitted filter-independently, because every drop this package warns about happens while a
+        # managed config is being read or applied, and the contract is that neither can take a run
+        # down: `resolve` promises an unreachable Logfire leaves the agent running on its code.
+        # `warnings.warn` escalates to an exception under `-W error` / `filterwarnings = ["error"]`,
+        # and escalation here does not make anything stricter -- it makes it worse. A validation drop
+        # raised inside `Variable.get` is caught by logfire's own resolution fallback, which turns a
+        # value that parsed with one field dropped into "nothing published", silently un-managing
+        # every section that did apply. And a raise from the fallback warning itself escapes
+        # `_resolution`'s `except` and reaches the agent as the crash that `except` exists to prevent.
+        #
+        # Being strict about unmatched entries is `on_unmatched='error'`, which raises
+        # `UnmatchedConfigError` naming all of them. That is the sanctioned mechanism; this is a
+        # diagnostic. `logfire.variables` makes the same call for the same reason -- see
+        # `_emit_resolution_warning` there.
+        pass
 
 
 def reset_warned_messages() -> None:

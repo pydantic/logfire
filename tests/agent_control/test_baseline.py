@@ -11,7 +11,11 @@ from logfire.agent_control import AgentConfig, Block, InstructionBlock, ToolDef,
 
 
 def published(baseline: AgentConfig) -> str:
-    """Exactly the bytes `AgentControl.publish_baseline` writes to the variable's `example`."""
+    """Exactly the bytes `AgentControl.report_baseline` carries on the config-hint span.
+
+    Nothing writes a variable any more, so this is what the hint's `agent_control.baseline` holds and
+    what Logfire stores as the code default when someone promotes it -- not what an SDK wrote there.
+    """
     return json.dumps(baseline.model_dump(exclude_none=True), indent=2)
 
 

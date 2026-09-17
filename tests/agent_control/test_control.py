@@ -162,6 +162,53 @@ def test_reading_the_config_never_raises(monkeypatch: pytest.MonkeyPatch) -> Non
         assert AgentControl('checkout').resolve() is None
 
 
+def test_reading_the_config_never_raises_under_an_error_filter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same guarantee, asserted under the one filter that can break it.
+
+    The test above states it while `pytest.warns` is installed, which *captures* the fallback warning
+    -- so it passes whether or not the warning can escalate. Under `-W error` (or this repo's own
+    `filterwarnings = ["error"]`, which is how a user most plausibly meets this) `warnings.warn`
+    raises, and that raise came from inside `_resolution`'s `except` block: it escaped as exactly the
+    crash that `except` exists to prevent. An unreachable Logfire taking the agent down is the one
+    outcome `resolve` promises cannot happen.
+    """
+
+    def unreachable(*_args: Any, **_kwargs: Any) -> Any:
+        raise ConnectionError('logfire-api.pydantic.dev is unreachable')
+
+    monkeypatch.setattr(Variable, 'get', unreachable)
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert AgentControl('checkout').resolve() is None
+
+
+def test_a_value_with_one_bad_field_keeps_the_rest_under_an_error_filter(
+    project: LocalVariableProvider,
+) -> None:
+    """A drop is a diagnostic, and escalating it would un-manage everything that did apply.
+
+    Validation drops are warned from inside `Variable.get`, so under an error filter the raise is
+    caught by logfire's own resolution fallback -- which reports "nothing published" and hands back
+    `None`. The published model, instructions and tool overrides would all silently stop applying
+    because one setting was unrecognized, which is the opposite of the per-section leniency the
+    contract promises. Being strict is `on_unmatched='error'`, not the warning filter.
+    """
+    publish(
+        project,
+        'agent__checkout',
+        # A wrong *type*, not an unknown key: an unknown key is ignored silently by the model, while
+        # this one fails strict validation and is dropped with a warning from inside `Variable.get`.
+        {'model': 'openai:gpt-5.6-sol', 'settings': {'temperature': '0.4', 'max_tokens': 2048}},
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        config = AgentControl('checkout').resolve()
+    assert config is not None, 'one unrecognized setting un-managed the whole config'
+    assert config.model == 'openai:gpt-5.6-sol'
+    assert config.settings is not None and config.settings.max_tokens == 2048
+    assert config.settings.temperature is None, 'the bad field itself should still be dropped'
+
+
 def test_a_run_inside_a_resolution_carries_the_version_that_produced_it(
     project: LocalVariableProvider, capfire: CaptureLogfire
 ) -> None:

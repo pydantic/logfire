@@ -192,7 +192,7 @@ def build_baseline(*, instructions: Sequence[Block] = (), model: str | None = No
     '''Describe the agent as written: what it does with Agent Control removed.
 
     This is what an adapter hands
-    [`AgentControl.publish_baseline`][logfire.agent_control.AgentControl.publish_baseline], which
+    [`AgentControl.report_baseline`][logfire.agent_control.AgentControl.report_baseline], which
     reports it to Logfire for the editor to render as the code baseline to diff managed values
     against. It uses the same fields as a published value to say *what exists* rather than *what to
     change*, which it can because a baseline is documentation: nothing ever resolves or applies it. The whole contract -- what a baseline is, and
