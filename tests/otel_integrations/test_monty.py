@@ -226,7 +226,9 @@ def test_instrument_monty_metrics_use_host_views(config_kwargs: dict[str, Any]) 
 
 
 @pytest.mark.anyio
-@pytest.mark.xfail(reason='Requires Monty callback context propagation, not yet released', strict=False)
+@pytest.mark.xfail(
+    reason='Requires callback context propagation expected in Monty 1.0', raises=AssertionError, strict=True
+)
 @pytest.mark.parametrize('code', ['await fetch()', 'pending = fetch()\nawait pending'])
 async def test_instrument_monty_async_callback(exporter: TestExporter, code: str) -> None:
     logfire.instrument_monty()
@@ -252,7 +254,11 @@ async def test_instrument_monty_async_callback(exporter: TestExporter, code: str
     assert spans['run code']['attributes']['output'] == 42
 
 
-@pytest.mark.xfail(reason='Requires Monty callback exception events, not yet released', strict=False)
+@pytest.mark.xfail(
+    reason='Requires callback exception events from context propagation expected in Monty 1.0',
+    raises=AssertionError,
+    strict=True,
+)
 def test_instrument_monty_callback_exception(exporter: TestExporter, logs_exporter: Any) -> None:
     logfire.instrument_monty()
 
@@ -269,7 +275,7 @@ def test_instrument_monty_callback_exception(exporter: TestExporter, logs_export
     run = spans['run code']
     assert call['parent'] == run['context']
     assert call['attributes']['return_value'] == snapshot('raise ValueError: host failed')
-    assert [event['attributes'] for event in call['events']] == snapshot(
+    assert [event['attributes'] for event in call.get('events', [])] == snapshot(
         [
             {
                 'exception.type': 'ValueError',
