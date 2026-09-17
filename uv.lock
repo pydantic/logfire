@@ -26,11 +26,11 @@ exclude-newer-span = "P4D"
 
 [options.exclude-newer-package]
 genai-prices = false
-pydantic-core = false
-pydantic-graph = false
-pydantic-ai-slim = false
-pydantic-evals = false
 pydantic = false
+pydantic-ai-slim = false
+pydantic-core = false
+pydantic-evals = false
+pydantic-graph = false
 pydantic-handlebars = false
 
 [manifest]
@@ -2989,6 +2989,7 @@ dev = [
     { name = "pydantic-ai-slim", extra = ["mcp"] },
     { name = "pydantic-evals" },
     { name = "pydantic-handlebars" },
+    { name = "pydantic-monty" },
     { name = "pymongo" },
     { name = "pymysql" },
     { name = "pyright" },
@@ -3139,6 +3140,7 @@ dev = [
     { name = "pydantic-ai-slim", extras = ["mcp"], specifier = ">=2" },
     { name = "pydantic-evals", specifier = ">=2" },
     { name = "pydantic-handlebars", specifier = ">=0.2.1" },
+    { name = "pydantic-monty", git = "https://github.com/pydantic/monty?subdirectory=packages%2Fpydantic-monty&rev=main" },
     { name = "pymongo", specifier = ">=4.10.1" },
     { name = "pymysql", specifier = ">=1.1.1" },
     { name = "pyright", specifier = "!=1.1.407" },
@@ -5376,6 +5378,28 @@ sdist = { url = "https://files.pythonhosted.org/packages/96/73/e55a1fe1a8788a5fa
 wheels = [
     { url = "https://files.pythonhosted.org/packages/55/11/364bc401f1d8fdb3947079fc43ffdfbfc9132d065981a03a95d2e87440c4/pydantic_handlebars-0.2.1-py3-none-any.whl", hash = "sha256:c713427d6498cf4b66814447d54753a2748f8a8d3a9f00c194192ddb3df61e52", size = 50476, upload-time = "2026-05-25T01:24:37.104Z" },
 ]
+
+[[package]]
+name = "pydantic-monty"
+version = "0.0.23"
+source = { git = "https://github.com/pydantic/monty?subdirectory=packages%2Fpydantic-monty&rev=main#7a22ec0b0e40589dfd62345d62f3dd309aef32c9" }
+dependencies = [
+    { name = "pydantic-monty-client" },
+    { name = "pydantic-monty-runtime" },
+]
+
+[[package]]
+name = "pydantic-monty-client"
+version = "0.0.23"
+source = { git = "https://github.com/pydantic/monty?subdirectory=crates%2Fmonty-python&rev=main#7a22ec0b0e40589dfd62345d62f3dd309aef32c9" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+
+[[package]]
+name = "pydantic-monty-runtime"
+version = "0.0.23"
+source = { git = "https://github.com/pydantic/monty?subdirectory=crates%2Fmonty-runtime&rev=main#7a22ec0b0e40589dfd62345d62f3dd309aef32c9" }
 
 [[package]]
 name = "pydantic-settings"

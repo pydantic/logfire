@@ -81,6 +81,12 @@ views and additional readers.
 
 - **`instrument_monty()` reports that OpenTelemetry instrumentation is unavailable:** upgrade
   `pydantic-monty` to a release that includes `instrument_telemetry()`.
+- **Tool spans appear outside the corresponding Monty call:** nesting spans created inside host
+  functions requires Monty's callback context propagation, which is not available in Monty 0.0.23.
+  Without it, those spans follow the caller's tracing context (the parent span used for new spans).
+  Manual dispatch through `feed_start()` and `snapshot.resume()`, including the current
+  Pydantic AI Harness `CodeMode` implementation, also needs explicit context propagation to nest
+  host-function spans. Calling `logfire.instrument_monty()` alone does not provide it.
 - **No session spans appear:** call `logfire.instrument_monty()` before the first checkout.
 - **Spans appear but pool metrics do not:** create the Monty pool after calling
   `logfire.instrument_monty()`. Pool-wide metrics are connected when the pool is created.

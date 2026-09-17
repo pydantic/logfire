@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest import mock
 
+import anyio
 import pydantic_monty
 import pytest
 from inline_snapshot import snapshot
@@ -11,7 +12,7 @@ from opentelemetry._logs import Logger, LogRecord
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.trace import NonRecordingSpan, Span, Tracer
-from pydantic_monty import CollectString, Monty
+from pydantic_monty import AsyncMonty, CollectString, Monty, MontyRuntimeError
 
 import logfire
 from logfire._internal.integrations import monty as monty_integration
@@ -222,3 +223,130 @@ def test_instrument_monty_metrics_use_host_views(config_kwargs: dict[str, Any]) 
     names = {metric['name'] for metric in get_collected_metrics(metrics_reader)}
     assert 'monty.custom.run.duration' in names
     assert 'monty.run.duration' not in names
+
+
+@pytest.mark.anyio
+@pytest.mark.xfail(reason='Requires Monty callback context propagation, not yet released', strict=False)
+@pytest.mark.parametrize('code', ['await fetch()', 'pending = fetch()\nawait pending'])
+async def test_instrument_monty_async_callback(exporter: TestExporter, code: str) -> None:
+    logfire.instrument_monty()
+
+    async def fetch() -> int:
+        with logfire.span('host callback'):
+            await anyio.sleep(0)
+            logfire.info('after await')
+        return 42
+
+    with logfire.span('parent'):
+        async with AsyncMonty() as pool:
+            async with pool.checkout() as session:
+                assert await session.feed_run(code, external_lookup={'fetch': fetch}) == 42
+
+    spans = {span['name']: span for span in exporter.exported_spans_as_dict(parse_json_attributes=True)}
+    assert spans['session {script_name}']['parent'] == spans['parent']['context']
+    assert spans['run code']['parent'] == spans['session {script_name}']['context']
+    assert spans['call {function_name}']['parent'] == spans['run code']['context']
+    assert spans['host callback']['parent'] == spans['call {function_name}']['context']
+    assert spans['after await']['parent'] == spans['host callback']['context']
+    assert spans['call {function_name}']['attributes']['function_name'] == 'fetch'
+    assert spans['run code']['attributes']['output'] == 42
+
+
+@pytest.mark.xfail(reason='Requires Monty callback exception events, not yet released', strict=False)
+def test_instrument_monty_callback_exception(exporter: TestExporter, logs_exporter: Any) -> None:
+    logfire.instrument_monty()
+
+    def fail() -> None:
+        raise ValueError('host failed')
+
+    with Monty() as pool:
+        with pool.checkout() as session:
+            with pytest.raises(MontyRuntimeError, match='host failed'):
+                session.feed_run('fail()', external_lookup={'fail': fail})
+
+    spans = {span['name']: span for span in exporter.exported_spans_as_dict(parse_json_attributes=True)}
+    call = spans['call {function_name}']
+    run = spans['run code']
+    assert call['parent'] == run['context']
+    assert call['attributes']['return_value'] == snapshot('raise ValueError: host failed')
+    assert [event['attributes'] for event in call['events']] == snapshot(
+        [
+            {
+                'exception.type': 'ValueError',
+                'exception.message': 'host failed',
+                'exception.stacktrace': 'ValueError: host failed',
+                'exception.escaped': 'False',
+            }
+        ]
+    )
+    [error] = logs_exporter.exported_logs_as_dicts()
+    assert error['body'] == snapshot('error ValueError')
+    assert error['severity_number'] == 17
+    assert {
+        key: error['attributes'][key] for key in ('exc_type', 'exc_message', 'traceback', 'logfire.level_num')
+    } == snapshot(
+        {
+            'exc_type': 'ValueError',
+            'exc_message': 'host failed',
+            'traceback': '<python-input-0>:1 in <module>',
+            'logfire.level_num': 17,
+        }
+    )
+    assert error['trace_id'] == run['context']['trace_id']
+    assert error['span_id'] == run['context']['span_id']
+
+
+def test_instrument_monty_scrubbing(exporter: TestExporter, logs_exporter: Any) -> None:
+    logfire.instrument_monty()
+    output = CollectString()
+    secret = 'example-private-value'
+
+    def fetch(password: str) -> dict[str, Any]:
+        return {'password': password, 'answer': 42}
+
+    with Monty() as pool:
+        with pool.checkout() as session:
+            assert session.feed_run(
+                'result = fetch(password=password)\nprint(result)\nresult',
+                inputs={'password': secret},
+                external_lookup={'fetch': fetch},
+                print_callback=output,
+            ) == {'password': secret, 'answer': 42}
+
+    assert secret in output.output
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    logs = logs_exporter.exported_logs_as_dicts()
+    assert secret not in repr(spans)
+    assert secret not in repr(logs)
+    assert [
+        {
+            'name': span['name'],
+            'attributes': {
+                key: value
+                for key, value in span['attributes'].items()
+                if key in {'inputs', 'kwargs', 'return_value', 'output'}
+            },
+        }
+        for span in spans
+    ] == snapshot(
+        [
+            {
+                'name': 'call {function_name}',
+                'attributes': {
+                    'kwargs': {'password': "[Scrubbed due to 'password']"},
+                    'return_value': {'password': "[Scrubbed due to 'password']", 'answer': 42},
+                },
+            },
+            {
+                'name': 'run code',
+                'attributes': {
+                    'inputs': {'password': "[Scrubbed due to 'password']"},
+                    'output': {'password': "[Scrubbed due to 'password']", 'answer': 42},
+                },
+            },
+            {'name': 'session {script_name}', 'attributes': {}},
+        ]
+    )
+    assert [(record['body'], record['attributes']['text']) for record in logs] == snapshot(
+        [('print stdout', "[Scrubbed due to 'password']")]
+    )
