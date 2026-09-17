@@ -84,6 +84,7 @@ litellm = ["logfire-sdk[litellm]==6.0.0b1"]
 dspy = ["logfire-sdk[dspy]==6.0.0b1"]
 datasets = ["logfire-sdk[datasets]==6.0.0b1"]
 variables = ["logfire-sdk[variables]==6.0.0b1"]
+agent-control = ["logfire-sdk[agent-control]==6.0.0b1"]
 
 [project.urls]
 Homepage = "https://pydantic.dev/logfire"
