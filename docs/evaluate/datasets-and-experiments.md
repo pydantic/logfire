@@ -26,6 +26,8 @@ The **New dataset** flow asks how you want to manage cases:
 
 Use stable dataset names so successive runs appear together. Names can contain `/`, which lets the Datasets page group related datasets by path prefix.
 
+The name is also the identity. Logfire keys the Datasets list on it, so a hosted dataset and a code-defined one sharing a name form a single entry carrying both the hosted cases and the experiment history. The choice above is therefore a starting point rather than a commitment: a dataset that begins in code can gain a hosted copy later under the same name.
+
 ## Use the workspace
 
 - [Manage datasets](manage-datasets.md) to find, create, import, and edit test cases.
