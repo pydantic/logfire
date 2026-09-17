@@ -1,6 +1,6 @@
 import argparse
 from _typeshed import Incomplete
-from collections.abc import Collection, Generator, Mapping
+from collections.abc import Callable, Collection, Generator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from logfire._internal.utils import get_version as get_version
@@ -34,6 +34,13 @@ class InstrumentationContext:
     recommendations: set[InstrumentationRecommendation]
 
 def parse_run(args: argparse.Namespace) -> None: ...
+def load_console_entry_point(name: str) -> Callable[[], object] | None:
+    """Load one installed `console_scripts` entry point before local modules can shadow it."""
+@contextmanager
+def without_working_directory_on_sys_path() -> Generator[None, None, None]:
+    """Temporarily give entry-point imports the path behavior of an installed launcher."""
+def run_console_entry_point(entry_point: Callable[[], object], argv: list[str]) -> None:
+    """Run a loaded console entry point with the target command's arguments."""
 @contextmanager
 def alter_sys_argv(argv: list[str], cmd: str) -> Generator[None, None, None]: ...
 def is_uv_installed() -> bool:
