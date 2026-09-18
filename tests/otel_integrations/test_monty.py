@@ -1,26 +1,31 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
+import json
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any, cast
-from unittest import mock
 
 import anyio
 import pydantic_monty
 import pytest
 from inline_snapshot import snapshot
-from opentelemetry._logs import Logger, LogRecord
+from opentelemetry._logs import Logger, LogRecord, SeverityNumber
+from opentelemetry.metrics import Meter
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.metrics.view import View
-from opentelemetry.trace import NonRecordingSpan, Span, Tracer
+from opentelemetry.trace import NonRecordingSpan, Tracer, get_current_span
 from pydantic_monty import AsyncMonty, CollectString, Monty, MontyRuntimeError
 
 import logfire
 from logfire._internal.integrations import monty as monty_integration
 from logfire._internal.integrations.monty import LogfireMontyLogger, LogfireMontyTracer
-from logfire.testing import TestExporter, get_collected_metrics
+from logfire.testing import TestExporter, TestLogExporter, TimeGenerator, get_collected_metrics
 
 
 def test_instrument_monty_dependency_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(monty_integration, '_installed', False)
     monkeypatch.delattr(pydantic_monty, 'instrument_telemetry')
 
     with pytest.raises(ImportError) as exc_info:
@@ -40,40 +45,40 @@ def test_instrument_monty_passes_standard_components(
     def instrument_telemetry(**kwargs: Any) -> None:
         received.update(kwargs)
 
+    monkeypatch.setattr(monty_integration, '_installed', False)
     monkeypatch.setattr(pydantic_monty, 'instrument_telemetry', instrument_telemetry)
     monty_integration.instrument_monty(logfire.DEFAULT_LOGFIRE_INSTANCE)
     assert isinstance(received['tracer'], Tracer)
-    assert received['meter'] is None
+    assert isinstance(received['meter'], Meter)
     assert isinstance(received['logger'], Logger)
-    monty_integration._installed = False  # pyright: ignore[reportPrivateUsage]
 
 
-def test_logfire_standard_component_shims() -> None:
-    delegate_tracer = mock.Mock()
-    span = mock.Mock(spec=Span)
-    delegate_tracer.start_span.return_value = span
-    fake_logfire = SimpleNamespace(
-        config=SimpleNamespace(min_level=10, scrubber=logfire.DEFAULT_LOGFIRE_INSTANCE.config.scrubber),
-        _tags=('monty', 'existing'),
-        _sample_rate=0.5,
-        _console_log=False,
-        _spans_tracer=delegate_tracer,
+def test_logfire_standard_component_shims(
+    exporter: TestExporter, time_generator: TimeGenerator, config_kwargs: dict[str, Any]
+) -> None:
+    logs_exporter = TestLogExporter(time_generator)
+    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
+    logfire.configure(**config_kwargs, min_level='error')
+    scoped = logfire.DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate(0.5).with_settings(
+        tags=['monty', 'existing'], console_log=False
     )
-    tracer = LogfireMontyTracer(cast(Any, fake_logfire))
+    tracer = LogfireMontyTracer(scoped)
 
-    rejected = tracer.start_span('too quiet', attributes={'logfire.level_num': 9})
-    assert isinstance(rejected, NonRecordingSpan)
-    delegate_tracer.start_span.assert_not_called()
+    with logfire.span('parent'):
+        rejected = tracer.start_span('too quiet', attributes={'logfire.level_num': 9})
+        assert isinstance(rejected, NonRecordingSpan)
+        assert rejected.get_span_context() == get_current_span().get_span_context()
 
-    assert (
-        tracer.start_span(
+        with tracer.start_as_current_span(
             'session {script_name}',
             attributes=cast(Any, {'script_name': 'test.py', 'logfire.level_num': 17, 'logfire.tags': ('existing', 1)}),
-        )
-        is span
-    )
-    attributes = delegate_tracer.start_span.call_args.kwargs['attributes']
-    assert attributes == snapshot(
+        ):
+            pass
+
+    spans = exporter.exported_spans_as_dict()
+    assert [span['name'] for span in spans] == ['session {script_name}', 'parent']
+    assert spans[0]['parent'] == spans[1]['context']
+    assert spans[0]['attributes'] == snapshot(
         {
             'script_name': 'test.py',
             'logfire.level_num': 17,
@@ -81,23 +86,35 @@ def test_logfire_standard_component_shims() -> None:
             'logfire.msg_template': 'session {script_name}',
             'logfire.msg': 'session test.py',
             'logfire.sample_rate': 0.5,
+            'logfire.span_type': 'span',
         }
     )
 
-    delegate_logger = mock.Mock(spec=Logger)
-    logger = LogfireMontyLogger(delegate_logger, cast(Any, fake_logfire))
-    record = LogRecord(body=123, attributes={'logfire.tags': 'invalid'})
-    logger.emit(record)
-    assert delegate_logger.emit.call_args.args == (record,)
-    assert record.attributes == snapshot(
-        {
-            'logfire.tags': ('monty', 'existing'),
-            'logfire.disable_console_log': True,
-        }
+    logger = LogfireMontyLogger(scoped.config.get_logger_provider().get_logger('test'), scoped)
+    logger.emit(LogRecord(body=123, attributes={'logfire.tags': 'invalid'}))
+    logger.emit(body='too quiet', severity_number=SeverityNumber.INFO)
+    logger.emit(body='error', severity_number=SeverityNumber.ERROR)
+    assert [
+        {'body': record['body'], 'attributes': record['attributes']}
+        for record in logs_exporter.exported_logs_as_dicts()
+    ] == snapshot(
+        [
+            {'body': 123, 'attributes': {'logfire.tags': ('monty', 'existing'), 'logfire.disable_console_log': True}},
+            {
+                'body': 'error',
+                'attributes': {
+                    'logfire.msg_template': 'error',
+                    'logfire.msg': 'error',
+                    'logfire.level_num': 17,
+                    'logfire.tags': ('monty', 'existing'),
+                    'logfire.disable_console_log': True,
+                },
+            },
+        ]
     )
 
 
-def test_instrument_monty(exporter: TestExporter, logs_exporter: Any) -> None:
+def test_instrument_monty(exporter: TestExporter, logs_exporter: TestLogExporter) -> None:
     logfire.instrument_monty()
     output = CollectString()
 
@@ -178,6 +195,25 @@ def test_instrument_monty_is_idempotent(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_monty_settings_and_reconfiguration() -> None:
+    # Monty's native installation cannot be reset within this process.
+    script = Path(__file__).parents[1] / 'import_used_for_tests' / 'monty_settings.py'
+    result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert {'monty.pool.workers.live', 'monty.run.duration'} <= set(data.pop('metrics'))
+    assert data == snapshot(
+        {
+            'spans': [
+                {'name': 'run code', 'tags': ['monty'], 'sample_rate': 0.5, 'scope': 'logfire.monty'},
+                {'name': 'session {script_name}', 'tags': ['monty'], 'sample_rate': 0.5, 'scope': 'logfire.monty'},
+            ],
+            'logs': [{'body': 'print stdout', 'tags': ['monty'], 'disable_console_log': True}],
+            'printed_log_to_console': False,
+        }
+    )
+
+
 def test_instrument_monty_metrics(metrics_reader: InMemoryMetricReader) -> None:
     logfire.instrument_monty()
 
@@ -225,12 +261,8 @@ def test_instrument_monty_metrics_use_host_views(config_kwargs: dict[str, Any]) 
     assert 'monty.run.duration' not in names
 
 
-@pytest.mark.anyio
-@pytest.mark.xfail(
-    reason='Requires callback context propagation expected in Monty 1.0', raises=AssertionError, strict=True
-)
-@pytest.mark.parametrize('code', ['await fetch()', 'pending = fetch()\nawait pending'])
-async def test_instrument_monty_async_callback(exporter: TestExporter, code: str) -> None:
+@pytest.fixture(params=['await fetch()', 'pending = fetch()\nawait pending'])
+async def monty_async_callback_spans(exporter: TestExporter, request: pytest.FixtureRequest) -> dict[str, Any]:
     logfire.instrument_monty()
 
     async def fetch() -> int:
@@ -242,24 +274,31 @@ async def test_instrument_monty_async_callback(exporter: TestExporter, code: str
     with logfire.span('parent'):
         async with AsyncMonty() as pool:
             async with pool.checkout() as session:
-                assert await session.feed_run(code, external_lookup={'fetch': fetch}) == 42
+                assert await session.feed_run(request.param, external_lookup={'fetch': fetch}) == 42
 
-    spans = {span['name']: span for span in exporter.exported_spans_as_dict(parse_json_attributes=True)}
+    return {span['name']: span for span in exporter.exported_spans_as_dict(parse_json_attributes=True)}
+
+
+@pytest.mark.anyio
+async def test_instrument_monty_async_callback(monty_async_callback_spans: dict[str, Any]) -> None:
+    spans = monty_async_callback_spans
     assert spans['session {script_name}']['parent'] == spans['parent']['context']
     assert spans['run code']['parent'] == spans['session {script_name}']['context']
     assert spans['call {function_name}']['parent'] == spans['run code']['context']
-    assert spans['host callback']['parent'] == spans['call {function_name}']['context']
     assert spans['after await']['parent'] == spans['host callback']['context']
     assert spans['call {function_name}']['attributes']['function_name'] == 'fetch'
     assert spans['run code']['attributes']['output'] == 42
 
 
-@pytest.mark.xfail(
-    reason='Requires callback exception events from context propagation expected in Monty 1.0',
-    raises=AssertionError,
-    strict=True,
-)
-def test_instrument_monty_callback_exception(exporter: TestExporter, logs_exporter: Any) -> None:
+@pytest.mark.anyio
+@pytest.mark.xfail(reason='Monty 0.0.23 lacks callback context propagation', raises=AssertionError, strict=True)
+async def test_instrument_monty_async_callback_parent(monty_async_callback_spans: dict[str, Any]) -> None:
+    spans = monty_async_callback_spans
+    assert spans['host callback']['parent'] == spans['call {function_name}']['context']
+
+
+@pytest.fixture
+def monty_callback_exception_spans(exporter: TestExporter) -> dict[str, Any]:
     logfire.instrument_monty()
 
     def fail() -> None:
@@ -270,21 +309,16 @@ def test_instrument_monty_callback_exception(exporter: TestExporter, logs_export
             with pytest.raises(MontyRuntimeError, match='host failed'):
                 session.feed_run('fail()', external_lookup={'fail': fail})
 
-    spans = {span['name']: span for span in exporter.exported_spans_as_dict(parse_json_attributes=True)}
-    call = spans['call {function_name}']
-    run = spans['run code']
+    return {span['name']: span for span in exporter.exported_spans_as_dict(parse_json_attributes=True)}
+
+
+def test_instrument_monty_callback_exception(
+    monty_callback_exception_spans: dict[str, Any], logs_exporter: TestLogExporter
+) -> None:
+    call = monty_callback_exception_spans['call {function_name}']
+    run = monty_callback_exception_spans['run code']
     assert call['parent'] == run['context']
     assert call['attributes']['return_value'] == snapshot('raise ValueError: host failed')
-    assert [event['attributes'] for event in call.get('events', [])] == snapshot(
-        [
-            {
-                'exception.type': 'ValueError',
-                'exception.message': 'host failed',
-                'exception.stacktrace': 'ValueError: host failed',
-                'exception.escaped': 'False',
-            }
-        ]
-    )
     [error] = logs_exporter.exported_logs_as_dicts()
     assert error['body'] == snapshot('error ValueError')
     assert error['severity_number'] == 17
@@ -302,7 +336,22 @@ def test_instrument_monty_callback_exception(exporter: TestExporter, logs_export
     assert error['span_id'] == run['context']['span_id']
 
 
-def test_instrument_monty_scrubbing(exporter: TestExporter, logs_exporter: Any) -> None:
+@pytest.mark.xfail(reason='Monty 0.0.23 lacks callback exception events', raises=AssertionError, strict=True)
+def test_instrument_monty_callback_exception_event(monty_callback_exception_spans: dict[str, Any]) -> None:
+    call = monty_callback_exception_spans['call {function_name}']
+    assert [event['attributes'] for event in call.get('events', [])] == snapshot(
+        [
+            {
+                'exception.type': 'ValueError',
+                'exception.message': 'host failed',
+                'exception.stacktrace': 'ValueError: host failed',
+                'exception.escaped': 'False',
+            }
+        ]
+    )
+
+
+def test_instrument_monty_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporter) -> None:
     logfire.instrument_monty()
     output = CollectString()
     secret = 'example-private-value'

@@ -8,9 +8,10 @@ integration: logfire
 See what code does inside a [Pydantic Monty](https://github.com/pydantic/monty) sandbox, including
 its inputs, result, host calls, printed output, errors, and time spent running or waiting on the
 host.
-Logfire groups one checkout into a **trace** (the full journey of one request, made of nested spans).
-Each session, code run, and host round trip is a **span** (one unit of work: a single operation, with
-a name, a start, and a duration).
+Each checkout (borrowing a sandbox worker from the pool) creates a session **span** (one unit of work:
+a single operation, with a name, a start, and a duration), with nested spans for code runs and host calls.
+If your application already has a current span, the session joins its **trace** (the full journey of
+one request, made of nested spans). Otherwise, it starts a new trace.
 
 ## What you'll capture
 
@@ -60,9 +61,11 @@ with Monty() as pool:
         assert result == 42
 ```
 
-The integration supplies Monty with OpenTelemetry-compatible tracing, logging, and metrics components
-bound to the configured Logfire instance. The same components work for synchronous and asynchronous pools
-throughout the process. Calling `logfire.instrument_monty()` more than once has no additional effect.
+Both synchronous and asynchronous pools use the same process-wide integration. The first call selects
+the Logfire instance and its instance-specific settings, such as tags set with
+[`with_settings()`][logfire.Logfire.with_settings]. Later calls do not replace them.
+When using the default Logfire instance, you can still update its shared configuration with
+[`logfire.configure()`][logfire.configure], including enabling or disabling metrics.
 
 ## Verify it worked
 
@@ -72,10 +75,9 @@ and duration.
 
 Open the Metrics view to query measurements such as `monty.pool.workers.live` and
 `monty.run.duration`.
-Metrics cover every checkout and use fixed, low-cardinality attributes, so sandbox code cannot create
-new time series by choosing function names, paths, or exception classes. Monty records each measurement
-through Logfire's configured metrics pipeline, including custom [`MetricsOptions`][logfire.MetricsOptions]
-views and additional readers.
+Metrics cover every checkout and use a fixed set of labels, so sandbox code cannot create
+new time series by choosing function names, paths, or exception classes.
+Custom metric aggregation and collection settings in [`MetricsOptions`][logfire.MetricsOptions] also apply.
 
 ## Troubleshoot missing data
 

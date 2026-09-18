@@ -326,7 +326,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        if member == 'instrument_monty':
+        if member == 'instrument_monty' and module_name == 'logfire.':
             # Monty's native instrumentation is process-global and one-shot.
             pass
         elif not (pydantic_pre_2_5 and member == 'instrument_pydantic'):

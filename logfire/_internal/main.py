@@ -1179,8 +1179,11 @@ class Logfire:
         """Instrument Pydantic Monty.
 
         Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
+        The first call selects the Logfire instance and its settings for the whole process;
+        subsequent calls do not replace them. Reconfiguring that instance is still supported.
+
         It records Monty sessions, executed code, inputs, outputs, external calls,
-        exceptions, printed text, and pool metrics. Recorded values may contain sensitive data.
+        exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
         """
         from .integrations.monty import instrument_monty
 

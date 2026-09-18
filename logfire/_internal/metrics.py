@@ -213,13 +213,10 @@ class _ProxyCounter(_ProxyInstrument[Counter], Counter):
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        # Starting with opentelemetry-sdk 1.28.0, these methods accept an additional optional `context` argument.
-        # This is passed to the underlying instrument using `*args, **kwargs` for compatibility with older versions.
-        *args: Any,
-        **kwargs: Any,
+        context: Context | None = None,
     ) -> None:
-        self._increment_span_metric(amount, attributes, _measurement_context(args, kwargs))
-        self._instrument.add(amount, attributes, *args, **kwargs)
+        self._increment_span_metric(amount, attributes, context)
+        self._instrument.add(amount, attributes, context)
 
     def _create_real_instrument(self, meter: Meter) -> Counter:
         return meter.create_counter(**self._kwargs)
@@ -230,18 +227,13 @@ class _ProxyHistogram(_ProxyInstrument[Histogram], Histogram):
         self,
         amount: int | float,
         attributes: Attributes | None = None,
-        *args: Any,
-        **kwargs: Any,
+        context: Context | None = None,
     ) -> None:
-        self._increment_span_metric(amount, attributes, _measurement_context(args, kwargs))
-        self._instrument.record(amount, attributes, *args, **kwargs)
+        self._increment_span_metric(amount, attributes, context)
+        self._instrument.record(amount, attributes, context)
 
     def _create_real_instrument(self, meter: Meter) -> Histogram:
         return meter.create_histogram(**self._kwargs)
-
-
-def _measurement_context(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Context | None:
-    return kwargs.get('context', args[0] if args else None)
 
 
 class _ProxyObservableCounter(_ProxyInstrument[ObservableCounter], ObservableCounter):

@@ -4031,6 +4031,35 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
     )
 
 
+def test_otel_span_zero_timestamps(exporter: TestExporter) -> None:
+    get_tracer(__name__).start_span('epoch', start_time=0).end(end_time=0)
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'epoch',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 0,
+                'end_time': 0,
+                'attributes': {
+                    'logfire.span_type': 'pending_span',
+                    'logfire.msg': 'epoch',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'epoch',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 0,
+                'end_time': 0,
+                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'epoch'},
+            },
+        ]
+    )
+
+
 def test_exit_ended_span(exporter: TestExporter):
     tracer = get_tracer(__name__)
 

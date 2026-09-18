@@ -45,14 +45,13 @@ def instrument_monty(logfire_instance: Logfire) -> None:
             ) from None
 
         scoped = logfire_instance.with_settings(custom_scope_suffix='monty')
-        config = scoped._config  # pyright: ignore[reportPrivateUsage]
+        config = scoped.config
         tracer = LogfireMontyTracer(scoped)
-        meter = None if config.metrics is False else scoped._meter  # pyright: ignore[reportPrivateUsage]
         logger = LogfireMontyLogger(
             config.get_logger_provider().get_logger(scoped._otel_scope, VERSION),  # pyright: ignore[reportPrivateUsage]
             scoped,
         )
-        instrument_telemetry(tracer=tracer, meter=meter, logger=logger)
+        instrument_telemetry(tracer=tracer, meter=scoped._meter, logger=logger)  # pyright: ignore[reportPrivateUsage]
         _installed = True
 
 

@@ -18,6 +18,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricsData,
 )
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
+from opentelemetry.trace import get_tracer, set_span_in_context
 
 import logfire
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
@@ -441,6 +442,44 @@ def test_metrics_in_spans(exporter: TestExporter):
             },
         ]
     )
+
+
+@pytest.mark.parametrize('instrument_type', ['counter', 'histogram'])
+@pytest.mark.parametrize('positional_context', [False, True])
+def test_metrics_in_explicit_span_context(
+    exporter: TestExporter,
+    metrics_reader: InMemoryMetricReader,
+    instrument_type: str,
+    positional_context: bool,
+) -> None:
+    record = (
+        logfire.metric_counter('measurement').add
+        if instrument_type == 'counter'
+        else logfire.metric_histogram('measurement').record
+    )
+    with get_tracer(__name__).start_span('target') as target:
+        context = set_span_in_context(target)
+        with logfire.span('current'):
+            if positional_context:
+                record(10, {}, context)
+                record(30, {}, Context())
+            else:
+                record(10, context=context)
+                record(30, context=Context())
+            record(20)
+
+    assert {
+        span['name']: span['attributes']['logfire.metrics']
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    } == snapshot(
+        {
+            'current': {'measurement': {'details': [{'attributes': {}, 'total': 20}], 'total': 20}},
+            'target': {'measurement': {'details': [{'attributes': {}, 'total': 10}], 'total': 10}},
+        }
+    )
+    [metric] = get_collected_metrics(metrics_reader)
+    [point] = metric['data']['data_points']
+    assert point['value' if instrument_type == 'counter' else 'sum'] == 60
 
 
 def test_metrics_in_spans_disabled(exporter: TestExporter):
