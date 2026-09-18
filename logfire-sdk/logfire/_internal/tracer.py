@@ -246,7 +246,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
 
 def get_parent_span(span: ReadableSpan) -> _LogfireWrappedSpan | None:
-    return span.parent and OPEN_SPANS.get(_open_spans_key(span.parent))
+    parent = getattr(span, 'parent', None)  # NonRecordingSpan has no parent attribute
+    return parent and OPEN_SPANS.get(_open_spans_key(parent))
 
 
 def _open_spans_key(ctx: SpanContext) -> tuple[int, int]:

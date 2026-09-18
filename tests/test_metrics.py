@@ -18,6 +18,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricsData,
 )
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
+from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, ParentBased
 from opentelemetry.trace import get_tracer, set_span_in_context
 
 import logfire
@@ -547,6 +548,36 @@ def test_metrics_in_spans_disabled(exporter: TestExporter):
             }
         ]
     )
+
+
+@pytest.mark.parametrize('instrument_type', ['counter', 'histogram'])
+def test_metrics_in_sampled_out_child_context(
+    exporter: TestExporter,
+    config_kwargs: dict[str, Any],
+    caplog: pytest.LogCaptureFixture,
+    instrument_type: str,
+) -> None:
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=ParentBased(ALWAYS_ON, local_parent_sampled=ALWAYS_OFF)),
+        metrics=logfire.MetricsOptions(collect_in_spans=True),
+    )
+    record = (
+        logfire.metric_counter('measurement').add
+        if instrument_type == 'counter'
+        else logfire.metric_histogram('measurement').record
+    )
+    with logfire.span('parent'):
+        with get_tracer(__name__).start_span('sampled out') as child:
+            assert not child.is_recording()
+            record(10, context=set_span_in_context(child))
+        record(20)
+
+    assert not caplog.records
+    assert {
+        span['name']: span['attributes'].get('logfire.metrics')
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    } == snapshot({'parent': {'measurement': {'details': [{'attributes': {}, 'total': 20}], 'total': 20}}})
 
 
 def test_metrics_in_non_recording_spans(exporter: TestExporter, config_kwargs: dict[str, Any]):
