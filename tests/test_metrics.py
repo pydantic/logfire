@@ -480,6 +480,33 @@ def test_metrics_in_explicit_span_context(
     assert point['value' if instrument_type == 'counter' else 'sum'] == 60
 
 
+@pytest.mark.parametrize('instrument_type', ['counter', 'histogram'])
+def test_metrics_in_closed_span_context(exporter: TestExporter, instrument_type: str) -> None:
+    record = (
+        logfire.metric_counter('measurement').add
+        if instrument_type == 'counter'
+        else logfire.metric_histogram('measurement').record
+    )
+    filtered = logfire.metric_counter('otel.sdk.test')
+    with logfire.span('parent'):
+        with get_tracer(__name__).start_span('target') as target:
+            context = set_span_in_context(target)
+        with logfire.span('current'):
+            record(10, {'key': 'value'}, context=context)
+            filtered.add(20, context=context)
+
+    assert {
+        span['name']: span['attributes'].get('logfire.metrics')
+        for span in exporter.exported_spans_as_dict(parse_json_attributes=True)
+    } == snapshot(
+        {
+            'target': None,
+            'current': None,
+            'parent': {'measurement': {'details': [{'attributes': {'key': 'value'}, 'total': 10}], 'total': 10}},
+        }
+    )
+
+
 def test_metrics_in_spans_disabled(exporter: TestExporter):
     # This method of setting collect_in_spans is a hack because using logfire.configure for this is annoying,
     # this way of doing it isn't guaranteed to work forever.
