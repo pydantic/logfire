@@ -1054,6 +1054,9 @@ navigation:
             slug: "manage/data-regions"
       - section: "Security & Governance"
         contents:
+          - page: "Email Code Sign-In"
+            path: "how-to-guides/email-code-sign-in.md"
+            slug: "manage/email-code-sign-in"
           - page: "Compliance"
             path: "compliance.md"
             source: "plain"

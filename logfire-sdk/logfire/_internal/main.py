@@ -1044,10 +1044,16 @@ class Logfire:
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
 
+        This is only needed with mcp 1.x. Version 2 of the SDK (which fastmcp 4 depends on) emits
+        OpenTelemetry spans and propagates the trace context via `_meta` by itself, so with it
+        `logfire.configure()` is all that's needed. Calling this method there does nothing
+        except emit a `UserWarning` saying so.
+
         Args:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+                Ignored with mcp 2, which always propagates the context.
         """
         from .integrations.mcp import instrument_mcp
 
