@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import functools
+import warnings
 from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any
 
 from mcp.client.session import ClientSession
 from mcp.server import Server
-from mcp.shared.session import BaseSession, ReceiveRequestT, RequestResponder, SendResultT
 from mcp.types import (
     CallToolRequest,
     ClientRequest,
@@ -26,6 +26,22 @@ if TYPE_CHECKING:
 
 
 def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
+    try:
+        from mcp.shared.session import BaseSession, ReceiveRequestT, RequestResponder, SendResultT
+    except ImportError:
+        # mcp 2 (which fastmcp 4 depends on) removed `mcp.shared.session` along with everything patched below.
+        # It emits OpenTelemetry spans and propagates trace context via `_meta` by itself,
+        # so there's nothing left for us to do.
+        message = (
+            '`logfire.instrument_mcp()` is unnecessary with mcp 2 (used by fastmcp 4) and does nothing. '
+            'The MCP SDK now emits OpenTelemetry spans and propagates trace context via `_meta` by itself, '
+            'so `logfire.configure()` is all that is needed.'
+        )
+        if not propagate_otel_context:
+            message += ' `propagate_otel_context=False` is ignored because the SDK always propagates context.'
+        warnings.warn(message, UserWarning, stacklevel=3)
+        return
+
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='mcp')
 
     original_send_request = BaseSession.send_request  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]

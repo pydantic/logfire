@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 import unittest.mock
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +60,10 @@ logfire.configure(send_to_logfire=False)
 try:
     # This is just a simple way to perform this once.
     # There are multiple tests that use it and we don't currently have a way to uninstrument.
-    logfire.instrument_mcp()
+    with warnings.catch_warnings():
+        # With mcp 2 the call is unnecessary and says so with a UserWarning, which is irrelevant here.
+        warnings.simplefilter('ignore', UserWarning)
+        logfire.instrument_mcp()
 except ImportError:
     pass
 

@@ -85,6 +85,12 @@ With both scripts running, open the [Live view](../../guides/web-ui/live.md). Wi
 
 ![Logfire MCP Trace](../../images/logfire-screenshot-mcp.png)
 
+## MCP SDK version 2 and fastmcp 4
+
+Version 2 of the MCP Python SDK (`mcp>=2`, which fastmcp 4 depends on) emits OpenTelemetry spans and passes the trace context between client and server on its own. With it, `logfire.configure()` is all you need on each side, and you get the same joined trace without calling `logfire.instrument_mcp()`. Calling it anyway does nothing except emit a warning saying it's unnecessary.
+
+The examples on this page target version 1 of the SDK: `mcp.server.fastmcp` no longer exists in version 2, where the same server class is `mcp.server.mcpserver.MCPServer`. To keep running them as written, pin `mcp<2`.
+
 ## Troubleshooting
 
 Not seeing data? Check that `logfire.configure()` ran before `instrument_mcp()` in each process, that your write token is set, and that you called the instrument function exactly once per process. Only seeing one side of the trace? Make sure you instrumented both the client and the server.
