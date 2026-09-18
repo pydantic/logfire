@@ -12,6 +12,8 @@ A session replay records changes to the page's document structure and user inter
 
     Session Replay is available in early access. [Contact Pydantic](https://pydantic.dev/contact) if you are interested.
 
+{{ video("e49bf181d6a087689147e170f104b86a") }}
+
 ## Record sessions
 
 1. Create a frontend application under **Project settings → Frontend applications** and add its generated browser setup to your application.
