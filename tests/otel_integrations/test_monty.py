@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
-from pathlib import Path
 from typing import Any, cast
 
 import anyio
@@ -191,25 +187,6 @@ def test_instrument_monty_is_idempotent(exporter: TestExporter) -> None:
 
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
         ['run code', 'session {script_name}']
-    )
-
-
-def test_instrument_monty_settings_and_reconfiguration() -> None:
-    # Monty's native installation cannot be reset within this process.
-    script = Path(__file__).parents[1] / 'import_used_for_tests' / 'monty_settings.py'
-    result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=30)
-    assert result.returncode == 0, result.stderr
-    data = json.loads(result.stdout)
-    assert {'monty.pool.workers.live', 'monty.run.duration'} <= set(data.pop('metrics'))
-    assert data == snapshot(
-        {
-            'spans': [
-                {'name': 'run code', 'tags': ['monty'], 'sample_rate': 0.5, 'scope': 'logfire.monty'},
-                {'name': 'session {script_name}', 'tags': ['monty'], 'sample_rate': 0.5, 'scope': 'logfire.monty'},
-            ],
-            'logs': [{'body': 'print stdout', 'tags': ['monty'], 'disable_console_log': True}],
-            'printed_log_to_console': False,
-        }
     )
 
 

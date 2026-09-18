@@ -64,8 +64,6 @@ with Monty() as pool:
 Both synchronous and asynchronous pools use the same process-wide integration. The first call selects
 the Logfire instance and its instance-specific settings, such as tags set with
 [`with_settings()`][logfire.Logfire.with_settings]. Later calls do not replace them.
-When using the default Logfire instance, you can still update its shared configuration with
-[`logfire.configure()`][logfire.configure], including enabling or disabling metrics.
 
 ## Verify it worked
 

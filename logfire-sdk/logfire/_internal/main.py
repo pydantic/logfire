@@ -1207,7 +1207,7 @@ class Logfire:
 
         Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
         The first call selects the Logfire instance and its settings for the whole process;
-        subsequent calls do not replace them. Reconfiguring that instance is still supported.
+        subsequent calls do not replace them.
 
         It records Monty sessions, executed code, inputs, outputs, external calls,
         exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
