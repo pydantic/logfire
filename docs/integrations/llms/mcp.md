@@ -33,7 +33,7 @@ pip install 'mcp<2' 'pydantic-ai-slim[mcp,openai]'
 
 ## Usage
 
-Call `logfire.configure()`, then [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp]. This works on both the client and server side. Calling it in both processes is recommended, so the spans join into one distributed trace.
+With version 1 of the MCP SDK, call `logfire.configure()`, then [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp]. This works on both the client and server side. Calling it in both processes is recommended, so the spans join into one distributed trace. With version 2 of the SDK, or fastmcp 4, `logfire.configure()` alone is enough: see [MCP SDK version 2 and fastmcp 4](#mcp-sdk-version-2-and-fastmcp-4) below.
 
 The example below uses [Pydantic AI](https://pydantic.dev/docs/ai/mcp/client/) as the client (any MCP client works) and OpenAI as the model. To use a different provider, replace `openai:gpt-4o` in the client script with another model name Pydantic AI supports.
 
@@ -93,7 +93,7 @@ The examples on this page target version 1 of the SDK, which is why the install 
 
 ## Troubleshooting
 
-Not seeing data? Check that `logfire.configure()` ran before `instrument_mcp()` in each process, that your write token is set, and that you called the instrument function exactly once per process. Only seeing one side of the trace? Make sure you instrumented both the client and the server.
+Not seeing data? Check that `logfire.configure()` ran in each process and that your write token is set. With version 1 of the SDK, also check that `instrument_mcp()` ran after `logfire.configure()`, exactly once per process. Only seeing one side of the trace? Make sure both the client and the server are set up as above.
 
 ## Reference
 
