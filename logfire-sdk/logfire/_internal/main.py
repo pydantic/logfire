@@ -1044,10 +1044,16 @@ class Logfire:
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
 
+        This is only needed with mcp 1.x. Version 2 of the SDK (which fastmcp 4 depends on) emits
+        OpenTelemetry spans and propagates the trace context via `_meta` by itself, so with it
+        `logfire.configure()` is all that's needed. Calling this method there does nothing
+        except emit a `UserWarning` saying so.
+
         Args:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+                Ignored with mcp 2, which always propagates the context.
         """
         from .integrations.mcp import instrument_mcp
 
@@ -1201,6 +1207,21 @@ class Logfire:
             include_binary_content=include_binary_content,
             **kwargs,
         )
+
+    def instrument_monty(self) -> None:
+        """Instrument Pydantic Monty.
+
+        Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
+        The first call selects the Logfire instance and its settings for the whole process;
+        subsequent calls do not replace them.
+
+        It records Monty sessions, executed code, inputs, outputs, external calls,
+        exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
+        """
+        from .integrations.monty import instrument_monty
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_monty(self)
 
     def instrument_fastapi(
         self,

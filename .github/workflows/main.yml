@@ -222,6 +222,13 @@ jobs:
           -W 'ignore:Unclosed <MemoryObject:ResourceWarning'
         env:
           COVERAGE_FILE: coverage/.coverage.litestar-2.11
+      - name: Test mcp 2 / fastmcp 4 compatibility
+        if: matrix.python-version == '3.12' && matrix.pydantic-version == '2'
+        run: >-
+          uv run --no-sync --with 'fastmcp>=4' coverage run -m pytest
+          tests/otel_integrations/test_mcp_v2.py --record-mode=none
+        env:
+          COVERAGE_FILE: coverage/.coverage.mcp-2
       - name: store coverage files
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:

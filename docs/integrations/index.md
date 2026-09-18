@@ -39,6 +39,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
 - _Testing_: Pytest
+- _Sandboxed code execution_: Pydantic Monty
 - and more, such as Stripe, AWS Lambda, and system metrics.
 
 The below table lists these integrations and any corresponding `logfire.instrument_<package>()` calls:
@@ -47,6 +48,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | ----------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Pydantic Validation](pydantic.md)        | Data Validation         | [`logfire.instrument_pydantic()`][logfire.Logfire.instrument_pydantic]                                                                                                 |
 | [Pydantic AI](llms/pydanticai.md)         | AI                      | [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai]                                                                                           |
+| [Pydantic Monty](monty.md)                | Sandboxed Code Execution | [`logfire.instrument_monty()`][logfire.Logfire.instrument_monty]                                                                                                      |
 | [AIOHTTP](http-clients/aiohttp.md)        | HTTP Client             | [`logfire.instrument_aiohttp_client()`,][logfire.Logfire.instrument_aiohttp_client] [`logfire.instrument_aiohttp_server()`][logfire.Logfire.instrument_aiohttp_server] |
 | [Airflow](event-streams/airflow.md)       | Task Scheduler          | N/A (built in, config needed)                                                                                                                                          |
 | [Anthropic](llms/anthropic.md)            | AI                      | [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic]                                                                                               |

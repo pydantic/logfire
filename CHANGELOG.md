@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v6.0.0b3] (2026-09-18)
+
+* Require `logfire-cli` 0.1.5 or later in the `logfire` compatibility package.
+
 ## [v6.0.0b2] (2026-09-17)
 
 * Require `logfire-cli` 0.1.4 or later in the `logfire` compatibility package.
@@ -1313,3 +1317,4 @@ First release from new repo!
 [v5.1.0]: https://github.com/pydantic/logfire/compare/v5.0.0...v5.1.0
 [v6.0.0b1]: https://github.com/pydantic/logfire/compare/v5.1.0...v6.0.0b1
 [v6.0.0b2]: https://github.com/pydantic/logfire/compare/v6.0.0b1...v6.0.0b2
+[v6.0.0b3]: https://github.com/pydantic/logfire/compare/v6.0.0b2...v6.0.0b3
