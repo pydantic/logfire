@@ -37,6 +37,7 @@ CLIENT_BASE_URL = 'http://localhost:3000'
 CLIENT_READ_TOKEN = 'pylf_v1_local_ZQHXp1vFjkR0dWxyQ8jCB4DPDlpd4752XWjpcNtdsPB6'
 # Disable compression so cassettes record human-readable response bodies:
 CLIENT_KWARGS: dict[str, Any] = {'headers': {'accept-encoding': 'identity'}}
+MIN_TIMESTAMP = datetime(2020, 1, 1, tzinfo=timezone.utc)
 pytestmark = pytest.mark.vcr()
 
 
@@ -90,53 +91,6 @@ async def test_info_async():
         )
 
 
-def test_query_json_read_sync():
-    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS) as client:
-        sql = """
-        SELECT kind, message, is_exception, tags
-        FROM records
-        ORDER BY is_exception, message
-        LIMIT 2
-        """
-        with pytest.warns(DeprecationWarning) as warnings_record:
-            result = client.query_json(sql)  # type: ignore[reportDeprecated]
-
-        assert any('query_json() is deprecated' in str(w.message) for w in warnings_record)
-        assert result == snapshot(
-            {
-                'columns': [
-                    {
-                        'name': 'kind',
-                        'datatype': 'Utf8',
-                        'nullable': False,
-                        'values': ['log', 'log'],
-                    },
-                    {
-                        'name': 'message',
-                        'datatype': 'Utf8',
-                        'nullable': False,
-                        'values': ['about to raise an error', 'aha 0'],
-                    },
-                    {
-                        'name': 'is_exception',
-                        'datatype': 'Boolean',
-                        'nullable': True,
-                        'values': [False, False],
-                    },
-                    {
-                        'name': 'tags',
-                        'datatype': {'List': {'name': 'item', 'nullable': True, 'datatype': 'Utf8'}},
-                        'nullable': True,
-                        'values': [
-                            [],
-                            ['tag1', 'tag2'],
-                        ],
-                    },
-                ]
-            }
-        )
-
-
 def test_query_json_rows_read_sync():
     with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS) as client:
         sql = """
@@ -145,8 +99,7 @@ def test_query_json_rows_read_sync():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
-            rows_result = client.query_json_rows(sql)  # type: ignore[reportDeprecated]
+        rows_result = client.query_json_rows(sql, min_timestamp=MIN_TIMESTAMP)
 
         assert rows_result == snapshot(
             {
@@ -186,8 +139,7 @@ def test_query_csv_read_sync():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
-            csv_result = client.query_csv(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
+        csv_result = client.query_csv(sql, min_timestamp=MIN_TIMESTAMP)
         assert csv_result == snapshot("""\
 kind,message,is_exception,tags
 log,about to raise an error,false,[]
@@ -203,8 +155,7 @@ def test_query_arrow_read_sync():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
-            arrow_result = client.query_arrow(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
+        arrow_result = client.query_arrow(sql, min_timestamp=MIN_TIMESTAMP)
         assert arrow_result.to_pylist() == snapshot(
             [
                 {
@@ -224,56 +175,6 @@ def test_query_arrow_read_sync():
 
 
 @pytest.mark.anyio
-async def test_query_json_read_async():
-    async with AsyncLogfireQueryClient(
-        read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS
-    ) as client:
-        sql = """
-        SELECT kind, message, is_exception, tags
-        FROM records
-        ORDER BY is_exception, message
-        LIMIT 2
-        """
-        with pytest.warns(DeprecationWarning) as warnings_record:
-            result = await client.query_json(sql)  # type: ignore[reportDeprecated]
-
-        assert any('query_json() is deprecated' in str(w.message) for w in warnings_record)
-        assert result == snapshot(
-            {
-                'columns': [
-                    {
-                        'name': 'kind',
-                        'datatype': 'Utf8',
-                        'nullable': False,
-                        'values': ['log', 'log'],
-                    },
-                    {
-                        'name': 'message',
-                        'datatype': 'Utf8',
-                        'nullable': False,
-                        'values': ['about to raise an error', 'aha 0'],
-                    },
-                    {
-                        'name': 'is_exception',
-                        'datatype': 'Boolean',
-                        'nullable': True,
-                        'values': [False, False],
-                    },
-                    {
-                        'name': 'tags',
-                        'datatype': {'List': {'name': 'item', 'nullable': True, 'datatype': 'Utf8'}},
-                        'nullable': True,
-                        'values': [
-                            [],
-                            ['tag1', 'tag2'],
-                        ],
-                    },
-                ]
-            }
-        )
-
-
-@pytest.mark.anyio
 async def test_query_json_rows_read_async():
     async with AsyncLogfireQueryClient(
         read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS
@@ -284,8 +185,7 @@ async def test_query_json_rows_read_async():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
-            rows_result = await client.query_json_rows(sql)  # type: ignore[reportDeprecated]
+        rows_result = await client.query_json_rows(sql, min_timestamp=MIN_TIMESTAMP)
         assert rows_result == snapshot(
             {
                 'columns': [
@@ -327,8 +227,7 @@ async def test_query_csv_read_async():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
-            csv_result = await client.query_csv(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
+        csv_result = await client.query_csv(sql, min_timestamp=MIN_TIMESTAMP)
         assert csv_result == snapshot("""\
 kind,message,is_exception,tags
 log,about to raise an error,false,[]
@@ -347,8 +246,7 @@ async def test_query_arrow_read_async():
         ORDER BY is_exception, message
         LIMIT 2
         """
-        with pytest.warns(DeprecationWarning, match='without a min_timestamp'):
-            arrow_result = await client.query_arrow(sql, min_timestamp=None)  # type: ignore[reportDeprecated]
+        arrow_result = await client.query_arrow(sql, min_timestamp=MIN_TIMESTAMP)
         assert arrow_result.to_pylist() == snapshot(
             [
                 {
@@ -368,9 +266,6 @@ async def test_query_arrow_read_async():
 
 
 def test_query_params_sync():
-    # `_MIN_DATETIME` matches the SDK's default min_timestamp, so the request body
-    # (and the recorded cassette) is identical to omitting `min_timestamp`.
-    min_ts = datetime(2020, 1, 1, tzinfo=timezone.utc)
     with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS) as client:
         sql = """
         SELECT is_exception, count(*)
@@ -378,7 +273,7 @@ def test_query_params_sync():
         GROUP BY is_exception
         ORDER BY is_exception
         """
-        assert client.query_csv(sql, min_timestamp=min_ts) == snapshot("""\
+        assert client.query_csv(sql, min_timestamp=MIN_TIMESTAMP) == snapshot("""\
 is_exception,count(*)
 false,37
 true,1
@@ -386,10 +281,10 @@ true,1
         assert client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
 is_exception,count(*)
 """)
-        assert client.query_csv(sql, min_timestamp=min_ts, max_timestamp=min_ts) == snapshot("""\
+        assert client.query_csv(sql, min_timestamp=MIN_TIMESTAMP, max_timestamp=MIN_TIMESTAMP) == snapshot("""\
 is_exception,count(*)
 """)
-        assert client.query_csv(sql, min_timestamp=min_ts, limit=1) == snapshot("""\
+        assert client.query_csv(sql, min_timestamp=MIN_TIMESTAMP, limit=1) == snapshot("""\
 is_exception,count(*)
 false,37
 """)
@@ -397,9 +292,6 @@ false,37
 
 @pytest.mark.anyio
 async def test_query_params_async():
-    # `_MIN_DATETIME` matches the SDK's default min_timestamp, so the request body
-    # (and the recorded cassette) is identical to omitting `min_timestamp`.
-    min_ts = datetime(2020, 1, 1, tzinfo=timezone.utc)
     async with AsyncLogfireQueryClient(
         read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL, **CLIENT_KWARGS
     ) as client:
@@ -409,7 +301,7 @@ async def test_query_params_async():
         GROUP BY is_exception
         ORDER BY is_exception
         """
-        assert await client.query_csv(sql, min_timestamp=min_ts) == snapshot("""\
+        assert await client.query_csv(sql, min_timestamp=MIN_TIMESTAMP) == snapshot("""\
 is_exception,count(*)
 false,37
 true,1
@@ -417,10 +309,10 @@ true,1
         assert await client.query_csv(sql, min_timestamp=datetime(2030, 1, 1, tzinfo=timezone.utc)) == snapshot("""\
 is_exception,count(*)
 """)
-        assert await client.query_csv(sql, min_timestamp=min_ts, max_timestamp=min_ts) == snapshot("""\
+        assert await client.query_csv(sql, min_timestamp=MIN_TIMESTAMP, max_timestamp=MIN_TIMESTAMP) == snapshot("""\
 is_exception,count(*)
 """)
-        assert await client.query_csv(sql, min_timestamp=min_ts, limit=1) == snapshot("""\
+        assert await client.query_csv(sql, min_timestamp=MIN_TIMESTAMP, limit=1) == snapshot("""\
 is_exception,count(*)
 false,37
 """)
@@ -455,6 +347,20 @@ def test_query_methods_share_docstring():
     doc = reference_doc[reference_doc.index('Args:') :]
     for method in others:
         assert doc in inspect.cleandoc(method.__doc__)
+
+
+@pytest.mark.parametrize('client_class', [AsyncLogfireQueryClient, LogfireQueryClient])
+def test_query_method_signatures(client_class: type[AsyncLogfireQueryClient | LogfireQueryClient]):
+    assert not hasattr(client_class, 'query_json')
+
+    for method_name in ('query_arrow', 'query_csv', 'query_json_rows'):
+        parameters = inspect.signature(getattr(client_class, method_name)).parameters
+        assert parameters['sql'].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+        assert parameters['min_timestamp'].default is inspect.Parameter.empty
+        assert all(
+            parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
+            for name in ('min_timestamp', 'max_timestamp', 'limit', 'timezone', 'environment')
+        )
 
 
 def test_query_json_rows_methods_share_returns_docstring():

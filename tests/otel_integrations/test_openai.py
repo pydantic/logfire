@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import json
 from collections.abc import AsyncIterator, Iterator
+from inspect import signature
 from io import BytesIO
 from typing import Any
 
@@ -768,15 +769,33 @@ def test_normalize_versions_validation() -> None:
     from logfire._internal.integrations.llm_providers.semconv import normalize_versions
 
     assert normalize_versions(1) == frozenset({1})
-    assert normalize_versions('latest') == frozenset({'latest'})
-    assert normalize_versions([1, 'latest']) == frozenset({1, 'latest'})
+    assert normalize_versions(2) == frozenset({2})
+    assert normalize_versions('latest') == frozenset({2})
+    assert normalize_versions([1, 'latest']) == frozenset({1, 2})
+    assert normalize_versions([2, 'latest']) == frozenset({2})
 
     with pytest.raises(ValueError, match='Invalid semconv version'):
-        normalize_versions(2)  # type: ignore
+        normalize_versions(3)  # type: ignore
     with pytest.raises(ValueError, match='Invalid semconv version'):
         normalize_versions('v2')  # type: ignore
     with pytest.raises(ValueError, match='At least one semconv version'):
         normalize_versions([])
+
+
+def test_semconv_version_defaults() -> None:
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    assert signature(logfire.instrument_openai).parameters['version'].default == 2
+
+    class MockOptions:
+        url = '/chat/completions'
+        json_data = {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'Hello'}]}
+
+    config = get_endpoint_config(MockOptions())  # type: ignore
+    assert config.span_data['request_data'] == {'model': 'gpt-4'}
+    assert config.span_data['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    ]
 
 
 async def test_async_chat_completions(instrumented_async_client: openai.AsyncClient, exporter: TestExporter) -> None:
@@ -4303,15 +4322,15 @@ def test_inputs_to_events_no_inputs() -> None:
     )
 
 
-def test_get_endpoint_config_chat_completions_latest_empty_messages() -> None:
-    """Test get_endpoint_config for /chat/completions with latest version and empty messages."""
+def test_get_endpoint_config_chat_completions_v2_empty_messages() -> None:
+    """Test get_endpoint_config for /chat/completions with version 2 and empty messages."""
     from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
 
     class MockOptions:
         url = '/chat/completions'
         json_data: dict[str, Any] = {'model': 'gpt-4', 'messages': []}
 
-    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
     assert config.message_template == 'Chat Completion with {request_data[model]!r}'
     assert 'gen_ai.input.messages' not in config.span_data
 
@@ -4330,29 +4349,29 @@ def test_get_endpoint_config_responses_v1_only() -> None:
     assert 'gen_ai.input.messages' not in config.span_data
 
 
-def test_get_endpoint_config_responses_latest_only() -> None:
-    """Test get_endpoint_config for /responses with version='latest' only."""
+def test_get_endpoint_config_responses_v2_only() -> None:
+    """Test get_endpoint_config for /responses with version 2 only."""
     from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
 
     class MockOptions:
         url = '/responses'
         json_data = {'model': 'gpt-4.1', 'input': 'Hello'}
 
-    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
     assert config.message_template == 'Responses API with {gen_ai.request.model!r}'
     assert 'events' not in config.span_data
     assert 'gen_ai.input.messages' in config.span_data
 
 
-def test_get_endpoint_config_responses_latest_no_inputs() -> None:
-    """Test get_endpoint_config for /responses with latest but no inputs."""
+def test_get_endpoint_config_responses_v2_no_inputs() -> None:
+    """Test get_endpoint_config for /responses with version 2 but no inputs."""
     from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
 
     class MockOptions:
         url = '/responses'
         json_data = {'model': 'gpt-4.1'}
 
-    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    config = get_endpoint_config(MockOptions(), version=2)  # type: ignore
     assert 'gen_ai.input.messages' not in config.span_data
     assert 'gen_ai.system_instructions' not in config.span_data
 
@@ -4513,14 +4532,14 @@ def test_convert_responses_outputs_non_text_content() -> None:
     )
 
 
-def test_completion_stream_state_version_latest_only() -> None:
-    """Test OpenaiCompletionStreamState.get_attributes with version='latest'."""
+def test_completion_stream_state_version_v2_only() -> None:
+    """Test OpenaiCompletionStreamState.get_attributes with version 2."""
     from logfire._internal.integrations.llm_providers.openai import (
         OpenaiCompletionStreamState,
         _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
     )
 
-    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({'latest'}))
+    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({2}))
     state = stream_cls()
     state._content = ['Hello', ' world']  # type: ignore[attr-defined]
 
@@ -4531,14 +4550,14 @@ def test_completion_stream_state_version_latest_only() -> None:
     )
 
 
-def test_completion_stream_state_version_latest_empty_content() -> None:
-    """Test OpenaiCompletionStreamState with latest version but no content."""
+def test_completion_stream_state_version_v2_empty_content() -> None:
+    """Test OpenaiCompletionStreamState with version 2 but no content."""
     from logfire._internal.integrations.llm_providers.openai import (
         OpenaiCompletionStreamState,
         _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
     )
 
-    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({'latest'}))
+    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({2}))
     state = stream_cls()
 
     result = state.get_attributes({})
@@ -4571,8 +4590,8 @@ def test_responses_stream_state_version_specific() -> None:
         _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
     )
 
-    # Test with 'latest' only and a truthy response
-    stream_cls = _versioned_stream_cls(OpenaiResponsesStreamState, frozenset({'latest'}))
+    # Test with version 2 only and a truthy response
+    stream_cls = _versioned_stream_cls(OpenaiResponsesStreamState, frozenset({2}))
     state = stream_cls()
     mock_response_latest = MagicMock()
     mock_response_latest.output = []
@@ -4988,7 +5007,7 @@ def test_get_endpoint_config_chat_completions_agent_span() -> None:
         json_data = {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'Hi'}]}
 
     with patch('logfire._internal.integrations.llm_providers.openai.is_current_agent_span', return_value=True):
-        config = get_endpoint_config(MockOptions(), version=frozenset({1, 'latest'}))  # type: ignore
+        config = get_endpoint_config(MockOptions(), version=frozenset({1, 2}))  # type: ignore
 
     assert config.message_template == ''
     assert config.span_data == {}
@@ -5005,7 +5024,7 @@ def test_get_endpoint_config_responses_agent_span() -> None:
         json_data = {'model': 'gpt-4.1', 'input': 'Hello'}
 
     with patch('logfire._internal.integrations.llm_providers.openai.is_current_agent_span', return_value=True):
-        config = get_endpoint_config(MockOptions(), version=frozenset({1, 'latest'}))  # type: ignore
+        config = get_endpoint_config(MockOptions(), version=frozenset({1, 2}))  # type: ignore
 
     assert config.message_template == ''
     assert config.span_data == {}

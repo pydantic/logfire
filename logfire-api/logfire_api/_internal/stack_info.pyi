@@ -10,7 +10,11 @@ NON_USER_CODE_PREFIXES: tuple[str, ...]
 def add_non_user_code_prefix(path: str | Path) -> None:
     """Add a path to the list of prefixes that are considered non-user code.
 
-    This prevents the stack info from including frames from the given path.
+    This has two effects for code under the given path:
+
+    - Its frames are left out of the stack info recorded on spans and logs.
+    - Its pydantic models aren't instrumented by `logfire.instrument_pydantic` unless
+      [`include`][logfire.PydanticPlugin.include] names them explicitly.
 
     This is for advanced users and shouldn't often be needed.
     By default, the following prefixes are already included:
@@ -38,14 +42,18 @@ def get_user_frame_and_stacklevel() -> tuple[FrameType | None, int]:
     See is_user_code for details.
     Returns `(None, 0)` if no such frame is found.
     """
+def is_non_user_path(path: str | Path) -> bool:
+    """Check if the file path is in a location that doesn't contain user code.
+
+    Specifically the standard library, site-packages (wherever opentelemetry is installed),
+    the logfire package, and anything registered with `add_non_user_code_prefix`.
+    """
 def is_user_code(code: CodeType) -> bool:
     """Check if the code object is from user code.
 
     A code object is not user code if:
     - It is from a file in
-        - the standard library
-        - site-packages (specifically wherever opentelemetry is installed)
-        - the logfire package
+        - a non-user location, see `is_non_user_path`
         - an unknown location (e.g. a dynamically generated code object) indicated by a filename starting with '<'
     - It is a list/dict/set comprehension.
         These are artificial frames only created before Python 3.12,

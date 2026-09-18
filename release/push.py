@@ -1,17 +1,22 @@
 import re
 
 import requests
+from packaging.version import Version
 
-from release.shared import CHANGELOG_FILE, GITHUB_TOKEN, REPO, run_command
+from release.shared import CHANGELOG_FILE, REPO, get_github_token, run_command
+
+CHANGELOG_VERSION_RE = re.compile(r'^## \[v([^]]+)\]')
 
 
 def get_latest_version_from_changelog() -> str:
     """Get the most recently listed version from the changelog."""
     with open(CHANGELOG_FILE) as f:
         for line in f:
-            match = re.match(r'^## \[v(\d+\.\d+\.\d+)\]', line)
+            match = CHANGELOG_VERSION_RE.match(line)
             if match:
-                return match.group(1)
+                version = match.group(1)
+                Version(version)
+                return version
     raise ValueError('Latest version not found in changelog')
 
 
@@ -19,8 +24,9 @@ def get_latest_release_notes_from_changelog() -> str:
     """Get the release notes for the latest version from the changelog."""
     with open(CHANGELOG_FILE) as f:
         for line in f:
-            match = re.match(r'^## \[v(\d+\.\d+\.\d+)\]', line)
+            match = CHANGELOG_VERSION_RE.match(line)
             if match:
+                Version(match.group(1))
                 break
         else:
             raise ValueError('Latest version not found in changelog')
@@ -36,13 +42,13 @@ def get_latest_release_notes_from_changelog() -> str:
 def create_github_release_draft(version: str, release_notes: str):
     """Create a GitHub release draft."""
     url = f'https://api.github.com/repos/{REPO}/releases'
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    headers = {'Authorization': f'token {get_github_token()}'}
     data = {
         'tag_name': f'v{version}',
         'name': f'v{version}',
         'body': release_notes,
         'draft': True,
-        'prerelease': False,
+        'prerelease': Version(version).is_prerelease,
     }
     response = requests.post(url, json=data, headers=headers)
     response.raise_for_status()
@@ -64,7 +70,7 @@ def commit_and_push_changes(version: str) -> None:
 def open_pull_request(version: str):
     """Open a pull request on GitHub."""
     url = f'https://api.github.com/repos/{REPO}/pulls'
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    headers = {'Authorization': f'token {get_github_token()}'}
     data = {
         'title': f'Release v{version}',
         'head': f'release/v{version}',

@@ -22,7 +22,7 @@ logfire.instrument_httpx()
 # ... your application code here ...
 ```
 
-Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [no-code platforms](no-code/index.md) and [OpenRouter Broadcast](llms/openrouter.md).
+Some platforms send OpenTelemetry data directly, without installing the Logfire SDK. See the setup guides for [Codex](codex.md), [no-code platforms](no-code/index.md), and [OpenRouter Broadcast](llms/openrouter.md).
 
 If a package you are using is not listed in this documentation, please let us know on our [Slack][slack]!
 
@@ -34,7 +34,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _AI Agent Frameworks_ (Python, TypeScript, Go, Rust, .NET): CrewAI, AutoGen, Google ADK, smolagents, Strands, Agno, Haystack, Semantic Kernel, Vercel AI SDK, Mastra, Rig, and more. See [Agent Frameworks](agent-frameworks/index.md).
 - _No-code AI and workflow platforms_: Dify, Flowise, Goose, Langflow, LobeChat, n8n, and Open WebUI ([setup guides](no-code/index.md))
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
-- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch
+- _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery, Elasticsearch, Snowflake
 - _HTTP Clients_: HTTPX, HTTPX2, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
@@ -90,8 +90,10 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Requests](http-clients/requests.md)      | HTTP Client             | [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests]                                                                                                 |
 | [SQLAlchemy](databases/sqlalchemy.md)     | Database                | [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy]                                                                                             |
 | [SQLite3](databases/sqlite3.md)           | Database                | [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3]                                                                                                   |
+| [Snowflake](databases/snowflake.md)       | Database                | [`logfire.instrument_snowflake()`][logfire.Logfire.instrument_snowflake]                                                                                               |
 | [Standard Library Logging](logging.md)    | Logging                 | See documentation                                                                                                                                                      |
 | [Starlette](web-frameworks/starlette.md)  | Web Framework           | [`logfire.instrument_starlette()`][logfire.Logfire.instrument_starlette]                                                                                               |
+| [Litestar](web-frameworks/litestar.md)    | Web Framework           | [`logfire.instrument_litestar()`][logfire.Logfire.instrument_litestar]                                                                                                 |
 | [Stripe](stripe.md)                       | Payment Gateway         | N/A (requires other instrumentations)                                                                                                                                  |
 | [Structlog](structlog.md)                 | Logging                 | See documentation                                                                                                                                                      |
 | [System Metrics](system-metrics.md)       | System Metrics          | [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]                                                                                     |
