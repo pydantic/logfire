@@ -10,6 +10,8 @@ A span is one unit of work: a single operation, with a name, a start, and a dura
 
 You'll find **Services** near the top of the project sidebar, alongside **Live** and **Agents**.
 
+{{ video("fd6bc558c4dd6bfb1e5910c4f6743794") }}
+
 ## Find the service that needs attention
 
 The inventory defaults to the last 15 minutes. Summary cards and the **Activity over time** chart show request volume, errors, and latency across your services. The table adds:
