@@ -13,13 +13,16 @@ import pytest
 import logfire
 
 pytest.importorskip('mcp.shared.session')
+# On old pydantic (e.g. the 2.4 CI job) mcp 1 itself fails to import, so the integration can't be exercised.
+pytest.importorskip('logfire._internal.integrations.mcp')
 
 
 def test_missing_shared_session_means_mcp_2(monkeypatch: pytest.MonkeyPatch):
     # `None` in `sys.modules` makes the import raise `ModuleNotFoundError` with `name='mcp.shared.session'`.
     monkeypatch.setitem(sys.modules, 'mcp.shared.session', None)
-    with pytest.warns(UserWarning, match=r'`logfire\.instrument_mcp\(\)` is unnecessary with mcp 2'):
+    with pytest.warns(UserWarning, match=r'`logfire\.instrument_mcp\(\)` is unnecessary with mcp 2') as records:
         logfire.instrument_mcp()
+    assert len(records) == 1
 
 
 def test_other_import_failures_propagate(monkeypatch: pytest.MonkeyPatch):
