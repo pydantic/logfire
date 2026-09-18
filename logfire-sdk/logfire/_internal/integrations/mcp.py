@@ -28,7 +28,9 @@ if TYPE_CHECKING:
 def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     try:
         from mcp.shared.session import BaseSession, ReceiveRequestT, RequestResponder, SendResultT
-    except ImportError:
+    except ModuleNotFoundError as exc:
+        if exc.name != 'mcp.shared.session':
+            raise
         # mcp 2 (which fastmcp 4 depends on) removed `mcp.shared.session` along with everything patched below.
         # It emits OpenTelemetry spans and propagates trace context via `_meta` by itself,
         # so there's nothing left for us to do.

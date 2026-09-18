@@ -62,7 +62,7 @@ try:
     # There are multiple tests that use it and we don't currently have a way to uninstrument.
     with warnings.catch_warnings():
         # With mcp 2 the call is unnecessary and says so with a UserWarning, which is irrelevant here.
-        warnings.simplefilter('ignore', UserWarning)
+        warnings.filterwarnings('ignore', message=r'`logfire\.instrument_mcp\(\)` is unnecessary', category=UserWarning)
         logfire.instrument_mcp()
 except ImportError:
     pass

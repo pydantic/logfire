@@ -28,7 +28,7 @@ Install `logfire`:
 The example below also needs the MCP SDK and a client. Install them with:
 
 ```bash
-pip install mcp 'pydantic-ai-slim[mcp,openai]'
+pip install 'mcp<2' 'pydantic-ai-slim[mcp,openai]'
 ```
 
 ## Usage
@@ -89,7 +89,7 @@ With both scripts running, open the [Live view](../../guides/web-ui/live.md). Wi
 
 Version 2 of the MCP Python SDK (`mcp>=2`, which fastmcp 4 depends on) emits OpenTelemetry spans and passes the trace context between client and server on its own. With it, `logfire.configure()` is all you need on each side, and you get the same joined trace without calling `logfire.instrument_mcp()`. Calling it anyway does nothing except emit a warning saying it's unnecessary.
 
-The examples on this page target version 1 of the SDK: `mcp.server.fastmcp` no longer exists in version 2, where the same server class is `mcp.server.mcpserver.MCPServer`. To keep running them as written, pin `mcp<2`.
+The examples on this page target version 1 of the SDK, which is why the install command above pins `mcp<2`: `mcp.server.fastmcp` no longer exists in version 2, where the same server class is `mcp.server.mcpserver.MCPServer`.
 
 ## Troubleshooting
 
