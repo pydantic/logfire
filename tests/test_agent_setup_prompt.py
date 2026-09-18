@@ -50,12 +50,12 @@ def test_agent_setup_command_uses_the_published_cli() -> None:
         REPO_ROOT / 'docs' / 'how-to-guides' / 'skills.md', '## Set up Logfire from your project'
     )
 
-    assert command == 'uvx logfire-cli setup'
+    assert command == 'uvx logfire-cli wizard'
     assert skills_command == command
     assert 'http' not in command
     assert '--print-prompt' not in command
     for path in (REPO_ROOT / 'docs' / 'index.md', REPO_ROOT / 'docs' / 'first-trace.md'):
-        assert '<AgentSetup command="uvx logfire-cli setup">' in path.read_text()
+        assert '<AgentSetup command="uvx logfire-cli wizard">' in path.read_text()
 
 
 def test_setup_skills_prioritize_one_service_reaching_first_data() -> None:
@@ -406,7 +406,7 @@ def test_braintrust_skill_and_guide_require_the_working_api_key_scopes() -> None
 
 def _wrap(component: str, command_lines: list[str]) -> str:
     return (
-        f'<{component} command="uvx logfire-cli setup">\n\n```bash\n'
+        f'<{component} command="uvx logfire-cli wizard">\n\n```bash\n'
         + '\n'.join(command_lines)
         + f'\n```\n\n</{component}>\n'
     )
@@ -414,16 +414,16 @@ def _wrap(component: str, command_lines: list[str]) -> str:
 
 def test_extract_agent_setup_command_accepts_one_shell_command(tmp_path: Path) -> None:
     path = tmp_path / 'setup-command.md'
-    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli setup']))
+    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli wizard']))
 
     command = extract_agent_setup_command(path, 'AgentSetup')
 
-    assert command == 'uvx logfire-cli setup'
+    assert command == 'uvx logfire-cli wizard'
 
 
 def test_extract_agent_setup_command_rejects_multiline_shell(tmp_path: Path) -> None:
     path = tmp_path / 'multiline-setup-command.md'
-    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli setup', 'echo unexpected']))
+    path.write_text(_wrap('AgentSetup', ['uvx logfire-cli wizard', 'echo unexpected']))
 
     with pytest.raises(AssertionError):
         extract_agent_setup_command(path, 'AgentSetup')
