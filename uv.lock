@@ -3247,7 +3247,7 @@ dev = [
     { name = "pydantic-ai-slim", extras = ["mcp"], specifier = ">=2" },
     { name = "pydantic-evals", specifier = ">=2" },
     { name = "pydantic-handlebars", specifier = ">=0.2.1" },
-    { name = "pydantic-monty", specifier = "==0.0.23" },
+    { name = "pydantic-monty", specifier = ">=0.0.23" },
     { name = "pymongo", specifier = ">=4.10.1" },
     { name = "pymysql", specifier = ">=1.1.1" },
     { name = "pyright", specifier = "!=1.1.407" },
