@@ -1,0 +1,9 @@
+docs/integrations/llms/mcp.md
+  ai_agent 36,96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "84483bd72fe908c86dfd912ddcde4b17e5cdbf9d",
+  "prompts": {}
+}
