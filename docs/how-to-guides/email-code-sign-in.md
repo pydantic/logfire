@@ -60,4 +60,4 @@ Your account has two-factor authentication. Enter the current authenticator code
 
 ### No login code is delivered for an existing account
 
-The account may use Google, GitHub, organization single sign-on, or a password-backed account that disabled email code sign-in. Return to the main sign-in page and use the method already connected to the account.
+The account may use Google, GitHub, [organization single sign-on](sso-setup.md), or a password-backed account that disabled email code sign-in. Return to the main sign-in page and use the method already connected to the account.
