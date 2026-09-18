@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+import sys
 from typing import Any, cast
 
 import anyio
@@ -20,16 +22,20 @@ from logfire._internal.integrations.monty import LogfireMontyLogger, LogfireMont
 from logfire.testing import TestExporter, TestLogExporter, TimeGenerator, get_collected_metrics
 
 
-def test_instrument_monty_dependency_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(monty_integration, '_installed', False)
-    monkeypatch.delattr(pydantic_monty, 'instrument_telemetry')
+@pytest.mark.parametrize('package_installed', [False, True])
+def test_instrument_monty_dependency_errors(monkeypatch: pytest.MonkeyPatch, package_installed: bool) -> None:
+    if package_installed:
+        monkeypatch.delattr(pydantic_monty, 'instrument_telemetry')
+    else:
+        monkeypatch.setitem(sys.modules, 'pydantic_monty', None)
 
-    with pytest.raises(ImportError) as exc_info:
-        monty_integration.instrument_monty(logfire.DEFAULT_LOGFIRE_INSTANCE)
-    assert str(exc_info.value) == snapshot(
-        '`logfire.instrument_monty()` requires a version of the `pydantic-monty` package '
-        'which supports OpenTelemetry instrumentation.'
-    )
+    with pytest.raises(RuntimeError) as exc_info:
+        importlib.reload(monty_integration)
+    assert str(exc_info.value) == snapshot("""\
+`logfire.instrument_monty()` requires a version of the `pydantic-monty` package which supports OpenTelemetry instrumentation.
+You can install this with:
+    pip install 'pydantic-monty>=0.0.23'\
+""")
 
 
 def test_instrument_monty_passes_standard_components(
@@ -42,7 +48,7 @@ def test_instrument_monty_passes_standard_components(
         received.update(kwargs)
 
     monkeypatch.setattr(monty_integration, '_installed', False)
-    monkeypatch.setattr(pydantic_monty, 'instrument_telemetry', instrument_telemetry)
+    monkeypatch.setattr(monty_integration, 'instrument_telemetry', instrument_telemetry)
     monty_integration.instrument_monty(logfire.DEFAULT_LOGFIRE_INSTANCE)
     assert isinstance(received['tracer'], Tracer)
     assert isinstance(received['meter'], Meter)

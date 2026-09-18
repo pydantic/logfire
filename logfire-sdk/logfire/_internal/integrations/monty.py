@@ -22,6 +22,16 @@ from logfire._internal.constants import (
 from logfire._internal.formatter import logfire_format
 from logfire.version import VERSION
 
+try:
+    from pydantic_monty import instrument_telemetry
+except ImportError:
+    raise RuntimeError(
+        '`logfire.instrument_monty()` requires a version of the `pydantic-monty` package '
+        'which supports OpenTelemetry instrumentation.\n'
+        'You can install this with:\n'
+        "    pip install 'pydantic-monty>=0.0.23'"
+    ) from None
+
 if TYPE_CHECKING:
     from logfire import Logfire
 
@@ -36,14 +46,6 @@ def instrument_monty(logfire_instance: Logfire) -> None:
     with _install_lock:
         if _installed:
             return
-        try:
-            from pydantic_monty import instrument_telemetry
-        except ImportError:
-            raise ImportError(
-                '`logfire.instrument_monty()` requires a version of the `pydantic-monty` package '
-                'which supports OpenTelemetry instrumentation.'
-            ) from None
-
         scoped = logfire_instance.with_settings(custom_scope_suffix='monty')
         config = scoped.config
         tracer = LogfireMontyTracer(scoped)
