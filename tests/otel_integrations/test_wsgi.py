@@ -77,6 +77,40 @@ def test_wsgi_middleware(exporter: TestExporter) -> None:
                     'logfire.msg': 'GET /',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'localhost',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'localhost',
+                                        'http.status_code': 200,
+                                        'net.host.name': 'localhost',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': IsInt(),
+                                }
+                            ],
+                            'total': IsInt(),
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                    },
                 },
             },
             {

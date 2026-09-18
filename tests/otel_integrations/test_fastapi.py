@@ -6,7 +6,6 @@ from typing import Annotated, Any
 from unittest import mock
 
 import pytest
-from dirty_equals import IsFloat, IsInt
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.requests import Request
@@ -1022,74 +1021,6 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg_template': 'outside request handler',
                     'logfire.msg': 'outside request handler',
                     'logfire.span_type': 'span',
-                    'logfire.metrics': {
-                        'http.server.duration': {
-                            'details': [
-                                {
-                                    'attributes': {
-                                        'http.flavor': '1.1',
-                                        'http.host': 'testserver',
-                                        'http.method': 'GET',
-                                        'http.scheme': 'http',
-                                        'http.server_name': 'testserver',
-                                        'http.status_code': 200,
-                                        'http.target': '/',
-                                        'net.host.port': 80,
-                                    },
-                                    'total': IsInt(),
-                                }
-                            ],
-                            'total': IsInt(),
-                        },
-                        'http.server.request.duration': {
-                            'details': [
-                                {
-                                    'attributes': {
-                                        'http.request.method': 'GET',
-                                        'http.response.status_code': 200,
-                                        'http.route': '/',
-                                        'network.protocol.version': '1.1',
-                                        'url.scheme': 'http',
-                                    },
-                                    'total': IsFloat(),
-                                }
-                            ],
-                            'total': IsFloat(),
-                        },
-                        'http.server.response.size': {
-                            'details': [
-                                {
-                                    'attributes': {
-                                        'http.flavor': '1.1',
-                                        'http.host': 'testserver',
-                                        'http.method': 'GET',
-                                        'http.scheme': 'http',
-                                        'http.server_name': 'testserver',
-                                        'http.status_code': 200,
-                                        'http.target': '/',
-                                        'net.host.port': 80,
-                                    },
-                                    'total': 15,
-                                }
-                            ],
-                            'total': 15,
-                        },
-                        'http.server.response.body.size': {
-                            'details': [
-                                {
-                                    'attributes': {
-                                        'http.request.method': 'GET',
-                                        'http.response.status_code': 200,
-                                        'http.route': '/',
-                                        'network.protocol.version': '1.1',
-                                        'url.scheme': 'http',
-                                    },
-                                    'total': 15,
-                                }
-                            ],
-                            'total': 15,
-                        },
-                    },
                 },
             },
         ]
