@@ -16,10 +16,10 @@ Choose a runner below and run the setup command from your application's director
 the directory to a Logfire project, then asks an installed Codex or Claude Code agent to add Logfire
 and verify that data arrives:
 
-<AgentSetup command="uvx logfire-cli setup">
+<AgentSetup command="uvx logfire-cli wizard">
 
 ```bash
-uvx logfire-cli setup
+uvx logfire-cli wizard
 ```
 
 </AgentSetup>

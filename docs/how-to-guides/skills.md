@@ -19,7 +19,7 @@ FastAPI, httpx, asyncpg, and more.
 With [`uv`](https://docs.astral.sh/uv/) installed, run this command from your application's directory:
 
 ```bash
-uvx logfire-cli setup
+uvx logfire-cli wizard
 ```
 
 The command-line interface (CLI) signs you in or uses your saved login, connects the directory to a
