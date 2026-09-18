@@ -1,0 +1,28 @@
+tests/otel_integrations/test_litellm.py
+  s_faf841e7a63fde::t_62eab3c3d504a7 207,347
+tests/otel_integrations/test_openai.py
+  s_faf841e7a63fde::t_62eab3c3d504a7 4093
+tests/otel_integrations/test_google_genai.py
+  s_faf841e7a63fde::t_62eab3c3d504a7 73,105,130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "fbf2950d2244ad68aab43f0d871d91965ef36a15",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_faf841e7a63fde": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "807645dd-e8ff-434b-b841-ac9a78ff641d",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

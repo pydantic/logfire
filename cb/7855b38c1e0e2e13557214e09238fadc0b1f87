@@ -1,0 +1,26 @@
+pyproject.toml
+  s_ba42da6a3fdfad::t_7a6665022cd57b 178-180
+uv.lock
+  s_ba42da6a3fdfad::t_655b4a284f92a4 2877-2878,4812-4864
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "cb7855b38c1e0e2e13557214e09238fadc0b1f87",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_ba42da6a3fdfad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5da444fb-69d4-4194-a9b8-afd5b6770f57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

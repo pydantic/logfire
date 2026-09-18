@@ -1,0 +1,35 @@
+tests/otel_integrations/test_httpx.py
+  s_5435a3ee18f08e::t_ca3d6d5530f33f 5,57,68
+  s_5435a3ee18f08e::t_7a5978a0065b4c 6-7,33-34,38,40,45,47,52-56,58-65,69-82
+  s_5435a3ee18f08e::t_45f4c5b81ba65d 410-413,416,446,451,478-482,485,497-501,504
+  s_5435a3ee18f08e::t_c3c394202b8283 953,955,1054,1056,1125-1126,1162-1163
+  s_5435a3ee18f08e::t_e4a68e9ac857d4 523,529,541,543,552,554,563,565,666,668
+  s_5435a3ee18f08e::t_e95a428765df4b 1170-1171
+  s_5435a3ee18f08e::t_fb622ea11deba6 66-67,769
+  s_5435a3ee18f08e::t_0e25434f496c38 8
+  s_5435a3ee18f08e::t_19c49fff1676ee 989,1007,1087,1096
+  s_5435a3ee18f08e::t_d674ba7c3cccda 771,838,851-853,894-895
+  s_5435a3ee18f08e::t_7e91e3ef542a79 115,117,275,277,308,310
+  s_5435a3ee18f08e::t_bff28c11dcc8a0 83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9132404eee7f48826253641a0bd98e1d171a83ba",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5435a3ee18f08e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f804f-f12b-7243-ab0b-0a9ded4f6eae",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

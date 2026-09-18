@@ -1,0 +1,25 @@
+logfire/_internal/integrations/openai_agents.py
+  7df3f0c8612521ca 30,113-116
+tests/otel_integrations/test_openai_agents.py
+  7df3f0c8612521ca 44,1493-1494
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "828af731663e36f01ce3c180df46f0c9be3231ce",
+  "prompts": {
+    "7df3f0c8612521ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "adf37932-5886-40db-9fe6-3616ff7bbf90",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 2,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}

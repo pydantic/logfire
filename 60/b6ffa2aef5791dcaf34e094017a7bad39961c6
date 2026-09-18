@@ -1,0 +1,24 @@
+tests/otel_integrations/test_pydantic_ai_mcp.py
+  s_65d0ebccfd6fe8::t_1d90dc3bcd9c29 107,128,157,213,379,594
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "60b6ffa2aef5791dcaf34e094017a7bad39961c6",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_65d0ebccfd6fe8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f5bb1-75b0-7ff2-893f-faa35b40a933",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+logfire/_internal/integrations/llm_providers/usage.py
+  s_6513a61b62f84a::t_4cca636679f984 67
+  s_6513a61b62f84a::t_4205b0869d5c4e 70
+  s_6513a61b62f84a::t_70cd4bd8f1371e 74
+  s_6513a61b62f84a::t_86a1b0e4678344 71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b94c654692434602a704b30ff45e32741e9aa471",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_6513a61b62f84a": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1787828278326",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+tests/otel_integrations/test_litellm.py
+  s_faf841e7a63fde::t_0211dd5213e96d 95-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "350d301eaf2624ce57349acf56ee98354a34cbac",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_faf841e7a63fde": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "807645dd-e8ff-434b-b841-ac9a78ff641d",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

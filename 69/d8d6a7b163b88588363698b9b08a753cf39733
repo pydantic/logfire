@@ -1,0 +1,19 @@
+.github/workflows/scripts/minimal_install_smoke.py
+  s_2ff16c8350f42e::t_b9ce03f78cc99a 20,24-26,45-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "69d8d6a7b163b88588363698b9b08a753cf39733",
+  "prompts": {},
+  "sessions": {
+    "s_2ff16c8350f42e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eacd4-4904-7e51-8815-ec3935898644",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

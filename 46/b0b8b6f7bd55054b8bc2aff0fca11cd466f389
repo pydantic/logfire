@@ -1,0 +1,19 @@
+docs/faq.md
+  s_a275a241fe6f77::t_5ed981c4b0bcdc 276
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "46b0b8b6f7bd55054b8bc2aff0fca11cd466f389",
+  "prompts": {},
+  "sessions": {
+    "s_a275a241fe6f77": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ff137-0717-77b3-837d-2fce5bc0b2ca",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

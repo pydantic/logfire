@@ -1,0 +1,27 @@
+tests/test_otel_logs.py
+  s_6ecbf5e47c7b78::t_c39acad5b343e8 164-165
+tests/test_console_exporter.py
+  s_6ecbf5e47c7b78::t_d0017911f5718c 27
+  s_6ecbf5e47c7b78::t_476b98b3b85fca 948-952
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "96748619da14b4ba27cacbf2bc0504d6d6c2c903",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_6ecbf5e47c7b78": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f9177b3-1204-44a0-b77a-75206e437902",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+logfire/sampling/_tail_sampling.py
+  h_d9dd17644dded9 233-234
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "37b41ee9d9d4f7802e01389305502f866d509c53",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

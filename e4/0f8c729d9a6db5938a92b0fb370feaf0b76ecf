@@ -1,0 +1,19 @@
+.agents/skills/update-deps/SKILL.md
+  s_e5e3c016b3f5ec::t_051c809a3c0d1f 3,6,8-12,14,16,18-19,21,23,25,27,29,31,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e40f8c729d9a6db5938a92b0fb370feaf0b76ecf",
+  "prompts": {},
+  "sessions": {
+    "s_e5e3c016b3f5ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0149d-3cb5-72f1-b2ef-cfeb0e70b83a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

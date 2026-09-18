@@ -1,0 +1,19 @@
+.github/workflows/main.yml
+  s_ade8d77f7871b8::t_8d5951bd0a53b7 164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fc9b2852e055a351b463d65fcc90016e4ac939ea",
+  "prompts": {},
+  "sessions": {
+    "s_ade8d77f7871b8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e68c4-d0b2-7eb1-9534-3caa4d4b3097",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

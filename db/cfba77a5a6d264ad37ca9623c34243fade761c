@@ -1,0 +1,15 @@
+logfire/_internal/integrations/llm_providers/usage.py
+  h_d9dd17644dded9 66-67
+  h_d9dd17644dded9 69-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "dbcfba77a5a6d264ad37ca9623c34243fade761c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

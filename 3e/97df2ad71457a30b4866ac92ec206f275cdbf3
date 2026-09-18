@@ -1,0 +1,19 @@
+tests/conftest.py
+  s_242f456c83167e::t_73983502bcd79b 47,50-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "3e97df2ad71457a30b4866ac92ec206f275cdbf3",
+  "prompts": {},
+  "sessions": {
+    "s_242f456c83167e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa91274c-ad63-4397-bb69-5f78126f74b5",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

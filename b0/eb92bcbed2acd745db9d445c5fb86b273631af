@@ -1,0 +1,14 @@
+docs/nav.json
+  h_d9dd17644dded9 215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b0eb92bcbed2acd745db9d445c5fb86b273631af",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

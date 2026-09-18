@@ -1,0 +1,24 @@
+docs/agent-setup-prompt.txt
+  s_7a66c61c007d89::t_d33d15c560e59e 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e5901524cc5d9d883ae05cbd407f769917d603da",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_7a66c61c007d89": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fd796-c2b1-7140-911e-9ad30c564133",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

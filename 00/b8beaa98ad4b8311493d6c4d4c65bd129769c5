@@ -1,0 +1,25 @@
+specs/anthropic-streaming-usage/code-spec.md
+  b42cfadab6801bfc 7,11,14,18,22,25,27-36,40,48-51,53-54,58,60,63,66,68,70,72,76
+specs/anthropic-streaming-usage/spec.md
+  b42cfadab6801bfc 8-9,11-12,14-15,17-18,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "00b8beaa98ad4b8311493d6c4d4c65bd129769c5",
+  "prompts": {
+    "b42cfadab6801bfc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccffc55b-78b8-4fbe-9db6-35d738cfe657",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 45,
+      "total_deletions": 59,
+      "accepted_lines": 43,
+      "overriden_lines": 0
+    }
+  }
+}

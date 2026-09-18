@@ -1,0 +1,19 @@
+docs/first-trace.md
+  s_a8a064b40f400f::t_ff305442586b46 27,37-38,62-64,66,72-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "b0f36d569517cbac1d7f75c9a68d48796c23cc6c",
+  "prompts": {},
+  "sessions": {
+    "s_a8a064b40f400f": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1786541234722",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

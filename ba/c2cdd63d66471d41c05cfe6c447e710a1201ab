@@ -1,0 +1,23 @@
+logfire/_internal/integrations/claude_agent_sdk.py
+  70a89903b5292196 48,137-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "bac2cdd63d66471d41c05cfe6c447e710a1201ab",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 5,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}

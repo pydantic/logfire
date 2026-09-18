@@ -1,0 +1,23 @@
+logfire/_internal/integrations/openai_agents.py
+  7df3f0c8612521ca 391
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "32a8aeec0ede84af8b3265811dab03a42a0cf677",
+  "prompts": {
+    "7df3f0c8612521ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "adf37932-5886-40db-9fe6-3616ff7bbf90",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 91,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,23 @@
+specs/claude-agent-sdk-integration/eliminate-synthetic-cassettes/spec.md
+  70a89903b5292196 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "ee812865c263f4c12f2dce58e7da60adcc518bec",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 0,
+      "accepted_lines": 27,
+      "overriden_lines": 0
+    }
+  }
+}

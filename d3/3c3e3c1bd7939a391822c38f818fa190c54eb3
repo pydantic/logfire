@@ -1,0 +1,15 @@
+logfire/_internal/integrations/openai_agents.py
+  h_d9dd17644dded9 440
+  h_d9dd17644dded9 439
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d33c3e3c1bd7939a391822c38f818fa190c54eb3",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

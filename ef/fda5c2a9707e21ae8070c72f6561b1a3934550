@@ -1,0 +1,26 @@
+pyproject.toml
+  h_d9dd17644dded9 239
+uv.lock
+  s_e6e57aef5672b8::t_f299685cdce2c3 28,280,282,284,289,301,303,575,582,584,589,596,598,603,605,607,877,885,887-891,1340,1349,1351,1622,1628,1630,1836,1842,1844,1873,1882,1884,2256,2269,2271,2276,2283,2285,3491,3503,3505,4872,4884,4886,5012,5022,5024,5029,5037,5039,5380,5382,5384,5952-5972,6334,6339,6341
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "effda5c2a9707e21ae8070c72f6561b1a3934550",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_e6e57aef5672b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5248f6a3-7065-4c6e-aa8b-847e255c0057",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

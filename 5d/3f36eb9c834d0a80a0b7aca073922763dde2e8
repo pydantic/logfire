@@ -1,0 +1,339 @@
+tests/otel_integrations/test_google_genai.py
+  s_196e0b8dce4470::t_b3b5ec16d80d5a 20-21,23
+.github/workflows/main.yml
+  s_196e0b8dce4470::t_db49770a047af2 10,68-71,74,76-77,79
+CHANGELOG.md
+  s_196e0b8dce4470::t_f24a462d4a9b13 3-7,1210
+CLAUDE.md
+  s_196e0b8dce4470::t_691ce58c36c1d7 17-21
+CONTRIBUTING.md
+  s_196e0b8dce4470::t_8a11f2a3a49705 15-17,20-23
+Makefile
+  s_196e0b8dce4470::t_f513be7994f8f3 33,50,60-61,64-67
+docs/ai-observability.md
+  s_196e0b8dce4470::t_79e02c094cae1b 3,8,10,12,14,16,18,20-22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56-57,59,61,63,65,67,69,71,73,75,77,79,81,83,85,87
+docs/concepts.md
+  s_196e0b8dce4470::t_672a373badb8f1 2,7,9,13-18,22-24,27,33,35,102-104,155-161
+docs/cookbook/debug-a-slow-endpoint.md
+  s_196e0b8dce4470::t_6dc8fdf096f704 1-258
+docs/cookbook/debug-a-slow-tool-call.md
+  s_196e0b8dce4470::t_b9c0a690deb6d1 1-170
+docs/cookbook/evaluate-an-agent.md
+  s_196e0b8dce4470::t_44b087145e3b14 1-317
+docs/cookbook/index.md
+  s_196e0b8dce4470::t_7140c8424fbe32 1-19
+docs/cookbook/roll-out-a-prompt-safely.md
+  s_196e0b8dce4470::t_2efd50c9d20cc1 1-191
+docs/cookbook/track-llm-cost.md
+  s_196e0b8dce4470::t_bd7f60afe0c066 1-166
+docs/evaluate/annotate-agent-runs.md
+  s_196e0b8dce4470::t_e6a55e88988c57 1-66
+docs/evaluate/datasets-and-experiments.md
+  s_196e0b8dce4470::t_41579ec1015147 2-3,6,8,10,12,14,16-17,19,21,23,25,27-30,32-33,35,37,39-42,44,46,48,50,52,54,56-58,60,62-63,65,67,69,71-74
+docs/evaluate/datasets-sdk.md
+  s_196e0b8dce4470::t_83ce23f2e68a9e 12,206,230-232
+docs/evaluate/evals-in-code.md
+  s_196e0b8dce4470::t_2dc9c432e91967 2-3,6,8,10,12-13,15,17,19-73,75-77,86-87,89,105,118,127-128,130,132,139,163,172,174,176
+docs/evaluate/human-review.md
+  s_196e0b8dce4470::t_0ade621083f965 1-93
+docs/evaluate/live-evals.md
+  s_196e0b8dce4470::t_f856cb31cf74e6 1-86
+docs/evaluate/overview.md
+  s_196e0b8dce4470::t_8e8ae2c853a3fb 1-82
+docs/faq.md
+  s_196e0b8dce4470::t_03b5c124bc1399 30,51,87,108,122,140,211,215,219
+docs/first-trace.md
+  s_196e0b8dce4470::t_6718995790b1e6 1-152
+docs/get-started/choose-your-path.md
+  s_196e0b8dce4470::t_65f7581a0f759d 1-42
+docs/get-started/for-ai-engineers.md
+  s_196e0b8dce4470::t_ddf2d1e589d128 1-35
+docs/get-started/for-backend-and-sre.md
+  s_196e0b8dce4470::t_1ad7da07e82762 1-35
+docs/get-started/for-platform-and-security.md
+  s_196e0b8dce4470::t_962178c4b15e88 1-29
+docs/get-started/for-product-and-growth.md
+  s_196e0b8dce4470::t_695f04d692b3f5 2-3,6,8,10,12,14,16,18,20-21,23,25
+docs/get-started/solo-builder.md
+  s_196e0b8dce4470::t_82066c9125b4c3 1-21
+docs/guides/onboarding-checklist/add-auto-tracing.md
+  s_196e0b8dce4470::t_44452a81ba520a 110-113
+docs/guides/onboarding-checklist/add-manual-tracing.md
+  s_196e0b8dce4470::t_06ec276d07d47b 44,46,93,317-320
+docs/guides/onboarding-checklist/add-metrics.md
+  s_196e0b8dce4470::t_550c400e9218bb 263-273
+docs/guides/onboarding-checklist/index.md
+  s_196e0b8dce4470::t_8968992fb132cf 2-3,5-7,9-10,15,29,36
+docs/guides/onboarding-checklist/integrate.md
+  s_196e0b8dce4470::t_f0f98353e12c9c 5-7,11-12,20,89-92
+docs/guides/web-ui/agents.md
+  s_196e0b8dce4470::t_8983fe3f9156a6 1-65
+docs/guides/web-ui/alerts.md
+  s_196e0b8dce4470::t_f7d4277f14594e 5
+docs/guides/web-ui/dashboards.md
+  s_196e0b8dce4470::t_26da151eea255a 76
+docs/guides/web-ui/docker.md
+  s_196e0b8dce4470::t_be8fd08c2247cf 10
+docs/guides/web-ui/explore.md
+  s_196e0b8dce4470::t_4dd552b6b4bf6a 2-3,5,8,40,121,126
+docs/guides/web-ui/hosts.md
+  s_196e0b8dce4470::t_e39a2e78c83522 7
+docs/guides/web-ui/issues.md
+  s_196e0b8dce4470::t_d98461f9c23027 12
+docs/guides/web-ui/kubernetes.md
+  s_196e0b8dce4470::t_0c246093a790a6 7,99
+docs/guides/web-ui/live.md
+  s_196e0b8dce4470::t_6646ee8aabdf8b 7,28
+docs/guides/web-ui/llm-panels.md
+  s_196e0b8dce4470::t_3a96227748b690 70-71,93,104
+docs/guides/web-ui/llms.md
+  s_196e0b8dce4470::t_d4b8a93cd0d782 2,5,7,116,137
+docs/guides/web-ui/metrics-explorer.md
+  s_196e0b8dce4470::t_b030500a4b35a7 9,32,44,48,99
+docs/guides/web-ui/prompt-playground.md
+  s_196e0b8dce4470::t_1b513b5c5b7df1 7
+docs/guides/web-ui/saved-searches.md
+  s_196e0b8dce4470::t_bedc665156bf5b 91
+docs/guides/web-ui/services.md
+  s_196e0b8dce4470::t_11cb7bce7e7262 7,9,39
+docs/help.md
+  s_196e0b8dce4470::t_7db869a77b54eb 3
+docs/how-to-guides/alternative-clients.md
+  s_196e0b8dce4470::t_72d6c84a4936c1 3,7-8,11,14,18,21-24,38,107,115,175,177,179,181-186
+docs/how-to-guides/create-write-tokens.md
+  s_196e0b8dce4470::t_4801317da0d653 5
+docs/how-to-guides/environments.md
+  s_196e0b8dce4470::t_431d64d96524d6 33,49
+docs/how-to-guides/otel-collector/host-monitoring.md
+  s_196e0b8dce4470::t_aced286dd8f232 7,275
+docs/how-to-guides/otel-collector/s3-backup.md
+  s_196e0b8dce4470::t_ad7cd250c98d02 23
+docs/how-to-guides/sso-setup.md
+  s_196e0b8dce4470::t_9ab212510705e2 47,85,136,157
+docs/how-to-guides/write-dashboard-queries.md
+  s_196e0b8dce4470::t_df9212b2e1c40a 7,15,69,197,361
+docs/images/integrations/llms/anthropic.svg
+  s_196e0b8dce4470::t_3a40438f3f7d8c 1
+docs/images/integrations/llms/claude-agent-sdk.svg
+  s_196e0b8dce4470::t_72af55cbf8e735 1
+docs/images/integrations/llms/dspy.svg
+  s_196e0b8dce4470::t_d9814baaac9fb2 1-14
+docs/images/integrations/llms/google-gemini.svg
+  s_196e0b8dce4470::t_e15532ce084d8d 1
+docs/images/integrations/llms/langchain.svg
+  s_196e0b8dce4470::t_b9488dd98321f7 1
+docs/images/integrations/llms/llamaindex.svg
+  s_196e0b8dce4470::t_4702484e1a62a6 1-18
+docs/images/integrations/llms/mcp.svg
+  s_196e0b8dce4470::t_e8f1f95fe373fa 1
+docs/images/integrations/llms/mirascope.svg
+  s_196e0b8dce4470::t_600380db151a0e 1-5
+docs/images/integrations/llms/pydantic-ai.svg
+  s_196e0b8dce4470::t_9a05a4aecd3a1b 1
+docs/images/languages/dotnet.svg
+  s_196e0b8dce4470::t_875d818ac01f8d 1
+docs/images/languages/go.svg
+  s_196e0b8dce4470::t_668587c54c13f6 1
+docs/images/languages/java.svg
+  s_196e0b8dce4470::t_c0ffb52940908d 1
+docs/images/languages/php.svg
+  s_196e0b8dce4470::t_6137b5f017da77 1
+docs/images/languages/python.svg
+  s_196e0b8dce4470::t_2f28c001fe391f 1
+docs/images/languages/ruby.svg
+  s_196e0b8dce4470::t_1ab47e5835f602 1
+docs/images/languages/rust.svg
+  s_196e0b8dce4470::t_b6b7012d4ee811 1
+docs/images/languages/typescript.svg
+  s_196e0b8dce4470::t_a0d4aa50e54729 1
+docs/index.md
+  s_196e0b8dce4470::t_39e5bc1e0ee392 2-3,6,8,10,12,14,16-17,19,21,23,25,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,72,74,76,78
+docs/instrument/index.md
+  s_196e0b8dce4470::t_a176c905ca5d96 1-68
+docs/integrations/http-clients/httpx.md
+  s_196e0b8dce4470::t_f2ab8a0a6b0d65 2-3,6,8-11,13-16,32-38,42-44,46,72,77,85,91,101-102,116-123,131-132,250
+docs/integrations/index.md
+  s_196e0b8dce4470::t_01ac780393b99e 31,58
+docs/integrations/llms/anthropic.md
+  s_196e0b8dce4470::t_aebfdd4783f54a 10,55,139
+docs/integrations/llms/google-genai.md
+  s_196e0b8dce4470::t_9b507fc4ba0c13 11
+docs/integrations/llms/index.md
+  s_196e0b8dce4470::t_cc59fd9937d25e 1-66
+docs/integrations/llms/langchain.md
+  s_196e0b8dce4470::t_9c46c9d6e42247 11
+docs/integrations/llms/litellm.md
+  s_196e0b8dce4470::t_574039d303986e 10
+docs/integrations/llms/llamaindex.md
+  s_196e0b8dce4470::t_5b64e4db95eaf8 10
+docs/integrations/llms/magentic.md
+  s_196e0b8dce4470::t_159c8a3c0df8ae 8
+docs/integrations/llms/mcp.md
+  s_196e0b8dce4470::t_db8c314a14d864 8
+docs/integrations/llms/mirascope.md
+  s_196e0b8dce4470::t_ae8d80e758f33a 8,29,45
+docs/integrations/llms/openai.md
+  s_196e0b8dce4470::t_a51871cb97261d 9,111-113,125-126,128-130
+docs/integrations/system-metrics.md
+  s_196e0b8dce4470::t_731c2932304b17 52
+docs/languages/dotnet.md
+  s_196e0b8dce4470::t_af0e4a64efc79f 1-114
+docs/languages/go.md
+  s_196e0b8dce4470::t_ce96523fb35959 1-104
+docs/languages/java.md
+  s_196e0b8dce4470::t_c59685eacbd1d9 1-82
+docs/languages/php.md
+  s_196e0b8dce4470::t_812cb58c829fa0 1-83
+docs/languages/ruby.md
+  s_196e0b8dce4470::t_a166be76ef6284 1-88
+docs/languages/rust.md
+  s_196e0b8dce4470::t_1755330d6410d4 1-85
+docs/navigation.yml
+  s_196e0b8dce4470::t_46988ae9567578 1-1089
+docs/reference/advanced/gateway/index.md
+  s_196e0b8dce4470::t_c46c742de3508f 10-12
+docs/reference/advanced/gateway/integrations/agno.md
+  s_196e0b8dce4470::t_b881b1e8ff4c40 1-49
+docs/reference/advanced/gateway/integrations/genkit.md
+  s_196e0b8dce4470::t_4834eefc709b38 1-107
+docs/reference/advanced/gateway/integrations/google-adk.md
+  s_196e0b8dce4470::t_ac328ff698b9bb 1-138
+docs/reference/advanced/gateway/integrations/haystack.md
+  s_196e0b8dce4470::t_0ee9a41ed04de9 2-3,6,8,10,12,14-15,17-18,20,22,24-27,29-33,35,37-38,40,42,44,46-47
+docs/reference/advanced/gateway/integrations/index.md
+  s_196e0b8dce4470::t_09933a323ad2fe 1-57
+docs/reference/advanced/gateway/integrations/instructor.md
+  s_196e0b8dce4470::t_ce80b629881b3d 1-60
+docs/reference/advanced/gateway/integrations/langchain.md
+  s_196e0b8dce4470::t_92dea83d7c151a 1-102
+docs/reference/advanced/gateway/integrations/llamaindex.md
+  s_196e0b8dce4470::t_45d181e8637818 1-61
+docs/reference/advanced/gateway/integrations/mastra.md
+  s_196e0b8dce4470::t_ac5b65f179956b 1-75
+docs/reference/advanced/gateway/integrations/microsoft-agent-framework.md
+  s_196e0b8dce4470::t_9561355ba5082f 1-91
+docs/reference/advanced/gateway/integrations/openai-agents-sdk.md
+  s_196e0b8dce4470::t_da9bfdb119b037 1-95
+docs/reference/advanced/gateway/integrations/openai-sdk.md
+  s_196e0b8dce4470::t_c9428e1941b717 1-158
+docs/reference/advanced/gateway/integrations/semantic-kernel.md
+  s_196e0b8dce4470::t_a2961bd7c1b930 1-99
+docs/reference/advanced/gateway/integrations/smolagents.md
+  s_196e0b8dce4470::t_cfb7d9a5c9d470 1-46
+docs/reference/advanced/gateway/integrations/strands-agents.md
+  s_196e0b8dce4470::t_59f15c655aa7af 1-81
+docs/reference/advanced/gateway/integrations/vercel-ai-sdk.md
+  s_196e0b8dce4470::t_f9c92ae35b2431 1-64
+docs/reference/advanced/gateway/integrations/voltagent.md
+  s_196e0b8dce4470::t_d5741fa37be616 1-59
+docs/reference/advanced/metrics-in-spans.md
+  s_196e0b8dce4470::t_81590eba60a2de 49,73
+docs/reference/advanced/prompt-management/scenarios.md
+  s_196e0b8dce4470::t_7f9afc4838ef19 141
+docs/reference/api/datasets.md
+  s_196e0b8dce4470::t_eec1fee8d83dfd 12
+docs/reference/examples.md
+  s_196e0b8dce4470::t_1a9adcae3261b1 27
+docs/reference/sql.md
+  s_196e0b8dce4470::t_fdd092b23dec0b 15,17,39,41,108,122,192
+docs/why.md
+  s_196e0b8dce4470::t_138c8331d93b99 7,13,17,21,29,37,53,77,87,96,98-99,116,118,177,233,235,283
+logfire-api/logfire_api/_internal/cli/run.pyi
+  s_196e0b8dce4470::t_567524500019dd 3,6,12-15,18-26,32-33,45-46,53,56,58-59,61,64
+logfire-api/logfire_api/_internal/exporters/console.pyi
+  s_196e0b8dce4470::t_56d1af7a57fd6e 74
+logfire-api/logfire_api/_internal/exporters/wrapper.pyi
+  s_196e0b8dce4470::t_fae47910e9dcd8 43
+logfire-api/logfire_api/_internal/integrations/httpx.pyi
+  s_196e0b8dce4470::t_629c32487da4b3 3,14,18-19,22-23,29,59,75
+logfire-api/logfire_api/_internal/main.pyi
+  s_196e0b8dce4470::t_88233c5c5968fe 3,716,718
+logfire-api/logfire_api/experimental/query_client.pyi
+  s_196e0b8dce4470::t_8b9d2f3d300c83 21-22
+logfire-api/logfire_api/integrations/httpx.pyi
+  s_196e0b8dce4470::t_7f21d5ce9e68e4 11-13,22-23
+logfire-api/logfire_api/query_client.pyi
+  s_196e0b8dce4470::t_eec7183e62a28b 1,3
+logfire-api/pyproject.toml
+  s_196e0b8dce4470::t_18eb189dd58e7c 7
+logfire/_internal/auth.py
+  s_196e0b8dce4470::t_afb7eafc8bcbd6 28,92-95,100-103
+logfire/_internal/cli/run.py
+  s_196e0b8dce4470::t_ea5b6743faeaea 8,12,24,29-41,89-102,108-109,116,125,191,196,203,205,212-213,220,223,225-226,228-230,233-253,257-261,264-268,274-277,279-280,283,285,290-303,307,312-313,315-316,318-323,336-337,352-359,364,419,424,429-439,441-453,455-487,489-497,500,502,508
+logfire/_internal/config.py
+  s_196e0b8dce4470::t_07a31801115304 65,131,1023
+logfire/_internal/exporters/console.py
+  s_196e0b8dce4470::t_46774ed625980c 509-511
+logfire/_internal/exporters/wrapper.py
+  s_196e0b8dce4470::t_b95497dc862e81 86-88
+logfire/_internal/integrations/httpx.py
+  s_196e0b8dce4470::t_c5f3e0d49bf36d 10-11,20,41-42,46-50,52-112,117,128,196-197,199-200,239,287,336,341-342,374,388,550,562-563,565-568
+logfire/_internal/main.py
+  s_196e0b8dce4470::t_bead7ae98da843 78,174-177,1544,1558,1587,1599,1601,1605-1606,1609-1610,2755,2758-2761,2766,2789-2790,2899-2900,3002-3004
+logfire/experimental/query_client.py
+  s_196e0b8dce4470::t_2dc82fbd8c5bf4 50-55,205,208,211-214
+logfire/integrations/httpx.py
+  s_196e0b8dce4470::t_c6fa2d7fe9f3e8 4,8-18,28-30,41-42
+logfire/query_client.py
+  s_196e0b8dce4470::t_ed791f4378d7e8 13,20
+logfire/variables/remote.py
+  s_196e0b8dce4470::t_60b4b266c312fa 5,8,23,53-59,106,109-110,120,151-154,156-158,210-250,265-272,306-312,322-331,385-414,419,422-423,426-433,457-466,468,470-476,487-500,503-504,507-513,637,667,692,809,853
+pyproject.toml
+  s_196e0b8dce4470::t_748fea5cf174e6 7,49-50,108,228,238,258-260,297-300,347-353
+scripts/docs_serve.py
+  s_196e0b8dce4470::t_c995d9dab2b46e 1-109
+tests/conftest.py
+  s_196e0b8dce4470::t_1993f853fafbb7 47,50-54,132
+tests/otel_integrations/test_anthropic.py
+  s_196e0b8dce4470::t_23a2ba5e13415d 3,5,623-659,2021
+tests/otel_integrations/test_celery.py
+  s_196e0b8dce4470::t_652cdfc5494b4f 62-65,67-69,87-89
+tests/otel_integrations/test_httpx.py
+  s_196e0b8dce4470::t_2d5854efff24f8 5,7,11,16-21,31-85,87-88,90-123,132,148,150,202-308,310,341,343,443-446,449,479,484,511-515,518,530-534,537,556,562,574,576,585,587,596,598,699,701,802-804,806,873-885,887-888,929-930,988,990,1024,1042,1089,1091,1093,1122,1131,1160-1161,1197-1198,1205-1206
+tests/otel_integrations/test_mysql.py
+  s_196e0b8dce4470::t_405695bac2ac4f 32-35
+tests/otel_integrations/test_pydantic_ai_mcp.py
+  s_196e0b8dce4470::t_f9c66e12c9b851 195-198,245-248,669-672,701-704
+tests/otel_integrations/test_pytest_plugin.py
+  s_196e0b8dce4470::t_f81f50b76d3bc3 62-66
+tests/test_auth.py
+  s_196e0b8dce4470::t_7a8d0d0b67f803 42-46
+tests/test_cli.py
+  s_196e0b8dce4470::t_ff6d013ce721c6 41-42,328-330,340,351-352,359,366,372-473,1733-1810,1820-1824,1830-1868,1872-1875,1891-1892
+tests/test_configure.py
+  s_196e0b8dce4470::t_54ac16dd001ba0 2892-2894
+tests/test_console_exporter.py
+  s_196e0b8dce4470::t_80bf44f9f1dd29 27,948-952
+tests/test_docs.py
+  s_196e0b8dce4470::t_a403d26097564e 19-29
+tests/test_docs_serve.py
+  s_196e0b8dce4470::t_06fb563293f95a 1-135
+tests/test_otel_logs.py
+  s_196e0b8dce4470::t_8480137930e514 155-157,164-165
+tests/test_push_variables.py
+  s_196e0b8dce4470::t_ab36ce6a10e580 1286-1318
+tests/test_query_client_errors.py
+  s_196e0b8dce4470::t_fb98d007f573e1 1-140
+tests/test_variable_composition.py
+  s_196e0b8dce4470::t_6790da9f5c212a 758-772
+tests/test_variables.py
+  s_196e0b8dce4470::t_2fbdb8e15fb6c3 6,42,1443-1673,6030-6613
+uv.lock
+  s_196e0b8dce4470::t_407b30806d8a93 25,28,97,110-229,271,273,275,280,282,284,289,301,303,322,327,329,575,582,584,589,596,598,603,605,607,662,664,666,877,885,887-891,963-1056,1249,1340,1349,1351,1356,1366,1368,1384,1391,1393,1466,1468,1470,1613,1615,1617,1622,1628,1630,1644,1650,1652,1662,1676,1678,1695-1776,1799-1818,1836,1842,1844,1873,1882,1884,1889,1902,1904,1948,1958,1960,1998,2003,2005,2139,2144,2146,2151,2153,2155,2242,2249,2251,2256,2269,2271,2276,2283,2285,2302,2312,2314,2361,2379,2381,2473,2476-2487,2489,2491-2505,2510,2642,2647,2681,2725,2751,2791,2869,2989,3007,3009,3239-3267,3495,3507,3509,3514,3525,3527,3600,3605,3607,3612,3617,3619,3624,3635,3637,3642,3650,3652,3657,3666,3668,3673,3682,3684,3689,3698,3700,3705,3712,3714,3719,3726,3728,3733,3740,3742,3747,3755,3757,3762,3771,3773,3778,3787,3789,3794,3804,3806,3827,3836,3838,3843,3850,3852,3857,3864,3866,3871,3878,3880,3885,3892,3894,3899,3907,3909,3914,3922,3924,3929,3938,3940,3945,3952,3954,3959,3968,3970,3975,3983,3985,3990,3998,4000,4017,4022,4024,4029,4036,4038,4043,4049,4051,4071,4073,4075,4290,4315-4357,4371,4373,4375,4380,4382,4384,4398,4407,4409,4414,4419,4421,4878,4881,4891,4893,5019,5029,5031,5036,5039,5045,5047,5318,5324,5326,5388,5390,5392,5495,5500,5502,5522-5638,5960-5980,5985,5990,5992,6115,6121,6123,6342,6347,6349,6539,6546,6548,6575,6584,6586,6680-6761,6923,6930-7034
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5d3f36eb9c834d0a80a0b7aca073922763dde2e8",
+  "prompts": {},
+  "sessions": {
+    "s_196e0b8dce4470": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc8a8-975d-7871-bd96-7194ca1bbf96",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+tests/conftest.py
+  7df3f0c8612521ca 7,42-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1a3bb61b7d3160e4bd877a2401ed89890c10822e",
+  "prompts": {
+    "7df3f0c8612521ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "adf37932-5886-40db-9fe6-3616ff7bbf90",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 1,
+      "accepted_lines": 97,
+      "overriden_lines": 0
+    }
+  }
+}

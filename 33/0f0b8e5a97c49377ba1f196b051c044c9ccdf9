@@ -1,0 +1,30 @@
+tests/otel_integrations/test_httpx.py
+  s_9a77f4b5186062::t_41dd21148d67a1 88
+  s_9a77f4b5186062::t_3620df226ae6c7 108-109
+  s_9a77f4b5186062::t_cf15f9bca7abe8 85
+  s_9a77f4b5186062::t_0490429dfe692f 111
+  s_9a77f4b5186062::t_4532de6d776dd1 112
+  s_9a77f4b5186062::t_374f36f7c811d8 84
+  s_9a77f4b5186062::t_ab4b107c15c1ee 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "330f0b8e5a97c49377ba1f196b051c044c9ccdf9",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_9a77f4b5186062": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1784548060583",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

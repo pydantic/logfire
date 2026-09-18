@@ -1,0 +1,31 @@
+logfire/_internal/formatter.py
+  81bfb200d83f2c75 70,123
+logfire/_internal/config_params.py
+  81bfb200d83f2c75 219,221,223,225,227
+logfire/_internal/logs.py
+  81bfb200d83f2c75 16,72,102
+logfire/_internal/metrics.py
+  81bfb200d83f2c75 28,113
+logfire/_internal/async_.py
+  81bfb200d83f2c75 90,94,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "5e82d412ea64d5d5510ce25c8f86ba3b58bac163",
+  "prompts": {
+    "81bfb200d83f2c75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9618815-8f8c-43b5-96b8-08e019213652",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 15,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    }
+  }
+}

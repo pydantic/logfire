@@ -1,0 +1,45 @@
+tests/import_used_for_tests/slow_async_callbacks_example.py
+  s_169e5232428a61::t_5b6434d347d145 15
+  s_169e5232428a61::t_fb00d6137b4ccb 16-18
+tests/test_slow_async_callbacks.py
+  s_dcedb7b44bafff::t_c9afbf62c63189 74,102,107,118-143,168,196,207-208
+  s_169e5232428a61::t_740dbcf203bcf1 20
+  s_dcedb7b44bafff::t_839b262ad258af 36,145-147,203,206,209-210,215-217,221
+  s_dcedb7b44bafff::t_d0f0b9b7610921 37
+  s_dcedb7b44bafff::t_4c1f6b3b250fe3 116-117
+  s_dcedb7b44bafff::t_8dff6ab7b7eea8 144
+  s_dcedb7b44bafff::t_76018afb8147ff 148-150
+  s_dcedb7b44bafff::t_75ce985152ab60 204-205
+  s_dcedb7b44bafff::t_f62c3ef70e997a 211-214
+  s_dcedb7b44bafff::t_cb18a3c6787011 220
+  s_dcedb7b44bafff::t_00dd28c1814669 47,55-56,66,83-84,94,160,177-178,188,228,232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c047e720f5f371ca6ba88219702de30de8261ca0",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_169e5232428a61": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1785758320391",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_dcedb7b44bafff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fd6e4-1f2c-76e1-818e-d268078a5d16",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

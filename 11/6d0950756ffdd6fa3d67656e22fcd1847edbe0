@@ -1,0 +1,19 @@
+tests/test_configure.py
+  s_1d4356de64f0ec::t_f257780bbf42f8 590-591
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "116d0950756ffdd6fa3d67656e22fcd1847edbe0",
+  "prompts": {},
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

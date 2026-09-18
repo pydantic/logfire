@@ -1,0 +1,23 @@
+tests/otel_integrations/fake_claude.py
+  70a89903b5292196 70-89,99,103,112-113,125,127-129,147,157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "947a476d3e267553065f4223966cbfff45d950c4",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 14,
+      "accepted_lines": 41,
+      "overriden_lines": 0
+    }
+  }
+}

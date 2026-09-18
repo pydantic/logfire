@@ -1,0 +1,25 @@
+logfire/_internal/integrations/llm_providers/anthropic.py
+  bca2b2d10044e9c8 100,107,129
+logfire/_internal/integrations/llm_providers/openai.py
+  bca2b2d10044e9c8 125,135,182,193,203,213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "f4f7cf6d08ca84021abaffa6a45e4a6c6e0643bd",
+  "prompts": {
+    "bca2b2d10044e9c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be62f3e1-9822-493b-8be2-96d164602d6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 7,
+      "accepted_lines": 12,
+      "overriden_lines": 0
+    }
+  }
+}

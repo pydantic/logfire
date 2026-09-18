@@ -1,0 +1,14 @@
+pyproject.toml
+  h_bc896295f46a8b 167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "221a4211dcf3748836f171baadda96a4b9bd602c",
+  "prompts": {},
+  "humans": {
+    "h_bc896295f46a8b": {
+      "author": "Alex Hall"
+    }
+  }
+}

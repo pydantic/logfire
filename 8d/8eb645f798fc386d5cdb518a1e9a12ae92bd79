@@ -1,0 +1,19 @@
+logfire/variables/_handlebars.py
+  s_30437b3d0655e9::t_edfeb69d4d545f 80,84,86-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "8d8eb645f798fc386d5cdb518a1e9a12ae92bd79",
+  "prompts": {},
+  "sessions": {
+    "s_30437b3d0655e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4f2d-c7c6-7031-8254-b37334b66fd1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+logfire/_internal/exporters/console.py
+  s_1882ba2cc1c746::t_611926854b927e 124,127-128,135
+tests/test_console_exporter.py
+  s_1882ba2cc1c746::t_183e46334a4492 121-131
+  s_1882ba2cc1c746::t_489d28972d1fdd 115-116,452-458,495,678-684,844,846
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3bd8fdd03f8540713bd1dee3e5c7483ad7a25527",
+  "prompts": {},
+  "sessions": {
+    "s_1882ba2cc1c746": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e656e-0e76-7610-9497-f7a7752a3216",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

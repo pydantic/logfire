@@ -1,0 +1,14 @@
+docs/guides/web-ui/llm-panels.md
+  h_bc896295f46a8b 84-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "16012f8d4e4445a678b1b84858fe6d3d842e2e15",
+  "prompts": {},
+  "humans": {
+    "h_bc896295f46a8b": {
+      "author": "Alex Hall"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+docs/index.md
+  h_d9dd17644dded9 19,50,52,76-77,94-95
+  h_d9dd17644dded9 20,49,51,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "26789923e66d87d032a1e55001995cdf9c5bf137",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

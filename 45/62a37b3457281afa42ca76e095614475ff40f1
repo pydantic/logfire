@@ -1,0 +1,27 @@
+logfire/_internal/config.py
+  s_169e5232428a61::t_f5d867126c99e8 980
+  h_d9dd17644dded9 975,989-990
+  s_169e5232428a61::t_c6b429a1331765 977-979
+  h_d9dd17644dded9 981-988,991-1025
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4562a37b3457281afa42ca76e095614475ff40f1",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_169e5232428a61": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1785758320391",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

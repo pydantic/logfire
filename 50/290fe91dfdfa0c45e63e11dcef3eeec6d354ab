@@ -1,0 +1,19 @@
+tests/otel_integrations/test_google_genai.py
+  s_d87f8974971a8d::t_d31cd1e2a06bb3 136,237,295
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "50290fe91dfdfa0c45e63e11dcef3eeec6d354ab",
+  "prompts": {},
+  "sessions": {
+    "s_d87f8974971a8d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06ccd-5b9f-7ef3-8bc6-c905180f6b5c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+logfire/integrations/pydantic.py
+  81bfb200d83f2c75 274-275,279,281,283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "17123c3f7c986a244313bc270ba9f2043835d947",
+  "prompts": {
+    "81bfb200d83f2c75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9618815-8f8c-43b5-96b8-08e019213652",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 4,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,14 @@
+logfire/variables/abstract.py
+  h_d9dd17644dded9 113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "c0ce5706726ad826090b86c0f6c3700bbced7449",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

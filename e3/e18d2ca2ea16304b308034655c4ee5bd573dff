@@ -1,0 +1,23 @@
+.github/workflows/main.yml
+  s_ade8d77f7871b8::t_f88e83c6ee39bb 164
+pyodide_test/package.json
+  s_ade8d77f7871b8::t_f88e83c6ee39bb 12
+pyodide_test/package-lock.json
+  ai_agent 12,22-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e3e18d2ca2ea16304b308034655c4ee5bd573dff",
+  "prompts": {},
+  "sessions": {
+    "s_ade8d77f7871b8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e68c4-d0b2-7eb1-9534-3caa4d4b3097",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

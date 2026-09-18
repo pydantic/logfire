@@ -1,0 +1,22 @@
+tests/otel_integrations/test_litellm.py
+  s_e5e3c016b3f5ec::t_6a0ca5eaa22b90 30
+  s_e5e3c016b3f5ec::t_5b8a90e5b51991 31-32
+tests/otel_integrations/test_dspy.py
+  s_e5e3c016b3f5ec::t_a965e72f749df3 20-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e2c06ee7e3655d7e718cc284a3d4c7f1f05c7614",
+  "prompts": {},
+  "sessions": {
+    "s_e5e3c016b3f5ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0149d-3cb5-72f1-b2ef-cfeb0e70b83a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

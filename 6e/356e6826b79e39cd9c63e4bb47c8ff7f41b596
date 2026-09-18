@@ -1,0 +1,24 @@
+tests/otel_integrations/test_anthropic.py
+  s_5efffbaa24b63f::t_ecd7b89dcac830 317,950,1139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "6e356e6826b79e39cd9c63e4bb47c8ff7f41b596",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5efffbaa24b63f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "089ea3a4-9fe8-467c-b66e-418d7f36d4ad",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

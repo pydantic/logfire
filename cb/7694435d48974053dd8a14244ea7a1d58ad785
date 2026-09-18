@@ -1,0 +1,28 @@
+specs/browser-telemetry-forwarding-first-pass/diagrams.md
+  s_1d4356de64f0ec::t_87cbf7a7f69127 136-145,175-176,244
+specs/browser-telemetry-forwarding-first-pass/spec.md
+  s_1d4356de64f0ec::t_87cbf7a7f69127 70-71,113-114,116-117,129
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_87cbf7a7f69127 30-31,62-81,305,337,358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "cb7694435d48974053dd8a14244ea7a1d58ad785",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

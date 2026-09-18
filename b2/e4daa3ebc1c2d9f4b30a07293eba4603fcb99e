@@ -1,0 +1,28 @@
+tests/test_internal_forwarding.py
+  s_92cc90135ff4bf::t_e852bdcd7c3bbd 584-588,590,592-593,596-646
+  s_92cc90135ff4bf::t_61736e0a52972e 589,591,647
+  s_92cc90135ff4bf::t_e3d5143fc74ee7 5,594-595
+logfire/_internal/forwarding.py
+  s_92cc90135ff4bf::t_e852bdcd7c3bbd 12,120-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "b2e4daa3ebc1c2d9f4b30a07293eba4603fcb99e",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_92cc90135ff4bf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4628-f2d1-7c91-ad1e-5062fe882ab2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

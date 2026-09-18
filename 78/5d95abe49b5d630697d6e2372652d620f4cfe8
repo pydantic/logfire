@@ -1,0 +1,25 @@
+docs/first-trace.md
+  s_7555c461c02125::t_a72d7da0467db6 26,69
+  s_7555c461c02125::t_807f91bdbfc9f4 27,29,31,33,35-52,55-68
+  s_7555c461c02125::t_ef80bf26c97ed4 70
+docs/index.md
+  s_7555c461c02125::t_807f91bdbfc9f4 17,19,21,23,25-42,45-58
+  s_7555c461c02125::t_a72d7da0467db6 16,59
+  s_7555c461c02125::t_e9206027db9d26 60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "785d95abe49b5d630697d6e2372652d620f4cfe8",
+  "prompts": {},
+  "sessions": {
+    "s_7555c461c02125": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ff15f-24f0-7c13-9295-a9cadbb65d85",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

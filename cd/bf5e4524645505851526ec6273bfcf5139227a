@@ -1,0 +1,14 @@
+logfire/_internal/formatter.py
+  h_d9dd17644dded9 22-26,28-32,53-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "cdbf5e4524645505851526ec6273bfcf5139227a",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

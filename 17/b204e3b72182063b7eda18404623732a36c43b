@@ -1,0 +1,23 @@
+pyproject.toml
+  s_242f456c83167e::t_aa1576c9436321 178
+tests/otel_integrations/test_mysql.py
+  s_242f456c83167e::t_8d6a2292ef7f04 32-35
+uv.lock
+  s_242f456c83167e::t_aac0f6432e3bfc 2801,3239-3267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "17b204e3b72182063b7eda18404623732a36c43b",
+  "prompts": {},
+  "sessions": {
+    "s_242f456c83167e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa91274c-ad63-4397-bb69-5f78126f74b5",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

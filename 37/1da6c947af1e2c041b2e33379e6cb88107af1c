@@ -1,0 +1,14 @@
+tests/test_push_variables.py
+  h_d9dd17644dded9 10,734,760-766
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "371da6c947af1e2c041b2e33379e6cb88107af1c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

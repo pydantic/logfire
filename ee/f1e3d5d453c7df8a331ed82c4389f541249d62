@@ -1,0 +1,34 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "eef1e3d5d453c7df8a331ed82c4389f541249d62",
+  "prompts": {
+    "bca2b2d10044e9c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be62f3e1-9822-493b-8be2-96d164602d6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "ccaafb0fee38d265": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1775813448932",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

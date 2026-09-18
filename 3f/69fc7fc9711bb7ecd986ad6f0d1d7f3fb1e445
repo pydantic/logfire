@@ -1,0 +1,36 @@
+specs/claude-agent-sdk-integration/merge-consecutive-assistant-messages.md
+  7e4bee7c6887e877 1,3,5-6,17-20,22-31,34-35,37,40-41,43-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "3f69fc7fc9711bb7ecd986ad6f0d1d7f3fb1e445",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "7e4bee7c6887e877": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1285ebad-b341-41ad-a3d0-62ea018d29e4",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 29,
+      "total_deletions": 41,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    }
+  }
+}

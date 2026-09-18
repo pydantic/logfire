@@ -1,0 +1,28 @@
+logfire/_internal/integrations/surrealdb.py
+  9acc1c3a0516c6b8 5,30,64,68,73-75,79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "23420058be68824a841bd4cc2e8417d832f9a717",
+  "prompts": {
+    "9acc1c3a0516c6b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5cae4685-3aa5-411f-8296-576b66a0f486",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 4,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_bc896295f46a8b": {
+      "author": "Alex Hall"
+    }
+  }
+}

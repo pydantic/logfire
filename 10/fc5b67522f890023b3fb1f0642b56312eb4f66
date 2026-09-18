@@ -1,0 +1,14 @@
+tests/conftest.py
+  h_d9dd17644dded9 128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "10fc5b67522f890023b3fb1f0642b56312eb4f66",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+logfire/_internal/integrations/google_genai.py
+  s_ba42da6a3fdfad::t_9a28cf419a53bc 57-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3c5e4474d5d61a09a9b57e19af0a9ab95dbd6f25",
+  "prompts": {},
+  "sessions": {
+    "s_ba42da6a3fdfad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5da444fb-69d4-4194-a9b8-afd5b6770f57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

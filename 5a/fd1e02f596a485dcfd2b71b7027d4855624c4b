@@ -1,0 +1,29 @@
+tests/test_internal_forwarding.py
+  s_1d4356de64f0ec::t_f348dc448237c8 548
+  s_1d4356de64f0ec::t_236102ef9b2fc1 16,284-289,294,309-320
+logfire/_internal/forwarding.py
+  s_1d4356de64f0ec::t_e824b763423886 46,130,135,149-153,269
+specs/browser-telemetry-forwarding-first-pass/spec.md
+  s_1d4356de64f0ec::t_19fb67bc3d2757 43-44,54
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_efddeb04ff3132 108,119,132,136,140,144
+  s_1d4356de64f0ec::t_b6d54f0c1fdf31 256
+specs/browser-telemetry-forwarding-first-pass/diagrams.md
+  s_1d4356de64f0ec::t_a251a784523126 89,147-150,172-173,229-230
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "5afd1e02f596a485dcfd2b71b7027d4855624c4b",
+  "prompts": {},
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

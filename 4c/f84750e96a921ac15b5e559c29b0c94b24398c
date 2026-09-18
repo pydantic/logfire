@@ -1,0 +1,42 @@
+logfire/experimental/forwarding.py
+  s_df41880941b7ab::t_3fb9516930cd04 6,10-12,15,20-21,24,42,44-47,78,114-115,117-130,141,160,199,202-204,207,211-212,214-233
+  s_df41880941b7ab::t_0ee12cbc54c572 23,205-206,208-210
+  s_df41880941b7ab::t_1796949f25fb85 18,116,133,180,192,213
+tests/test_experimental_forwarding.py
+  s_df41880941b7ab::t_c01665cf157080 9,16-26,29-30,32-36,38-49,51-57,74,77-87,90,97-98,104-106,108-109,111-114,180,183-184,186-188,197,201,204-205,209,211,213-214
+  s_df41880941b7ab::t_1796949f25fb85 13,50
+docs/integrations/web-frameworks/fastapi.md
+  s_df41880941b7ab::t_44633eca235b5d 117
+docs/integrations/javascript/browser.md
+  s_df41880941b7ab::t_44633eca235b5d 52-55,59,78-79,130
+logfire-api/logfire_api/experimental/forwarding.pyi
+  s_df41880941b7ab::t_3fb9516930cd04 6-8,17-21,26,44
+logfire/_internal/exporters/otlp.py
+  s_df41880941b7ab::t_3fb9516930cd04 171,175-176,183,207,211
+docs/integrations/web-frameworks/starlette.md
+  s_df41880941b7ab::t_44633eca235b5d 63
+tests/exporters/test_otlp_session.py
+  s_df41880941b7ab::t_0ee12cbc54c572 257,259
+  s_df41880941b7ab::t_c01665cf157080 250-256,258,260-261
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "4cf84750e96a921ac15b5e559c29b0c94b24398c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_df41880941b7ab": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2d03-71cf-7c71-9099-1e16d95b78bc",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

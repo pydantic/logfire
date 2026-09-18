@@ -1,0 +1,14 @@
+.github/workflows/weekly_deps_test.yml
+  h_bc896295f46a8b 52-54,62-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "75503c62354474c1923cc0425abcce9e640f80c3",
+  "prompts": {},
+  "humans": {
+    "h_bc896295f46a8b": {
+      "author": "Alex Hall"
+    }
+  }
+}

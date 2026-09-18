@@ -1,0 +1,21 @@
+logfire/sampling/_tail_sampling.py
+  s_045a93cb5e3954::t_6ddcf8d02fa717 108-109
+docs/how-to-guides/sampling.md
+  s_045a93cb5e3954::t_6ddcf8d02fa717 153-157,196,211,213-215,217-222,241
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "396ef3c1befb505b98fd69cb2f3c2b006e79f50a",
+  "prompts": {},
+  "sessions": {
+    "s_045a93cb5e3954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04304-376d-7333-94a3-b2d9d41cd416",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

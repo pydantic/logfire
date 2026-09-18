@@ -1,0 +1,35 @@
+tests/test_json_args.py
+  s_d86912ee9cc110::t_0f459f76259d27 181-186
+logfire/_internal/json_encoder.py
+  s_a6632e61bc949d::t_7492c0eaecbdbf 253
+  h_d9dd17644dded9 310,315
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "5830875f81aa583dfdf90babe058246f40881252",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_a6632e61bc949d": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1780767572070",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_d86912ee9cc110": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb197-6506-7132-9b2f-e8c59cb6adb6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

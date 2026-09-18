@@ -1,0 +1,23 @@
+logfire/_internal/config.py
+  81bfb200d83f2c75 509,782,790,797,1776,1783
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "9076c9ece2f47a494f30a26d0af81d3ed5a81ea8",
+  "prompts": {
+    "81bfb200d83f2c75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9618815-8f8c-43b5-96b8-08e019213652",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 6,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}

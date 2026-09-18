@@ -1,0 +1,16 @@
+.gitignore
+  h_d9dd17644dded9 20-23
+.murmur/murmur.yaml
+  h_d9dd17644dded9 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "034471a9a3bf6fe3a12c99667832032f841616e4",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

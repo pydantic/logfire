@@ -1,0 +1,25 @@
+.claude/commands/update-deps.md
+  s_8a2e80a0729a2a::t_a1d1ea40e9ee63 9,13
+  s_8a2e80a0729a2a::t_f9e46ee27a8601 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "bdbacc073828e21df14c4422157b4fff35910d9a",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8a2e80a0729a2a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba2484d0-3283-4b1b-bb77-e0fba9c04742",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

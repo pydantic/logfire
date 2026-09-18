@@ -1,0 +1,59 @@
+logfire/types.py
+  s_169e5232428a61::t_99e159f72d3314 330
+  s_169e5232428a61::t_b1ecff10c09f0d 334
+  s_169e5232428a61::t_8a1234682a7e83 309
+  s_169e5232428a61::t_eec956675f36b8 336
+  s_169e5232428a61::t_2c0131dc394108 322
+  s_169e5232428a61::t_aaa736e259c678 345,347
+  s_169e5232428a61::t_be235bf38e816a 310
+  s_169e5232428a61::t_4194996e9e0b32 341
+  s_057cde6591697a::t_983c3897b45d4f 348
+  s_169e5232428a61::t_5a90df7e94911f 352
+  s_169e5232428a61::t_6622d7b411b548 342
+  s_169e5232428a61::t_cf66eee48fa77b 344
+  s_169e5232428a61::t_5d1ea87f1f3324 325-327
+  s_169e5232428a61::t_1fcdd67593a5a1 328
+  s_169e5232428a61::t_ab4e3ae62174c9 333
+  h_d9dd17644dded9 338,343,353,359-362
+  s_169e5232428a61::t_f38fd4f644c80f 346
+  s_169e5232428a61::t_40a7c1e22bea37 349
+  s_057cde6591697a::t_91a2e3580f4b93 319,324
+  s_169e5232428a61::t_c130796e234d13 358
+  s_169e5232428a61::t_5d3c03a214a59e 306-308
+  s_169e5232428a61::t_8995e88b61e165 329
+  s_169e5232428a61::t_1694c752a7784d 331-332
+  s_169e5232428a61::t_ac9b36b517a368 335
+  s_169e5232428a61::t_6162e18f30df3a 350-351
+  s_057cde6591697a::t_8fc6ba5f557d5b 3,6,20,311-318,320-321,323,337,339-340,354-357
+tests/test_types.py
+  s_057cde6591697a::t_1d3ef7893d2426 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "3931b586ca88df5bb2647a4cf8c897bf4370d7d5",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_057cde6591697a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc7aa-47a9-7883-893e-4ca319dd3fe3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_169e5232428a61": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1785758320391",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

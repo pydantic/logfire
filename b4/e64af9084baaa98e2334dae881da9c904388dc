@@ -1,0 +1,40 @@
+logfire/_internal/config.py
+  3aba21a1957357d3 99,1543
+tests/exporters/test_otlp_session.py
+  3aba21a1957357d3 1-5,138-184
+logfire/_internal/exporters/otlp.py
+  3aba21a1957357d3 3,5,8,30,32-39,110-114,143,153,157-172,176-177,223-225,237-238,241-242,260,262-263
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "b4e64af9084baaa98e2334dae881da9c904388dc",
+  "prompts": {
+    "3aba21a1957357d3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d9213-198a-7763-92dd-a30d34148a04",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 103,
+      "total_deletions": 2,
+      "accepted_lines": 103,
+      "overriden_lines": 0
+    },
+    "bca2b2d10044e9c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be62f3e1-9822-493b-8be2-96d164602d6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,25 @@
+docs/how-to-guides/mcp-server.md
+  s_dd2e40266c06fd::t_01cea6e8da31f4 254,256-267,270
+  s_dd2e40266c06fd::t_0592c8c060fa87 271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "bade877a7eb33faa043d96015b4120945d6f15c4",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_dd2e40266c06fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fd76e-fa59-7fa2-9f51-bfd191720f2d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

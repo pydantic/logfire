@@ -1,0 +1,27 @@
+logfire/_internal/integrations/llm_providers/semconv.py
+  bca2b2d10044e9c8 45-49
+logfire/_internal/integrations/llm_providers/openai.py
+  bca2b2d10044e9c8 131,156,182,195,207,220
+logfire/_internal/integrations/llm_providers/anthropic.py
+  bca2b2d10044e9c8 103,128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "6e849f764d7fbb5491fa4631899362dd3e1ef6c7",
+  "prompts": {
+    "bca2b2d10044e9c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be62f3e1-9822-493b-8be2-96d164602d6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 43,
+      "total_deletions": 48,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}

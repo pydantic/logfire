@@ -1,0 +1,25 @@
+docs/guides/web-ui/dashboards.md
+  h_d9dd17644dded9 48
+  s_32dfc9ac23cad5::t_57571d88274c66 46-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8084b44de9d876fb5503459ae99f1c98d8b62cc9",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_32dfc9ac23cad5": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1788174909129",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

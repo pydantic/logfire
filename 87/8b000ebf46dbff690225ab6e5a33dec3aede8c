@@ -1,0 +1,22 @@
+tests/test_server_response.py
+  h_d9dd17644dded9 11,79,94,114,124
+logfire/_internal/config.py
+  h_d9dd17644dded9 205,222,1105,1156,1333,1466,1484
+logfire/variables/remote.py
+  h_d9dd17644dded9 63,71-72,79,82,211
+logfire/_internal/client.py
+  h_d9dd17644dded9 33-34,40,48,54,63-64,68
+logfire/_internal/server_response.py
+  h_d9dd17644dded9 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "878b000ebf46dbff690225ab6e5a33dec3aede8c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

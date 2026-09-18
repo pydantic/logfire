@@ -1,0 +1,489 @@
+docs/guides/web-ui/service-levels.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-73
+docs/integrations/no-code/flowise.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-73
+docs/how-to-guides/pagerduty.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-115
+docs/integrations/agent-frameworks/eve.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-122
+docs/migrating/splunk.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-70
+docs/integrations/llms/langchain.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 24-26,49,98-125
+  s_d9a0084cc1541d::t_0ed984224ee7a4 126
+docs/how-to-guides/create-write-tokens.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 5-6,31
+docs/integrations/http-clients/httpx.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 2-3,6,8-11,13-16,33,39-40,42,68,73,81,87,110-111,119,235
+docs/evaluate/datasets-and-experiments.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,8,10,12,14-18,20,22,24-25,27,29,31-34,36,38-41,45
+docs/migrating/dynatrace.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-58
+tests/otel_integrations/test_openai_agents.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 2443,2516,2522,2525,2536,2566
+docs/how-to-guides/skills.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,65-67,76-111,124
+docs/integrations/agent-frameworks/mastra.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-123
+tests/exporters/test_retry_fewer_spans.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 4,7,105-151
+README.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 24-25,68
+tests/test_variables.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 932
+docs/reference/api/datasets.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 21-22
+tests/otel_integrations/test_sqlite3.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 14-26
+docs/integrations/llms/strands.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-113
+logfire/.agents/skills/logfire-setup/SKILL.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-40
+docs/integrations/web-frameworks/fastapi.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 166
+logfire/sampling/_tail_sampling.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 28-30,36,108-109,199,233-235
+docs/integrations/agent-frameworks/eino.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-40
+docs/evaluate/evals-in-code.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 12-13,73,86,132,176
+docs/integrations/agent-frameworks/semantic-kernel-dotnet.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-147
+docs/evaluate/human-review.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 2-3,6,8,10,12,14-17,19,21,23,27,29,31,35,37,39,41,43-45,47,51-52,56-59
+docs/how-to-guides/cloud-metrics.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 34-35
+docs/get-started/for-product-and-growth.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 20-30
+docs/integrations/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,25-26,33-35,37-38,53-63,70,74-75
+docs/integrations/no-code/n8n.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-78
+docs/languages/java.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 72
+logfire-api/logfire_api/_internal/client.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 2,6,60-66
+logfire-api/logfire_api/_internal/integrations/system_metrics.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,22-49
+tests/test_datasets_client.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,9,1018-1057,1474-1486
+  s_d9a0084cc1541d::t_6d8dc301012661 1487
+tests/otel_integrations/test_elasticsearch.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-102
+docs/reference/limits.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-54
+logfire/_internal/cli/__init__.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,9,11-12,16,19-20,31,34,37,99-101,117-119,122-129,155-168,174,210-706,709-727,729-763,900-904,926,945,957-963,972-974,980-985,1020,1060,1066-1069,1071-1074
+logfire/_internal/client.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,14,19,75,86,91,152-163,166
+docs/integrations/http-clients/httpx2.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-250
+logfire-api/logfire_api/_internal/collect_system_info.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 8
+logfire/.agents/skills/logfire-instrumentation/SKILL.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,10,14,16,18,20,28,30,32,34,36,38,40,42-45,48,50,52,54,56-59,64-66,69,71,73,75,77,79,95,105,107,114,122,124,140-144,146,152-153,182,184-186,188,190,192-208,210,212,214-220,222-256,262,266-267
+tests/test_cli.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 21,23,40-50,59-60,77-81,124-140,178,226,294-355,623-631,635-638,648,651,653-659,661-669,673-704,713-716,718,720,723-724,726-730,732-734,736-744,747-750,752-756,761-794,799,803-804,807,809-880,882,884-889,891-895,898-1017,1029-1034,1037,1039-1047,1049-1073,1086,1088,1090-1095,1098-1099,1101-1102,1114,1116,1118-1120,1123-1125,1137-1919,1930-1968,1973-1975,1986,1996-2039,2048-2116,2118-2182,2184-2366,2368-2370,2372,2374-2375,2378-2391,2404,2406,2408-2411,2414-2415,2417-2427,2439-2440,2443,2445-2449,2452-2453,2455-2462,2475-2476,2478,2481-2482,2484-2490,2502-2573,2576-2577,2579,2582-2583,2585-2594,2596-2663,2676,2678-2679,2681-2682,2685-2699,2712-2839,2841-2845,2847-2848,2851-2857,2869,2871-2872,2874-2875,2878-2881,2883-2886,2898,2900-2901,2903-2904,2906-2926,2938,2940-2941,2943-2944,2946-2955,2967-2969,2971,2973-2975,2978-3002,3014-3055,3057,3059-3060,3062-3114,3408-3531,3968,4000-4021
+  s_d9a0084cc1541d::t_6dd4910093ae6b 4022-4023
+docs/reference/advanced/gateway/transcriptions.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-86
+docs/integrations/agent-frameworks/voltagent.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-112
+docs/integrations/llms/pydanticai.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 75
+logfire/db_api.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 24,31,33-37,142,202-205,210-212,215,218-237,267-272,282,370
+docs/integrations/llms/crewai.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-141
+docs/get-started/for-ai-engineers.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 26
+docs/migrating/new-relic.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-66
+docs/evaluate/annotate-agent-runs.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 10,12,16,48-62,75,79-80
+logfire/_internal/integrations/llm_providers/usage.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 15,25-31,46-52,54-78
+docs/scim-provisioning.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-134
+docs/integrations/llms/haystack.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-118
+docs/evaluate/review-experiments.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-121
+.github/workflows/docs-navigation.yml
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-144
+docs/integrations/no-code/dify.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-51
+docs/evaluate/manage-datasets.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-99
+docs/how-to-guides/mcp-server.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,20,22-87,89-91,106-109,114-115,117,119-195,199-200,202,209,211-214,216-235,238,241,243-253,255-261,263-265,277-278,280,282,284-292,295-296,300,306,313,315-316,318-320,324,346-350,371-457,486,488-507
+docs/migrating/overview.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-106
+docs/integrations/llms/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,8,10-14,22,25-28
+docs/reference/data-regions.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 28,30-32,37
+  s_d9a0084cc1541d::t_7e4dff6839ed2e 38
+docs/faq.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 75,124,234,271,276
+logfire/.agents/skills/logfire-instrumentation/references/javascript/installation-and-env.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 20
+logfire/_internal/config.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 36,57-62,118,129,280-285,289,310-314,316-319,584,977-1026,1091,1375-1383,1570,1760-1766,2069-2072,2074-2085,2107-2117,2164-2177,2182-2194,2201-2231,2233-2246,2248-2256,2261,2267,2275,2311-2316,2325-2335,2370-2378,2390-2395
+logfire/_internal/integrations/claude_agent_sdk.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 9,47,183-184,201-205,455-476,526-536
+docs/reference/cli.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 100-102,189-214,229-242
+  s_d9a0084cc1541d::t_4a25ead83ecdfb 243
+docs/cookbook/debug-a-slow-tool-call.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 55
+docs/integrations/pydantic.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 78-81,86,94,97-111
+  s_d9a0084cc1541d::t_e00478ee8f05fa 112
+docs/reference/advanced/gateway/integrations/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 13,29,57
+docs/migrating/grafana.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-55
+logfire/.agents/skills/logfire-instrumentation/references/python/integrations.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 11-12,20-21,38-40,42-61,71,73-80
+logfire/.agents/skills/logfire-infrastructure/references/collector/host-and-infra-metrics.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-232
+logfire/_internal/integrations/llm_providers/openai.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 524,579,586,605,611-615,621,632
+logfire-api/logfire_api/_internal/cli/__init__.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,7-9
+  s_d9a0084cc1541d::t_f913bda26b8a7d 10
+logfire-api/pyproject.toml
+  s_d9a0084cc1541d::t_1136cc16a457cc 7
+logfire-api/logfire_api/_internal/utils.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 81-83
+logfire/experimental/query_client.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,9,141,154-156,367,567
+tests/otel_integrations/test_openai.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 3971,4002
+tests/test_agent_setup_prompt.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-148
+docs/guides/web-ui/hosts.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 17,51,59-62,96
+  s_d9a0084cc1541d::t_f3322600b483d6 97
+logfire/_internal/integrations/llm_providers/types.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 12-17
+tests/test_configure.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 5,9,13-14,29,85,91,1232-1463,1992-2276,2358-2380,2437,2444-2452,3450-3494
+  s_d9a0084cc1541d::t_0f97b2e1b5633f 3495-3496
+dev-docs/documentation-style-guide.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 299-303,306
+tests/test_slow_async_callbacks.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 30,36,47,55,66,74,83-84,94,102,107,116-150,160,168,177-178,188,196,203-217,220,228,232
+tests/type_checking.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1,8-10,33-43
+tests/otel_integrations/test_claude_agent_sdk.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 24-25,27-35,37,260-263,429,494-549,735,737,739-744,746-747,752-757,774,833,837
+docs/guides/onboarding-checklist/add-metrics.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 91-92,153-246
+  s_d9a0084cc1541d::t_e09cccf8ae2205 247
+docs/integrations/agent-frameworks/CLAUDE.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-37
+docs/languages/dotnet.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 59,86,91,100,102
+tests/otel_integrations/test_sqlalchemy.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 25-44,67
+tests/otel_integrations/test_system_metrics.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 43,46,72,85,99-110,135-136,207-208
+docs/how-to-guides/sampling.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 153-157,196,213-217
+logfire/.agents/skills/logfire-instrumentation/references/auth.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-49
+logfire/_internal/async_.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 42-45
+docs/integrations/no-code/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-42
+logfire/_internal/stack_info.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 28-32,115-123,130,138
+docs/integrations/agent-frameworks/langchain-js.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-129
+docs/instrument/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 12-14,20,24
+docs/integrations/no-code/open-webui.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-92
+tests/test_logfire_api.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 13,16,20-76,121-123,273-275,303,315
+tests/test_docs.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 5-6,40-45,73-98,130
+docs/how-to-guides/alternative-clients.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,18,23-24,70,183,187
+docs/integrations/no-code/langflow.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-44
+logfire/.agents/skills/logfire-instrumentation/references/python/logging-patterns.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 31-43
+docs/migrating/aws.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-61
+docs/guides/web-ui/services.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 2-3,7,9,11,13,15,17-20,22,24,26,28,30,32-35,37,39,41,43,45,47,49,51,55-60,62,64,66,68-70,74,76-82,85,87,89-93
+logfire-api/logfire_api/_internal/exporters/otlp.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,29
+docs/integrations/web-frameworks/starlette.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 104
+tests/test_auth.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 8-9,12,182-199
+.agents/skills/update-deps/SKILL.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-33
+docs/guides/web-ui/frontend.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-49
+logfire/_internal/cli/auth.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 11-29,61-64,71-84,86-90,98-118
+docs/guides/web-ui/llms.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 42-61,168-169
+docs/how-to-guides/sso-setup.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 168
+logfire-api/logfire_api/_internal/integrations/claude_agent_sdk.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,39-41,43-51
+docs/get-started/for-backend-and-sre.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 30-33
+docs/integrations/llms/agno.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-98
+docs/migrating/honeycomb.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-61
+logfire/.agents/skills/logfire-setup-offline.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-568
+docs/cookbook/evaluate-an-agent.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 23,32,37,40,259,267,269,271-274,276,285,287,297,299
+.github/workflows/scripts/test_docs_navigation_workflow.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-41
+CHANGELOG.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3-32,1241-1242
+docs/integrations/agent-frameworks/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-113
+docs/integrations/agent-frameworks/rig.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-150
+docs/integrations/llms/google-adk.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-148
+docs/integrations/llms/smolagents.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-94
+logfire/_internal/db_statement_summary.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 82-85
+logfire/_internal/interactive.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-115
+logfire-api/logfire_api/_internal/cli/auth.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 5
+.github/workflows/main.yml
+  s_d9a0084cc1541d::t_1136cc16a457cc 36-38,71,118,253
+docs/integrations/llms/autogen.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-124
+docs/integrations/llms/semantic-kernel.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-143
+logfire-api/logfire_api/_internal/constants.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 39
+logfire-api/logfire_api/_internal/interactive.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-26
+docs/guides/web-ui/metrics-explorer.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 2-3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35-53,56,58,60,62,64,66,68,78,80,87,101,107,109-118
+tests/otel_integrations/test_httpx.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 14,1096,1121,1130
+tests/test_secret_scrubbing.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 17,20-126
+  s_d9a0084cc1541d::t_54078b6ca0f7df 127
+logfire/_internal/scrubbing.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 66-71,213
+docs/how-to-guides/otel-collector/host-monitoring.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 16,28-30,32,37-39,68,70,78,98-100,102,107,161,167,174-176,178,180-182,251,273
+tests/otel_integrations/test_anthropic_bedrock.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 2,4-5,11,16,19-57,61,64-65,77-82,160,190,200-323
+  s_d9a0084cc1541d::t_c4c1bef9f65683 324-325
+docs/guides/web-ui/kubernetes.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 47,70-84,108-109,123
+logfire/_internal/utils.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 214-231,236-250,470-478
+  s_d9a0084cc1541d::t_38dec200223927 479-480
+docs/integrations/llms/openai.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 203-204
+.github/workflows/deps_test.yml
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-136
+docs/integrations/no-code/lobe-chat.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-46
+docs/integrations/llms/openrouter.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-95
+docs/reference/advanced/gateway/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 18,36,40,54,139,141,164-165
+  s_d9a0084cc1541d::t_32688b490d9552 166
+docs/first-trace.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 14,26-28,34,107-140,143
+docs/how-to-guides/otel-collector/otel-collector-overview.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 26-31
+docs/how-to-guides/setup-slack-alerts.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 9-11
+docs/integrations/agent-frameworks/openai-agents-js.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-31
+docs/integrations/agent-frameworks/support-matrix.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-91
+docs/guides/web-ui/integrations.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-91
+docs/integrations/databases/surrealdb.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-123
+docs/integrations/llms/instructor.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-112
+docs/integrations/no-code/goose.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-65
+logfire/.agents/skills/logfire-evals/SKILL.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-126
+docs/how-to-guides/slack-app.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-115
+logfire/_internal/constants.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 182-184
+logfire-api/logfire_api/__init__.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 19
+pyproject.toml
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,54,112,208-211,357-362
+scripts/build_offline_skill_prompt.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-185
+tests/otel_integrations/test_anthropic.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 10,23,51,1034-1042,1096-1109
+tests/test_build_offline_skill_prompt.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-107
+logfire/_internal/exporters/otlp.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 21,27-37,73-78,84-93,95-97,305-312,320-365,368-373
+logfire/.agents/skills/logfire-instrumentation/references/javascript/cloudflare-and-deno.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 27,34,77
+tests/test_client.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 4,13-35
+docs/migrating/elastic.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-62
+tests/otel_integrations/test_litellm.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 30-32,205,210,267,351
+tests/test_db_statement_summary.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-2,158-171
+docs/integrations/event-streams/airflow.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 65,80-81,172
+logfire/integrations/pydantic.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 9,16,23,160-163,167,197,211,219,234,241,265-270,385-397,430-432
+docs/guides/web-ui/agents.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 8,20-31,71
+logfire/experimental/api_client.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 57,61,82-83,502-533,1034-1036,1045-1047,1099-1101,1103-1111,1384-1386,1395-1397,1407-1409,1411-1419
+docs/images/integrations/llms/llamaindex.svg
+  s_d9a0084cc1541d::t_1136cc16a457cc 1
+docs/evaluate/overview.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 3,10,16,18,22-24,26,32-33,35,46,48,70,76,78,80
+docs/integrations/llms/letta.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-179
+logfire-api/logfire_api/_internal/auth.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 12
+docs/images/integrations/llms/openai.svg
+  s_d9a0084cc1541d::t_1136cc16a457cc 1
+tests/exporters/test_otlp_session.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 6,16-20,22,34,46-51,53-57,63-106,122-231,416-419,426,435
+tests/otel_integrations/test_dspy.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-3,6-8,20-97,112-115
+docs/get-started/for-platform-and-security.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 16,22,24-26
+logfire-api/logfire_api/_internal/cli/gateway.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 3
+docs/comparisons/migrate-from-braintrust.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-113
+logfire-api/logfire_api/_internal/main.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 405,1224,1227-1230,1233,1247-1248,1338-1339,1419-1421,1446,1469
+docs/reference/advanced/gateway/embeddings.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 22
+docs/reference/examples.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 33
+tests/test_db_api.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 66,190,200,202,453-454,465,467-468,470-472,475,479-481,483-486
+tests/test_pydantic_plugin.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 129-135,146-156,162-167,225-226,419-420,440-441,679-680,956-957,1238-1239
+docs/integrations/agent-frameworks/vercel-ai-sdk.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-112
+docs/compliance.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 7,14
+docs/integrations/databases/elasticsearch.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-82
+docs/integrations/llms/claude-agent-sdk.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 105-109
+docs/integrations/llms/langgraph.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-145
+docs/integrations/system-metrics.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 57,59,78-79,88-89,97-100,112-113,133-134
+logfire/.agents/skills/logfire-infrastructure/SKILL.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-60
+logfire/_internal/formatter.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 343
+docs/integrations/llms/google-genai.md
+  s_ba42da6a3fdfad::t_698ea3d5f3cf1d 41-43
+logfire/_internal/integrations/llm_providers/anthropic.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 277,302,306,309-319,324-326,328-336,341-345,376
+logfire-api/logfire_api/_internal/config.pyi
+  s_d9a0084cc1541d::t_1136cc16a457cc 19,32,40,80-85,201,425-433
+tests/test_logfire.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 64
+CLAUDE.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 89-90,107-116,119-131,133
+docs/guides/web-ui/docker.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 43,70-74
+  s_d9a0084cc1541d::t_486d225959d567 75
+docs/integrations/agent-frameworks/agent-framework-dotnet.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-125
+logfire/_internal/auth.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 27-34,261,288
+docs/guides/web-ui/dashboards.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 46-48,79,81,86-87,154,163-197,212-273
+docs/integrations/agent-frameworks/genkit-go.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-130
+docs/reference/advanced/use-api-keys.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 6,8-11,28,54-56,82-83
+logfire/_internal/collect_system_info.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 12
+tests/import_used_for_tests/slow_async_callbacks_example.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 15-19
+docs/guides/web-ui/session-replays.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-50
+docs/index.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 16-18
+tests/test_tail_sampling.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 745-794
+docs/navigation.yml
+  s_d9a0084cc1541d::t_1136cc16a457cc 103-105,108-110,113,115,119-121,125-127,130,132,137,139,144,146,150,152,156,158,167,169,174-176,182-184,188,190,195,197,202,204,211,213,218,220,225,227,232,234,239-241,245-247,251-253,257-259,263-265,269-271,277-279,283-285,289-291,328,381-386,392-394,457,459-484,497-499,527-606,633-638,712-714,813-815,874-876,885-890,915,918-923,997-999,1019-1022,1197-1203,1206-1242,1244-1245,1247
+tests/test_query_client.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 10,40,60-68,102,142,158,188,230,249,276,284,287,304,312,315,352-363
+  s_d9a0084cc1541d::t_da8b30368266a8 364-365
+logfire/_internal/integrations/llm_providers/llm_provider.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 6,24-33,40,98-109,126,133,145,171-173,186-188,230,233
+logfire/_internal/cli/gateway.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 26,450-454,621
+docs/integrations/agent-frameworks/llamaindex-ts.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-110
+docs/enterprise.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 21-24,47,71
+logfire/_internal/integrations/system_metrics.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 34,47,67,80,116-118,147-151,188-195,271-322
+docs/migrating/datadog.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 1-66
+docs/how-to-guides/otel-collector/kubernetes-monitoring.md
+  s_d9a0084cc1541d::t_1136cc16a457cc 13,34-48,70,98-111,236-238,376,379,388-389,428,435-437,439,441-443
+logfire/_internal/main.py
+  s_d9a0084cc1541d::t_1136cc16a457cc 965,1068-1069,1071,3045,3083
+uv.lock
+  s_d9a0084cc1541d::t_5f90981082316e 50,59,79,81,83,289,294,300,302,333,335-392,585,592,594,599,606,608,613,615,617,624-626,652-708,741,746-846,860-1018,1023,1027,1032,1034-1038,1043,1045,1047,1107-1230,1240,1246-1292,1333,1342-1344,1346,1348,1353,1370-1372,1374,1376,1413,1422-1423,1432,1434-1464,1555,1565,1567,1583,1590,1592,1665,1667,1669,1821,1827,1829,1834,1836,1838,1843,1849,1851,1861,1875,1877,1882,1887,1889,1894-1975,1980,1982,1984,1998,2000,2002-2017,2035,2041,2043,2072,2075-2077,2079,2082-2091,2093,2098,2111,2113,2127,2129,2131,2157,2167,2169,2360,2362,2364,2451,2458,2460,2465,2468,2479,2481,2486,2489,2494,2496,2501,2506,2508,2513,2523,2525,2530,2536,2538,2556,2565,2567,2572,2590,2592,2597-2722,2727,2729-2778,2781,2790,2795,2797-2803,2808,2930-2931,2933,2946-2947,3062,3084,3097-3098,3170,3290,3308,3310,3471,3481-3533,3738,3754-3820,3825,3837,3839,3844,3855,3857,3864,3870,3878,3880,3885,3896,3898,3903,3914,3916,3921,3923,3925,4410-4477,4538,4540,4542,4553-4556,4631-4634,4692,4694,4696,4701,4703,4705,4719,4728,4730,4875,4877,4879-4885,5075,5087-5132,5137,5142,5144,5179,5187,5189,5199,5206,5212,5214,5224,5229-5335,5340,5350,5352,5357,5365,5367,5384,5391,5393,5398,5400,5402,5549,5554,5556,5638,5643,5645,5650,5652,5654,6279-6299,6319-6320,6329,6331,6333,6356,6362-6400,6419,6421,6423,6428,6434,6436,6441,6447,6449,6513,6519-6576,6704,6709,6711,6847,6854,6856,6883,6892,6894,6908-7019,7131-7322
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "df980c80aef7add47decb5c947e6a89ae9fe92fa",
+  "prompts": {},
+  "sessions": {
+    "s_ba42da6a3fdfad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5da444fb-69d4-4194-a9b8-afd5b6770f57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_d9a0084cc1541d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a067f8-449f-7b32-bd6a-403a660809e3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

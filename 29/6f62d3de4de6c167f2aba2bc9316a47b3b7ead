@@ -1,0 +1,36 @@
+tests/exporters/test_otlp_session.py
+  59d20a41d13c4fa5 209-244
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "296f62d3de4de6c167f2aba2bc9316a47b3b7ead",
+  "prompts": {
+    "59d20a41d13c4fa5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9113b61c-7372-499f-be8d-99612698ce49",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 5,
+      "accepted_lines": 36,
+      "overriden_lines": 0
+    },
+    "bca2b2d10044e9c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be62f3e1-9822-493b-8be2-96d164602d6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}

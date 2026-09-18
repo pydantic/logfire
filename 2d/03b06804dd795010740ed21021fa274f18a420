@@ -1,0 +1,23 @@
+tests/otel_integrations/test_openai_agents.py
+  7df3f0c8612521ca 840,1010,1105,1267,2360,2549,2585-2586
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2d03b06804dd795010740ed21021fa274f18a420",
+  "prompts": {
+    "7df3f0c8612521ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "adf37932-5886-40db-9fe6-3616ff7bbf90",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 39,
+      "total_deletions": 39,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}

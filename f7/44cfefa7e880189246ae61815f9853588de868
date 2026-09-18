@@ -1,0 +1,23 @@
+Makefile
+  dee61a1eec6dd792 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "f744cfefa7e880189246ae61815f9853588de868",
+  "prompts": {
+    "dee61a1eec6dd792": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a1103a59-5a0c-4ac5-9c85-5d701000679e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

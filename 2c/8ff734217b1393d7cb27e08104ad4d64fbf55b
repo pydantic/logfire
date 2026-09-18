@@ -1,0 +1,27 @@
+logfire/_internal/forwarding.py
+  s_1d4356de64f0ec::t_d8979e1e757a4a 179,188,200,215,235
+  s_1d4356de64f0ec::t_6c15ebd6b1b6ef 187
+  s_1d4356de64f0ec::t_49da3beec18413 139-142
+specs/browser-telemetry-forwarding-first-pass/diagrams.md
+  s_1d4356de64f0ec::t_c5c2c5a13b419e 88,225,227-228,232,235-236,238,242,250-251,253-254
+  s_1d4356de64f0ec::t_0e4ae62438bedd 237
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_b0946644a68ada 123-126
+  s_1d4356de64f0ec::t_304c00b9caf342 131,133,175,183,270,272,280
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "2c8ff734217b1393d7cb27e08104ad4d64fbf55b",
+  "prompts": {},
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

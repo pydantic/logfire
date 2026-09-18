@@ -1,0 +1,19 @@
+docs/integrations/llms/anthropic.md
+  s_4b05af1161faea::t_fc7e386031bed5 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "a6db4fbac8f07f7d3df618f89d741e7e1f1cff47",
+  "prompts": {},
+  "sessions": {
+    "s_4b05af1161faea": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c2e-8a95-7273-9640-0719adafb4f1",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

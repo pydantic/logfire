@@ -1,0 +1,16 @@
+docs/first-trace.md
+  h_d9dd17644dded9 94
+docs/index.md
+  h_d9dd17644dded9 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "1a9ff525cd5dcb4a9fd488e96d92290d053e31e8",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

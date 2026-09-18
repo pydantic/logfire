@@ -1,0 +1,25 @@
+tests/otel_integrations/test_google_genai.py
+  s_ba42da6a3fdfad::t_1e2f659fd224c3 3,23-28
+  s_ba42da6a3fdfad::t_a9d459fe156ac0 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bd5a4f20a12f8d188d2b4dd9aabb3b212a2992a3",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_ba42da6a3fdfad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5da444fb-69d4-4194-a9b8-afd5b6770f57",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+tests/exporters/test_otlp_session.py
+  s_32d23f0da37980::t_d5dc7b7f9dc5fa 157-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "8cde1fb46a64f1dd33729ce3f8feefd63e29dfab",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_32d23f0da37980": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2c89-78ca-71c0-b1aa-a77ea9275061",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

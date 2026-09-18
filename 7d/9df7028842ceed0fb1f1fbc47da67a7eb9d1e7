@@ -1,0 +1,19 @@
+tests/otel_integrations/test_pytest_plugin.py
+  s_7942cfb96c6bb5::t_3d102018513197 494-512
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "7d9df7028842ceed0fb1f1fbc47da67a7eb9d1e7",
+  "prompts": {},
+  "sessions": {
+    "s_7942cfb96c6bb5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4a0d-4a0a-79e2-8758-878b621018e0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

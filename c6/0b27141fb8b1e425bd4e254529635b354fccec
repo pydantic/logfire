@@ -1,0 +1,27 @@
+pyproject.toml
+  s_32dfc9ac23cad5::t_b56398b68a7232 212
+  h_d9dd17644dded9 209
+uv.lock
+  h_d9dd17644dded9 3097-3098
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c60b27141fb8b1e425bd4e254529635b354fccec",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_32dfc9ac23cad5": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1788174909129",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

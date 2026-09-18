@@ -1,0 +1,25 @@
+logfire/variables/discovery_render.py
+  s_2f2f83a1361a0b::t_d8088268a46b32 1-21,23-31,33-43,45-55,57-58,60-62,64-78,80-82,84-97,102-106,110-148,154,158-162,164-165,167-175
+  s_2f2f83a1361a0b::t_f9e6672e6d3a6a 32,44,56,59,63,79,83
+  s_2f2f83a1361a0b::t_b768d896c863b0 149-152,155-157
+  s_2f2f83a1361a0b::t_39f4ac039bade2 153
+  s_2f2f83a1361a0b::t_6083bd195c8c75 163,166
+  s_2f2f83a1361a0b::t_8eeb79e8ba793c 98-101,107-109
+  s_2f2f83a1361a0b::t_8ce52549f1c41e 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "a1a2743546e2b1a6b228742f174a3a9fe0a020bb",
+  "prompts": {},
+  "sessions": {
+    "s_2f2f83a1361a0b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0a228020-d5d6-427b-b6d6-f1af31a7a63b",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

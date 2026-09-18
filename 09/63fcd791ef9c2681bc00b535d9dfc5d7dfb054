@@ -1,0 +1,27 @@
+logfire/_internal/forwarding.py
+  h_d9dd17644dded9 49,52-53,55,58,62-63,67-68,72,543
+  s_d64c343850fa3a::t_1d5bf6fe9fed7c 50
+  s_d64c343850fa3a::t_b4c44a449eaed4 497
+  s_d64c343850fa3a::t_c1b3b678620333 535
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "0963fcd791ef9c2681bc00b535d9dfc5d7dfb054",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d64c343850fa3a": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1779705691379",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

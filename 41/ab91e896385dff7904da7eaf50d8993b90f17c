@@ -1,0 +1,18 @@
+tests/test_experimental_forwarding.py
+  h_d9dd17644dded9 618,649,664
+logfire/experimental/forwarding.py
+  h_d9dd17644dded9 5,16-20,43,78,82,85
+logfire/_internal/main.py
+  h_d9dd17644dded9 95,101,2844-2852,2854-2896,2899-2917
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "41ab91e896385dff7904da7eaf50d8993b90f17c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

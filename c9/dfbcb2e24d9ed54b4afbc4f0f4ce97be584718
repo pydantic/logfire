@@ -1,0 +1,19 @@
+.github/workflows/deps_test.yml
+  s_e5e3c016b3f5ec::t_84bf41af5611ba 12-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "c9dfbcb2e24d9ed54b4afbc4f0f4ce97be584718",
+  "prompts": {},
+  "sessions": {
+    "s_e5e3c016b3f5ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0149d-3cb5-72f1-b2ef-cfeb0e70b83a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+logfire/_internal/forwarding.py
+  h_d9dd17644dded9 130,137,139-140,159,164,183,261,268-272,278,288-289
+tests/test_internal_forwarding.py
+  s_1d4356de64f0ec::t_544bbe38e441e1 482,485-492,498,500,502,508,510,512,519,521,529,531,559,570,573,584-585,601,617,628,641,661,680,683,690,712,759,766,771,781,789,803,805,834,837,849,865,867,890-891,893,926-927,929,945,947-948,980-981,994-995,1007,1028,1052,1081-1082,1114,1116-1117,1141-1142,1166,1168-1169,1193
+tests/test_configure.py
+  s_1d4356de64f0ec::t_24b7eba52c86ba 711-715
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_dc04bc72acf4b2 83,87,112,119,122,124,169,173,251,266,272,286,289,322-323,326
+specs/browser-telemetry-forwarding-first-pass/diagrams.md
+  s_1d4356de64f0ec::t_503c55a73d7e0a 13-16,53,98-99,104,169,179,230,232,238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "19f60cbd7197ed82b3f3101f10f7f5b69d43fd37",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

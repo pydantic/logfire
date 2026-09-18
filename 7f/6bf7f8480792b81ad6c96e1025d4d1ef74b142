@@ -1,0 +1,23 @@
+tests/otel_integrations/test_llm_usage_attributes.py
+  b42cfadab6801bfc 6-7,9,142-190,192,204-212,214,216-223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "7f6bf7f8480792b81ad6c96e1025d4d1ef74b142",
+  "prompts": {
+    "b42cfadab6801bfc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccffc55b-78b8-4fbe-9db6-35d738cfe657",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 77,
+      "total_deletions": 4,
+      "accepted_lines": 71,
+      "overriden_lines": 3
+    }
+  }
+}

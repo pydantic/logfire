@@ -1,0 +1,19 @@
+logfire/_internal/integrations/openai_agents.py
+  s_40fdb7f9c9901a::t_49704922301eec 382-386
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c607dc08d3965252df8c620d7aa9e01112ab50cd",
+  "prompts": {},
+  "sessions": {
+    "s_40fdb7f9c9901a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c8d-e3a6-7902-bb5a-86a52968e276",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

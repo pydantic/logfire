@@ -1,0 +1,14 @@
+docs/reference/advanced/managed-variables/templates-and-composition.md
+  h_d9dd17644dded9 294
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4895b43385431f8876126109cc8a92aa4bfee6e5",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+logfire/_internal/forwarding.py
+  s_1d4356de64f0ec::t_380de833d0fd57 195,211-219,227,232,243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "8178be50f74f768cc1008f6050a85a671328fc42",
+  "prompts": {},
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

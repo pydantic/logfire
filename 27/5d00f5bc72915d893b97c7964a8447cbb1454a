@@ -1,0 +1,57 @@
+CHANGELOG.md
+  h_d9dd17644dded9 16
+  s_bd6db121f30e25::t_77d0308a81fabb 18-21
+  s_bd6db121f30e25::t_116671fe602ca8 22
+  h_d9dd17644dded9 3-15,17,1241
+logfire-api/logfire_api/_internal/cli/__init__.pyi
+  h_d9dd17644dded9 3,7-10
+logfire-api/logfire_api/_internal/cli/auth.pyi
+  h_d9dd17644dded9 5
+logfire-api/logfire_api/_internal/cli/gateway.pyi
+  h_d9dd17644dded9 3
+logfire-api/logfire_api/_internal/client.pyi
+  h_d9dd17644dded9 2,6,60-66
+logfire-api/logfire_api/_internal/collect_system_info.pyi
+  h_d9dd17644dded9 8
+logfire-api/logfire_api/_internal/config.pyi
+  h_d9dd17644dded9 19,80-85,425-433
+logfire-api/logfire_api/_internal/constants.pyi
+  h_d9dd17644dded9 39
+logfire-api/logfire_api/_internal/exporters/otlp.pyi
+  h_d9dd17644dded9 3,29
+logfire-api/logfire_api/_internal/integrations/claude_agent_sdk.pyi
+  h_d9dd17644dded9 7,39-41,43-51
+logfire-api/logfire_api/_internal/integrations/system_metrics.pyi
+  h_d9dd17644dded9 7,22-49
+logfire-api/logfire_api/_internal/interactive.pyi
+  h_d9dd17644dded9 1-26
+logfire-api/logfire_api/_internal/utils.pyi
+  h_d9dd17644dded9 81-83
+logfire-api/pyproject.toml
+  h_d9dd17644dded9 7
+pyproject.toml
+  h_d9dd17644dded9 7
+uv.lock
+  h_d9dd17644dded9 50,79,1345-1347,1373-1375,2758,3119,4502-4505,4580,4582-4583,6269-6270
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "275d00f5bc72915d893b97c7964a8447cbb1454a",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_bd6db121f30e25": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1786790440194",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

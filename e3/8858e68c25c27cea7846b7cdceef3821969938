@@ -1,0 +1,23 @@
+docs/nav.json
+  s_5435a3ee18f08e::t_ef84be680ad577 96
+docs/integrations/http-clients/httpx.md
+  s_5435a3ee18f08e::t_ef84be680ad577 2-3,6,8-11,13-14,30-36,40-42,44,70,75,83,89,99-100,114-121,129-130,248
+docs/integrations/index.md
+  s_5435a3ee18f08e::t_ef84be680ad577 58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e38858e68c25c27cea7846b7cdceef3821969938",
+  "prompts": {},
+  "sessions": {
+    "s_5435a3ee18f08e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f804f-f12b-7243-ab0b-0a9ded4f6eae",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

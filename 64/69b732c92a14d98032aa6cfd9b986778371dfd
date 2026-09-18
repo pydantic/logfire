@@ -1,0 +1,25 @@
+docs/integrations/databases/surrealdb.md
+  s_0088c427dd931d::t_8c0b1a36002fe6 2-4,8-11,13-14,16-24,36,38-39,41-44,55,60-63,66-72,74,76-84,91,96,99,101-102,113-125
+  s_0088c427dd931d::t_7a3f77f7253083 126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6469b732c92a14d98032aa6cfd9b986778371dfd",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_0088c427dd931d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a01507-cf3a-79f3-b6c9-243bac582275",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

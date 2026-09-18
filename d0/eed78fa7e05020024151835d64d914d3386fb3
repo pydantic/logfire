@@ -1,0 +1,25 @@
+logfire/_internal/integrations/llm_providers/usage.py
+  b42cfadab6801bfc 33-37
+tests/otel_integrations/test_llm_usage_attributes.py
+  b42cfadab6801bfc 106-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "d0eed78fa7e05020024151835d64d914d3386fb3",
+  "prompts": {
+    "b42cfadab6801bfc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccffc55b-78b8-4fbe-9db6-35d738cfe657",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 2,
+      "accepted_lines": 34,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,27 @@
+logfire/_internal/integrations/llm_providers/openai.py
+  70a89903b5292196 259-262,264-266,286,356-360,362-363
+logfire/_internal/integrations/llm_providers/semconv.py
+  70a89903b5292196 112
+logfire/_internal/integrations/claude_agent_sdk.py
+  70a89903b5292196 431
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "a6abb213825d591ce4e69f5cb06a64bcab4b319d",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 25,
+      "accepted_lines": 17,
+      "overriden_lines": 0
+    }
+  }
+}

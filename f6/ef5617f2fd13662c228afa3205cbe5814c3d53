@@ -1,0 +1,28 @@
+tests/test_agent_setup_prompt.py
+  s_7a66c61c007d89::t_ba77bb634c869f 11-13,15-17,29-54,57-58
+  s_7a66c61c007d89::t_6ce0aa3837b219 19,55,60,104-113
+  s_7a66c61c007d89::t_07e26869689872 18
+  s_7a66c61c007d89::t_77436faf136429 56
+  s_7a66c61c007d89::t_c5b6117f0e213f 59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "f6ef5617f2fd13662c228afa3205cbe5814c3d53",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_7a66c61c007d89": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fd796-c2b1-7140-911e-9ad30c564133",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

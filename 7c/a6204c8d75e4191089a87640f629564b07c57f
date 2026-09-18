@@ -1,0 +1,48 @@
+specs/browser-telemetry-forwarding-first-pass/spec.md
+  s_1d4356de64f0ec::t_b8ee67b5bf0117 98,100,102
+  s_1d4356de64f0ec::t_f5296476bf45ca 107,110
+specs/browser-telemetry-forwarding-first-pass/code-spec.md
+  s_1d4356de64f0ec::t_352284c3a3c496 65,69,189,202,204,206,226,240,245-246,285,338,343
+tests/test_experimental_forwarding.py
+  s_1d4356de64f0ec::t_a7f4e71027f134 249,258
+logfire/_internal/forwarding.py
+  s_1d4356de64f0ec::t_cf20b32939fea3 336-338
+  s_d64c343850fa3a::t_8478e1261754b9 393
+  s_d64c343850fa3a::t_d5f8fb864c51f7 386
+tests/test_internal_forwarding.py
+  s_1d4356de64f0ec::t_f944de4409df0d 46,164,166,173,178
+  s_1d4356de64f0ec::t_712006ca3fae78 167-170
+logfire/experimental/forwarding.py
+  h_d9dd17644dded9 55
+specs/browser-telemetry-forwarding-first-pass/diagrams.md
+  s_1d4356de64f0ec::t_bc8c9ff39ebad2 184,191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "7ca6204c8d75e4191089a87640f629564b07c57f",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_1d4356de64f0ec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5eb0-f289-78d1-9936-99a728052aa4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    },
+    "s_d64c343850fa3a": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1779705691379",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

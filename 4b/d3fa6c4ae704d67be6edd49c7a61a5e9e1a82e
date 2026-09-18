@@ -1,0 +1,26 @@
+tests/otel_integrations/test_elasticsearch.py
+  h_d9dd17644dded9 8,18,24-25,50,61
+  s_a8a064b40f400f::t_d7f9a00f0adb77 19-23
+  h_d9dd17644dded9 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4bd3fa6c4ae704d67be6edd49c7a61a5e9e1a82e",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_a8a064b40f400f": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1786541234722",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

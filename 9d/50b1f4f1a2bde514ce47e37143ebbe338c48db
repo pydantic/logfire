@@ -1,0 +1,16 @@
+uv.lock
+  ai_agent 538,540,542,1467,1481,1483,2448
+pyproject.toml
+  h_d9dd17644dded9 189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9d50b1f4f1a2bde514ce47e37143ebbe338c48db",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

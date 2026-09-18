@@ -1,0 +1,23 @@
+logfire-api/logfire_api/query_client.pyi
+  s_dc1835a3480221::t_14a583b34731e4 1,3
+logfire-api/logfire_api/experimental/query_client.pyi
+  s_dc1835a3480221::t_d028ba41b1d1ac 1-125
+logfire-api/logfire_api/db_api.pyi
+  s_dc1835a3480221::t_8af451dfbac6ab 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "29589ace3a24e50f6c4c88fa32732898679508ae",
+  "prompts": {},
+  "sessions": {
+    "s_dc1835a3480221": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c1c-af69-7863-86f4-601b9211bde8",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

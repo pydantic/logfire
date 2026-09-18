@@ -1,0 +1,24 @@
+pyproject.toml
+  s_8a2e80a0729a2a::t_a636be5f13fd40 355-359
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "09ee8559e9a1a35f76d48192f4c5de331902bf85",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_8a2e80a0729a2a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba2484d0-3283-4b1b-bb77-e0fba9c04742",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

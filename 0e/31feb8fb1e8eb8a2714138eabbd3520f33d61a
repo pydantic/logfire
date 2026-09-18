@@ -1,0 +1,23 @@
+logfire/_internal/integrations/llm_providers/openai.py
+  b42cfadab6801bfc 66,72-90,618-620
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "0e31feb8fb1e8eb8a2714138eabbd3520f33d61a",
+  "prompts": {
+    "b42cfadab6801bfc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccffc55b-78b8-4fbe-9db6-35d738cfe657",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 14,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    }
+  }
+}

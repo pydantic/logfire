@@ -1,0 +1,25 @@
+logfire/_internal/exporters/console.py
+  s_dd15bd794f2da2::t_8d6c1ddb9b8908 297-299
+  s_dd15bd794f2da2::t_301be38a088666 287-296,300-303
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b9d7b910fcfe3178b3560d99e3c6899ffc7f5e08",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_dd15bd794f2da2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb12b-c239-7f53-8b4a-568302aafede",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

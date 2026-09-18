@@ -1,0 +1,19 @@
+logfire-api/pyproject.toml
+  s_4afc586bb0fc36::t_83cea73b364d07 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "19282f253e39fb9223449c932e05a06d1c2cf0a7",
+  "prompts": {},
+  "sessions": {
+    "s_4afc586bb0fc36": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e17eb-af7e-7743-9c9c-7acc90aab0d9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

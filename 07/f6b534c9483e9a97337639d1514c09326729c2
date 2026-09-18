@@ -1,0 +1,28 @@
+logfire/_internal/config.py
+  s_5030614478b4e2::t_cf67da5dcc116a 65
+tests/test_auth.py
+  s_5030614478b4e2::t_cf67da5dcc116a 42-46
+logfire/_internal/auth.py
+  s_5030614478b4e2::t_cf67da5dcc116a 28,92-95,100-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "07f6b534c9483e9a97337639d1514c09326729c2",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_5030614478b4e2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc781-5236-7701-b656-c33e879b5d7d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

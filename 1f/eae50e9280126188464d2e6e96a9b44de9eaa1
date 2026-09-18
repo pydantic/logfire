@@ -1,0 +1,28 @@
+logfire/_internal/constants.py
+  s_958edbbc413974::t_34b45ad56c1a5a 182-184
+tests/test_client.py
+  s_958edbbc413974::t_34b45ad56c1a5a 32-34
+logfire/_internal/client.py
+  s_958edbbc413974::t_34b45ad56c1a5a 13,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "1feae50e9280126188464d2e6e96a9b44de9eaa1",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_958edbbc413974": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0151c-0b48-7cf1-83a7-062e6d535ebc",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}

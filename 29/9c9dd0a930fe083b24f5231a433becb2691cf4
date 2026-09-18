@@ -1,0 +1,14 @@
+.github/workflows/weekly_deps_test.yml
+  h_d9dd17644dded9 23,27-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "299c9dd0a930fe083b24f5231a433becb2691cf4",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
