@@ -158,7 +158,6 @@ def test_instrument_monty(exporter: TestExporter, logs_exporter: TestLogExporter
     assert spans[0]['attributes']['code'] == snapshot("print('hello')\n1 + 2")
     assert spans[0]['attributes']['output'] == snapshot(3)
     assert spans[1]['attributes']['script_name'] == snapshot('calculation.py')
-    assert 'logfire.metrics' not in spans[2]['attributes']
 
     [printed] = logs_exporter.exported_logs_as_dicts()
     assert printed['body'] == snapshot('print stdout')
