@@ -82,12 +82,20 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
 ```
 
-Change the endpoint to `https://logfire-eu.pydantic.dev` for an EU project. Start the services and
-send traffic to the application:
+Change the endpoint to `https://logfire-eu.pydantic.dev` for an EU project. Start the services,
+then follow the OBI logs:
 
 ```bash
 docker compose up -d
-curl http://localhost:8080/health
+docker compose logs -f obi
+```
+
+Wait until the logs contain `instrumenting process`, then press `Ctrl+C` and send several requests:
+
+```bash
+for request in 1 2 3 4 5; do
+  curl --fail http://localhost:8080/health
+done
 ```
 
 `OTEL_EBPF_OPEN_PORT` matches the port opened by the process inside its container. If you publish
@@ -130,7 +138,8 @@ names remain stable when pods are replaced.
 
 ## Verify the telemetry
 
-Generate several requests, then allow one OBI export interval for the data to arrive.
+Generate several requests, then allow up to one minute for OBI v0.13's default metrics export
+interval.
 
 1. Open **Live** and filter by `service_name = 'checkout-api'`. You should see HTTP or gRPC server
    spans, which are units of work with a start time and duration.
@@ -164,7 +173,7 @@ service as its request traces and metrics.
 
 | Symptom | Cause and fix |
 | --- | --- |
-| No traces or metrics appear | Check the OBI logs for missing capabilities or an unsupported kernel. Confirm the selected port is the port opened inside the target container, then send traffic after OBI starts. |
+| No traces or metrics appear | Check the OBI logs for `instrumenting process`. If it is missing, check for missing capabilities or an unsupported kernel and confirm the selectors match the target process. Send traffic only after OBI attaches. |
 | OBI reports `401` or `403` | Use a write token for the intended project and set `OTEL_EXPORTER_OTLP_HEADERS` to `Authorization=your-write-token`. |
 | The service appears as `unknown_service` | Set `OTEL_SERVICE_NAME` on the target workload. Add `service.namespace`, `service.version`, and `deployment.environment.name` through `OTEL_RESOURCE_ATTRIBUTES` for clearer grouping. |
 | OBI repeatedly reports `422` before discovering a process | Upgrade the receiving self-hosted Logfire deployment. Current managed Logfire accepts OBI v0.13's startup-only metric envelope as an empty success. |
