@@ -42,7 +42,7 @@ test-feature-flags-mutation:
 	@mkdir src
 	@ln -s ../logfire-sdk/logfire src/logfire
 	@set -e; trap 'test ! -L src/logfire || unlink src/logfire; rmdir src' EXIT; \
-	NO_PROXY='*' no_proxy='*' PYDANTIC_DISABLE_PLUGINS=__all__ uv run --no-sync mutmut run \
+	NO_PROXY='*' no_proxy='*' COVERAGE_RCFILE=/dev/null PYDANTIC_DISABLE_PLUGINS=__all__ uv run --no-sync mutmut run \
 		'*VariableConfig*_select_rollout*' \
 		'*VariableConfig*requires_targeting_key*' \
 		'*VariablesConfig*resolve_serialized_value*' \

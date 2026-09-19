@@ -1584,12 +1584,14 @@ def test_feature_flag_finalization_preserves_resolution_details():
     region = flag('region', default='us')
     adapter = cast(Any, region._adapter)
     exception = RuntimeError('provider warning')
+    composed_from = [cast(Any, object())]
     resolved = ResolvedVariable(
         name='region',
         value='eu',
         label='remote',
         version=7,
         exception=exception,
+        composed_from=composed_from,
         reason='resolved',
         rule_evaluation_reason='targeting_match',
     )
@@ -1602,6 +1604,7 @@ def test_feature_flag_finalization_preserves_resolution_details():
     assert finalized.label == 'remote'
     assert finalized.version == 7
     assert finalized.exception is exception
+    assert finalized.composed_from is composed_from
     assert finalized.reason == 'resolved'
     assert finalized.rule_evaluation_reason == 'targeting_match'
     assert finalized.provider_state == 'ready'

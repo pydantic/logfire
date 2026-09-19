@@ -1511,7 +1511,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             state = self.logfire_instance.config.get_variable_provider().get_evaluation_state()
         except Exception:
             return 'error'
-        if state in ('not_ready', 'ready', 'stale', 'error', 'fatal'):
+        if state in ('not_ready', 'ready', 'stale', 'fatal'):
             return state
         return 'error'
 
