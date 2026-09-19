@@ -24,7 +24,7 @@ def test_update_meta_version_updates_base_and_extra_sdk_pins(tmp_path: Path) -> 
     pyproject.write_text(
         '[project]\n'
         'version = "1.0.0"\n'
-        'dependencies = ["logfire-sdk==1.0.0", "logfire-cli>=0.1.5"]\n'
+        'dependencies = ["logfire-sdk==1.0.0", "logfire-cli>=0.1.7"]\n'
         '[project.optional-dependencies]\n'
         'fastapi = ["logfire-sdk[fastapi]==1.0.0; python_version >= \'3.10\'"]\n'
     )
@@ -34,7 +34,7 @@ def test_update_meta_version_updates_base_and_extra_sdk_pins(tmp_path: Path) -> 
     assert pyproject.read_text() == (
         '[project]\n'
         'version = "2.0.0b1"\n'
-        'dependencies = ["logfire-sdk==2.0.0b1", "logfire-cli>=0.1.5"]\n'
+        'dependencies = ["logfire-sdk==2.0.0b1", "logfire-cli>=0.1.7"]\n'
         '[project.optional-dependencies]\n'
         'fastapi = ["logfire-sdk[fastapi]==2.0.0b1; python_version >= \'3.10\'"]\n'
     )
@@ -55,7 +55,7 @@ def test_version_updaters_fail_when_required_metadata_is_missing(
 def test_update_meta_version_requires_an_sdk_dependency(tmp_path: Path) -> None:
     """Fail rather than release a meta-package detached from the SDK."""
     pyproject = tmp_path / 'pyproject.toml'
-    pyproject.write_text('[project]\nversion = "1.0.0"\ndependencies = ["logfire-cli>=0.1.5"]\n')
+    pyproject.write_text('[project]\nversion = "1.0.0"\ndependencies = ["logfire-cli>=0.1.7"]\n')
 
     with pytest.raises(ValueError, match='exact logfire-sdk dependency'):
         update_meta_version(pyproject, '2.0.0')
