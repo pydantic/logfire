@@ -15,14 +15,15 @@ os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
 
-pytestmark = [
-    pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.11.0'),
-        reason='Langgraph does not support older Pydantic versions',
-    ),
-]
+# Only the test below needs Langgraph. The rest of this module exercises the span
+# transform directly, which has to keep working on every supported Pydantic version.
+requires_langgraph = pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.11.0'),
+    reason='Langgraph does not support older Pydantic versions',
+)
 
 
+@requires_langgraph
 @pytest.mark.vcr()
 def test_instrument_langchain(exporter: TestExporter) -> None:
     from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
