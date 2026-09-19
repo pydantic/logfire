@@ -321,6 +321,13 @@ class _ResolveAttempt:
     composed: list[ComposedReference] = field(default_factory=list['ComposedReference'])
 
 
+@dataclass(kw_only=True)
+class _ResolvedFeatureFlag(ResolvedVariable[T_co]):
+    """A resolution paired with the provider-health snapshot used for its telemetry and return value."""
+
+    provider_state: VariableProviderEvaluationState
+
+
 class _FlagEvaluationCore(Generic[T_co]):
     """Shared typed evaluation engine for feature flags and the legacy variables API."""
 
@@ -1180,7 +1187,9 @@ class _FlagEvaluationCore(Generic[T_co]):
                 # Emit discovery metadata before the first access. Keep it on its own child span
                 # so declaration attribute limits cannot displace resolution telemetry.
                 self._emit_declaration_once(span)
-            result = self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
+            result = self._finalize_resolution_result(
+                self._resolve(targeting_key, merged_attributes, span, label, render_fn=render_fn)
+            )
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
                 # Try to JSON serialize the value; if that fails, fall back to string representation.
@@ -1205,6 +1214,10 @@ class _FlagEvaluationCore(Generic[T_co]):
                 if result.exception:
                     self._record_resolution_exception(span, result.exception)
             return result
+
+    def _finalize_resolution_result(self, result: ResolvedVariable[T_co]) -> ResolvedVariable[T_co]:
+        """Finalize a resolved value before both telemetry and the caller observe it."""
+        return result
 
     def _resolution_telemetry_attributes(
         self,
@@ -1387,14 +1400,13 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         requested_label: str | None,
     ) -> dict[str, Any]:
         del targeting_key, requested_label
-        provider_state = self._get_provider_evaluation_state()
-        provider_result = result
-        result = self._result_for_provider_state(provider_result, provider_state)
-        if result is not provider_result:
+        if not isinstance(result, _ResolvedFeatureFlag):
+            result = self._finalize_resolution_result(result)
             try:
                 serialized_value = self.type_adapter.dump_json(result.value).decode()
             except (ValueError, TypeError, RuntimeError):
                 serialized_value = '<unavailable>'
+        provider_state = result.provider_state
         telemetry = _feature_flag_telemetry_attributes(
             result,
             serialized_value,
@@ -1432,9 +1444,25 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
     ) -> Any:
         """Evaluate through managed variables and translate to the feature-flag contract."""
         result = self.get(targeting_key, attributes)
+        if not isinstance(result, _ResolvedFeatureFlag):  # pragma: no cover - base-class contract guard
+            result = self._finalize_resolution_result(result)
+        return _feature_flag_evaluation_details(result, result.provider_state)
+
+    def _finalize_resolution_result(self, result: ResolvedVariable[FlagT]) -> _ResolvedFeatureFlag[FlagT]:
+        """Apply one provider-health snapshot to the returned value and its telemetry."""
         provider_state = self._get_provider_evaluation_state()
         result = self._result_for_provider_state(result, provider_state)
-        return _feature_flag_evaluation_details(result, provider_state)
+        return _ResolvedFeatureFlag(
+            name=result.name,
+            value=result.value,
+            label=result.label,
+            version=result.version,
+            exception=result.exception,
+            composed_from=result.composed_from,
+            reason=result.reason,
+            rule_evaluation_reason=result.rule_evaluation_reason,
+            provider_state=provider_state,
+        )
 
     def _result_for_provider_state(
         self,

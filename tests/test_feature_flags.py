@@ -11,7 +11,7 @@ from contextlib import AbstractContextManager, ExitStack
 from dataclasses import replace
 from datetime import timedelta
 from enum import Enum, IntEnum
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal, cast, get_args
 from unittest.mock import Mock, patch
 
 import hypothesis.strategies as st
@@ -36,12 +36,16 @@ from logfire._internal.config import LocalVariablesOptions, VariablesOptions
 from logfire.experimental.feature_flags import (
     FeatureFlag,
     Flag,
+    FlagErrorCode,
     FlagEvaluationDetails,
+    FlagEvaluationReason,
     feature_context,
     feature_flag,
     flag,
 )
 from logfire.experimental.openfeature import (
+    _ERROR_CODES,
+    _REASONS,
     LogfireProvider,
     _is_exclusively_openfeature_scalar_schema,
     _matches_openfeature_scalar_type,
@@ -271,6 +275,27 @@ def test_feature_flag_telemetry_defaults_custom_provider_results_to_static():
 
     assert details.value is True
     assert details.reason == 'static'
+
+
+@pytest.mark.parametrize(
+    ('provider_state', 'expected_reason', 'expected_error'),
+    [
+        ('ready', 'default', None),
+        ('stale', 'stale', None),
+        ('not_ready', 'error', 'provider_not_ready'),
+        ('error', 'error', 'general'),
+        ('fatal', 'error', 'provider_fatal'),
+    ],
+)
+def test_feature_flag_provider_state_translation(provider_state: Any, expected_reason: str, expected_error: str | None):
+    details = _feature_flag_evaluation_details(
+        ResolvedVariable(name='test_flag', value=False, reason='code_default'),
+        provider_state,
+    )
+
+    assert details.value is False
+    assert details.reason == expected_reason
+    assert details.error_code == expected_error
 
 
 def test_rollout_warning_inspection_cannot_break_a_resolved_value():
@@ -664,6 +689,30 @@ def test_typed_flags_do_not_coerce_defaults_or_test_overrides(value_type: type[A
         typed_flag.override_for_testing(invalid_value)
 
 
+def test_float_flags_follow_pydantic_strict_numeric_widening():
+    """Pydantic strict mode accepts integers as exact numeric inputs for float fields."""
+    config = VariablesConfig(
+        variables={
+            'sample_rate': VariableConfig(
+                name='sample_rate',
+                labels={'configured': LabeledValue(version=1, serialized_value='1')},
+                rollout=Rollout(labels={'configured': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+
+    sample_rate = flag('sample_rate', type=float, default=cast(Any, 0))
+
+    assert sample_rate.value() == 1.0
+    assert type(sample_rate.value()) is float
+
+
 def test_parameterized_flag_requires_an_explicit_type():
     with pytest.raises(TypeError, match=r'Pass type=\.\.\.'):
         flag('ambiguous', default=[])  # pyright: ignore[reportArgumentType]
@@ -760,6 +809,10 @@ def test_openfeature_adapter_maps_every_native_reason(native_reason: Any, openfe
     assert details.reason == openfeature_reason
 
 
+def test_openfeature_adapter_reason_mapping_is_exhaustive():
+    assert set(_REASONS) == set(get_args(FlagEvaluationReason))
+
+
 @pytest.mark.parametrize(
     ('native_error', 'openfeature_error'),
     [
@@ -789,6 +842,10 @@ def test_openfeature_adapter_maps_every_native_error(native_error: Any, openfeat
     assert details.reason == Reason.ERROR
     assert details.error_code == openfeature_error
     assert details.error_message == 'safe message'
+
+
+def test_openfeature_adapter_error_mapping_is_exhaustive():
+    assert set(_ERROR_CODES) == set(get_args(FlagErrorCode))
 
 
 def test_openfeature_client_resolves_remote_logfire_configuration():
@@ -867,6 +924,7 @@ def test_remote_provider_health_is_reflected_in_native_and_openfeature_details()
                 'status_code': 200,
             },
             {'status_code': 500},
+            {'status_code': 304},
         ],
     )
     remote_provider = LogfireRemoteVariableProvider(
@@ -911,11 +969,17 @@ def test_remote_provider_health_is_reflected_in_native_and_openfeature_details()
         assert openfeature_stale.value is True
         assert openfeature_stale.reason == Reason.STALE
 
+        remote_provider.refresh(force=True)
+        recovered = checkout.details()
+        assert recovered.value is True
+        assert recovered.reason == 'static'
+        assert recovered.flag_metadata == {'logfire.value_version': 2}
+
     remote_provider.shutdown()
     stopped = checkout.details()
     assert stopped.value is False
     assert stopped.reason == 'error'
-    assert stopped.error_code == 'provider_fatal'
+    assert stopped.error_code == 'provider_not_ready'
     custom_logfire.shutdown()
 
 
@@ -1380,6 +1444,38 @@ def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[s
     assert (evaluation_span.attributes or {})['feature_flag.result.value'] == '{"provider":"stripe","retries":2}'
 
 
+def test_returned_value_and_telemetry_share_one_provider_state_snapshot(
+    config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config = VariablesConfig(
+        variables={
+            'region': VariableConfig(
+                name='region',
+                labels={'remote': LabeledValue(version=1, serialized_value='"eu"')},
+                rollout=Rollout(labels={'remote': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    config_kwargs['variables'] = LocalVariablesOptions(config=config, instrument=True)
+    logfire.configure(**config_kwargs)
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    exporter.clear()
+
+    with patch.object(adapter, '_get_provider_evaluation_state', side_effect=['ready', 'fatal']) as state:
+        details = region.details()
+
+    assert state.call_count == 1
+    assert details.value == 'eu'
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    assert (evaluation_span.attributes or {})['feature_flag.result.value'] == 'eu'
+
+
 def test_unavailable_provider_telemetry_records_the_structured_code_default():
     checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
     adapter = cast(Any, checkout._adapter)
@@ -1577,8 +1673,8 @@ def test_provider_metadata_failure_cannot_break_flag_evaluation():
     ):
         details = adapter.evaluate_flag(targeting_key='account-a')
 
-        assert details.value == 'eu'
-        assert details.reason == 'static'
+    assert details.value == 'eu'
+    assert details.reason == 'static'
 
 
 def test_provider_health_failure_falls_back_without_breaking_flag_evaluation():

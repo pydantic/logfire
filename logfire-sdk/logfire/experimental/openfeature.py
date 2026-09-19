@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from typing_extensions import TypeIs
 
 from logfire.experimental.feature_flags import (
+    FlagErrorCode,
     FlagEvaluationDetails,
+    FlagEvaluationReason,
     _FlagAdapter,  # pyright: ignore[reportPrivateUsage]
 )
 from logfire.variables import ensure_variables_dependencies
@@ -35,7 +37,7 @@ __all__ = ('LogfireProvider',)
 
 T = TypeVar('T')
 
-_REASONS = {
+_REASONS: dict[FlagEvaluationReason, Reason] = {
     'cached': Reason.CACHED,
     'default': Reason.DEFAULT,
     'disabled': Reason.DISABLED,
@@ -46,7 +48,7 @@ _REASONS = {
     'targeting_match': Reason.TARGETING_MATCH,
     'unknown': Reason.UNKNOWN,
 }
-_ERROR_CODES = {
+_ERROR_CODES: dict[FlagErrorCode, ErrorCode] = {
     'flag_not_found': ErrorCode.FLAG_NOT_FOUND,
     'general': ErrorCode.GENERAL,
     'invalid_context': ErrorCode.INVALID_CONTEXT,

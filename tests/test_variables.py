@@ -12,6 +12,7 @@ import unittest.mock
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, cast
 
 import pytest
@@ -1181,7 +1182,7 @@ class TestLogfireRemoteVariableProvider:
         provider._at_fork_reinit()
 
         assert provider._session is replacement_session
-        close_inherited_session.assert_called_once_with()
+        close_inherited_session.assert_not_called()
 
     def test_shutdown_closes_active_sse_response_before_joining_threads(self) -> None:
         provider = LogfireRemoteVariableProvider(
@@ -1193,6 +1194,8 @@ class TestLogfireRemoteVariableProvider:
             ),
         )
         response = unittest.mock.MagicMock()
+        response_closed = threading.Event()
+        response.close.side_effect = response_closed.set
         worker = unittest.mock.MagicMock()
         sse = unittest.mock.MagicMock()
         provider._sse_response = response
@@ -1201,10 +1204,119 @@ class TestLogfireRemoteVariableProvider:
 
         provider.shutdown(timeout_millis=100)
 
+        assert response_closed.wait(timeout=1)
         response.close.assert_called_once_with()
         worker.join.assert_called_once()
         sse.join.assert_called_once()
-        assert provider.get_evaluation_state() == 'fatal'
+        assert provider.get_evaluation_state() == 'not_ready'
+
+    def test_shutdown_deadline_is_not_blocked_by_a_real_idle_sse_stream(self) -> None:
+        stream_started = threading.Event()
+        release_stream = threading.Event()
+
+        class IdleSSEHandler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.end_headers()
+                self.wfile.flush()
+                stream_started.set()
+                release_stream.wait(timeout=5)
+                with contextlib.suppress(OSError):
+                    self.wfile.write(b': done\n\n')
+                    self.wfile.flush()
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), IdleSSEHandler)
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        session = Session()
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        try:
+            response = session.get(
+                f'http://127.0.0.1:{server.server_port}/events',
+                stream=True,
+                timeout=(1, None),
+            )
+            assert stream_started.wait(timeout=1)
+            reader_started = threading.Event()
+
+            def read_stream() -> None:
+                reader_started.set()
+                list(response.iter_lines(decode_unicode=True))
+
+            reader = threading.Thread(
+                target=read_stream,
+                daemon=True,
+            )
+            provider._sse_response = response
+            provider._sse_thread = reader
+            reader.start()
+            assert reader_started.wait(timeout=1)
+            time.sleep(0.05)
+
+            started_at = time.monotonic()
+            provider.shutdown(timeout_millis=50)
+            elapsed = time.monotonic() - started_at
+
+            assert elapsed < 0.5
+            assert provider.get_evaluation_state() == 'not_ready'
+        finally:
+            release_stream.set()
+            server.shutdown()
+            server.server_close()
+            session.close()
+
+    def test_in_flight_refresh_cannot_resurrect_a_shutdown_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        fetch_started = threading.Event()
+        finish_fetch = threading.Event()
+        response = unittest.mock.MagicMock(status_code=200, headers={})
+        response.json.return_value = {
+            'variables': {
+                'checkout': {
+                    'name': 'checkout',
+                    'labels': {'enabled': {'version': 1, 'serialized_value': 'true'}},
+                    'rollout': {'labels': {'enabled': 1.0}},
+                    'overrides': [],
+                }
+            }
+        }
+
+        def get(*args: Any, **kwargs: Any) -> Any:
+            fetch_started.set()
+            assert finish_fetch.wait(timeout=1)
+            return response
+
+        monkeypatch.setattr(provider._session, 'get', get)
+        refresh = threading.Thread(target=provider.refresh, kwargs={'force': True})
+        refresh.start()
+        assert fetch_started.wait(timeout=1)
+
+        provider.shutdown(timeout_millis=10)
+        finish_fetch.set()
+        refresh.join(timeout=1)
+
+        assert not refresh.is_alive()
+        assert provider.get_evaluation_state() == 'not_ready'
 
     def test_shutdown_failure_in_one_component_does_not_skip_the_rest(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider = LogfireRemoteVariableProvider(

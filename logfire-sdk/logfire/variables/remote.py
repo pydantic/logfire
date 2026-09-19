@@ -143,16 +143,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     def _at_fork_reinit(self):  # pragma: no cover
         was_shutdown = self._shutdown
-        # urllib3 pools and their sockets belong to the parent process. Reusing the inherited
-        # Session can leave the child stuck on a connection whose coordinating thread no longer
-        # exists, so discard it before starting any child workers.
-        with suppress(Exception):
-            self._session.close()
+        # urllib3 pools, responses, and their locks belong to the parent process. Reusing them can
+        # leave the child stuck on a connection whose coordinating thread no longer exists. Do not
+        # call close() here either: an inherited lock may have been held by a vanished thread.
         if not was_shutdown:
             self._session = self._new_session()
-        if self._sse_response is not None:
-            with suppress(Exception):
-                self._sse_response.close()
         self._sse_response = None
         if not was_shutdown:
             # Reset shutdown-timeout state only for active providers. If shutdown()
@@ -218,9 +213,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._evaluation_state = 'fatal'
                 self._worker_awaken.set()
                 with self._sse_response_lock:
-                    if self._sse_response is not None:
-                        with suppress(Exception):
-                            self._sse_response.close()
+                    response = self._sse_response
+                    self._sse_response = None
+                if response is not None:
+                    self._close_sse_response_in_background(response)
                 if self._worker_thread is not None:
                     with suppress(Exception):
                         self._worker_thread.join(timeout=sum(self._timeout) / 2)
@@ -532,7 +528,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         self._consecutive_refresh_failures = 0
                         self._last_fetched_at = datetime.now(tz=timezone.utc)
                         self._has_attempted_fetch = True
-                        self._evaluation_state = 'ready' if self._config is not None else 'error'
+                        self._set_evaluation_state_unless_shutdown('ready' if self._config is not None else 'error')
                         return
                     UnexpectedResponse.raise_for_status(variables_response)
                     variables_config_data = variables_response.json()
@@ -545,7 +541,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 # the background worker already polling.
                 self._has_attempted_fetch = True
                 self._consecutive_refresh_failures += 1
-                self._evaluation_state = 'stale' if self._config is not None else 'error'
+                self._set_evaluation_state_unless_shutdown('stale' if self._config is not None else 'error')
                 if (
                     self._config is not None
                     and self._consecutive_refresh_failures < _CONSECUTIVE_FAILURES_BEFORE_ERROR
@@ -574,9 +570,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._etag = variables_response.headers.get('ETag')
                 self._config = new_config
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
-                self._evaluation_state = 'ready'
+                self._set_evaluation_state_unless_shutdown('ready')
             except ValidationError as e:
-                self._evaluation_state = 'stale' if self._config is not None else 'error'
+                self._set_evaluation_state_unless_shutdown('stale' if self._config is not None else 'error')
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:
                 self._has_attempted_fetch = True
@@ -645,7 +641,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 owns_shutdown = False
             else:
                 self._shutdown = True
-                self._evaluation_state = 'fatal'
+                # An intentional shutdown makes the provider unavailable, but it is not an
+                # irrecoverable provider failure. OpenFeature models this state as NOT_READY;
+                # reserve FATAL for failed initialization and other terminal faults.
+                self._evaluation_state = 'not_ready'
                 self._worker_awaken.set()
                 shutdown_complete = self._shutdown_complete
                 owns_shutdown = True
@@ -657,12 +656,13 @@ class LogfireRemoteVariableProvider(VariableProvider):
         cleanup_deferred = False
         try:
             # The SSE read timeout is intentionally unbounded so a healthy stream can stay open.
-            # Closing the active response is therefore the only prompt, deterministic way to wake
-            # iter_lines() during shutdown.
+            # Response.close() can itself block behind an active read, so request cancellation on
+            # a daemon thread and keep the caller's shutdown budget bounded.
             with self._sse_response_lock:
-                if self._sse_response is not None:
-                    with suppress(Exception):
-                        self._sse_response.close()
+                response = self._sse_response
+                self._sse_response = None
+            if response is not None:
+                self._close_sse_response_in_background(response)
 
             # Join the threads so that resources get cleaned up in tests
             # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
@@ -710,6 +710,23 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     self._session.close()
         finally:
             self._shutdown_complete.set()
+
+    @staticmethod
+    def _close_sse_response_in_background(response: Response) -> None:
+        """Cancel a streaming read without letting Response.close() exceed the shutdown budget."""
+
+        def close() -> None:
+            with suppress(Exception):
+                response.close()
+
+        with suppress(Exception):
+            threading.Thread(name='LogfireRemoteProviderSSEClose', target=close, daemon=True).start()
+
+    def _set_evaluation_state_unless_shutdown(self, state: VariableProviderEvaluationState) -> None:
+        """Commit refresh health unless shutdown already established NOT_READY."""
+        with self._lifecycle_lock:
+            if not self._shutdown:
+                self._evaluation_state = state
 
     def get_evaluation_state(self) -> VariableProviderEvaluationState:
         """Return a non-blocking snapshot of remote configuration health."""
