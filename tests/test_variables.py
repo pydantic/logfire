@@ -3,15 +3,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import os
 import threading
 import time
 import unittest.mock
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import timedelta
-from typing import Any
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any, cast
 
 import pytest
 import requests_mock as requests_mock_module
@@ -22,6 +24,7 @@ from requests import Session
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions, LogfireConfig, VariablesOptions
+from logfire.experimental.feature_flags import feature_context, feature_flag
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -42,7 +45,7 @@ from logfire.variables.config import (
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import _CONSECUTIVE_FAILURES_BEFORE_ERROR, LogfireRemoteVariableProvider
-from logfire.variables.variable import is_resolve_function
+from logfire.variables.variable import Variable, is_resolve_function
 
 # =============================================================================
 # Test Condition Classes
@@ -399,6 +402,29 @@ class TestVariableConfig:
         # Try many times to get None
         results = [config.resolve_label(targeting_key=f'user{i}') for i in range(100)]
         assert None in results
+
+    def test_requires_targeting_key_only_for_multiple_outcomes(self):
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'enabled': LabeledValue(version=1, serialized_value='true'),
+                'disabled': LabeledValue(version=1, serialized_value='false'),
+            },
+            rollout=Rollout(labels={'enabled': 1.0}),
+            overrides=[
+                RolloutOverride(
+                    conditions=[ValueEquals(attribute='plan', value='free')],
+                    rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}),
+                )
+            ],
+        )
+
+        assert config.requires_targeting_key() is False
+        assert config.requires_targeting_key({'plan': 'team'}) is False
+        assert config.requires_targeting_key({'plan': 'free'}) is True
+
+        config.rollout = Rollout(labels={'enabled': 0.9999999995})
+        assert config.requires_targeting_key() is True
 
     def test_validation_invalid_label_key(self):
         with pytest.raises(ValidationError, match="Label 'correct_key' present in `rollout.labels` is not present"):
@@ -1138,6 +1164,335 @@ class TestLogfireRemoteVariableProvider:
         mock_thread_cls.assert_not_called()
         mock_start_sse.assert_not_called()
 
+    def test_at_fork_reinit_replaces_the_inherited_http_session(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        inherited_session = provider._session
+        close_inherited_session = unittest.mock.MagicMock(wraps=inherited_session.close)
+        replacement_session = cast(Session, unittest.mock.MagicMock())
+        monkeypatch.setattr(inherited_session, 'close', close_inherited_session)
+        monkeypatch.setattr(provider, '_new_session', lambda: replacement_session)
+
+        provider._at_fork_reinit()
+
+        assert provider._session is replacement_session
+        close_inherited_session.assert_not_called()
+
+    def test_at_fork_handler_is_registered_before_start(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        callbacks: list[Callable[[], None]] = []
+
+        def register_at_fork(*, after_in_child: Callable[[], None]) -> None:
+            callbacks.append(after_in_child)
+
+        monkeypatch.setattr(os, 'register_at_fork', register_at_fork)
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        inherited_session = provider._session
+        replacement_session = cast(Session, unittest.mock.MagicMock())
+        monkeypatch.setattr(provider, '_new_session', lambda: replacement_session)
+
+        assert len(callbacks) == 1
+        callbacks[0]()
+
+        assert provider._session is replacement_session
+        assert provider._session is not inherited_session
+
+    def test_lazy_fork_reinitialization_rearms_for_a_grandchild(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        sessions = [cast(Session, unittest.mock.MagicMock()), cast(Session, unittest.mock.MagicMock())]
+        pids = iter([2, 2, 3, 3])
+        provider._pid = 1
+        monkeypatch.setattr(os, 'getpid', lambda: next(pids))
+        monkeypatch.setattr(provider, '_new_session', lambda: sessions.pop(0))
+
+        provider.get_serialized_value('flag')
+        child_session = provider._session
+        provider.get_serialized_value('flag')
+
+        assert provider._session is not child_session
+        assert provider._pid == 3
+
+    def test_shutdown_closes_active_sse_response_before_joining_threads(self) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        response = unittest.mock.MagicMock()
+        response_closed = threading.Event()
+        response.close.side_effect = response_closed.set
+        worker = unittest.mock.MagicMock()
+        sse = unittest.mock.MagicMock()
+        provider._sse_response = response
+        provider._worker_thread = worker
+        provider._sse_thread = sse
+
+        provider.shutdown(timeout_millis=100)
+
+        assert response_closed.wait(timeout=1)
+        response.close.assert_called_once_with()
+        worker.join.assert_called_once()
+        sse.join.assert_called_once()
+        assert provider.get_evaluation_state() == 'not_ready'
+
+    def test_shutdown_deadline_is_not_blocked_by_a_real_idle_sse_stream(self) -> None:
+        stream_started = threading.Event()
+        release_stream = threading.Event()
+
+        class IdleSSEHandler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/event-stream')
+                self.end_headers()
+                self.wfile.flush()
+                stream_started.set()
+                release_stream.wait(timeout=5)
+                with contextlib.suppress(OSError):
+                    self.wfile.write(b': done\n\n')
+                    self.wfile.flush()
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), IdleSSEHandler)
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        session = Session()
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        try:
+            response = session.get(
+                f'http://127.0.0.1:{server.server_port}/events',
+                stream=True,
+                timeout=(1, None),
+            )
+            assert stream_started.wait(timeout=1)
+            reader_started = threading.Event()
+
+            def read_stream() -> None:
+                reader_started.set()
+                list(response.iter_lines(decode_unicode=True))
+
+            reader = threading.Thread(
+                target=read_stream,
+                daemon=True,
+            )
+            provider._sse_response = response
+            provider._sse_thread = reader
+            reader.start()
+            assert reader_started.wait(timeout=1)
+            time.sleep(0.05)
+
+            started_at = time.monotonic()
+            provider.shutdown(timeout_millis=50)
+            elapsed = time.monotonic() - started_at
+
+            assert elapsed < 0.5
+            assert provider.get_evaluation_state() == 'not_ready'
+        finally:
+            release_stream.set()
+            server.shutdown()
+            server.server_close()
+            session.close()
+
+    def test_shutdown_accepts_an_infinite_timeout(self) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        provider.shutdown(timeout_millis=float('inf'))
+
+        assert provider._shutdown_complete.is_set()
+
+    def test_shutdown_timeout_clamps_an_oversized_integer(self) -> None:
+        assert LogfireRemoteVariableProvider._normalize_timeout_seconds(10**1000) == threading.TIMEOUT_MAX
+
+    def test_sse_close_is_retained_and_retried_when_thread_start_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        response = unittest.mock.MagicMock()
+        provider._sse_response = response
+        real_thread = threading.Thread
+        monkeypatch.setattr(threading, 'Thread', unittest.mock.MagicMock(side_effect=RuntimeError('unavailable')))
+
+        provider._request_sse_close()
+
+        assert provider._sse_response is response
+        response.close.assert_not_called()
+
+        monkeypatch.setattr(threading, 'Thread', real_thread)
+        provider._request_sse_close()
+        deadline = time.monotonic() + 1
+        while response.close.call_count == 0 and time.monotonic() < deadline:
+            time.sleep(0.001)
+        response.close.assert_called_once_with()
+
+    def test_in_flight_refresh_cannot_resurrect_a_shutdown_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        fetch_started = threading.Event()
+        finish_fetch = threading.Event()
+        response = unittest.mock.MagicMock(status_code=200, headers={})
+        response.json.return_value = {
+            'variables': {
+                'checkout': {
+                    'name': 'checkout',
+                    'labels': {'enabled': {'version': 1, 'serialized_value': 'true'}},
+                    'rollout': {'labels': {'enabled': 1.0}},
+                    'overrides': [],
+                }
+            }
+        }
+
+        def get(*args: Any, **kwargs: Any) -> Any:
+            fetch_started.set()
+            assert finish_fetch.wait(timeout=1)
+            return response
+
+        monkeypatch.setattr(provider._session, 'get', get)
+        refresh = threading.Thread(target=provider.refresh, kwargs={'force': True})
+        refresh.start()
+        assert fetch_started.wait(timeout=1)
+
+        provider.shutdown(timeout_millis=10)
+        finish_fetch.set()
+        refresh.join(timeout=1)
+
+        assert not refresh.is_alive()
+        assert provider.get_evaluation_state() == 'not_ready'
+
+    def test_shutdown_failure_in_one_component_does_not_skip_the_rest(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        response = unittest.mock.MagicMock()
+        response.close.side_effect = RuntimeError('response close failed')
+        worker = unittest.mock.MagicMock()
+        worker.join.side_effect = RuntimeError('worker join failed')
+        sse = unittest.mock.MagicMock()
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        provider._sse_response = response
+        provider._worker_thread = worker
+        provider._sse_thread = sse
+
+        provider.shutdown(timeout_millis=100)
+
+        response.close.assert_called_once_with()
+        worker.join.assert_called_once()
+        sse.join.assert_called_once()
+        close_session.assert_called_once_with()
+        assert provider._shutdown_complete.is_set()
+
+    def test_concurrent_shutdown_waits_for_the_owner_to_finish(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        close_started = threading.Event()
+        allow_close = threading.Event()
+
+        def blocking_close() -> None:
+            close_started.set()
+            assert allow_close.wait(timeout=1)
+
+        monkeypatch.setattr(provider._session, 'close', blocking_close)
+        first = threading.Thread(target=provider.shutdown, kwargs={'timeout_millis': 1000})
+        second = threading.Thread(target=provider.shutdown, kwargs={'timeout_millis': 1000})
+
+        first.start()
+        assert close_started.wait(timeout=1)
+        second.start()
+        second.join(timeout=0.05)
+        assert second.is_alive(), 'A concurrent shutdown must wait for resource cleanup to complete'
+
+        allow_close.set()
+        first.join(timeout=1)
+        second.join(timeout=1)
+        assert not first.is_alive()
+        assert not second.is_alive()
+
+    def test_shutdown_defers_session_close_when_a_request_owns_the_lock(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        provider._session_lock.acquire()
+        shutdown = threading.Thread(target=provider.shutdown, kwargs={'timeout_millis': 10})
+
+        shutdown.start()
+        shutdown.join(timeout=0.2)
+        assert not shutdown.is_alive(), 'Shutdown must respect its timeout even while a request is in flight'
+        assert provider._shutdown_timeout_exceeded is True
+        assert not provider._shutdown_complete.is_set()
+        close_session.assert_not_called()
+
+        provider._session_lock.release()
+        assert provider._shutdown_complete.wait(timeout=1)
+        close_session.assert_called_once_with()
+
     def test_refresh_with_force(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1711,6 +2066,54 @@ class TestLogfireRemoteVariableProviderStart:
             finally:
                 provider.shutdown()
 
+    def test_partial_start_failure_before_polling_closes_session(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        session = provider._session
+        close_session = unittest.mock.MagicMock(wraps=session.close)
+        monkeypatch.setattr(provider, '_start_sse_listener', unittest.mock.MagicMock(side_effect=RuntimeError('boom')))
+        monkeypatch.setattr(session, 'close', close_session)
+
+        with pytest.raises(RuntimeError, match='boom'):
+            provider.start(None)
+
+        assert provider._worker_thread is None
+        assert provider.get_evaluation_state() == 'fatal'
+        assert provider._shutdown_complete.is_set()
+        close_session.assert_called_once_with()
+
+    def test_partial_start_failure_defers_session_close_while_request_owns_lock(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+                timeout=(0.01, 0.01),
+            ),
+        )
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        monkeypatch.setattr(provider, '_start_sse_listener', unittest.mock.MagicMock(side_effect=RuntimeError('boom')))
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        provider._session_lock.acquire()
+
+        with pytest.raises(RuntimeError, match='boom'):
+            provider.start(None)
+
+        assert not provider._shutdown_complete.is_set()
+        close_session.assert_not_called()
+        provider._session_lock.release()
+        assert provider._shutdown_complete.wait(timeout=1)
+        close_session.assert_called_once_with()
+
     def test_start_with_logfire_instance(self, config_kwargs: dict[str, Any]) -> None:
         """start() with a logfire instance should set up error logging via logfire."""
         request_mocker = requests_mock_module.Mocker()
@@ -1899,6 +2302,292 @@ class TestApiKeySupport:
 # =============================================================================
 # Test Variable
 # =============================================================================
+
+
+class TestFeatureFlag:
+    @pytest.fixture
+    def feature_flags_config(self) -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={
+                        'enabled': LabeledValue(version=3, serialized_value='true'),
+                        'disabled': LabeledValue(version=2, serialized_value='false'),
+                    },
+                    rollout=Rollout(labels={'enabled': 0.9, 'disabled': 0.1}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[ValueEquals(attribute='plan', value='free')],
+                            rollout=Rollout(labels={'enabled': 0.5, 'disabled': 0.5}),
+                        )
+                    ],
+                )
+            }
+        )
+
+    def test_code_default_and_override(self, config_kwargs: dict[str, Any]):
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+
+        assert flag.is_enabled() is False
+        assert flag.evaluate().reason == 'default'
+        with flag.override_for_testing(True):
+            assert flag.is_enabled() is True
+
+    def test_invalid_managed_value_keeps_boolean_contract(self, config_kwargs: dict[str, Any]):
+        config = VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={'invalid': LabeledValue(version=1, serialized_value='null')},
+                    rollout=Rollout(labels={'invalid': 1.0}),
+                    overrides=[],
+                )
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with pytest.warns(RuntimeWarning, match='value failed validation'):
+            details = flag.evaluate(targeting_key='user-123')
+
+        assert details.value is False
+        assert details.reason == 'error'
+        assert details.error_code == 'type_mismatch'
+        assert details.error_message == 'Configured value did not match the declared flag type.'
+
+    def test_evaluate_with_feature_context(self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with feature_context('user-123', attributes={'plan': 'free', 'region': 'us'}):
+            details = flag.evaluate()
+            assert details.value is False
+            assert details.variant == 'disabled'
+
+            # Invocation attributes take precedence over request-local attributes.
+            assert flag.is_enabled(attributes={'plan': 'team'}) is True
+
+            with feature_context('user-456', attributes={'region': 'eu'}):
+                assert flag.is_enabled() is True
+
+            # Leaving the nested context restores the outer key and attributes.
+            assert flag.is_enabled() is False
+
+        # Leaving the outer context restores the base rollout and does not retain plan='free'.
+        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+
+    @pytest.mark.anyio
+    async def test_feature_context_is_isolated_between_tasks(self, config_kwargs: dict[str, Any]):
+        config = VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={
+                        'enabled': LabeledValue(version=1, serialized_value='true'),
+                        'disabled': LabeledValue(version=1, serialized_value='false'),
+                    },
+                    rollout=Rollout(labels={'disabled': 1.0}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[ValueEquals(attribute='plan', value='team')],
+                            rollout=Rollout(labels={'enabled': 1.0}),
+                        )
+                    ],
+                )
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        async def evaluate(targeting_key: str, plan: str) -> tuple[bool, str | None]:
+            with feature_context(targeting_key, attributes={'plan': plan}):
+                await asyncio.sleep(0)
+                details = flag.evaluate()
+                return details.value, details.variant
+
+        team, free = await asyncio.gather(evaluate('team-user', 'team'), evaluate('free-user', 'free'))
+
+        assert team == (True, 'enabled')
+        assert free == (False, 'disabled')
+
+    def test_evaluation_and_declaration_telemetry(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+        exporter: TestExporter,
+    ):
+        feature_flags_config.variables['new_checkout'].overrides[0].rollout = Rollout(labels={'disabled': 1.0})
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config, instrument=True)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False, description='Enable the redesigned checkout.')
+        exporter.clear()
+
+        with feature_context('user-123', attributes={'plan': 'free'}):
+            details = flag.evaluate()
+
+        evaluation_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'feature_flag.evaluation'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        attrs = dict(evaluation_span.attributes or {})
+        assert attrs['feature_flag.key'] == 'new_checkout'
+        assert attrs['feature_flag.provider.name'] == 'logfire'
+        assert attrs['feature_flag.result.value'] is False
+        assert attrs['feature_flag.result.variant'] == 'disabled'
+        assert attrs['feature_flag.result.reason'] == 'targeting_match'
+        assert attrs['logfire.feature_flag.resolution_reason'] == 'resolved'
+        assert attrs['logfire.feature_flag.value_version'] == 2
+        assert 'feature_flag.version' not in attrs
+        assert 'error.type' not in attrs
+        assert 'targeting_key' not in attrs
+        assert 'attributes' not in attrs
+        assert details.value is False
+
+        declaration_span = next(
+            span
+            for span in exporter.exported_spans
+            if span.name == 'Declare variable new_checkout'
+            and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+        )
+        declaration_attrs = dict(declaration_span.attributes or {})
+        assert declaration_attrs['logfire.variable.kind'] == 'feature_flag'
+        assert declaration_attrs['logfire.variable.schema'] == '{"type":"boolean"}'
+        assert declaration_attrs['logfire.variable.code_default'] == 'false'
+
+    def test_explicit_targeting_key_takes_precedence(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with feature_context('user-12'):
+            details = flag.evaluate(targeting_key='user-123')
+
+        config = feature_flags_config.variables['new_checkout']
+        assert config.resolve_label('user-12') == 'disabled'
+        expected_label = config.resolve_label('user-123')
+        assert expected_label == 'enabled'
+        assert details.variant == expected_label
+
+    def test_rejects_non_boolean_default(self, config_kwargs: dict[str, Any]):
+        logfire.configure(**config_kwargs)
+
+        with pytest.raises(TypeError, match=r'^Feature flag defaults must be boolean\.$'):
+            feature_flag('new_checkout', default=cast(Any, 'false'))
+        with pytest.raises(ValueError, match='Invalid variable name'):
+            feature_flag('new_checkout\n', default=False)
+
+        feature_flag('duplicate', default=False)
+        with pytest.raises(ValueError, match='already been registered'):
+            feature_flag('duplicate', default=cast(Any, 'false'))
+
+    def test_shares_the_variable_registry(self, config_kwargs: dict[str, Any]):
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        registered = logfire.variables_get()
+        assert len(registered) == 1
+        assert registered[0].name == flag.name
+        assert registered[0] is not flag  # The managed variable is a private compatibility adapter.
+        with pytest.raises(ValueError, match='already been registered'):
+            logfire.var('new_checkout', default=False)
+
+    def test_registry_adapter_preserves_explicit_label_selection(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        feature_flag('new_checkout', default=False)
+
+        registered = logfire.variables_get()
+        assert len(registered) == 1
+        provider = logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+        with (
+            warnings.catch_warnings(record=True) as caught,
+            unittest.mock.patch.object(
+                provider,
+                'get_serialized_value_for_label',
+                wraps=provider.get_serialized_value_for_label,
+            ) as get_serialized_value_for_label,
+        ):
+            warnings.simplefilter('always')
+            result = cast(Variable[Any], registered[0]).get(label='disabled')
+            assert result.value is False
+            assert result.label == 'disabled'
+        assert caught == []
+        get_serialized_value_for_label.assert_called_once_with('new_checkout', 'disabled')
+
+        with pytest.warns(RuntimeWarning, match='no stable targeting key'):
+            assert isinstance(cast(Variable[Any], registered[0]).get(label='missing').value, bool)
+
+    def test_warns_when_percentage_rollout_has_no_stable_targeting_key(self, config_kwargs: dict[str, Any]):
+        config = VariablesConfig(
+            variables={
+                'new_checkout': VariableConfig(
+                    name='new_checkout',
+                    labels={'enabled': LabeledValue(version=1, serialized_value='true')},
+                    rollout=Rollout(labels={'enabled': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with pytest.warns(RuntimeWarning, match='no stable targeting key'):
+            flag.is_enabled()
+        with logfire.span('request'), pytest.warns(RuntimeWarning, match='no stable targeting key'):
+            flag.is_enabled()
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            assert isinstance(flag.is_enabled(), bool)
+            flag.is_enabled(targeting_key='user-123')
+            with feature_context('user-456'):
+                flag.is_enabled()
+
+    def test_propagated_baggage_does_not_target_feature_flags(
+        self, config_kwargs: dict[str, Any], feature_flags_config: VariablesConfig
+    ):
+        config_kwargs['variables'] = LocalVariablesOptions(config=feature_flags_config)
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        with logfire.set_baggage(plan='free'):
+            # user-123 resolves differently for the base rollout and the free-plan override.
+            assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+            assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
+
+    def test_resource_attributes_can_be_excluded_from_feature_flag_targeting(
+        self,
+        config_kwargs: dict[str, Any],
+        feature_flags_config: VariablesConfig,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setenv('OTEL_RESOURCE_ATTRIBUTES', 'plan=free')
+        config_kwargs['variables'] = LocalVariablesOptions(
+            config=feature_flags_config,
+            include_resource_attributes_in_context=False,
+        )
+        logfire.configure(**config_kwargs)
+        flag = feature_flag('new_checkout', default=False)
+
+        # The resource attribute would select the free-plan override if the opt-out were ignored.
+        assert flag.evaluate(targeting_key='user-123').variant == 'enabled'
+        assert flag.evaluate(targeting_key='user-123', attributes={'plan': 'free'}).variant == 'disabled'
 
 
 class TestVariable:
@@ -2932,6 +3621,29 @@ class TestTargetingContext:
         with targeting_context('user123'):
             assert var_a.get().value == result_a.value
             assert var_b.get().value == result_b.value
+
+    def test_targeting_context_provides_attributes(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Context attributes participate in targeting and invocation attributes win."""
+        from logfire.variables.variable import targeting_context
+
+        rollout_config.variables['var_a'].overrides = [
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='team')],
+                rollout=Rollout(labels={'v2': 1.0}),
+            ),
+            RolloutOverride(
+                conditions=[ValueEquals(attribute='plan', value='free')],
+                rollout=Rollout(labels={'v1': 1.0}),
+            ),
+        ]
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
+        variable = logfire.configure(**config_kwargs).var(name='var_a', default='default', type=str)
+
+        with targeting_context('account-123', attributes={'plan': 'team'}):
+            assert variable.get().label == 'v2'
+            assert variable.get(attributes={'plan': 'free'}).label == 'v1'
 
     def test_targeting_context_for_specific_variables(
         self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
@@ -5804,15 +6516,28 @@ class TestVarDuplicateName:
         with pytest.raises(ValueError, match="A variable with name 'dup_var' has already been registered"):
             lf.var(name='dup_var', default='world', type=str)
 
+    def test_duplicate_name_is_checked_before_constructing_type_adapter(self, config_kwargs: dict[str, Any]):
+        class SchemaHookMustNotRun:
+            @classmethod
+            def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> Any:
+                raise AssertionError('duplicate registration constructed a type adapter')
+
+        lf = logfire.configure(**config_kwargs)
+        lf.var(name='dup_var', default='hello', type=str)
+
+        with pytest.raises(ValueError, match="A variable with name 'dup_var' has already been registered"):
+            lf.var(name='dup_var', default=cast(Any, SchemaHookMustNotRun()))
+
 
 class TestVarInvalidName:
     """Test that var() raises when registering a variable with an invalid name."""
 
-    def test_invalid_name_raises(self, config_kwargs: dict[str, Any]):
+    @pytest.mark.parametrize('name', ['1bad-name!', 'trailing_newline\n'])
+    def test_invalid_name_raises(self, config_kwargs: dict[str, Any], name: str):
         lf = logfire.configure(**config_kwargs)
 
         with pytest.raises(ValueError, match='Invalid variable name'):
-            lf.var(name='1bad-name!', default='hello', type=str)
+            lf.var(name=name, default='hello', type=str)
 
 
 class TestVariablesOptionsPollingInterval:
@@ -6086,6 +6811,61 @@ class TestVariablesConfigResolveSerializedValueCodeDefault:
         result = config.resolve_serialized_value('test_var')
         assert result.value is None
         assert result.reason == 'resolved'
+
+
+class TestFeatureFlagResolveSerializedValueExplicitLabel:
+    def test_existing_explicit_label_is_static_even_when_rollout_is_split(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='false'),
+                        'treatment': LabeledValue(version=1, serialized_value='true'),
+                    },
+                    rollout=Rollout(labels={'control': 0.5, 'treatment': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+
+        # This key selects control through the rollout, so the explicit treatment assertion also
+        # proves the requested label reaches VariableConfig.resolve_value().
+        result = config.resolve_serialized_value('test_var', targeting_key='user-2', label='treatment')
+
+        assert result.name == 'test_var'
+        assert result.reason == 'resolved'
+        assert result.label == 'treatment'
+        assert result.rule_evaluation_reason == 'static'
+
+    def test_missing_explicit_label_keeps_fallback_rollout_reason(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='false'),
+                        'treatment': LabeledValue(version=1, serialized_value='true'),
+                    },
+                    rollout=Rollout(labels={'control': 0.5, 'treatment': 0.5}),
+                    overrides=[],
+                )
+            }
+        )
+
+        result = config.resolve_serialized_value('test_var', targeting_key='user-2', label='missing')
+
+        assert result.name == 'test_var'
+        assert result.reason == 'resolved'
+        assert result.label == 'control'
+        assert result.rule_evaluation_reason == 'split'
+
+    def test_unrecognized_flag_preserves_name_and_reason(self):
+        result = VariablesConfig(variables={}).resolve_serialized_value('missing_flag')
+
+        assert result.name == 'missing_flag'
+        assert result.value is None
+        assert result.reason == 'unrecognized_variable'
 
 
 class TestVariablesConfigValidationErrorsWithLatestVersion:

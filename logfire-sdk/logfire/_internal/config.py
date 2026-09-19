@@ -135,7 +135,7 @@ if TYPE_CHECKING:
     from typing import TextIO
 
     from logfire.variables import VariablesConfig
-    from logfire.variables.variable import TemplateVariable, Variable
+    from logfire.variables.variable import _FlagEvaluationCore  # pyright: ignore[reportPrivateUsage]
 
     from .main import Logfire
 
@@ -979,7 +979,7 @@ class LogfireConfig(_LogfireConfigData):
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         _register_at_fork_resource_updates(self._tracer_provider, self._meter_provider, self._logger_provider)
         self._otlp_forwarding = OTLPForwardingManager([])
-        self._variables: dict[str, Variable[Any] | TemplateVariable[Any, Any]] = {}
+        self._variables: dict[str, _FlagEvaluationCore[Any]] = {}
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False

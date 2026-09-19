@@ -14,6 +14,9 @@ venv
 # stubgen
 out
 
+# mutation testing
+mutants
+
 # Node/Cloudflare
 node_modules
 .wrangler
