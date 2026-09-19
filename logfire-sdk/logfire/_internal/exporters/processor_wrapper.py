@@ -503,8 +503,9 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
                         )
                     continue
             new_content.append(item)
-        if new_content:  # pragma: no branch
-            result['content'] = new_content
+        # Assigned even when empty: a message whose only content was a tool call already
+        # listed in `tool_calls` would otherwise keep it and show the call twice.
+        result['content'] = new_content
 
     if 'tool_call_id' in result:
         result['id'] = result.pop('tool_call_id')
