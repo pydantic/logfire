@@ -135,6 +135,19 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._worker_thread: threading.Thread | None = None
         self._pid = os.getpid()
 
+        # Register before start(): callers may explicitly refresh or mutate variables on a
+        # provider that has not started its background workers yet. Every inherited HTTP entrypoint
+        # still needs a process-local session after fork.
+        if hasattr(os, 'register_at_fork'):  # pragma: no branch
+            weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
+
+            def _after_in_child() -> None:  # pragma: no cover
+                method = weak_reinit()
+                if method is not None:
+                    method()
+
+            os.register_at_fork(after_in_child=_after_in_child)
+
     def _new_session(self) -> Session:
         """Create a process-local polling session with the configured hooks."""
         session = Session()
@@ -225,17 +238,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 if self._close_polling_session_before(deadline):
                     self._shutdown_complete.set()
                 raise
-
-        # Register at_fork handler
-        if hasattr(os, 'register_at_fork'):  # pragma: no branch
-            weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
-
-            def _after_in_child() -> None:  # pragma: no cover
-                method = weak_reinit()
-                if method is not None:
-                    method()
-
-            os.register_at_fork(after_in_child=_after_in_child)
 
     def _log_error(self, message: str, exc: Exception) -> None:
         """Log an error using logfire if available, otherwise warnings.

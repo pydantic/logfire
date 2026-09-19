@@ -10,7 +10,7 @@ import threading
 import time
 import unittest.mock
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, cast
@@ -1183,6 +1183,31 @@ class TestLogfireRemoteVariableProvider:
 
         assert provider._session is replacement_session
         close_inherited_session.assert_not_called()
+
+    def test_at_fork_handler_is_registered_before_start(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        callbacks: list[Callable[[], None]] = []
+
+        def register_at_fork(*, after_in_child: Callable[[], None]) -> None:
+            callbacks.append(after_in_child)
+
+        monkeypatch.setattr(os, 'register_at_fork', register_at_fork)
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        inherited_session = provider._session
+        replacement_session = cast(Session, unittest.mock.MagicMock())
+        monkeypatch.setattr(provider, '_new_session', lambda: replacement_session)
+
+        assert len(callbacks) == 1
+        callbacks[0]()
+
+        assert provider._session is replacement_session
+        assert provider._session is not inherited_session
 
     def test_lazy_fork_reinitialization_rearms_for_a_grandchild(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider = LogfireRemoteVariableProvider(
