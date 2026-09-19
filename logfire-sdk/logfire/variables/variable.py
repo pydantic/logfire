@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast
 
 from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
-from typing_extensions import TypeIs
+from typing_extensions import TypeIs, assert_never
 
 from logfire.variables.composition import (
     ComposedReference,
@@ -35,7 +35,7 @@ else:
     from asyncio import to_thread  # pragma: no cover
 
 import logfire
-from logfire.variables.abstract import ResolutionReason, ResolvedVariable
+from logfire.variables.abstract import ResolutionReason, ResolvedVariable, VariableProviderEvaluationState
 
 __all__ = (
     'ResolveFunction',
@@ -197,6 +197,7 @@ def _emit_resolution_warning(message: str, *, stacklevel: int = 3) -> None:
 
 def _feature_flag_evaluation_details(
     result: ResolvedVariable[T_co],
+    provider_state: VariableProviderEvaluationState = 'ready',
 ) -> Any:
     """Translate a managed-variable result into the feature-flag domain model."""
     from logfire.experimental.feature_flags import FlagErrorCode, FlagEvaluationDetails, FlagEvaluationReason
@@ -223,7 +224,30 @@ def _feature_flag_evaluation_details(
         # Custom providers may resolve a value without exposing rule metadata.
         reason = 'static'
 
+    if error_code is None:
+        if provider_state == 'not_ready':
+            reason = 'error'
+            error_code = 'provider_not_ready'
+            error_message = 'The feature flag provider has not loaded configuration yet.'
+        elif provider_state == 'error':
+            reason = 'error'
+            error_code = 'general'
+            error_message = 'The feature flag provider could not load configuration.'
+        elif provider_state == 'fatal':
+            reason = 'error'
+            error_code = 'provider_fatal'
+            error_message = 'The feature flag provider is no longer available.'
+        elif provider_state == 'stale':
+            reason = 'stale'
+        elif provider_state != 'ready':
+            assert_never(provider_state)
+
     has_error = error_code is not None
+    metadata: dict[str, Any] = {}
+    if result.version is not None and not has_error:
+        metadata['logfire.value_version'] = result.version
+    if provider_state == 'stale' and not has_error:
+        metadata['logfire.provider_state'] = 'stale'
     return FlagEvaluationDetails(
         flag_key=result.name,
         value=result.value,
@@ -231,16 +255,17 @@ def _feature_flag_evaluation_details(
         reason=reason,
         error_code=error_code,
         error_message=error_message,
-        flag_metadata={'logfire.value_version': result.version} if result.version is not None and not has_error else {},
+        flag_metadata=metadata,
     )
 
 
 def _feature_flag_telemetry_attributes(
     result: ResolvedVariable[T_co],
     serialized_value: str | None = None,
+    provider_state: VariableProviderEvaluationState = 'ready',
 ) -> dict[str, Any]:
     """Translate a managed-variable result to feature-flag semantic attributes."""
-    details = _feature_flag_evaluation_details(result)
+    details = _feature_flag_evaluation_details(result, provider_state)
     result_attributes: dict[str, Any] = {
         'feature_flag.key': result.name,
         'feature_flag.provider.name': 'logfire',
@@ -1263,7 +1288,9 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         # Managed variables permit incompatible sentinel defaults, but a typed feature flag
         # promises that every value it returns conforms to its declared type. Validate before
         # initializing the variables engine so it never observes an invalid default.
-        validated_default = TypeAdapter[FlagT](type).validate_python(default)
+        if is_resolve_function(default):
+            raise TypeError('Feature flag defaults must be static values, not callables.')
+        validated_default = TypeAdapter[FlagT](type).validate_python(default, strict=True)
         super().__init__(
             name,
             type=type,
@@ -1271,6 +1298,13 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             description=description,
             logfire_instance=logfire_instance,
         )
+
+    def _deserialize(self, serialized_value: str) -> FlagT | ValidationError | ValueError | TypeError:
+        """Validate remote values without coercing one JSON scalar type into another."""
+        try:
+            return self.type_adapter.validate_json(serialized_value, strict=True)
+        except (ValidationError, ValueError, TypeError) as e:
+            return e
 
     def get(
         self,
@@ -1353,7 +1387,19 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         requested_label: str | None,
     ) -> dict[str, Any]:
         del targeting_key, requested_label
-        telemetry = _feature_flag_telemetry_attributes(result, serialized_value)
+        provider_state = self._get_provider_evaluation_state()
+        provider_result = result
+        result = self._result_for_provider_state(provider_result, provider_state)
+        if result is not provider_result:
+            try:
+                serialized_value = self.type_adapter.dump_json(result.value).decode()
+            except (ValueError, TypeError, RuntimeError):
+                serialized_value = '<unavailable>'
+        telemetry = _feature_flag_telemetry_attributes(
+            result,
+            serialized_value,
+            provider_state,
+        )
         try:
             # Scrub the same JSON-compatible shape used for structured evaluation telemetry.
             # Python-mode serializers may leave nested credentials inside opaque objects.
@@ -1386,11 +1432,35 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
     ) -> Any:
         """Evaluate through managed variables and translate to the feature-flag contract."""
         result = self.get(targeting_key, attributes)
-        return _feature_flag_evaluation_details(result)
+        provider_state = self._get_provider_evaluation_state()
+        result = self._result_for_provider_state(result, provider_state)
+        return _feature_flag_evaluation_details(result, provider_state)
+
+    def _result_for_provider_state(
+        self,
+        result: ResolvedVariable[FlagT],
+        provider_state: VariableProviderEvaluationState,
+    ) -> ResolvedVariable[FlagT]:
+        """Use the code default when the provider cannot safely serve configuration."""
+        if provider_state in ('not_ready', 'error', 'fatal'):
+            # Feature flags reject callable defaults during construction, so the inherited union
+            # has been narrowed at runtime even though the shared core's annotation cannot express it.
+            return ResolvedVariable(name=self.name, value=cast('FlagT', self.default), reason='code_default')
+        return result
+
+    def _get_provider_evaluation_state(self) -> VariableProviderEvaluationState:
+        """Read provider health without allowing diagnostics to break evaluation."""
+        try:
+            state = self.logfire_instance.config.get_variable_provider().get_evaluation_state()
+        except Exception:
+            return 'error'
+        if state in ('not_ready', 'ready', 'stale', 'error', 'fatal'):
+            return state
+        return 'error'
 
     def override_for_testing(self, value: FlagT) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
-        return self.override(self.type_adapter.validate_python(value))
+        return self.override(self.type_adapter.validate_python(value, strict=True))
 
 
 class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):

@@ -45,6 +45,7 @@ from logfire.experimental.openfeature import (
     LogfireProvider,
     _is_exclusively_openfeature_scalar_schema,
     _matches_openfeature_scalar_type,
+    _to_openfeature_details,
     _unwrap_transparent_schema,
 )
 from logfire.testing import TestExporter
@@ -618,6 +619,51 @@ def test_feature_flag_validates_test_overrides_before_installing_them():
     assert enabled.is_enabled() is False
 
 
+@pytest.mark.parametrize(
+    ('value_type', 'default', 'configured_value'),
+    [
+        (bool, False, '1'),
+        (int, 0, 'true'),
+        (float, 0.0, 'true'),
+    ],
+)
+def test_typed_flags_do_not_coerce_remote_json_scalar_types(value_type: type[Any], default: Any, configured_value: str):
+    config = VariablesConfig(
+        variables={
+            'typed_flag': VariableConfig(
+                name='typed_flag',
+                labels={'configured': LabeledValue(version=1, serialized_value=configured_value)},
+                rollout=Rollout(labels={'configured': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    typed_flag = flag('typed_flag', type=value_type, default=default)
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        details = typed_flag.details()
+
+    assert details.value == default
+    assert type(details.value) is type(default)
+    assert details.reason == 'error'
+    assert details.error_code == 'type_mismatch'
+
+
+@pytest.mark.parametrize(('value_type', 'invalid_value'), [(bool, 1), (int, True), (float, True)])
+def test_typed_flags_do_not_coerce_defaults_or_test_overrides(value_type: type[Any], invalid_value: Any):
+    with pytest.raises(ValidationError):
+        flag('invalid_default', type=value_type, default=invalid_value)
+
+    typed_flag = flag('typed_flag', type=value_type, default=value_type())
+    with pytest.raises(ValidationError):
+        typed_flag.override_for_testing(invalid_value)
+
+
 def test_parameterized_flag_requires_an_explicit_type():
     with pytest.raises(TypeError, match=r'Pass type=\.\.\.'):
         flag('ambiguous', default=[])  # pyright: ignore[reportArgumentType]
@@ -634,8 +680,18 @@ def test_duplicate_flag_name_is_validated_before_type_inference():
 
 
 def test_typed_flag_validates_its_code_default_during_construction():
-    with pytest.raises(ValidationError, match='int_parsing'):
+    with pytest.raises(ValidationError, match='valid integer'):
         flag('invalid_default', type=int, default=cast(Any, 'not-an-int'))
+
+    assert logfire.variables_get() == []
+
+
+def test_typed_flag_rejects_callable_defaults():
+    def dynamic_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> bool:
+        return bool(targeting_key or attributes)
+
+    with pytest.raises(TypeError, match='static values'):
+        flag('dynamic', type=bool, default=cast(Any, dynamic_default))
 
     assert logfire.variables_get() == []
 
@@ -678,6 +734,61 @@ def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
         assert missing.error_code == ErrorCode.FLAG_NOT_FOUND
     finally:
         openfeature_api.clear_providers()
+
+
+@pytest.mark.parametrize(
+    ('native_reason', 'openfeature_reason'),
+    [
+        ('cached', Reason.CACHED),
+        ('default', Reason.DEFAULT),
+        ('disabled', Reason.DISABLED),
+        ('error', Reason.ERROR),
+        ('split', Reason.SPLIT),
+        ('stale', Reason.STALE),
+        ('static', Reason.STATIC),
+        ('targeting_match', Reason.TARGETING_MATCH),
+        ('unknown', Reason.UNKNOWN),
+    ],
+)
+def test_openfeature_adapter_maps_every_native_reason(native_reason: Any, openfeature_reason: Reason):
+    details = _to_openfeature_details(
+        FlagEvaluationDetails(flag_key='flag', value=True, reason=native_reason),
+        False,
+    )
+
+    assert details.value is True
+    assert details.reason == openfeature_reason
+
+
+@pytest.mark.parametrize(
+    ('native_error', 'openfeature_error'),
+    [
+        ('flag_not_found', ErrorCode.FLAG_NOT_FOUND),
+        ('general', ErrorCode.GENERAL),
+        ('invalid_context', ErrorCode.INVALID_CONTEXT),
+        ('parse_error', ErrorCode.PARSE_ERROR),
+        ('provider_fatal', ErrorCode.PROVIDER_FATAL),
+        ('provider_not_ready', ErrorCode.PROVIDER_NOT_READY),
+        ('targeting_key_missing', ErrorCode.TARGETING_KEY_MISSING),
+        ('type_mismatch', ErrorCode.TYPE_MISMATCH),
+    ],
+)
+def test_openfeature_adapter_maps_every_native_error(native_error: Any, openfeature_error: ErrorCode):
+    details = _to_openfeature_details(
+        FlagEvaluationDetails(
+            flag_key='flag',
+            value=True,
+            reason='error',
+            error_code=native_error,
+            error_message='safe message',
+        ),
+        False,
+    )
+
+    assert details.value is False
+    assert details.reason == Reason.ERROR
+    assert details.error_code == openfeature_error
+    assert details.error_message == 'safe message'
 
 
 def test_openfeature_client_resolves_remote_logfire_configuration():
@@ -735,6 +846,77 @@ def test_openfeature_client_resolves_remote_logfire_configuration():
     assert request_mocker.call_count == 1
     assert request_mocker.last_request is not None
     assert request_mocker.last_request.headers['Authorization'] == 'bearer pylf_v1_us_test_token'
+
+
+def test_remote_provider_health_is_reflected_in_native_and_openfeature_details():
+    request_mocker = requests_mock_module.Mocker()
+    request_mocker.get(
+        'http://localhost:8000/v1/variables/',
+        [
+            {
+                'json': {
+                    'variables': {
+                        'remote_checkout': {
+                            'name': 'remote_checkout',
+                            'labels': {'enabled': {'version': 2, 'serialized_value': 'true'}},
+                            'rollout': {'labels': {'enabled': 1.0}},
+                            'overrides': [],
+                        }
+                    }
+                },
+                'status_code': 200,
+            },
+            {'status_code': 500},
+        ],
+    )
+    remote_provider = LogfireRemoteVariableProvider(
+        base_url='http://localhost:8000/',
+        token='pylf_v1_us_test_token',
+        options=VariablesOptions(
+            block_before_first_resolve=False,
+            polling_interval=timedelta(seconds=60),
+            instrument=False,
+        ),
+    )
+    custom_logfire = logfire.configure(local=True, send_to_logfire=False, console=False)
+    custom_logfire.config._variable_provider = remote_provider
+    checkout = feature_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
+
+    not_ready = checkout.details()
+    assert not_ready.value is False
+    assert not_ready.reason == 'error'
+    assert not_ready.error_code == 'provider_not_ready'
+
+    with request_mocker:
+        remote_provider.refresh(force=True)
+        ready = checkout.details()
+        assert ready.value is True
+        assert ready.reason == 'static'
+        assert ready.flag_metadata == {'logfire.value_version': 2}
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            remote_provider.refresh(force=True)
+
+        stale = checkout.details()
+        assert stale.value is True
+        assert stale.reason == 'stale'
+        assert stale.flag_metadata == {
+            'logfire.value_version': 2,
+            'logfire.provider_state': 'stale',
+        }
+
+        provider = LogfireProvider(custom_logfire)
+        openfeature_stale = provider.resolve_boolean_details('remote_checkout', False)
+        assert openfeature_stale.value is True
+        assert openfeature_stale.reason == Reason.STALE
+
+    remote_provider.shutdown()
+    stopped = checkout.details()
+    assert stopped.value is False
+    assert stopped.reason == 'error'
+    assert stopped.error_code == 'provider_fatal'
+    custom_logfire.shutdown()
 
 
 def test_openfeature_provider_uses_the_caller_default_on_resolution_error():
@@ -1198,6 +1380,28 @@ def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[s
     assert (evaluation_span.attributes or {})['feature_flag.result.value'] == '{"provider":"stripe","retries":2}'
 
 
+def test_unavailable_provider_telemetry_records_the_structured_code_default():
+    checkout = flag('checkout', default=CheckoutConfig(provider='fallback', retries=1))
+    adapter = cast(Any, checkout._adapter)
+
+    with patch.object(adapter, '_get_provider_evaluation_state', return_value='fatal'):
+        telemetry = adapter._resolution_telemetry_attributes(
+            ResolvedVariable(
+                name='checkout',
+                value=CheckoutConfig(provider='remote', retries=9),
+                reason='resolved',
+            ),
+            serialized_value='{"provider":"remote","retries":9}',
+            targeting_key=None,
+            attributes={},
+            requested_label=None,
+        )
+
+    assert telemetry['feature_flag.result.value'] == '{"provider":"fallback","retries":1}'
+    assert telemetry['feature_flag.result.reason'] == 'error'
+    assert telemetry['error.type'] == 'provider_fatal'
+
+
 def test_feature_flag_telemetry_omits_targeting_context(config_kwargs: dict[str, Any], exporter: TestExporter):
     config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
     logfire.configure(**config_kwargs)
@@ -1373,8 +1577,40 @@ def test_provider_metadata_failure_cannot_break_flag_evaluation():
     ):
         details = adapter.evaluate_flag(targeting_key='account-a')
 
-    assert details.value == 'eu'
-    assert details.reason == 'static'
+        assert details.value == 'eu'
+        assert details.reason == 'static'
+
+
+def test_provider_health_failure_falls_back_without_breaking_flag_evaluation():
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    provider = adapter.logfire_instance.config.get_variable_provider()
+
+    with (
+        patch.object(adapter, 'get', return_value=ResolvedVariable(name='region', value='eu', reason='resolved')),
+        patch.object(provider, 'get_evaluation_state', side_effect=RuntimeError('broken provider')),
+    ):
+        details = adapter.evaluate_flag()
+
+    assert details.value == 'us'
+    assert details.reason == 'error'
+    assert details.error_code == 'general'
+
+
+def test_invalid_provider_health_falls_back_without_breaking_flag_evaluation():
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    provider = adapter.logfire_instance.config.get_variable_provider()
+
+    with (
+        patch.object(adapter, 'get', return_value=ResolvedVariable(name='region', value='eu', reason='resolved')),
+        patch.object(provider, 'get_evaluation_state', return_value='not-a-provider-state'),
+    ):
+        details = adapter.evaluate_flag()
+
+    assert details.value == 'us'
+    assert details.reason == 'error'
+    assert details.error_code == 'general'
 
 
 def test_flag_evaluation_details_use_the_resolved_config_snapshot():

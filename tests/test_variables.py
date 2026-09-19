@@ -1163,6 +1163,134 @@ class TestLogfireRemoteVariableProvider:
         mock_thread_cls.assert_not_called()
         mock_start_sse.assert_not_called()
 
+    def test_at_fork_reinit_replaces_the_inherited_http_session(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        inherited_session = provider._session
+        close_inherited_session = unittest.mock.MagicMock(wraps=inherited_session.close)
+        replacement_session = cast(Session, unittest.mock.MagicMock())
+        monkeypatch.setattr(inherited_session, 'close', close_inherited_session)
+        monkeypatch.setattr(provider, '_new_session', lambda: replacement_session)
+
+        provider._at_fork_reinit()
+
+        assert provider._session is replacement_session
+        close_inherited_session.assert_called_once_with()
+
+    def test_shutdown_closes_active_sse_response_before_joining_threads(self) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        response = unittest.mock.MagicMock()
+        worker = unittest.mock.MagicMock()
+        sse = unittest.mock.MagicMock()
+        provider._sse_response = response
+        provider._worker_thread = worker
+        provider._sse_thread = sse
+
+        provider.shutdown(timeout_millis=100)
+
+        response.close.assert_called_once_with()
+        worker.join.assert_called_once()
+        sse.join.assert_called_once()
+        assert provider.get_evaluation_state() == 'fatal'
+
+    def test_shutdown_failure_in_one_component_does_not_skip_the_rest(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        response = unittest.mock.MagicMock()
+        response.close.side_effect = RuntimeError('response close failed')
+        worker = unittest.mock.MagicMock()
+        worker.join.side_effect = RuntimeError('worker join failed')
+        sse = unittest.mock.MagicMock()
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        provider._sse_response = response
+        provider._worker_thread = worker
+        provider._sse_thread = sse
+
+        provider.shutdown(timeout_millis=100)
+
+        response.close.assert_called_once_with()
+        worker.join.assert_called_once()
+        sse.join.assert_called_once()
+        close_session.assert_called_once_with()
+        assert provider._shutdown_complete.is_set()
+
+    def test_concurrent_shutdown_waits_for_the_owner_to_finish(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        close_started = threading.Event()
+        allow_close = threading.Event()
+
+        def blocking_close() -> None:
+            close_started.set()
+            assert allow_close.wait(timeout=1)
+
+        monkeypatch.setattr(provider._session, 'close', blocking_close)
+        first = threading.Thread(target=provider.shutdown, kwargs={'timeout_millis': 1000})
+        second = threading.Thread(target=provider.shutdown, kwargs={'timeout_millis': 1000})
+
+        first.start()
+        assert close_started.wait(timeout=1)
+        second.start()
+        second.join(timeout=0.05)
+        assert second.is_alive(), 'A concurrent shutdown must wait for resource cleanup to complete'
+
+        allow_close.set()
+        first.join(timeout=1)
+        second.join(timeout=1)
+        assert not first.is_alive()
+        assert not second.is_alive()
+
+    def test_shutdown_defers_session_close_when_a_request_owns_the_lock(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        provider._session_lock.acquire()
+        shutdown = threading.Thread(target=provider.shutdown, kwargs={'timeout_millis': 10})
+
+        shutdown.start()
+        shutdown.join(timeout=0.2)
+        assert not shutdown.is_alive(), 'Shutdown must respect its timeout even while a request is in flight'
+        assert provider._shutdown_timeout_exceeded is True
+        assert not provider._shutdown_complete.is_set()
+        close_session.assert_not_called()
+
+        provider._session_lock.release()
+        assert provider._shutdown_complete.wait(timeout=1)
+        close_session.assert_called_once_with()
+
     def test_refresh_with_force(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1735,6 +1863,37 @@ class TestLogfireRemoteVariableProviderStart:
                 assert provider._worker_thread is worker_thread  # Same thread
             finally:
                 provider.shutdown()
+
+    def test_partial_start_failure_cleans_up_the_started_worker(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        worker_started = threading.Event()
+
+        def worker() -> None:
+            worker_started.set()
+            provider._worker_awaken.wait(timeout=1)
+
+        session = provider._session
+        close_session = unittest.mock.MagicMock(wraps=session.close)
+        monkeypatch.setattr(provider, '_worker', worker)
+        monkeypatch.setattr(provider, '_start_sse_listener', unittest.mock.MagicMock(side_effect=RuntimeError('boom')))
+        monkeypatch.setattr(session, 'close', close_session)
+
+        with pytest.raises(RuntimeError, match='boom'):
+            provider.start(None)
+
+        assert worker_started.is_set()
+        assert provider._worker_thread is not None
+        assert not provider._worker_thread.is_alive()
+        assert provider.get_evaluation_state() == 'fatal'
+        assert provider._shutdown_complete.is_set()
+        close_session.assert_called_once_with()
 
     def test_start_with_logfire_instance(self, config_kwargs: dict[str, Any]) -> None:
         """start() with a logfire instance should set up error logging via logfire."""

@@ -9,13 +9,14 @@ import time
 import warnings
 import weakref
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 from opentelemetry.util._once import Once
 from pydantic import ValidationError
-from requests import RequestException, Session
+from requests import RequestException, Response, Session
 
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
@@ -26,6 +27,7 @@ from logfire.variables.abstract import (
     VariableAlreadyExistsError,
     VariableNotFoundError,
     VariableProvider,
+    VariableProviderEvaluationState,
     VariableWriteError,
 )
 from logfire.variables.config import (
@@ -90,9 +92,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._base_url = base_url
         self._token = token
         self._server_response_hook = server_response_hook
-        self._session = Session()
-        self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
-        install_logfire_response_hook(self._session, server_response_hook)
+        self._session: Session = self._new_session()
         self._timeout = options.timeout
         self._block_before_first_fetch = block_before_first_resolve
         self._polling_interval: timedelta = (
@@ -110,7 +110,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._followup_refresh_at: float | None = None  # monotonic time for the post-SSE follow-up refresh
 
         self._shutdown = False
+        self._evaluation_state: VariableProviderEvaluationState = 'not_ready'
         self._shutdown_timeout_exceeded = False
+        self._lifecycle_lock = threading.Lock()
+        self._shutdown_complete = threading.Event()
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
         self._force_refresh_event = threading.Event()  # Set by SSE listener to force immediate refresh
@@ -119,6 +122,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._sse_connected = False
         self._sse_had_connected = False  # True after the first successful SSE connection
         self._sse_thread: threading.Thread | None = None
+        self._sse_response_lock = threading.Lock()
+        self._sse_response: Response | None = None
 
         # Logfire instance for error logging, set via start()
         # If None, errors are reported via warnings instead.
@@ -129,8 +134,26 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._worker_thread: threading.Thread | None = None
         self._pid = os.getpid()
 
+    def _new_session(self) -> Session:
+        """Create a process-local polling session with the configured hooks."""
+        session = Session()
+        session.headers.update({'Authorization': f'bearer {self._token}', 'User-Agent': UA_HEADER})
+        install_logfire_response_hook(session, self._server_response_hook)
+        return session
+
     def _at_fork_reinit(self):  # pragma: no cover
         was_shutdown = self._shutdown
+        # urllib3 pools and their sockets belong to the parent process. Reusing the inherited
+        # Session can leave the child stuck on a connection whose coordinating thread no longer
+        # exists, so discard it before starting any child workers.
+        with suppress(Exception):
+            self._session.close()
+        if not was_shutdown:
+            self._session = self._new_session()
+        if self._sse_response is not None:
+            with suppress(Exception):
+                self._sse_response.close()
+        self._sse_response = None
         if not was_shutdown:
             # Reset shutdown-timeout state only for active providers. If shutdown()
             # ran before the fork, keep `_shutdown=True` so the child does not
@@ -139,6 +162,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
         self._session_lock = threading.Lock()
+        self._sse_response_lock = threading.Lock()
+        self._lifecycle_lock = threading.Lock()
+        self._shutdown_complete = threading.Event()
+        if was_shutdown:
+            self._shutdown_complete.set()
         self._worker_awaken = threading.Event()
         self._force_refresh_event = threading.Event()
         # Only restart threads if we were started before the fork
@@ -167,22 +195,42 @@ class LogfireRemoteVariableProvider(VariableProvider):
             logfire_instance: The Logfire instance to use for error logging, or None if
                 variable instrumentation is disabled (errors will be reported via warnings).
         """
-        if logfire_instance is not None:
-            self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
-        if self._started:
-            return
-        self._started = True
+        with self._lifecycle_lock:
+            if self._started or self._shutdown:
+                return
+            if logfire_instance is not None:
+                self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
+            self._started = True
 
-        # Start the worker thread
-        self._worker_thread = threading.Thread(
-            name='LogfireRemoteProvider',
-            target=self._worker,
-            daemon=True,
-        )
-        self._worker_thread.start()
-
-        # Start the SSE listener
-        self._start_sse_listener()
+            # Start both workers while lifecycle transitions are serialized. If either start
+            # raises, shut down the partially-started provider so retrying configuration cannot
+            # leak a polling thread or HTTP pool.
+            try:
+                self._worker_thread = threading.Thread(
+                    name='LogfireRemoteProvider',
+                    target=self._worker,
+                    daemon=True,
+                )
+                self._worker_thread.start()
+                self._start_sse_listener()
+            except BaseException:
+                self._shutdown = True
+                self._evaluation_state = 'fatal'
+                self._worker_awaken.set()
+                with self._sse_response_lock:
+                    if self._sse_response is not None:
+                        with suppress(Exception):
+                            self._sse_response.close()
+                if self._worker_thread is not None:
+                    with suppress(Exception):
+                        self._worker_thread.join(timeout=sum(self._timeout) / 2)
+                if self._sse_thread is not None:
+                    with suppress(Exception):
+                        self._sse_thread.join(timeout=sum(self._timeout) / 2)
+                with suppress(Exception):
+                    self._session.close()
+                self._shutdown_complete.set()
+                raise
 
         # Register at_fork handler
         if hasattr(os, 'register_at_fork'):  # pragma: no branch
@@ -296,6 +344,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         self._wait_for_reconnect(reconnect_delay)
                         reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
                         continue
+                    with self._sse_response_lock:
+                        if self._shutdown:
+                            with suppress(Exception):
+                                response.close()
+                            break
+                        self._sse_response = response
 
                     # Connection opened. Do NOT reset the backoff here: a connection that returns
                     # 200 but then immediately closes would otherwise reset the delay every loop and
@@ -311,41 +365,46 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     self._sse_had_connected = True
 
                     # Process SSE events
-                    for line in response.iter_lines(decode_unicode=True):
-                        if self._shutdown:
-                            break
+                    try:
+                        for line in response.iter_lines(decode_unicode=True):
+                            if self._shutdown:
+                                break
 
-                        if line is None:
-                            continue
+                            if line is None:
+                                continue
 
-                        line = line.strip()
+                            line = line.strip()
 
-                        # Gap 2: an SSE-framed line -- a ": keepalive" comment or any named
-                        # field -- proves the stream is healthy, so reset the reconnect backoff.
-                        # Only SSE framing counts: a misbehaving proxy that answers 200 with a
-                        # short non-SSE body (an HTML error page, say) and closes immediately
-                        # delivers lines every cycle, and resetting on those would pin the
-                        # backoff at 1s and turn reconnects into a busy loop.
-                        if line.startswith((':', 'data:', 'event:', 'id:', 'retry:')):
-                            reconnect_delay = 1.0
+                            # Gap 2: an SSE-framed line -- a ": keepalive" comment or any named
+                            # field -- proves the stream is healthy, so reset the reconnect backoff.
+                            # Only SSE framing counts: a misbehaving proxy that answers 200 with a
+                            # short non-SSE body (an HTML error page, say) and closes immediately
+                            # delivers lines every cycle, and resetting on those would pin the
+                            # backoff at 1s and turn reconnects into a busy loop.
+                            if line.startswith((':', 'data:', 'event:', 'id:', 'retry:')):
+                                reconnect_delay = 1.0
 
-                        if not line:
-                            continue
+                            if not line:
+                                continue
 
-                        # SSE format: "data: {...json...}"
-                        if line.startswith('data:'):
-                            data_str = line[5:].strip()
-                            try:
-                                event_data = json.loads(data_str)
-                                event_type = event_data.get('event')
-                                # On any variable event, trigger a forced refresh
-                                if event_type in ('created', 'updated', 'deleted'):
-                                    # Set flag to force refresh and wake up the worker
-                                    self._force_refresh_event.set()
-                                    self._worker_awaken.set()
-                            except (json.JSONDecodeError, TypeError):
-                                # Invalid JSON, ignore
-                                pass
+                            # SSE format: "data: {...json...}"
+                            if line.startswith('data:'):
+                                data_str = line[5:].strip()
+                                try:
+                                    event_data = json.loads(data_str)
+                                    event_type = event_data.get('event')
+                                    # On any variable event, trigger a forced refresh
+                                    if event_type in ('created', 'updated', 'deleted'):
+                                        # Set flag to force refresh and wake up the worker
+                                        self._force_refresh_event.set()
+                                        self._worker_awaken.set()
+                                except (json.JSONDecodeError, TypeError):
+                                    # Invalid JSON, ignore
+                                    pass
+                    finally:
+                        with self._sse_response_lock:
+                            if self._sse_response is response:
+                                self._sse_response = None
 
                 # The stream ended cleanly (e.g. a proxy/load-balancer max-lifetime close). Back off
                 # before reconnecting rather than immediately reopening in a tight loop.
@@ -473,6 +532,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         self._consecutive_refresh_failures = 0
                         self._last_fetched_at = datetime.now(tz=timezone.utc)
                         self._has_attempted_fetch = True
+                        self._evaluation_state = 'ready' if self._config is not None else 'error'
                         return
                     UnexpectedResponse.raise_for_status(variables_response)
                     variables_config_data = variables_response.json()
@@ -485,6 +545,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 # the background worker already polling.
                 self._has_attempted_fetch = True
                 self._consecutive_refresh_failures += 1
+                self._evaluation_state = 'stale' if self._config is not None else 'error'
                 if (
                     self._config is not None
                     and self._consecutive_refresh_failures < _CONSECUTIVE_FAILURES_BEFORE_ERROR
@@ -513,7 +574,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._etag = variables_response.headers.get('ETag')
                 self._config = new_config
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
+                self._evaluation_state = 'ready'
             except ValidationError as e:
+                self._evaluation_state = 'stale' if self._config is not None else 'error'
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:
                 self._has_attempted_fetch = True
@@ -574,23 +637,83 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             timeout_millis: The timeout budget in milliseconds for shutdown operations.
         """
-        if self._shutdown:
+        timeout_seconds = max(timeout_millis, 0) / 1000
+        deadline = time.monotonic() + timeout_seconds
+        with self._lifecycle_lock:
+            if self._shutdown:
+                shutdown_complete = self._shutdown_complete
+                owns_shutdown = False
+            else:
+                self._shutdown = True
+                self._evaluation_state = 'fatal'
+                self._worker_awaken.set()
+                shutdown_complete = self._shutdown_complete
+                owns_shutdown = True
+
+        if not owns_shutdown:
+            shutdown_complete.wait(timeout_seconds)
             return
-        self._shutdown = True
-        self._worker_awaken.set()
 
-        # Join the threads so that resources get cleaned up in tests
-        # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
-        # Split the budget: 70% for worker (does HTTP), 30% for SSE.
-        worker_timeout = max(timeout_millis * 0.7, 0) / 1000
-        sse_timeout = max(timeout_millis * 0.3, 0) / 1000
-        if self._worker_thread is not None:
-            self._worker_thread.join(timeout=worker_timeout)
-        if self._sse_thread is not None:
-            self._sse_thread.join(timeout=sse_timeout)
+        cleanup_deferred = False
+        try:
+            # The SSE read timeout is intentionally unbounded so a healthy stream can stay open.
+            # Closing the active response is therefore the only prompt, deterministic way to wake
+            # iter_lines() during shutdown.
+            with self._sse_response_lock:
+                if self._sse_response is not None:
+                    with suppress(Exception):
+                        self._sse_response.close()
 
-        with self._session_lock:
-            self._session.close()
+            # Join the threads so that resources get cleaned up in tests
+            # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
+            # Split the budget: 70% for worker (does HTTP), 30% for SSE.
+            worker_timeout = timeout_seconds * 0.7
+            sse_timeout = timeout_seconds * 0.3
+            if self._worker_thread is not None:
+                with suppress(Exception):
+                    self._worker_thread.join(timeout=worker_timeout)
+            if self._sse_thread is not None:
+                with suppress(Exception):
+                    self._sse_thread.join(timeout=sse_timeout)
+
+            remaining = max(0.0, deadline - time.monotonic())
+            if self._session_lock.acquire(timeout=remaining):
+                try:
+                    with suppress(Exception):
+                        self._session.close()
+                finally:
+                    self._session_lock.release()
+            else:
+                # A timed-out poll still owns the session. Do not turn a bounded shutdown into
+                # an unbounded wait, but close the pool as soon as that request releases it.
+                self._shutdown_timeout_exceeded = True
+                cleanup_deferred = True
+                try:
+                    threading.Thread(
+                        name='LogfireRemoteProviderShutdown',
+                        target=self._finish_deferred_shutdown,
+                        daemon=True,
+                    ).start()
+                except Exception:
+                    cleanup_deferred = False
+                    with suppress(Exception):
+                        self._session.close()
+        finally:
+            if not cleanup_deferred:
+                shutdown_complete.set()
+
+    def _finish_deferred_shutdown(self) -> None:
+        """Close the polling session after an in-flight request releases it."""
+        try:
+            with self._session_lock:
+                with suppress(Exception):
+                    self._session.close()
+        finally:
+            self._shutdown_complete.set()
+
+    def get_evaluation_state(self) -> VariableProviderEvaluationState:
+        """Return a non-blocking snapshot of remote configuration health."""
+        return self._evaluation_state
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.

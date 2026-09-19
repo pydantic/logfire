@@ -54,9 +54,11 @@ test-feature-flags-mutation:
 		'*_feature_flag_evaluation_details*' \
 		'*_feature_flag_telemetry_attributes*' \
 		'*_ManagedVariableFlagAdapter*resolution_telemetry_attributes*' \
+		'*_ManagedVariableFlagAdapter*_get_provider_evaluation_state*' \
+		'*_ManagedVariableFlagAdapter*_result_for_provider_state*' \
 		'*feature_context*'; \
 	results="$$(uv run --no-sync mutmut results)"; \
-	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|FeatureFlag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_transparent_schema|_to_openfeature_details|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*resolution_telemetry_attributes|feature_context' || true)"; \
+	target_results="$$(printf '%s\n' "$$results" | grep -E 'VariableConfig.*(_select_rollout|requires_targeting_key)|VariablesConfig.*resolve_serialized_value|FeatureFlag|_matches_openfeature_scalar_type|_is_exclusively_openfeature_scalar_schema|_unwrap_transparent_schema|_to_openfeature_details|_feature_flag_(evaluation_details|telemetry_attributes)|_ManagedVariableFlagAdapter.*(resolution_telemetry_attributes|_get_provider_evaluation_state|_result_for_provider_state)|feature_context' || true)"; \
 	if [ -n "$$target_results" ]; then \
 		printf '%s\n' "$$target_results"; \
 		echo 'Feature-flag mutation testing left non-killed mutants'; \

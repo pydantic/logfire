@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 
 SyncMode = Literal['merge', 'replace']
+VariableProviderEvaluationState = Literal['not_ready', 'ready', 'stale', 'error', 'fatal']
 
 if TYPE_CHECKING:
     # Pydantic is pulled in by the `[variables]` extra, not base logfire —
@@ -1205,6 +1206,10 @@ class VariableProvider(ABC):
             ignoring the cache.
         """
         pass
+
+    def get_evaluation_state(self) -> VariableProviderEvaluationState:
+        """Return whether this provider can evaluate from fresh or cached configuration."""
+        return 'ready'
 
     def shutdown(self, timeout_millis: float = 5000):
         """Clean up any resources used by the provider.

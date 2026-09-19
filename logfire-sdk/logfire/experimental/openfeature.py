@@ -36,15 +36,25 @@ __all__ = ('LogfireProvider',)
 T = TypeVar('T')
 
 _REASONS = {
+    'cached': Reason.CACHED,
     'default': Reason.DEFAULT,
+    'disabled': Reason.DISABLED,
+    'error': Reason.ERROR,
+    'stale': Reason.STALE,
     'static': Reason.STATIC,
     'split': Reason.SPLIT,
     'targeting_match': Reason.TARGETING_MATCH,
-    'error': Reason.ERROR,
+    'unknown': Reason.UNKNOWN,
 }
 _ERROR_CODES = {
-    'type_mismatch': ErrorCode.TYPE_MISMATCH,
+    'flag_not_found': ErrorCode.FLAG_NOT_FOUND,
     'general': ErrorCode.GENERAL,
+    'invalid_context': ErrorCode.INVALID_CONTEXT,
+    'parse_error': ErrorCode.PARSE_ERROR,
+    'provider_fatal': ErrorCode.PROVIDER_FATAL,
+    'provider_not_ready': ErrorCode.PROVIDER_NOT_READY,
+    'targeting_key_missing': ErrorCode.TARGETING_KEY_MISSING,
+    'type_mismatch': ErrorCode.TYPE_MISMATCH,
 }
 
 

@@ -39,10 +39,29 @@ __all__ = (
 T = TypeVar('T')
 InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
 
-FlagEvaluationReason = Literal['default', 'static', 'split', 'targeting_match', 'error']
+FlagEvaluationReason = Literal[
+    'cached',
+    'default',
+    'disabled',
+    'error',
+    'split',
+    'stale',
+    'static',
+    'targeting_match',
+    'unknown',
+]
 """Why a feature-flag evaluation returned its value."""
 
-FlagErrorCode = Literal['type_mismatch', 'general']
+FlagErrorCode = Literal[
+    'flag_not_found',
+    'general',
+    'invalid_context',
+    'parse_error',
+    'provider_fatal',
+    'provider_not_ready',
+    'targeting_key_missing',
+    'type_mismatch',
+]
 """A stable classification for a native Logfire feature-flag evaluation error."""
 
 
@@ -157,7 +176,7 @@ class Flag(Generic[T]):
 
     def override_for_testing(self, value: T) -> AbstractContextManager[None]:
         """Temporarily replace the flag value in the current context."""
-        validated_value: T = self._adapter.type_adapter.validate_python(value)
+        validated_value: T = self._adapter.type_adapter.validate_python(value, strict=True)
         return self._adapter.override_for_testing(validated_value)
 
 
