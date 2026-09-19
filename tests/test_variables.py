@@ -1300,6 +1300,46 @@ class TestLogfireRemoteVariableProvider:
             server.server_close()
             session.close()
 
+    def test_shutdown_accepts_an_infinite_timeout(self) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+
+        provider.shutdown(timeout_millis=float('inf'))
+
+        assert provider._shutdown_complete.is_set()
+
+    def test_sse_close_is_retained_and_retried_when_thread_start_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        response = unittest.mock.MagicMock()
+        provider._sse_response = response
+        real_thread = threading.Thread
+        monkeypatch.setattr(threading, 'Thread', unittest.mock.MagicMock(side_effect=RuntimeError('unavailable')))
+
+        provider._request_sse_close()
+
+        assert provider._sse_response is response
+        response.close.assert_not_called()
+
+        monkeypatch.setattr(threading, 'Thread', real_thread)
+        provider._request_sse_close()
+        deadline = time.monotonic() + 1
+        while response.close.call_count == 0 and time.monotonic() < deadline:
+            time.sleep(0.001)
+        response.close.assert_called_once_with()
+
     def test_in_flight_refresh_cannot_resurrect_a_shutdown_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider = LogfireRemoteVariableProvider(
             base_url=REMOTE_BASE_URL,

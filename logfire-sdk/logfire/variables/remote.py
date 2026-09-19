@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import json
+import math
 import os
 import random
 import re
@@ -214,11 +215,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._shutdown = True
                 self._evaluation_state = 'fatal'
                 self._worker_awaken.set()
-                with self._sse_response_lock:
-                    response = self._sse_response
-                    self._sse_response = None
-                if response is not None:
-                    self._close_sse_response_in_background(response)
+                self._request_sse_close()
                 if self._worker_thread is not None:
                     with suppress(Exception):
                         self._worker_thread.join(timeout=sum(self._timeout) / 2)
@@ -634,7 +631,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             timeout_millis: The timeout budget in milliseconds for shutdown operations.
         """
-        timeout_seconds = max(timeout_millis, 0) / 1000
+        timeout_seconds = self._normalize_timeout_seconds(timeout_millis)
         deadline = time.monotonic() + timeout_seconds
         with self._lifecycle_lock:
             if self._shutdown:
@@ -650,6 +647,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 shutdown_complete = self._shutdown_complete
                 owns_shutdown = True
 
+        # Every caller retries cancellation if an earlier attempt could not start its helper
+        # thread. Response.close() is never called synchronously because it can block behind the
+        # streaming read that it is intended to interrupt.
+        self._request_sse_close()
+
         if not owns_shutdown:
             shutdown_complete.wait(timeout_seconds)
             return
@@ -659,12 +661,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # The SSE read timeout is intentionally unbounded so a healthy stream can stay open.
             # Response.close() can itself block behind an active read, so request cancellation on
             # a daemon thread and keep the caller's shutdown budget bounded.
-            with self._sse_response_lock:
-                response = self._sse_response
-                self._sse_response = None
-            if response is not None:
-                self._close_sse_response_in_background(response)
-
             # Join the threads so that resources get cleaned up in tests
             # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
             # Split the budget: 70% for worker (does HTTP), 30% for SSE.
@@ -718,15 +714,30 @@ class LogfireRemoteVariableProvider(VariableProvider):
             self._shutdown_complete.set()
 
     @staticmethod
-    def _close_sse_response_in_background(response: Response) -> None:
-        """Cancel a streaming read without letting Response.close() exceed the shutdown budget."""
+    def _normalize_timeout_seconds(timeout_millis: float) -> float:
+        """Convert milliseconds to a non-negative timeout accepted by threading primitives."""
+        if math.isnan(timeout_millis) or timeout_millis <= 0:
+            return 0.0
+        return min(timeout_millis / 1000, threading.TIMEOUT_MAX)
+
+    def _request_sse_close(self) -> None:
+        """Request cancellation of the active SSE read, retaining it if thread startup fails."""
+        with self._sse_response_lock:
+            response = self._sse_response
+            self._sse_response = None
+        if response is None:
+            return
 
         def close() -> None:
             with suppress(Exception):
                 response.close()
 
-        with suppress(Exception):
+        try:
             threading.Thread(name='LogfireRemoteProviderSSEClose', target=close, daemon=True).start()
+        except Exception:
+            with self._sse_response_lock:
+                if self._sse_response is None:
+                    self._sse_response = response
 
     def _set_evaluation_state_unless_shutdown(self, state: VariableProviderEvaluationState) -> None:
         """Commit refresh health unless shutdown already established NOT_READY."""
