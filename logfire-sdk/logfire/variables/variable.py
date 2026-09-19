@@ -10,7 +10,7 @@ from contextlib import AbstractContextManager, ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from importlib.util import find_spec
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast
 
 from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
@@ -296,11 +296,11 @@ class _ResolveAttempt:
     composed: list[ComposedReference] = field(default_factory=list['ComposedReference'])
 
 
-class Variable(Generic[T_co]):
-    """A managed variable that can be resolved dynamically based on configuration."""
+class _FlagEvaluationCore(Generic[T_co]):
+    """Shared typed evaluation engine for feature flags and the legacy variables API."""
 
-    kind = 'variable'
-    """The product surface this variable was declared through."""
+    kind: Literal['feature_flag', 'variable']
+    """The product surface the concrete declaration API represents."""
 
     name: str
     """Unique name identifying this variable."""
@@ -1236,8 +1236,14 @@ class Variable(Generic[T_co]):
         return self._get_result_and_record_span(targeting_key, attributes, label)
 
 
-class _ManagedVariableFlagAdapter(Variable[FlagT]):  # pyright: ignore[reportUnusedClass]
-    """Compatibility adapter that evaluates feature flags through managed variables."""
+class Variable(_FlagEvaluationCore[T_co]):
+    """Backward-compatible managed-variable API implemented on the feature-flag evaluation core."""
+
+    kind = 'variable'
+
+
+class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignore[reportUnusedClass]
+    """Native feature-flag adapter backed by the shared typed evaluation core."""
 
     kind = 'feature_flag'
 
@@ -1549,7 +1555,7 @@ class TemplateVariable(Variable[T_co], Generic[T_co, InputsT]):
         _emit_resolution_warning(message)
 
 
-def get_template_inputs_schema(variable: Variable[Any]) -> dict[str, Any] | None:
+def get_template_inputs_schema(variable: _FlagEvaluationCore[Any]) -> dict[str, Any] | None:
     """Return the template inputs JSON schema, or None for non-template variables."""
     if isinstance(variable, TemplateVariable):
         return variable.get_template_inputs_schema()
@@ -1586,7 +1592,7 @@ def _first_fatal_composition_error(composed: list[ComposedReference]) -> str | N
     return None
 
 
-def _static_composition_refs(variable: Variable[Any]) -> set[str]:
+def _static_composition_refs(variable: _FlagEvaluationCore[Any]) -> set[str]:
     """Return the `@{ref}@` names in *variable*'s code default, or empty for a non-static default.
 
     Only inspects a static (non-callable, JSON-serializable) default — a callable default can't
@@ -1602,7 +1608,7 @@ def _static_composition_refs(variable: Variable[Any]) -> set[str]:
 
 
 def warn_on_template_inputs_composition_mismatch(
-    registry: Mapping[str, Variable[Any]], variable: Variable[Any]
+    registry: Mapping[str, _FlagEvaluationCore[Any]], variable: _FlagEvaluationCore[Any]
 ) -> None:
     """Warn when a variable *without* `inputs_type` composes one *with* `inputs_type`.
 

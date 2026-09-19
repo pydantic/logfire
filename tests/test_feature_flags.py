@@ -60,10 +60,10 @@ from logfire.variables import (
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.remote import LogfireRemoteVariableProvider
 from logfire.variables.variable import (
-    Variable,
     _feature_flag_evaluation_details,
     _feature_flag_telemetry_attributes,
     _feature_flag_telemetry_value,
+    _FlagEvaluationCore,
 )
 
 MUTATION_TESTING = 'MUTANT_UNDER_TEST' in os.environ
@@ -1430,7 +1430,11 @@ def test_provider_metadata_failure_cannot_break_rollout_warning():
     provider = adapter.logfire_instance.config.get_variable_provider()
 
     with (
-        patch.object(Variable, 'get', return_value=ResolvedVariable(name='region', value='eu', reason='resolved')),
+        patch.object(
+            _FlagEvaluationCore,
+            'get',
+            return_value=ResolvedVariable(name='region', value='eu', reason='resolved'),
+        ),
         patch.object(provider, 'get_variable_config', side_effect=RuntimeError('broken provider')),
     ):
         assert adapter.get().value == 'eu'

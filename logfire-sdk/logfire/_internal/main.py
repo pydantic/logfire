@@ -128,7 +128,10 @@ if TYPE_CHECKING:
         Variable,
         VariablesConfig,
     )
-    from ..variables.variable import _ManagedVariableFlagAdapter  # pyright: ignore[reportPrivateUsage]
+    from ..variables.variable import (
+        _FlagEvaluationCore,  # pyright: ignore[reportPrivateUsage]
+        _ManagedVariableFlagAdapter,  # pyright: ignore[reportPrivateUsage]
+    )
     from .config import TemplateMismatchPolicy
     from .forwarding import ForwardExportRequestResponse
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
@@ -150,7 +153,7 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 InputsT = TypeVar('InputsT')
-VariableT = TypeVar('VariableT', bound='Variable[Any]')
+VariableT = TypeVar('VariableT', bound='_FlagEvaluationCore[Any]')
 
 
 class Logfire:
@@ -176,7 +179,7 @@ class Logfire:
         return self._config
 
     @property
-    def _variables(self) -> dict[str, Variable[Any] | TemplateVariable[Any, Any]]:
+    def _variables(self) -> dict[str, _FlagEvaluationCore[Any]]:
         return self._config._variables  # pyright: ignore[reportPrivateUsage]
 
     @property
@@ -2851,7 +2854,9 @@ class Logfire:
 
     def variables_get(self) -> list[Variable[Any] | TemplateVariable[Any, Any]]:
         """Get all variables registered with this Logfire instance's config."""
-        return list(self._variables.values())
+        # Feature-flag adapters preserve the legacy `Variable` protocol without inheriting the
+        # compatibility class; keep this old API's return type stable for existing callers.
+        return cast('list[Variable[Any] | TemplateVariable[Any, Any]]', list(self._variables.values()))
 
     def variables_push(
         self,
