@@ -40,6 +40,7 @@ __all__ = (
     'ResolutionReason',
     'RuleEvaluationReason',
     'SyncMode',
+    'VariableProviderEvaluationState',
     'ValidationReport',
     'VariableProvider',
     'NoOpVariableProvider',

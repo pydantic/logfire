@@ -16,7 +16,11 @@ from pydantic import __version__ as pydantic_version
 
 from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
-from scripts.postprocess_generated_stubs import postprocess_feature_flags_pyi, postprocess_init_pyi
+from scripts.postprocess_generated_stubs import (
+    postprocess_feature_flags_pyi,
+    postprocess_init_pyi,
+    postprocess_variables_abstract_pyi,
+)
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
 pydantic_pre_2_10 = get_version(pydantic_version) < get_version('2.10.0')
@@ -133,6 +137,21 @@ def test_postprocess_feature_flags_pyi_rejects_missing_or_duplicate_aliases() ->
     ).read_text()
     with pytest.raises(ValueError, match='alias was emitted more than once'):
         postprocess_feature_flags_pyi(checked_in + 'InferableFlagValue = Any\n' * 2)
+
+
+def test_postprocess_variables_abstract_pyi_preserves_provider_state_alias() -> None:
+    checked_in = (
+        Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'variables' / 'abstract.pyi'
+    ).read_text()
+    generated = checked_in.replace(
+        "VariableProviderEvaluationState = Literal['not_ready', 'ready', 'stale', 'error', 'fatal']",
+        'VariableProviderEvaluationState: Incomplete',
+    ).replace('from typing import Literal, ', 'from typing import ', 1)
+
+    processed = postprocess_variables_abstract_pyi(generated)
+
+    assert processed == checked_in
+    assert postprocess_variables_abstract_pyi(processed) == processed
 
 
 @pytest.mark.parametrize(
@@ -478,6 +497,9 @@ def test_postprocess_generated_stubs() -> None:  # pragma: no cover
     init_pyi = init_pyi_path.read_text()
     feature_flags_pyi_path = api_dir / 'experimental' / 'feature_flags.pyi'
     feature_flags_pyi = feature_flags_pyi_path.read_text()
+    variables_abstract_pyi_path = api_dir / 'variables' / 'abstract.pyi'
+    variables_abstract_pyi = variables_abstract_pyi_path.read_text()
 
     assert postprocess_init_pyi(init_pyi) == init_pyi
     assert postprocess_feature_flags_pyi(feature_flags_pyi) == feature_flags_pyi
+    assert postprocess_variables_abstract_pyi(variables_abstract_pyi) == variables_abstract_pyi

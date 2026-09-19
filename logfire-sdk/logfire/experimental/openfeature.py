@@ -196,11 +196,11 @@ class LogfireProvider(AbstractProvider):
 
 
 def _to_openfeature_details(details: FlagEvaluationDetails[Any], default_value: T) -> FlagResolutionDetails[T]:
-    error_code = _ERROR_CODES.get(details.error_code) if details.error_code is not None else None
+    error_code = _ERROR_CODES.get(details.error_code, ErrorCode.GENERAL) if details.error_code is not None else None
     return FlagResolutionDetails(
         value=default_value if error_code is not None else cast(T, details.value),
         variant=details.variant,
-        reason=_REASONS[details.reason],
+        reason=_REASONS.get(details.reason, Reason.UNKNOWN),
         error_code=error_code,
         error_message=details.error_message,
         flag_metadata=dict(details.flag_metadata or {}),

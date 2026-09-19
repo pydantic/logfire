@@ -12,8 +12,8 @@ __all__ = ['FeatureFlag', 'Flag', 'FlagErrorCode', 'FlagEvaluationDetails', 'Fla
 InferableFlagValue = bool | str | int | float | Enum | BaseModel
 T = TypeVar('T')
 InferableFlagT = TypeVar('InferableFlagT', bound=InferableFlagValue)
-FlagEvaluationReason = Literal['default', 'static', 'split', 'targeting_match', 'error']
-FlagErrorCode = Literal['type_mismatch', 'general']
+FlagEvaluationReason = Literal['cached', 'default', 'disabled', 'error', 'split', 'stale', 'static', 'targeting_match', 'unknown']
+FlagErrorCode = Literal['flag_not_found', 'general', 'invalid_context', 'parse_error', 'provider_fatal', 'provider_not_ready', 'targeting_key_missing', 'type_mismatch']
 
 @dataclass(frozen=True, slots=True)
 class FlagEvaluationDetails(Generic[T]):

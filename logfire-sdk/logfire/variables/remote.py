@@ -164,6 +164,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             self._shutdown_complete.set()
         self._worker_awaken = threading.Event()
         self._force_refresh_event = threading.Event()
+        self._reset_once = Once()
         # Only restart threads if we were started before the fork
         if self._started and not was_shutdown:
             self._worker_thread = threading.Thread(
@@ -197,18 +198,19 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
             self._started = True
 
-            # Start both workers while lifecycle transitions are serialized. If either start
-            # raises, shut down the partially-started provider so retrying configuration cannot
-            # leak a polling thread or HTTP pool.
+            # Start SSE before polling so a failed SSE startup cannot leave a polling request
+            # running after start() reports failure. If polling startup then fails, the cleanup
+            # path below cancels the already-started SSE listener.
             try:
+                self._start_sse_listener()
                 self._worker_thread = threading.Thread(
                     name='LogfireRemoteProvider',
                     target=self._worker,
                     daemon=True,
                 )
                 self._worker_thread.start()
-                self._start_sse_listener()
             except BaseException:
+                deadline = time.monotonic() + sum(self._timeout)
                 self._shutdown = True
                 self._evaluation_state = 'fatal'
                 self._worker_awaken.set()
@@ -223,9 +225,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 if self._sse_thread is not None:
                     with suppress(Exception):
                         self._sse_thread.join(timeout=sum(self._timeout) / 2)
-                with suppress(Exception):
-                    self._session.close()
-                self._shutdown_complete.set()
+                if self._close_polling_session_before(deadline):
+                    self._shutdown_complete.set()
                 raise
 
         # Register at_fork handler
@@ -676,31 +677,36 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 with suppress(Exception):
                     self._sse_thread.join(timeout=sse_timeout)
 
-            remaining = max(0.0, deadline - time.monotonic())
-            if self._session_lock.acquire(timeout=remaining):
-                try:
-                    with suppress(Exception):
-                        self._session.close()
-                finally:
-                    self._session_lock.release()
-            else:
-                # A timed-out poll still owns the session. Do not turn a bounded shutdown into
-                # an unbounded wait, but close the pool as soon as that request releases it.
-                self._shutdown_timeout_exceeded = True
-                cleanup_deferred = True
-                try:
-                    threading.Thread(
-                        name='LogfireRemoteProviderShutdown',
-                        target=self._finish_deferred_shutdown,
-                        daemon=True,
-                    ).start()
-                except Exception:
-                    cleanup_deferred = False
-                    with suppress(Exception):
-                        self._session.close()
+            cleanup_deferred = not self._close_polling_session_before(deadline)
         finally:
             if not cleanup_deferred:
                 shutdown_complete.set()
+
+    def _close_polling_session_before(self, deadline: float) -> bool:
+        """Close the polling session within a deadline, or hand cleanup to a daemon thread."""
+        remaining = max(0.0, deadline - time.monotonic())
+        if self._session_lock.acquire(timeout=remaining):
+            try:
+                with suppress(Exception):
+                    self._session.close()
+            finally:
+                self._session_lock.release()
+            return True
+
+        # A timed-out poll still owns the session. Do not turn a bounded shutdown into an
+        # unbounded wait, but close the pool as soon as that request releases it.
+        self._shutdown_timeout_exceeded = True
+        try:
+            threading.Thread(
+                name='LogfireRemoteProviderShutdown',
+                target=self._finish_deferred_shutdown,
+                daemon=True,
+            ).start()
+        except Exception:
+            # Thread creation failure is already terminal. Preserve the deadline rather than
+            # racing the in-flight request with an unsafe synchronous close.
+            return True
+        return False
 
     def _finish_deferred_shutdown(self) -> None:
         """Close the polling session after an in-flight request releases it."""

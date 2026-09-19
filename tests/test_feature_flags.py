@@ -745,6 +745,13 @@ def test_typed_flag_rejects_callable_defaults():
     assert logfire.variables_get() == []
 
 
+def test_typed_flag_rejects_zero_argument_callable_defaults():
+    with pytest.raises(TypeError, match='static values'):
+        flag('dynamic', type=object, default=cast(Any, lambda: True))
+
+    assert logfire.variables_get() == []
+
+
 def test_openfeature_provider_uses_declared_flags_and_evaluation_context():
     config = _boolean_config(
         rollout=Rollout(labels={'disabled': 1.0}),
@@ -813,6 +820,16 @@ def test_openfeature_adapter_reason_mapping_is_exhaustive():
     assert set(_REASONS) == set(get_args(FlagEvaluationReason))
 
 
+def test_openfeature_adapter_maps_future_native_reasons_to_unknown():
+    details = _to_openfeature_details(
+        FlagEvaluationDetails(flag_key='flag', value=True, reason=cast(Any, 'future_reason')),
+        False,
+    )
+
+    assert details.value is True
+    assert details.reason == Reason.UNKNOWN
+
+
 @pytest.mark.parametrize(
     ('native_error', 'openfeature_error'),
     [
@@ -846,6 +863,22 @@ def test_openfeature_adapter_maps_every_native_error(native_error: Any, openfeat
 
 def test_openfeature_adapter_error_mapping_is_exhaustive():
     assert set(_ERROR_CODES) == set(get_args(FlagErrorCode))
+
+
+def test_openfeature_adapter_maps_future_native_errors_to_general():
+    details = _to_openfeature_details(
+        FlagEvaluationDetails(
+            flag_key='flag',
+            value=True,
+            reason='error',
+            error_code=cast(Any, 'future_error'),
+        ),
+        False,
+    )
+
+    assert details.value is False
+    assert details.reason == Reason.ERROR
+    assert details.error_code == ErrorCode.GENERAL
 
 
 def test_openfeature_client_resolves_remote_logfire_configuration():
@@ -939,11 +972,16 @@ def test_remote_provider_health_is_reflected_in_native_and_openfeature_details()
     custom_logfire = logfire.configure(local=True, send_to_logfire=False, console=False)
     custom_logfire.config._variable_provider = remote_provider
     checkout = feature_flag('remote_checkout', default=False, logfire_instance=custom_logfire)
+    provider = LogfireProvider(custom_logfire)
 
     not_ready = checkout.details()
     assert not_ready.value is False
     assert not_ready.reason == 'error'
     assert not_ready.error_code == 'provider_not_ready'
+    openfeature_not_ready = provider.resolve_boolean_details('remote_checkout', False)
+    assert openfeature_not_ready.value is False
+    assert openfeature_not_ready.reason == Reason.ERROR
+    assert openfeature_not_ready.error_code == ErrorCode.PROVIDER_NOT_READY
 
     with request_mocker:
         remote_provider.refresh(force=True)
@@ -964,10 +1002,13 @@ def test_remote_provider_health_is_reflected_in_native_and_openfeature_details()
             'logfire.provider_state': 'stale',
         }
 
-        provider = LogfireProvider(custom_logfire)
         openfeature_stale = provider.resolve_boolean_details('remote_checkout', False)
         assert openfeature_stale.value is True
         assert openfeature_stale.reason == Reason.STALE
+        assert openfeature_stale.flag_metadata == {
+            'logfire.value_version': 2,
+            'logfire.provider_state': 'stale',
+        }
 
         remote_provider.refresh(force=True)
         recovered = checkout.details()
@@ -980,6 +1021,10 @@ def test_remote_provider_health_is_reflected_in_native_and_openfeature_details()
     assert stopped.value is False
     assert stopped.reason == 'error'
     assert stopped.error_code == 'provider_not_ready'
+    openfeature_stopped = provider.resolve_boolean_details('remote_checkout', False)
+    assert openfeature_stopped.value is False
+    assert openfeature_stopped.reason == Reason.ERROR
+    assert openfeature_stopped.error_code == ErrorCode.PROVIDER_NOT_READY
     custom_logfire.shutdown()
 
 
@@ -1496,6 +1541,33 @@ def test_unavailable_provider_telemetry_records_the_structured_code_default():
     assert telemetry['feature_flag.result.value'] == '{"provider":"fallback","retries":1}'
     assert telemetry['feature_flag.result.reason'] == 'error'
     assert telemetry['error.type'] == 'provider_fatal'
+
+
+@pytest.mark.parametrize('provider_state', ['stale', 'fatal'])
+def test_testing_override_does_not_depend_on_provider_availability(
+    provider_state: Any, config_kwargs: dict[str, Any], exporter: TestExporter
+):
+    config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}), instrument=True)
+    logfire.configure(**config_kwargs)
+    checkout = feature_flag('checkout', default=False)
+    adapter = cast(Any, checkout._adapter)
+    exporter.clear()
+
+    with patch.object(adapter, '_get_provider_evaluation_state', return_value=provider_state):
+        with checkout.override_for_testing(True):
+            details = checkout.details()
+
+    assert details.value is True
+    assert details.reason == 'static'
+    assert details.error_code is None
+    assert details.flag_metadata == {}
+    evaluation_span = next(
+        span
+        for span in exporter.exported_spans
+        if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
+    )
+    assert (evaluation_span.attributes or {})['feature_flag.result.value'] is True
+    assert (evaluation_span.attributes or {})['feature_flag.result.reason'] == 'static'
 
 
 def test_feature_flag_telemetry_omits_targeting_context(config_kwargs: dict[str, Any], exporter: TestExporter):

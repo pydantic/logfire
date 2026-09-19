@@ -1184,6 +1184,28 @@ class TestLogfireRemoteVariableProvider:
         assert provider._session is replacement_session
         close_inherited_session.assert_not_called()
 
+    def test_lazy_fork_reinitialization_rearms_for_a_grandchild(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+            ),
+        )
+        sessions = [cast(Session, unittest.mock.MagicMock()), cast(Session, unittest.mock.MagicMock())]
+        pids = iter([2, 2, 3, 3])
+        provider._pid = 1
+        monkeypatch.setattr(os, 'getpid', lambda: next(pids))
+        monkeypatch.setattr(provider, '_new_session', lambda: sessions.pop(0))
+
+        provider.get_serialized_value('flag')
+        child_session = provider._session
+        provider.get_serialized_value('flag')
+
+        assert provider._session is not child_session
+        assert provider._pid == 3
+
     def test_shutdown_closes_active_sse_response_before_joining_threads(self) -> None:
         provider = LogfireRemoteVariableProvider(
             base_url=REMOTE_BASE_URL,
@@ -1976,7 +1998,7 @@ class TestLogfireRemoteVariableProviderStart:
             finally:
                 provider.shutdown()
 
-    def test_partial_start_failure_cleans_up_the_started_worker(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_partial_start_failure_before_polling_closes_session(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider = LogfireRemoteVariableProvider(
             base_url=REMOTE_BASE_URL,
             token=REMOTE_TOKEN,
@@ -1985,26 +2007,43 @@ class TestLogfireRemoteVariableProviderStart:
                 polling_interval=timedelta(seconds=60),
             ),
         )
-        worker_started = threading.Event()
-
-        def worker() -> None:
-            worker_started.set()
-            provider._worker_awaken.wait(timeout=1)
-
         session = provider._session
         close_session = unittest.mock.MagicMock(wraps=session.close)
-        monkeypatch.setattr(provider, '_worker', worker)
         monkeypatch.setattr(provider, '_start_sse_listener', unittest.mock.MagicMock(side_effect=RuntimeError('boom')))
         monkeypatch.setattr(session, 'close', close_session)
 
         with pytest.raises(RuntimeError, match='boom'):
             provider.start(None)
 
-        assert worker_started.is_set()
-        assert provider._worker_thread is not None
-        assert not provider._worker_thread.is_alive()
+        assert provider._worker_thread is None
         assert provider.get_evaluation_state() == 'fatal'
         assert provider._shutdown_complete.is_set()
+        close_session.assert_called_once_with()
+
+    def test_partial_start_failure_defers_session_close_while_request_owns_lock(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = LogfireRemoteVariableProvider(
+            base_url=REMOTE_BASE_URL,
+            token=REMOTE_TOKEN,
+            options=VariablesOptions(
+                block_before_first_resolve=False,
+                polling_interval=timedelta(seconds=60),
+                timeout=(0.01, 0.01),
+            ),
+        )
+        close_session = unittest.mock.MagicMock(wraps=provider._session.close)
+        monkeypatch.setattr(provider, '_start_sse_listener', unittest.mock.MagicMock(side_effect=RuntimeError('boom')))
+        monkeypatch.setattr(provider._session, 'close', close_session)
+        provider._session_lock.acquire()
+
+        with pytest.raises(RuntimeError, match='boom'):
+            provider.start(None)
+
+        assert not provider._shutdown_complete.is_set()
+        close_session.assert_not_called()
+        provider._session_lock.release()
+        assert provider._shutdown_complete.wait(timeout=1)
         close_session.assert_called_once_with()
 
     def test_start_with_logfire_instance(self, config_kwargs: dict[str, Any]) -> None:

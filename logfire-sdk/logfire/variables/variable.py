@@ -224,7 +224,7 @@ def _feature_flag_evaluation_details(
         # Custom providers may resolve a value without exposing rule metadata.
         reason = 'static'
 
-    if error_code is None:
+    if error_code is None and result.reason != 'context_override':
         if provider_state == 'not_ready':
             reason = 'error'
             error_code = 'provider_not_ready'
@@ -246,7 +246,7 @@ def _feature_flag_evaluation_details(
     metadata: dict[str, Any] = {}
     if result.version is not None and not has_error:
         metadata['logfire.value_version'] = result.version
-    if provider_state == 'stale' and not has_error:
+    if provider_state == 'stale' and not has_error and result.reason != 'context_override':
         metadata['logfire.provider_state'] = 'stale'
     return FlagEvaluationDetails(
         flag_key=result.name,
@@ -1301,7 +1301,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         # Managed variables permit incompatible sentinel defaults, but a typed feature flag
         # promises that every value it returns conforms to its declared type. Validate before
         # initializing the variables engine so it never observes an invalid default.
-        if is_resolve_function(default):
+        if callable(default):
             raise TypeError('Feature flag defaults must be static values, not callables.')
         validated_default = TypeAdapter[FlagT](type).validate_python(default, strict=True)
         super().__init__(
@@ -1470,6 +1470,8 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         provider_state: VariableProviderEvaluationState,
     ) -> ResolvedVariable[FlagT]:
         """Use the code default when the provider cannot safely serve configuration."""
+        if result.reason == 'context_override':
+            return result
         if provider_state in ('not_ready', 'error', 'fatal'):
             # Feature flags reject callable defaults during construction, so the inherited union
             # has been narrowed at runtime even though the shared core's annotation cannot express it.

@@ -34,10 +34,10 @@ def postprocess_feature_flags_pyi(content: str) -> str:
     typed_constructor = 'def __init__(self: Flag[InferableFlagT], name: str, *, default: InferableFlagT,'
     content = content.replace(
         'FlagEvaluationReason: Incomplete',
-        "FlagEvaluationReason = Literal['default', 'static', 'split', 'targeting_match', 'error']",
+        "FlagEvaluationReason = Literal['cached', 'default', 'disabled', 'error', 'split', 'stale', 'static', 'targeting_match', 'unknown']",
     ).replace(
         'FlagErrorCode: Incomplete',
-        "FlagErrorCode = Literal['type_mismatch', 'general']",
+        "FlagErrorCode = Literal['flag_not_found', 'general', 'invalid_context', 'parse_error', 'provider_fatal', 'provider_not_ready', 'targeting_key_missing', 'type_mismatch']",
     )
     if ': Incomplete' not in content:
         content = content.replace('from _typeshed import Incomplete\n', '')
@@ -64,11 +64,26 @@ def postprocess_feature_flags_pyi(content: str) -> str:
     raise ValueError('The generated Flag constructor signature changed; update the stub post-processing contract.')
 
 
+def postprocess_variables_abstract_pyi(content: str) -> str:
+    """Preserve the provider lifecycle state alias that stubgen cannot infer from Literal."""
+    content = content.replace(
+        'VariableProviderEvaluationState: Incomplete',
+        "VariableProviderEvaluationState = Literal['not_ready', 'ready', 'stale', 'error', 'fatal']",
+    )
+    if (
+        'from typing import ' in content
+        and 'Literal' not in content.split('from typing import ', 1)[1].split('\n', 1)[0]
+    ):
+        content = content.replace('from typing import ', 'from typing import Literal, ', 1)
+    return content
+
+
 def postprocess_generated_stubs(api_dir: Path) -> list[Path]:
     """Rewrite generated stub files and return the paths that changed."""
     processors = {
         api_dir / '__init__.pyi': postprocess_init_pyi,
         api_dir / 'experimental' / 'feature_flags.pyi': postprocess_feature_flags_pyi,
+        api_dir / 'variables' / 'abstract.pyi': postprocess_variables_abstract_pyi,
     }
     changed: list[Path] = []
     for path, processor in processors.items():

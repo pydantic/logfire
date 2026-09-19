@@ -7,11 +7,12 @@ from logfire.variables.composition import ComposedReference
 from logfire.variables.config import VariableConfig, VariableTypeConfig, VariablesConfig
 from logfire.variables.template_validation import TemplateFieldIssue
 from logfire.variables.variable import Variable
-from typing import Any, Generic, TypeVar
+from typing import Literal, Any, Generic, TypeVar
 
-__all__ = ['ResolvedVariable', 'ResolutionReason', 'RuleEvaluationReason', 'SyncMode', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError', 'render_serialized_string']
+__all__ = ['ResolvedVariable', 'ResolutionReason', 'RuleEvaluationReason', 'SyncMode', 'VariableProviderEvaluationState', 'ValidationReport', 'VariableProvider', 'NoOpVariableProvider', 'VariableWriteError', 'VariableNotFoundError', 'VariableAlreadyExistsError', 'render_serialized_string']
 
 SyncMode: Incomplete
+VariableProviderEvaluationState = Literal['not_ready', 'ready', 'stale', 'error', 'fatal']
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 ResolutionReason: Incomplete
@@ -204,6 +205,8 @@ class VariableProvider(ABC):
             force: Whether to force refresh. If using a provider with caching, setting this to `True` triggers a refresh
             ignoring the cache.
         """
+    def get_evaluation_state(self) -> VariableProviderEvaluationState:
+        """Return whether this provider can evaluate from fresh or cached configuration."""
     def shutdown(self, timeout_millis: float = 5000):
         """Clean up any resources used by the provider.
 
