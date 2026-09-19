@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
+import math
 import os
 import threading
 import warnings
@@ -1130,6 +1131,18 @@ def test_openfeature_provider_accepts_pydantic_constrained_scalar_flags():
     assert provider.resolve_string_details('nonempty_region', 'fallback').value == 'us'
 
 
+def test_openfeature_provider_accepts_pydantic_root_model_scalars():
+    flag('root_region', default=RootModel[str]('us'))
+    flag('root_retries', default=RootModel[int](3))
+    provider = LogfireProvider()
+
+    assert provider.resolve_string_details('root_region', 'fallback').value == 'us'
+    assert provider.resolve_integer_details('root_retries', 1).value == 3
+    mismatch = provider.resolve_object_details('root_region', {})
+    assert mismatch.value == {}
+    assert mismatch.error_code == ErrorCode.TYPE_MISMATCH
+
+
 def test_openfeature_provider_accepts_validator_wrapped_scalar_flags():
     flag('validated_retries', type=cast(Any, Annotated[int, AfterValidator(abs)]), default=3)
     provider = LogfireProvider()
@@ -1501,6 +1514,38 @@ def test_typed_flag_telemetry_serializes_structured_values(config_kwargs: dict[s
         if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
     )
     assert (evaluation_span.attributes or {})['feature_flag.result.value'] == '{"provider":"stripe","retries":2}'
+
+
+def test_feature_flag_telemetry_does_not_treat_unchanged_nan_as_scrubbed():
+    threshold = flag('threshold', default=float('nan'))
+    adapter = cast(Any, threshold._adapter)
+
+    telemetry = adapter._resolution_telemetry_attributes(
+        ResolvedVariable(name='threshold', value=float('nan'), reason='code_default'),
+        serialized_value='NaN',
+        targeting_key=None,
+        attributes={},
+        requested_label=None,
+    )
+
+    assert math.isnan(telemetry['feature_flag.result.value'])
+    assert 'logfire.feature_flag.result.value_status' not in telemetry
+
+
+def test_feature_flag_telemetry_does_not_treat_nested_unchanged_nan_as_scrubbed():
+    payload = flag('payload', type=dict[str, list[float]], default={'values': [float('nan')]})
+    adapter = cast(Any, payload._adapter)
+
+    telemetry = adapter._resolution_telemetry_attributes(
+        ResolvedVariable(name='payload', value={'values': [float('nan')]}, reason='code_default'),
+        serialized_value='{"values":[null]}',
+        targeting_key=None,
+        attributes={},
+        requested_label=None,
+    )
+
+    assert telemetry['feature_flag.result.value'] == '{"values":[null]}'
+    assert 'logfire.feature_flag.result.value_status' not in telemetry
 
 
 def test_returned_value_and_telemetry_share_one_provider_state_snapshot(

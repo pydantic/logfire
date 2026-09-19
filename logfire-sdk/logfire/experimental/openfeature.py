@@ -360,6 +360,8 @@ def _unwrap_schema_context(
             visited_refs |= {schema_ref}
             schema = referenced_schema
             continue
+        elif schema_type == 'model' and schema.get('root_model') is True:
+            pass
         elif schema_type not in {'function-after', 'function-before', 'function-wrap', 'default'}:
             break
         inner_schema = schema.get('schema')

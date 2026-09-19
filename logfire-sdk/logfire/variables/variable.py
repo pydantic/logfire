@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import inspect
 import json
+import math
 import os
 import threading
 import warnings
@@ -296,6 +297,31 @@ def _feature_flag_telemetry_value(value: Any, serialized_value: str | None) -> A
     if serialized_value is not None:
         return serialized_value
     return '<unavailable>'
+
+
+def _scrubbed_value_changed(before: Any, after: Any) -> bool:
+    """Compare JSON-compatible values without treating unchanged NaNs as replacements."""
+    if isinstance(before, float) and isinstance(after, float) and math.isnan(before) and math.isnan(after):
+        return False
+    if isinstance(before, Mapping) and isinstance(after, Mapping):
+        before_mapping = cast(Mapping[Any, Any], before)
+        after_mapping = cast(Mapping[Any, Any], after)
+        return before_mapping.keys() != after_mapping.keys() or any(
+            _scrubbed_value_changed(before_mapping[key], after_mapping[key]) for key in before_mapping.keys()
+        )
+    if (
+        isinstance(before, Sequence)
+        and isinstance(after, Sequence)
+        and not isinstance(before, (str, bytes, bytearray))
+        and not isinstance(after, (str, bytes, bytearray))
+    ):
+        before_sequence = cast(Sequence[Any], before)
+        after_sequence = cast(Sequence[Any], after)
+        return len(before_sequence) != len(after_sequence) or any(
+            _scrubbed_value_changed(before_item, after_item)
+            for before_item, after_item in zip(before_sequence, after_sequence)
+        )
+    return before != after
 
 
 # Stage of the resolution pipeline that a `_ResolveAttempt` failed at. Drives both
@@ -1427,7 +1453,7 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
             scrubbed, scrubbed_notes = self.logfire_instance.config.scrubber.scrub_value(
                 ('attributes',), {scrub_key: value}
             )
-            was_scrubbed = bool(scrubbed_notes) or scrubbed[scrub_key] != value
+            was_scrubbed = bool(scrubbed_notes) or _scrubbed_value_changed(value, scrubbed[scrub_key])
         except Exception:
             # Scrubbing is best-effort telemetry processing and must not break a successful
             # evaluation. Fail closed so an unreliable callback cannot leak the unchecked value.

@@ -19,7 +19,7 @@ Flag names currently share the managed-variable naming contract: use ASCII lette
 import logfire
 from logfire.experimental.feature_flags import feature_context, feature_flag
 
-logfire.configure(send_to_logfire=False)
+logfire.configure()
 
 new_checkout = feature_flag(
     'new_checkout',
