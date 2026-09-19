@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v6.0.0b4] (2026-09-19)
+
+* Make `instrument_mcp()` work with mcp 2 / fastmcp 4 by @samuelcolvin in [#2439](https://github.com/pydantic/logfire/pull/2439)
+* Add `logfire.instrument_monty()` by @davidhewitt in [#2371](https://github.com/pydantic/logfire/pull/2371)
+* Require `logfire-cli` 0.1.7 or later in the `logfire` compatibility package.
+
 ## [v6.0.0b3] (2026-09-18)
 
 * Require `logfire-cli` 0.1.5 or later in the `logfire` compatibility package.
@@ -1318,3 +1324,4 @@ First release from new repo!
 [v6.0.0b1]: https://github.com/pydantic/logfire/compare/v5.1.0...v6.0.0b1
 [v6.0.0b2]: https://github.com/pydantic/logfire/compare/v6.0.0b1...v6.0.0b2
 [v6.0.0b3]: https://github.com/pydantic/logfire/compare/v6.0.0b2...v6.0.0b3
+[v6.0.0b4]: https://github.com/pydantic/logfire/compare/v6.0.0b3...v6.0.0b4

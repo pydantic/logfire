@@ -462,10 +462,16 @@ class Logfire:
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
 
+        This is only needed with mcp 1.x. Version 2 of the SDK (which fastmcp 4 depends on) emits
+        OpenTelemetry spans and propagates the trace context via `_meta` by itself, so with it
+        `logfire.configure()` is all that's needed. Calling this method there does nothing
+        except emit a `UserWarning` saying so.
+
         Args:
             propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
                 for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+                Ignored with mcp 2, which always propagates the context.
         """
     def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
         """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
@@ -504,6 +510,16 @@ class Logfire:
     def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3, 4, 5] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_monty(self) -> None:
+        """Instrument Pydantic Monty.
+
+        Call this once after [`configure()`][logfire.configure] and before creating a Monty pool.
+        The first call selects the Logfire instance and its settings for the whole process;
+        subsequent calls do not replace them.
+
+        It records Monty sessions, executed code, inputs, outputs, external calls,
+        exceptions, printed text, and pool metrics. Recorded values are subject to Logfire's configured scrubbing.
+        """
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
