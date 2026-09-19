@@ -29,7 +29,7 @@ from openfeature import api as openfeature_api
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import Reason
-from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, ValidationError
+from pydantic import AfterValidator, BaseModel, Field, PlainSerializer, RootModel, ValidationError
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions, VariablesOptions
@@ -477,6 +477,21 @@ class CheckoutConfig(BaseModel):
     retries: int
 
 
+class AgentConfigV1(BaseModel):
+    schema_version: Literal[1] = 1
+    model: str | None = None
+
+
+class AgentConfigV2(BaseModel):
+    schema_version: Literal[2] = 2
+    model: str | None = None
+    instructions: list[str] = Field(default_factory=list)
+
+
+class AgentConfig(RootModel[Annotated[AgentConfigV1 | AgentConfigV2, Field(discriminator='schema_version')]]):
+    pass
+
+
 class RegionFlag(str, Enum):
     US = 'us'
 
@@ -527,6 +542,69 @@ def test_typed_flag_validates_pydantic_models_and_overrides():
     assert checkout.details().variant == 'fast'
     with checkout.override_for_testing(CheckoutConfig(provider='test', retries=0)):
         assert checkout.value() == CheckoutConfig(provider='test', retries=0)
+
+
+def test_typed_flag_supports_versioned_discriminated_models():
+    fallback = AgentConfig(AgentConfigV1(model='fallback'))
+    config = VariablesConfig(
+        variables={
+            'agent_config': VariableConfig(
+                name='agent_config',
+                labels={
+                    'latest': LabeledValue(
+                        version=2,
+                        serialized_value=(
+                            '{"schema_version":2,"model":"openai:gpt-5.6","instructions":["Be concise."]}'
+                        ),
+                    )
+                },
+                rollout=Rollout(labels={'latest': 1.0}),
+                overrides=[],
+            ),
+            'unsupported_agent_config': VariableConfig(
+                name='unsupported_agent_config',
+                labels={
+                    'latest': LabeledValue(
+                        version=3,
+                        serialized_value='{"schema_version":3,"model":"openai:gpt-6"}',
+                    )
+                },
+                rollout=Rollout(labels={'latest': 1.0}),
+                overrides=[],
+            ),
+        }
+    )
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        variables=LocalVariablesOptions(config=config, instrument=False),
+    )
+    agent_config = flag('agent_config', default=fallback)
+    unsupported = flag('unsupported_agent_config', default=fallback)
+
+    schema = agent_config._adapter.type_adapter.json_schema()
+    assert schema['discriminator'] == {
+        'mapping': {'1': '#/$defs/AgentConfigV1', '2': '#/$defs/AgentConfigV2'},
+        'propertyName': 'schema_version',
+    }
+
+    details = agent_config.details()
+    assert details.value == AgentConfig(
+        AgentConfigV2(
+            model='openai:gpt-5.6',
+            instructions=['Be concise.'],
+        )
+    )
+    assert details.variant == 'latest'
+    assert details.flag_metadata == {'logfire.value_version': 2}
+
+    with pytest.warns(RuntimeWarning, match='value failed validation'):
+        unsupported_details = unsupported.details()
+    assert unsupported_details.value == fallback
+    assert unsupported_details.variant is None
+    assert unsupported_details.reason == 'error'
+    assert unsupported_details.error_code == 'type_mismatch'
+    assert unsupported_details.flag_metadata == {}
 
 
 def test_feature_flag_validates_test_overrides_before_installing_them():
