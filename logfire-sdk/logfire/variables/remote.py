@@ -718,7 +718,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
     @staticmethod
     def _normalize_timeout_seconds(timeout_millis: float) -> float:
         """Convert milliseconds to a non-negative timeout accepted by threading primitives."""
-        if math.isnan(timeout_millis) or timeout_millis <= 0:
+        # Compare before asking ``math`` to coerce the value to a C double: Python accepts
+        # arbitrarily large integers here, while ``math.isnan(10**1000)`` raises OverflowError.
+        if timeout_millis <= 0 or timeout_millis >= threading.TIMEOUT_MAX * 1000:
+            return 0.0 if timeout_millis <= 0 else threading.TIMEOUT_MAX
+        if math.isnan(timeout_millis):
             return 0.0
         return min(timeout_millis / 1000, threading.TIMEOUT_MAX)
 

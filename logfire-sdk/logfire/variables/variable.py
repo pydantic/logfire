@@ -1475,7 +1475,8 @@ class _ManagedVariableFlagAdapter(_FlagEvaluationCore[FlagT]):  # pyright: ignor
         if provider_state in ('not_ready', 'error', 'fatal'):
             # Feature flags reject callable defaults during construction, so the inherited union
             # has been narrowed at runtime even though the shared core's annotation cannot express it.
-            return ResolvedVariable(name=self.name, value=cast('FlagT', self.default), reason='code_default')
+            default: FlagT = self.default  # pyright: ignore[reportAssignmentType]
+            return ResolvedVariable(name=self.name, value=default, reason='code_default')
         return result
 
     def _get_provider_evaluation_state(self) -> VariableProviderEvaluationState:

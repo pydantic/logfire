@@ -1339,6 +1339,9 @@ class TestLogfireRemoteVariableProvider:
 
         assert provider._shutdown_complete.is_set()
 
+    def test_shutdown_timeout_clamps_an_oversized_integer(self) -> None:
+        assert LogfireRemoteVariableProvider._normalize_timeout_seconds(10**1000) == threading.TIMEOUT_MAX
+
     def test_sse_close_is_retained_and_retried_when_thread_start_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider = LogfireRemoteVariableProvider(
             base_url=REMOTE_BASE_URL,

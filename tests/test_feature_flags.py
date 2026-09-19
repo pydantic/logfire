@@ -278,16 +278,21 @@ def test_feature_flag_telemetry_defaults_custom_provider_results_to_static():
 
 
 @pytest.mark.parametrize(
-    ('provider_state', 'expected_reason', 'expected_error'),
+    ('provider_state', 'expected_reason', 'expected_error', 'expected_message'),
     [
-        ('ready', 'default', None),
-        ('stale', 'stale', None),
-        ('not_ready', 'error', 'provider_not_ready'),
-        ('error', 'error', 'general'),
-        ('fatal', 'error', 'provider_fatal'),
+        ('ready', 'default', None, None),
+        ('stale', 'stale', None, None),
+        ('not_ready', 'error', 'provider_not_ready', 'The feature flag provider has not loaded configuration yet.'),
+        ('error', 'error', 'general', 'The feature flag provider could not load configuration.'),
+        ('fatal', 'error', 'provider_fatal', 'The feature flag provider is no longer available.'),
     ],
 )
-def test_feature_flag_provider_state_translation(provider_state: Any, expected_reason: str, expected_error: str | None):
+def test_feature_flag_provider_state_translation(
+    provider_state: Any,
+    expected_reason: str,
+    expected_error: str | None,
+    expected_message: str | None,
+):
     details = _feature_flag_evaluation_details(
         ResolvedVariable(name='test_flag', value=False, reason='code_default'),
         provider_state,
@@ -296,6 +301,15 @@ def test_feature_flag_provider_state_translation(provider_state: Any, expected_r
     assert details.value is False
     assert details.reason == expected_reason
     assert details.error_code == expected_error
+    assert details.error_message == expected_message
+
+
+def test_feature_flag_provider_state_translation_rejects_unknown_state():
+    with pytest.raises(AssertionError, match='not-a-provider-state'):
+        _feature_flag_evaluation_details(
+            ResolvedVariable(name='test_flag', value=False, reason='code_default'),
+            cast(Any, 'not-a-provider-state'),
+        )
 
 
 def test_rollout_warning_inspection_cannot_break_a_resolved_value():
@@ -1519,6 +1533,58 @@ def test_returned_value_and_telemetry_share_one_provider_state_snapshot(
         if span.name == 'feature_flag.evaluation' and (span.attributes or {}).get('logfire.span_type') != 'pending_span'
     )
     assert (evaluation_span.attributes or {})['feature_flag.result.value'] == 'eu'
+
+
+def test_feature_flag_finalization_preserves_resolution_details():
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    exception = RuntimeError('provider warning')
+    resolved = ResolvedVariable(
+        name='region',
+        value='eu',
+        label='remote',
+        version=7,
+        exception=exception,
+        reason='resolved',
+        rule_evaluation_reason='targeting_match',
+    )
+
+    with patch.object(adapter, '_get_provider_evaluation_state', return_value='ready'):
+        finalized = adapter._finalize_resolution_result(resolved)
+
+    assert finalized.name == 'region'
+    assert finalized.value == 'eu'
+    assert finalized.label == 'remote'
+    assert finalized.version == 7
+    assert finalized.exception is exception
+    assert finalized.reason == 'resolved'
+    assert finalized.rule_evaluation_reason == 'targeting_match'
+    assert finalized.provider_state == 'ready'
+
+
+@pytest.mark.parametrize('provider_state', ['not_ready', 'ready', 'stale', 'error', 'fatal'])
+def test_feature_flag_reads_each_provider_state(provider_state: Any):
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+    provider = adapter.logfire_instance.config.get_variable_provider()
+
+    with patch.object(provider, 'get_evaluation_state', return_value=provider_state):
+        assert adapter._get_provider_evaluation_state() == provider_state
+
+
+@pytest.mark.parametrize('provider_state', ['not_ready', 'error', 'fatal'])
+def test_unavailable_provider_result_uses_named_code_default(provider_state: Any):
+    region = flag('region', default='us')
+    adapter = cast(Any, region._adapter)
+
+    result = adapter._result_for_provider_state(
+        ResolvedVariable(name='region', value='eu', reason='resolved'),
+        provider_state,
+    )
+
+    assert result.name == 'region'
+    assert result.value == 'us'
+    assert result.reason == 'code_default'
 
 
 def test_unavailable_provider_telemetry_records_the_structured_code_default():

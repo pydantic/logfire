@@ -8,6 +8,7 @@ from collections.abc import Callable
 from importlib.metadata import version as package_version
 from pathlib import Path
 from types import ModuleType
+from typing import get_args
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,6 +17,7 @@ from pydantic import __version__ as pydantic_version
 
 from logfire._internal.auto_trace.import_hook import LogfireFinder
 from logfire._internal.utils import get_version
+from logfire.variables.abstract import VariableProviderEvaluationState
 from scripts.postprocess_generated_stubs import (
     postprocess_feature_flags_pyi,
     postprocess_init_pyi,
@@ -143,8 +145,11 @@ def test_postprocess_variables_abstract_pyi_preserves_provider_state_alias() -> 
     checked_in = (
         Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / 'variables' / 'abstract.pyi'
     ).read_text()
+    provider_states = get_args(VariableProviderEvaluationState)
+    runtime_alias = f'VariableProviderEvaluationState = Literal[{", ".join(map(repr, provider_states))}]'
+    assert runtime_alias in checked_in
     generated = checked_in.replace(
-        "VariableProviderEvaluationState = Literal['not_ready', 'ready', 'stale', 'error', 'fatal']",
+        runtime_alias,
         'VariableProviderEvaluationState: Incomplete',
     ).replace('from typing import Literal, ', 'from typing import ', 1)
 
