@@ -722,3 +722,33 @@ def test_logfire_token_prefix_scrubbing(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_extra_patterns_numeric_backreferences():
+    """Numeric backreferences in extra_patterns must refer to the pattern's own groups.
+
+    Previously all patterns were joined with "|" into a single compiled regex, which
+    caused every pattern to share one capture-group numbering space.  A numeric
+    backreference in extra_patterns[N] then pointed at a group in extra_patterns[N-1]
+    (or in the default pattern) rather than at its own group, so the pattern silently
+    never matched.  This test verifies the fix: each extra_pattern is now compiled
+    independently, so its backreferences work as written.
+    """
+    # Two extra_patterns: the first has one group, the second uses \1 to require the
+    # same character to be repeated.  With the old joined regex, (b)\1 would refer to
+    # the group from (a), so 'bb' would not be scrubbed.
+    scrubber = Scrubber(['(a)', r'(b)\1'])
+
+    # 'bb' must be scrubbed because (b)\1 correctly refers to the 'b' group.
+    result, scrubbed = scrubber.scrub_value(('attributes', 'x'), 'bb')
+    assert result != 'bb', "expected 'bb' to be scrubbed by (b)\\1, but it was not"
+    assert len(scrubbed) == 1
+
+    # 'aa' must be scrubbed because (a) matches 'a' inside 'aa'.
+    result_aa, scrubbed_aa = scrubber.scrub_value(('attributes', 'x'), 'aa')
+    assert result_aa != 'aa', "expected 'aa' to be scrubbed by (a), but it was not"
+    assert len(scrubbed_aa) == 1
+
+    # Verify that a single extra_pattern using a backreference also works in isolation.
+    result_single, _ = Scrubber([r'(x)\1']).scrub_value(('attributes', 'x'), 'xx')
+    assert result_single != 'xx', "expected 'xx' to be scrubbed by (x)\\1 in isolation"
