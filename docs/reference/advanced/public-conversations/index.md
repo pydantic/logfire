@@ -21,7 +21,7 @@ Use a public conversation when someone needs the model exchange itself, for exam
 2. Find **Public conversations** under **Observability** or **AI Agent Optimization**.
 3. Turn on the switch. The first Early Access feature you enable asks you to accept the Early Access terms.
 
-![The Early Access settings page showing the Growth and Enterprise availability notice and the enabled Public conversations switch](../../../images/guide/public-conversations/early-access-settings.png)
+![The Early Access settings page showing the Growth and Enterprise plan-requirements notice and the enabled Public conversations switch](../../../images/guide/public-conversations/early-access-settings.png)
 
 The switch only controls where the sharing controls appear in your browser. Project permissions still decide whether you can create, rename, or revoke a public link.
 
