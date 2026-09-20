@@ -9,7 +9,7 @@ Send someone a focused view of one LLM interaction without giving them access to
 
 !!! note "Early Access availability"
 
-    Early Access is available to Growth and Enterprise customers. Public Conversations is an Early Access feature. Enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
+    Some Early Access features require Growth or Enterprise. Public Conversations is an Early Access feature. Enable it in **Settings → Early access** in the browser where you use Logfire. Early Access choices are stored in that browser and apply across the organizations you use there.
 
 A public conversation starts from one LLM span (one model call, with a start and a duration). The default **Bubbles only** view presents its user, assistant, and tool messages as a chat. The public page also shows the share title and the Logfire organization and project names. Its data response keeps the span identifiers and timing needed to render the page, but excludes system and developer instructions, tool definitions, span events, raw provider attributes, and service, process, resource, and HTTP metadata.
 
@@ -58,7 +58,7 @@ Deleting a link does not delete the original span or conversation from your proj
 
 | Symptom | Cause and fix |
 | --- | --- |
-| **Share conversation** is missing | Enable **Public conversations** in **Settings → Early access** in this browser. Early Access is available to Growth and Enterprise customers. |
+| **Share conversation** is missing | Enable **Public conversations** in **Settings → Early access** in this browser. |
 | The control says the conversation is not shared publicly | Your project role does not have permission to create public conversation links. Ask a project administrator to share it or update your role. |
 | The public link returns **Not found** | The link expired, someone revoked it, or the underlying span aged out of data retention. Create a new link if the span is still available. |
 | Messages are missing | Logfire could not reconstruct those messages from the attributes recorded by your LLM instrumentation. Open the original span and check which message attributes it contains. |
